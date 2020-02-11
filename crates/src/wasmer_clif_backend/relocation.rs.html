@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/clif-backend/src/relocation.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>relocation.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_clif_backend/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/clif-backend/src/relocation.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>relocation.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_clif_backend/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -434,17 +434,17 @@
         <span class="ident">addend</span>: <span class="ident">binemit</span>::<span class="ident">Addend</span>,
     ) {
         <span class="kw">let</span> <span class="ident">reloc</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">reloc</span> {
-            <span class="ident">binemit</span>::<span class="ident">Reloc</span>::<span class="ident">Abs8</span> <span class="op">=&gt;</span> <span class="ident">Reloc</span>::<span class="ident">Abs8</span>,
-            <span class="ident">binemit</span>::<span class="ident">Reloc</span>::<span class="ident">X86PCRel4</span> <span class="op">=&gt;</span> <span class="ident">Reloc</span>::<span class="ident">X86PCRel4</span>,
-            <span class="ident">binemit</span>::<span class="ident">Reloc</span>::<span class="ident">X86CallPCRel4</span> <span class="op">=&gt;</span> <span class="ident">Reloc</span>::<span class="ident">X86CallPCRel4</span>,
-            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;unimplented reloc type: {}&quot;</span>, <span class="ident">reloc</span>),
+            <span class="ident">binemit</span>::<span class="ident">Reloc</span>::<span class="ident">Abs8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Reloc</span>::<span class="ident">Abs8</span>,
+            <span class="ident">binemit</span>::<span class="ident">Reloc</span>::<span class="ident">X86PCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Reloc</span>::<span class="ident">X86PCRel4</span>,
+            <span class="ident">binemit</span>::<span class="ident">Reloc</span>::<span class="ident">X86CallPCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Reloc</span>::<span class="ident">X86CallPCRel4</span>,
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;unimplented reloc type: {}&quot;</span>, <span class="ident">reloc</span>),
         };
 
         <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">name</span> {
             <span class="ident">ExternalName</span>::<span class="ident">User</span> {
                 <span class="ident">namespace</span>: <span class="number">0</span>,
                 <span class="ident">index</span>,
-            } <span class="op">=&gt;</span> {
+            } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">reloc</span>, <span class="ident">Reloc</span>::<span class="ident">X86CallPCRel4</span>);
                 <span class="self">self</span>.<span class="ident">local_relocs</span>.<span class="ident">push</span>(<span class="ident">LocalRelocation</span> {
                     <span class="ident">offset</span>,
@@ -452,34 +452,34 @@
                     <span class="ident">target</span>: <span class="ident">FuncIndex</span>::<span class="ident">new</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>),
                 });
             }
-            <span class="ident">ExternalName</span>::<span class="ident">User</span> { <span class="ident">namespace</span>, <span class="ident">index</span> } <span class="op">=&gt;</span> {
+            <span class="ident">ExternalName</span>::<span class="ident">User</span> { <span class="ident">namespace</span>, <span class="ident">index</span> } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">use</span> <span class="self">self</span>::<span class="ident">call_names</span>::<span class="kw-2">*</span>;
 
                 <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">namespace</span> {
-                    <span class="ident">LOCAL_NAMESPACE</span> <span class="op">=&gt;</span> <span class="ident">RelocationType</span>::<span class="ident">VmCall</span>(<span class="ident">VmCall</span>::<span class="ident">Local</span>(<span class="kw">match</span> <span class="ident">index</span> {
-                        <span class="ident">STATIC_MEM_GROW</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">StaticMemoryGrow</span>,
-                        <span class="ident">STATIC_MEM_SIZE</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">StaticMemorySize</span>,
+                    <span class="ident">LOCAL_NAMESPACE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationType</span>::<span class="ident">VmCall</span>(<span class="ident">VmCall</span>::<span class="ident">Local</span>(<span class="kw">match</span> <span class="ident">index</span> {
+                        <span class="ident">STATIC_MEM_GROW</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">StaticMemoryGrow</span>,
+                        <span class="ident">STATIC_MEM_SIZE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">StaticMemorySize</span>,
 
-                        <span class="ident">SHARED_STATIC_MEM_GROW</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">SharedStaticMemoryGrow</span>,
-                        <span class="ident">SHARED_STATIC_MEM_SIZE</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">SharedStaticMemorySize</span>,
+                        <span class="ident">SHARED_STATIC_MEM_GROW</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">SharedStaticMemoryGrow</span>,
+                        <span class="ident">SHARED_STATIC_MEM_SIZE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">SharedStaticMemorySize</span>,
 
-                        <span class="ident">DYNAMIC_MEM_GROW</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">DynamicMemoryGrow</span>,
-                        <span class="ident">DYNAMIC_MEM_SIZE</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">DynamicMemorySize</span>,
-                        <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;reloc_external VmCall::Local {}&quot;</span>, <span class="ident">index</span>),
+                        <span class="ident">DYNAMIC_MEM_GROW</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">DynamicMemoryGrow</span>,
+                        <span class="ident">DYNAMIC_MEM_SIZE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">DynamicMemorySize</span>,
+                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;reloc_external VmCall::Local {}&quot;</span>, <span class="ident">index</span>),
                     })),
-                    <span class="ident">IMPORT_NAMESPACE</span> <span class="op">=&gt;</span> <span class="ident">RelocationType</span>::<span class="ident">VmCall</span>(<span class="ident">VmCall</span>::<span class="ident">Import</span>(<span class="kw">match</span> <span class="ident">index</span> {
-                        <span class="ident">STATIC_MEM_GROW</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">StaticMemoryGrow</span>,
-                        <span class="ident">STATIC_MEM_SIZE</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">StaticMemorySize</span>,
+                    <span class="ident">IMPORT_NAMESPACE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationType</span>::<span class="ident">VmCall</span>(<span class="ident">VmCall</span>::<span class="ident">Import</span>(<span class="kw">match</span> <span class="ident">index</span> {
+                        <span class="ident">STATIC_MEM_GROW</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">StaticMemoryGrow</span>,
+                        <span class="ident">STATIC_MEM_SIZE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">StaticMemorySize</span>,
 
-                        <span class="ident">SHARED_STATIC_MEM_GROW</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">SharedStaticMemoryGrow</span>,
-                        <span class="ident">SHARED_STATIC_MEM_SIZE</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">SharedStaticMemorySize</span>,
+                        <span class="ident">SHARED_STATIC_MEM_GROW</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">SharedStaticMemoryGrow</span>,
+                        <span class="ident">SHARED_STATIC_MEM_SIZE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">SharedStaticMemorySize</span>,
 
-                        <span class="ident">DYNAMIC_MEM_GROW</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">DynamicMemoryGrow</span>,
-                        <span class="ident">DYNAMIC_MEM_SIZE</span> <span class="op">=&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">DynamicMemorySize</span>,
-                        <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;reloc_external VmCall::Import {}&quot;</span>, <span class="ident">index</span>),
+                        <span class="ident">DYNAMIC_MEM_GROW</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">DynamicMemoryGrow</span>,
+                        <span class="ident">DYNAMIC_MEM_SIZE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VmCallKind</span>::<span class="ident">DynamicMemorySize</span>,
+                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;reloc_external VmCall::Import {}&quot;</span>, <span class="ident">index</span>),
                     })),
-                    <span class="ident">SIG_NAMESPACE</span> <span class="op">=&gt;</span> <span class="ident">RelocationType</span>::<span class="ident">Signature</span>(<span class="ident">SigIndex</span>::<span class="ident">new</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>)),
-                    <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;reloc_external SigIndex {}&quot;</span>, <span class="ident">index</span>),
+                    <span class="ident">SIG_NAMESPACE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationType</span>::<span class="ident">Signature</span>(<span class="ident">SigIndex</span>::<span class="ident">new</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>)),
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;reloc_external SigIndex {}&quot;</span>, <span class="ident">index</span>),
                 };
                 <span class="self">self</span>.<span class="ident">external_relocs</span>.<span class="ident">push</span>(<span class="ident">ExternalRelocation</span> {
                     <span class="ident">reloc</span>,
@@ -488,7 +488,7 @@
                     <span class="ident">target</span>,
                 });
             }
-            <span class="ident">ExternalName</span>::<span class="ident">TestCase</span> { <span class="ident">length</span>, <span class="ident">ascii</span> } <span class="op">=&gt;</span> {
+            <span class="ident">ExternalName</span>::<span class="ident">TestCase</span> { <span class="ident">length</span>, <span class="ident">ascii</span> } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">slice</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">ascii</span>.<span class="ident">split_at</span>(<span class="ident">length</span> <span class="kw">as</span> <span class="ident">usize</span>);
                 <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">from_utf8</span>(<span class="ident">slice</span>.<span class="ident">to_vec</span>()).<span class="ident">unwrap</span>();
                 <span class="self">self</span>.<span class="ident">external_relocs</span>.<span class="ident">push</span>(<span class="ident">ExternalRelocation</span> {
@@ -498,18 +498,18 @@
                     <span class="ident">target</span>: <span class="ident">RelocationType</span>::<span class="ident">Intrinsic</span>(<span class="ident">name</span>),
                 });
             }
-            <span class="ident">ExternalName</span>::<span class="ident">LibCall</span>(<span class="ident">libcall</span>) <span class="op">=&gt;</span> {
+            <span class="ident">ExternalName</span>::<span class="ident">LibCall</span>(<span class="ident">libcall</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">libcall</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">libcall</span> {
-                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">CeilF32</span> <span class="op">=&gt;</span> <span class="ident">LibCall</span>::<span class="ident">CeilF32</span>,
-                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">FloorF32</span> <span class="op">=&gt;</span> <span class="ident">LibCall</span>::<span class="ident">FloorF32</span>,
-                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">TruncF32</span> <span class="op">=&gt;</span> <span class="ident">LibCall</span>::<span class="ident">TruncF32</span>,
-                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">NearestF32</span> <span class="op">=&gt;</span> <span class="ident">LibCall</span>::<span class="ident">NearestF32</span>,
-                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">CeilF64</span> <span class="op">=&gt;</span> <span class="ident">LibCall</span>::<span class="ident">CeilF64</span>,
-                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">FloorF64</span> <span class="op">=&gt;</span> <span class="ident">LibCall</span>::<span class="ident">FloorF64</span>,
-                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">TruncF64</span> <span class="op">=&gt;</span> <span class="ident">LibCall</span>::<span class="ident">TruncF64</span>,
-                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">NearestF64</span> <span class="op">=&gt;</span> <span class="ident">LibCall</span>::<span class="ident">NearestF64</span>,
-                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">Probestack</span> <span class="op">=&gt;</span> <span class="ident">LibCall</span>::<span class="ident">Probestack</span>,
-                    <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;unimplemented libcall: {}&quot;</span>, <span class="ident">libcall</span>),
+                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">CeilF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LibCall</span>::<span class="ident">CeilF32</span>,
+                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">FloorF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LibCall</span>::<span class="ident">FloorF32</span>,
+                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">TruncF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LibCall</span>::<span class="ident">TruncF32</span>,
+                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">NearestF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LibCall</span>::<span class="ident">NearestF32</span>,
+                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">CeilF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LibCall</span>::<span class="ident">CeilF64</span>,
+                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">FloorF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LibCall</span>::<span class="ident">FloorF64</span>,
+                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">TruncF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LibCall</span>::<span class="ident">TruncF64</span>,
+                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">NearestF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LibCall</span>::<span class="ident">NearestF64</span>,
+                    <span class="ident">ir</span>::<span class="ident">LibCall</span>::<span class="ident">Probestack</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LibCall</span>::<span class="ident">Probestack</span>,
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;unimplemented libcall: {}&quot;</span>, <span class="ident">libcall</span>),
                 };
                 <span class="kw">let</span> <span class="ident">relocation_type</span> <span class="op">=</span> <span class="ident">RelocationType</span>::<span class="ident">LibCall</span>(<span class="ident">libcall</span>);
                 <span class="self">self</span>.<span class="ident">external_relocs</span>.<span class="ident">push</span>(<span class="ident">ExternalRelocation</span> {
@@ -554,7 +554,7 @@
 
 <span class="doccomment">/// Implementation of a relocation sink that just saves all the information for later</span>
 <span class="kw">impl</span> <span class="ident">RelocSink</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">external_relocs</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
             <span class="ident">local_relocs</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
@@ -576,16 +576,16 @@
 }
 
 <span class="kw">impl</span> <span class="ident">TrapSink</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="ident">TrapSink</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TrapSink</span> {
         <span class="ident">TrapSink</span> {
             <span class="ident">trap_datas</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lookup</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">usize</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapData</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lookup</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapData</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">trap_datas</span>
             .<span class="ident">iter</span>()
-            .<span class="ident">find</span>(<span class="op">|</span>(<span class="ident">trap_offset</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">trap_offset</span> <span class="op">==</span> <span class="ident">offset</span>)
+            .<span class="ident">find</span>(<span class="op">|</span>(<span class="ident">trap_offset</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">trap_offset</span> <span class="op">=</span><span class="op">=</span> <span class="ident">offset</span>)
             .<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">trap_data</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">trap_data</span>)
     }
 
@@ -604,7 +604,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">LocalTrapSink</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">LocalTrapSink</span> { <span class="ident">trap_datas</span>: <span class="macro">vec</span><span class="macro">!</span>[] }
     }
 }
@@ -612,18 +612,18 @@
 <span class="kw">impl</span> <span class="ident">binemit</span>::<span class="ident">TrapSink</span> <span class="kw">for</span> <span class="ident">LocalTrapSink</span> {
     <span class="kw">fn</span> <span class="ident">trap</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">u32</span>, <span class="ident">srcloc</span>: <span class="ident">SourceLoc</span>, <span class="ident">trapcode</span>: <span class="ident">ir</span>::<span class="ident">TrapCode</span>) {
         <span class="kw">let</span> <span class="ident">trapcode</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">trapcode</span> {
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">StackOverflow</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">StackOverflow</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">HeapOutOfBounds</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">HeapOutOfBounds</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">TableOutOfBounds</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">TableOutOfBounds</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">OutOfBounds</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">OutOfBounds</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">IndirectCallToNull</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">IndirectCallToNull</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">BadSignature</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">BadSignature</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">IntegerOverflow</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">IntegerOverflow</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">IntegerDivisionByZero</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">IntegerDivisionByZero</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">BadConversionToInteger</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">BadConversionToInteger</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">Interrupt</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">Interrupt</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">UnreachableCodeReached</span> <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">UnreachableCodeReached</span>,
-            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">User</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">User</span>(<span class="ident">x</span>),
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">StackOverflow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">StackOverflow</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">HeapOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">HeapOutOfBounds</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">TableOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">TableOutOfBounds</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">OutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">OutOfBounds</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">IndirectCallToNull</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">IndirectCallToNull</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">BadSignature</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">BadSignature</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">IntegerOverflow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">IntegerOverflow</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">IntegerDivisionByZero</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">IntegerDivisionByZero</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">BadConversionToInteger</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">BadConversionToInteger</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">Interrupt</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">Interrupt</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">UnreachableCodeReached</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">UnreachableCodeReached</span>,
+            <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">User</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">User</span>(<span class="ident">x</span>),
         };
 
         <span class="self">self</span>.<span class="ident">trap_datas</span>.<span class="ident">push</span>((
@@ -636,4 +636,4 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_clif_backend";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_clif_backend";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

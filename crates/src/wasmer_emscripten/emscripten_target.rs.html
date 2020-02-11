@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/emscripten/src/emscripten_target.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>emscripten_target.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_emscripten/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/emscripten/src/emscripten_target.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>emscripten_target.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_emscripten/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -752,7 +752,7 @@
 <span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">getdtablesize</span>;
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">vm</span>::<span class="ident">Ctx</span>;
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">asm_const_i</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_val</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">asm_const_i</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_val</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::asm_const_i: {}&quot;</span>, <span class="ident">_val</span>);
     <span class="number">0</span>
 }
@@ -766,17 +766,17 @@
     <span class="ident">get_emscripten_data</span>(<span class="ident">ctx</span>).<span class="ident">temp_ret_0</span> <span class="op">=</span> <span class="ident">val</span>;
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">getTempRet0</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">getTempRet0</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">trace</span><span class="macro">!</span>(<span class="string">&quot;emscripten::getTempRet0&quot;</span>);
     <span class="ident">get_emscripten_data</span>(<span class="ident">ctx</span>).<span class="ident">temp_ret_0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_alarm</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_seconds</span>: <span class="ident">u32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_alarm</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_seconds</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_alarm({})&quot;</span>, <span class="ident">_seconds</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_atexit</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_func</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_atexit</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_func</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_atexit&quot;</span>);
     <span class="comment">// TODO: implement atexit properly</span>
     <span class="comment">// __ATEXIT__.unshift({</span>
@@ -785,23 +785,23 @@
     <span class="comment">// });</span>
     <span class="number">0</span>
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__Unwind_Backtrace</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__Unwind_Backtrace</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::__Unwind_Backtrace&quot;</span>);
     <span class="number">0</span>
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__Unwind_FindEnclosingFunction</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__Unwind_FindEnclosingFunction</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::__Unwind_FindEnclosingFunction&quot;</span>);
     <span class="number">0</span>
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__Unwind_GetIPInfo</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__Unwind_GetIPInfo</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::__Unwind_GetIPInfo&quot;</span>);
     <span class="number">0</span>
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___cxa_find_matching_catch_2</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___cxa_find_matching_catch_2</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___cxa_find_matching_catch_2&quot;</span>);
     <span class="number">0</span>
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___cxa_find_matching_catch_3</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___cxa_find_matching_catch_3</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___cxa_find_matching_catch_3&quot;</span>);
     <span class="number">0</span>
 }
@@ -811,7 +811,7 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___resumeException</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___resumeException&quot;</span>);
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_dladdr</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_dladdr</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_dladdr&quot;</span>);
     <span class="number">0</span>
 }
@@ -823,26 +823,26 @@
     <span class="ident">_d</span>: <span class="ident">i32</span>,
     <span class="ident">_e</span>: <span class="ident">i32</span>,
     <span class="ident">_f</span>: <span class="ident">i32</span>,
-) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___gxx_personality_v0&quot;</span>);
     <span class="number">0</span>
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getdtablesize</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getdtablesize</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::getdtablesize&quot;</span>);
     <span class="kw">unsafe</span> { <span class="ident">getdtablesize</span>() }
 }
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getdtablesize</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getdtablesize</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::getdtablesize&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gethostbyaddr</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_addr</span>: <span class="ident">i32</span>, <span class="ident">_addrlen</span>: <span class="ident">i32</span>, <span class="ident">_atype</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gethostbyaddr</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_addr</span>: <span class="ident">i32</span>, <span class="ident">_addrlen</span>: <span class="ident">i32</span>, <span class="ident">_atype</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::gethostbyaddr&quot;</span>);
     <span class="number">0</span>
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gethostbyname</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_name</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gethostbyname</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_name</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::gethostbyname_r&quot;</span>);
     <span class="number">0</span>
 }
@@ -854,12 +854,12 @@
     <span class="ident">_buflen</span>: <span class="ident">i32</span>,
     <span class="ident">_out</span>: <span class="ident">i32</span>,
     <span class="ident">_err</span>: <span class="ident">i32</span>,
-) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::gethostbyname_r&quot;</span>);
     <span class="number">0</span>
 }
 <span class="comment">// NOTE: php.js has proper impl; libc has proper impl for linux</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getloadavg</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_loadavg</span>: <span class="ident">i32</span>, <span class="ident">_nelem</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getloadavg</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_loadavg</span>: <span class="ident">i32</span>, <span class="ident">_nelem</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::getloadavg&quot;</span>);
     <span class="number">0</span>
 }
@@ -872,7 +872,7 @@
     <span class="ident">_serv</span>: <span class="ident">i32</span>,
     <span class="ident">_servlen</span>: <span class="ident">i32</span>,
     <span class="ident">_flags</span>: <span class="ident">i32</span>,
-) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(
         <span class="string">&quot;emscripten::_getnameinfo({}, {}, {}, {}, {}, {}, {})&quot;</span>,
         <span class="ident">_addr</span>, <span class="ident">_addrlen</span>, <span class="ident">_host</span>, <span class="ident">_hostlen</span>, <span class="ident">_serv</span>, <span class="ident">_servlen</span>, <span class="ident">_flags</span>
@@ -885,12 +885,12 @@
 
 <span class="comment">// Macro definitions</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">invoke</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">ident</span> ),<span class="kw-2">*</span>) <span class="op">=&gt;</span> {{
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">ident</span> ),<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> {{
         <span class="kw">let</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">get_emscripten_data</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="ident">stack_save</span>.<span class="ident">as_ref</span>().<span class="ident">expect</span>(<span class="string">&quot;stack_save is None&quot;</span>).<span class="ident">call</span>().<span class="ident">expect</span>(<span class="string">&quot;stack_save call failed&quot;</span>);
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">get_emscripten_data</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>.<span class="ident">as_ref</span>().<span class="ident">expect</span>(<span class="macro">concat</span><span class="macro">!</span>(<span class="string">&quot;Dynamic call is None: &quot;</span>, <span class="macro">stringify</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>))).<span class="ident">call</span>($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>),<span class="kw-2">*</span>);
         <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> <span class="ident">v</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">_e</span>) <span class="op">=&gt;</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>,
+            <span class="prelude-val">Err</span>(<span class="ident">_e</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">get_emscripten_data</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="ident">stack_restore</span>.<span class="ident">as_ref</span>().<span class="ident">expect</span>(<span class="string">&quot;stack_restore is None&quot;</span>).<span class="ident">call</span>(<span class="ident">sp</span>).<span class="ident">expect</span>(<span class="string">&quot;stack_restore call failed&quot;</span>);
                 <span class="comment">// TODO: We should check if _e != &quot;longjmp&quot; and if that&#39;s the case, re-throw the error</span>
                 <span class="comment">// JS version is: if (e !== e+0 &amp;&amp; e !== &#39;longjmp&#39;) throw e;</span>
@@ -901,12 +901,12 @@
     }};
 }
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">invoke_no_return</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">ident</span> ),<span class="kw-2">*</span>) <span class="op">=&gt;</span> {{
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">ident</span> ),<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> {{
         <span class="kw">let</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">get_emscripten_data</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="ident">stack_save</span>.<span class="ident">as_ref</span>().<span class="ident">expect</span>(<span class="string">&quot;stack_save is None&quot;</span>).<span class="ident">call</span>().<span class="ident">expect</span>(<span class="string">&quot;stack_save call failed&quot;</span>);
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">get_emscripten_data</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>.<span class="ident">as_ref</span>().<span class="ident">expect</span>(<span class="macro">concat</span><span class="macro">!</span>(<span class="string">&quot;Dynamic call is None: &quot;</span>, <span class="macro">stringify</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>))).<span class="ident">call</span>($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>),<span class="kw-2">*</span>);
         <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> <span class="ident">v</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">_e</span>) <span class="op">=&gt;</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>,
+            <span class="prelude-val">Err</span>(<span class="ident">_e</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">get_emscripten_data</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="ident">stack_restore</span>.<span class="ident">as_ref</span>().<span class="ident">expect</span>(<span class="string">&quot;stack_restore is None&quot;</span>).<span class="ident">call</span>(<span class="ident">sp</span>).<span class="ident">expect</span>(<span class="string">&quot;stack_restore call failed&quot;</span>);
                 <span class="comment">// TODO: We should check if _e != &quot;longjmp&quot; and if that&#39;s the case, re-throw the error</span>
                 <span class="comment">// JS version is: if (e !== e+0 &amp;&amp; e !== &#39;longjmp&#39;) throw e;</span>
@@ -917,23 +917,23 @@
 }
 
 <span class="comment">// Invoke functions</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_i</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_i</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_i&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_i</span>, <span class="ident">index</span>)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_ii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_ii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_ii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_ii</span>, <span class="ident">index</span>, <span class="ident">a1</span>)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iii</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iiii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iiii</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iifi</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">f64</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iifi</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">f64</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iifi&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iifi</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>)
 }
@@ -958,15 +958,15 @@
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_viiii&quot;</span>);
     <span class="macro">invoke_no_return</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_viiii</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>);
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_dii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">f64</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_dii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">f64</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_dii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_dii</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_diiii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>, <span class="ident">a4</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">f64</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_diiii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>, <span class="ident">a4</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">f64</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_diiii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_diiii</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiiii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>, <span class="ident">a4</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiiii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>, <span class="ident">a4</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iiiii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iiiii</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>)
 }
@@ -978,7 +978,7 @@
     <span class="ident">a3</span>: <span class="ident">i32</span>,
     <span class="ident">a4</span>: <span class="ident">i32</span>,
     <span class="ident">a5</span>: <span class="ident">i32</span>,
-) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iiiiii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iiiiii</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>, <span class="ident">a5</span>)
 }
@@ -991,7 +991,7 @@
     <span class="ident">a4</span>: <span class="ident">i32</span>,
     <span class="ident">a5</span>: <span class="ident">i32</span>,
     <span class="ident">a6</span>: <span class="ident">i32</span>,
-) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iiiiiii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iiiiiii</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>, <span class="ident">a5</span>, <span class="ident">a6</span>)
 }
@@ -1005,7 +1005,7 @@
     <span class="ident">a5</span>: <span class="ident">i32</span>,
     <span class="ident">a6</span>: <span class="ident">i32</span>,
     <span class="ident">a7</span>: <span class="ident">i32</span>,
-) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iiiiiiii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iiiiiiii</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>, <span class="ident">a5</span>, <span class="ident">a6</span>, <span class="ident">a7</span>)
 }
@@ -1020,7 +1020,7 @@
     <span class="ident">a6</span>: <span class="ident">i32</span>,
     <span class="ident">a7</span>: <span class="ident">i32</span>,
     <span class="ident">a8</span>: <span class="ident">i32</span>,
-) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iiiiiiiii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(
         <span class="ident">ctx</span>,
@@ -1048,7 +1048,7 @@
     <span class="ident">a7</span>: <span class="ident">i32</span>,
     <span class="ident">a8</span>: <span class="ident">i32</span>,
     <span class="ident">a9</span>: <span class="ident">i32</span>,
-) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iiiiiiiiii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(
         <span class="ident">ctx</span>,
@@ -1078,7 +1078,7 @@
     <span class="ident">a8</span>: <span class="ident">i32</span>,
     <span class="ident">a9</span>: <span class="ident">i32</span>,
     <span class="ident">a10</span>: <span class="ident">i32</span>,
-) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iiiiiiiiiii&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(
         <span class="ident">ctx</span>,
@@ -1219,17 +1219,17 @@
     )
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iij</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iij</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iij&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iij</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iji</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iji</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iji&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iji</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiji</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>, <span class="ident">a4</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiji</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>, <span class="ident">a4</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iiji&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iiji</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>)
 }
@@ -1243,11 +1243,11 @@
     <span class="ident">a4</span>: <span class="ident">i32</span>,
     <span class="ident">a5</span>: <span class="ident">i32</span>,
     <span class="ident">a6</span>: <span class="ident">i32</span>,
-) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_iiijj&quot;</span>);
     <span class="macro">invoke</span><span class="macro">!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iiijj</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>, <span class="ident">a5</span>, <span class="ident">a6</span>)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_j</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_j</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_j&quot;</span>);
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">dyn_call_j</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">get_emscripten_data</span>(<span class="ident">ctx</span>).<span class="ident">dyn_call_j</span> {
         <span class="ident">dyn_call_j</span>.<span class="ident">call</span>(<span class="ident">index</span>).<span class="ident">unwrap</span>()
@@ -1255,7 +1255,7 @@
         <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;dyn_call_j is set to None&quot;</span>);
     }
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_ji</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_ji</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_ji&quot;</span>);
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">dyn_call_ji</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">get_emscripten_data</span>(<span class="ident">ctx</span>).<span class="ident">dyn_call_ji</span> {
         <span class="ident">dyn_call_ji</span>.<span class="ident">call</span>(<span class="ident">index</span>, <span class="ident">a1</span>).<span class="ident">unwrap</span>()
@@ -1263,7 +1263,7 @@
         <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;dyn_call_ji is set to None&quot;</span>);
     }
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_jii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_jii</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_jii&quot;</span>);
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">dyn_call_jii</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">get_emscripten_data</span>(<span class="ident">ctx</span>).<span class="ident">dyn_call_jii</span> {
         <span class="ident">dyn_call_jii</span>.<span class="ident">call</span>(<span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>).<span class="ident">unwrap</span>()
@@ -1272,7 +1272,7 @@
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_jij</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_jij</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_jij&quot;</span>);
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">dyn_call_jij</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">get_emscripten_data</span>(<span class="ident">ctx</span>).<span class="ident">dyn_call_jij</span> {
         <span class="ident">dyn_call_jij</span>.<span class="ident">call</span>(<span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>).<span class="ident">unwrap</span>()
@@ -1280,7 +1280,7 @@
         <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;dyn_call_jij is set to None&quot;</span>);
     }
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_jjj</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>, <span class="ident">a4</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_jjj</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>, <span class="ident">a4</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::invoke_jjj&quot;</span>);
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">dyn_call_jjj</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">get_emscripten_data</span>(<span class="ident">ctx</span>).<span class="ident">dyn_call_jjj</span> {
         <span class="ident">dyn_call_jjj</span>.<span class="ident">call</span>(<span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>).<span class="ident">unwrap</span>()
@@ -1492,4 +1492,4 @@
     );
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_emscripten";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_emscripten";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

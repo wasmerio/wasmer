@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-core/src/vm.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>vm.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_runtime_core/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-core/src/vm.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>vm.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_runtime_core/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -1288,7 +1288,7 @@
 
 <span class="kw">impl</span> <span class="ident">InternalField</span> {
     <span class="doccomment">/// Allocate and return an `InternalField`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">allocate</span>() <span class="op">-&gt;</span> <span class="ident">InternalField</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">allocate</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">InternalField</span> {
         <span class="ident">InternalField</span> {
             <span class="ident">init</span>: <span class="ident">Once</span>::<span class="ident">new</span>(),
             <span class="ident">inner</span>: <span class="ident">UnsafeCell</span>::<span class="ident">new</span>(::<span class="ident">std</span>::<span class="ident">usize</span>::<span class="ident">MAX</span>),
@@ -1296,11 +1296,11 @@
     }
 
     <span class="doccomment">/// Get the index of this `InternalField`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
         <span class="kw">let</span> <span class="ident">inner</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">usize</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">get</span>();
-        <span class="self">self</span>.<span class="ident">init</span>.<span class="ident">call_once</span>(<span class="op">||</span> {
+        <span class="self">self</span>.<span class="ident">init</span>.<span class="ident">call_once</span>(<span class="op">|</span><span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="ident">INTERNAL_FIELDS</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>);
-            <span class="kw">if</span> <span class="ident">idx</span> <span class="op">&gt;=</span> <span class="ident">INTERNALS_SIZE</span> {
+            <span class="kw">if</span> <span class="ident">idx</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">INTERNALS_SIZE</span> {
                 <span class="ident">INTERNAL_FIELDS</span>.<span class="ident">fetch_sub</span>(<span class="number">1</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>);
                 <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;at most {} internal fields are supported&quot;</span>, <span class="ident">INTERNALS_SIZE</span>);
             } <span class="kw">else</span> {
@@ -1337,11 +1337,11 @@
 <span class="kw">impl</span> <span class="ident">Intrinsics</span> {
     <span class="doccomment">/// Offset of the `memory_grow` field.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_memory_grow</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_memory_grow</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         (<span class="number">0</span> <span class="op">*</span> ::<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>()) <span class="kw">as</span> <span class="ident">u8</span>
     }
     <span class="doccomment">/// Offset of the `memory_size` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_memory_size</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_memory_size</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         (<span class="number">1</span> <span class="op">*</span> ::<span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>()) <span class="kw">as</span> <span class="ident">u8</span>
     }
 }
@@ -1367,25 +1367,25 @@
     <span class="ident">memory_size</span>: <span class="ident">vmcalls</span>::<span class="ident">imported_dynamic_memory_size</span> <span class="kw">as</span> <span class="kw">_</span>,
 };
 
-<span class="kw">fn</span> <span class="ident">get_intrinsics_for_module</span>(<span class="ident">m</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Intrinsics</span> {
-    <span class="kw">if</span> <span class="ident">m</span>.<span class="ident">memories</span>.<span class="ident">is_empty</span>() <span class="op">&amp;&amp;</span> <span class="ident">m</span>.<span class="ident">imported_memories</span>.<span class="ident">is_empty</span>() {
+<span class="kw">fn</span> <span class="ident">get_intrinsics_for_module</span>(<span class="ident">m</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Intrinsics</span> {
+    <span class="kw">if</span> <span class="ident">m</span>.<span class="ident">memories</span>.<span class="ident">is_empty</span>() <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">m</span>.<span class="ident">imported_memories</span>.<span class="ident">is_empty</span>() {
         <span class="ident">ptr</span>::<span class="ident">null</span>()
     } <span class="kw">else</span> {
         <span class="kw">match</span> <span class="ident">MemoryIndex</span>::<span class="ident">new</span>(<span class="number">0</span>).<span class="ident">local_or_import</span>(<span class="ident">m</span>) {
-            <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">local_mem_index</span>) <span class="op">=&gt;</span> {
+            <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">local_mem_index</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">mem_desc</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">m</span>.<span class="ident">memories</span>[<span class="ident">local_mem_index</span>];
                 <span class="kw">match</span> <span class="ident">mem_desc</span>.<span class="ident">memory_type</span>() {
-                    <span class="ident">MemoryType</span>::<span class="ident">Dynamic</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_LOCAL_DYNAMIC_MEMORY</span>,
-                    <span class="ident">MemoryType</span>::<span class="ident">Static</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_LOCAL_STATIC_MEMORY</span>,
-                    <span class="ident">MemoryType</span>::<span class="ident">SharedStatic</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_LOCAL_STATIC_MEMORY</span>,
+                    <span class="ident">MemoryType</span>::<span class="ident">Dynamic</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_LOCAL_DYNAMIC_MEMORY</span>,
+                    <span class="ident">MemoryType</span>::<span class="ident">Static</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_LOCAL_STATIC_MEMORY</span>,
+                    <span class="ident">MemoryType</span>::<span class="ident">SharedStatic</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_LOCAL_STATIC_MEMORY</span>,
                 }
             }
-            <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">import_mem_index</span>) <span class="op">=&gt;</span> {
+            <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">import_mem_index</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">mem_desc</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">m</span>.<span class="ident">imported_memories</span>[<span class="ident">import_mem_index</span>].<span class="number">1</span>;
                 <span class="kw">match</span> <span class="ident">mem_desc</span>.<span class="ident">memory_type</span>() {
-                    <span class="ident">MemoryType</span>::<span class="ident">Dynamic</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_IMPORTED_DYNAMIC_MEMORY</span>,
-                    <span class="ident">MemoryType</span>::<span class="ident">Static</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_IMPORTED_STATIC_MEMORY</span>,
-                    <span class="ident">MemoryType</span>::<span class="ident">SharedStatic</span> <span class="op">=&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_IMPORTED_STATIC_MEMORY</span>,
+                    <span class="ident">MemoryType</span>::<span class="ident">Dynamic</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_IMPORTED_DYNAMIC_MEMORY</span>,
+                    <span class="ident">MemoryType</span>::<span class="ident">Static</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_IMPORTED_STATIC_MEMORY</span>,
+                    <span class="ident">MemoryType</span>::<span class="ident">SharedStatic</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">INTRINSICS_IMPORTED_STATIC_MEMORY</span>,
                 }
             }
         }
@@ -1393,12 +1393,12 @@
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">unix</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>))]</span>
-<span class="kw">fn</span> <span class="ident">get_interrupt_signal_mem</span>() <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span> {
+<span class="kw">fn</span> <span class="ident">get_interrupt_signal_mem</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span> {
     <span class="kw">unsafe</span> { <span class="kw">crate</span>::<span class="ident">fault</span>::<span class="ident">get_wasm_interrupt_signal_mem</span>() }
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">all</span>(<span class="ident">unix</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>)))]</span>
-<span class="kw">fn</span> <span class="ident">get_interrupt_signal_mem</span>() <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span> {
+<span class="kw">fn</span> <span class="ident">get_interrupt_signal_mem</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span> {
     <span class="kw">static</span> <span class="kw-2">mut</span> <span class="ident">REGION</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">REGION</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span> }
 }
@@ -1409,14 +1409,14 @@
         <span class="ident">local_backing</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">LocalBacking</span>,
         <span class="ident">import_backing</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ImportBacking</span>,
         <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInner</span>,
-    ) <span class="op">-&gt;</span> <span class="self">Self</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> (<span class="ident">mem_base</span>, <span class="ident">mem_bound</span>): (<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>, <span class="ident">usize</span>) <span class="op">=</span>
-            <span class="kw">if</span> <span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">memories</span>.<span class="ident">is_empty</span>() <span class="op">&amp;&amp;</span> <span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">imported_memories</span>.<span class="ident">is_empty</span>() {
+            <span class="kw">if</span> <span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">memories</span>.<span class="ident">is_empty</span>() <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">imported_memories</span>.<span class="ident">is_empty</span>() {
                 (::<span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">null_mut</span>(), <span class="number">0</span>)
             } <span class="kw">else</span> {
                 <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">MemoryIndex</span>::<span class="ident">new</span>(<span class="number">0</span>).<span class="ident">local_or_import</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">info</span>) {
-                    <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">index</span>) <span class="op">=&gt;</span> <span class="ident">local_backing</span>.<span class="ident">vm_memories</span>[<span class="ident">index</span>],
-                    <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">index</span>) <span class="op">=&gt;</span> <span class="ident">import_backing</span>.<span class="ident">vm_memories</span>[<span class="ident">index</span>],
+                    <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">local_backing</span>.<span class="ident">vm_memories</span>[<span class="ident">index</span>],
+                    <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">import_backing</span>.<span class="ident">vm_memories</span>[<span class="ident">index</span>],
                 };
                 ((<span class="kw-2">*</span><span class="ident">mem</span>).<span class="ident">base</span>, (<span class="kw-2">*</span><span class="ident">mem</span>).<span class="ident">bound</span>)
             };
@@ -1462,14 +1462,14 @@
         <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInner</span>,
         <span class="ident">data</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>,
         <span class="ident">data_finalizer</span>: <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>),
-    ) <span class="op">-&gt;</span> <span class="self">Self</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> (<span class="ident">mem_base</span>, <span class="ident">mem_bound</span>): (<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>, <span class="ident">usize</span>) <span class="op">=</span>
-            <span class="kw">if</span> <span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">memories</span>.<span class="ident">is_empty</span>() <span class="op">&amp;&amp;</span> <span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">imported_memories</span>.<span class="ident">is_empty</span>() {
+            <span class="kw">if</span> <span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">memories</span>.<span class="ident">is_empty</span>() <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">imported_memories</span>.<span class="ident">is_empty</span>() {
                 (::<span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">null_mut</span>(), <span class="number">0</span>)
             } <span class="kw">else</span> {
                 <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">MemoryIndex</span>::<span class="ident">new</span>(<span class="number">0</span>).<span class="ident">local_or_import</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">info</span>) {
-                    <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">index</span>) <span class="op">=&gt;</span> <span class="ident">local_backing</span>.<span class="ident">vm_memories</span>[<span class="ident">index</span>],
-                    <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">index</span>) <span class="op">=&gt;</span> <span class="ident">import_backing</span>.<span class="ident">vm_memories</span>[<span class="ident">index</span>],
+                    <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">local_backing</span>.<span class="ident">vm_memories</span>[<span class="ident">index</span>],
+                    <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">import_backing</span>.<span class="ident">vm_memories</span>[<span class="ident">index</span>],
                 };
                 ((<span class="kw-2">*</span><span class="ident">mem</span>).<span class="ident">base</span>, (<span class="kw-2">*</span><span class="ident">mem</span>).<span class="ident">bound</span>)
             };
@@ -1526,15 +1526,15 @@
     <span class="doccomment">///     first_memory.view()[0].get()</span>
     <span class="doccomment">/// }</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">mem_index</span>: <span class="ident">u32</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Memory</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">mem_index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Memory</span> {
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">module</span> };
         <span class="kw">let</span> <span class="ident">mem_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">new</span>(<span class="ident">mem_index</span> <span class="kw">as</span> <span class="ident">usize</span>);
         <span class="kw">match</span> <span class="ident">mem_index</span>.<span class="ident">local_or_import</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">info</span>) {
-            <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">local_mem_index</span>) <span class="op">=&gt;</span> <span class="kw">unsafe</span> {
+            <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">local_mem_index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> {
                 <span class="kw">let</span> <span class="ident">local_backing</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">local_backing</span>;
                 <span class="kw-2">&amp;</span><span class="ident">local_backing</span>.<span class="ident">memories</span>[<span class="ident">local_mem_index</span>]
             },
-            <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">import_mem_index</span>) <span class="op">=&gt;</span> <span class="kw">unsafe</span> {
+            <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">import_mem_index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> {
                 <span class="kw">let</span> <span class="ident">import_backing</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">import_backing</span>;
                 <span class="kw-2">&amp;</span><span class="ident">import_backing</span>.<span class="ident">memories</span>[<span class="ident">import_mem_index</span>]
             },
@@ -1552,22 +1552,22 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This function must be called with the same type, `T`, that the `data`</span>
     <span class="doccomment">/// was initialized with.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_and_data_mut</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">mem_index</span>: <span class="ident">u32</span>) <span class="op">-&gt;</span> (<span class="kw-2">&amp;</span><span class="ident">Memory</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>) {
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_and_data_mut</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">mem_index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="kw-2">&amp;</span><span class="ident">Memory</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">T</span>) {
         (<span class="self">self</span>.<span class="ident">memory</span>(<span class="ident">mem_index</span>), <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span>(<span class="self">self</span>.<span class="ident">data</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span>))
     }
 
     <span class="doccomment">/// Gives access to the emscripten symbol map, used for debugging</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">borrow_symbol_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">String</span><span class="op">&gt;&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">borrow_symbol_map</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw-2">&amp;</span>(<span class="kw-2">*</span><span class="self">self</span>.<span class="ident">module</span>).<span class="ident">info</span>.<span class="ident">em_symbol_map</span>
     }
 
     <span class="doccomment">/// Returns the number of dynamic sigindices.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dynamic_sigindice_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dynamic_sigindice_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
         <span class="kw">unsafe</span> { (<span class="kw-2">*</span><span class="self">self</span>.<span class="ident">local_backing</span>).<span class="ident">dynamic_sigindices</span>.<span class="ident">len</span>() }
     }
 
     <span class="doccomment">/// Returns the value of the specified internal field.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_internal</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">InternalField</span>) <span class="op">-&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_internal</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">InternalField</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
         <span class="kw">unsafe</span> { (<span class="kw-2">*</span><span class="self">self</span>.<span class="ident">internal</span>.<span class="ident">internals</span>)[<span class="ident">field</span>.<span class="ident">index</span>()] }
     }
 
@@ -1583,7 +1583,7 @@
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">index</span>: <span class="ident">TableIndex</span>,
         <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>],
-    ) <span class="op">-&gt;</span> <span class="ident">CallResult</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;&gt;</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CallResult</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">anyfunc_table</span> <span class="op">=</span>
             <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span>((<span class="kw-2">*</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">internal</span>.<span class="ident">tables</span>).<span class="ident">table</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">crate</span>::<span class="ident">table</span>::<span class="ident">AnyfuncTable</span>) };
         <span class="kw">let</span> <span class="ident">Anyfunc</span> { <span class="ident">func</span>, <span class="ident">ctx</span>, <span class="ident">sig_id</span> } <span class="op">=</span> <span class="ident">anyfunc_table</span>.<span class="ident">backing</span>[<span class="ident">index</span>.<span class="ident">index</span>()];
@@ -1617,63 +1617,63 @@
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="kw">impl</span> <span class="ident">Ctx</span> {
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">erasing_op</span>)]</span> <span class="comment">// TODO</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_memories</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_memories</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">0</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_tables</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_tables</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">1</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_globals</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_globals</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">2</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_imported_memories</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_imported_memories</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">3</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_imported_tables</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_imported_tables</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">4</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_imported_globals</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_imported_globals</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">5</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_imported_funcs</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_imported_funcs</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">6</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_signatures</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_signatures</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">7</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_intrinsics</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_intrinsics</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">8</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_stack_lower_bound</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_stack_lower_bound</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">9</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_memory_base</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_memory_base</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">10</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_memory_bound</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_memory_bound</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">11</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_internals</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_internals</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">12</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_interrupt_signal_mem</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_interrupt_signal_mem</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">13</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_local_functions</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_local_functions</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">14</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 }
@@ -1702,23 +1702,23 @@
     <span class="doccomment">/// functions only to store the pointer to the real host function,</span>
     <span class="doccomment">/// whether it is a regular function, or a closure with or without</span>
     <span class="doccomment">/// a captured environment.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">func_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">FuncEnv</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">func_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">FuncEnv</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">FuncCtx</span> {
     <span class="doccomment">/// Offset to the `vmctx` field.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_vmctx</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_vmctx</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">0</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// Offset to the `func_env` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_func_env</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_func_env</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">1</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// Size of a `FuncCtx`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>
     }
 }
@@ -1743,17 +1743,17 @@
 <span class="kw">impl</span> <span class="ident">ImportedFunc</span> {
     <span class="doccomment">/// Offset to the `func` field.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">erasing_op</span>)]</span> <span class="comment">// TODO</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_func</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_func</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">0</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// Offset to the `func_ctx` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_func_ctx</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_func_ctx</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">1</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// Size of an `ImportedFunc`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>
     }
 }
@@ -1776,17 +1776,17 @@
 <span class="kw">impl</span> <span class="ident">LocalTable</span> {
     <span class="doccomment">/// Offset to the `base` field.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">erasing_op</span>)]</span> <span class="comment">// TODO</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_base</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_base</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">0</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// Offset to the `count` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_count</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_count</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">1</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// Size of a `LocalTable`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>
     }
 }
@@ -1811,17 +1811,17 @@
 <span class="kw">impl</span> <span class="ident">LocalMemory</span> {
     <span class="doccomment">/// Offset to the `base` field.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">erasing_op</span>)]</span> <span class="comment">// TODO</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_base</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_base</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">0</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// Offset to the `bound` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_bound</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_bound</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">1</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// Size of a `LocalMemory`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>
     }
 }
@@ -1837,17 +1837,17 @@
 <span class="kw">impl</span> <span class="ident">LocalGlobal</span> {
     <span class="doccomment">/// Offset to the `data` field.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">erasing_op</span>)]</span> <span class="comment">// TODO</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_data</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_data</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">0</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// A null `LocalGlobal`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">null</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">null</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> { <span class="ident">data</span>: <span class="number">0</span> }
     }
 
     <span class="doccomment">/// Size of a `LocalGlobal`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>
     }
 }
@@ -1874,7 +1874,7 @@
 
 <span class="kw">impl</span> <span class="ident">Anyfunc</span> {
     <span class="doccomment">/// A null `Anyfunc` value.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">null</span>() <span class="op">-&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">null</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">func</span>: <span class="ident">ptr</span>::<span class="ident">null</span>(),
             <span class="ident">ctx</span>: <span class="ident">ptr</span>::<span class="ident">null_mut</span>(),
@@ -1884,22 +1884,22 @@
 
     <span class="doccomment">/// Offset to the `func` field.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">erasing_op</span>)]</span> <span class="comment">// TODO</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_func</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_func</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">0</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// Offset to the `vmctx` field..</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_vmctx</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_vmctx</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">1</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// Offset to the `sig_id` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_sig_id</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">offset_sig_id</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">2</span> <span class="op">*</span> (<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>)
     }
 
     <span class="doccomment">/// The size of `Anyfunc`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-&gt;</span> <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>
     }
 }
@@ -1912,8 +1912,8 @@
 
     <span class="comment">// Inspired by https://internals.rust-lang.org/t/discussion-on-offset-of/7440/2.</span>
     <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">offset_of</span> {
-        (<span class="macro-nonterminal">$</span><span class="kw">struct</span>:<span class="macro-nonterminal">path</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">field</span>:<span class="ident">ident</span>) <span class="op">=&gt;</span> {{
-            <span class="kw">fn</span> <span class="ident">offset</span>() <span class="op">-&gt;</span> <span class="ident">usize</span> {
+        (<span class="macro-nonterminal">$</span><span class="kw">struct</span>:<span class="macro-nonterminal">path</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">field</span>:<span class="ident">ident</span>) <span class="op">=</span><span class="op">&gt;</span> {{
+            <span class="kw">fn</span> <span class="ident">offset</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
                 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
 
                 <span class="kw">let</span> <span class="ident">structure</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">MaybeUninit</span>::<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="kw">struct</span><span class="op">&gt;</span>::<span class="macro-nonterminal">uninit</span>();
@@ -1925,7 +1925,7 @@
                 <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span>
                     (<span class="ident">field</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">wrapping_sub</span>(<span class="kw-2">&amp;</span><span class="ident">structure</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="ident">usize</span>);
 
-                <span class="macro">assert</span><span class="macro">!</span>((<span class="number">0</span>..=<span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">structure</span>)).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">offset</span>));
+                <span class="macro">assert</span><span class="macro">!</span>((<span class="number">0</span>..<span class="op">=</span><span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">structure</span>)).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">offset</span>));
 
                 <span class="ident">offset</span>
             }
@@ -1950,7 +1950,7 @@
             <span class="ident">f6</span>: <span class="ident">f32</span>,
             <span class="ident">f7</span>: <span class="ident">f64</span>,
             <span class="ident">f8</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">S0</span><span class="op">&gt;</span>,
-            <span class="ident">f9</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">S0</span><span class="op">&gt;&gt;</span>,
+            <span class="ident">f9</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">S0</span><span class="op">&gt;</span><span class="op">&gt;</span>,
             <span class="ident">f10</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">S0</span>,
             <span class="ident">z</span>: <span class="ident">u8</span>,
         }
@@ -2149,7 +2149,7 @@
             <span class="ident">x</span>: <span class="number">10</span>,
             <span class="ident">y</span>: <span class="bool-val">true</span>,
             <span class="ident">str</span>: <span class="string">&quot;Test&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">finalizer</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="kw">move</span> <span class="op">||</span> {}),
+            <span class="ident">finalizer</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {}),
         };
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">local_backing</span> <span class="op">=</span> <span class="ident">LocalBacking</span> {
@@ -2198,12 +2198,12 @@
         <span class="ident">drop</span>(<span class="ident">ctx</span>);
     }
 
-    <span class="kw">fn</span> <span class="ident">cast_test_data</span>(<span class="ident">data</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="kw-2">mut</span> <span class="ident">TestData</span> {
+    <span class="kw">fn</span> <span class="ident">cast_test_data</span>(<span class="ident">data</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="kw-2">mut</span> <span class="ident">TestData</span> {
         <span class="kw">let</span> <span class="ident">test_data</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">TestData</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span>(<span class="ident">data</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">TestData</span>) };
         <span class="ident">test_data</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">generate_module</span>() <span class="op">-&gt;</span> <span class="ident">ModuleInner</span> {
+    <span class="kw">fn</span> <span class="ident">generate_module</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ModuleInner</span> {
         <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">Func</span>;
         <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">backend</span>::{<span class="ident">sys</span>::<span class="ident">Memory</span>, <span class="ident">CacheGen</span>, <span class="ident">RunnableModule</span>};
         <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">cache</span>::<span class="ident">Error</span> <span class="kw">as</span> <span class="ident">CacheError</span>;
@@ -2219,19 +2219,19 @@
                 <span class="kw-2">&amp;</span><span class="self">self</span>,
                 <span class="ident">_module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
                 <span class="ident">_local_func_index</span>: <span class="ident">LocalFuncIndex</span>,
-            ) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">Func</span><span class="op">&gt;&gt;</span> {
+            ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">Func</span><span class="op">&gt;</span><span class="op">&gt;</span> {
                 <span class="prelude-val">None</span>
             }
 
-            <span class="kw">fn</span> <span class="ident">get_trampoline</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">_sig_index</span>: <span class="ident">SigIndex</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wasm</span><span class="op">&gt;</span> {
+            <span class="kw">fn</span> <span class="ident">get_trampoline</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">_sig_index</span>: <span class="ident">SigIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wasm</span><span class="op">&gt;</span> {
                 <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;generate_module::get_trampoline&quot;</span>)
             }
-            <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">do_early_trap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="op">!</span> {
+            <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">do_early_trap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
                 <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;generate_module::do_early_trap&quot;</span>)
             }
         }
         <span class="kw">impl</span> <span class="ident">CacheGen</span> <span class="kw">for</span> <span class="ident">Placeholder</span> {
-            <span class="kw">fn</span> <span class="ident">generate_cache</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>, <span class="ident">Memory</span>), <span class="ident">CacheError</span><span class="op">&gt;</span> {
+            <span class="kw">fn</span> <span class="ident">generate_cache</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>, <span class="ident">Memory</span>), <span class="ident">CacheError</span><span class="op">&gt;</span> {
                 <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;generate_module::generate_cache&quot;</span>)
             }
         }
@@ -2272,4 +2272,4 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_runtime_core";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_runtime_core";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

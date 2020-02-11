@@ -6,5 +6,4 @@ implementors["wasmer_runtime"] = [];
             } else {
                 window.pending_implementors = implementors;
             }
-        
-})()
+        })()

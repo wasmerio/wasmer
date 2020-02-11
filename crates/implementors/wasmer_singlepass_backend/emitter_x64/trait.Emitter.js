@@ -6,5 +6,4 @@ implementors["wasmer_singlepass_backend"] = [];
             } else {
                 window.pending_implementors = implementors;
             }
-        
-})()
+        })()

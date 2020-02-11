@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/llvm-backend/src/stackmap.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>stackmap.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_llvm_backend/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/llvm-backend/src/stackmap.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>stackmap.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_llvm_backend/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -653,13 +653,13 @@
         <span class="kw">let</span> <span class="ident">target_offset</span> <span class="op">=</span> <span class="ident">func_base_addr</span> <span class="op">+</span> <span class="ident">map_record</span>.<span class="ident">instruction_offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
         <span class="macro">assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">is_start</span>);
 
-        <span class="kw">if</span> <span class="ident">msm</span>.<span class="ident">local_functions</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="self">self</span>.<span class="ident">local_function_id</span> {
+        <span class="kw">if</span> <span class="ident">msm</span>.<span class="ident">local_functions</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">local_function_id</span> {
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">kind</span>, <span class="ident">StackmapEntryKind</span>::<span class="ident">FunctionHeader</span>);
             <span class="ident">msm</span>.<span class="ident">local_functions</span>.<span class="ident">insert</span>(
                 <span class="ident">target_offset</span>,
                 <span class="ident">FunctionStateMap</span>::<span class="ident">new</span>(<span class="ident">new_machine_state</span>(), <span class="self">self</span>.<span class="ident">local_function_id</span>, <span class="number">0</span>, <span class="macro">vec</span><span class="macro">!</span>[]),
             );
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">msm</span>.<span class="ident">local_functions</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="self">self</span>.<span class="ident">local_function_id</span> <span class="op">+</span> <span class="number">1</span> {
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">msm</span>.<span class="ident">local_functions</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">local_function_id</span> <span class="op">+</span> <span class="number">1</span> {
         } <span class="kw">else</span> {
             <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;unordered local functions&quot;</span>);
         }
@@ -670,7 +670,7 @@
 
         <span class="comment">// System V requires 16-byte alignment before each call instruction.</span>
         <span class="comment">// Considering the saved rbp we need to ensure the stack size % 16 always equals to 8.</span>
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">size_record</span>.<span class="ident">stack_size</span> <span class="op">%</span> <span class="number">16</span> <span class="op">==</span> <span class="number">8</span>);
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">size_record</span>.<span class="ident">stack_size</span> <span class="op">%</span> <span class="number">16</span> <span class="op">=</span><span class="op">=</span> <span class="number">8</span>);
 
         <span class="comment">// Layout begins just below saved rbp. (push rbp; mov rbp, rsp)</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">machine_stack_half_layout</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;</span> <span class="op">=</span>
@@ -678,131 +678,131 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">regs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">RegisterIndex</span>, <span class="ident">MachineValue</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack_constants</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">u64</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">prev_frame_diff</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;&gt;</span> <span class="op">=</span> <span class="ident">BTreeMap</span>::<span class="ident">new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">prev_frame_diff</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">BTreeMap</span>::<span class="ident">new</span>();
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_locals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmAbstractValue</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmAbstractValue</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
 
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">loc</span>) <span class="kw">in</span> <span class="ident">map_record</span>.<span class="ident">locations</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="kw">let</span> <span class="ident">mv</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">value_semantics</span>[<span class="ident">i</span>] {
-                <span class="ident">ValueSemantic</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
-                    <span class="kw">if</span> <span class="ident">x</span> <span class="op">!=</span> <span class="ident">wasm_locals</span>.<span class="ident">len</span>() {
+                <span class="ident">ValueSemantic</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">if</span> <span class="ident">x</span> <span class="op">!</span><span class="op">=</span> <span class="ident">wasm_locals</span>.<span class="ident">len</span>() {
                         <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;unordered local values&quot;</span>);
                     }
                     <span class="ident">wasm_locals</span>.<span class="ident">push</span>(<span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span>);
                     <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">x</span>)
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
-                    <span class="kw">if</span> <span class="ident">x</span> <span class="op">!=</span> <span class="ident">wasm_stack</span>.<span class="ident">len</span>() {
+                <span class="ident">ValueSemantic</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">if</span> <span class="ident">x</span> <span class="op">!</span><span class="op">=</span> <span class="ident">wasm_stack</span>.<span class="ident">len</span>() {
                         <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;unordered stack values&quot;</span>);
                     }
                     <span class="ident">wasm_stack</span>.<span class="ident">push</span>(<span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span>);
                     <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>)
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">Ctx</span> <span class="op">=&gt;</span> <span class="ident">MachineValue</span>::<span class="ident">Vmctx</span>,
-                <span class="ident">ValueSemantic</span>::<span class="ident">SignalMem</span> <span class="op">=&gt;</span> {
+                <span class="ident">ValueSemantic</span>::<span class="ident">Ctx</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MachineValue</span>::<span class="ident">Vmctx</span>,
+                <span class="ident">ValueSemantic</span>::<span class="ident">SignalMem</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_interrupt_signal_mem</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="number">0</span>])
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">PointerToMemoryBase</span> <span class="op">=&gt;</span> {
+                <span class="ident">ValueSemantic</span>::<span class="ident">PointerToMemoryBase</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_memory_base</span>() <span class="kw">as</span> <span class="ident">usize</span>])
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">PointerToMemoryBound</span> <span class="op">=&gt;</span> {
+                <span class="ident">ValueSemantic</span>::<span class="ident">PointerToMemoryBound</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_memory_bound</span>() <span class="kw">as</span> <span class="ident">usize</span>])
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">MemoryBase</span> <span class="op">=&gt;</span> {
+                <span class="ident">ValueSemantic</span>::<span class="ident">MemoryBase</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_memory_base</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="number">0</span>])
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">MemoryBound</span> <span class="op">=&gt;</span> {
+                <span class="ident">ValueSemantic</span>::<span class="ident">MemoryBound</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_memory_bound</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="number">0</span>])
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">PointerToGlobal</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
+                <span class="ident">ValueSemantic</span>::<span class="ident">PointerToGlobal</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="ident">deref_global</span>(<span class="ident">module_info</span>, <span class="ident">idx</span>, <span class="bool-val">false</span>))
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">Global</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
+                <span class="ident">ValueSemantic</span>::<span class="ident">Global</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="ident">deref_global</span>(<span class="ident">module_info</span>, <span class="ident">idx</span>, <span class="bool-val">true</span>))
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">PointerToTableBase</span> <span class="op">=&gt;</span> {
+                <span class="ident">ValueSemantic</span>::<span class="ident">PointerToTableBase</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="ident">deref_table_base</span>(<span class="ident">module_info</span>, <span class="number">0</span>, <span class="bool-val">false</span>))
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">PointerToTableBound</span> <span class="op">=&gt;</span> {
+                <span class="ident">ValueSemantic</span>::<span class="ident">PointerToTableBound</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="ident">deref_table_bound</span>(<span class="ident">module_info</span>, <span class="number">0</span>, <span class="bool-val">false</span>))
                 }
-                <span class="ident">ValueSemantic</span>::<span class="ident">ImportedFuncPointer</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                <span class="ident">ValueSemantic</span>::<span class="ident">ImportedFuncPointer</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="macro">vec</span><span class="macro">!</span>[
                     <span class="ident">Ctx</span>::<span class="ident">offset_imported_funcs</span>() <span class="kw">as</span> <span class="ident">usize</span>,
                     <span class="ident">vm</span>::<span class="ident">ImportedFunc</span>::<span class="ident">size</span>() <span class="kw">as</span> <span class="ident">usize</span> <span class="op">*</span> <span class="ident">idx</span>
                         <span class="op">+</span> <span class="ident">vm</span>::<span class="ident">ImportedFunc</span>::<span class="ident">offset_func</span>() <span class="kw">as</span> <span class="ident">usize</span>,
                     <span class="number">0</span>,
                 ]),
-                <span class="ident">ValueSemantic</span>::<span class="ident">ImportedFuncCtx</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                <span class="ident">ValueSemantic</span>::<span class="ident">ImportedFuncCtx</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="macro">vec</span><span class="macro">!</span>[
                     <span class="ident">Ctx</span>::<span class="ident">offset_imported_funcs</span>() <span class="kw">as</span> <span class="ident">usize</span>,
                     <span class="ident">vm</span>::<span class="ident">ImportedFunc</span>::<span class="ident">size</span>() <span class="kw">as</span> <span class="ident">usize</span> <span class="op">*</span> <span class="ident">idx</span>
                         <span class="op">+</span> <span class="ident">vm</span>::<span class="ident">ImportedFunc</span>::<span class="ident">offset_func_ctx</span>() <span class="kw">as</span> <span class="ident">usize</span>,
                     <span class="number">0</span>,
                 ]),
-                <span class="ident">ValueSemantic</span>::<span class="ident">DynamicSigindice</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
+                <span class="ident">ValueSemantic</span>::<span class="ident">DynamicSigindice</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">MachineValue</span>::<span class="ident">VmctxDeref</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_signatures</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">idx</span> <span class="op">*</span> <span class="number">4</span>, <span class="number">0</span>])
                 }
             };
             <span class="kw">match</span> <span class="ident">loc</span>.<span class="ident">ty</span> {
-                <span class="ident">LocationType</span>::<span class="ident">Register</span> <span class="op">=&gt;</span> {
+                <span class="ident">LocationType</span>::<span class="ident">Register</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">X64Register</span>::<span class="ident">from_dwarf_regnum</span>(<span class="ident">loc</span>.<span class="ident">dwarf_regnum</span>)
                         .<span class="ident">expect</span>(<span class="string">&quot;invalid regnum&quot;</span>)
                         .<span class="ident">to_index</span>();
                     <span class="ident">regs</span>.<span class="ident">push</span>((<span class="ident">index</span>, <span class="ident">mv</span>));
                 }
-                <span class="ident">LocationType</span>::<span class="ident">Constant</span> <span class="op">=&gt;</span> {
+                <span class="ident">LocationType</span>::<span class="ident">Constant</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="kw">as</span> <span class="ident">u64</span>;
                     <span class="kw">match</span> <span class="ident">mv</span> {
-                        <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
+                        <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="ident">stack_constants</span>.<span class="ident">insert</span>(<span class="ident">x</span>, <span class="ident">v</span>);
                             <span class="kw-2">*</span><span class="ident">wasm_stack</span>.<span class="ident">last_mut</span>().<span class="ident">unwrap</span>() <span class="op">=</span> <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">v</span>);
                         }
-                        <span class="kw">_</span> <span class="op">=&gt;</span> {} <span class="comment">// TODO</span>
+                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {} <span class="comment">// TODO</span>
                     }
                 }
-                <span class="ident">LocationType</span>::<span class="ident">ConstantIndex</span> <span class="op">=&gt;</span> {
+                <span class="ident">LocationType</span>::<span class="ident">ConstantIndex</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span>
                         <span class="ident">llvm_map</span>.<span class="ident">constants</span>[<span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span> <span class="kw">as</span> <span class="ident">usize</span>].<span class="ident">large_constant</span>;
                     <span class="kw">match</span> <span class="ident">mv</span> {
-                        <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=&gt;</span> {
+                        <span class="ident">MachineValue</span>::<span class="ident">WasmStack</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="ident">stack_constants</span>.<span class="ident">insert</span>(<span class="ident">x</span>, <span class="ident">v</span>);
                             <span class="kw-2">*</span><span class="ident">wasm_stack</span>.<span class="ident">last_mut</span>().<span class="ident">unwrap</span>() <span class="op">=</span> <span class="ident">WasmAbstractValue</span>::<span class="ident">Const</span>(<span class="ident">v</span>);
                         }
-                        <span class="kw">_</span> <span class="op">=&gt;</span> {} <span class="comment">// TODO</span>
+                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {} <span class="comment">// TODO</span>
                     }
                 }
-                <span class="ident">LocationType</span>::<span class="ident">Direct</span> <span class="op">=&gt;</span> <span class="kw">match</span> <span class="ident">mv</span> {
-                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {
+                <span class="ident">LocationType</span>::<span class="ident">Direct</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">mv</span> {
+                    <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">loc</span>.<span class="ident">location_size</span>, <span class="number">8</span>); <span class="comment">// the pointer itself</span>
                         <span class="macro">assert</span><span class="macro">!</span>(
                             <span class="ident">X64Register</span>::<span class="ident">from_dwarf_regnum</span>(<span class="ident">loc</span>.<span class="ident">dwarf_regnum</span>).<span class="ident">unwrap</span>()
-                                <span class="op">==</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>)
+                                <span class="op">=</span><span class="op">=</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>)
                         );
-                        <span class="kw">if</span> <span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span> <span class="op">&gt;=</span> <span class="number">0</span> {
-                            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span> <span class="op">&gt;=</span> <span class="number">16</span>); <span class="comment">// (saved_rbp, return_address)</span>
-                            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span> <span class="op">%</span> <span class="number">8</span> <span class="op">==</span> <span class="number">0</span>);
+                        <span class="kw">if</span> <span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">0</span> {
+                            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">16</span>); <span class="comment">// (saved_rbp, return_address)</span>
+                            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span> <span class="op">%</span> <span class="number">8</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span>);
                             <span class="ident">prev_frame_diff</span>
                                 .<span class="ident">insert</span>((<span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="number">16</span>) <span class="op">/</span> <span class="number">8</span>, <span class="prelude-val">Some</span>(<span class="ident">mv</span>));
                         } <span class="kw">else</span> {
                             <span class="kw">let</span> <span class="ident">stack_offset</span> <span class="op">=</span> ((<span class="op">-</span><span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span>) <span class="op">/</span> <span class="number">4</span>) <span class="kw">as</span> <span class="ident">usize</span>;
                             <span class="macro">assert</span><span class="macro">!</span>(
-                                <span class="ident">stack_offset</span> <span class="op">&gt;</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="ident">stack_offset</span> <span class="op">&lt;=</span> <span class="ident">machine_stack_half_layout</span>.<span class="ident">len</span>()
+                                <span class="ident">stack_offset</span> <span class="op">&gt;</span> <span class="number">0</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">stack_offset</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">machine_stack_half_layout</span>.<span class="ident">len</span>()
                             );
                             <span class="ident">machine_stack_half_layout</span>[<span class="ident">stack_offset</span> <span class="op">-</span> <span class="number">1</span>] <span class="op">=</span> <span class="ident">mv</span>;
                         }
                     }
-                    <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(
                         <span class="string">&quot;Direct location type is not expected for values other than local&quot;</span>
                     ),
                 },
-                <span class="ident">LocationType</span>::<span class="ident">Indirect</span> <span class="op">=&gt;</span> {
+                <span class="ident">LocationType</span>::<span class="ident">Indirect</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span> <span class="op">&lt;</span> <span class="number">0</span>);
                     <span class="macro">assert</span><span class="macro">!</span>(
                         <span class="ident">X64Register</span>::<span class="ident">from_dwarf_regnum</span>(<span class="ident">loc</span>.<span class="ident">dwarf_regnum</span>).<span class="ident">unwrap</span>()
-                            <span class="op">==</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>)
+                            <span class="op">=</span><span class="op">=</span> <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>)
                     );
                     <span class="kw">let</span> <span class="ident">stack_offset</span> <span class="op">=</span> ((<span class="op">-</span><span class="ident">loc</span>.<span class="ident">offset_or_small_constant</span>) <span class="op">/</span> <span class="number">4</span>) <span class="kw">as</span> <span class="ident">usize</span>;
-                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">stack_offset</span> <span class="op">&gt;</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="ident">stack_offset</span> <span class="op">&lt;=</span> <span class="ident">machine_stack_half_layout</span>.<span class="ident">len</span>());
+                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">stack_offset</span> <span class="op">&gt;</span> <span class="number">0</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">stack_offset</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">machine_stack_half_layout</span>.<span class="ident">len</span>());
                     <span class="ident">machine_stack_half_layout</span>[<span class="ident">stack_offset</span> <span class="op">-</span> <span class="number">1</span>] <span class="op">=</span> <span class="ident">mv</span>;
                 }
             }
@@ -818,8 +818,8 @@
             <span class="kw">let</span> <span class="ident">major</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">machine_stack_half_layout</span>[<span class="ident">i</span> <span class="op">*</span> <span class="number">2</span> <span class="op">+</span> <span class="number">1</span>]; <span class="comment">// mod 8 == 0</span>
             <span class="kw">let</span> <span class="ident">minor</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">machine_stack_half_layout</span>[<span class="ident">i</span> <span class="op">*</span> <span class="number">2</span>]; <span class="comment">// mod 8 == 4</span>
             <span class="kw">let</span> <span class="ident">only_major</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">minor</span> {
-                <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=&gt;</span> <span class="bool-val">true</span>,
-                <span class="kw">_</span> <span class="op">=&gt;</span> <span class="bool-val">false</span>,
+                <span class="ident">MachineValue</span>::<span class="ident">Undefined</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
             };
             <span class="kw">if</span> <span class="ident">only_major</span> {
                 <span class="ident">machine_stack_layout</span>.<span class="ident">push</span>(<span class="ident">major</span>.<span class="ident">clone</span>());
@@ -846,10 +846,10 @@
         <span class="ident">fsm</span>.<span class="ident">diffs</span>.<span class="ident">push</span>(<span class="ident">diff</span>);
 
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">kind</span> {
-            <span class="ident">StackmapEntryKind</span>::<span class="ident">FunctionHeader</span> <span class="op">=&gt;</span> {
+            <span class="ident">StackmapEntryKind</span>::<span class="ident">FunctionHeader</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">fsm</span>.<span class="ident">locals</span> <span class="op">=</span> <span class="ident">wasm_locals</span>;
             }
-            <span class="kw">_</span> <span class="op">=&gt;</span> {
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">fsm</span>.<span class="ident">locals</span>, <span class="ident">wasm_locals</span>);
             }
         }
@@ -860,7 +860,7 @@
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">end_entry</span>.<span class="ident">is_start</span>, <span class="bool-val">false</span>);
                 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">opcode_offset</span>, <span class="ident">end_entry</span>.<span class="ident">opcode_offset</span>);
                 <span class="kw">let</span> <span class="ident">end_offset</span> <span class="op">=</span> <span class="ident">func_base_addr</span> <span class="op">+</span> <span class="ident">end_record</span>.<span class="ident">instruction_offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
-                <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_offset</span> <span class="op">&gt;=</span> <span class="ident">target_offset</span>);
+                <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_offset</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">target_offset</span>);
                 <span class="ident">end_offset</span>
             } <span class="kw">else</span> {
                 <span class="ident">target_offset</span> <span class="op">+</span> <span class="number">1</span>
@@ -868,7 +868,7 @@
         };
 
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">kind</span> {
-            <span class="ident">StackmapEntryKind</span>::<span class="ident">Loop</span> <span class="op">=&gt;</span> {
+            <span class="ident">StackmapEntryKind</span>::<span class="ident">Loop</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">fsm</span>.<span class="ident">wasm_offset_to_target_offset</span>
                     .<span class="ident">insert</span>(<span class="self">self</span>.<span class="ident">opcode_offset</span>, <span class="ident">SuspendOffset</span>::<span class="ident">Loop</span>(<span class="ident">target_offset</span>));
                 <span class="ident">fsm</span>.<span class="ident">loop_offsets</span>.<span class="ident">insert</span>(
@@ -880,7 +880,7 @@
                     },
                 );
             }
-            <span class="ident">StackmapEntryKind</span>::<span class="ident">Call</span> <span class="op">=&gt;</span> {
+            <span class="ident">StackmapEntryKind</span>::<span class="ident">Call</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">fsm</span>.<span class="ident">wasm_offset_to_target_offset</span>
                     .<span class="ident">insert</span>(<span class="self">self</span>.<span class="ident">opcode_offset</span>, <span class="ident">SuspendOffset</span>::<span class="ident">Call</span>(<span class="ident">target_offset</span>));
                 <span class="ident">fsm</span>.<span class="ident">call_offsets</span>.<span class="ident">insert</span>(
@@ -892,7 +892,7 @@
                     },
                 );
             }
-            <span class="ident">StackmapEntryKind</span>::<span class="ident">Trappable</span> <span class="op">=&gt;</span> {
+            <span class="ident">StackmapEntryKind</span>::<span class="ident">Trappable</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">fsm</span>.<span class="ident">wasm_offset_to_target_offset</span>
                     .<span class="ident">insert</span>(<span class="self">self</span>.<span class="ident">opcode_offset</span>, <span class="ident">SuspendOffset</span>::<span class="ident">Trappable</span>(<span class="ident">target_offset</span>));
                 <span class="ident">fsm</span>.<span class="ident">trappable_offsets</span>.<span class="ident">insert</span>(
@@ -904,7 +904,7 @@
                     },
                 );
             }
-            <span class="ident">StackmapEntryKind</span>::<span class="ident">FunctionHeader</span> <span class="op">=&gt;</span> {
+            <span class="ident">StackmapEntryKind</span>::<span class="ident">FunctionHeader</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">fsm</span>.<span class="ident">wasm_function_header_target_offset</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">SuspendOffset</span>::<span class="ident">Loop</span>(<span class="ident">target_offset</span>));
                 <span class="ident">fsm</span>.<span class="ident">loop_offsets</span>.<span class="ident">insert</span>(
                     <span class="ident">target_offset</span>,
@@ -971,22 +971,22 @@
 }
 
 <span class="kw">impl</span> <span class="ident">StackMap</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">raw</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">StackMap</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">raw</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">StackMap</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">Cursor</span>::<span class="ident">new</span>(<span class="ident">raw</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span> <span class="op">=</span> <span class="ident">StackMap</span>::<span class="ident">default</span>();
 
         <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">version</span> <span class="op">!=</span> <span class="number">3</span> {
+        <span class="kw">if</span> <span class="ident">version</span> <span class="op">!</span><span class="op">=</span> <span class="number">3</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(<span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>, <span class="string">&quot;version is not 3&quot;</span>));
         }
         <span class="ident">map</span>.<span class="ident">version</span> <span class="op">=</span> <span class="ident">version</span>;
-        <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span> <span class="op">!=</span> <span class="number">0</span> {
+        <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
                 <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
                 <span class="string">&quot;reserved field is not zero (1)&quot;</span>,
             ));
         }
-        <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!=</span> <span class="number">0</span> {
+        <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
                 <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
                 <span class="string">&quot;reserved field is not zero (2)&quot;</span>,
@@ -1012,7 +1012,7 @@
 
             <span class="ident">record</span>.<span class="ident">patchpoint_id</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_u64</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
             <span class="ident">record</span>.<span class="ident">instruction_offset</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_u32</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-            <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!=</span> <span class="number">0</span> {
+            <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
                     <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
                     <span class="string">&quot;reserved field is not zero (3)&quot;</span>,
@@ -1024,12 +1024,12 @@
 
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">location</span> <span class="op">=</span> <span class="ident">Location</span> {
                     <span class="ident">ty</span>: <span class="kw">match</span> <span class="ident">ty</span> {
-                        <span class="number">1</span> <span class="op">=&gt;</span> <span class="ident">LocationType</span>::<span class="ident">Register</span>,
-                        <span class="number">2</span> <span class="op">=&gt;</span> <span class="ident">LocationType</span>::<span class="ident">Direct</span>,
-                        <span class="number">3</span> <span class="op">=&gt;</span> <span class="ident">LocationType</span>::<span class="ident">Indirect</span>,
-                        <span class="number">4</span> <span class="op">=&gt;</span> <span class="ident">LocationType</span>::<span class="ident">Constant</span>,
-                        <span class="number">5</span> <span class="op">=&gt;</span> <span class="ident">LocationType</span>::<span class="ident">ConstantIndex</span>,
-                        <span class="kw">_</span> <span class="op">=&gt;</span> {
+                        <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LocationType</span>::<span class="ident">Register</span>,
+                        <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LocationType</span>::<span class="ident">Direct</span>,
+                        <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LocationType</span>::<span class="ident">Indirect</span>,
+                        <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LocationType</span>::<span class="ident">Constant</span>,
+                        <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">LocationType</span>::<span class="ident">ConstantIndex</span>,
+                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
                                 <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
                                 <span class="string">&quot;unknown location type&quot;</span>,
@@ -1041,7 +1041,7 @@
                     <span class="ident">offset_or_small_constant</span>: <span class="number">0</span>,
                 };
 
-                <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span> <span class="op">!=</span> <span class="number">0</span> {
+                <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
                         <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
                         <span class="string">&quot;reserved field is not zero (4)&quot;</span>,
@@ -1049,7 +1049,7 @@
                 }
                 <span class="ident">location</span>.<span class="ident">location_size</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
                 <span class="ident">location</span>.<span class="ident">dwarf_regnum</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-                <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!=</span> <span class="number">0</span> {
+                <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
                         <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
                         <span class="string">&quot;reserved field is not zero (5)&quot;</span>,
@@ -1059,15 +1059,15 @@
 
                 <span class="ident">record</span>.<span class="ident">locations</span>.<span class="ident">push</span>(<span class="ident">location</span>);
             }
-            <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">position</span>() <span class="op">%</span> <span class="number">8</span> <span class="op">!=</span> <span class="number">0</span> {
-                <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u32</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!=</span> <span class="number">0</span> {
+            <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">position</span>() <span class="op">%</span> <span class="number">8</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u32</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
                         <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
                         <span class="string">&quot;reserved field is not zero (6)&quot;</span>,
                     ));
                 }
             }
-            <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!=</span> <span class="number">0</span> {
+            <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
                     <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
                     <span class="string">&quot;reserved field is not zero (7)&quot;</span>,
@@ -1078,7 +1078,7 @@
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">liveout</span> <span class="op">=</span> <span class="ident">LiveOut</span>::<span class="ident">default</span>();
 
                 <span class="ident">liveout</span>.<span class="ident">dwarf_regnum</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-                <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span> <span class="op">!=</span> <span class="number">0</span> {
+                <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
                         <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
                         <span class="string">&quot;reserved field is not zero (8)&quot;</span>,
@@ -1088,8 +1088,8 @@
 
                 <span class="ident">record</span>.<span class="ident">live_outs</span>.<span class="ident">push</span>(<span class="ident">liveout</span>);
             }
-            <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">position</span>() <span class="op">%</span> <span class="number">8</span> <span class="op">!=</span> <span class="number">0</span> {
-                <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u32</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!=</span> <span class="number">0</span> {
+            <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">position</span>() <span class="op">%</span> <span class="number">8</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                <span class="kw">if</span> <span class="ident">reader</span>.<span class="ident">read_u32</span>::<span class="op">&lt;</span><span class="ident">LittleEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
                         <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
                         <span class="string">&quot;reserved field is not zero (9)&quot;</span>,
@@ -1103,10 +1103,10 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">deref_global</span>(<span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">idx</span>: <span class="ident">usize</span>, <span class="ident">deref_into_value</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">deref_global</span>(<span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">idx</span>: <span class="ident">usize</span>, <span class="ident">deref_into_value</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">x</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">GlobalIndex</span>::<span class="ident">new</span>(<span class="ident">idx</span>).<span class="ident">local_or_import</span>(<span class="ident">info</span>) {
-        <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_globals</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">idx</span>.<span class="ident">index</span>() <span class="op">*</span> <span class="number">8</span>, <span class="number">0</span>],
-        <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
+        <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_globals</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">idx</span>.<span class="ident">index</span>() <span class="op">*</span> <span class="number">8</span>, <span class="number">0</span>],
+        <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
             <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_imported_globals</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">idx</span>.<span class="ident">index</span>() <span class="op">*</span> <span class="number">8</span>, <span class="number">0</span>]
         }
     };
@@ -1116,10 +1116,10 @@
     <span class="ident">x</span>
 }
 
-<span class="kw">fn</span> <span class="ident">deref_table_base</span>(<span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">idx</span>: <span class="ident">usize</span>, <span class="ident">deref_into_value</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">deref_table_base</span>(<span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">idx</span>: <span class="ident">usize</span>, <span class="ident">deref_into_value</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">x</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">TableIndex</span>::<span class="ident">new</span>(<span class="ident">idx</span>).<span class="ident">local_or_import</span>(<span class="ident">info</span>) {
-        <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_tables</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">idx</span>.<span class="ident">index</span>() <span class="op">*</span> <span class="number">8</span>, <span class="number">0</span>],
-        <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
+        <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_tables</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">idx</span>.<span class="ident">index</span>() <span class="op">*</span> <span class="number">8</span>, <span class="number">0</span>],
+        <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
             <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_imported_tables</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">idx</span>.<span class="ident">index</span>() <span class="op">*</span> <span class="number">8</span>, <span class="number">0</span>]
         }
     };
@@ -1129,10 +1129,10 @@
     <span class="ident">x</span>
 }
 
-<span class="kw">fn</span> <span class="ident">deref_table_bound</span>(<span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">idx</span>: <span class="ident">usize</span>, <span class="ident">deref_into_value</span>: <span class="ident">bool</span>) <span class="op">-&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">deref_table_bound</span>(<span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">idx</span>: <span class="ident">usize</span>, <span class="ident">deref_into_value</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">x</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">TableIndex</span>::<span class="ident">new</span>(<span class="ident">idx</span>).<span class="ident">local_or_import</span>(<span class="ident">info</span>) {
-        <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_tables</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">idx</span>.<span class="ident">index</span>() <span class="op">*</span> <span class="number">8</span>, <span class="number">8</span>],
-        <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">idx</span>) <span class="op">=&gt;</span> {
+        <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_tables</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">idx</span>.<span class="ident">index</span>() <span class="op">*</span> <span class="number">8</span>, <span class="number">8</span>],
+        <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
             <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Ctx</span>::<span class="ident">offset_imported_tables</span>() <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">idx</span>.<span class="ident">index</span>() <span class="op">*</span> <span class="number">8</span>, <span class="number">8</span>]
         }
     };
@@ -1142,4 +1142,4 @@
     <span class="ident">x</span>
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_llvm_backend";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_llvm_backend";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

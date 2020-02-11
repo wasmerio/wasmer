@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-core/src/typed_func.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>typed_func.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_runtime_core/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-core/src/typed_func.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>typed_func.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_runtime_core/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -831,9 +831,9 @@
     <span class="ident">func</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
     <span class="ident">args</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u64</span>,
     <span class="ident">rets</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span>,
-    <span class="ident">error_out</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;&gt;</span>,
-    <span class="ident">extra</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;&gt;</span>,
-) <span class="op">-&gt;</span> <span class="ident">bool</span>;
+    <span class="ident">error_out</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">extra</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
 
 <span class="doccomment">/// TODO(lachlan): Naming TBD.</span>
 <span class="doccomment">/// This contains the trampoline and invoke functions for a specific signature,</span>
@@ -842,7 +842,7 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Wasm</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">trampoline</span>: <span class="ident">Trampoline</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">invoke</span>: <span class="ident">Invoke</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">invoke_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">invoke_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Wasm</span> {
@@ -850,8 +850,8 @@
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw_parts</span>(
         <span class="ident">trampoline</span>: <span class="ident">Trampoline</span>,
         <span class="ident">invoke</span>: <span class="ident">Invoke</span>,
-        <span class="ident">invoke_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;&gt;</span>,
-    ) <span class="op">-&gt;</span> <span class="self">Self</span> {
+        <span class="ident">invoke_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">trampoline</span>,
             <span class="ident">invoke</span>,
@@ -876,20 +876,20 @@
     <span class="kw">type</span> <span class="ident">RetArray</span>: <span class="ident">AsMut</span><span class="op">&lt;</span>[<span class="ident">u64</span>]<span class="op">&gt;</span>;
 
     <span class="doccomment">/// Construct `Self` based on an array of returned values.</span>
-    <span class="kw">fn</span> <span class="ident">from_ret_array</span>(<span class="ident">array</span>: <span class="self">Self</span>::<span class="ident">RetArray</span>) <span class="op">-&gt;</span> <span class="self">Self</span>;
+    <span class="kw">fn</span> <span class="ident">from_ret_array</span>(<span class="ident">array</span>: <span class="self">Self</span>::<span class="ident">RetArray</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>;
 
     <span class="doccomment">/// Generates an empty array that will hold the returned values of</span>
     <span class="doccomment">/// the WebAssembly function.</span>
-    <span class="kw">fn</span> <span class="ident">empty_ret_array</span>() <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">RetArray</span>;
+    <span class="kw">fn</span> <span class="ident">empty_ret_array</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">RetArray</span>;
 
     <span class="doccomment">/// Transforms C values into Rust values.</span>
-    <span class="kw">fn</span> <span class="ident">from_c_struct</span>(<span class="ident">c_struct</span>: <span class="self">Self</span>::<span class="ident">CStruct</span>) <span class="op">-&gt;</span> <span class="self">Self</span>;
+    <span class="kw">fn</span> <span class="ident">from_c_struct</span>(<span class="ident">c_struct</span>: <span class="self">Self</span>::<span class="ident">CStruct</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>;
 
     <span class="doccomment">/// Transforms Rust values into C values.</span>
-    <span class="kw">fn</span> <span class="ident">into_c_struct</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">CStruct</span>;
+    <span class="kw">fn</span> <span class="ident">into_c_struct</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">CStruct</span>;
 
     <span class="doccomment">/// Get types of the current values.</span>
-    <span class="kw">fn</span> <span class="ident">types</span>() <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>];
+    <span class="kw">fn</span> <span class="ident">types</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>];
 
     <span class="doccomment">/// This method is used to distribute the values onto a function,</span>
     <span class="doccomment">/// e.g. `(1, 2).call(func, …)`. This form is unlikely to be used</span>
@@ -899,7 +899,7 @@
         <span class="ident">f</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
         <span class="ident">wasm</span>: <span class="ident">Wasm</span>,
         <span class="ident">ctx</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>;
 }
@@ -945,7 +945,7 @@
     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
 {
     <span class="doccomment">/// Convert to function pointer.</span>
-    <span class="kw">fn</span> <span class="ident">to_raw</span>(<span class="self">self</span>) <span class="op">-&gt;</span> (<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;&gt;</span>);
+    <span class="kw">fn</span> <span class="ident">to_raw</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;</span><span class="op">&gt;</span>);
 }
 
 <span class="doccomment">/// Represents a TrapEarly type.</span>
@@ -956,7 +956,7 @@
     <span class="doccomment">/// The error type for this trait.</span>
     <span class="kw">type</span> <span class="ident">Error</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>;
     <span class="doccomment">/// Get returns or error result.</span>
-    <span class="kw">fn</span> <span class="ident">report</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">report</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">TrapEarly</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Rets</span>
@@ -964,7 +964,7 @@
     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
 {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span>;
-    <span class="kw">fn</span> <span class="ident">report</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">Infallible</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">report</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">Infallible</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>)
     }
 }
@@ -975,7 +975,7 @@
     <span class="ident">E</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">E</span>;
-    <span class="kw">fn</span> <span class="ident">report</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">E</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">report</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">E</span><span class="op">&gt;</span> {
         <span class="self">self</span>
     }
 }
@@ -984,7 +984,7 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Func</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span> <span class="op">=</span> (), <span class="ident">Rets</span> <span class="op">=</span> (), <span class="ident">Inner</span>: <span class="ident">Kind</span> <span class="op">=</span> <span class="ident">Wasm</span><span class="op">&gt;</span> {
     <span class="ident">inner</span>: <span class="ident">Inner</span>,
     <span class="ident">func</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
-    <span class="ident">func_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;&gt;</span>,
+    <span class="ident">func_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">vmctx</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>,
     <span class="ident">_phantom</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> (), <span class="ident">Args</span>, <span class="ident">Rets</span>)<span class="op">&gt;</span>,
 }
@@ -1000,9 +1000,9 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw_parts</span>(
         <span class="ident">inner</span>: <span class="ident">Wasm</span>,
         <span class="ident">func</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
-        <span class="ident">func_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;&gt;</span>,
+        <span class="ident">func_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">vmctx</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>,
-    ) <span class="op">-&gt;</span> <span class="ident">Func</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">Wasm</span><span class="op">&gt;</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Func</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">Wasm</span><span class="op">&gt;</span> {
         <span class="ident">Func</span> {
             <span class="ident">inner</span>,
             <span class="ident">func</span>,
@@ -1019,7 +1019,7 @@
     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
 {
     <span class="doccomment">/// Creates a new `Func`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">Kind</span><span class="op">&gt;</span>(<span class="ident">func</span>: <span class="ident">F</span>) <span class="op">-&gt;</span> <span class="ident">Func</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">Host</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">Kind</span><span class="op">&gt;</span>(<span class="ident">func</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Func</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">Host</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">Kind</span>: <span class="ident">ExternalFunctionKind</span>,
         <span class="ident">F</span>: <span class="ident">ExternalFunction</span><span class="op">&lt;</span><span class="ident">Kind</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>,
@@ -1043,17 +1043,17 @@
     <span class="ident">Inner</span>: <span class="ident">Kind</span>,
 {
     <span class="doccomment">/// Returns the types of the function inputs.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">params</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>] {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">params</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>] {
         <span class="ident">Args</span>::<span class="ident">types</span>()
     }
 
     <span class="doccomment">/// Returns the types of the function outputs.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">returns</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>] {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">returns</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>] {
         <span class="ident">Rets</span>::<span class="ident">types</span>()
     }
 
     <span class="doccomment">/// Get the underlying func pointer.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_vm_func</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_vm_func</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">func</span>
     }
 }
@@ -1062,23 +1062,23 @@
     <span class="kw">type</span> <span class="ident">CStruct</span> <span class="op">=</span> <span class="ident">Infallible</span>;
     <span class="kw">type</span> <span class="ident">RetArray</span> <span class="op">=</span> [<span class="ident">u64</span>; <span class="number">0</span>];
 
-    <span class="kw">fn</span> <span class="ident">from_ret_array</span>(<span class="kw">_</span>: <span class="self">Self</span>::<span class="ident">RetArray</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_ret_array</span>(<span class="kw">_</span>: <span class="self">Self</span>::<span class="ident">RetArray</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="macro">unreachable</span><span class="macro">!</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">empty_ret_array</span>() <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">RetArray</span> {
+    <span class="kw">fn</span> <span class="ident">empty_ret_array</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">RetArray</span> {
         <span class="macro">unreachable</span><span class="macro">!</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">from_c_struct</span>(<span class="kw">_</span>: <span class="self">Self</span>::<span class="ident">CStruct</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_c_struct</span>(<span class="kw">_</span>: <span class="self">Self</span>::<span class="ident">CStruct</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="macro">unreachable</span><span class="macro">!</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">into_c_struct</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">CStruct</span> {
+    <span class="kw">fn</span> <span class="ident">into_c_struct</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">CStruct</span> {
         <span class="macro">unreachable</span><span class="macro">!</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">types</span>() <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>] {
+    <span class="kw">fn</span> <span class="ident">types</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>] {
         <span class="kw-2">&amp;</span>[]
     }
 
@@ -1088,7 +1088,7 @@
         <span class="kw">_</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
         <span class="kw">_</span>: <span class="ident">Wasm</span>,
         <span class="kw">_</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>,
-    ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
     {
@@ -1097,7 +1097,7 @@
 }
 
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">impl_traits</span> {
-    ( [<span class="macro-nonterminal">$</span><span class="macro-nonterminal">repr</span>:<span class="ident">ident</span>] <span class="macro-nonterminal">$</span><span class="macro-nonterminal">struct_name</span>:<span class="ident">ident</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">ident</span> ),<span class="op">*</span> ) <span class="op">=&gt;</span> {
+    ( [<span class="macro-nonterminal">$</span><span class="macro-nonterminal">repr</span>:<span class="ident">ident</span>] <span class="macro-nonterminal">$</span><span class="macro-nonterminal">struct_name</span>:<span class="ident">ident</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">ident</span> ),<span class="op">*</span> ) <span class="op">=</span><span class="op">&gt;</span> {
         <span class="doccomment">/// Struct for typed funcs.</span>
         <span class="attribute">#[<span class="ident">repr</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">repr</span>)]</span>
         <span class="kw">pub</span> <span class="kw">struct</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">struct_name</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> <span class="op">&gt;</span> ( $( <span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> <span class="kw">as</span> <span class="ident">WasmExternType</span><span class="op">&gt;</span>::<span class="ident">Native</span> ),<span class="op">*</span> )
@@ -1112,18 +1112,18 @@
 
             <span class="kw">type</span> <span class="ident">RetArray</span> <span class="op">=</span> [<span class="ident">u64</span>; <span class="macro">count_idents</span><span class="macro">!</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> )];
 
-            <span class="kw">fn</span> <span class="ident">from_ret_array</span>(<span class="ident">array</span>: <span class="self">Self</span>::<span class="ident">RetArray</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+            <span class="kw">fn</span> <span class="ident">from_ret_array</span>(<span class="ident">array</span>: <span class="self">Self</span>::<span class="ident">RetArray</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
                 <span class="kw">let</span> [ $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ] <span class="op">=</span> <span class="ident">array</span>;
 
                 ( $( <span class="ident">WasmExternType</span>::<span class="ident">from_native</span>(<span class="ident">NativeWasmType</span>::<span class="ident">from_binary</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>)) ),<span class="op">*</span> )
             }
 
-            <span class="kw">fn</span> <span class="ident">empty_ret_array</span>() <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">RetArray</span> {
+            <span class="kw">fn</span> <span class="ident">empty_ret_array</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">RetArray</span> {
                 [<span class="number">0</span>; <span class="macro">count_idents</span><span class="macro">!</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> )]
             }
 
-            <span class="kw">fn</span> <span class="ident">from_c_struct</span>(<span class="ident">c_struct</span>: <span class="self">Self</span>::<span class="ident">CStruct</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
+            <span class="kw">fn</span> <span class="ident">from_c_struct</span>(<span class="ident">c_struct</span>: <span class="self">Self</span>::<span class="ident">CStruct</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
                 <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">struct_name</span> ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ) <span class="op">=</span> <span class="ident">c_struct</span>;
 
@@ -1131,13 +1131,13 @@
             }
 
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>, <span class="ident">non_snake_case</span>)]</span>
-            <span class="kw">fn</span> <span class="ident">into_c_struct</span>(<span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span>::<span class="ident">CStruct</span> {
+            <span class="kw">fn</span> <span class="ident">into_c_struct</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">CStruct</span> {
                 <span class="kw">let</span> ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ) <span class="op">=</span> <span class="self">self</span>;
 
                 <span class="macro-nonterminal">$</span><span class="macro-nonterminal">struct_name</span> ( $( <span class="ident">WasmExternType</span>::<span class="ident">to_native</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>) ),<span class="op">*</span> )
             }
 
-            <span class="kw">fn</span> <span class="ident">types</span>() <span class="op">-&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>] {
+            <span class="kw">fn</span> <span class="ident">types</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>] {
                 <span class="kw-2">&amp;</span>[$( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>::<span class="ident">Native</span>::<span class="ident">TYPE</span> ),<span class="kw-2">*</span>]
             }
 
@@ -1147,7 +1147,7 @@
                 <span class="ident">f</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
                 <span class="ident">wasm</span>: <span class="ident">Wasm</span>,
                 <span class="ident">ctx</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>,
-            ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>
+            ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>
             <span class="kw">where</span>
                 <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>
             {
@@ -1167,7 +1167,7 @@
                 ) {
                     <span class="prelude-val">Ok</span>(<span class="ident">Rets</span>::<span class="ident">from_ret_array</span>(<span class="ident">rets</span>))
                 } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">error_out</span>.<span class="ident">map</span>(<span class="ident">RuntimeError</span>).<span class="ident">unwrap_or_else</span>(<span class="op">||</span> {
+                    <span class="prelude-val">Err</span>(<span class="ident">error_out</span>.<span class="ident">map</span>(<span class="ident">RuntimeError</span>).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
                         <span class="ident">RuntimeError</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="string">&quot;invoke(): Unknown error&quot;</span>.<span class="ident">to_string</span>()))
                     }))
                 }
@@ -1179,10 +1179,10 @@
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span>, )<span class="op">*</span>
             <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
             <span class="ident">Trap</span>: <span class="ident">TrapEarly</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span>,
-            <span class="ident">FN</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span> $( , <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> )<span class="kw-2">*</span>) <span class="op">-&gt;</span> <span class="ident">Trap</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Send</span>,
+            <span class="ident">FN</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span> $( , <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> )<span class="kw-2">*</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Trap</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Send</span>,
         {
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-            <span class="kw">fn</span> <span class="ident">to_raw</span>(<span class="self">self</span>) <span class="op">-&gt;</span> (<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;&gt;</span>) {
+            <span class="kw">fn</span> <span class="ident">to_raw</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
                 <span class="comment">// The `wrap` function is a wrapper around the</span>
                 <span class="comment">// imported function. It manages the argument passed</span>
                 <span class="comment">// to the imported function (in this case, the</span>
@@ -1194,12 +1194,12 @@
                 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">nightly</span>, <span class="ident">unwind</span>(<span class="ident">allowed</span>))]</span>
                 <span class="kw">extern</span> <span class="kw">fn</span> <span class="ident">wrap</span><span class="op">&lt;</span>$( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">Trap</span>, <span class="ident">FN</span><span class="op">&gt;</span>(
                     <span class="ident">vmctx</span>: <span class="kw-2">&amp;</span><span class="ident">vm</span>::<span class="ident">Ctx</span> $( , <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> <span class="kw">as</span> <span class="ident">WasmExternType</span><span class="op">&gt;</span>::<span class="ident">Native</span> )<span class="op">*</span>
-                ) <span class="op">-&gt;</span> <span class="ident">Rets</span>::<span class="ident">CStruct</span>
+                ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Rets</span>::<span class="ident">CStruct</span>
                 <span class="kw">where</span>
                     $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span>, )<span class="op">*</span>
                     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
                     <span class="ident">Trap</span>: <span class="ident">TrapEarly</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span>,
-                    <span class="ident">FN</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="kw-2">*</span>) <span class="op">-&gt;</span> <span class="ident">Trap</span>,
+                    <span class="ident">FN</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="kw-2">*</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Trap</span>,
                 {
                     <span class="comment">// Get the pointer to this `wrap` function.</span>
                     <span class="kw">let</span> <span class="ident">self_pointer</span> <span class="op">=</span> <span class="ident">wrap</span>::<span class="op">&lt;</span>$( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">Trap</span>, <span class="ident">FN</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">vm</span>::<span class="ident">Func</span>;
@@ -1211,7 +1211,7 @@
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_ctx</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncCtx</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">vm_imported_functions</span>
                         .<span class="ident">iter</span>()
                         .<span class="ident">find_map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">imported_func</span>)<span class="op">|</span> {
-                            <span class="kw">if</span> <span class="ident">imported_func</span>.<span class="ident">func</span> <span class="op">==</span> <span class="ident">self_pointer</span> {
+                            <span class="kw">if</span> <span class="ident">imported_func</span>.<span class="ident">func</span> <span class="op">=</span><span class="op">=</span> <span class="ident">self_pointer</span> {
                                 <span class="prelude-val">Some</span>(<span class="ident">imported_func</span>.<span class="ident">func_ctx</span>)
                             } <span class="kw">else</span> {
                                 <span class="prelude-val">None</span>
@@ -1232,20 +1232,20 @@
                         <span class="comment">// function, a closure without a captured</span>
                         <span class="comment">// environment, or a closure with a captured</span>
                         <span class="comment">// environment.</span>
-                        <span class="prelude-val">Some</span>(<span class="ident">func_env</span>) <span class="op">=&gt;</span> <span class="kw">unsafe</span> {
+                        <span class="prelude-val">Some</span>(<span class="ident">func_env</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> {
                             <span class="kw">let</span> <span class="ident">func</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">FN</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">func_env</span>.<span class="ident">cast</span>();
 
                             <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">func</span>.<span class="ident">as_ptr</span>()
                         },
 
                         <span class="comment">// This branch is supposed to be unreachable.</span>
-                        <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>()
+                        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>()
                     };
 
                     <span class="comment">// Catch unwind in case of errors.</span>
                     <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">panic</span>::<span class="ident">catch_unwind</span>(
                         <span class="ident">panic</span>::<span class="ident">AssertUnwindSafe</span>(
-                            <span class="op">||</span> {
+                            <span class="op">|</span><span class="op">|</span> {
                                 <span class="ident">func</span>(<span class="ident">vmctx</span> $( , <span class="ident">WasmExternType</span>::<span class="ident">from_native</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>) )<span class="op">*</span> ).<span class="ident">report</span>()
                                 <span class="comment">//   ^^^^^ The imported function</span>
                                 <span class="comment">//         expects `vm::Ctx` as first</span>
@@ -1253,12 +1253,12 @@
                             }
                         )
                     ) {
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">returns</span>)) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="ident">returns</span>.<span class="ident">into_c_struct</span>(),
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) <span class="op">=&gt;</span> {
+                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">returns</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="ident">returns</span>.<span class="ident">into_c_struct</span>(),
+                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="kw">let</span> <span class="ident">b</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">into</span>();
                             <span class="ident">b</span> <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>
                         },
-                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=&gt;</span> <span class="ident">err</span>,
+                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">err</span>,
                     };
 
                     <span class="comment">// At this point, there is an error that needs to</span>
@@ -1270,10 +1270,10 @@
 
                 <span class="comment">// Extract the captured environment of the imported</span>
                 <span class="comment">// function if any.</span>
-                <span class="kw">let</span> <span class="ident">func_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;&gt;</span> <span class="op">=</span>
+                <span class="kw">let</span> <span class="ident">func_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span>
                     <span class="comment">// `FN` is a function pointer, or a closure</span>
                     <span class="comment">// _without_ a captured environment.</span>
-                    <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() <span class="op">==</span> <span class="number">0</span> {
+                    <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
                         <span class="ident">NonNull</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="self">self</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">FuncEnv</span>)
                     }
                     <span class="comment">// `FN` is a closure _with_ a captured</span>
@@ -1294,10 +1294,10 @@
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span>, )<span class="op">*</span>
             <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
             <span class="ident">Trap</span>: <span class="ident">TrapEarly</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span>,
-            <span class="ident">FN</span>: <span class="ident">Fn</span>($( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="kw-2">*</span>) <span class="op">-&gt;</span> <span class="ident">Trap</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Send</span>,
+            <span class="ident">FN</span>: <span class="ident">Fn</span>($( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="kw-2">*</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Trap</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Send</span>,
         {
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-            <span class="kw">fn</span> <span class="ident">to_raw</span>(<span class="self">self</span>) <span class="op">-&gt;</span> (<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;&gt;</span>) {
+            <span class="kw">fn</span> <span class="ident">to_raw</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
                 <span class="comment">// The `wrap` function is a wrapper around the</span>
                 <span class="comment">// imported function. It manages the argument passed</span>
                 <span class="comment">// to the imported function (in this case, only the</span>
@@ -1309,12 +1309,12 @@
                 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">nightly</span>, <span class="ident">unwind</span>(<span class="ident">allowed</span>))]</span>
                 <span class="kw">extern</span> <span class="kw">fn</span> <span class="ident">wrap</span><span class="op">&lt;</span>$( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">Trap</span>, <span class="ident">FN</span><span class="op">&gt;</span>(
                     <span class="ident">vmctx</span>: <span class="kw-2">&amp;</span><span class="ident">vm</span>::<span class="ident">Ctx</span> $( , <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> <span class="kw">as</span> <span class="ident">WasmExternType</span><span class="op">&gt;</span>::<span class="ident">Native</span> )<span class="op">*</span>
-                ) <span class="op">-&gt;</span> <span class="ident">Rets</span>::<span class="ident">CStruct</span>
+                ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Rets</span>::<span class="ident">CStruct</span>
                 <span class="kw">where</span>
                     $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span>, )<span class="op">*</span>
                     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
                     <span class="ident">Trap</span>: <span class="ident">TrapEarly</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span>,
-                    <span class="ident">FN</span>: <span class="ident">Fn</span>($( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="kw-2">*</span>) <span class="op">-&gt;</span> <span class="ident">Trap</span>,
+                    <span class="ident">FN</span>: <span class="ident">Fn</span>($( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="kw-2">*</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Trap</span>,
                 {
                     <span class="comment">// Get the pointer to this `wrap` function.</span>
                     <span class="kw">let</span> <span class="ident">self_pointer</span> <span class="op">=</span> <span class="ident">wrap</span>::<span class="op">&lt;</span>$( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">Trap</span>, <span class="ident">FN</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">vm</span>::<span class="ident">Func</span>;
@@ -1326,7 +1326,7 @@
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_ctx</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncCtx</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">vm_imported_functions</span>
                         .<span class="ident">iter</span>()
                         .<span class="ident">find_map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">imported_func</span>)<span class="op">|</span> {
-                            <span class="kw">if</span> <span class="ident">imported_func</span>.<span class="ident">func</span> <span class="op">==</span> <span class="ident">self_pointer</span> {
+                            <span class="kw">if</span> <span class="ident">imported_func</span>.<span class="ident">func</span> <span class="op">=</span><span class="op">=</span> <span class="ident">self_pointer</span> {
                                 <span class="prelude-val">Some</span>(<span class="ident">imported_func</span>.<span class="ident">func_ctx</span>)
                             } <span class="kw">else</span> {
                                 <span class="prelude-val">None</span>
@@ -1347,30 +1347,30 @@
                         <span class="comment">// function, a closure without a captured</span>
                         <span class="comment">// environment, or a closure with a captured</span>
                         <span class="comment">// environment.</span>
-                        <span class="prelude-val">Some</span>(<span class="ident">func_env</span>) <span class="op">=&gt;</span> <span class="kw">unsafe</span> {
+                        <span class="prelude-val">Some</span>(<span class="ident">func_env</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> {
                             <span class="kw">let</span> <span class="ident">func</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">FN</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">func_env</span>.<span class="ident">cast</span>();
 
                             <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">func</span>.<span class="ident">as_ptr</span>()
                         },
 
                         <span class="comment">// This branch is supposed to be unreachable.</span>
-                        <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>()
+                        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>()
                     };
 
                     <span class="comment">// Catch unwind in case of errors.</span>
                     <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">panic</span>::<span class="ident">catch_unwind</span>(
                         <span class="ident">panic</span>::<span class="ident">AssertUnwindSafe</span>(
-                            <span class="op">||</span> {
+                            <span class="op">|</span><span class="op">|</span> {
                                 <span class="ident">func</span>($( <span class="ident">WasmExternType</span>::<span class="ident">from_native</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>), )<span class="op">*</span> ).<span class="ident">report</span>()
                             }
                         )
                     ) {
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">returns</span>)) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="ident">returns</span>.<span class="ident">into_c_struct</span>(),
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) <span class="op">=&gt;</span> {
+                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">returns</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="ident">returns</span>.<span class="ident">into_c_struct</span>(),
+                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="kw">let</span> <span class="ident">b</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">into</span>();
                             <span class="ident">b</span> <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>
                         },
-                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=&gt;</span> <span class="ident">err</span>,
+                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">err</span>,
                     };
 
                     <span class="comment">// At this point, there is an error that needs to</span>
@@ -1382,10 +1382,10 @@
 
                 <span class="comment">// Extract the captured environment of the imported</span>
                 <span class="comment">// function if any.</span>
-                <span class="kw">let</span> <span class="ident">func_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;&gt;</span> <span class="op">=</span>
+                <span class="kw">let</span> <span class="ident">func_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">FuncEnv</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span>
                     <span class="comment">// `FN` is a function pointer, or a closure</span>
                     <span class="comment">// _without_ a captured environment.</span>
-                    <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() <span class="op">==</span> <span class="number">0</span> {
+                    <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
                         <span class="ident">NonNull</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="self">self</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">FuncEnv</span>)
                     }
                     <span class="comment">// `FN` is a closure _with_ a captured</span>
@@ -1408,7 +1408,7 @@
         {
             <span class="doccomment">/// Call the typed func and return results.</span>
             <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>, <span class="ident">clippy</span>::<span class="ident">too_many_arguments</span>)]</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> ) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Rets</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
                 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
                 <span class="kw">unsafe</span> {
                     <span class="op">&lt;</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ) <span class="kw">as</span> <span class="ident">WasmTypeList</span><span class="op">&gt;</span>::<span class="ident">call</span>(
@@ -1424,7 +1424,7 @@
 }
 
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">count_idents</span> {
-    ( $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">idents</span>:<span class="ident">ident</span>),<span class="op">*</span> ) <span class="op">=&gt;</span> {{
+    ( $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">idents</span>:<span class="ident">ident</span>),<span class="op">*</span> ) <span class="op">=</span><span class="op">&gt;</span> {{
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">non_camel_case_types</span>)]</span>
         <span class="kw">enum</span> <span class="ident">Idents</span> { $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">idents</span>,)<span class="op">*</span> <span class="ident">__CountIdentsLast</span> }
         <span class="kw">const</span> <span class="ident">COUNT</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">Idents</span>::<span class="ident">__CountIdentsLast</span> <span class="kw">as</span> <span class="ident">usize</span>;
@@ -1466,11 +1466,11 @@
     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
     <span class="ident">Inner</span>: <span class="ident">Kind</span>,
 {
-    <span class="kw">fn</span> <span class="ident">to_export</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">Export</span> {
+    <span class="kw">fn</span> <span class="ident">to_export</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Export</span> {
         <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">FuncPointer</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">func</span>.<span class="ident">as_ptr</span>()) };
         <span class="kw">let</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">func_env</span> {
-            <span class="ident">func_env</span> @ <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">Context</span>::<span class="ident">ExternalWithEnv</span>(<span class="self">self</span>.<span class="ident">vmctx</span>, <span class="ident">func_env</span>),
-            <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="ident">Context</span>::<span class="ident">Internal</span>,
+            <span class="ident">func_env</span> @ <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Context</span>::<span class="ident">ExternalWithEnv</span>(<span class="self">self</span>.<span class="ident">vmctx</span>, <span class="ident">func_env</span>),
+            <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Context</span>::<span class="ident">Internal</span>,
         };
         <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">FuncSig</span>::<span class="ident">new</span>(<span class="ident">Args</span>::<span class="ident">types</span>(), <span class="ident">Rets</span>::<span class="ident">types</span>()));
 
@@ -1484,7 +1484,7 @@
 
 <span class="doccomment">/// Function that always fails. It can be used as a placeholder when a</span>
 <span class="doccomment">/// host function is missing for instance.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">always_trap</span>() <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">always_trap</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span> {
     <span class="prelude-val">Err</span>(<span class="string">&quot;not implemented&quot;</span>)
 }
 
@@ -1493,25 +1493,25 @@
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
     <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">test_func_arity_n</span> {
-        (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">test_name</span>:<span class="ident">ident</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">ident</span>),<span class="kw-2">*</span>) <span class="op">=&gt;</span> {
+        (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">test_name</span>:<span class="ident">ident</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">ident</span>),<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> {
             <span class="attribute">#[<span class="ident">test</span>]</span>
             <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">test_name</span>() {
                 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vm</span>;
 
-                <span class="kw">fn</span> <span class="ident">with_vmctx</span>(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">i32</span>),<span class="kw-2">*</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+                <span class="kw">fn</span> <span class="ident">with_vmctx</span>(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">i32</span>),<span class="kw-2">*</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
                     <span class="macro">vec</span><span class="macro">!</span>[$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>),<span class="kw-2">*</span>].<span class="ident">iter</span>().<span class="ident">sum</span>()
                 }
 
-                <span class="kw">fn</span> <span class="ident">without_vmctx</span>($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">i32</span>),<span class="kw-2">*</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+                <span class="kw">fn</span> <span class="ident">without_vmctx</span>($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">i32</span>),<span class="kw-2">*</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
                     <span class="macro">vec</span><span class="macro">!</span>[$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>),<span class="kw-2">*</span>].<span class="ident">iter</span>().<span class="ident">sum</span>()
                 }
 
                 <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="ident">with_vmctx</span>);
                 <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="ident">without_vmctx</span>);
-                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="op">|</span><span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">i32</span>),<span class="kw-2">*</span><span class="op">|</span> <span class="op">-&gt;</span> <span class="ident">i32</span> {
+                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="op">|</span><span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">i32</span>),<span class="kw-2">*</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
                     <span class="macro">vec</span><span class="macro">!</span>[$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>),<span class="kw-2">*</span>].<span class="ident">iter</span>().<span class="ident">sum</span>()
                 });
-                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="op">|</span>$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">i32</span>),<span class="kw-2">*</span><span class="op">|</span> <span class="op">-&gt;</span> <span class="ident">i32</span> {
+                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="op">|</span>$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">i32</span>),<span class="kw-2">*</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
                     <span class="macro">vec</span><span class="macro">!</span>[$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>),<span class="kw-2">*</span>].<span class="ident">iter</span>().<span class="ident">sum</span>()
                 });
             }
@@ -1520,18 +1520,18 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_func_arity_0</span>() {
-        <span class="kw">fn</span> <span class="ident">foo</span>(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+        <span class="kw">fn</span> <span class="ident">foo</span>(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
             <span class="number">0</span>
         }
 
-        <span class="kw">fn</span> <span class="ident">bar</span>() <span class="op">-&gt;</span> <span class="ident">i32</span> {
+        <span class="kw">fn</span> <span class="ident">bar</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
             <span class="number">0</span>
         }
 
         <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="ident">foo</span>);
         <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="ident">bar</span>);
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="op">|</span><span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span><span class="op">|</span> <span class="op">-&gt;</span> <span class="ident">i32</span> { <span class="number">0</span> });
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="op">||</span> <span class="op">-&gt;</span> <span class="ident">i32</span> { <span class="number">0</span> });
+        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="op">|</span><span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> { <span class="number">0</span> });
+        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Func</span>::<span class="ident">new</span>(<span class="op">|</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> { <span class="number">0</span> });
     }
 
     <span class="macro">test_func_arity_n</span><span class="macro">!</span>(<span class="ident">test_func_arity_1</span>, <span class="ident">a</span>);
@@ -1563,7 +1563,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_call</span>() {
-        <span class="kw">fn</span> <span class="ident">foo</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>, <span class="ident">a</span>: <span class="ident">i32</span>, <span class="ident">b</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> (<span class="ident">i32</span>, <span class="ident">i32</span>) {
+        <span class="kw">fn</span> <span class="ident">foo</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>, <span class="ident">a</span>: <span class="ident">i32</span>, <span class="ident">b</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">i32</span>, <span class="ident">i32</span>) {
             (<span class="ident">a</span>, <span class="ident">b</span>)
         }
 
@@ -1574,16 +1574,16 @@
     <span class="kw">fn</span> <span class="ident">test_imports</span>() {
         <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">func</span>, <span class="ident">imports</span>};
 
-        <span class="kw">fn</span> <span class="ident">foo</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>, <span class="ident">a</span>: <span class="ident">i32</span>) <span class="op">-&gt;</span> <span class="ident">i32</span> {
+        <span class="kw">fn</span> <span class="ident">foo</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>, <span class="ident">a</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
             <span class="ident">a</span>
         }
 
         <span class="kw">let</span> <span class="ident">_import_object</span> <span class="op">=</span> <span class="macro">imports</span><span class="macro">!</span> {
-            <span class="string">&quot;env&quot;</span> <span class="op">=&gt;</span> {
-                <span class="string">&quot;foo&quot;</span> <span class="op">=&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">foo</span>),
+            <span class="string">&quot;env&quot;</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="string">&quot;foo&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">func</span><span class="macro">!</span>(<span class="ident">foo</span>),
             },
         };
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../";window.currentCrate = "wasmer_runtime_core";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_runtime_core";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

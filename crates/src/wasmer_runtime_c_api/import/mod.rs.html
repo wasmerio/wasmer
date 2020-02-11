@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-c-api/src/import/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_runtime_c_api/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/runtime-c-api/src/import/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_runtime_c_api/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -898,7 +898,7 @@
 <span class="doccomment">/// See also `wasmer_import_object_append`</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_object_new</span>() <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_object_t</span> {
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_object_new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_object_t</span> {
     <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">ImportObject</span>::<span class="ident">new</span>());
 
     <span class="ident">Box</span>::<span class="ident">into_raw</span>(<span class="ident">import_object</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_object_t</span>
@@ -930,7 +930,7 @@
     <span class="ident">import</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_t</span>,
     <span class="ident">import_export_value</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_export_value</span>,
     <span class="ident">tag</span>: <span class="ident">u32</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_result_t</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_result_t</span> {
     <span class="kw">let</span> <span class="ident">tag</span>: <span class="ident">wasmer_import_export_kind</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">t</span>) <span class="op">=</span> <span class="ident">TryFrom</span>::<span class="ident">try_from</span>(<span class="ident">tag</span>) {
         <span class="ident">t</span>
     } <span class="kw">else</span> {
@@ -956,7 +956,7 @@
         });
         <span class="kw">return</span> <span class="ident">wasmer_result_t</span>::<span class="ident">WASMER_ERROR</span>;
     };
-    <span class="kw">if</span> <span class="ident">import</span>.<span class="ident">is_null</span>() <span class="op">||</span> <span class="ident">import_export_value</span>.<span class="ident">is_null</span>() {
+    <span class="kw">if</span> <span class="ident">import</span>.<span class="ident">is_null</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">import_export_value</span>.<span class="ident">is_null</span>() {
         <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> {
             <span class="ident">msg</span>: <span class="string">&quot;pointers to import and import_export_value must not be null&quot;</span>.<span class="ident">to_string</span>(),
         });
@@ -968,8 +968,8 @@
         <span class="ident">import_object</span>.<span class="ident">maybe_with_namespace</span>(<span class="ident">namespace_str</span>, <span class="op">|</span><span class="ident">ns</span><span class="op">|</span> <span class="ident">ns</span>.<span class="ident">get_export</span>(<span class="ident">name_str</span>))
     {
         <span class="kw">match</span> <span class="ident">export</span> {
-            <span class="ident">Export</span>::<span class="ident">Function</span> { .. } <span class="op">=&gt;</span> {
-                <span class="kw">if</span> <span class="ident">tag</span> <span class="op">!=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_FUNCTION</span> {
+            <span class="ident">Export</span>::<span class="ident">Function</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">if</span> <span class="ident">tag</span> <span class="op">!</span><span class="op">=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_FUNCTION</span> {
                     <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> {
                         <span class="ident">msg</span>: <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Found function, expected {}&quot;</span>, <span class="ident">tag</span>.<span class="ident">to_str</span>()),
                     });
@@ -979,8 +979,8 @@
                 <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">import_export_value_out</span>.<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">Export</span>;
                 <span class="kw-2">*</span><span class="ident">writer</span> <span class="op">=</span> <span class="ident">export</span>.<span class="ident">clone</span>();
             }
-            <span class="ident">Export</span>::<span class="ident">Memory</span>(<span class="ident">memory</span>) <span class="op">=&gt;</span> {
-                <span class="kw">if</span> <span class="ident">tag</span> <span class="op">!=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_MEMORY</span> {
+            <span class="ident">Export</span>::<span class="ident">Memory</span>(<span class="ident">memory</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">if</span> <span class="ident">tag</span> <span class="op">!</span><span class="op">=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_MEMORY</span> {
                     <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> {
                         <span class="ident">msg</span>: <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Found memory, expected {}&quot;</span>, <span class="ident">tag</span>.<span class="ident">to_str</span>()),
                     });
@@ -990,8 +990,8 @@
                 <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">import_export_value_out</span>.<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">Memory</span>;
                 <span class="kw-2">*</span><span class="ident">writer</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">clone</span>();
             }
-            <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="ident">table</span>) <span class="op">=&gt;</span> {
-                <span class="kw">if</span> <span class="ident">tag</span> <span class="op">!=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_TABLE</span> {
+            <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="ident">table</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">if</span> <span class="ident">tag</span> <span class="op">!</span><span class="op">=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_TABLE</span> {
                     <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> {
                         <span class="ident">msg</span>: <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Found table, expected {}&quot;</span>, <span class="ident">tag</span>.<span class="ident">to_str</span>()),
                     });
@@ -1001,8 +1001,8 @@
                 <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">import_export_value_out</span>.<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">Table</span>;
                 <span class="kw-2">*</span><span class="ident">writer</span> <span class="op">=</span> <span class="ident">table</span>.<span class="ident">clone</span>();
             }
-            <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">global</span>) <span class="op">=&gt;</span> {
-                <span class="kw">if</span> <span class="ident">tag</span> <span class="op">!=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_GLOBAL</span> {
+            <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">global</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">if</span> <span class="ident">tag</span> <span class="op">!</span><span class="op">=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_GLOBAL</span> {
                     <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> {
                         <span class="ident">msg</span>: <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Found global, expected {}&quot;</span>, <span class="ident">tag</span>.<span class="ident">to_str</span>()),
                     });
@@ -1030,7 +1030,7 @@
 <span class="doccomment">/// private wrapper data type used for casting</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">struct</span> <span class="ident">WasmerImportObjectIterator</span>(
-    <span class="ident">std</span>::<span class="ident">iter</span>::<span class="ident">Peekable</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">ImportObjectIterator</span> <span class="kw">as</span> <span class="ident">Iterator</span><span class="op">&gt;</span>::<span class="ident">Item</span><span class="op">&gt;&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">std</span>::<span class="ident">iter</span>::<span class="ident">Peekable</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">ImportObjectIterator</span> <span class="kw">as</span> <span class="ident">Iterator</span><span class="op">&gt;</span>::<span class="ident">Item</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 );
 
 <span class="doccomment">/// Create an iterator over the functions in the import object.</span>
@@ -1039,7 +1039,7 @@
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_object_iterate_functions</span>(
     <span class="ident">import_object</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">wasmer_import_object_t</span>,
-) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_object_iter_t</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_object_iter_t</span> {
     <span class="kw">if</span> <span class="ident">import_object</span>.<span class="ident">is_null</span>() {
         <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> {
             <span class="ident">msg</span>: <span class="string">&quot;import_object must not be null&quot;</span>.<span class="ident">to_owned</span>(),
@@ -1053,7 +1053,7 @@
         } <span class="kw">else</span> {
             <span class="bool-val">false</span>
         }
-    })) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">ImportObjectIterator</span> <span class="kw">as</span> <span class="ident">Iterator</span><span class="op">&gt;</span>::<span class="ident">Item</span><span class="op">&gt;&gt;</span>;
+    })) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">ImportObjectIterator</span> <span class="kw">as</span> <span class="ident">Iterator</span><span class="op">&gt;</span>::<span class="ident">Item</span><span class="op">&gt;</span><span class="op">&gt;</span>;
     <span class="kw">let</span> <span class="ident">iterator</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">WasmerImportObjectIterator</span>(<span class="ident">iter_inner</span>.<span class="ident">peekable</span>()));
 
     <span class="ident">Box</span>::<span class="ident">into_raw</span>(<span class="ident">iterator</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_object_iter_t</span>
@@ -1068,8 +1068,8 @@
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_object_iter_next</span>(
     <span class="ident">import_object_iter</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_object_iter_t</span>,
     <span class="ident">import</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_t</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_result_t</span> {
-    <span class="kw">if</span> <span class="ident">import_object_iter</span>.<span class="ident">is_null</span>() <span class="op">||</span> <span class="ident">import</span>.<span class="ident">is_null</span>() {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_result_t</span> {
+    <span class="kw">if</span> <span class="ident">import_object_iter</span>.<span class="ident">is_null</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">import</span>.<span class="ident">is_null</span>() {
         <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> {
             <span class="ident">msg</span>: <span class="string">&quot;import_object_iter and import must not be null&quot;</span>.<span class="ident">to_owned</span>(),
         });
@@ -1108,7 +1108,7 @@
         <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">forget</span>(<span class="ident">name</span>);
 
         <span class="kw">match</span> <span class="ident">export</span> {
-            <span class="ident">Export</span>::<span class="ident">Function</span> { .. } <span class="op">=&gt;</span> {
+            <span class="ident">Export</span>::<span class="ident">Function</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">export</span>.<span class="ident">clone</span>());
 
                 <span class="ident">out</span>.<span class="ident">tag</span> <span class="op">=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_FUNCTION</span>;
@@ -1116,7 +1116,7 @@
                     <span class="ident">func</span>: <span class="ident">Box</span>::<span class="ident">into_raw</span>(<span class="ident">func</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>,
                 };
             }
-            <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">global</span>) <span class="op">=&gt;</span> {
+            <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">global</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">glbl</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">global</span>.<span class="ident">clone</span>());
 
                 <span class="ident">out</span>.<span class="ident">tag</span> <span class="op">=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_GLOBAL</span>;
@@ -1124,7 +1124,7 @@
                     <span class="ident">global</span>: <span class="ident">Box</span>::<span class="ident">into_raw</span>(<span class="ident">glbl</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>,
                 };
             }
-            <span class="ident">Export</span>::<span class="ident">Memory</span>(<span class="ident">memory</span>) <span class="op">=&gt;</span> {
+            <span class="ident">Export</span>::<span class="ident">Memory</span>(<span class="ident">memory</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">memory</span>.<span class="ident">clone</span>());
 
                 <span class="ident">out</span>.<span class="ident">tag</span> <span class="op">=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_MEMORY</span>;
@@ -1132,7 +1132,7 @@
                     <span class="ident">memory</span>: <span class="ident">Box</span>::<span class="ident">into_raw</span>(<span class="ident">mem</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>,
                 };
             }
-            <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="ident">table</span>) <span class="op">=&gt;</span> {
+            <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="ident">table</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">tbl</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">table</span>.<span class="ident">clone</span>());
 
                 <span class="ident">out</span>.<span class="ident">tag</span> <span class="op">=</span> <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_TABLE</span>;
@@ -1153,7 +1153,7 @@
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_object_iter_at_end</span>(
     <span class="ident">import_object_iter</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_object_iter_t</span>,
-) <span class="op">-&gt;</span> <span class="ident">bool</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
     <span class="kw">if</span> <span class="ident">import_object_iter</span>.<span class="ident">is_null</span>() {
         <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> {
             <span class="ident">msg</span>: <span class="string">&quot;import_object_iter must not be null&quot;</span>.<span class="ident">to_owned</span>(),
@@ -1200,16 +1200,16 @@
             <span class="ident">import</span>.<span class="ident">import_name</span>.<span class="ident">bytes_len</span> <span class="kw">as</span> <span class="ident">usize</span>,
         );
         <span class="kw">match</span> <span class="ident">import</span>.<span class="ident">tag</span> {
-            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_FUNCTION</span> <span class="op">=&gt;</span> {
+            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_FUNCTION</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="kw">_</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Export</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">from_raw</span>(<span class="ident">import</span>.<span class="ident">value</span>.<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span>);
             }
-            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_GLOBAL</span> <span class="op">=&gt;</span> {
+            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_GLOBAL</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="kw">_</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Global</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">from_raw</span>(<span class="ident">import</span>.<span class="ident">value</span>.<span class="ident">global</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span>);
             }
-            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_MEMORY</span> <span class="op">=&gt;</span> {
+            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_MEMORY</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="kw">_</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Memory</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">from_raw</span>(<span class="ident">import</span>.<span class="ident">value</span>.<span class="ident">memory</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span>);
             }
-            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_TABLE</span> <span class="op">=&gt;</span> {
+            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_TABLE</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="kw">_</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Table</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">from_raw</span>(<span class="ident">import</span>.<span class="ident">value</span>.<span class="ident">table</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span>);
             }
         }
@@ -1223,7 +1223,7 @@
     <span class="ident">import_object</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_object_t</span>,
     <span class="ident">imports</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">wasmer_import_t</span>,
     <span class="ident">imports_len</span>: <span class="ident">c_uint</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_result_t</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_result_t</span> {
     <span class="kw">let</span> <span class="ident">import_object</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ImportObject</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span>(<span class="ident">import_object</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ImportObject</span>);
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">extensions</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>, <span class="ident">Export</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
@@ -1256,19 +1256,19 @@
         };
 
         <span class="kw">let</span> <span class="ident">export</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">import</span>.<span class="ident">tag</span> {
-            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_MEMORY</span> <span class="op">=&gt;</span> {
+            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_MEMORY</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="ident">import</span>.<span class="ident">value</span>.<span class="ident">memory</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">Memory</span>;
                 <span class="ident">Export</span>::<span class="ident">Memory</span>((<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">mem</span>).<span class="ident">clone</span>())
             }
-            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_FUNCTION</span> <span class="op">=&gt;</span> {
+            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_FUNCTION</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">func_export</span> <span class="op">=</span> <span class="ident">import</span>.<span class="ident">value</span>.<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">Export</span>;
                 (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">func_export</span>).<span class="ident">clone</span>()
             }
-            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_GLOBAL</span> <span class="op">=&gt;</span> {
+            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_GLOBAL</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">global</span> <span class="op">=</span> <span class="ident">import</span>.<span class="ident">value</span>.<span class="ident">global</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">Global</span>;
                 <span class="ident">Export</span>::<span class="ident">Global</span>((<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">global</span>).<span class="ident">clone</span>())
             }
-            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_TABLE</span> <span class="op">=&gt;</span> {
+            <span class="ident">wasmer_import_export_kind</span>::<span class="ident">WASM_TABLE</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">import</span>.<span class="ident">value</span>.<span class="ident">table</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">Table</span>;
                 <span class="ident">Export</span>::<span class="ident">Table</span>((<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">table</span>).<span class="ident">clone</span>())
             }
@@ -1403,7 +1403,7 @@
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_descriptors_len</span>(
     <span class="ident">exports</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_descriptors_t</span>,
-) <span class="op">-&gt;</span> <span class="ident">c_uint</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_uint</span> {
     <span class="kw">if</span> <span class="ident">exports</span>.<span class="ident">is_null</span>() {
         <span class="kw">return</span> <span class="number">0</span>;
     }
@@ -1416,7 +1416,7 @@
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_descriptors_get</span>(
     <span class="ident">import_descriptors</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_descriptors_t</span>,
     <span class="ident">idx</span>: <span class="ident">c_uint</span>,
-) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_descriptor_t</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_descriptor_t</span> {
     <span class="kw">if</span> <span class="ident">import_descriptors</span>.<span class="ident">is_null</span>() {
         <span class="kw">return</span> <span class="ident">ptr</span>::<span class="ident">null_mut</span>();
     }
@@ -1430,7 +1430,7 @@
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_descriptor_name</span>(
     <span class="ident">import_descriptor</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_descriptor_t</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_byte_array</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_byte_array</span> {
     <span class="kw">let</span> <span class="ident">named_import_descriptor</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">import_descriptor</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">NamedImportDescriptor</span>);
     <span class="ident">wasmer_byte_array</span> {
         <span class="ident">bytes</span>: <span class="ident">named_import_descriptor</span>.<span class="ident">name</span>.<span class="ident">as_ptr</span>(),
@@ -1443,7 +1443,7 @@
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_descriptor_module_name</span>(
     <span class="ident">import_descriptor</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_descriptor_t</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_byte_array</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_byte_array</span> {
     <span class="kw">let</span> <span class="ident">named_import_descriptor</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">import_descriptor</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">NamedImportDescriptor</span>);
     <span class="ident">wasmer_byte_array</span> {
         <span class="ident">bytes</span>: <span class="ident">named_import_descriptor</span>.<span class="ident">module</span>.<span class="ident">as_ptr</span>(),
@@ -1456,7 +1456,7 @@
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_descriptor_kind</span>(
     <span class="ident">export</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_descriptor_t</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_import_export_kind</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_import_export_kind</span> {
     <span class="kw">let</span> <span class="ident">named_import_descriptor</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">export</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">NamedImportDescriptor</span>);
     <span class="ident">named_import_descriptor</span>.<span class="ident">kind</span>.<span class="ident">clone</span>()
 }
@@ -1472,7 +1472,7 @@
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_func_params_arity</span>(
     <span class="ident">func</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">wasmer_import_func_t</span>,
     <span class="ident">result</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u32</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_result_t</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_result_t</span> {
     <span class="kw">let</span> <span class="ident">export</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Export</span>);
     <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Export</span>::<span class="ident">Function</span> { <span class="kw-2">ref</span> <span class="ident">signature</span>, .. } <span class="op">=</span> <span class="kw-2">*</span><span class="ident">export</span> {
         <span class="kw-2">*</span><span class="ident">result</span> <span class="op">=</span> <span class="ident">signature</span>.<span class="ident">params</span>().<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -1510,7 +1510,7 @@
     <span class="ident">params_len</span>: <span class="ident">c_uint</span>,
     <span class="ident">returns</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">wasmer_value_tag</span>,
     <span class="ident">returns_len</span>: <span class="ident">c_uint</span>,
-) <span class="op">-&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_func_t</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_import_func_t</span> {
     <span class="kw">let</span> <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">wasmer_value_tag</span>] <span class="op">=</span> <span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(<span class="ident">params</span>, <span class="ident">params_len</span> <span class="kw">as</span> <span class="ident">usize</span>);
     <span class="kw">let</span> <span class="ident">params</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">params</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">into</span>()).<span class="ident">collect</span>();
     <span class="kw">let</span> <span class="ident">returns</span>: <span class="kw-2">&amp;</span>[<span class="ident">wasmer_value_tag</span>] <span class="op">=</span> <span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(<span class="ident">returns</span>, <span class="ident">returns_len</span> <span class="kw">as</span> <span class="ident">usize</span>);
@@ -1543,7 +1543,7 @@
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_trap</span>(
     <span class="ident">ctx</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">wasmer_instance_context_t</span>,
     <span class="ident">error_message</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_result_t</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_result_t</span> {
     <span class="kw">if</span> <span class="ident">ctx</span>.<span class="ident">is_null</span>() {
         <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> {
             <span class="ident">msg</span>: <span class="string">&quot;ctx ptr is null in wasmer_trap&quot;</span>.<span class="ident">to_string</span>(),
@@ -1589,7 +1589,7 @@
     <span class="ident">func</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">wasmer_import_func_t</span>,
     <span class="ident">params</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_value_tag</span>,
     <span class="ident">params_len</span>: <span class="ident">c_uint</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_result_t</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_result_t</span> {
     <span class="kw">let</span> <span class="ident">export</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Export</span>);
     <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Export</span>::<span class="ident">Function</span> { <span class="kw-2">ref</span> <span class="ident">signature</span>, .. } <span class="op">=</span> <span class="kw-2">*</span><span class="ident">export</span> {
         <span class="kw">let</span> <span class="ident">params</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">wasmer_value_tag</span>] <span class="op">=</span>
@@ -1618,7 +1618,7 @@
     <span class="ident">func</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">wasmer_import_func_t</span>,
     <span class="ident">returns</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_value_tag</span>,
     <span class="ident">returns_len</span>: <span class="ident">c_uint</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_result_t</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_result_t</span> {
     <span class="kw">let</span> <span class="ident">export</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Export</span>);
     <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Export</span>::<span class="ident">Function</span> { <span class="kw-2">ref</span> <span class="ident">signature</span>, .. } <span class="op">=</span> <span class="kw-2">*</span><span class="ident">export</span> {
         <span class="kw">let</span> <span class="ident">returns</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">wasmer_value_tag</span>] <span class="op">=</span>
@@ -1646,7 +1646,7 @@
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_import_func_returns_arity</span>(
     <span class="ident">func</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">wasmer_import_func_t</span>,
     <span class="ident">result</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u32</span>,
-) <span class="op">-&gt;</span> <span class="ident">wasmer_result_t</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasmer_result_t</span> {
     <span class="kw">let</span> <span class="ident">export</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Export</span>);
     <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Export</span>::<span class="ident">Function</span> { <span class="kw-2">ref</span> <span class="ident">signature</span>, .. } <span class="op">=</span> <span class="kw-2">*</span><span class="ident">export</span> {
         <span class="kw-2">*</span><span class="ident">result</span> <span class="op">=</span> <span class="ident">signature</span>.<span class="ident">returns</span>().<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -1682,4 +1682,4 @@
     <span class="ident">kind</span>: <span class="ident">wasmer_import_export_kind</span>,
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../../../";window.currentCrate = "wasmer_runtime_c_api";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "wasmer_runtime_c_api";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
