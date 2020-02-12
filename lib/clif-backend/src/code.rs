@@ -688,7 +688,8 @@ impl FuncEnvironment for FunctionEnvironment {
                 colocated: false,
             });
 
-            pos.ins().symbol_value(ir::types::I64, sig_index_global)
+            let val = pos.ins().symbol_value(ir::types::I64, sig_index_global);
+            pos.ins().ireduce(ir::types::I32, val)
 
             // let dynamic_sigindices_array_ptr = pos.ins().load(
             //     ptr_type,
