@@ -4,7 +4,7 @@ use crate::{
     error::{update_last_error, CApiError},
     wasmer_limits_t, wasmer_result_t,
 };
-use std::{cell::Cell, ptr};
+use std::ptr;
 use wasmer_runtime::Memory;
 use wasmer_runtime_core::{
     types::MemoryDescriptor,
@@ -184,7 +184,7 @@ pub extern "C" fn wasmer_memory_data(memory: *const wasmer_memory_t) -> *mut u8 
 
     let memory = unsafe { &*(memory as *const Memory) };
 
-    memory.view::<u8>()[..].as_ptr() as *mut Cell<u8> as *mut u8
+    memory.view::<u8>()[..].as_mut_ptr() as *mut u8
 }
 
 /// Gets the size in bytes of the memory data.
