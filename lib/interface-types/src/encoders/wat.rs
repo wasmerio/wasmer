@@ -154,8 +154,8 @@ impl<'input> From<&Instruction<'input>> for String {
                 format!("seq.new {}", String::from(interface_type))
             }
             Instruction::ListPush => "list.push".into(),
-            Instruction::RepeatWhile(condition_index, step_index) => {
-                format!("repeat-while {} {}", condition_index, step_index)
+            Instruction::RepeatUntil(condition_index, step_index) => {
+                format!("repeat-until {} {}", condition_index, step_index)
             }
         }
     }
@@ -420,7 +420,7 @@ mod tests {
             (&Instruction::Load(InterfaceType::Int, "foo")).into(),
             (&Instruction::SeqNew(InterfaceType::Int)).into(),
             (&Instruction::ListPush).into(),
-            (&Instruction::RepeatWhile(1, 2)).into(),
+            (&Instruction::RepeatUntil(1, 2)).into(),
         ];
         let outputs = vec![
             "arg.get 7",
@@ -442,7 +442,7 @@ mod tests {
             r#"load Int "foo""#,
             "seq.new Int",
             "list.push",
-            "repeat-while 1 2",
+            "repeat-until 1 2",
         ];
 
         assert_eq!(inputs, outputs);

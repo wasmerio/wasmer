@@ -246,7 +246,7 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
         0x14 => {
             consume!((input, argument_0) = leb(input)?);
             consume!((input, argument_1) = leb(input)?);
-            (input, Instruction::RepeatWhile(argument_0, argument_1))
+            (input, Instruction::RepeatUntil(argument_0, argument_1))
         }
 
         _ => return Err(Err::Error(make_error(input, ErrorKind::ParseTo))),
@@ -643,7 +643,7 @@ mod tests {
             0x11, 0x7f, 0x03, 0x61, 0x62, 0x63, // Load(I32, "abc")
             0x12, 0x7f, // SeqNew(I32)
             0x13, // ListPush
-            0x14, 0x01, 0x02, // RepeatWhile(1, 2)
+            0x14, 0x01, 0x02, // RepeatUntil(1, 2)
             0x0a,
         ];
         let output = Ok((
@@ -670,7 +670,7 @@ mod tests {
                 Instruction::Load(InterfaceType::I32, "abc"),
                 Instruction::SeqNew(InterfaceType::I32),
                 Instruction::ListPush,
-                Instruction::RepeatWhile(1, 2),
+                Instruction::RepeatUntil(1, 2),
             ],
         ));
 
