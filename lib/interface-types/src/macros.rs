@@ -1,22 +1,5 @@
-#[allow(unused)]
-macro_rules! d {
-    ($expression:expr) => {
-        match $expression {
-            tmp => {
-                eprintln!(
-                    "[{}:{}] {} = {:?}",
-                    file!(),
-                    line!(),
-                    stringify!($expression),
-                    &tmp
-                );
-
-                tmp
-            }
-        }
-    };
-}
-
+/// This macro runs a parser, extracts the next input and the parser
+/// output, and positions the next input on `$input`.
 macro_rules! consume {
     (($input:ident, $parser_output:ident) = $parser_expression:expr) => {
         let (next_input, $parser_output) = $parser_expression;
@@ -24,6 +7,32 @@ macro_rules! consume {
     };
 }
 
+/// This macro creates an executable instruction for the interpreter.
+///
+/// # Example
+///
+/// The following example creates a `foo` executable instruction,
+/// which takes 2 arguments (`x` and `y`), and does something
+/// mysterious by using the `interpreter::Runtime` API.
+///
+/// ```rust,ignore
+/// executable_instruction!(
+///     foo(x: u64, y: u64, instruction_name: String) -> _ {
+/// //                                                   ^ output type is purposely blank
+/// //                      ^^^^^^^^^^^^^^^^ the instruction name, for debugging purposes
+/// //              ^ the `y` argument
+/// //      ^ the `x` argument
+///
+///     // an executable instruction is a closure that takes a `Runtime` instance
+///     move |runtime| -> _ {
+///         // Do something.
+///
+///         Ok(())
+///     }
+/// );
+/// ```
+///
+/// Check the existing executable instruction to get more examples.
 macro_rules! executable_instruction {
     ($name:ident ( $($argument_name:ident: $argument_type:ty),* ) -> _ $implementation:block ) => {
         use crate::interpreter::{ExecutableInstruction, wasm, stack::Stackable};
