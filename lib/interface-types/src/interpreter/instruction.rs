@@ -3,63 +3,63 @@ use crate::ast::InterfaceType;
 /// Represents all the possible WIT instructions.
 #[derive(PartialEq, Debug)]
 pub enum Instruction<'input> {
-    /// `arg.get`
+    /// The `arg.get` instruction.
     ArgumentGet { index: u64 },
 
-    /// `call`
+    /// The `call` instruction.
     Call { function_index: usize },
 
-    /// `call-export`
+    /// The `call-export` instruction.
     CallExport { export_name: &'input str },
 
-    /// `read-utf8`
+    /// The `read-utf8` instruction.
     ReadUtf8,
 
-    /// `write-utf8`
+    /// The `write-utf8` instruction.
     WriteUtf8 { allocator_name: &'input str },
 
-    /// `as-wasm`
+    /// The `as-wasm` instruction.
     AsWasm(InterfaceType),
 
-    /// `as-interface`
+    /// The `as-interface` instruction.
     AsInterface(InterfaceType),
 
-    /// `table-ref-add`
+    /// The `table-ref-add` instruction.
     TableRefAdd,
 
-    /// `table-ref-get`
+    /// The `table-ref-get` instruction.
     TableRefGet,
 
-    /// `call-method`
+    /// The `call-method` instruction.
     CallMethod(u64),
 
-    /// `make-record`
+    /// The `make-record` instruction.
     MakeRecord(InterfaceType),
 
-    /// `get-field`
+    /// The `get-field` instruction.
     GetField(InterfaceType, u64),
 
-    /// `const`
+    /// The `const` instruction.
     Const(InterfaceType, u64),
 
-    /// `fold-seq`
+    /// The `fold-seq` instruction.
     FoldSeq(u64),
 
-    /// `add`
+    /// The `add` instruction.
     Add(InterfaceType),
 
-    /// `mem-to-seq`
+    /// The `mem-to-seq` instruction.
     MemToSeq(InterfaceType, &'input str),
 
-    /// `load`
+    /// The `load` instruction.
     Load(InterfaceType, &'input str),
 
-    /// `seq.new`
+    /// The `seq.new` instruction.
     SeqNew(InterfaceType),
 
-    /// `list.push`
+    /// The `list.push` instruction.
     ListPush,
 
-    /// `repeat-until`
+    /// The `repeat-until` instruction.
     RepeatUntil(u64, u64),
 }
