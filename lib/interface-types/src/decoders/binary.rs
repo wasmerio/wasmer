@@ -400,10 +400,8 @@ fn adapters<'input, E: ParseError<&'input [u8]>>(
 
 /// Parse a list of forwarded exports.
 fn forwards<'input, E: ParseError<&'input [u8]>>(
-    input: &'input [u8],
+    mut input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Forward>, E> {
-    let mut input = input;
-
     consume!((input, number_of_forwards) = uleb(input)?);
 
     let mut forwards = Vec::with_capacity(number_of_forwards as usize);
