@@ -262,10 +262,8 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
 
 /// Parse a list of exports.
 fn exports<'input, E: ParseError<&'input [u8]>>(
-    input: &'input [u8],
+    mut input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Export>, E> {
-    let mut input = input;
-
     consume!((input, number_of_exports) = uleb(input)?);
 
     let mut exports = Vec::with_capacity(number_of_exports as usize);
@@ -287,10 +285,8 @@ fn exports<'input, E: ParseError<&'input [u8]>>(
 
 /// Parse a list of types.
 fn types<'input, E: ParseError<&'input [u8]>>(
-    input: &'input [u8],
+    mut input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Type>, E> {
-    let mut input = input;
-
     consume!((input, number_of_types) = uleb(input)?);
 
     let mut types = Vec::with_capacity(number_of_types as usize);
@@ -308,10 +304,8 @@ fn types<'input, E: ParseError<&'input [u8]>>(
 
 /// Parse a list of imports.
 fn imports<'input, E: ParseError<&'input [u8]>>(
-    input: &'input [u8],
+    mut input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Import>, E> {
-    let mut input = input;
-
     consume!((input, number_of_imports) = uleb(input)?);
 
     let mut imports = Vec::with_capacity(number_of_imports as usize);
@@ -335,10 +329,8 @@ fn imports<'input, E: ParseError<&'input [u8]>>(
 
 /// Parse a list of adapters.
 fn adapters<'input, E: ParseError<&'input [u8]>>(
-    input: &'input [u8],
+    mut input: &'input [u8],
 ) -> IResult<&'input [u8], Vec<Adapter>, E> {
-    let mut input = input;
-
     consume!((input, number_of_adapters) = uleb(input)?);
 
     let mut adapters = Vec::with_capacity(number_of_adapters as usize);
