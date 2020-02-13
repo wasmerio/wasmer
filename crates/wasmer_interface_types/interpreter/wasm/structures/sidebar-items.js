@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["EmptyMemoryView",""],["FunctionIndex",""],["ImportFunctionIndex",""],["LocalFunctionIndex",""]],"trait":[["Export",""],["Instance",""],["LocalImport",""],["LocalImportIndex",""],["Memory",""],["MemoryView",""],["TypedIndex",""]]});
