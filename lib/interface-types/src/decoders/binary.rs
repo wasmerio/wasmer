@@ -53,15 +53,18 @@ fn byte<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'i
 
 /// Parse an unsigned Little Endian Based (LEB) with value no larger
 /// than a 64-bits number. Read
-/// [LEB128](https://en.wikipedia.org/wiki/LEB128) to learn more.
-fn leb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'input [u8], u64, E> {
+/// [LEB128](https://en.wikipedia.org/wiki/LEB128) to learn more, or
+/// the Variable Length Data Section from the [DWARF 4
+/// standard](http://dwarfstd.org/doc/DWARF4.pdf).
+fn uleb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'input [u8], u64, E> {
     if input.is_empty() {
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
     }
 
-    let (output, bytes) = match input.iter().position(|&byte| byte & 0x80 == 0) {
-        Some(position) => (&input[position + 1..], &input[..=position]),
-        None => (&[] as &[u8], input),
+    let (output, bytes) = match dbg!(input.iter().position(|&byte| byte & 0x80 == 0)) {
+        Some(length) if length <= 8 => (&input[length + 1..], &input[..=length]),
+        Some(_) => return Err(Err::Error(make_error(input, ErrorKind::TooLarge))),
+        None => return Err(Err::Error(make_error(input, ErrorKind::Eof))),
     };
 
     Ok((
@@ -128,7 +131,7 @@ fn ty<'input, E: ParseError<&'input [u8]>>(
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
     }
 
-    let (output, ty) = leb(input)?;
+    let (output, ty) = uleb(input)?;
 
     match InterfaceType::try_from(ty) {
         Ok(ty) => Ok((output, ty)),
@@ -144,12 +147,12 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
 
     Ok(match opcode {
         0x00 => {
-            consume!((input, argument_0) = leb(input)?);
+            consume!((input, argument_0) = uleb(input)?);
             (input, Instruction::ArgumentGet { index: argument_0 })
         }
 
         0x01 => {
-            consume!((input, argument_0) = leb(input)?);
+            consume!((input, argument_0) = uleb(input)?);
             (
                 input,
                 Instruction::Call {
@@ -195,7 +198,7 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
         0x08 => (input, Instruction::TableRefGet),
 
         0x09 => {
-            consume!((input, argument_0) = leb(input)?);
+            consume!((input, argument_0) = uleb(input)?);
             (input, Instruction::CallMethod(argument_0))
         }
 
@@ -206,18 +209,18 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
 
         0x0c => {
             consume!((input, argument_0) = ty(input)?);
-            consume!((input, argument_1) = leb(input)?);
+            consume!((input, argument_1) = uleb(input)?);
             (input, Instruction::GetField(argument_0, argument_1))
         }
 
         0x0d => {
             consume!((input, argument_0) = ty(input)?);
-            consume!((input, argument_1) = leb(input)?);
+            consume!((input, argument_1) = uleb(input)?);
             (input, Instruction::Const(argument_0, argument_1))
         }
 
         0x0e => {
-            consume!((input, argument_0) = leb(input)?);
+            consume!((input, argument_0) = uleb(input)?);
             (input, Instruction::FoldSeq(argument_0))
         }
 
@@ -246,8 +249,8 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
         0x13 => (input, Instruction::ListPush),
 
         0x14 => {
-            consume!((input, argument_0) = leb(input)?);
-            consume!((input, argument_1) = leb(input)?);
+            consume!((input, argument_0) = uleb(input)?);
+            consume!((input, argument_1) = uleb(input)?);
             (input, Instruction::RepeatUntil(argument_0, argument_1))
         }
 
@@ -261,7 +264,7 @@ fn exports<'input, E: ParseError<&'input [u8]>>(
 ) -> IResult<&'input [u8], Vec<Export>, E> {
     let mut input = input;
 
-    consume!((input, number_of_exports) = leb(input)?);
+    consume!((input, number_of_exports) = uleb(input)?);
 
     let mut exports = Vec::with_capacity(number_of_exports as usize);
 
@@ -286,7 +289,7 @@ fn types<'input, E: ParseError<&'input [u8]>>(
 ) -> IResult<&'input [u8], Vec<Type>, E> {
     let mut input = input;
 
-    consume!((input, number_of_types) = leb(input)?);
+    consume!((input, number_of_types) = uleb(input)?);
 
     let mut types = Vec::with_capacity(number_of_types as usize);
 
@@ -307,7 +310,7 @@ fn imports<'input, E: ParseError<&'input [u8]>>(
 ) -> IResult<&'input [u8], Vec<Import>, E> {
     let mut input = input;
 
-    consume!((input, number_of_imports) = leb(input)?);
+    consume!((input, number_of_imports) = uleb(input)?);
 
     let mut imports = Vec::with_capacity(number_of_imports as usize);
 
@@ -334,7 +337,7 @@ fn adapters<'input, E: ParseError<&'input [u8]>>(
 ) -> IResult<&'input [u8], Vec<Adapter>, E> {
     let mut input = input;
 
-    consume!((input, number_of_adapters) = leb(input)?);
+    consume!((input, number_of_adapters) = uleb(input)?);
 
     let mut adapters = Vec::with_capacity(number_of_adapters as usize);
 
@@ -399,7 +402,7 @@ fn forwards<'input, E: ParseError<&'input [u8]>>(
 ) -> IResult<&'input [u8], Vec<Forward>, E> {
     let mut input = input;
 
-    consume!((input, number_of_forwards) = leb(input)?);
+    consume!((input, number_of_forwards) = uleb(input)?);
 
     let mut forwards = Vec::with_capacity(number_of_forwards as usize);
 
@@ -528,6 +531,7 @@ pub fn parse<'input, E: ParseError<&'input [u8]>>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nom::{error, Err};
 
     #[test]
     fn test_byte() {
@@ -538,19 +542,68 @@ mod tests {
     }
 
     #[test]
-    fn test_leb_1_byte() {
+    fn test_uleb_1_byte() {
         let input = &[0x01, 0x02, 0x03];
         let output = Ok((&[0x02, 0x03][..], 0x01u64));
 
-        assert_eq!(leb::<()>(input), output);
+        assert_eq!(uleb::<()>(input), output);
     }
 
     #[test]
-    fn test_leb_3_bytes() {
+    fn test_uleb_3_bytes() {
         let input = &[0xfc, 0xff, 0x01, 0x02];
         let output = Ok((&[0x02][..], 0x7ffcu64));
 
-        assert_eq!(leb::<()>(input), output);
+        assert_eq!(uleb::<()>(input), output);
+    }
+
+    // Examples from Figure 22 of [DWARF 4
+    // standard](http://dwarfstd.org/doc/DWARF4.pdf).
+    #[test]
+    fn test_uleb_from_dwarf_standard() {
+        macro_rules! assert_uleb {
+            ($to_parse:expr => $expected_result:expr) => {
+                assert_eq!(uleb::<()>($to_parse), Ok((&[][..], $expected_result)));
+            };
+        }
+
+        assert_uleb!(&[2u8] => 2u64);
+        assert_uleb!(&[127u8] => 127u64);
+        assert_uleb!(&[0x80, 1u8] => 128u64);
+        assert_uleb!(&[1u8 | 0x80, 1] => 129u64);
+        assert_uleb!(&[2u8 | 0x80, 1] => 130u64);
+        assert_uleb!(&[57u8 | 0x80, 100] => 12857u64);
+    }
+
+    #[test]
+    fn test_uleb_eof() {
+        let input = &[0x80];
+
+        assert_eq!(
+            uleb::<(&[u8], error::ErrorKind)>(input),
+            Err(Err::Error((&input[..], error::ErrorKind::Eof))),
+        );
+    }
+
+    #[test]
+    fn test_uleb_overflow() {
+        let input = &[
+            0x01 | 0x80,
+            0x02 | 0x80,
+            0x03 | 0x80,
+            0x04 | 0x80,
+            0x05 | 0x80,
+            0x06 | 0x80,
+            0x07 | 0x80,
+            0x08 | 0x80,
+            0x09 | 0x80,
+            0x0a,
+        ];
+
+        assert_eq!(
+            uleb::<(&[u8], error::ErrorKind)>(input),
+            Err(Err::Error((&input[..], error::ErrorKind::TooLarge))),
+        );
     }
 
     #[test]
