@@ -6,8 +6,8 @@ use crate::{
     backend::{CompilerConfig, RunnableModule},
     error::CompileError,
     module::{
-        DataInitializer, ExportIndex, FuncDebugInfo, ImportName, ModuleInfo, StringTable,
-        StringTableBuilder, TableInitializer,
+        DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
+        TableInitializer,
     },
     structures::{Map, TypedIndex},
     types::{
@@ -91,7 +91,7 @@ pub fn read_module<
 
         custom_sections: HashMap::new(),
 
-        func_debug_info: Map::new(),
+        generate_debug_info: compiler_config.generate_debug_info,
     }));
 
     let mut parser = wasmparser::ValidatingParser::new(
@@ -226,7 +226,6 @@ pub fn read_module<
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 }
 
-
                 let fcg = mcg
                     .next_function(Arc::clone(&info), (range.start as u32, range.end as u32))
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
@@ -263,7 +262,8 @@ pub fn read_module<
                     let local_count = operator_parser.read_local_count().unwrap();
                     let mut total = 0;
                     for _ in 0..local_count {
-                        let cur_pos = range.start as u32 + operator_parser.current_position() as u32;
+                        let cur_pos =
+                            range.start as u32 + operator_parser.current_position() as u32;
                         let (count, ty) = operator_parser
                             .read_local_decl(&mut total)
                             .expect("Expected local");
@@ -275,7 +275,8 @@ pub fn read_module<
                 // read instruction locations into vector for debug purposes
                 {
                     let info_read = info.read().unwrap();
-                    let mut cur_pos = range.start as u32 + operator_parser.current_position() as u32;
+                    let mut cur_pos =
+                        range.start as u32 + operator_parser.current_position() as u32;
                     fcg.begin_body(&info_read)
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                     middlewares
@@ -308,13 +309,6 @@ pub fn read_module<
                 fcg.finalize()
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 func_count = func_count.wrapping_add(1);
-
-                // debug info
-                let debug_entry = FuncDebugInfo {
-                    start: range.start as u32,
-                    end: range.end as u32,
-                };
-                info.write().unwrap().func_debug_info.push(debug_entry);
             }
             ParserState::BeginActiveElementSectionEntry(table_index) => {
                 let table_index = TableIndex::new(table_index as usize);

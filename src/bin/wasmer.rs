@@ -258,6 +258,10 @@ struct Run {
     #[structopt(long = "debug", short = "d")]
     debug: bool,
 
+    /// Generate debug information for use in a debugger
+    #[structopt(long = "generate-debug-info", short = "g")]
+    generate_debug_info: bool,
+
     /// Application arguments
     #[structopt(name = "--", multiple = true)]
     args: Vec<String>,
@@ -719,7 +723,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 track_state,
                 features: options.features.into_backend_features(),
                 backend_specific_config,
-                generate_debug_info: true,
+                generate_debug_info: options.generate_debug_info,
                 ..Default::default()
             },
             &*compiler,

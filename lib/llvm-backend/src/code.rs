@@ -1000,7 +1000,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
         Ok(())
     }
 
-    fn feed_local(&mut self, ty: WpType, count: usize) -> Result<(), CodegenError> {
+    fn feed_local(&mut self, ty: WpType, count: usize, _loc: u32) -> Result<(), CodegenError> {
         let param_len = self.num_params;
 
         let wasmer_ty = wp_type_to_type(ty)?;
@@ -1101,7 +1101,12 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
         Ok(())
     }
 
-    fn feed_event(&mut self, event: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+    fn feed_event(
+        &mut self,
+        event: Event,
+        module_info: &ModuleInfo,
+        _loc: u32,
+    ) -> Result<(), CodegenError> {
         let mut state = &mut self.state;
         let builder = self.builder.as_ref().unwrap();
         let context = self.context.as_ref().unwrap();
@@ -8734,6 +8739,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
     fn next_function(
         &mut self,
         _module_info: Arc<RwLock<ModuleInfo>>,
+        _loc: (u32, u32),
     ) -> Result<&mut LLVMFunctionCodeGenerator<'ctx>, CodegenError> {
         // Creates a new function and returns the function-scope code generator for it.
         let (context, builder, intrinsics) = match self.functions.last_mut() {
@@ -8839,7 +8845,16 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
     fn finalize(
         mut self,
         module_info: &ModuleInfo,
-    ) -> Result<(LLVMBackend, Box<dyn CacheGen>), CodegenError> {
+    ) -> Result<
+        (
+            (
+                LLVMBackend,
+                Option<wasmer_runtime_core::codegen::DebugMetadata>,
+            ),
+            Box<dyn CacheGen>,
+        ),
+        CodegenError,
+    > {
         let (context, builder, intrinsics) = match self.functions.last_mut() {
             Some(x) => (
                 x.context.take().unwrap(),
@@ -8927,7 +8942,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             &self.target_machine,
             &mut self.llvm_callbacks,
         );
-        Ok((backend, Box::new(cache_gen)))
+        Ok(((backend, None), Box::new(cache_gen)))
     }
 
     fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {

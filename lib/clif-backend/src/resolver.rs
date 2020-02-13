@@ -10,10 +10,9 @@ use crate::{
 };
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{
-    ValueLabelsRanges,
     binemit::{Stackmap, StackmapSink},
     entity::PrimaryMap,
-    ir, isa, Context,
+    ir, isa, Context, ValueLabelsRanges,
 };
 use rayon::prelude::*;
 use std::{
@@ -111,22 +110,21 @@ impl FuncResolverBuilder {
 
         let mut trap_sink = TrapSink::new();
 
-        let fb = function_bodies.iter().collect::<Vec<(_,_)>>();
-        rayon::ThreadPoolBuilder::new().num_threads(1).build_global().unwrap();
+        let generate_debug_info = info.generate_debug_info;
+        let fb = function_bodies.iter().collect::<Vec<(_, _)>>();
 
         let compiled_functions: Result<
-            Vec<(Vec<u8>,
+            Vec<(
+                Vec<u8>,
                 (
                     LocalFuncIndex,
-                    CompiledFunctionData,
-                    ValueLabelsRanges,
-                    Vec<Option<i32>>,
+                    Option<(CompiledFunctionData, ValueLabelsRanges, Vec<Option<i32>>)>,
                     RelocSink,
                     LocalTrapSink,
                 ),
             )>,
             CompileError,
-            > =  fb
+        > = fb
             .par_iter()
             .map_init(
                 || Context::new(),
@@ -137,15 +135,6 @@ impl FuncResolverBuilder {
                     let mut local_trap_sink = LocalTrapSink::new();
                     let mut stackmap_sink = NoopStackmapSink {};
 
-                    //ctx.eliminate_unreachable_code(isa).unwrap();
-                    /*ctx.dce(isa).unwrap();
-                    ctx.shrink_instructions(isa).unwrap();
-                    ctx.redundant_reload_remover(isa).unwrap();
-                    ctx.preopt(isa).unwrap();
-                    ctx.legalize(isa).unwrap();
-                    ctx.postopt(isa).unwrap();*/
-                    ctx.verify(isa).unwrap();
-
                     ctx.compile_and_emit(
                         isa,
                         &mut code_buf,
@@ -155,66 +144,68 @@ impl FuncResolverBuilder {
                     )
                     .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
 
-                    // begin debug stuff
-                    let func = &ctx.func;
-                    let encinfo = isa.encoding_info();
-                    let mut ebbs = func.layout.ebbs().collect::<Vec<_>>();
-                    ebbs.sort_by_key(|ebb| func.offsets[*ebb]);
-                    let instructions = /*func
-                        .layout
-                        .ebbs()*/
-                        ebbs.into_iter()
-                        .flat_map(|ebb| {
-                            func.inst_offsets(ebb, &encinfo)
-                                .map(|(offset, inst, length)| {
-                                    let srcloc = func.srclocs[inst];
-                                    let val = srcloc.bits();
-                                    wasm_debug::types::CompiledInstructionData {
-                                        // we write this data later
-                                        loc: wasm_debug::types::SourceLoc::new(val),//srcloc.bits()),
-                                        offset: offset as usize,
-                                        length: length as usize,
-                                    }
-                                })
-                        })
-                        .collect::<Vec<_>>();
+                    let debug_entry = if generate_debug_info {
+                        let func = &ctx.func;
+                        let encinfo = isa.encoding_info();
+                        let mut ebbs = func.layout.ebbs().collect::<Vec<_>>();
+                        ebbs.sort_by_key(|ebb| func.offsets[*ebb]);
+                        let instructions = ebbs
+                            .into_iter()
+                            .flat_map(|ebb| {
+                                func.inst_offsets(ebb, &encinfo)
+                                    .map(|(offset, inst, length)| {
+                                        let srcloc = func.srclocs[inst];
+                                        let val = srcloc.bits();
+                                        wasm_debug::types::CompiledInstructionData {
+                                            loc: wasm_debug::types::SourceLoc::new(val),
+                                            offset: offset as usize,
+                                            length: length as usize,
+                                        }
+                                    })
+                            })
+                            .collect::<Vec<_>>();
 
-                    /*let mut unwind = vec![];
-                    ctx.emit_unwind_info(isa, &mut unwind);
-                    dbg!(unwind.len());*/
+                        /*let mut unwind = vec![];
+                        ctx.emit_unwind_info(isa, &mut unwind);
+                        dbg!(unwind.len());*/
 
-                    let stack_slots = ctx.func.stack_slots.iter().map(|(_, ssd)| ssd.offset).collect::<Vec<Option<i32>>>();
-                    let labels_ranges = ctx.build_value_labels_ranges(isa).unwrap_or_default();
-                    if labels_ranges.len() == 24 || labels_ranges.len() == 25 {
-                        let mut vec = labels_ranges.iter().map(|(a,b)| (*a, b.clone())).collect::<Vec<_>>();
-                        vec.sort_by(|a, b| a.0.as_u32().cmp(&b.0.as_u32()));
-                        dbg!(labels_ranges.len(), &vec);
-                    }
+                        let stack_slots = ctx
+                            .func
+                            .stack_slots
+                            .iter()
+                            .map(|(_, ssd)| ssd.offset)
+                            .collect::<Vec<Option<i32>>>();
+                        let labels_ranges = ctx.build_value_labels_ranges(isa).unwrap_or_default();
 
-                    let entry = CompiledFunctionData {
-                        instructions,
-                        start: wasm_debug::types::SourceLoc::new(*start),
-                        end: wasm_debug::types::SourceLoc::new(*end),
-                        // this not being 0 breaks inst-level debugging
-                        compiled_offset: 0,
-                        compiled_size: code_buf.len(),
+                        let entry = CompiledFunctionData {
+                            instructions,
+                            start: wasm_debug::types::SourceLoc::new(*start),
+                            end: wasm_debug::types::SourceLoc::new(*end),
+                            // this not being 0 breaks inst-level debugging
+                            compiled_offset: 0,
+                            compiled_size: code_buf.len(),
+                        };
+                        Some((entry, labels_ranges, stack_slots))
+                    } else {
+                        None
                     };
 
-                    // end debug stuff
-
                     ctx.clear();
-                    Ok((code_buf, (*lfi, entry, labels_ranges, stack_slots, reloc_sink, local_trap_sink)))
+                    Ok((code_buf, (*lfi, debug_entry, reloc_sink, local_trap_sink)))
                 },
             )
             .collect();
 
-
         use wasm_debug::types::CompiledFunctionData;
-        let mut debug_metadata = wasmer_runtime_core::codegen::DebugMetadata {
-            func_info: PrimaryMap::new(),
-            inst_info: PrimaryMap::new(),
-            pointers: vec![],
-            stack_slot_offsets: PrimaryMap::new(),
+        let mut debug_metadata = if generate_debug_info {
+            Some(wasmer_runtime_core::codegen::DebugMetadata {
+                func_info: PrimaryMap::new(),
+                inst_info: PrimaryMap::new(),
+                pointers: vec![],
+                stack_slot_offsets: PrimaryMap::new(),
+            })
+        } else {
+            None
         };
 
         let mut compiled_functions = compiled_functions?;
@@ -226,24 +217,23 @@ impl FuncResolverBuilder {
             Vec<Vec<u8>>,
             Vec<(
                 LocalFuncIndex,
-                CompiledFunctionData,
-                ValueLabelsRanges,
-                Vec<Option<i32>>,
+                Option<(CompiledFunctionData, ValueLabelsRanges, Vec<Option<i32>>)>,
                 RelocSink,
                 LocalTrapSink,
             )>,
         ) = compiled_functions.into_iter().unzip();
-        for (
-            code_buf,
-            (_, entry, vlr, stackslots, reloc_sink, mut local_trap_sink),
-        ) in code_bufs
-            .iter()
-            .zip(sinks.into_iter())
+        for (code_buf, (_, debug_info, reloc_sink, mut local_trap_sink)) in
+            code_bufs.iter().zip(sinks.into_iter())
         {
             let rounded_size = round_up(code_buf.len(), mem::size_of::<usize>());
-            debug_metadata.func_info.push(entry);
-            debug_metadata.inst_info.push(unsafe {std::mem::transmute(vlr)});
-            debug_metadata.stack_slot_offsets.push(stackslots);
+            if let Some(ref mut dbg_metadata) = debug_metadata {
+                let (entry, vlr, stackslots) = debug_info.unwrap();
+                dbg_metadata.func_info.push(entry);
+                dbg_metadata
+                    .inst_info
+                    .push(unsafe { std::mem::transmute(vlr) });
+                dbg_metadata.stack_slot_offsets.push(stackslots);
+            }
 
             // Clear the local trap sink and consolidate all trap info
             // into a single location.
@@ -283,10 +273,12 @@ impl FuncResolverBuilder {
         let mut previous_end = 0;
         for compiled in code_bufs.iter() {
             let length = round_up(compiled.len(), mem::size_of::<usize>());
-            debug_metadata.pointers.push((
-                (memory.as_ptr() as usize + previous_end) as *const u8,
-                length,
-            ));
+            if let Some(ref mut dbg_metadata) = debug_metadata {
+                dbg_metadata.pointers.push((
+                    (memory.as_ptr() as usize + previous_end) as *const u8,
+                    length,
+                ));
+            }
             let new_end = previous_end + length;
             unsafe {
                 memory.as_slice_mut()[previous_end..previous_end + compiled.len()]
@@ -309,7 +301,7 @@ impl FuncResolverBuilder {
 
         func_resolver_builder.relocate_locals();
 
-        Ok((func_resolver_builder, Some(debug_metadata), handler_data))
+        Ok((func_resolver_builder, debug_metadata, handler_data))
     }
 
     fn relocate_locals(&mut self) {

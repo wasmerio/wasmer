@@ -78,17 +78,9 @@ pub struct ModuleInfo {
     /// Custom sections.
     pub custom_sections: HashMap<String, Vec<u8>>,
 
-    /// Debug info for funcs
-    pub func_debug_info: Map<FuncIndex, FuncDebugInfo>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-/// info about functions for debugging
-pub struct FuncDebugInfo {
-    /// byte offset from start of code section where the function starts at
-    pub start: u32,
-    /// byte offset from start of code section where the function starts at
-    pub end: u32,
+    /// Flag controlling whether or not debug information for use in a debugger
+    /// will be generated
+    pub generate_debug_info: bool,
 }
 
 impl ModuleInfo {

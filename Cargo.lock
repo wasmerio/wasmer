@@ -235,7 +235,7 @@ dependencies = [
  "cranelift-entity",
  "log",
  "smallvec 1.1.0",
- "target-lexicon 0.9.0",
+ "target-lexicon",
  "thiserror",
 ]
 
@@ -269,7 +269,7 @@ checksum = "21398a0bc6ba389ea86964ac4a495426dd61080f2ddd306184777a8560fe9976"
 dependencies = [
  "cranelift-codegen",
  "raw-cpuid",
- "target-lexicon 0.9.0",
+ "target-lexicon",
 ]
 
 [[package]]
@@ -468,23 +468,7 @@ dependencies = [
  "log",
  "scroll 0.10.1",
  "string-interner",
- "target-lexicon 0.9.0",
- "thiserror",
-]
-
-[[package]]
-name = "faerie"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74b9ed6159e4a6212c61d9c6a86bee01876b192a64accecf58d5b5ae3b667b52"
-dependencies = [
- "anyhow",
- "goblin 0.1.3",
- "indexmap",
- "log",
- "scroll 0.10.1",
- "string-interner",
- "target-lexicon 0.10.0",
+ "target-lexicon",
  "thiserror",
 ]
 
@@ -1553,12 +1537,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f4c118a7a38378f305a9e111fcb2f7f838c0be324bfb31a77ea04f7f6e684b4"
 
 [[package]]
-name = "target-lexicon"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab0e7238dcc7b40a7be719a25365910f6807bd864f4cce6b2e6b873658e2b19d"
-
-[[package]]
 name = "tempfile"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1752,10 +1730,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cranelift-entity",
- "faerie 0.13.0",
+ "faerie",
  "gimli",
  "more-asserts",
- "target-lexicon 0.9.0",
+ "target-lexicon",
  "thiserror",
  "wasmparser 0.39.3",
 ]
@@ -1776,7 +1754,6 @@ dependencies = [
  "typetag",
  "wabt",
  "wasmer-clif-backend",
- "wasmer-debug-writer",
  "wasmer-dev-utils",
  "wasmer-emscripten",
  "wasmer-emscripten-tests",
@@ -1807,7 +1784,7 @@ dependencies = [
  "serde-bench",
  "serde_bytes",
  "serde_derive",
- "target-lexicon 0.9.0",
+ "target-lexicon",
  "wasm-debug",
  "wasmer-clif-fork-frontend",
  "wasmer-clif-fork-wasm",
@@ -1826,7 +1803,7 @@ dependencies = [
  "cranelift-codegen",
  "log",
  "smallvec 1.1.0",
- "target-lexicon 0.9.0",
+ "target-lexicon",
 ]
 
 [[package]]
@@ -1840,18 +1817,6 @@ dependencies = [
  "log",
  "thiserror",
  "wasmer-clif-fork-frontend",
- "wasmparser 0.45.0",
-]
-
-[[package]]
-name = "wasmer-debug-writer"
-version = "0.13.1"
-dependencies = [
- "faerie 0.14.0",
- "gimli",
- "target-lexicon 0.9.0",
- "wasm-debug",
- "wasmer-runtime-core",
  "wasmparser 0.45.0",
 ]
 
@@ -2000,7 +1965,7 @@ dependencies = [
  "serde_bytes",
  "serde_derive",
  "smallvec 0.6.13",
- "target-lexicon 0.9.0",
+ "target-lexicon",
  "wasm-debug",
  "wasmparser 0.45.0",
  "winapi",

@@ -112,7 +112,11 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     /// Checks the precondition for a module.
     fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
     /// Creates a new function and returns the function-scope code generator for it.
-    fn next_function(&mut self, module_info: Arc<RwLock<ModuleInfo>>, loc: (u32, u32)) -> Result<&mut FCG, E>;
+    fn next_function(
+        &mut self,
+        module_info: Arc<RwLock<ModuleInfo>>,
+        loc: (u32, u32),
+    ) -> Result<&mut FCG, E>;
     /// Finalizes this module.
     fn finalize(
         self,
@@ -278,13 +282,17 @@ impl<
         if compiler_config.generate_debug_info {
             let debug_metadata = debug_metadata.expect("debug metadata");
             let debug_info = wasm_debug::read_debuginfo(wasm);
-            let extra_info = wasm_debug::types::ModuleVmctxInfo::new(14 * 8, debug_metadata.stack_slot_offsets.values());
+            let extra_info = wasm_debug::types::ModuleVmctxInfo::new(
+                14 * 8,
+                debug_metadata.stack_slot_offsets.values(),
+            );
             // lazy type hack (TODO:)
-            let compiled_fn_map = wasm_debug::types::create_module_address_map(debug_metadata.func_info.values());
-            let range_map = wasm_debug::types::build_values_ranges(debug_metadata.inst_info.values());
+            let compiled_fn_map =
+                wasm_debug::types::create_module_address_map(debug_metadata.func_info.values());
+            let range_map =
+                wasm_debug::types::build_values_ranges(debug_metadata.inst_info.values());
             let raw_func_slice = debug_metadata.pointers;
 
-            dbg!("DEBUG INFO GENERATED");
             let debug_image = wasm_debug::emit_debugsections_image(
                 X86_64_OSX,
                 std::mem::size_of::<usize>() as u8,

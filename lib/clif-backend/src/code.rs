@@ -7,7 +7,7 @@ use crate::{
 };
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder, ValueLabel};
+use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder};
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::{cursor::FuncCursor, isa};
 use cranelift_frontend::{FunctionBuilder, Position, Variable};
@@ -106,7 +106,10 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             end: loc.1,
         };
 
-        func_env.func.collect_debug_info();
+        let generate_debug_info = module_info.read().unwrap().generate_debug_info;
+        if generate_debug_info {
+            func_env.func.collect_debug_info();
+        }
 
         debug_assert_eq!(func_env.func.dfg.num_ebbs(), 0, "Function must be empty");
         debug_assert_eq!(func_env.func.dfg.num_insts(), 0, "Function must be empty");
@@ -1107,7 +1110,12 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         Ok(())
     }
 
-    fn feed_event(&mut self, event: Event, _module_info: &ModuleInfo, loc: u32) -> Result<(), CodegenError> {
+    fn feed_event(
+        &mut self,
+        event: Event,
+        _module_info: &ModuleInfo,
+        loc: u32,
+    ) -> Result<(), CodegenError> {
         let op = match event {
             Event::Wasm(x) => x,
             Event::WasmOwned(ref x) => x,
@@ -1159,7 +1167,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         //
         // If the exit block is unreachable, it may not have the correct arguments, so we would
         // generate a return instruction that doesn't match the signature.
-        if state.reachable {
+        if state.reachable() {
             debug_assert!(builder.is_pristine());
             if !builder.is_unreachable() {
                 match return_mode {
@@ -1247,11 +1255,11 @@ fn declare_wasm_parameters(builder: &mut FunctionBuilder, entry_block: Ebb) -> u
             // This is a normal WebAssembly signature parameter, so create a local for it.
             let local = Variable::new(next_local);
             builder.declare_var(local, param_type.value_type);
-            let value_label = ValueLabel::from_u32(next_local as u32);
+            //let value_label = ValueLabel::from_u32(next_local as u32);
             next_local += 1;
 
             let param_value = builder.ebb_params(entry_block)[i];
-            builder.set_val_label(param_value, value_label);
+            //builder.set_val_label(param_value, value_label);
             builder.def_var(local, param_value);
         }
         if param_type.purpose == ir::ArgumentPurpose::VMContext {

@@ -8,7 +8,7 @@ use crate::{
     module::{ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
     structures::TypedIndex,
-    types::{LocalOrImport, MemoryIndex, TableIndex, Value, LocalMemoryIndex},
+    types::{LocalMemoryIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
     vmcalls,
 };
 use std::{
@@ -286,7 +286,6 @@ impl Ctx {
                 };
                 ((*mem).base, (*mem).bound)
             };
-        dbg!(mem_bound);
         Self {
             internal: InternalCtx {
                 memories: local_backing.vm_memories.as_mut_ptr(),
