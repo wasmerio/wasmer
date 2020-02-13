@@ -1045,12 +1045,28 @@ impl WasiFs {
 
     pub fn fdstat(&self, fd: __wasi_fd_t) -> Result<__wasi_fdstat_t, __wasi_errno_t> {
         match fd {
-            __WASI_STDOUT_FILENO => {
+            __WASI_STDIN_FILENO => {
                 return Ok(__wasi_fdstat_t {
                     fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
                     fs_flags: 0,
-                    fs_rights_base: ALL_RIGHTS,
-                    fs_rights_inheriting: ALL_RIGHTS,
+                    fs_rights_base: STDIN_DEFAULT_RIGHTS,
+                    fs_rights_inheriting: 0,
+                })
+            }
+            __WASI_STDOUT_FILENO => {
+                return Ok(__wasi_fdstat_t {
+                    fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+                    fs_flags: __WASI_FDFLAG_APPEND,
+                    fs_rights_base: STDOUT_DEFAULT_RIGHTS,
+                    fs_rights_inheriting: 0,
+                })
+            }
+            __WASI_STDERR_FILENO => {
+                return Ok(__wasi_fdstat_t {
+                    fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+                    fs_flags: __WASI_FDFLAG_APPEND,
+                    fs_rights_base: STDERR_DEFAULT_RIGHTS,
+                    fs_rights_inheriting: 0,
                 })
             }
             _ => (),
