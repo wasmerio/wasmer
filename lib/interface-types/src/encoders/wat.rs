@@ -213,7 +213,7 @@ impl<'input> ToString for &Export<'input> {
 /// Encode a `Type` into a string.
 impl<'input> ToString for &Type<'input> {
     fn to_string(&self) -> String {
-        unimplemented!()
+        todo!("To be implemented.")
     }
 }
 
@@ -276,7 +276,7 @@ impl<'input> ToString for &Adapter<'input> {
                         }),
             ),
 
-            _ => unimplemented!(),
+            _ => todo!("To be implemented."),
         }
     }
 }
@@ -342,7 +342,7 @@ impl<'input> ToString for &Interfaces<'input> {
                         accumulator.push_str(&format!("\n\n;; Interface, Adapter {}\n", name))
                     }
 
-                    _ => unimplemented!(),
+                    _ => todo!("To be implemented."),
                 }
                 accumulator.push_str(&adapter.to_string());
                 accumulator
