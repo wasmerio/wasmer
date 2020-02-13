@@ -88,7 +88,7 @@ mod tests {
                 InterfaceValue::I32(3),
                 InterfaceValue::I32(4),
             ],
-            instance: Instance { ..Default::default() },
+            instance: Default::default(),
             error: r#"`call 42` cannot call the local or imported function `42` because it doesn't exist."#,
     );
 
