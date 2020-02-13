@@ -87,10 +87,46 @@ pub struct Type<'input> {
     pub name: &'input str,
 
     /// The field names.
-    pub fields: Vec<&'input str>,
+    field_names: Vec<&'input str>,
 
     /// The field types.
-    pub types: Vec<InterfaceType>,
+    field_types: Vec<InterfaceType>,
+}
+
+impl<'input> Type<'input> {
+    /// Creates a new `Type`.
+    ///
+    /// The constructor panics if there is the length of `names` is
+    /// different than the length of `types`.
+    pub fn new(type_name: &'input str, names: Vec<&'input str>, types: Vec<InterfaceType>) -> Self {
+        assert_eq!(
+            names.len(),
+            types.len(),
+            "There must be the same number of field names than field types."
+        );
+
+        Self {
+            name: type_name,
+            field_names: names,
+            field_types: types,
+        }
+    }
+
+    /// Adds a new field to the type.
+    pub fn add_field(&mut self, name: &'input str, ty: InterfaceType) {
+        self.field_names.push(name);
+        self.field_types.push(ty);
+    }
+
+    /// Returns the field names.
+    pub fn field_names(&self) -> &Vec<&'input str> {
+        &self.field_names
+    }
+
+    /// Returns the field types.
+    pub fn field_types(&self) -> &Vec<InterfaceType> {
+        &self.field_types
+    }
 }
 
 /// Represents an adapter.

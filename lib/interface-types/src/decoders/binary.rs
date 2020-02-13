@@ -293,11 +293,7 @@ fn types<'input, E: ParseError<&'input [u8]>>(
         consume!((input, type_fields) = list(input, string)?);
         consume!((input, type_types) = list(input, ty)?);
 
-        types.push(Type {
-            name: type_name,
-            fields: type_fields,
-            types: type_types,
-        });
+        types.push(Type::new(type_name, type_fields, type_types));
     }
 
     Ok((input, types))
@@ -479,11 +475,11 @@ fn forwards<'input, E: ParseError<&'input [u8]>>(
 ///             input_types: vec![InterfaceType::I32],
 ///             output_types: vec![InterfaceType::I32],
 ///         }],
-///         types: vec![Type {
-///             name: "ab",
-///             fields: vec!["cd", "e"],
-///             types: vec![InterfaceType::I32, InterfaceType::I32],
-///         }],
+///         types: vec![Type::new(
+///             "ab",
+///             vec!["cd", "e"],
+///             vec![InterfaceType::I32, InterfaceType::I32],
+///         )],
 ///         imports: vec![Import {
 ///             namespace: "a",
 ///             name: "b",
@@ -728,11 +724,11 @@ mod tests {
         ];
         let output = Ok((
             &[] as &[u8],
-            vec![Type {
-                name: "ab",
-                fields: vec!["cd", "e"],
-                types: vec![InterfaceType::I32, InterfaceType::I32],
-            }],
+            vec![Type::new(
+                "ab",
+                vec!["cd", "e"],
+                vec![InterfaceType::I32, InterfaceType::I32],
+            )],
         ));
 
         assert_eq!(types::<()>(input), output);
@@ -913,11 +909,11 @@ mod tests {
                     input_types: vec![InterfaceType::I32],
                     output_types: vec![InterfaceType::I32],
                 }],
-                types: vec![Type {
-                    name: "ab",
-                    fields: vec!["cd", "e"],
-                    types: vec![InterfaceType::I32, InterfaceType::I32],
-                }],
+                types: vec![Type::new(
+                    "ab",
+                    vec!["cd", "e"],
+                    vec![InterfaceType::I32, InterfaceType::I32],
+                )],
                 imports: vec![Import {
                     namespace: "a",
                     name: "b",
