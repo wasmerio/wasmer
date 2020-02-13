@@ -52,7 +52,6 @@ singlepass = ["wasmer-singlepass-backend"]
 default-backend-singlepass = ["singlepass"]
 default-backend-llvm = ["llvm"]
 default-backend-cranelift = ["cranelift"]
-interface-types = ["wasmer-runtime-core/interface-types"]
 deterministic-execution = ["wasmer-singlepass-backend/deterministic-execution", "wasmer-runtime-core/deterministic-execution"]
 
 [[bench]]

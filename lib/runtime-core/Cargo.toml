@@ -52,4 +52,3 @@ cc = "1.0"
 [features]
 managed = []
 deterministic-execution = ["wasmparser/deterministic"]
-interface-types = []
