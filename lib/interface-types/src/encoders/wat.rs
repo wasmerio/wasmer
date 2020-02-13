@@ -55,7 +55,7 @@
 //!     ],
 //!     forwards: vec![Forward { name: "main" }],
 //! })
-//!     .into();
+//!     .to_string();
 //! let output = r#";; Interfaces
 //!
 //! ;; Interface, Export foo
@@ -92,11 +92,12 @@ use crate::{
     ast::{Adapter, Export, Forward, Import, InterfaceType, Interfaces, Type},
     interpreter::Instruction,
 };
+use std::string::ToString;
 
 /// Encode an `InterfaceType` into a string.
-impl From<&InterfaceType> for String {
-    fn from(interface_type: &InterfaceType) -> Self {
-        match interface_type {
+impl ToString for &InterfaceType {
+    fn to_string(&self) -> String {
+        match self {
             InterfaceType::Int => "Int".into(),
             InterfaceType::Float => "Float".into(),
             InterfaceType::Any => "Any".into(),
@@ -112,9 +113,9 @@ impl From<&InterfaceType> for String {
 }
 
 /// Encode an `Instruction` into a string.
-impl<'input> From<&Instruction<'input>> for String {
-    fn from(instruction: &Instruction) -> Self {
-        match instruction {
+impl<'input> ToString for &Instruction<'input> {
+    fn to_string(&self) -> String {
+        match self {
             Instruction::ArgumentGet { index } => format!("arg.get {}", index),
             Instruction::Call { function_index } => format!("call {}", function_index),
             Instruction::CallExport { export_name } => format!(r#"call-export "{}""#, export_name),
@@ -123,35 +124,33 @@ impl<'input> From<&Instruction<'input>> for String {
                 format!(r#"write-utf8 "{}""#, allocator_name)
             }
             Instruction::AsWasm(interface_type) => {
-                format!("as-wasm {}", String::from(interface_type))
+                format!("as-wasm {}", interface_type.to_string())
             }
             Instruction::AsInterface(interface_type) => {
-                format!("as-interface {}", String::from(interface_type))
+                format!("as-interface {}", interface_type.to_string())
             }
             Instruction::TableRefAdd => "table-ref-add".into(),
             Instruction::TableRefGet => "table-ref-get".into(),
             Instruction::CallMethod(index) => format!("call-method {}", index),
             Instruction::MakeRecord(interface_type) => {
-                format!("make-record {}", String::from(interface_type))
+                format!("make-record {}", interface_type.to_string())
             }
             Instruction::GetField(interface_type, field_index) => {
-                format!("get-field {} {}", String::from(interface_type), field_index)
+                format!("get-field {} {}", interface_type.to_string(), field_index)
             }
             Instruction::Const(interface_type, value) => {
-                format!("const {} {}", String::from(interface_type), value)
+                format!("const {} {}", interface_type.to_string(), value)
             }
             Instruction::FoldSeq(import_index) => format!("fold-seq {}", import_index),
-            Instruction::Add(interface_type) => format!("add {}", String::from(interface_type)),
-            Instruction::MemToSeq(interface_type, memory) => format!(
-                r#"mem-to-seq {} "{}""#,
-                String::from(interface_type),
-                memory
-            ),
+            Instruction::Add(interface_type) => format!("add {}", interface_type.to_string()),
+            Instruction::MemToSeq(interface_type, memory) => {
+                format!(r#"mem-to-seq {} "{}""#, interface_type.to_string(), memory)
+            }
             Instruction::Load(interface_type, memory) => {
-                format!(r#"load {} "{}""#, String::from(interface_type), memory)
+                format!(r#"load {} "{}""#, interface_type.to_string(), memory)
             }
             Instruction::SeqNew(interface_type) => {
-                format!("seq.new {}", String::from(interface_type))
+                format!("seq.new {}", interface_type.to_string())
             }
             Instruction::ListPush => "list.push".into(),
             Instruction::RepeatUntil(condition_index, step_index) => {
@@ -173,7 +172,7 @@ fn input_types_to_param(input_types: &[InterfaceType]) -> String {
                 .iter()
                 .fold(String::new(), |mut accumulator, interface_type| {
                     accumulator.push(' ');
-                    accumulator.push_str(&String::from(interface_type));
+                    accumulator.push_str(&interface_type.to_string());
                     accumulator
                 })
         )
@@ -192,7 +191,7 @@ fn output_types_to_result(output_types: &[InterfaceType]) -> String {
                 .iter()
                 .fold(String::new(), |mut accumulator, interface_type| {
                     accumulator.push(' ');
-                    accumulator.push_str(&String::from(interface_type));
+                    accumulator.push_str(&interface_type.to_string());
                     accumulator
                 })
         )
@@ -200,41 +199,41 @@ fn output_types_to_result(output_types: &[InterfaceType]) -> String {
 }
 
 /// Encode an `Export` into a string.
-impl<'input> From<&Export<'input>> for String {
-    fn from(export: &Export) -> Self {
+impl<'input> ToString for &Export<'input> {
+    fn to_string(&self) -> String {
         format!(
             r#"(@interface export "{name}"{inputs}{outputs})"#,
-            name = export.name,
-            inputs = input_types_to_param(&export.input_types),
-            outputs = output_types_to_result(&export.output_types),
+            name = self.name,
+            inputs = input_types_to_param(&self.input_types),
+            outputs = output_types_to_result(&self.output_types),
         )
     }
 }
 
 /// Encode a `Type` into a string.
-impl<'input> From<&Type<'input>> for String {
-    fn from(_ty: &Type) -> Self {
+impl<'input> ToString for &Type<'input> {
+    fn to_string(&self) -> String {
         unimplemented!()
     }
 }
 
 /// Encode an `Import` into a string.
-impl<'input> From<&Import<'input>> for String {
-    fn from(import: &Import) -> Self {
+impl<'input> ToString for &Import<'input> {
+    fn to_string(&self) -> String {
         format!(
             r#"(@interface func ${namespace}_{name} (import "{namespace}" "{name}"){inputs}{outputs})"#,
-            namespace = import.namespace,
-            name = import.name,
-            inputs = input_types_to_param(&import.input_types),
-            outputs = output_types_to_result(&import.output_types),
+            namespace = self.namespace,
+            name = self.name,
+            inputs = input_types_to_param(&self.input_types),
+            outputs = output_types_to_result(&self.output_types),
         )
     }
 }
 
 /// Encode an `Adapter` into a string.
-impl<'input> From<&Adapter<'input>> for String {
-    fn from(adapter: &Adapter) -> Self {
-        match adapter {
+impl<'input> ToString for &Adapter<'input> {
+    fn to_string(&self) -> String {
+        match self {
             Adapter::Import {
                 namespace,
                 name,
@@ -252,7 +251,7 @@ impl<'input> From<&Adapter<'input>> for String {
                         .iter()
                         .fold(String::new(), |mut accumulator, instruction| {
                             accumulator.push_str("\n  ");
-                            accumulator.push_str(&String::from(instruction));
+                            accumulator.push_str(&instruction.to_string());
                             accumulator
                         }),
             ),
@@ -272,7 +271,7 @@ impl<'input> From<&Adapter<'input>> for String {
                         .iter()
                         .fold(String::new(), |mut accumulator, instruction| {
                             accumulator.push_str("\n  ");
-                            accumulator.push_str(&String::from(instruction));
+                            accumulator.push_str(&instruction.to_string());
                             accumulator
                         }),
             ),
@@ -283,39 +282,39 @@ impl<'input> From<&Adapter<'input>> for String {
 }
 
 /// Encode a `Forward` into a string.
-impl<'input> From<&Forward<'input>> for String {
-    fn from(forward: &Forward) -> Self {
+impl<'input> ToString for &Forward<'input> {
+    fn to_string(&self) -> String {
         format!(
             r#"(@interface forward (export "{name}"))"#,
-            name = forward.name,
+            name = self.name,
         )
     }
 }
 
 /// Encode an `Interfaces` into a string.
-impl<'input> From<&Interfaces<'input>> for String {
-    fn from(interfaces: &Interfaces) -> Self {
+impl<'input> ToString for &Interfaces<'input> {
+    fn to_string(&self) -> String {
         let mut output = String::from(";; Interfaces");
 
-        let exports = interfaces
+        let exports = self
             .exports
             .iter()
             .fold(String::new(), |mut accumulator, export| {
                 accumulator.push_str(&format!("\n\n;; Interface, Export {}\n", export.name));
-                accumulator.push_str(&String::from(export));
+                accumulator.push_str(&export.to_string());
                 accumulator
             });
 
-        let types = interfaces
+        let types = self
             .types
             .iter()
             .fold(String::new(), |mut accumulator, ty| {
                 accumulator.push_str(&format!("\n\n;; Interface, Ty {}\n", ty.name));
-                accumulator.push_str(&String::from(ty));
+                accumulator.push_str(&ty.to_string());
                 accumulator
             });
 
-        let imports = interfaces
+        let imports = self
             .imports
             .iter()
             .fold(String::new(), |mut accumulator, import| {
@@ -323,42 +322,40 @@ impl<'input> From<&Interfaces<'input>> for String {
                     "\n\n;; Interface, Import {}.{}\n",
                     import.namespace, import.name
                 ));
-                accumulator.push_str(&String::from(import));
+                accumulator.push_str(&import.to_string());
                 accumulator
             });
 
-        let adapters =
-            interfaces
-                .adapters
-                .iter()
-                .fold(String::new(), |mut accumulator, adapter| {
-                    match adapter {
-                        Adapter::Import {
-                            namespace, name, ..
-                        } => accumulator.push_str(&format!(
-                            "\n\n;; Interface, Adapter {}.{}\n",
-                            namespace, name
-                        )),
+        let adapters = self
+            .adapters
+            .iter()
+            .fold(String::new(), |mut accumulator, adapter| {
+                match adapter {
+                    Adapter::Import {
+                        namespace, name, ..
+                    } => accumulator.push_str(&format!(
+                        "\n\n;; Interface, Adapter {}.{}\n",
+                        namespace, name
+                    )),
 
-                        Adapter::Export { name, .. } => {
-                            accumulator.push_str(&format!("\n\n;; Interface, Adapter {}\n", name))
-                        }
-
-                        _ => unimplemented!(),
+                    Adapter::Export { name, .. } => {
+                        accumulator.push_str(&format!("\n\n;; Interface, Adapter {}\n", name))
                     }
-                    accumulator.push_str(&String::from(adapter));
-                    accumulator
-                });
 
-        let forwards =
-            interfaces
-                .forwards
-                .iter()
-                .fold(String::new(), |mut accumulator, forward| {
-                    accumulator.push_str(&format!("\n\n;; Interface, Forward {}\n", forward.name));
-                    accumulator.push_str(&String::from(forward));
-                    accumulator
-                });
+                    _ => unimplemented!(),
+                }
+                accumulator.push_str(&adapter.to_string());
+                accumulator
+            });
+
+        let forwards = self
+            .forwards
+            .iter()
+            .fold(String::new(), |mut accumulator, forward| {
+                accumulator.push_str(&format!("\n\n;; Interface, Forward {}\n", forward.name));
+                accumulator.push_str(&forward.to_string());
+                accumulator
+            });
 
         output.push_str(&exports);
         output.push_str(&types);
@@ -377,16 +374,16 @@ mod tests {
     #[test]
     fn test_interface_types() {
         let inputs: Vec<String> = vec![
-            (&InterfaceType::Int).into(),
-            (&InterfaceType::Float).into(),
-            (&InterfaceType::Any).into(),
-            (&InterfaceType::String).into(),
-            (&InterfaceType::Seq).into(),
-            (&InterfaceType::I32).into(),
-            (&InterfaceType::I64).into(),
-            (&InterfaceType::F32).into(),
-            (&InterfaceType::F64).into(),
-            (&InterfaceType::AnyRef).into(),
+            (&InterfaceType::Int).to_string(),
+            (&InterfaceType::Float).to_string(),
+            (&InterfaceType::Any).to_string(),
+            (&InterfaceType::String).to_string(),
+            (&InterfaceType::Seq).to_string(),
+            (&InterfaceType::I32).to_string(),
+            (&InterfaceType::I64).to_string(),
+            (&InterfaceType::F32).to_string(),
+            (&InterfaceType::F64).to_string(),
+            (&InterfaceType::AnyRef).to_string(),
         ];
         let outputs = vec![
             "Int", "Float", "Any", "String", "Seq", "i32", "i64", "f32", "f64", "anyref",
@@ -398,29 +395,29 @@ mod tests {
     #[test]
     fn test_instructions() {
         let inputs: Vec<String> = vec![
-            (&Instruction::ArgumentGet { index: 7 }).into(),
-            (&Instruction::Call { function_index: 7 }).into(),
-            (&Instruction::CallExport { export_name: "foo" }).into(),
-            (&Instruction::ReadUtf8).into(),
+            (&Instruction::ArgumentGet { index: 7 }).to_string(),
+            (&Instruction::Call { function_index: 7 }).to_string(),
+            (&Instruction::CallExport { export_name: "foo" }).to_string(),
+            (&Instruction::ReadUtf8).to_string(),
             (&Instruction::WriteUtf8 {
                 allocator_name: "foo",
             })
-                .into(),
-            (&Instruction::AsWasm(InterfaceType::Int)).into(),
-            (&Instruction::AsInterface(InterfaceType::AnyRef)).into(),
-            (&Instruction::TableRefAdd).into(),
-            (&Instruction::TableRefGet).into(),
-            (&Instruction::CallMethod(7)).into(),
-            (&Instruction::MakeRecord(InterfaceType::Int)).into(),
-            (&Instruction::GetField(InterfaceType::Int, 7)).into(),
-            (&Instruction::Const(InterfaceType::I32, 7)).into(),
-            (&Instruction::FoldSeq(7)).into(),
-            (&Instruction::Add(InterfaceType::Int)).into(),
-            (&Instruction::MemToSeq(InterfaceType::Int, "foo")).into(),
-            (&Instruction::Load(InterfaceType::Int, "foo")).into(),
-            (&Instruction::SeqNew(InterfaceType::Int)).into(),
-            (&Instruction::ListPush).into(),
-            (&Instruction::RepeatUntil(1, 2)).into(),
+                .to_string(),
+            (&Instruction::AsWasm(InterfaceType::Int)).to_string(),
+            (&Instruction::AsInterface(InterfaceType::AnyRef)).to_string(),
+            (&Instruction::TableRefAdd).to_string(),
+            (&Instruction::TableRefGet).to_string(),
+            (&Instruction::CallMethod(7)).to_string(),
+            (&Instruction::MakeRecord(InterfaceType::Int)).to_string(),
+            (&Instruction::GetField(InterfaceType::Int, 7)).to_string(),
+            (&Instruction::Const(InterfaceType::I32, 7)).to_string(),
+            (&Instruction::FoldSeq(7)).to_string(),
+            (&Instruction::Add(InterfaceType::Int)).to_string(),
+            (&Instruction::MemToSeq(InterfaceType::Int, "foo")).to_string(),
+            (&Instruction::Load(InterfaceType::Int, "foo")).to_string(),
+            (&Instruction::SeqNew(InterfaceType::Int)).to_string(),
+            (&Instruction::ListPush).to_string(),
+            (&Instruction::RepeatUntil(1, 2)).to_string(),
         ];
         let outputs = vec![
             "arg.get 7",
@@ -456,25 +453,25 @@ mod tests {
                 input_types: vec![InterfaceType::I32, InterfaceType::F32],
                 output_types: vec![InterfaceType::I32],
             })
-                .into(),
+                .to_string(),
             (&Export {
                 name: "foo",
                 input_types: vec![InterfaceType::I32],
                 output_types: vec![],
             })
-                .into(),
+                .to_string(),
             (&Export {
                 name: "foo",
                 input_types: vec![],
                 output_types: vec![InterfaceType::I32],
             })
-                .into(),
+                .to_string(),
             (&Export {
                 name: "foo",
                 input_types: vec![],
                 output_types: vec![],
             })
-                .into(),
+                .to_string(),
         ];
         let outputs = vec![
             r#"(@interface export "foo"
@@ -499,28 +496,28 @@ mod tests {
                 input_types: vec![InterfaceType::Int, InterfaceType::String],
                 output_types: vec![InterfaceType::String],
             })
-                .into(),
+                .to_string(),
             (&Import {
                 namespace: "ns",
                 name: "foo",
                 input_types: vec![InterfaceType::String],
                 output_types: vec![],
             })
-                .into(),
+                .to_string(),
             (&Import {
                 namespace: "ns",
                 name: "foo",
                 input_types: vec![],
                 output_types: vec![InterfaceType::String],
             })
-                .into(),
+                .to_string(),
             (&Import {
                 namespace: "ns",
                 name: "foo",
                 input_types: vec![],
                 output_types: vec![],
             })
-                .into(),
+                .to_string(),
         ];
         let outputs = vec![
             r#"(@interface func $ns_foo (import "ns" "foo")
@@ -552,7 +549,7 @@ mod tests {
                     Instruction::CallExport { export_name: "f" },
                 ],
             })
-                .into(),
+                .to_string(),
             (&Adapter::Import {
                 namespace: "ns",
                 name: "foo",
@@ -560,7 +557,7 @@ mod tests {
                 output_types: vec![],
                 instructions: vec![Instruction::CallExport { export_name: "f" }],
             })
-                .into(),
+                .to_string(),
             (&Adapter::Import {
                 namespace: "ns",
                 name: "foo",
@@ -568,7 +565,7 @@ mod tests {
                 output_types: vec![InterfaceType::I32],
                 instructions: vec![Instruction::CallExport { export_name: "f" }],
             })
-                .into(),
+                .to_string(),
             (&Adapter::Export {
                 name: "foo",
                 input_types: vec![InterfaceType::I32, InterfaceType::F32],
@@ -581,21 +578,21 @@ mod tests {
                     Instruction::CallExport { export_name: "f" },
                 ],
             })
-                .into(),
+                .to_string(),
             (&Adapter::Export {
                 name: "foo",
                 input_types: vec![InterfaceType::I32],
                 output_types: vec![],
                 instructions: vec![Instruction::CallExport { export_name: "f" }],
             })
-                .into(),
+                .to_string(),
             (&Adapter::Export {
                 name: "foo",
                 input_types: vec![],
                 output_types: vec![InterfaceType::I32],
                 instructions: vec![Instruction::CallExport { export_name: "f" }],
             })
-                .into(),
+                .to_string(),
         ];
         let outputs = vec![
             r#"(@interface adapt (import "ns" "foo")
@@ -629,7 +626,7 @@ mod tests {
 
     #[test]
     fn test_forward() {
-        let input: String = (&Forward { name: "main" }).into();
+        let input: String = (&Forward { name: "main" }).to_string();
         let output = r#"(@interface forward (export "main"))"#;
 
         assert_eq!(input, output);
@@ -682,7 +679,7 @@ mod tests {
             ],
             forwards: vec![Forward { name: "main" }],
         })
-            .into();
+            .to_string();
         let output = r#";; Interfaces
 
 ;; Interface, Export foo

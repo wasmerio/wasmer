@@ -192,7 +192,7 @@ where
         let executable_instructions = instructions
             .iter()
             .map(|instruction| {
-                let instruction_name: String = instruction.into();
+                let instruction_name = instruction.to_string();
 
                 match instruction {
                     Instruction::ArgumentGet { index } => {
