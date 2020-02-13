@@ -51,7 +51,9 @@ fn byte<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'i
     Ok((&input[1..], input[0]))
 }
 
-/// Parse an unsigned LEB with value no larger than a 64-bits number.
+/// Parse an unsigned Little Endian Based (LEB) with value no larger
+/// than a 64-bits number. Read
+/// [LEB128](https://en.wikipedia.org/wiki/LEB128) to learn more.
 fn leb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'input [u8], u64, E> {
     if input.is_empty() {
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
