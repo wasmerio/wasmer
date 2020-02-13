@@ -18,6 +18,7 @@ mod file_metadata;
 mod fs_sandbox_test;
 mod fseek;
 mod hello;
+mod isatty;
 mod mapdir;
 mod path_link;
 mod path_rename;
