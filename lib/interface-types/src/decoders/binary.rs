@@ -91,9 +91,11 @@ fn string<'input, E: ParseError<&'input [u8]>>(
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
     }
 
-    Ok((&input[length..], unsafe {
-        str::from_utf8_unchecked(&input[..length])
-    }))
+    Ok((
+        &input[length..],
+        str::from_utf8(&input[..length])
+            .map_err(|_| Err::Error(make_error(input, ErrorKind::ParseTo)))?,
+    ))
 }
 
 /// Parse a list, with a item parser.
