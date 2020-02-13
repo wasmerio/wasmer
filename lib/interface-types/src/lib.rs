@@ -33,12 +33,13 @@
 
 #![deny(
     dead_code,
+    missing_docs,
     nonstandard_style,
+    unreachable_patterns,
     unused_imports,
     unused_mut,
-    unused_variables,
     unused_unsafe,
-    unreachable_patterns
+    unused_variables
 )]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png")]

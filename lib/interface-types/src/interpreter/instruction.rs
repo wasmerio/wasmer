@@ -4,19 +4,31 @@ use crate::ast::InterfaceType;
 #[derive(PartialEq, Debug)]
 pub enum Instruction<'input> {
     /// The `arg.get` instruction.
-    ArgumentGet { index: u64 },
+    ArgumentGet {
+        /// The argument index.
+        index: u64,
+    },
 
     /// The `call` instruction.
-    Call { function_index: usize },
+    Call {
+        /// The function index.
+        function_index: usize,
+    },
 
     /// The `call-export` instruction.
-    CallExport { export_name: &'input str },
+    CallExport {
+        /// The exported function name.
+        export_name: &'input str,
+    },
 
     /// The `read-utf8` instruction.
     ReadUtf8,
 
     /// The `write-utf8` instruction.
-    WriteUtf8 { allocator_name: &'input str },
+    WriteUtf8 {
+        /// The allocator function name.
+        allocator_name: &'input str,
+    },
 
     /// The `as-wasm` instruction.
     AsWasm(InterfaceType),

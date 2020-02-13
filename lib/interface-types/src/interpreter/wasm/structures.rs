@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use super::values::{InterfaceType, InterfaceValue};
 use std::{cell::Cell, ops::Deref};
 

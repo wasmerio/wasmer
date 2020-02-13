@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use std::convert::TryFrom;
 
 pub use crate::ast::InterfaceType;
