@@ -1477,6 +1477,22 @@
 <span id="1477">1477</span>
 <span id="1478">1478</span>
 <span id="1479">1479</span>
+<span id="1480">1480</span>
+<span id="1481">1481</span>
+<span id="1482">1482</span>
+<span id="1483">1483</span>
+<span id="1484">1484</span>
+<span id="1485">1485</span>
+<span id="1486">1486</span>
+<span id="1487">1487</span>
+<span id="1488">1488</span>
+<span id="1489">1489</span>
+<span id="1490">1490</span>
+<span id="1491">1491</span>
+<span id="1492">1492</span>
+<span id="1493">1493</span>
+<span id="1494">1494</span>
+<span id="1495">1495</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
@@ -2525,12 +2541,28 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fdstat</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">__wasi_fdstat_t</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">fd</span> {
-            <span class="ident">__WASI_STDOUT_FILENO</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">__WASI_STDIN_FILENO</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">__wasi_fdstat_t</span> {
                     <span class="ident">fs_filetype</span>: <span class="ident">__WASI_FILETYPE_CHARACTER_DEVICE</span>,
                     <span class="ident">fs_flags</span>: <span class="number">0</span>,
-                    <span class="ident">fs_rights_base</span>: <span class="ident">ALL_RIGHTS</span>,
-                    <span class="ident">fs_rights_inheriting</span>: <span class="ident">ALL_RIGHTS</span>,
+                    <span class="ident">fs_rights_base</span>: <span class="ident">STDIN_DEFAULT_RIGHTS</span>,
+                    <span class="ident">fs_rights_inheriting</span>: <span class="number">0</span>,
+                })
+            }
+            <span class="ident">__WASI_STDOUT_FILENO</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">__wasi_fdstat_t</span> {
+                    <span class="ident">fs_filetype</span>: <span class="ident">__WASI_FILETYPE_CHARACTER_DEVICE</span>,
+                    <span class="ident">fs_flags</span>: <span class="ident">__WASI_FDFLAG_APPEND</span>,
+                    <span class="ident">fs_rights_base</span>: <span class="ident">STDOUT_DEFAULT_RIGHTS</span>,
+                    <span class="ident">fs_rights_inheriting</span>: <span class="number">0</span>,
+                })
+            }
+            <span class="ident">__WASI_STDERR_FILENO</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">__wasi_fdstat_t</span> {
+                    <span class="ident">fs_filetype</span>: <span class="ident">__WASI_FILETYPE_CHARACTER_DEVICE</span>,
+                    <span class="ident">fs_flags</span>: <span class="ident">__WASI_FDFLAG_APPEND</span>,
+                    <span class="ident">fs_rights_base</span>: <span class="ident">STDERR_DEFAULT_RIGHTS</span>,
+                    <span class="ident">fs_rights_inheriting</span>: <span class="number">0</span>,
                 })
             }
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> (),
