@@ -107,7 +107,7 @@ pub mod table;
 pub mod trampoline;
 pub mod value;
 
-/// The `wasmer_result_t` struct is a type that represents either a
+/// The `wasmer_result_t` enum is a type that represents either a
 /// success, or a failure.
 #[allow(non_camel_case_types)]
 #[repr(C)]
@@ -119,15 +119,26 @@ pub enum wasmer_result_t {
     WASMER_ERROR = 2,
 }
 
+/// The `wasmer_limits_t` struct is a type that describes a memory
+/// options. See the `wasmer_memory_t` struct or the
+/// `wasmer_memory_new()` function to get more information.
 #[repr(C)]
 pub struct wasmer_limits_t {
+    /// The minimum number of allowed pages.
     pub min: u32,
+
+    /// The maximum number of allowed pages.
     pub max: wasmer_limit_option_t,
 }
 
+/// The `wasmer_limit_option_t` struct represents an optional limit
+/// for `wasmer_limits_t`.
 #[repr(C)]
 pub struct wasmer_limit_option_t {
+    /// Whether the limit is set.
     pub has_some: bool,
+
+    /// The limit value.
     pub some: u32,
 }
 

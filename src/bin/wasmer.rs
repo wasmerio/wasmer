@@ -482,7 +482,6 @@ fn execute_wasi(
 
     #[cfg(not(feature = "managed"))]
     {
-        use wasmer_runtime::error::RuntimeError;
         let result;
 
         #[cfg(unix)]
@@ -521,13 +520,8 @@ fn execute_wasi(
         }
 
         if let Err(ref err) = result {
-            match err {
-                RuntimeError::Trap { msg } => return Err(format!("wasm trap occured: {}", msg)),
-                RuntimeError::Error { data } => {
-                    if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
-                        std::process::exit(error_code.code as i32)
-                    }
-                }
+            if let Some(error_code) = err.0.downcast_ref::<wasmer_wasi::ExitCode>() {
+                std::process::exit(error_code.code as i32)
             }
             return Err(format!("error: {:?}", err));
         }

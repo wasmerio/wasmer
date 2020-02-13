@@ -43,7 +43,7 @@ pub use self::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 
 use wasmer_runtime_core::{func, import::ImportObject, imports};
 
-/// This is returned in the Box<dyn Any> RuntimeError::Error variant.
+/// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
 pub struct ExitCode {
     pub code: syscalls::types::__wasi_exitcode_t,

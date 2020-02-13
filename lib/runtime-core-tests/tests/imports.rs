@@ -16,12 +16,7 @@ macro_rules! call_and_assert {
                 expected_value,
                 concat!("Expected right when calling `", stringify!($function), "`.")
             ),
-            (
-                Err(RuntimeError::Error { data }),
-                Err(RuntimeError::Error {
-                    data: expected_data,
-                }),
-            ) => {
+            (Err(RuntimeError(data)), Err(RuntimeError(expected_data))) => {
                 if let (Some(data), Some(expected_data)) = (
                     data.downcast_ref::<&str>(),
                     expected_data.downcast_ref::<&str>(),
@@ -260,35 +255,25 @@ test!(
 test!(
     test_fn_trap,
     function_fn_trap,
-    Err(RuntimeError::Error {
-        data: Box::new(format!("foo {}", 2))
-    })
+    Err(RuntimeError(Box::new(format!("foo {}", 2))))
 );
 test!(
     test_closure_trap,
     function_closure_trap,
-    Err(RuntimeError::Error {
-        data: Box::new(format!("bar {}", 2))
-    })
+    Err(RuntimeError(Box::new(format!("bar {}", 2))))
 );
 test!(
     test_fn_trap_with_vmctx,
     function_fn_trap_with_vmctx,
-    Err(RuntimeError::Error {
-        data: Box::new(format!("baz {}", 2 + SHIFT))
-    })
+    Err(RuntimeError(Box::new(format!("baz {}", 2 + SHIFT))))
 );
 test!(
     test_closure_trap_with_vmctx,
     function_closure_trap_with_vmctx,
-    Err(RuntimeError::Error {
-        data: Box::new(format!("qux {}", 2 + SHIFT))
-    })
+    Err(RuntimeError(Box::new(format!("qux {}", 2 + SHIFT))))
 );
 test!(
     test_closure_trap_with_vmctx_and_env,
     function_closure_trap_with_vmctx_and_env,
-    Err(RuntimeError::Error {
-        data: Box::new(format!("! {}", 2 + shift + SHIFT))
-    })
+    Err(RuntimeError(Box::new(format!("! {}", 2 + shift + SHIFT))))
 );

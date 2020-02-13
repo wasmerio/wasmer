@@ -13,6 +13,7 @@ use crate::{
     module::ModuleInfo,
     sys::Memory,
 };
+use std::fmt;
 use std::{any::Any, ptr::NonNull};
 
 use std::collections::HashMap;
@@ -158,13 +159,36 @@ impl ExceptionTable {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ExceptionCode {
     /// An `unreachable` opcode was executed.
-    Unreachable,
-
+    Unreachable = 0,
+    /// Call indirect incorrect signature trap.
+    IncorrectCallIndirectSignature = 1,
+    /// Memory out of bounds trap.
+    MemoryOutOfBounds = 2,
+    /// Call indirect out of bounds trap.
+    CallIndirectOOB = 3,
     /// An arithmetic exception, e.g. divided by zero.
-    Arithmetic,
+    IllegalArithmetic = 4,
+    /// Misaligned atomic access trap.
+    MisalignedAtomicAccess = 5,
+}
 
-    /// Memory access exception, e.g. misaligned/out-of-bound read/write.
-    Memory,
+impl fmt::Display for ExceptionCode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ExceptionCode::Unreachable => "unreachable",
+                ExceptionCode::IncorrectCallIndirectSignature => {
+                    "incorrect `call_indirect` signature"
+                }
+                ExceptionCode::MemoryOutOfBounds => "memory out-of-bounds access",
+                ExceptionCode::CallIndirectOOB => "`call_indirect` out-of-bounds",
+                ExceptionCode::IllegalArithmetic => "illegal arithmetic operation",
+                ExceptionCode::MisalignedAtomicAccess => "misaligned atomic access",
+            }
+        )
+    }
 }
 
 pub trait Compiler {
