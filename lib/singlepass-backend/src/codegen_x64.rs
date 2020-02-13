@@ -6316,7 +6316,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     ExceptionCode::CallIndirectOOB,
                     |a| a.emit_conditional_trap(Condition::BelowEqual),
                 );
-                a.emit_mov(Size::S64, func_index, Location::GPR(table_count));
+                a.emit_mov(Size::S32, func_index, Location::GPR(table_count));
                 a.emit_imul_imm32_gpr64(vm::Anyfunc::size() as u32, table_count);
                 a.emit_add(
                     Size::S64,
