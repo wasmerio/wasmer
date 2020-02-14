@@ -362,6 +362,11 @@
 <span id="362">362</span>
 <span id="363">363</span>
 <span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">cache</span>::<span class="ident">BackendCache</span>,
@@ -376,7 +381,7 @@
 <span class="kw">use</span> <span class="ident">byteorder</span>::{<span class="ident">ByteOrder</span>, <span class="ident">LittleEndian</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{
     <span class="ident">binemit</span>::{<span class="ident">Stackmap</span>, <span class="ident">StackmapSink</span>},
-    <span class="ident">ir</span>, <span class="ident">isa</span>, <span class="ident">Context</span>,
+    <span class="ident">ir</span>, <span class="ident">isa</span>, <span class="ident">CodegenError</span>, <span class="ident">Context</span>,
 };
 <span class="kw">use</span> <span class="ident">rayon</span>::<span class="ident">prelude</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -489,7 +494,12 @@
                             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">local_trap_sink</span>,
                             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">stackmap_sink</span>,
                         )
-                        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">CompileError</span>::<span class="ident">InternalError</span> { <span class="ident">msg</span>: <span class="ident">e</span>.<span class="ident">to_string</span>() })<span class="question-mark">?</span>;
+                        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">e</span> {
+                            <span class="ident">CodegenError</span>::<span class="ident">Verifier</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">CompileError</span>::<span class="ident">InternalError</span> {
+                                <span class="ident">msg</span>: <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Verifier error: {}&quot;</span>, <span class="ident">v</span>),
+                            },
+                            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">CompileError</span>::<span class="ident">InternalError</span> { <span class="ident">msg</span>: <span class="ident">e</span>.<span class="ident">to_string</span>() },
+                        })<span class="question-mark">?</span>;
                         <span class="ident">ctx</span>.<span class="ident">clear</span>();
                         <span class="prelude-val">Ok</span>((<span class="ident">code_buf</span>, (<span class="ident">reloc_sink</span>, <span class="ident">local_trap_sink</span>)))
                     },

@@ -1238,6 +1238,7 @@
 <span id="1238">1238</span>
 <span id="1239">1239</span>
 <span id="1240">1240</span>
+<span id="1241">1241</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Parts of the following code are Copyright 2018 Cranelift Developers</span>
 <span class="comment">// and subject to the license https://github.com/CraneStation/cranelift/blob/c47ca7bafc8fc48358f1baa72360e61fc1f7a0f2/cranelift-wasm/LICENSE</span>
@@ -1684,7 +1685,7 @@
                 <span class="kw">let</span> <span class="ident">local_memory_bound</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">create_global_value</span>(<span class="ident">ir</span>::<span class="ident">GlobalValueData</span>::<span class="ident">Load</span> {
                     <span class="ident">base</span>: <span class="ident">local_memory_ptr</span>,
                     <span class="ident">offset</span>: (<span class="ident">vm</span>::<span class="ident">LocalMemory</span>::<span class="ident">offset_bound</span>() <span class="kw">as</span> <span class="ident">i32</span>).<span class="ident">into</span>(),
-                    <span class="ident">global_type</span>: <span class="ident">ptr_type</span>,
+                    <span class="ident">global_type</span>: <span class="ident">ir</span>::<span class="ident">types</span>::<span class="ident">I32</span>,
                     <span class="ident">readonly</span>: <span class="bool-val">false</span>,
                 });
 
@@ -1792,7 +1793,7 @@
         <span class="kw">let</span> <span class="ident">table_count</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">create_global_value</span>(<span class="ident">ir</span>::<span class="ident">GlobalValueData</span>::<span class="ident">Load</span> {
             <span class="ident">base</span>: <span class="ident">table_struct_ptr</span>,
             <span class="ident">offset</span>: (<span class="ident">vm</span>::<span class="ident">LocalTable</span>::<span class="ident">offset_count</span>() <span class="kw">as</span> <span class="ident">i32</span>).<span class="ident">into</span>(),
-            <span class="ident">global_type</span>: <span class="ident">ptr_type</span>,
+            <span class="ident">global_type</span>: <span class="ident">ir</span>::<span class="ident">types</span>::<span class="ident">I32</span>,
             <span class="comment">// The table length can change, so it can&#39;t be readonly.</span>
             <span class="ident">readonly</span>: <span class="bool-val">false</span>,
         });
@@ -1914,7 +1915,8 @@
                 <span class="ident">colocated</span>: <span class="bool-val">false</span>,
             });
 
-            <span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">symbol_value</span>(<span class="ident">ir</span>::<span class="ident">types</span>::<span class="ident">I64</span>, <span class="ident">sig_index_global</span>)
+            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">symbol_value</span>(<span class="ident">ir</span>::<span class="ident">types</span>::<span class="ident">I64</span>, <span class="ident">sig_index_global</span>);
+            <span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">ir</span>::<span class="ident">types</span>::<span class="ident">I32</span>, <span class="ident">val</span>)
 
             <span class="comment">// let dynamic_sigindices_array_ptr = pos.ins().load(</span>
             <span class="comment">//     ptr_type,</span>

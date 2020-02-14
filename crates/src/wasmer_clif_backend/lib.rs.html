@@ -66,6 +66,8 @@
 <span id="66">66</span>
 <span id="67">67</span>
 <span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The Wasmer Cranelift Backend crate is used to compile wasm binary code via parse events from the</span>
 <span class="doccomment">//! Wasmer runtime common parser code into machine code.</span>
@@ -111,7 +113,9 @@
         <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;opt_level&quot;</span>, <span class="string">&quot;speed_and_size&quot;</span>).<span class="ident">unwrap</span>();
         <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;jump_tables_enabled&quot;</span>, <span class="string">&quot;false&quot;</span>).<span class="ident">unwrap</span>();
 
-        <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">not</span>(<span class="ident">test</span>)) {
+        <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">test</span>) <span class="op">|</span><span class="op">|</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">debug_assertions</span>) {
+            <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;enable_verifier&quot;</span>, <span class="string">&quot;true&quot;</span>).<span class="ident">unwrap</span>();
+        } <span class="kw">else</span> {
             <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;enable_verifier&quot;</span>, <span class="string">&quot;false&quot;</span>).<span class="ident">unwrap</span>();
         }
 
