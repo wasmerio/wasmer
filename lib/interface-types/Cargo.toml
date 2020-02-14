@@ -1,0 +1,11 @@
+[package]
+name = "wasmer-interface-types"
+version = "0.13.1"
+description = "WebAssembly Interface Types library for Wasmer"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+edition = "2018"
+
+[dependencies]
+nom = "5.1"
