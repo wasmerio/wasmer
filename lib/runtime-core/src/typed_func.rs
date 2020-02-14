@@ -4,7 +4,7 @@ use crate::{
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
     import::IsExport,
-    types::{FuncSig, NativeWasmType, Type, WasmExternType},
+    types::{FuncSig, NativeWasmType, Type, Value, WasmExternType},
     vm,
 };
 use std::{
@@ -236,6 +236,78 @@ where
             inner: Host(()),
             func,
             func_env,
+            vmctx: ptr::null_mut(),
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Creates a polymorphic function.
+    #[allow(unused_variables)]
+    #[cfg(all(unix, target_arch = "x86_64"))]
+    pub fn new_polymorphic<F>(signature: Arc<FuncSig>, func: F) -> Func<'a, Args, Rets, Host>
+    where
+        F: Fn(&mut vm::Ctx, &[Value]) -> Vec<Value> + 'static,
+    {
+        use crate::trampoline_x64::*;
+        use std::convert::TryFrom;
+
+        struct PolymorphicContext {
+            arg_types: Vec<Type>,
+            func: Box<Fn(&mut vm::Ctx, &[Value]) -> Vec<Value>>,
+        }
+        unsafe extern "C" fn enter_host_polymorphic(
+            ctx: *const CallContext,
+            args: *const u64,
+        ) -> u64 {
+            let ctx = &*(ctx as *const PolymorphicContext);
+            let vmctx = &mut *(*args.offset(0) as *mut vm::Ctx);
+            let args: Vec<Value> = ctx
+                .arg_types
+                .iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    let i = i + 1; // skip vmctx
+                    match *t {
+                        Type::I32 => Value::I32(*args.offset(i as _) as i32),
+                        Type::I64 => Value::I64(*args.offset(i as _) as i64),
+                        Type::F32 => Value::F32(f32::from_bits(*args.offset(i as _) as u32)),
+                        Type::F64 => Value::F64(f64::from_bits(*args.offset(i as _) as u64)),
+                        Type::V128 => {
+                            panic!("enter_host_polymorphic: 128-bit types are not supported")
+                        }
+                    }
+                })
+                .collect();
+            let rets = (ctx.func)(vmctx, &args);
+            if rets.len() == 0 {
+                0
+            } else if rets.len() == 1 {
+                u64::try_from(rets[0].to_u128()).expect(
+                    "128-bit return value from polymorphic host functions is not yet supported",
+                )
+            } else {
+                panic!(
+                    "multiple return values from polymorphic host functions is not yet supported"
+                );
+            }
+        }
+        let mut builder = TrampolineBufferBuilder::new();
+        let ctx = Box::new(PolymorphicContext {
+            arg_types: signature.params().to_vec(),
+            func: Box::new(func),
+        });
+        builder.add_callinfo_trampoline(
+            enter_host_polymorphic,
+            Box::into_raw(ctx) as *const _,
+            (signature.params().len() + 1) as u32, // +vmctx
+        );
+        let ptr = builder
+            .append_global()
+            .expect("cannot bump-allocate global trampoline memory");
+        Func {
+            inner: Host(()),
+            func: ptr.cast::<vm::Func>(),
+            func_env: None,
             vmctx: ptr::null_mut(),
             _phantom: PhantomData,
         }

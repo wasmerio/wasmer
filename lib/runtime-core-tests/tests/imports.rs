@@ -1,6 +1,13 @@
+use std::sync::Arc;
 use wasmer_runtime_core::{
-    compile_with, error::RuntimeError, imports, memory::Memory, typed_func::Func,
-    types::MemoryDescriptor, units::Pages, vm, Instance,
+    compile_with,
+    error::RuntimeError,
+    imports,
+    memory::Memory,
+    typed_func::Func,
+    types::{FuncSig, MemoryDescriptor, Type, Value},
+    units::Pages,
+    vm, Instance,
 };
 use wasmer_runtime_core_tests::{get_compiler, wat2wasm};
 
@@ -68,6 +75,7 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
   (import "env" "memory" (memory 1 1))
   (import "env" "callback_fn" (func $callback_fn (type $type)))
   (import "env" "callback_closure" (func $callback_closure (type $type)))
+  (import "env" "callback_closure_polymorphic" (func $callback_closure_polymorphic (type $type)))
   (import "env" "callback_closure_with_env" (func $callback_closure_with_env (type $type)))
   (import "env" "callback_fn_with_vmctx" (func $callback_fn_with_vmctx (type $type)))
   (import "env" "callback_closure_with_vmctx" (func $callback_closure_with_vmctx (type $type)))
@@ -85,6 +93,10 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
   (func (export "function_closure") (type $type)
     get_local 0
     call $callback_closure)
+
+  (func (export "function_closure_polymorphic") (type $type)
+    get_local 0
+    call $callback_closure_polymorphic)
 
   (func (export "function_closure_with_env") (type $type)
     get_local 0
@@ -141,6 +153,16 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
             "callback_closure" => Func::new(|n: i32| -> Result<i32, ()> {
                 Ok(n + 1)
             }),
+
+            "callback_closure_polymorphic" => Func::<i32, i32, _>::new_polymorphic(
+                Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
+                |_, params| -> Vec<Value> {
+                    match params[0] {
+                        Value::I32(x) => vec![Value::I32(x + 1)],
+                        _ => unreachable!()
+                    }
+                }
+            ),
 
             // Closure with a captured environment (a single variable + an instance of `Memory`).
             "callback_closure_with_env" => Func::new(move |n: i32| -> Result<i32, ()> {
@@ -236,6 +258,11 @@ macro_rules! test {
 
 test!(test_fn, function_fn, Ok(2));
 test!(test_closure, function_closure, Ok(2));
+test!(
+    test_closure_polymorphic,
+    function_closure_polymorphic,
+    Ok(2)
+);
 test!(
     test_closure_with_env,
     function_closure_with_env,
