@@ -567,6 +567,10 @@ impl LLVMCallbacks for LLVMCLIOptions {
 
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
+    if options.generate_debug_info && options.backend != Backend::Cranelift {
+        return Err("Generating debug information is currently only available with the `cranelift` backend.".to_owned());
+    }
+
     let disable_cache = options.disable_cache;
 
     let mapped_dirs = get_mapped_dirs(&options.mapped_dirs[..])?;
@@ -1021,6 +1025,7 @@ fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
 
 fn run(options: &mut Run) {
     options.backend = get_backend(options.backend, &options.path);
+
     #[cfg(any(feature = "debug", feature = "trace"))]
     {
         if options.debug {

@@ -18,6 +18,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::{Arc, RwLock};
+use wasm_debug::types::{CompiledFunctionData, ValueLabelsRangesInner};
 use wasmparser::{self, WasmDecoder};
 use wasmparser::{Operator, Type as WpType};
 
@@ -127,15 +128,14 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
 }
 
-use cranelift_entity::PrimaryMap;
 /// missing documentation!
 pub struct DebugMetadata {
-    ///f unc info
-    pub func_info: PrimaryMap<FuncIndex, wasm_debug::types::CompiledFunctionData>,
-    /// inst_info
-    pub inst_info: PrimaryMap<FuncIndex, wasm_debug::types::ValueLabelsRangesInner>,
-    /// stack slot offsets!
-    pub stack_slot_offsets: PrimaryMap<FuncIndex, Vec<Option<i32>>>,
+    /// [`CompiledFunctionData`] in [`FuncIndex`] order
+    pub func_info: Map<FuncIndex, CompiledFunctionData>,
+    /// [`ValueLabelsRangesInner`] in [`FuncIndex`] order
+    pub inst_info: Map<FuncIndex, ValueLabelsRangesInner>,
+    /// Stack slot offsets in [`FuncIndex`] order
+    pub stack_slot_offsets: Map<FuncIndex, Vec<Option<i32>>>,
     /// function pointers and their lengths
     pub pointers: Vec<(*const u8, usize)>,
 }
@@ -280,34 +280,36 @@ impl<
         };
 
         if compiler_config.generate_debug_info {
-            let debug_metadata = debug_metadata.expect("debug metadata");
-            let debug_info = wasm_debug::read_debuginfo(wasm);
-            let extra_info = wasm_debug::types::ModuleVmctxInfo::new(
-                14 * 8,
-                debug_metadata.stack_slot_offsets.values(),
-            );
-            // lazy type hack (TODO:)
-            let compiled_fn_map =
-                wasm_debug::types::create_module_address_map(debug_metadata.func_info.values());
-            let range_map =
-                wasm_debug::types::build_values_ranges(debug_metadata.inst_info.values());
-            let raw_func_slice = debug_metadata.pointers;
+            if let Some(debug_metadata) = debug_metadata {
+                let debug_info = wasm_debug::read_debuginfo(wasm);
+                let extra_info = wasm_debug::types::ModuleVmctxInfo::new(
+                    14 * 8,
+                    debug_metadata.stack_slot_offsets.values(),
+                );
+                let compiled_fn_map =
+                    wasm_debug::types::create_module_address_map(debug_metadata.func_info.values());
+                let range_map =
+                    wasm_debug::types::build_values_ranges(debug_metadata.inst_info.values());
+                let raw_func_slice = debug_metadata.pointers;
 
-            let debug_image = wasm_debug::emit_debugsections_image(
-                X86_64_OSX,
-                std::mem::size_of::<usize>() as u8,
-                &debug_info,
-                &extra_info,
-                &compiled_fn_map,
-                &range_map,
-                &raw_func_slice,
-            )
-            .expect("make debug image");
+                let debug_image = wasm_debug::emit_debugsections_image(
+                    X86_64_OSX,
+                    std::mem::size_of::<usize>() as u8,
+                    &debug_info,
+                    &extra_info,
+                    &compiled_fn_map,
+                    &range_map,
+                    &raw_func_slice,
+                )
+                .expect("make debug image");
 
-            crate::jit_debug::register_new_jit_code_entry(
-                &debug_image,
-                crate::jit_debug::JITAction::JIT_REGISTER_FN,
-            );
+                crate::jit_debug::register_new_jit_code_entry(
+                    &debug_image,
+                    crate::jit_debug::JITAction::JIT_REGISTER_FN,
+                );
+            } else {
+                eprintln!("Failed to generate debug information!");
+            }
         }
         Ok(ModuleInner {
             cache_gen,

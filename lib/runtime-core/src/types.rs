@@ -502,17 +502,6 @@ define_map_index![
     | imported: ImportedFuncIndex, ImportedMemoryIndex, ImportedTableIndex, ImportedGlobalIndex,
 ];
 
-// lol
-impl cranelift_entity::EntityRef for FuncIndex {
-    fn index(self) -> usize {
-        self.0 as usize
-    }
-
-    fn new(x: usize) -> Self {
-        Self(x as u32)
-    }
-}
-
 #[rustfmt::skip]
 macro_rules! define_local_or_import {
     ($ty:ident, $local_ty:ident, $imported_ty:ident, $imports:ident) => {

@@ -20,10 +20,7 @@ libc = "0.2.60"
 hex = "0.4"
 smallvec = "0.6"
 bincode = "1.1"
-# todo: review
-cranelift-entity = "0.52"
-# todo, make optional, etc
-wasm-debug = { version = "0.1.0", path = "../../../Dev/wasm-debug" }
+wasm-debug = { optional = true, version = "0.1.0", path = "../../../Dev/wasm-debug" }
 target-lexicon = "0.9"
 
 [dependencies.indexmap]
@@ -57,3 +54,5 @@ cc = "1.0"
 [features]
 managed = []
 deterministic-execution = ["wasmparser/deterministic"]
+# generate debug information from Wasm DWARF for use with the GDB JIT interface
+generate-debug-information = ["wasm-debug"]

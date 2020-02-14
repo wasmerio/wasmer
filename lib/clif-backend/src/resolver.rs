@@ -11,7 +11,6 @@ use crate::{
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{
     binemit::{Stackmap, StackmapSink},
-    entity::PrimaryMap,
     ir, isa, Context, ValueLabelsRanges,
 };
 use rayon::prelude::*;
@@ -199,10 +198,10 @@ impl FuncResolverBuilder {
         use wasm_debug::types::CompiledFunctionData;
         let mut debug_metadata = if generate_debug_info {
             Some(wasmer_runtime_core::codegen::DebugMetadata {
-                func_info: PrimaryMap::new(),
-                inst_info: PrimaryMap::new(),
+                func_info: Map::new(),
+                inst_info: Map::new(),
                 pointers: vec![],
-                stack_slot_offsets: PrimaryMap::new(),
+                stack_slot_offsets: Map::new(),
             })
         } else {
             None

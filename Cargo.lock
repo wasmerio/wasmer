@@ -1949,7 +1949,6 @@ dependencies = [
  "bincode",
  "blake3",
  "cc",
- "cranelift-entity",
  "digest",
  "errno",
  "hex",
