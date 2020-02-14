@@ -9,6 +9,8 @@
 use crate::loader::CodeMemory;
 use crate::vm::Ctx;
 use std::fmt;
+use std::ptr::NonNull;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{mem, slice};
 
 lazy_static! {
@@ -29,6 +31,50 @@ lazy_static! {
             mem::transmute(ptr)
         }
     };
+
+    static ref TRAMPOLINES: TrampBuffer = TrampBuffer::new();
+}
+
+struct TrampBuffer {
+    buffer: CodeMemory,
+    len: AtomicUsize,
+}
+
+impl TrampBuffer {
+    /// Creates a trampoline buffer.
+    fn new() -> TrampBuffer {
+        // Pre-allocate 64 MiB of virtual memory for code.
+        let mem = CodeMemory::new(64 * 1048576);
+        mem.make_writable_executable();
+        TrampBuffer {
+            buffer: mem,
+            len: AtomicUsize::new(0),
+        }
+    }
+
+    /// Bump allocation. Copies `buf` to the end of this code memory.
+    ///
+    /// FIXME: Proper storage recycling.
+    fn append(&self, buf: &[u8]) -> Option<NonNull<u8>> {
+        let begin = self.len.fetch_add(buf.len(), Ordering::SeqCst);
+        let end = begin + buf.len();
+
+        // Length overflowed. Revert and return None.
+        if end > self.buffer.len() {
+            self.len.fetch_sub(buf.len(), Ordering::SeqCst);
+            return None;
+        }
+
+        // Now we have unique ownership to `self.buffer[begin..end]`.
+        let slice = unsafe {
+            std::slice::from_raw_parts_mut(
+                self.buffer.get_backing_ptr().offset(begin as _),
+                buf.len(),
+            )
+        };
+        slice.copy_from_slice(buf);
+        Some(NonNull::new(slice.as_mut_ptr()).unwrap())
+    }
 }
 
 /// An opaque type for pointers to a callable memory location.
@@ -217,6 +263,11 @@ impl TrampolineBufferBuilder {
             0xc3, //retq
         ]);
         idx
+    }
+
+    /// Appends to the global trampoline buffer.
+    pub fn append_global(self) -> Option<NonNull<u8>> {
+        TRAMPOLINES.append(&self.code)
     }
 
     /// Consumes the builder and builds the trampoline buffer.
