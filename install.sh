@@ -145,7 +145,7 @@ wasmer_link() {
   printf "$cyan> Adding to bash profile...$reset\n"
   WASMER_PROFILE="$(wasmer_detect_profile)"
   LOAD_STR="\n# Wasmer\nexport WASMER_DIR=\"$INSTALL_DIRECTORY\"\n[ -s \"\$WASMER_DIR/wasmer.sh\" ] && source \"\$WASMER_DIR/wasmer.sh\"\n"
-  SOURCE_STR="# Wasmer config\nexport WASMER_DIR=\"$INSTALL_DIRECTORY\"\nexport WASMER_CACHE_DIR=\"\$WASMER_DIR/cache\"\nexport PATH=\"\$WASMER_DIR/bin:\$WASMER_DIR/globals/wapm_packages/.bin:\$PATH\"\n"
+  SOURCE_STR="# Wasmer config\nexport WASMER_DIR=\"$INSTALL_DIRECTORY\"\nexport WASMER_CACHE_DIR=\"\$WASMER_DIR/cache\"\nexport PATH=\"\$WASMER_DIR/bin:\$PATH:\$WASMER_DIR/globals/wapm_packages/.bin\"\n"
 
   # We create the wasmer.sh file
   printf "$SOURCE_STR" > "$INSTALL_DIRECTORY/wasmer.sh"
