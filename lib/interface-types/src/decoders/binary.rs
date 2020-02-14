@@ -61,7 +61,7 @@ fn uleb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'i
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
     }
 
-    let (output, bytes) = match dbg!(input.iter().position(|&byte| byte & 0x80 == 0)) {
+    let (output, bytes) = match input.iter().position(|&byte| byte & 0x80 == 0) {
         Some(length) if length <= 8 => (&input[length + 1..], &input[..=length]),
         Some(_) => return Err(Err::Error(make_error(input, ErrorKind::TooLarge))),
         None => return Err(Err::Error(make_error(input, ErrorKind::Eof))),
