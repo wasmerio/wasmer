@@ -11,7 +11,7 @@ use crate::{
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{
     binemit::{Stackmap, StackmapSink},
-    ir, isa, Context,
+    ir, isa, CodegenError, Context,
 };
 use rayon::prelude::*;
 use std::{
@@ -124,7 +124,12 @@ impl FuncResolverBuilder {
                             &mut local_trap_sink,
                             &mut stackmap_sink,
                         )
-                        .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
+                        .map_err(|e| match e {
+                            CodegenError::Verifier(v) => CompileError::InternalError {
+                                msg: format!("Verifier error: {}", v),
+                            },
+                            _ => CompileError::InternalError { msg: e.to_string() },
+                        })?;
                         ctx.clear();
                         Ok((code_buf, (reloc_sink, local_trap_sink)))
                     },
