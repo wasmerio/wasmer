@@ -4,7 +4,7 @@ use crate::{
     error::RuntimeError,
     export::{Context, Export, FuncPointer},
     import::IsExport,
-    types::{FuncSig, NativeWasmType, Type, Value, WasmExternType},
+    types::{FuncSig, NativeWasmType, Type, WasmExternType},
     vm,
 };
 use std::{
@@ -246,9 +246,10 @@ where
     #[cfg(all(unix, target_arch = "x86_64"))]
     pub fn new_polymorphic<F>(signature: Arc<FuncSig>, func: F) -> Func<'a, Args, Rets, Host>
     where
-        F: Fn(&mut vm::Ctx, &[Value]) -> Vec<Value> + 'static,
+        F: Fn(&mut vm::Ctx, &[crate::types::Value]) -> Vec<crate::types::Value> + 'static,
     {
         use crate::trampoline_x64::*;
+        use crate::types::Value;
         use std::convert::TryFrom;
 
         struct PolymorphicContext {
