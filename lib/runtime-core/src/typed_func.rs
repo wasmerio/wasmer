@@ -118,6 +118,7 @@ pub trait WasmTypeList {
 /// This trait is never aimed to be used by a user. It is used by the
 /// trait system to automatically generate an appropriate `wrap`
 /// function.
+#[doc(hidden)]
 pub trait HostFunctionKind {}
 
 /// This empty structure indicates that an external function must
@@ -128,7 +129,10 @@ pub trait HostFunctionKind {}
 ///     x + 1
 /// }
 /// ```
+#[doc(hidden)]
 pub struct ExplicitVmCtx {}
+
+impl HostFunctionKind for ExplicitVmCtx {}
 
 /// This empty structure indicates that an external function has no
 /// `vm::Ctx` argument (at first position). Its signature is:
@@ -140,7 +144,6 @@ pub struct ExplicitVmCtx {}
 /// ```
 pub struct ImplicitVmCtx {}
 
-impl HostFunctionKind for ExplicitVmCtx {}
 impl HostFunctionKind for ImplicitVmCtx {}
 
 /// Represents a function that can be converted to a `vm::Func`
