@@ -310,6 +310,7 @@ macro_rules! impl_traits {
         where
             $( $x: WasmExternType ),*;
 
+        #[allow(unused_parens)]
         impl< $( $x ),* > WasmTypeList for ( $( $x ),* )
         where
             $( $x: WasmExternType ),*
@@ -380,6 +381,7 @@ macro_rules! impl_traits {
             }
         }
 
+        #[allow(unused_parens)]
         impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
@@ -495,6 +497,7 @@ macro_rules! impl_traits {
             }
         }
 
+        #[allow(unused_parens)]
         impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
@@ -607,6 +610,7 @@ macro_rules! impl_traits {
             }
         }
 
+        #[allow(unused_parens)]
         impl<'a $( , $x )*, Rets> Func<'a, ( $( $x ),* ), Rets, Wasm>
         where
             $( $x: WasmExternType, )*
