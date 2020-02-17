@@ -3,7 +3,6 @@
 
 use crate::emitter_x64::*;
 use crate::machine::*;
-use crate::protect_unix;
 #[cfg(target_arch = "aarch64")]
 use dynasmrt::aarch64::Assembler;
 #[cfg(target_arch = "x86_64")]
@@ -28,7 +27,7 @@ use wasmer_runtime_core::{
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
-    fault::raw::register_preservation_trampoline,
+    fault::{self, raw::register_preservation_trampoline},
     loader::CodeMemory,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
@@ -369,6 +368,11 @@ impl RunnableModule for X64ExecutionContext {
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
+        // Correctly unwinding from `catch_unsafe_unwind` on hardware exceptions depends
+        // on the signal handlers being installed. Here we call `ensure_sighandler` "statically"
+        // outside `invoke()`.
+        fault::ensure_sighandler();
+
         unsafe extern "C" fn invoke(
             _trampoline: Trampoline,
             ctx: *mut vm::Ctx,
@@ -383,8 +387,9 @@ impl RunnableModule for X64ExecutionContext {
             let args =
                 slice::from_raw_parts(args, num_params_plus_one.unwrap().as_ptr() as usize - 1);
 
-            let ret = match protect_unix::call_protected(
+            let ret = match fault::catch_unsafe_unwind(
                 || {
+                    // Puts the arguments onto the stack and calls Wasm entry.
                     #[cfg(target_arch = "x86_64")]
                     {
                         let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
@@ -395,6 +400,9 @@ impl RunnableModule for X64ExecutionContext {
                             func.as_ptr(),
                         )
                     }
+
+                    // FIXME: Currently we are doing a hack here to convert between native aarch64 and
+                    // "emulated" x86 ABIs. Ideally, this should be done using handwritten assembly.
                     #[cfg(target_arch = "aarch64")]
                     {
                         struct CallCtx<'a> {
@@ -519,7 +527,7 @@ impl RunnableModule for X64ExecutionContext {
                     true
                 }
                 Err(err) => {
-                    *error_out = Some(err.0);
+                    *error_out = Some(err);
                     false
                 }
             };
@@ -545,8 +553,7 @@ impl RunnableModule for X64ExecutionContext {
     }
 
     unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
-        protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
-        protect_unix::trigger_trap();
+        fault::begin_unsafe_unwind(data);
     }
 
     fn get_code(&self) -> Option<&[u8]> {
@@ -1686,14 +1693,11 @@ impl X64FunctionCode {
                 Location::GPR(GPR::RSP),
             );
 
-            // FIXME: Possible dynasm bug. This is a workaround.
-            // Using RSP as the source/destination operand of a `mov` instruction produces invalid code.
-            a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RCX));
             for (i, r) in used_xmms.iter().enumerate() {
                 a.emit_mov(
                     Size::S64,
                     Location::XMM(*r),
-                    Location::Memory(GPR::RCX, (i * 8) as i32),
+                    Location::Memory(GPR::RSP, (i * 8) as i32),
                 );
             }
             for r in used_xmms.iter().rev() {
@@ -1771,36 +1775,25 @@ impl X64FunctionCode {
                         }
                     }
                     match *param {
-                        // Dynasm bug: RSP in memory operand does not work
-                        Location::Imm64(_) | Location::XMM(_) => {
+                        Location::Imm64(_) => {
+                            // Dummy value slot to be filled with `mov`.
+                            a.emit_push(Size::S64, Location::GPR(GPR::RAX));
+
+                            // Use R10 as the temporary register here, since it is callee-saved and not
+                            // used by the callback `cb`.
+                            a.emit_mov(Size::S64, *param, Location::GPR(GPR::R10));
                             a.emit_mov(
                                 Size::S64,
-                                Location::GPR(GPR::RAX),
-                                Location::XMM(XMM::XMM0),
+                                Location::GPR(GPR::R10),
+                                Location::Memory(GPR::RSP, 0),
                             );
-                            a.emit_mov(
-                                Size::S64,
-                                Location::GPR(GPR::RCX),
-                                Location::XMM(XMM::XMM1),
-                            );
-                            a.emit_sub(Size::S64, Location::Imm32(8), Location::GPR(GPR::RSP));
-                            a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RCX));
-                            a.emit_mov(Size::S64, *param, Location::GPR(GPR::RAX));
-                            a.emit_mov(
-                                Size::S64,
-                                Location::GPR(GPR::RAX),
-                                Location::Memory(GPR::RCX, 0),
-                            );
-                            a.emit_mov(
-                                Size::S64,
-                                Location::XMM(XMM::XMM0),
-                                Location::GPR(GPR::RAX),
-                            );
-                            a.emit_mov(
-                                Size::S64,
-                                Location::XMM(XMM::XMM1),
-                                Location::GPR(GPR::RCX),
-                            );
+                        }
+                        Location::XMM(_) => {
+                            // Dummy value slot to be filled with `mov`.
+                            a.emit_push(Size::S64, Location::GPR(GPR::RAX));
+
+                            // XMM registers can be directly stored to memory.
+                            a.emit_mov(Size::S64, *param, Location::Memory(GPR::RSP, 0));
                         }
                         _ => a.emit_push(Size::S64, *param),
                     }
@@ -1873,12 +1866,10 @@ impl X64FunctionCode {
 
         // Restore XMMs.
         if used_xmms.len() > 0 {
-            // FIXME: Possible dynasm bug. This is a workaround.
-            a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RDX));
             for (i, r) in used_xmms.iter().enumerate() {
                 a.emit_mov(
                     Size::S64,
-                    Location::Memory(GPR::RDX, (i * 8) as i32),
+                    Location::Memory(GPR::RSP, (i * 8) as i32),
                     Location::XMM(*r),
                 );
             }
