@@ -51,6 +51,8 @@ pub struct Wasm {
     pub(crate) invoke_env: Option<NonNull<c_void>>,
 }
 
+impl Kind for Wasm {}
+
 impl Wasm {
     /// Create new `Wasm` from given parts.
     pub unsafe fn from_raw_parts(
@@ -70,7 +72,6 @@ impl Wasm {
 /// by the host.
 pub struct Host(());
 
-impl Kind for Wasm {}
 impl Kind for Host {}
 
 /// Represents a list of WebAssembly values.
