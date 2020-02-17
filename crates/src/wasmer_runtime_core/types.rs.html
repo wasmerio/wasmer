@@ -596,55 +596,6 @@
 <span id="596">596</span>
 <span id="597">597</span>
 <span id="598">598</span>
-<span id="599">599</span>
-<span id="600">600</span>
-<span id="601">601</span>
-<span id="602">602</span>
-<span id="603">603</span>
-<span id="604">604</span>
-<span id="605">605</span>
-<span id="606">606</span>
-<span id="607">607</span>
-<span id="608">608</span>
-<span id="609">609</span>
-<span id="610">610</span>
-<span id="611">611</span>
-<span id="612">612</span>
-<span id="613">613</span>
-<span id="614">614</span>
-<span id="615">615</span>
-<span id="616">616</span>
-<span id="617">617</span>
-<span id="618">618</span>
-<span id="619">619</span>
-<span id="620">620</span>
-<span id="621">621</span>
-<span id="622">622</span>
-<span id="623">623</span>
-<span id="624">624</span>
-<span id="625">625</span>
-<span id="626">626</span>
-<span id="627">627</span>
-<span id="628">628</span>
-<span id="629">629</span>
-<span id="630">630</span>
-<span id="631">631</span>
-<span id="632">632</span>
-<span id="633">633</span>
-<span id="634">634</span>
-<span id="635">635</span>
-<span id="636">636</span>
-<span id="637">637</span>
-<span id="638">638</span>
-<span id="639">639</span>
-<span id="640">640</span>
-<span id="641">641</span>
-<span id="642">642</span>
-<span id="643">643</span>
-<span id="644">644</span>
-<span id="645">645</span>
-<span id="646">646</span>
-<span id="647">647</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The runtime types modules represent type used within the wasm runtime and helper functions to</span>
 <span class="doccomment">//! convert to other represenations.</span>
@@ -752,44 +703,57 @@
 {
     <span class="doccomment">/// Type for this `NativeWasmType`.</span>
     <span class="kw">const</span> <span class="ident">TYPE</span>: <span class="ident">Type</span>;
+
     <span class="doccomment">/// Convert from u64 bites to self.</span>
     <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>;
+
     <span class="doccomment">/// Convert self to u64 binary representation.</span>
     <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span>;
 }
 
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">NativeWasmType</span> <span class="kw">for</span> <span class="ident">i32</span> {
     <span class="kw">const</span> <span class="ident">TYPE</span>: <span class="ident">Type</span> <span class="op">=</span> <span class="ident">Type</span>::<span class="ident">I32</span>;
+
     <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">bits</span> <span class="kw">as</span> <span class="kw">_</span>
     }
+
     <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
     }
 }
+
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">NativeWasmType</span> <span class="kw">for</span> <span class="ident">i64</span> {
     <span class="kw">const</span> <span class="ident">TYPE</span>: <span class="ident">Type</span> <span class="op">=</span> <span class="ident">Type</span>::<span class="ident">I64</span>;
+
     <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">bits</span> <span class="kw">as</span> <span class="kw">_</span>
     }
+
     <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
     }
 }
+
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">NativeWasmType</span> <span class="kw">for</span> <span class="ident">f32</span> {
     <span class="kw">const</span> <span class="ident">TYPE</span>: <span class="ident">Type</span> <span class="op">=</span> <span class="ident">Type</span>::<span class="ident">F32</span>;
+
     <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">f32</span>::<span class="ident">from_bits</span>(<span class="ident">bits</span> <span class="kw">as</span> <span class="ident">u32</span>)
     }
+
     <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">to_bits</span>() <span class="kw">as</span> <span class="kw">_</span>
     }
 }
+
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">NativeWasmType</span> <span class="kw">for</span> <span class="ident">f64</span> {
     <span class="kw">const</span> <span class="ident">TYPE</span>: <span class="ident">Type</span> <span class="op">=</span> <span class="ident">Type</span>::<span class="ident">F64</span>;
+
     <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bits</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">f64</span>::<span class="ident">from_bits</span>(<span class="ident">bits</span>)
     }
+
     <span class="kw">fn</span> <span class="ident">to_binary</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">to_bits</span>()
     }
@@ -802,102 +766,40 @@
 {
     <span class="doccomment">/// Native wasm type for this `WasmExternType`.</span>
     <span class="kw">type</span> <span class="ident">Native</span>: <span class="ident">NativeWasmType</span>;
+
     <span class="doccomment">/// Convert from given `Native` type to self.</span>
     <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>;
+
     <span class="doccomment">/// Convert self to `Native` type.</span>
     <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span>;
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">i8</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
-        <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
+<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">wasm_extern_type</span> {
+    (<span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">native_type</span>:<span class="ident">ty</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="kw">type</span> {
+            <span class="kw">type</span> <span class="macro-nonterminal">Native</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">native_type</span>;
+
+            <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+                <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
+            }
+
+            <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+                <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
+            }
+        }
+    };
 }
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">u8</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
-        <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">i16</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
-        <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">u16</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
-        <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">i32</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">native</span>
-    }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
-        <span class="self">self</span>
-    }
-}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">u32</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
-        <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">i64</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i64</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">native</span>
-    }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
-        <span class="self">self</span>
-    }
-}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">u64</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i64</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">native</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
-        <span class="self">self</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">f32</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">f32</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">native</span>
-    }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
-        <span class="self">self</span>
-    }
-}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">WasmExternType</span> <span class="kw">for</span> <span class="ident">f64</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">f64</span>;
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="ident">native</span>
-    }
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
-        <span class="self">self</span>
-    }
-}
+
+<span class="macro">wasm_extern_type</span><span class="macro">!</span>(<span class="ident">i8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">i32</span>);
+<span class="macro">wasm_extern_type</span><span class="macro">!</span>(<span class="ident">u8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">i32</span>);
+<span class="macro">wasm_extern_type</span><span class="macro">!</span>(<span class="ident">i16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">i32</span>);
+<span class="macro">wasm_extern_type</span><span class="macro">!</span>(<span class="ident">u16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">i32</span>);
+<span class="macro">wasm_extern_type</span><span class="macro">!</span>(<span class="ident">i32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">i32</span>);
+<span class="macro">wasm_extern_type</span><span class="macro">!</span>(<span class="ident">u32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">i32</span>);
+<span class="macro">wasm_extern_type</span><span class="macro">!</span>(<span class="ident">i64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">i64</span>);
+<span class="macro">wasm_extern_type</span><span class="macro">!</span>(<span class="ident">u64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">i64</span>);
+<span class="macro">wasm_extern_type</span><span class="macro">!</span>(<span class="ident">f32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f32</span>);
+<span class="macro">wasm_extern_type</span><span class="macro">!</span>(<span class="ident">f64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f64</span>);
 
 <span class="comment">// pub trait IntegerAtomic</span>
 <span class="comment">// where</span>
