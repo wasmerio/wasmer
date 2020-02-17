@@ -40,7 +40,6 @@ extern crate smallvec;
 mod codegen_x64;
 mod emitter_x64;
 mod machine;
-pub mod protect_unix;
 #[cfg(target_arch = "aarch64")]
 mod translator_aarch64;
 
