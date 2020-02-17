@@ -791,6 +791,10 @@
 <span id="791">791</span>
 <span id="792">792</span>
 <span id="793">793</span>
+<span id="794">794</span>
+<span id="795">795</span>
+<span id="796">796</span>
+<span id="797">797</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The typed func module implements a way of representing a wasm function</span>
 <span class="doccomment">//! with the correct types from rust. Function calls using a typed func have a low overhead.</span>
@@ -1104,6 +1108,7 @@
         <span class="kw">where</span>
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span> ),<span class="kw-2">*</span>;
 
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
         <span class="kw">impl</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> <span class="op">&gt;</span> <span class="ident">WasmTypeList</span> <span class="kw">for</span> ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> )
         <span class="kw">where</span>
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span> ),<span class="op">*</span>
@@ -1174,6 +1179,7 @@
             }
         }
 
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
         <span class="kw">impl</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">Trap</span>, <span class="ident">FN</span> <span class="op">&gt;</span> <span class="ident">ExternalFunction</span><span class="op">&lt;</span><span class="ident">ExplicitVmCtx</span>, ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FN</span>
         <span class="kw">where</span>
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span>, )<span class="op">*</span>
@@ -1289,6 +1295,7 @@
             }
         }
 
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
         <span class="kw">impl</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">Trap</span>, <span class="ident">FN</span> <span class="op">&gt;</span> <span class="ident">ExternalFunction</span><span class="op">&lt;</span><span class="ident">ImplicitVmCtx</span>, ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FN</span>
         <span class="kw">where</span>
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span>, )<span class="op">*</span>
@@ -1401,6 +1408,7 @@
             }
         }
 
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
         <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span> $( , <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> )<span class="kw-2">*</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">Func</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span>, <span class="ident">Wasm</span><span class="op">&gt;</span>
         <span class="kw">where</span>
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span>, )<span class="op">*</span>
