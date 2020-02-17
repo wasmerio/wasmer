@@ -111,14 +111,14 @@ pub trait WasmTypeList {
         Rets: WasmTypeList;
 }
 
-/// Empty trait to specify the kind of `ExternalFunction`: With or
+/// Empty trait to specify the kind of `HostFunction`: With or
 /// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the
 /// `ImplicitVmCtx` structures.
 ///
-/// This type is never aimed to be used by a user. It is used by the
+/// This trait is never aimed to be used by a user. It is used by the
 /// trait system to automatically generate an appropriate `wrap`
 /// function.
-pub trait ExternalFunctionKind {}
+pub trait HostFunctionKind {}
 
 /// This empty structure indicates that an external function must
 /// contain an explicit `vm::Ctx` argument (at first position).
@@ -140,14 +140,14 @@ pub struct ExplicitVmCtx {}
 /// ```
 pub struct ImplicitVmCtx {}
 
-impl ExternalFunctionKind for ExplicitVmCtx {}
-impl ExternalFunctionKind for ImplicitVmCtx {}
+impl HostFunctionKind for ExplicitVmCtx {}
+impl HostFunctionKind for ImplicitVmCtx {}
 
 /// Represents a function that can be converted to a `vm::Func`
 /// (function pointer) that can be called within WebAssembly.
-pub trait ExternalFunction<Kind, Args, Rets>
+pub trait HostFunction<Kind, Args, Rets>
 where
-    Kind: ExternalFunctionKind,
+    Kind: HostFunctionKind,
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
@@ -228,8 +228,8 @@ where
     /// Creates a new `Func`.
     pub fn new<F, Kind>(func: F) -> Func<'a, Args, Rets, Host>
     where
-        Kind: ExternalFunctionKind,
-        F: ExternalFunction<Kind, Args, Rets>,
+        Kind: HostFunctionKind,
+        F: HostFunction<Kind, Args, Rets>,
     {
         let (func, func_env) = func.to_raw();
 
@@ -381,7 +381,7 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
@@ -496,7 +496,7 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
