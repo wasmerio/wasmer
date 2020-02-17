@@ -795,6 +795,10 @@
 <span id="795">795</span>
 <span id="796">796</span>
 <span id="797">797</span>
+<span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The typed func module implements a way of representing a wasm function</span>
 <span class="doccomment">//! with the correct types from rust. Function calls using a typed func have a low overhead.</span>
@@ -849,6 +853,8 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">invoke_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
+<span class="kw">impl</span> <span class="ident">Kind</span> <span class="kw">for</span> <span class="ident">Wasm</span> {}
+
 <span class="kw">impl</span> <span class="ident">Wasm</span> {
     <span class="doccomment">/// Create new `Wasm` from given parts.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw_parts</span>(
@@ -868,7 +874,6 @@
 <span class="doccomment">/// by the host.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Host</span>(());
 
-<span class="kw">impl</span> <span class="ident">Kind</span> <span class="kw">for</span> <span class="ident">Wasm</span> {}
 <span class="kw">impl</span> <span class="ident">Kind</span> <span class="kw">for</span> <span class="ident">Host</span> {}
 
 <span class="doccomment">/// Represents a list of WebAssembly values.</span>
@@ -908,14 +913,15 @@
         <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>;
 }
 
-<span class="doccomment">/// Empty trait to specify the kind of `ExternalFunction`: With or</span>
+<span class="doccomment">/// Empty trait to specify the kind of `HostFunction`: With or</span>
 <span class="doccomment">/// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the</span>
 <span class="doccomment">/// `ImplicitVmCtx` structures.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// This type is never aimed to be used by a user. It is used by the</span>
+<span class="doccomment">/// This trait is never aimed to be used by a user. It is used by the</span>
 <span class="doccomment">/// trait system to automatically generate an appropriate `wrap`</span>
 <span class="doccomment">/// function.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ExternalFunctionKind</span> {}
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">HostFunctionKind</span> {}
 
 <span class="doccomment">/// This empty structure indicates that an external function must</span>
 <span class="doccomment">/// contain an explicit `vm::Ctx` argument (at first position).</span>
@@ -925,7 +931,10 @@
 <span class="doccomment">///     x + 1</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExplicitVmCtx</span> {}
+
+<span class="kw">impl</span> <span class="ident">HostFunctionKind</span> <span class="kw">for</span> <span class="ident">ExplicitVmCtx</span> {}
 
 <span class="doccomment">/// This empty structure indicates that an external function has no</span>
 <span class="doccomment">/// `vm::Ctx` argument (at first position). Its signature is:</span>
@@ -937,14 +946,13 @@
 <span class="doccomment">/// ```</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ImplicitVmCtx</span> {}
 
-<span class="kw">impl</span> <span class="ident">ExternalFunctionKind</span> <span class="kw">for</span> <span class="ident">ExplicitVmCtx</span> {}
-<span class="kw">impl</span> <span class="ident">ExternalFunctionKind</span> <span class="kw">for</span> <span class="ident">ImplicitVmCtx</span> {}
+<span class="kw">impl</span> <span class="ident">HostFunctionKind</span> <span class="kw">for</span> <span class="ident">ImplicitVmCtx</span> {}
 
 <span class="doccomment">/// Represents a function that can be converted to a `vm::Func`</span>
 <span class="doccomment">/// (function pointer) that can be called within WebAssembly.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ExternalFunction</span><span class="op">&lt;</span><span class="ident">Kind</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">HostFunction</span><span class="op">&lt;</span><span class="ident">Kind</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>
 <span class="kw">where</span>
-    <span class="ident">Kind</span>: <span class="ident">ExternalFunctionKind</span>,
+    <span class="ident">Kind</span>: <span class="ident">HostFunctionKind</span>,
     <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
 {
@@ -1025,8 +1033,8 @@
     <span class="doccomment">/// Creates a new `Func`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">Kind</span><span class="op">&gt;</span>(<span class="ident">func</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Func</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">Host</span><span class="op">&gt;</span>
     <span class="kw">where</span>
-        <span class="ident">Kind</span>: <span class="ident">ExternalFunctionKind</span>,
-        <span class="ident">F</span>: <span class="ident">ExternalFunction</span><span class="op">&lt;</span><span class="ident">Kind</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>,
+        <span class="ident">Kind</span>: <span class="ident">HostFunctionKind</span>,
+        <span class="ident">F</span>: <span class="ident">HostFunction</span><span class="op">&lt;</span><span class="ident">Kind</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>,
     {
         <span class="kw">let</span> (<span class="ident">func</span>, <span class="ident">func_env</span>) <span class="op">=</span> <span class="ident">func</span>.<span class="ident">to_raw</span>();
 
@@ -1180,7 +1188,7 @@
         }
 
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
-        <span class="kw">impl</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">Trap</span>, <span class="ident">FN</span> <span class="op">&gt;</span> <span class="ident">ExternalFunction</span><span class="op">&lt;</span><span class="ident">ExplicitVmCtx</span>, ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FN</span>
+        <span class="kw">impl</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">Trap</span>, <span class="ident">FN</span> <span class="op">&gt;</span> <span class="ident">HostFunction</span><span class="op">&lt;</span><span class="ident">ExplicitVmCtx</span>, ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FN</span>
         <span class="kw">where</span>
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span>, )<span class="op">*</span>
             <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
@@ -1296,7 +1304,7 @@
         }
 
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
-        <span class="kw">impl</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">Trap</span>, <span class="ident">FN</span> <span class="op">&gt;</span> <span class="ident">ExternalFunction</span><span class="op">&lt;</span><span class="ident">ImplicitVmCtx</span>, ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FN</span>
+        <span class="kw">impl</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">Trap</span>, <span class="ident">FN</span> <span class="op">&gt;</span> <span class="ident">HostFunction</span><span class="op">&lt;</span><span class="ident">ImplicitVmCtx</span>, ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FN</span>
         <span class="kw">where</span>
             $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">WasmExternType</span>, )<span class="op">*</span>
             <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
