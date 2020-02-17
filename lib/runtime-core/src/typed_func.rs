@@ -51,6 +51,8 @@ pub struct Wasm {
     pub(crate) invoke_env: Option<NonNull<c_void>>,
 }
 
+impl Kind for Wasm {}
+
 impl Wasm {
     /// Create new `Wasm` from given parts.
     pub unsafe fn from_raw_parts(
@@ -70,7 +72,6 @@ impl Wasm {
 /// by the host.
 pub struct Host(());
 
-impl Kind for Wasm {}
 impl Kind for Host {}
 
 /// Represents a list of WebAssembly values.
@@ -110,14 +111,15 @@ pub trait WasmTypeList {
         Rets: WasmTypeList;
 }
 
-/// Empty trait to specify the kind of `ExternalFunction`: With or
+/// Empty trait to specify the kind of `HostFunction`: With or
 /// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the
 /// `ImplicitVmCtx` structures.
 ///
-/// This type is never aimed to be used by a user. It is used by the
+/// This trait is never aimed to be used by a user. It is used by the
 /// trait system to automatically generate an appropriate `wrap`
 /// function.
-pub trait ExternalFunctionKind {}
+#[doc(hidden)]
+pub trait HostFunctionKind {}
 
 /// This empty structure indicates that an external function must
 /// contain an explicit `vm::Ctx` argument (at first position).
@@ -127,7 +129,10 @@ pub trait ExternalFunctionKind {}
 ///     x + 1
 /// }
 /// ```
+#[doc(hidden)]
 pub struct ExplicitVmCtx {}
+
+impl HostFunctionKind for ExplicitVmCtx {}
 
 /// This empty structure indicates that an external function has no
 /// `vm::Ctx` argument (at first position). Its signature is:
@@ -139,14 +144,13 @@ pub struct ExplicitVmCtx {}
 /// ```
 pub struct ImplicitVmCtx {}
 
-impl ExternalFunctionKind for ExplicitVmCtx {}
-impl ExternalFunctionKind for ImplicitVmCtx {}
+impl HostFunctionKind for ImplicitVmCtx {}
 
 /// Represents a function that can be converted to a `vm::Func`
 /// (function pointer) that can be called within WebAssembly.
-pub trait ExternalFunction<Kind, Args, Rets>
+pub trait HostFunction<Kind, Args, Rets>
 where
-    Kind: ExternalFunctionKind,
+    Kind: HostFunctionKind,
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
@@ -227,8 +231,8 @@ where
     /// Creates a new `Func`.
     pub fn new<F, Kind>(func: F) -> Func<'a, Args, Rets, Host>
     where
-        Kind: ExternalFunctionKind,
-        F: ExternalFunction<Kind, Args, Rets>,
+        Kind: HostFunctionKind,
+        F: HostFunction<Kind, Args, Rets>,
     {
         let (func, func_env) = func.to_raw();
 
@@ -382,7 +386,7 @@ macro_rules! impl_traits {
         }
 
         #[allow(unused_parens)]
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
@@ -498,7 +502,7 @@ macro_rules! impl_traits {
         }
 
         #[allow(unused_parens)]
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
