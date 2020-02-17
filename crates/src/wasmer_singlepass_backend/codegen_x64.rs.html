@@ -9911,22 +9911,12 @@
 <span id="9911">9911</span>
 <span id="9912">9912</span>
 <span id="9913">9913</span>
-<span id="9914">9914</span>
-<span id="9915">9915</span>
-<span id="9916">9916</span>
-<span id="9917">9917</span>
-<span id="9918">9918</span>
-<span id="9919">9919</span>
-<span id="9920">9920</span>
-<span id="9921">9921</span>
-<span id="9922">9922</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">forget_copy</span>)]</span> <span class="comment">// Used by dynasm.</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">unused_imports</span>)]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">emitter_x64</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">machine</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">protect_unix</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">dynasmrt</span>::<span class="ident">aarch64</span>::<span class="ident">Assembler</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>)]</span>
@@ -9951,7 +9941,7 @@
     },
     <span class="ident">cache</span>::{<span class="ident">Artifact</span>, <span class="ident">Error</span> <span class="kw">as</span> <span class="ident">CacheError</span>},
     <span class="ident">codegen</span>::<span class="kw-2">*</span>,
-    <span class="ident">fault</span>::<span class="ident">raw</span>::<span class="ident">register_preservation_trampoline</span>,
+    <span class="ident">fault</span>::{<span class="self">self</span>, <span class="ident">raw</span>::<span class="ident">register_preservation_trampoline</span>},
     <span class="ident">loader</span>::<span class="ident">CodeMemory</span>,
     <span class="ident">memory</span>::<span class="ident">MemoryType</span>,
     <span class="ident">module</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">ModuleInner</span>},
@@ -10292,6 +10282,11 @@
     }
 
     <span class="kw">fn</span> <span class="ident">get_trampoline</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">sig_index</span>: <span class="ident">SigIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Wasm</span><span class="op">&gt;</span> {
+        <span class="comment">// Correctly unwinding from `catch_unsafe_unwind` on hardware exceptions depends</span>
+        <span class="comment">// on the signal handlers being installed. Here we call `ensure_sighandler` &quot;statically&quot;</span>
+        <span class="comment">// outside `invoke()`.</span>
+        <span class="ident">fault</span>::<span class="ident">ensure_sighandler</span>();
+
         <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">invoke</span>(
             <span class="ident">_trampoline</span>: <span class="ident">Trampoline</span>,
             <span class="ident">ctx</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">vm</span>::<span class="ident">Ctx</span>,
@@ -10306,8 +10301,9 @@
             <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span>
                 <span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(<span class="ident">args</span>, <span class="ident">num_params_plus_one</span>.<span class="ident">unwrap</span>().<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="number">1</span>);
 
-            <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">protect_unix</span>::<span class="ident">call_protected</span>(
+            <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fault</span>::<span class="ident">catch_unsafe_unwind</span>(
                 <span class="op">|</span><span class="op">|</span> {
+                    <span class="comment">// Puts the arguments onto the stack and calls Wasm entry.</span>
                     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>)]</span>
                     {
                         <span class="kw">let</span> <span class="ident">args_reverse</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">u64</span>; <span class="number">8</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">args</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">rev</span>().<span class="ident">collect</span>();
@@ -10318,6 +10314,9 @@
                             <span class="ident">func</span>.<span class="ident">as_ptr</span>(),
                         )
                     }
+
+                    <span class="comment">// FIXME: Currently we are doing a hack here to convert between native aarch64 and</span>
+                    <span class="comment">// &quot;emulated&quot; x86 ABIs. Ideally, this should be done using handwritten assembly.</span>
                     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>)]</span>
                     {
                         <span class="kw">struct</span> <span class="ident">CallCtx</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
@@ -10442,7 +10441,7 @@
                     <span class="bool-val">true</span>
                 }
                 <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="kw-2">*</span><span class="ident">error_out</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="number">0</span>);
+                    <span class="kw-2">*</span><span class="ident">error_out</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>);
                     <span class="bool-val">false</span>
                 }
             };
@@ -10468,8 +10467,7 @@
     }
 
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">do_early_trap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
-        <span class="ident">protect_unix</span>::<span class="ident">TRAP_EARLY_DATA</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">set</span>(<span class="prelude-val">Some</span>(<span class="ident">data</span>)));
-        <span class="ident">protect_unix</span>::<span class="ident">trigger_trap</span>();
+        <span class="ident">fault</span>::<span class="ident">begin_unsafe_unwind</span>(<span class="ident">data</span>);
     }
 
     <span class="kw">fn</span> <span class="ident">get_code</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span> {
@@ -11609,14 +11607,11 @@
                 <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>),
             );
 
-            <span class="comment">// FIXME: Possible dynasm bug. This is a workaround.</span>
-            <span class="comment">// Using RSP as the source/destination operand of a `mov` instruction produces invalid code.</span>
-            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>), <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>));
             <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">r</span>) <span class="kw">in</span> <span class="ident">used_xmms</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
                 <span class="ident">a</span>.<span class="ident">emit_mov</span>(
                     <span class="ident">Size</span>::<span class="ident">S64</span>,
                     <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="kw-2">*</span><span class="ident">r</span>),
-                    <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
+                    <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
                 );
             }
             <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">used_xmms</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
@@ -11694,36 +11689,25 @@
                         }
                     }
                     <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">param</span> {
-                        <span class="comment">// Dynasm bug: RSP in memory operand does not work</span>
-                        <span class="ident">Location</span>::<span class="ident">Imm64</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">Location</span>::<span class="ident">Imm64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="comment">// Dummy value slot to be filled with `mov`.</span>
+                            <span class="ident">a</span>.<span class="ident">emit_push</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>));
+
+                            <span class="comment">// Use R10 as the temporary register here, since it is callee-saved and not</span>
+                            <span class="comment">// used by the callback `cb`.</span>
+                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R10</span>));
                             <span class="ident">a</span>.<span class="ident">emit_mov</span>(
                                 <span class="ident">Size</span>::<span class="ident">S64</span>,
-                                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
-                                <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM0</span>),
+                                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R10</span>),
+                                <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>, <span class="number">0</span>),
                             );
-                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-                                <span class="ident">Size</span>::<span class="ident">S64</span>,
-                                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>),
-                                <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM1</span>),
-                            );
-                            <span class="ident">a</span>.<span class="ident">emit_sub</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="number">8</span>), <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>));
-                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>), <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>));
-                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>));
-                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-                                <span class="ident">Size</span>::<span class="ident">S64</span>,
-                                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
-                                <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>, <span class="number">0</span>),
-                            );
-                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-                                <span class="ident">Size</span>::<span class="ident">S64</span>,
-                                <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM0</span>),
-                                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>),
-                            );
-                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-                                <span class="ident">Size</span>::<span class="ident">S64</span>,
-                                <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="ident">XMM</span>::<span class="ident">XMM1</span>),
-                                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>),
-                            );
+                        }
+                        <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="comment">// Dummy value slot to be filled with `mov`.</span>
+                            <span class="ident">a</span>.<span class="ident">emit_push</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>));
+
+                            <span class="comment">// XMM registers can be directly stored to memory.</span>
+                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>, <span class="number">0</span>));
                         }
                         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">a</span>.<span class="ident">emit_push</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="kw-2">*</span><span class="ident">param</span>),
                     }
@@ -11796,12 +11780,10 @@
 
         <span class="comment">// Restore XMMs.</span>
         <span class="kw">if</span> <span class="ident">used_xmms</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0</span> {
-            <span class="comment">// FIXME: Possible dynasm bug. This is a workaround.</span>
-            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>), <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RDX</span>));
             <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">r</span>) <span class="kw">in</span> <span class="ident">used_xmms</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
                 <span class="ident">a</span>.<span class="ident">emit_mov</span>(
                     <span class="ident">Size</span>::<span class="ident">S64</span>,
-                    <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RDX</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
+                    <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
                     <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="kw-2">*</span><span class="ident">r</span>),
                 );
             }
