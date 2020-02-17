@@ -254,7 +254,7 @@ where
 
         struct PolymorphicContext {
             arg_types: Vec<Type>,
-            func: Box<Fn(&mut vm::Ctx, &[Value]) -> Vec<Value>>,
+            func: Box<dyn Fn(&mut vm::Ctx, &[Value]) -> Vec<Value>>,
         }
         unsafe extern "C" fn enter_host_polymorphic(
             ctx: *const CallContext,
