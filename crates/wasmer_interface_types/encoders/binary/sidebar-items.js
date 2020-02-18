@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["ToBytes","A trait for converting a value to bytes."]]});

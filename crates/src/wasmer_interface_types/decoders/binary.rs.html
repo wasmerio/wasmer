@@ -981,6 +981,13 @@
 <span id="981">981</span>
 <span id="982">982</span>
 <span id="983">983</span>
+<span id="984">984</span>
+<span id="985">985</span>
+<span id="986">986</span>
+<span id="987">987</span>
+<span id="988">988</span>
+<span id="989">989</span>
+<span id="990">990</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parse the WIT binary representation into an AST.</span>
 
@@ -1391,6 +1398,30 @@
     <span class="prelude-val">Ok</span>((<span class="ident">input</span>, <span class="ident">forwards</span>))
 }
 
+<span class="doccomment">/// Parse complete interfaces.</span>
+<span class="kw">fn</span> <span class="ident">interfaces</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span>, <span class="ident">E</span>: <span class="ident">ParseError</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(
+    <span class="ident">bytes</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>],
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>], <span class="ident">Interfaces</span>, <span class="ident">E</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">bytes</span>;
+
+    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">exports</span>) <span class="op">=</span> <span class="ident">exports</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">types</span>) <span class="op">=</span> <span class="ident">types</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">imports</span>) <span class="op">=</span> <span class="ident">imports</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapters</span>) <span class="op">=</span> <span class="ident">adapters</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">forwards</span>) <span class="op">=</span> <span class="ident">forwards</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+
+    <span class="prelude-val">Ok</span>((
+        <span class="ident">input</span>,
+        <span class="ident">Interfaces</span> {
+            <span class="ident">exports</span>,
+            <span class="ident">types</span>,
+            <span class="ident">imports</span>,
+            <span class="ident">adapters</span>,
+            <span class="ident">forwards</span>,
+        },
+    ))
+}
+
 <span class="doccomment">/// Parse a sequence of bytes, expecting it to be a valid WIT binary</span>
 <span class="doccomment">/// representation, into an `ast::Interfaces`.</span>
 <span class="doccomment">///</span>
@@ -1484,24 +1515,7 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span>, <span class="ident">E</span>: <span class="ident">ParseError</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(
     <span class="ident">bytes</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>],
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>], <span class="ident">Interfaces</span>, <span class="ident">E</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">bytes</span>;
-
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">exports</span>) <span class="op">=</span> <span class="ident">exports</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">types</span>) <span class="op">=</span> <span class="ident">types</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">imports</span>) <span class="op">=</span> <span class="ident">imports</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapters</span>) <span class="op">=</span> <span class="ident">adapters</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">forwards</span>) <span class="op">=</span> <span class="ident">forwards</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-
-    <span class="prelude-val">Ok</span>((
-        <span class="ident">input</span>,
-        <span class="ident">Interfaces</span> {
-            <span class="ident">exports</span>,
-            <span class="ident">types</span>,
-            <span class="ident">imports</span>,
-            <span class="ident">adapters</span>,
-            <span class="ident">forwards</span>,
-        },
-    ))
+    <span class="ident">interfaces</span>(<span class="ident">bytes</span>)
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
@@ -1962,7 +1976,7 @@
             },
         ));
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parse</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>(<span class="ident">input</span>), <span class="ident">output</span>);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">interfaces</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>(<span class="ident">input</span>), <span class="ident">output</span>);
     }
 }
 </pre></div>
