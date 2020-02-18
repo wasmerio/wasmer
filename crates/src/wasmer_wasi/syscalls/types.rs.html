@@ -802,7 +802,7 @@
 <span id="802">802</span>
 <span id="803">803</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
+<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>, <span class="ident">clippy</span>::<span class="ident">identity_op</span>)]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ptr</span>::{<span class="ident">Array</span>, <span class="ident">WasmPtr</span>};
 <span class="kw">use</span> <span class="ident">byteorder</span>::{<span class="ident">ReadBytesExt</span>, <span class="ident">WriteBytesExt</span>, <span class="ident">LE</span>};

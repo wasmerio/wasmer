@@ -1493,6 +1493,18 @@
 <span id="1493">1493</span>
 <span id="1494">1494</span>
 <span id="1495">1495</span>
+<span id="1496">1496</span>
+<span id="1497">1497</span>
+<span id="1498">1498</span>
+<span id="1499">1499</span>
+<span id="1500">1500</span>
+<span id="1501">1501</span>
+<span id="1502">1502</span>
+<span id="1503">1503</span>
+<span id="1504">1504</span>
+<span id="1505">1505</span>
+<span id="1506">1506</span>
+<span id="1507">1507</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
@@ -1532,7 +1544,7 @@
 <span class="doccomment">/// the fd value of the virtual root</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VIRTUAL_ROOT_FD</span>: <span class="ident">__wasi_fd_t</span> <span class="op">=</span> <span class="number">3</span>;
 <span class="doccomment">/// all the rights enabled</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ALL_RIGHTS</span>: <span class="ident">__wasi_rights_t</span> <span class="op">=</span> <span class="number">0x1FFFFFFF</span>;
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ALL_RIGHTS</span>: <span class="ident">__wasi_rights_t</span> <span class="op">=</span> <span class="number">0x1FFF_FFFF</span>;
 <span class="kw">const</span> <span class="ident">STDIN_DEFAULT_RIGHTS</span>: <span class="ident">__wasi_rights_t</span> <span class="op">=</span> <span class="ident">__WASI_RIGHT_FD_DATASYNC</span>
     <span class="op">|</span> <span class="ident">__WASI_RIGHT_FD_READ</span>
     <span class="op">|</span> <span class="ident">__WASI_RIGHT_FD_SYNC</span>
@@ -1548,7 +1560,10 @@
 <span class="kw">const</span> <span class="ident">STDERR_DEFAULT_RIGHTS</span>: <span class="ident">__wasi_rights_t</span> <span class="op">=</span> <span class="ident">STDOUT_DEFAULT_RIGHTS</span>;
 
 <span class="doccomment">/// Get WasiState from a Ctx</span>
-<span class="doccomment">/// This function is unsafe because it must be called on a WASI Ctx</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Safety</span>
+<span class="doccomment">/// - This function must be called on a `Ctx` that was created with `WasiState`</span>
+<span class="doccomment">///   in the data field</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_wasi_state</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">WasiState</span> {
     <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span>(<span class="ident">ctx</span>.<span class="ident">data</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">WasiState</span>)
 }
@@ -1682,7 +1697,7 @@
         <span class="kw">for</span> <span class="ident">dir</span> <span class="kw">in</span> <span class="ident">preopened_dirs</span> {
             <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Attempting to preopen {}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">dir</span>.<span class="ident">to_string_lossy</span>());
             <span class="comment">// TODO: think about this</span>
-            <span class="kw">let</span> <span class="ident">default_rights</span> <span class="op">=</span> <span class="number">0x1FFFFFFF</span>; <span class="comment">// all rights</span>
+            <span class="kw">let</span> <span class="ident">default_rights</span> <span class="op">=</span> <span class="ident">ALL_RIGHTS</span>;
             <span class="kw">let</span> <span class="ident">cur_dir_metadata</span> <span class="op">=</span> <span class="ident">dir</span>.<span class="ident">metadata</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
                 <span class="macro">format</span><span class="macro">!</span>(
                     <span class="string">&quot;Could not get metadata for file {:?}: {}&quot;</span>,
@@ -1732,7 +1747,7 @@
         <span class="kw">for</span> (<span class="ident">alias</span>, <span class="ident">real_dir</span>) <span class="kw">in</span> <span class="ident">mapped_dirs</span> {
             <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Attempting to open {:?} at {}&quot;</span>, <span class="ident">real_dir</span>, <span class="ident">alias</span>);
             <span class="comment">// TODO: think about this</span>
-            <span class="kw">let</span> <span class="ident">default_rights</span> <span class="op">=</span> <span class="number">0x1FFFFFFF</span>; <span class="comment">// all rights</span>
+            <span class="kw">let</span> <span class="ident">default_rights</span> <span class="op">=</span> <span class="ident">ALL_RIGHTS</span>;
             <span class="kw">let</span> <span class="ident">cur_dir_metadata</span> <span class="op">=</span> <span class="ident">real_dir</span>.<span class="ident">metadata</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
                 <span class="macro">format</span><span class="macro">!</span>(
                     <span class="string">&quot;Could not get metadata for file {:?}: {}&quot;</span>,
@@ -1924,7 +1939,7 @@
 
         <span class="comment">// create virtual root</span>
         <span class="kw">let</span> <span class="ident">root_inode</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">all_rights</span> <span class="op">=</span> <span class="number">0x1FFFFFFF</span>;
+            <span class="kw">let</span> <span class="ident">all_rights</span> <span class="op">=</span> <span class="ident">ALL_RIGHTS</span>;
             <span class="comment">// TODO: make this a list of positive rigths instead of negative ones</span>
             <span class="comment">// root gets all right for now</span>
             <span class="kw">let</span> <span class="ident">root_rights</span> <span class="op">=</span> <span class="ident">all_rights</span>
@@ -2021,10 +2036,15 @@
         <span class="ident">next</span>
     }
 
-    <span class="doccomment">/// like create dir all, but it also opens it</span>
+    <span class="doccomment">/// This function is like create dir all, but it also opens it.</span>
     <span class="doccomment">/// Function is unsafe because it may break invariants and hasn&#39;t been tested.</span>
     <span class="doccomment">/// This is an experimental function and may be removed</span>
-    <span class="comment">// dead code because this is an API for external use</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Safety</span>
+    <span class="doccomment">/// - Virtual directories created with this function must not conflict with</span>
+    <span class="doccomment">///   the standard operation of the WASI filesystem.  This is vague and</span>
+    <span class="doccomment">///   unlikely in pratice.  Join the discussion at https://github.com/wasmerio/wasmer/issues/1219</span>
+    <span class="doccomment">///   for what the newer, safer WASI FS APIs should look like.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">open_dir_all</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
@@ -2657,7 +2677,7 @@
         <span class="ident">stat</span>.<span class="ident">st_ino</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_next_inode_index</span>();
 
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">inodes</span>.<span class="ident">insert</span>(<span class="ident">InodeVal</span> {
-            <span class="ident">stat</span>: <span class="ident">stat</span>,
+            <span class="ident">stat</span>,
             <span class="ident">is_preopened</span>,
             <span class="ident">name</span>,
             <span class="ident">kind</span>,
@@ -2706,10 +2726,14 @@
         <span class="prelude-val">Ok</span>(<span class="ident">idx</span>)
     }
 
-    <span class="doccomment">/// This function is unsafe because it&#39;s the caller&#39;s responsibility to ensure that</span>
-    <span class="doccomment">/// all refences to the given inode have been removed from the filesystem</span>
+    <span class="doccomment">/// Low level function to remove an inode, that is it deletes the WASI FS&#39;s</span>
+    <span class="doccomment">/// knowledge of a file.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// returns the inode if it existed and was removed</span>
+    <span class="doccomment">/// This function returns the inode if it existed and was removed.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Safety</span>
+    <span class="doccomment">/// - The caller must ensure that all references to the specified inode have</span>
+    <span class="doccomment">///   been removed from the filesystem.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">remove_inode</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">inode</span>: <span class="ident">Inode</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">InodeVal</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inodes</span>.<span class="ident">remove</span>(<span class="ident">inode</span>)
     }
