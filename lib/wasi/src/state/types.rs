@@ -434,7 +434,7 @@ impl<'de> Deserialize<'de> for HostFile {
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["host_path", "flags"];
+        const FIELDS: &[&str] = &["host_path", "flags"];
         deserializer.deserialize_struct("HostFile", FIELDS, HostFileVisitor)
     }
 }
