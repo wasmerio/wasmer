@@ -101,44 +101,57 @@ where
 {
     /// Type for this `NativeWasmType`.
     const TYPE: Type;
+
     /// Convert from u64 bites to self.
     fn from_binary(bits: u64) -> Self;
+
     /// Convert self to u64 binary representation.
     fn to_binary(self) -> u64;
 }
 
 unsafe impl NativeWasmType for i32 {
     const TYPE: Type = Type::I32;
+
     fn from_binary(bits: u64) -> Self {
         bits as _
     }
+
     fn to_binary(self) -> u64 {
         self as _
     }
 }
+
 unsafe impl NativeWasmType for i64 {
     const TYPE: Type = Type::I64;
+
     fn from_binary(bits: u64) -> Self {
         bits as _
     }
+
     fn to_binary(self) -> u64 {
         self as _
     }
 }
+
 unsafe impl NativeWasmType for f32 {
     const TYPE: Type = Type::F32;
+
     fn from_binary(bits: u64) -> Self {
         f32::from_bits(bits as u32)
     }
+
     fn to_binary(self) -> u64 {
         self.to_bits() as _
     }
 }
+
 unsafe impl NativeWasmType for f64 {
     const TYPE: Type = Type::F64;
+
     fn from_binary(bits: u64) -> Self {
         f64::from_bits(bits)
     }
+
     fn to_binary(self) -> u64 {
         self.to_bits()
     }
@@ -151,102 +164,40 @@ where
 {
     /// Native wasm type for this `WasmExternType`.
     type Native: NativeWasmType;
+
     /// Convert from given `Native` type to self.
     fn from_native(native: Self::Native) -> Self;
+
     /// Convert self to `Native` type.
     fn to_native(self) -> Self::Native;
 }
 
-unsafe impl WasmExternType for i8 {
-    type Native = i32;
-    fn from_native(native: Self::Native) -> Self {
-        native as _
-    }
-    fn to_native(self) -> Self::Native {
-        self as _
-    }
+macro_rules! wasm_extern_type {
+    ($type:ty => $native_type:ty) => {
+        unsafe impl WasmExternType for $type {
+            type Native = $native_type;
+
+            fn from_native(native: Self::Native) -> Self {
+                native as _
+            }
+
+            fn to_native(self) -> Self::Native {
+                self as _
+            }
+        }
+    };
 }
-unsafe impl WasmExternType for u8 {
-    type Native = i32;
-    fn from_native(native: Self::Native) -> Self {
-        native as _
-    }
-    fn to_native(self) -> Self::Native {
-        self as _
-    }
-}
-unsafe impl WasmExternType for i16 {
-    type Native = i32;
-    fn from_native(native: Self::Native) -> Self {
-        native as _
-    }
-    fn to_native(self) -> Self::Native {
-        self as _
-    }
-}
-unsafe impl WasmExternType for u16 {
-    type Native = i32;
-    fn from_native(native: Self::Native) -> Self {
-        native as _
-    }
-    fn to_native(self) -> Self::Native {
-        self as _
-    }
-}
-unsafe impl WasmExternType for i32 {
-    type Native = i32;
-    fn from_native(native: Self::Native) -> Self {
-        native
-    }
-    fn to_native(self) -> Self::Native {
-        self
-    }
-}
-unsafe impl WasmExternType for u32 {
-    type Native = i32;
-    fn from_native(native: Self::Native) -> Self {
-        native as _
-    }
-    fn to_native(self) -> Self::Native {
-        self as _
-    }
-}
-unsafe impl WasmExternType for i64 {
-    type Native = i64;
-    fn from_native(native: Self::Native) -> Self {
-        native
-    }
-    fn to_native(self) -> Self::Native {
-        self
-    }
-}
-unsafe impl WasmExternType for u64 {
-    type Native = i64;
-    fn from_native(native: Self::Native) -> Self {
-        native as _
-    }
-    fn to_native(self) -> Self::Native {
-        self as _
-    }
-}
-unsafe impl WasmExternType for f32 {
-    type Native = f32;
-    fn from_native(native: Self::Native) -> Self {
-        native
-    }
-    fn to_native(self) -> Self::Native {
-        self
-    }
-}
-unsafe impl WasmExternType for f64 {
-    type Native = f64;
-    fn from_native(native: Self::Native) -> Self {
-        native
-    }
-    fn to_native(self) -> Self::Native {
-        self
-    }
-}
+
+wasm_extern_type!(i8 => i32);
+wasm_extern_type!(u8 => i32);
+wasm_extern_type!(i16 => i32);
+wasm_extern_type!(u16 => i32);
+wasm_extern_type!(i32 => i32);
+wasm_extern_type!(u32 => i32);
+wasm_extern_type!(i64 => i64);
+wasm_extern_type!(u64 => i64);
+wasm_extern_type!(f32 => f32);
+wasm_extern_type!(f64 => f64);
 
 // pub trait IntegerAtomic
 // where
