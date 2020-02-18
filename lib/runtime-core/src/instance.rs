@@ -284,37 +284,45 @@ impl Instance {
     /// # }
     /// ```
     pub fn dyn_func(&self, name: &str) -> ResolveResult<DynFunc> {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
+        let func_index = self.resolve_func(name)?;
 
-        if let ExportIndex::Func(func_index) = export_index {
-            let sig_index = *self
-                .module
-                .info
-                .func_assoc
-                .get(*func_index)
-                .expect("broken invariant, incorrect func index");
-            let signature =
-                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
+        self.dyn_func_with_index(func_index)
+    }
 
-            Ok(DynFunc {
-                signature,
-                module: &self.module,
-                instance_inner: &self.inner,
-                func_index: *func_index,
-            })
-        } else {
-            Err(ResolveError::ExportWrongType {
-                name: name.to_string(),
-            }
-            .into())
-        }
+    /// This returns the representation of a function that can be called
+    /// safely.
+    ///
+    /// # Usage:
+    /// ```
+    /// # use wasmer_runtime_core::Instance;
+    /// # use wasmer_runtime_core::error::CallResult;
+    /// # fn call_foo(instance: &mut Instance) -> CallResult<()> {
+    ///
+    /// let index = 0;
+    /// instance
+    ///     .dyn_func_with_index(index)?
+    ///     .call(&[])?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn dyn_func_with_index(&self, func_index: usize) -> ResolveResult<DynFunc> {
+        let func_index = FuncIndex::new(func_index);
+
+        let sig_index = *self
+            .module
+            .info
+            .func_assoc
+            .get(func_index)
+            .expect("broken invariant, incorrect func index");
+
+        let signature = SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
+
+        Ok(DynFunc {
+            signature,
+            module: &self.module,
+            instance_inner: &self.inner,
+            func_index,
+        })
     }
 
     /// Call an exported WebAssembly function given the export name.
