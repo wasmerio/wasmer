@@ -340,24 +340,40 @@ impl Instance {
     /// # }
     /// ```
     pub fn call(&self, name: &str, params: &[Value]) -> CallResult<Vec<Value>> {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
+        match self.resolve_func(name) {
+            Ok(func_index) => self.call_func_with_index(func_index, params),
+            Err(e) => Err(CallError::Resolve(e)),
+        }
+    }
 
-        let func_index = if let ExportIndex::Func(func_index) = export_index {
-            *func_index
-        } else {
-            return Err(CallError::Resolve(ResolveError::ExportWrongType {
-                name: name.to_string(),
-            })
-            .into());
-        };
-
+    /// Call an exported WebAssembly function given the export function index.
+    /// Pass arguments by wrapping each one in the [`Value`] enum.
+    /// The returned values are also each wrapped in a [`Value`].
+    ///
+    /// [`Value`]: enum.Value.html
+    ///
+    /// # Note:
+    /// This returns `CallResult<Vec<Value>>` in order to support
+    /// the future multi-value returns WebAssembly feature.
+    ///
+    /// # Usage:
+    /// ```
+    /// # use wasmer_runtime_core::types::{Value, FuncIndex};
+    /// # use wasmer_runtime_core::error::Result;
+    /// # use wasmer_runtime_core::Instance;
+    /// # fn call_foo(instance: &mut Instance) -> Result<()> {
+    /// // ...
+    /// let func_index = 0;
+    /// let results = instance.call_func_with_index(func_index, &[Value::I32(42)])?;
+    /// // ...
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn call_func_with_index(
+        &self,
+        func_index: usize,
+        params: &[Value],
+    ) -> CallResult<Vec<Value>> {
         let mut results = Vec::new();
 
         call_func_with_index(
@@ -365,7 +381,7 @@ impl Instance {
             &**self.module.runnable_module,
             &self.inner.import_backing,
             self.inner.vmctx,
-            func_index,
+            FuncIndex::new(func_index),
             params,
             &mut results,
         )?;
