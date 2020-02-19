@@ -164,9 +164,8 @@ impl Instance {
     /// ```
     /// # use wasmer_runtime_core::{Func, Instance, error::ResolveResult};
     /// # fn typed_func(instance: Instance) -> ResolveResult<()> {
-    /// let func: Func<(i32, i32)> = instance.func("foo")?;
-    ///
-    /// func.call(42, 43);
+    ///   let func: Func<(i32, i32)> = instance.func("foo")?;
+    ///   func.call(42, 43);
     /// # Ok(())
     /// # }
     /// ```
@@ -175,77 +174,97 @@ impl Instance {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
+        let func_index = self.resolve_func(name)?;
 
-        if let ExportIndex::Func(func_index) = export_index {
-            let sig_index = *self
-                .module
-                .info
-                .func_assoc
-                .get(*func_index)
-                .expect("broken invariant, incorrect func index");
-            let signature =
-                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
+        self.func_with_index(func_index)
+    }
 
-            if signature.params() != Args::types() || signature.returns() != Rets::types() {
-                Err(ResolveError::Signature {
-                    expected: (*signature).clone(),
-                    found: Args::types().to_vec(),
-                })?;
-            }
+    /// Through generic magic and the awe-inspiring power of traits, we bring you...
+    ///
+    /// # "Func"
+    ///
+    /// A [`Func`] allows you to call functions exported from wasm with
+    /// near zero overhead.
+    ///
+    /// [`Func`]: struct.Func.html
+    /// # Usage:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{Func, Instance, error::ResolveResult};
+    /// # fn typed_func(instance: Instance) -> ResolveResult<()> {
+    ///
+    /// let func_index = instance.resolve_func("foo")?;
+    /// let func: Func<(i32, i32)> = instance.func_with_index(func_index)?;
+    ///
+    /// func.call(42, 43);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn func_with_index<Args, Rets>(
+        &self,
+        func_index: usize,
+    ) -> ResolveResult<Func<Args, Rets, Wasm>>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        let func_index = FuncIndex::new(func_index);
 
-            let ctx = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(_) => self.inner.vmctx,
-                LocalOrImport::Import(imported_func_index) => unsafe {
-                    self.inner.import_backing.vm_functions[imported_func_index]
-                        .func_ctx
-                        .as_ref()
-                }
-                .vmctx
-                .as_ptr(),
-            };
+        let sig_index = *self
+            .module
+            .info
+            .func_assoc
+            .get(func_index)
+            .expect("broken invariant, incorrect func index");
 
-            let func_wasm_inner = self
-                .module
-                .runnable_module
-                .get_trampoline(&self.module.info, sig_index)
-                .unwrap();
+        let signature = SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
 
-            let (func_ptr, func_env) = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(local_func_index) => (
-                    self.module
-                        .runnable_module
-                        .get_func(&self.module.info, local_func_index)
-                        .unwrap(),
-                    None,
-                ),
-                LocalOrImport::Import(import_func_index) => {
-                    let imported_func = &self.inner.import_backing.vm_functions[import_func_index];
-
-                    (
-                        NonNull::new(imported_func.func as *mut _).unwrap(),
-                        unsafe { imported_func.func_ctx.as_ref() }.func_env,
-                    )
-                }
-            };
-
-            let typed_func: Func<Args, Rets, Wasm> =
-                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, func_env, ctx) };
-
-            Ok(typed_func)
-        } else {
-            Err(ResolveError::ExportWrongType {
-                name: name.to_string(),
-            }
-            .into())
+        if signature.params() != Args::types() || signature.returns() != Rets::types() {
+            Err(ResolveError::Signature {
+                expected: (*signature).clone(),
+                found: Args::types().to_vec(),
+            })?;
         }
+
+        let ctx = match func_index.local_or_import(&self.module.info) {
+            LocalOrImport::Local(_) => self.inner.vmctx,
+            LocalOrImport::Import(imported_func_index) => unsafe {
+                self.inner.import_backing.vm_functions[imported_func_index]
+                    .func_ctx
+                    .as_ref()
+            }
+            .vmctx
+            .as_ptr(),
+        };
+
+        let func_wasm_inner = self
+            .module
+            .runnable_module
+            .get_trampoline(&self.module.info, sig_index)
+            .unwrap();
+
+        let (func_ptr, func_env) = match func_index.local_or_import(&self.module.info) {
+            LocalOrImport::Local(local_func_index) => (
+                self.module
+                    .runnable_module
+                    .get_func(&self.module.info, local_func_index)
+                    .unwrap(),
+                None,
+            ),
+            LocalOrImport::Import(import_func_index) => {
+                let imported_func = &self.inner.import_backing.vm_functions[import_func_index];
+
+                (
+                    NonNull::new(imported_func.func as *mut _).unwrap(),
+                    unsafe { imported_func.func_ctx.as_ref() }.func_env,
+                )
+            }
+        };
+
+        let typed_func: Func<Args, Rets, Wasm> =
+            unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, func_env, ctx) };
+
+        Ok(typed_func)
     }
 
     /// Resolve a function by name.
