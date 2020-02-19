@@ -8,7 +8,7 @@ use crate::{
     module::{ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
     structures::TypedIndex,
-    types::{LocalMemoryIndex, LocalOrImport, MemoryIndex, TableIndex, Value},
+    types::{LocalOrImport, MemoryIndex, TableIndex, Value},
     vmcalls,
 };
 use std::{
@@ -136,7 +136,7 @@ pub struct InternalCtx {
     pub interrupt_signal_mem: *mut u8,
 
     /// hmm
-    pub first_mem: *mut LocalMemory,
+    pub ctx: *mut Ctx,
 }
 
 static INTERNAL_FIELDS: AtomicUsize = AtomicUsize::new(0);
@@ -309,7 +309,7 @@ impl Ctx {
                 internals: &mut local_backing.internals.0,
 
                 interrupt_signal_mem: get_interrupt_signal_mem(),
-                first_mem: local_backing.vm_memories[LocalMemoryIndex::new(0)],
+                ctx: std::ptr::null_mut(), //local_backing.vm_memories[LocalMemoryIndex::new(0)],
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -366,7 +366,8 @@ impl Ctx {
 
                 interrupt_signal_mem: get_interrupt_signal_mem(),
 
-                first_mem: local_backing.vm_memories[LocalMemoryIndex::new(0)],
+                ctx: std::ptr::null_mut(),
+                //first_mem: local_backing.vm_memories[LocalMemoryIndex::new(0)],
             },
             local_functions: local_backing.local_functions.as_ptr(),
 
@@ -674,9 +675,6 @@ pub struct LocalMemory {
     /// This is either `*mut DynamicMemory`, `*mut StaticMemory`,
     /// or `*mut SharedStaticMemory`.
     pub memory: *mut (),
-
-    /// wat
-    pub vmctx: *mut Ctx,
 }
 
 // manually implemented because LocalMemory contains raw pointers

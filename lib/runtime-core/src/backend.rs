@@ -124,6 +124,15 @@ pub struct CompilerConfig {
     pub generate_debug_info: bool,
 }
 
+impl CompilerConfig {
+    /// Use this to check if we should be generating debug information.
+    /// This function takes into account the features that runtime-core was
+    /// compiled with in addition to the value of the `generate_debug_info` field.
+    pub(crate) fn should_generate_debug_info(&self) -> bool {
+        cfg!(feature = "generate-debug-information") && self.generate_debug_info
+    }
+}
+
 /// An exception table for a `RunnableModule`.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ExceptionTable {
@@ -209,11 +218,6 @@ pub trait RunnableModule: Send + Sync {
 
     /// Returns the beginning offsets of all local functions.
     fn get_local_function_offsets(&self) -> Option<Vec<usize>> {
-        None
-    }
-
-    /// TODO: document before shipppping
-    fn get_local_function_pointers_and_lengths(&self) -> Option<Vec<(*const u8, usize)>> {
         None
     }
 

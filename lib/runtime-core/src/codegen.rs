@@ -18,7 +18,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::{Arc, RwLock};
-use wasm_debug::types::{CompiledFunctionData, ValueLabelsRangesInner};
 use wasmparser::{self, WasmDecoder};
 use wasmparser::{Operator, Type as WpType};
 
@@ -128,7 +127,19 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
 }
 
-/// missing documentation!
+/// Mock item when compiling without debug info generation.
+#[cfg(not(feature = "generate-debug-information"))]
+type CompiledFunctionData = ();
+
+/// Mock item when compiling without debug info generation.
+#[cfg(not(feature = "generate-debug-information"))]
+type ValueLabelsRangesInner = ();
+
+#[cfg(feature = "generate-debug-information")]
+use wasm_debug::types::{CompiledFunctionData, ValueLabelsRangesInner};
+
+#[derive(Clone, Debug)]
+/// Useful information for debugging gathered by compiling a Wasm module.
 pub struct DebugMetadata {
     /// [`CompiledFunctionData`] in [`FuncIndex`] order
     pub func_info: Map<FuncIndex, CompiledFunctionData>,
@@ -262,55 +273,47 @@ impl<
         };
         let mut chain = (self.middleware_chain_generator)();
         let info = crate::parse::read_module(wasm, &mut mcg, &mut chain, &compiler_config)?;
-        let ((exec_context, debug_metadata), cache_gen) = mcg
-            .finalize(&info.read().unwrap())
-            .map_err(|x| CompileError::InternalError {
-                msg: format!("{:?}", x),
-            })?;
+        let ((exec_context, compile_debug_info), cache_gen) =
+            mcg.finalize(&info.read().unwrap())
+                .map_err(|x| CompileError::InternalError {
+                    msg: format!("{:?}", x),
+                })?;
 
-        use target_lexicon::{
-            Architecture, BinaryFormat, Environment, OperatingSystem, Triple, Vendor,
-        };
-        const X86_64_OSX: Triple = Triple {
-            architecture: Architecture::X86_64,
-            vendor: Vendor::Apple,
-            operating_system: OperatingSystem::Darwin,
-            environment: Environment::Unknown,
-            binary_format: BinaryFormat::Macho,
-        };
+        #[cfg(feature = "generate-debug-information")]
+        {
+            if compiler_config.should_generate_debug_info() {
+                if let Some(dbg_info) = compile_debug_info {
+                    let debug_info = wasm_debug::read_debuginfo(wasm);
+                    let extra_info = wasm_debug::types::ModuleVmctxInfo::new(
+                        crate::vm::Ctx::offset_memory_base() as _,
+                        std::mem::size_of::<crate::vm::Ctx>() as _,
+                        dbg_info.stack_slot_offsets.values(),
+                    );
+                    let compiled_fn_map =
+                        wasm_debug::types::create_module_address_map(dbg_info.func_info.values());
+                    let range_map =
+                        wasm_debug::types::build_values_ranges(dbg_info.inst_info.values());
+                    let raw_func_slice = &dbg_info.pointers;
 
-        if compiler_config.generate_debug_info {
-            if let Some(debug_metadata) = debug_metadata {
-                let debug_info = wasm_debug::read_debuginfo(wasm);
-                let extra_info = wasm_debug::types::ModuleVmctxInfo::new(
-                    14 * 8,
-                    debug_metadata.stack_slot_offsets.values(),
-                );
-                let compiled_fn_map =
-                    wasm_debug::types::create_module_address_map(debug_metadata.func_info.values());
-                let range_map =
-                    wasm_debug::types::build_values_ranges(debug_metadata.inst_info.values());
-                let raw_func_slice = debug_metadata.pointers;
+                    let debug_image = wasm_debug::emit_debugsections_image(
+                        target_lexicon::HOST,
+                        std::mem::size_of::<usize>() as u8,
+                        &debug_info,
+                        &extra_info,
+                        &compiled_fn_map,
+                        &range_map,
+                        raw_func_slice,
+                    )
+                    .expect("make debug image");
 
-                let debug_image = wasm_debug::emit_debugsections_image(
-                    X86_64_OSX,
-                    std::mem::size_of::<usize>() as u8,
-                    &debug_info,
-                    &extra_info,
-                    &compiled_fn_map,
-                    &range_map,
-                    &raw_func_slice,
-                )
-                .expect("make debug image");
-
-                crate::jit_debug::register_new_jit_code_entry(
-                    &debug_image,
-                    crate::jit_debug::JITAction::JIT_REGISTER_FN,
-                );
-            } else {
-                eprintln!("Failed to generate debug information!");
+                    let mut writer = info.write().unwrap();
+                    writer
+                        .debug_info_manager
+                        .register_new_jit_code_entry(&debug_image);
+                }
             }
         }
+
         Ok(ModuleInner {
             cache_gen,
             runnable_module: Arc::new(Box::new(exec_context)),

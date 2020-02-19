@@ -227,7 +227,6 @@ impl UnsharedMemory {
             base: std::ptr::null_mut(),
             bound: 0,
             memory: std::ptr::null_mut(),
-            vmctx: std::ptr::null_mut(),
         };
 
         let storage = match desc.memory_type() {
@@ -315,7 +314,6 @@ impl SharedMemory {
             base: std::ptr::null_mut(),
             bound: 0,
             memory: std::ptr::null_mut(),
-            vmctx: std::ptr::null_mut(),
         };
 
         let memory = StaticMemory::new(desc, &mut local)?;

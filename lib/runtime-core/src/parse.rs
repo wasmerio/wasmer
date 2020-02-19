@@ -91,7 +91,8 @@ pub fn read_module<
 
         custom_sections: HashMap::new(),
 
-        generate_debug_info: compiler_config.generate_debug_info,
+        generate_debug_info: compiler_config.should_generate_debug_info(),
+        debug_info_manager: Default::default(),
     }));
 
     let mut parser = wasmparser::ValidatingParser::new(

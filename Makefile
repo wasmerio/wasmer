@@ -219,6 +219,7 @@ check: check-bench
 	# builds, test as many combined features as possible with each backend
 	# as default, and test a minimal set of features with only one backend
 	# at a time.
+	cargo check --manifest-path lib/runtime-core/Cargo.toml
 	cargo check --manifest-path lib/runtime/Cargo.toml
 	# Check some of the cases where deterministic execution could matter
 	cargo check --manifest-path lib/runtime/Cargo.toml --features "deterministic-execution"
