@@ -4,10 +4,24 @@ use wasmer_runtime_core::{
 };
 use wasmer_runtime_core_tests::{get_compiler, wat2wasm};
 
-macro_rules! call_and_assert {
-    ($instance:ident, $function:ident, $expected_value:expr) => {
-        let $function: Func<i32, i32> = $instance.func(stringify!($function)).unwrap();
+macro_rules! call_with_index_and_assert {
+    ($instance:ident, $func_index:expr, $expected_value:expr) => {{
+        let func: Func<i32, i32> = $instance.func_with_index($func_index).unwrap();
 
+        func_call_and_assert!($instance, func, $expected_value);
+    }};
+}
+
+macro_rules! call_and_assert {
+    ($instance:ident, $func_name:ident, $expected_value:expr) => {{
+        let func: Func<i32, i32> = $instance.func(stringify!($func_name)).unwrap();
+
+        func_call_and_assert!($instance, func, $expected_value);
+    }};
+}
+
+macro_rules! func_call_and_assert {
+    ($instance:ident, $function:ident, $expected_value:expr) => {
         let result = $function.call(1);
 
         match (result, $expected_value) {
@@ -229,6 +243,9 @@ macro_rules! test {
         fn $test_name() {
             imported_functions_forms(&|instance| {
                 call_and_assert!(instance, $function, $expected_value);
+
+                let func_index = instance.resolve_func(stringify!($function)).unwrap();
+                call_with_index_and_assert!(instance, func_index, $expected_value);
             });
         }
     };
