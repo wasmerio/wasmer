@@ -115,7 +115,7 @@ fn export<'input, E: ParseError<&'input str>>(
     )(input)
 }
 
-/// Parse a `(import …)`.
+/// Parse an `(import "ns" "foo")`.
 fn import_qualifier<'input, E: ParseError<&'input str>>(
     input: &'input str,
 ) -> IResult<&'input str, (&'input str, &'input str), E> {
@@ -135,6 +135,26 @@ fn import_qualifier<'input, E: ParseError<&'input str>>(
                         preceded(char('"'), cut(terminated(string, char('"')))),
                     ),
                 )),
+            ),
+        ),
+        char(')'),
+    )(input)
+}
+
+/// Parse an `(export "foo")`.
+fn export_qualifier<'input, E: ParseError<&'input str>>(
+    input: &'input str,
+) -> IResult<&'input str, &'input str, E> {
+    delimited(
+        char('('),
+        preceded(
+            opt(whitespace),
+            preceded(
+                tag("export"),
+                preceded(
+                    whitespace,
+                    preceded(char('"'), cut(terminated(string, char('"')))),
+                ),
             ),
         ),
         char(')'),
@@ -184,6 +204,63 @@ fn import<'input, E: ParseError<&'input str>>(
             input_types: input_types.unwrap_or_else(|| vec![]),
             output_types: output_types.unwrap_or_else(|| vec![]),
         },
+    )(input)
+}
+
+/// Parse an `Adapter`.
+fn adapter<'input, E: ParseError<&'input str>>(
+    input: &'input str,
+) -> IResult<&'input str, Adapter, E> {
+    fn adapter_import<'input, E: ParseError<&'input str>>(
+        input: &'input str,
+    ) -> IResult<&'input str, Adapter, E> {
+        map(
+            tuple((
+                preceded(whitespace, import_qualifier),
+                opt(preceded(whitespace, param)),
+                opt(preceded(whitespace, result)),
+            )),
+            |((namespace, name), input_types, output_types)| Adapter::Import {
+                namespace,
+                name,
+                input_types: input_types.unwrap_or_else(|| vec![]),
+                output_types: output_types.unwrap_or_else(|| vec![]),
+                instructions: vec![],
+            },
+        )(input)
+    }
+
+    fn adapter_export<'input, E: ParseError<&'input str>>(
+        input: &'input str,
+    ) -> IResult<&'input str, Adapter, E> {
+        map(
+            tuple((
+                preceded(whitespace, export_qualifier),
+                opt(preceded(whitespace, param)),
+                opt(preceded(whitespace, result)),
+            )),
+            |(name, input_types, output_types)| Adapter::Export {
+                name,
+                input_types: input_types.unwrap_or_else(|| vec![]),
+                output_types: output_types.unwrap_or_else(|| vec![]),
+                instructions: vec![],
+            },
+        )(input)
+    }
+
+    delimited(
+        char('('),
+        preceded(
+            opt(whitespace),
+            preceded(
+                tag("@interface"),
+                preceded(
+                    whitespace,
+                    preceded(tag("adapt"), alt((adapter_import, adapter_export))),
+                ),
+            ),
+        ),
+        char(')'),
     )(input)
 }
 
@@ -327,6 +404,14 @@ mod tests {
     }
 
     #[test]
+    fn test_export_qualifier() {
+        let input = r#"(export "name")"#;
+        let output = "name";
+
+        assert_eq!(export_qualifier::<()>(input), Ok(("", output)));
+    }
+
+    #[test]
     fn test_import_with_no_param_no_result() {
         let input = r#"(@interface func $ns_foo (import "ns" "foo"))"#;
         let output = Import {
@@ -390,5 +475,32 @@ mod tests {
         };
 
         assert_eq!(import::<()>(input), Ok(("", output)));
+    }
+
+    #[test]
+    fn test_adapter_import() {
+        let input = r#"(@interface adapt (import "ns" "foo") (param i32 i32) (result i32))"#;
+        let output = Adapter::Import {
+            namespace: "ns",
+            name: "foo",
+            input_types: vec![InterfaceType::I32, InterfaceType::I32],
+            output_types: vec![InterfaceType::I32],
+            instructions: vec![],
+        };
+
+        assert_eq!(adapter::<()>(input), Ok(("", output)));
+    }
+
+    #[test]
+    fn test_adapter_export() {
+        let input = r#"(@interface adapt (export "foo") (param i32 i32) (result i32))"#;
+        let output = Adapter::Export {
+            name: "foo",
+            input_types: vec![InterfaceType::I32, InterfaceType::I32],
+            output_types: vec![InterfaceType::I32],
+            instructions: vec![],
+        };
+
+        assert_eq!(adapter::<()>(input), Ok(("", output)));
     }
 }
