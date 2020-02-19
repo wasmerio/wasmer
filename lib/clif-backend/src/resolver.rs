@@ -156,9 +156,9 @@ impl FuncResolverBuilder {
                                         let srcloc = func.srclocs[inst];
                                         let val = srcloc.bits();
                                         wasm_debug::types::CompiledInstructionData {
-                                            loc: wasm_debug::types::SourceLoc::new(val),
-                                            offset: offset as usize,
-                                            length: length as usize,
+                                            srcloc: wasm_debug::types::SourceLoc::new(val),
+                                            code_offset: offset as usize,
+                                            code_len: length as usize,
                                         }
                                     })
                             })
@@ -174,11 +174,11 @@ impl FuncResolverBuilder {
 
                         let entry = CompiledFunctionData {
                             instructions,
-                            start: wasm_debug::types::SourceLoc::new(*start),
-                            end: wasm_debug::types::SourceLoc::new(*end),
+                            start_srcloc: wasm_debug::types::SourceLoc::new(*start),
+                            end_srcloc: wasm_debug::types::SourceLoc::new(*end),
                             // this not being 0 breaks inst-level debugging
-                            compiled_offset: 0,
-                            compiled_size: code_buf.len(),
+                            body_offset: 0,
+                            body_len: code_buf.len(),
                         };
                         Some((entry, labels_ranges, stack_slots))
                     } else {
