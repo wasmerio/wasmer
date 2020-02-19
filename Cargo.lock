@@ -1727,6 +1727,8 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 [[package]]
 name = "wasm-debug"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86840eccceaf682e29be7810dcae5785b9c3b0349ce44d3eaecd9e50f893aee0"
 dependencies = [
  "anyhow",
  "cranelift-entity",

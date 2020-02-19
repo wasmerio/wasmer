@@ -88,6 +88,7 @@ docs = ["wasmer-runtime/docs"]
 fast-tests = []
 backend-cranelift = [
     "wasmer-clif-backend",
+    "wasmer-clif-backend/generate-debug-information",
     "wasmer-runtime/cranelift",
     "wasmer-middleware-common-tests/clif",
 ]
