@@ -2,3 +2,4 @@
 //! `decoders::binary` reads the AST from a binary.
 
 pub mod binary;
+pub mod wat;
