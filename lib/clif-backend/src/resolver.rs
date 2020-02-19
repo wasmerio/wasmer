@@ -164,10 +164,6 @@ impl FuncResolverBuilder {
                             })
                             .collect::<Vec<_>>();
 
-                        /*let mut unwind = vec![];
-                        ctx.emit_unwind_info(isa, &mut unwind);
-                        dbg!(unwind.len());*/
-
                         let stack_slots = ctx
                             .func
                             .stack_slots
@@ -228,9 +224,34 @@ impl FuncResolverBuilder {
             if let Some(ref mut dbg_metadata) = debug_metadata {
                 let (entry, vlr, stackslots) = debug_info.unwrap();
                 dbg_metadata.func_info.push(entry);
-                dbg_metadata
-                    .inst_info
-                    .push(unsafe { std::mem::transmute(vlr) });
+                let new_vlr = vlr
+                    .into_iter()
+                    .map(|(k, v)| {
+                        (
+                            wasm_debug::types::ValueLabel::from_u32(k.as_u32()),
+                            v.into_iter()
+                                .map(|item| wasm_debug::types::ValueLocRange {
+                                    start: item.start,
+                                    end: item.end,
+                                    loc: match item.loc {
+                                        cranelift_codegen::ir::ValueLoc::Unassigned => {
+                                            wasm_debug::types::ValueLoc::Unassigned
+                                        }
+                                        cranelift_codegen::ir::ValueLoc::Reg(ru) => {
+                                            wasm_debug::types::ValueLoc::Reg(ru)
+                                        }
+                                        cranelift_codegen::ir::ValueLoc::Stack(st) => {
+                                            wasm_debug::types::ValueLoc::Stack(
+                                                wasm_debug::types::StackSlot::from_u32(st.as_u32()),
+                                            )
+                                        }
+                                    },
+                                })
+                                .collect::<Vec<wasm_debug::types::ValueLocRange>>(),
+                        )
+                    })
+                    .collect::<wasm_debug::types::ValueLabelsRangesInner>();
+                dbg_metadata.inst_info.push(new_vlr);
                 dbg_metadata.stack_slot_offsets.push(stackslots);
             }
 
