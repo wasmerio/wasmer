@@ -2,10 +2,10 @@
 
 #![allow(unused)]
 
-use crate::ast::*;
+use crate::{ast::*, interpreter::Instruction};
 use wast::{
     parser::{Cursor, Parse, Parser, Peek, Result},
-    Id,
+    Id, LParen,
 };
 
 mod kw {
@@ -14,13 +14,38 @@ mod kw {
         kw::{anyref, export, f32, f64, func, i32, i64, import, param, result},
     };
 
+    // New keywords.
     custom_keyword!(adapt);
     custom_keyword!(forward);
+
+    // New types.
     custom_keyword!(int);
     custom_keyword!(float);
     custom_keyword!(any);
     custom_keyword!(string);
     custom_keyword!(seq);
+
+    // Instructions.
+    custom_keyword!(argument_get = "arg.get");
+    custom_keyword!(call);
+    custom_keyword!(call_export = "call-export");
+    custom_keyword!(read_utf8 = "read-utf8");
+    custom_keyword!(write_utf8 = "write-utf8");
+    custom_keyword!(as_wasm = "as-wasm");
+    custom_keyword!(as_interface = "as-interface");
+    custom_keyword!(table_ref_add = "table-ref-add");
+    custom_keyword!(table_ref_get = "table-ref-get");
+    custom_keyword!(call_method = "call-method");
+    custom_keyword!(make_record = "make-record");
+    custom_keyword!(get_field = "get-field");
+    custom_keyword!(r#const = "const");
+    custom_keyword!(fold_seq = "fold-seq");
+    custom_keyword!(add);
+    custom_keyword!(mem_to_seq = "mem-to-seq");
+    custom_keyword!(load);
+    custom_keyword!(seq_new = "seq.new");
+    custom_keyword!(list_push = "list.push");
+    custom_keyword!(repeat_until = "repeat-until");
 }
 
 /// Issue: Uppercased keyword aren't supported for the moment.
@@ -68,6 +93,104 @@ impl Parse<'_> for InterfaceType {
             parser.parse::<kw::anyref>()?;
 
             Ok(InterfaceType::AnyRef)
+        } else {
+            Err(lookahead.error())
+        }
+    }
+}
+
+impl<'a> Parse<'a> for Instruction<'a> {
+    fn parse(parser: Parser<'a>) -> Result<Self> {
+        let mut lookahead = parser.lookahead1();
+
+        if lookahead.peek::<kw::argument_get>() {
+            parser.parse::<kw::argument_get>()?;
+
+            Ok(Instruction::ArgumentGet {
+                index: parser.parse()?,
+            })
+        } else if lookahead.peek::<kw::call>() {
+            parser.parse::<kw::call>()?;
+
+            Ok(Instruction::Call {
+                function_index: parser.parse::<u64>()? as usize,
+            })
+        } else if lookahead.peek::<kw::call_export>() {
+            parser.parse::<kw::call_export>()?;
+
+            Ok(Instruction::CallExport {
+                export_name: parser.parse()?,
+            })
+        } else if lookahead.peek::<kw::read_utf8>() {
+            parser.parse::<kw::read_utf8>()?;
+
+            Ok(Instruction::ReadUtf8)
+        } else if lookahead.peek::<kw::write_utf8>() {
+            parser.parse::<kw::write_utf8>()?;
+
+            Ok(Instruction::WriteUtf8 {
+                allocator_name: parser.parse()?,
+            })
+        } else if lookahead.peek::<kw::as_wasm>() {
+            parser.parse::<kw::as_wasm>()?;
+
+            Ok(Instruction::AsWasm(parser.parse()?))
+        } else if lookahead.peek::<kw::as_interface>() {
+            parser.parse::<kw::as_interface>()?;
+
+            Ok(Instruction::AsInterface(parser.parse()?))
+        } else if lookahead.peek::<kw::table_ref_add>() {
+            parser.parse::<kw::table_ref_add>()?;
+
+            Ok(Instruction::TableRefAdd)
+        } else if lookahead.peek::<kw::table_ref_get>() {
+            parser.parse::<kw::table_ref_get>()?;
+
+            Ok(Instruction::TableRefGet)
+        } else if lookahead.peek::<kw::call_method>() {
+            parser.parse::<kw::call_method>()?;
+
+            Ok(Instruction::CallMethod(parser.parse()?))
+        } else if lookahead.peek::<kw::make_record>() {
+            parser.parse::<kw::make_record>()?;
+
+            Ok(Instruction::MakeRecord(parser.parse()?))
+        } else if lookahead.peek::<kw::get_field>() {
+            parser.parse::<kw::get_field>()?;
+
+            Ok(Instruction::GetField(parser.parse()?, parser.parse()?))
+        } else if lookahead.peek::<kw::r#const>() {
+            parser.parse::<kw::r#const>()?;
+
+            Ok(Instruction::Const(parser.parse()?, parser.parse()?))
+        } else if lookahead.peek::<kw::fold_seq>() {
+            parser.parse::<kw::fold_seq>()?;
+
+            Ok(Instruction::FoldSeq(parser.parse()?))
+        } else if lookahead.peek::<kw::add>() {
+            parser.parse::<kw::add>()?;
+
+            Ok(Instruction::Add(parser.parse()?))
+        } else if lookahead.peek::<kw::mem_to_seq>() {
+            parser.parse::<kw::mem_to_seq>()?;
+
+            Ok(Instruction::MemToSeq(parser.parse()?, parser.parse()?))
+        } else if lookahead.peek::<kw::load>() {
+            parser.parse::<kw::load>()?;
+
+            Ok(Instruction::Load(parser.parse()?, parser.parse()?))
+        } else if lookahead.peek::<kw::seq_new>() {
+            parser.parse::<kw::seq_new>()?;
+
+            Ok(Instruction::SeqNew(parser.parse()?))
+        } else if lookahead.peek::<kw::list_push>() {
+            parser.parse::<kw::list_push>()?;
+
+            Ok(Instruction::ListPush)
+        } else if lookahead.peek::<kw::repeat_until>() {
+            parser.parse::<kw::repeat_until>()?;
+
+            Ok(Instruction::RepeatUntil(parser.parse()?, parser.parse()?))
         } else {
             Err(lookahead.error())
         }
@@ -250,13 +373,18 @@ impl<'a> Parse<'a> for Adapter<'a> {
         })?;
         let mut input_types = vec![];
         let mut output_types = vec![];
+        let mut instructions = vec![];
 
         while !parser.is_empty() {
-            let function_type = parser.parse::<FunctionType>()?;
+            if parser.peek::<LParen>() {
+                let function_type = parser.parse::<FunctionType>()?;
 
-            match function_type {
-                FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
-                FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
+                match function_type {
+                    FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
+                    FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
+                }
+            } else {
+                instructions.push(parser.parse()?);
             }
         }
 
@@ -266,14 +394,14 @@ impl<'a> Parse<'a> for Adapter<'a> {
                 name,
                 input_types,
                 output_types,
-                instructions: vec![],
+                instructions,
             },
 
             AdapterKind::Export => Adapter::Export {
                 name,
                 input_types,
                 output_types,
-                instructions: vec![],
+                instructions,
             },
 
             _ => unimplemented!("Adapter of kind “helper” is not implemented yet."),
@@ -344,10 +472,69 @@ mod tests {
 
         assert_eq!(inputs.len(), outputs.len());
 
-        for (nth, input) in inputs.iter().enumerate() {
+        for (input, output) in inputs.iter().zip(outputs.iter()) {
             assert_eq!(
-                parser::parse::<InterfaceType>(&buffer(input)).unwrap(),
-                outputs[nth]
+                &parser::parse::<InterfaceType>(&buffer(input)).unwrap(),
+                output
+            );
+        }
+    }
+
+    #[test]
+    fn test_instructions() {
+        let inputs = vec![
+            "arg.get 7",
+            "call 7",
+            r#"call-export "foo""#,
+            "read-utf8",
+            r#"write-utf8 "foo""#,
+            "as-wasm int",
+            "as-interface anyref",
+            "table-ref-add",
+            "table-ref-get",
+            "call-method 7",
+            "make-record int",
+            "get-field int 7",
+            "const i32 7",
+            "fold-seq 7",
+            "add int",
+            r#"mem-to-seq int "foo""#,
+            r#"load int "foo""#,
+            "seq.new int",
+            "list.push",
+            "repeat-until 1 2",
+        ];
+        let outputs = vec![
+            Instruction::ArgumentGet { index: 7 },
+            Instruction::Call { function_index: 7 },
+            Instruction::CallExport { export_name: "foo" },
+            Instruction::ReadUtf8,
+            Instruction::WriteUtf8 {
+                allocator_name: "foo",
+            },
+            Instruction::AsWasm(InterfaceType::Int),
+            Instruction::AsInterface(InterfaceType::AnyRef),
+            Instruction::TableRefAdd,
+            Instruction::TableRefGet,
+            Instruction::CallMethod(7),
+            Instruction::MakeRecord(InterfaceType::Int),
+            Instruction::GetField(InterfaceType::Int, 7),
+            Instruction::Const(InterfaceType::I32, 7),
+            Instruction::FoldSeq(7),
+            Instruction::Add(InterfaceType::Int),
+            Instruction::MemToSeq(InterfaceType::Int, "foo"),
+            Instruction::Load(InterfaceType::Int, "foo"),
+            Instruction::SeqNew(InterfaceType::Int),
+            Instruction::ListPush,
+            Instruction::RepeatUntil(1, 2),
+        ];
+
+        assert_eq!(inputs.len(), outputs.len());
+
+        for (input, output) in inputs.iter().zip(outputs.iter()) {
+            assert_eq!(
+                &parser::parse::<Instruction>(&buffer(input)).unwrap(),
+                output
             );
         }
     }
@@ -540,9 +727,11 @@ mod tests {
 (@interface func $ns_bar (import "ns" "bar"))
 
 (@interface adapt (import "ns" "foo")
-  (param i32))
+  (param i32)
+  arg.get 42)
 
-(@interface adapt (export "bar"))
+(@interface adapt (export "bar")
+  arg.get 42)
 
 (@interface forward (export "main"))"#,
         );
@@ -580,13 +769,13 @@ mod tests {
                     name: "foo",
                     input_types: vec![InterfaceType::I32],
                     output_types: vec![],
-                    instructions: vec![],
+                    instructions: vec![Instruction::ArgumentGet { index: 42 }],
                 },
                 Adapter::Export {
                     name: "bar",
                     input_types: vec![],
                     output_types: vec![],
-                    instructions: vec![],
+                    instructions: vec![Instruction::ArgumentGet { index: 42 }],
                 },
             ],
             forwards: vec![Forward { name: "main" }],
