@@ -97,6 +97,21 @@ mod tests {
         "windows"
     }
 
+    #[cfg(target_os = "linux")]
+    fn get_target_os() -> &'static str {
+        "linux"
+    }
+
+    #[cfg(target_os = "macos")]
+    fn get_target_os() -> &'static str {
+        "macos"
+    }
+
+    #[cfg(target_os = "windows")]
+    fn get_target_os() -> &'static str {
+        "windows"
+    }
+
     fn get_target_arch() -> &'static str {
         if cfg!(target_arch = "x86_64") {
             "x86_64"
@@ -1259,6 +1274,7 @@ mod tests {
         let mut result = HashMap::new();
         let mut file_excludes = HashSet::new();
         let current_backend = get_compiler_name();
+        let current_target_os = get_target_os();
         let current_target_family = get_target_family();
         let current_target_arch = get_target_arch();
 
@@ -1307,7 +1323,8 @@ mod tests {
                 };
 
                 if exclude.matches_backend(current_backend)
-                    && exclude.matches_target_family(current_target_family)
+                    && (exclude.matches_target_family(current_target_os)
+                        || exclude.matches_target_family(current_target_family))
                     && exclude.matches_target_arch(current_target_arch)
                 {
                     // Skip the whole file for line * and skip
