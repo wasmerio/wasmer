@@ -287,8 +287,8 @@ bench-llvm:
 	cargo bench --all --no-default-features --features "backend-llvm" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
 
-# Build utils
-build-install:
+build-install-package:
+	# This command doesn't build the binary, just packages it
 	mkdir -p ./install/bin
 	cp ./wapm-cli/target/release/wapm ./install/bin/
 	cp ./target/release/wasmer ./install/bin/
@@ -296,7 +296,8 @@ build-install:
 
 UNAME_S := $(shell uname -s)
 
-build-capi:
+build-capi-package:
+	# This command doesn't build the C-API, just packages it
 	mkdir -p ./capi/
 	mkdir -p ./capi/include
 	mkdir -p ./capi/lib

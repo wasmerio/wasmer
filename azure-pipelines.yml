@@ -153,7 +153,7 @@ jobs:
         condition: |
           startsWith(variables['Build.SourceBranch'], 'refs/tags')
       - bash: |
-          make build-install
+          make build-install-package
           cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
         displayName: Build Distribution (*nix)
         condition: |
@@ -215,7 +215,7 @@ jobs:
           make capi
         displayName: Build c-api
       - bash: |
-          make build-capi
+          make build-capi-package
           cp ./wasmer-c-api.tar.gz ./artifacts/$(./scripts/capi-name.sh)
         displayName: Build c-api artifacts (Unix)
         condition: |
@@ -224,7 +224,7 @@ jobs:
             not(eq(variables['Agent.OS'], 'Windows_NT'))
           )
       - bash: |
-          make build-capi
+          make build-capi-package
           cp ./wasmer-c-api.tar.gz ./artifacts/wasmer-c-api-windows.tar.gz
         displayName: Build c-api artifacts (Windows)
         condition: |
