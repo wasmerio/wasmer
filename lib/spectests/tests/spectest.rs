@@ -48,12 +48,21 @@ mod tests {
             &mut self,
             failure: SpecFailure,
             _testkey: &str,
-            excludes: &Vec<Exclude>,
+            excludes: &mut Vec<Option<Exclude>>,
             line: u64,
         ) {
-            if excludes
-                .iter()
-                .any(|e| e.line_matches(line) && e.exclude_kind == ExcludeKind::Fail)
+            // Ensure that each exclude is only used once.
+            if let Some(_) = excludes
+                .iter_mut()
+                .find(|e| {
+                    if let Some(ref e) = e {
+                        e.line_matches(line) && e.exclude_kind == ExcludeKind::Fail
+                    } else {
+                        false
+                    }
+                })
+                .take()
+                .and_then(|x| x.take())
             {
                 self.allowed_failure += 1;
                 return;
@@ -110,6 +119,7 @@ mod tests {
 
     //  clif:skip:data.wast:172:unix:x86
     #[allow(dead_code)]
+    #[derive(Clone)]
     struct Exclude {
         backend: Option<String>,
         exclude_kind: ExcludeKind,
@@ -261,13 +271,11 @@ mod tests {
         let mut named_modules: HashMap<String, Arc<Mutex<Instance>>> = HashMap::new();
 
         let mut registered_modules: HashMap<String, Arc<Mutex<Instance>>> = HashMap::new();
-        //
-        let empty_excludes = vec![];
-        let excludes = if excludes.contains_key(filename) {
-            excludes.get(filename).unwrap()
-        } else {
-            &empty_excludes
-        };
+        let mut excludes: Vec<_> = excludes
+            .get(filename)
+            .map(|file| file.iter().map(|x| Some(x.clone())).collect())
+            .unwrap_or(vec![]);
+        let excludes = &mut excludes;
 
         let backend = get_compiler_name();
 
@@ -281,6 +289,7 @@ mod tests {
             // Skip tests that match this line
             if excludes
                 .iter()
+                .filter_map(|x| x.as_ref())
                 .any(|e| e.line_exact_match(line) && e.exclude_kind == ExcludeKind::Skip)
             {
                 continue;
@@ -1072,6 +1081,21 @@ mod tests {
                         module, field, filename, line
                     ),
                 },
+            }
+        }
+
+        // Check for unused excludes.
+        for excl in excludes {
+            if let Some(ref excl) = *excl {
+                if excl.exclude_kind == ExcludeKind::Fail {
+                    test_report.failed += 1;
+                    test_report.failures.push(SpecFailure {
+                        file: filename.to_string(),
+                        line: excl.line.unwrap_or(0),
+                        kind: format!("{}", "Exclude"),
+                        message: format!("Excluded failure did not occur"),
+                    });
+                }
             }
         }
         Ok(test_report)
