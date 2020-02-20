@@ -61,7 +61,7 @@ fn uleb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'i
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
     }
 
-    let (output, bytes) = match dbg!(input.iter().position(|&byte| byte & 0x80 == 0)) {
+    let (output, bytes) = match input.iter().position(|&byte| byte & 0x80 == 0) {
         Some(length) if length <= 8 => (&input[length + 1..], &input[..=length]),
         Some(_) => return Err(Err::Error(make_error(input, ErrorKind::TooLarge))),
         None => return Err(Err::Error(make_error(input, ErrorKind::Eof))),
@@ -407,6 +407,30 @@ fn forwards<'input, E: ParseError<&'input [u8]>>(
     Ok((input, forwards))
 }
 
+/// Parse complete interfaces.
+fn interfaces<'input, E: ParseError<&'input [u8]>>(
+    bytes: &'input [u8],
+) -> IResult<&'input [u8], Interfaces, E> {
+    let mut input = bytes;
+
+    consume!((input, exports) = exports(input)?);
+    consume!((input, types) = types(input)?);
+    consume!((input, imports) = imports(input)?);
+    consume!((input, adapters) = adapters(input)?);
+    consume!((input, forwards) = forwards(input)?);
+
+    Ok((
+        input,
+        Interfaces {
+            exports,
+            types,
+            imports,
+            adapters,
+            forwards,
+        },
+    ))
+}
+
 /// Parse a sequence of bytes, expecting it to be a valid WIT binary
 /// representation, into an `ast::Interfaces`.
 ///
@@ -500,24 +524,7 @@ fn forwards<'input, E: ParseError<&'input [u8]>>(
 pub fn parse<'input, E: ParseError<&'input [u8]>>(
     bytes: &'input [u8],
 ) -> IResult<&'input [u8], Interfaces, E> {
-    let mut input = bytes;
-
-    consume!((input, exports) = exports(input)?);
-    consume!((input, types) = types(input)?);
-    consume!((input, imports) = imports(input)?);
-    consume!((input, adapters) = adapters(input)?);
-    consume!((input, forwards) = forwards(input)?);
-
-    Ok((
-        input,
-        Interfaces {
-            exports,
-            types,
-            imports,
-            adapters,
-            forwards,
-        },
-    ))
+    interfaces(bytes)
 }
 
 #[cfg(test)]
@@ -978,6 +985,6 @@ mod tests {
             },
         ));
 
-        assert_eq!(parse::<()>(input), output);
+        assert_eq!(interfaces::<()>(input), output);
     }
 }

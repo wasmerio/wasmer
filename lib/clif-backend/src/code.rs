@@ -443,7 +443,7 @@ impl FuncEnvironment for FunctionEnvironment {
                 let local_memory_bound = func.create_global_value(ir::GlobalValueData::Load {
                     base: local_memory_ptr,
                     offset: (vm::LocalMemory::offset_bound() as i32).into(),
-                    global_type: ptr_type,
+                    global_type: ir::types::I32,
                     readonly: false,
                 });
 
@@ -551,7 +551,7 @@ impl FuncEnvironment for FunctionEnvironment {
         let table_count = func.create_global_value(ir::GlobalValueData::Load {
             base: table_struct_ptr,
             offset: (vm::LocalTable::offset_count() as i32).into(),
-            global_type: ptr_type,
+            global_type: ir::types::I32,
             // The table length can change, so it can't be readonly.
             readonly: false,
         });
@@ -673,7 +673,8 @@ impl FuncEnvironment for FunctionEnvironment {
                 colocated: false,
             });
 
-            pos.ins().symbol_value(ir::types::I64, sig_index_global)
+            let val = pos.ins().symbol_value(ir::types::I64, sig_index_global);
+            pos.ins().ireduce(ir::types::I32, val)
 
             // let dynamic_sigindices_array_ptr = pos.ins().load(
             //     ptr_type,
