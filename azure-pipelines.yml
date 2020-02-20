@@ -13,7 +13,6 @@ jobs:
       vmImage: "macos-10.14"
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - script: |
           rustup component add rustfmt
@@ -28,7 +27,6 @@ jobs:
       vmImage: "ubuntu-18.04"
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
@@ -63,7 +61,6 @@ jobs:
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
@@ -97,7 +94,6 @@ jobs:
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
@@ -129,7 +125,6 @@ jobs:
       )
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
@@ -148,10 +143,13 @@ jobs:
         displayName: Build (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - bash: |
-          make wapm
+          git clone --branch $WAPM_VERSION https://github.com/wasmerio/wapm-cli.git
+          cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
         displayName: Build WAPM
         condition: |
           startsWith(variables['Build.SourceBranch'], 'refs/tags')
+        env:
+          WAPM_VERSION: 0.4.3
       - bash: |
           make build-install-package
           cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
@@ -199,7 +197,6 @@ jobs:
       )
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
@@ -243,7 +240,6 @@ jobs:
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
