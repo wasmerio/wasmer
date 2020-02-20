@@ -20,7 +20,7 @@
 [Website](https://wasmer.io) • [Docs](https://docs.wasmer.io/) • [Examples](https://github.com/wasmerio/wasmer/tree/master/examples) • [Blog](https://medium.com/wasmer) • [Slack](https://slack.wasmer.io/) • [Twitter](https://twitter.com/wasmerio)
 
 [Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime for running WebAssembly [outside of the browser](https://webassembly.org/docs/non-web/):
-* *Universal*: Wasmer is available in **Linux, macOS and Windows** (for both x86 and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c))
+* *Universal*: Wasmer is available in **Linux, macOS and Windows** (for both Desktop and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c))
 * *Pluggable*: Wasmer can be used from almost **any programming language**
 * *Safe*: supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/)
 
