@@ -318,7 +318,7 @@ endif
 
 	find target/release/build -name 'wasmer.h*' -exec cp {} ./capi/include ';'
 	cp LICENSE ./capi/LICENSE
-	cp lib/runtime-c-api/distribution/* ./capi/
+	cp lib/runtime-c-api/doc/index.md ./capi/README.md
 	tar -C ./capi -zcvf wasmer-c-api.tar.gz lib include README.md LICENSE
 
 # For installing the contents locally
@@ -333,9 +333,11 @@ publish-release:
 dep-graph:
 	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-middleware-common-tests wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
 
-docs:
-	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --workspace --document-private-items --no-deps
+docs-capi:
 	cd lib/runtime-c-api/ && doxygen doxyfile && cd ..
+
+docs: docs-capi
+	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --workspace --document-private-items --no-deps
 	mkdir -p api-docs
 	mkdir -p api-docs/c
 	cp -R target/doc api-docs/crates
