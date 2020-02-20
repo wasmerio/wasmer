@@ -300,7 +300,6 @@ build-capi:
 	mkdir -p ./capi/
 	mkdir -p ./capi/include
 	mkdir -p ./capi/lib
-
 ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer_runtime_c_api.dll ./capi/lib/wasmer.dll
 	cp target/release/wasmer_runtime_c_api.lib ./capi/lib/wasmer.lib
@@ -315,7 +314,6 @@ else
 	cp target/release/libwasmer_runtime_c_api.a ./capi/lib/libwasmer.a
 endif
 endif
-
 	find target/release/build -name 'wasmer.h*' -exec cp {} ./capi/include ';'
 	cp LICENSE ./capi/LICENSE
 	cp lib/runtime-c-api/doc/index.md ./capi/README.md
