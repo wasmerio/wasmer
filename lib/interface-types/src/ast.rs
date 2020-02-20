@@ -190,7 +190,7 @@ pub struct Forward<'input> {
 
 /// Represents a set of interfaces, i.e. it entirely describes a WIT
 /// definition.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Default, Debug)]
 pub struct Interfaces<'input> {
     /// All the exported functions.
     pub exports: Vec<Export<'input>>,
