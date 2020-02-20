@@ -7,7 +7,14 @@ This directory is structured like the following:
 * `lib` is where the Wasmer shared library lives.
 * `include` is where the Wasmer headers live
 
-## Using it
+## Documentation
+
+The API documentation for the Wasmer Runtime C API can be found here:
+
+https://wasmerio.github.io/wasmer/c/runtime-c-api/
+
+
+## Usage
 
 If you want to compile a `c` file using Wasmer, you can do:
 
