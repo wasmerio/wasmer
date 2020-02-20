@@ -98,11 +98,11 @@ Wasmer runtime can be used as a library embedded in different languages, so you 
 
 **We welcome any form of contribution, especially from new members of our community** 💜
 
-You can check how to build the Wasmer runtime in [our awesome docs]([https://docs.wasmer.io/ecosystem/wasmer/building-from-source](https://new-docs.wasmer.io/ecosystem/wasmer/building-from-source))!
+You can check how to build the Wasmer runtime in [our awesome docs](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)!
 
 ### Testing
 
-Test you want? The [Wasmer docs will show you how](https://new-docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
+Test you want? The [Wasmer docs will show you how](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
 
 ## Community
 
