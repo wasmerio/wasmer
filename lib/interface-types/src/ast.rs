@@ -5,7 +5,7 @@ use crate::interpreter::Instruction;
 use std::str;
 
 /// Represents the types supported by WIT.
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum InterfaceType {
     /// An integer.
     Int,

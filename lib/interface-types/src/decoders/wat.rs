@@ -1,7 +1,5 @@
 //! Parse the WIT textual representation into an AST.
 
-#![allow(unused)]
-
 use crate::{ast::*, interpreter::Instruction};
 use wast::{
     parser::{Cursor, Parse, Parser, Peek, Result},
@@ -262,6 +260,7 @@ impl Parse<'_> for FunctionType {
 #[derive(PartialEq, Debug)]
 enum Interface<'a> {
     Export(Export<'a>),
+    #[allow(dead_code)]
     Type(Type<'a>),
     Import(Import<'a>),
     Adapter(Adapter<'a>),
@@ -416,7 +415,7 @@ impl<'a> Parse<'a> for Forward<'a> {
         let name = parser.parens(|parser| {
             parser.parse::<kw::export>()?;
 
-            Ok((parser.parse()?))
+            Ok(parser.parse()?)
         })?;
 
         Ok(Forward { name })
@@ -574,6 +573,13 @@ mod tests {
     #[test]
     fn test_export_with_no_param_no_result() {
         let input = buffer(r#"(@interface export "foo")"#);
+        let output = Interface::Export(Export {
+            name: "foo",
+            input_types: vec![],
+            output_types: vec![],
+        });
+
+        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
 
     #[test]
