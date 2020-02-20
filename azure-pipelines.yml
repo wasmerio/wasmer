@@ -214,7 +214,6 @@ jobs:
       - bash: |
           make capi
         displayName: Build c-api
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
       - bash: |
           make build-capi
           cp ./wasmer-c-api.tar.gz ./artifacts/$(./scripts/capi-name.sh)
