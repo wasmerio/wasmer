@@ -571,11 +571,11 @@ version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81dd6190aad0f05ddbbf3245c54ed14ca4aa6dd32f22312b70d8f168c3e3e633"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.1",
  "byteorder",
  "fallible-iterator",
  "indexmap",
- "smallvec 1.1.0",
+ "smallvec 1.2.0",
  "stable_deref_trait",
 ]
 
@@ -1393,9 +1393,9 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8584eea9b9ff42825b46faf46a8c24d2cff13ec152fa2a50df788b87c07ee28"
 dependencies = [
- "proc-macro2 1.0.6",
+ "proc-macro2 1.0.8",
  "quote 1.0.2",
- "syn 1.0.11",
+ "syn 1.0.14",
 ]
 
 [[package]]
@@ -1513,6 +1513,15 @@ name = "static_assertions"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f3eb36b47e512f8f1c9e3d10c2c1965bc992bd9cdb024fa581e2194501c83d3"
+
+[[package]]
+name = "string-interner"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd710eadff449a1531351b0e43eb81ea404336fa2f56c777427ab0e32a4cf183"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "strsim"
@@ -1851,7 +1860,7 @@ dependencies = [
  "wasmer-clif-fork-wasm",
  "wasmer-runtime-core",
  "wasmer-win-exception-handler",
- "wasmparser 0.45.0",
+ "wasmparser 0.45.2",
  "winapi",
 ]
 
@@ -1878,7 +1887,7 @@ dependencies = [
  "log",
  "thiserror",
  "wasmer-clif-fork-frontend",
- "wasmparser 0.45.0",
+ "wasmparser 0.45.2",
 ]
 
 [[package]]
@@ -1947,7 +1956,7 @@ dependencies = [
  "smallvec 0.6.13",
  "wabt",
  "wasmer-runtime-core",
- "wasmparser 0.45.0",
+ "wasmparser 0.45.2",
  "winapi",
 ]
 
@@ -2034,7 +2043,7 @@ dependencies = [
  "smallvec 0.6.13",
  "target-lexicon",
  "wasm-debug",
- "wasmparser 0.45.0",
+ "wasmparser 0.45.2",
  "winapi",
 ]
 
@@ -2130,6 +2139,12 @@ dependencies = [
  "wasmer-runtime-core",
  "winapi",
 ]
+
+[[package]]
+name = "wasmparser"
+version = "0.39.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c702914acda5feeeffbc29e4d953e5b9ce79d8b98da4dbf18a77086e116c5470"
 
 [[package]]
 name = "wasmparser"
