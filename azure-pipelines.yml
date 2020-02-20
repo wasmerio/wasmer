@@ -213,21 +213,12 @@ jobs:
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
       - bash: |
           make capi
-          cp target/release/libwasmer_runtime_c_api.so ./artifacts
-          find target/release/build -name 'wasmer.h*' -exec cp {} ./artifacts ';'
-        displayName: Build c-api (Linux)
+        displayName: Build c-api
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
       - bash: |
-          make capi
-          install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
-          cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
-        displayName: Build c-api (Darwin)
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
-      - bash: |
-          make capi
-          cp target/release/wasmer_runtime_c_api.dll ./artifacts
-        displayName: Build c-api (Windows)
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+          make build-capi
+          cp ./wasmer-c-api.tar.gz ./artifacts/$(./scripts/capi-name.sh)
+        displayName: Build c-api artifacts
       - publish: $(System.DefaultWorkingDirectory)/artifacts
         artifact: library-$(Agent.OS)
 

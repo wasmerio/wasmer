@@ -294,6 +294,33 @@ build-install:
 	cp ./target/release/wasmer ./install/bin/
 	tar -C ./install -zcvf wasmer.tar.gz bin/wapm bin/wasmer
 
+UNAME_S := $(shell uname -s)
+
+build-capi:
+	mkdir -p ./capi/
+	mkdir -p ./capi/include
+	mkdir -p ./capi/lib
+
+ifeq ($(OS), Windows_NT)
+	cp target/release/libwasmer_runtime_c_api.dll ./capi/lib/wasmer.dll
+	cp target/release/libwasmer_runtime_c_api.lib ./capi/lib/wasmer.lib
+else
+ifeq ($(UNAME_S), Darwin)
+	cp target/release/libwasmer_runtime_c_api.dylib ./capi/lib/libwasmer.dylib
+	cp target/release/libwasmer_runtime_c_api.dylib ./capi/lib/libwasmer.a
+	# Fix the rpath for the dylib
+	install_name_tool -id "@rpath/libwasmer.dylib" ./capi/lib/libwasmer.dylib
+else
+	cp target/release/libwasmer_runtime_c_api.so ./capi/lib/libwasmer.so
+	cp target/release/libwasmer_runtime_c_api.a ./capi/lib/libwasmer.a
+endif
+endif
+
+	find target/release/build -name 'wasmer.h*' -exec cp {} ./capi/include ';'
+	cp LICENSE ./capi/LICENSE
+	cp lib/runtime-c-api/distribution/* ./capi/
+	tar -C ./capi -zcvf wasmer-c-api.tar.gz lib include README.md LICENSE
+
 # For installing the contents locally
 do-install:
 	tar -C ~/.wasmer -zxvf wasmer.tar.gz
