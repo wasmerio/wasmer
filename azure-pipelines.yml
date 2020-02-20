@@ -217,7 +217,21 @@ jobs:
       - bash: |
           make build-capi
           cp ./wasmer-c-api.tar.gz ./artifacts/$(./scripts/capi-name.sh)
-        displayName: Build c-api artifacts
+        displayName: Build c-api artifacts (Unix)
+        condition: |
+          and(
+            succeeded(),
+            not(eq(variables['Agent.OS'], 'Windows_NT'))
+          )
+      - bash: |
+          make build-capi
+          cp ./wasmer-c-api.tar.gz ./artifacts/wasmer-c-api-windows.tar.gz
+        displayName: Build c-api artifacts (Windows)
+        condition: |
+          and(
+            succeeded(),
+            eq(variables['Agent.OS'], 'Windows_NT')
+          )
       - publish: $(System.DefaultWorkingDirectory)/artifacts
         artifact: library-$(Agent.OS)
 
