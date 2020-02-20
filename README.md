@@ -5,9 +5,11 @@
   </a>
 </p>
 <p align="center">
-
+<span>
+  
 [Website](https://wasmer.io) • [Docs](https://docs.wasmer.io/) • [Examples](https://github.com/wasmerio/wasmer/tree/master/examples) • [Blog](https://medium.com/wasmer) • [Slack](https://slack.wasmer.io/) • [Twitter](https://twitter.com/wasmerio)
 
+</span>
 </p>
 <p align="center">
   <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
