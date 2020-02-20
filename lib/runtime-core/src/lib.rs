@@ -1,15 +1,15 @@
 //! Wasmer Runtime Core Library
 //!
-//! The runtime core library provides common data structures which are shared by compiler backends
-//! to implement a Web Assembly runtime.
+//! This crate provides common data structures which are shared by compiler backends
+//! to implement a WebAssembly runtime.
 //!
-//! The runtime core also provides an API for users who use wasmer as an embedded wasm runtime which
+//! This crate also provides an API for users who use wasmer as an embedded wasm runtime which
 //! allows operations like compiling, instantiating, providing imports, access exports, memories,
 //! and tables for example.
 //!
-//! The runtime core library is recommended to be used by only power users who wish to customize the
-//! wasmer runtime.  Most wasmer users should prefer the API which is re-exported by the wasmer
-//! runtime library which provides common defaults and a friendly API.
+//! Most wasmer users should prefer the API which is re-exported by the `wasmer-runtime`
+//! library by default. This crate provides additional APIs which may be useful to users
+//! that wish to customize the wasmer runtime.
 //!
 
 #![deny(

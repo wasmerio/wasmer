@@ -64,6 +64,7 @@ members = [
     "lib/wasi-tests",
     "lib/emscripten-tests",
     "lib/middleware-common-tests",
+    "lib/interface-types",
     "examples/parallel",
     "examples/plugin-for-example",
     "examples/parallel-guest",

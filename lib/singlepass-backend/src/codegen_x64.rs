@@ -3,7 +3,6 @@
 
 use crate::emitter_x64::*;
 use crate::machine::*;
-use crate::protect_unix;
 #[cfg(target_arch = "aarch64")]
 use dynasmrt::aarch64::Assembler;
 #[cfg(target_arch = "x86_64")]
@@ -28,7 +27,7 @@ use wasmer_runtime_core::{
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
-    fault::raw::register_preservation_trampoline,
+    fault::{self, raw::register_preservation_trampoline},
     loader::CodeMemory,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
@@ -37,7 +36,7 @@ use wasmer_runtime_core::{
         ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
-    typed_func::{Trampoline, Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm},
     types::{
         FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
         TableIndex, Type,
@@ -369,14 +368,18 @@ impl RunnableModule for X64ExecutionContext {
     }
 
     fn get_trampoline(&self, _: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm> {
+        // Correctly unwinding from `catch_unsafe_unwind` on hardware exceptions depends
+        // on the signal handlers being installed. Here we call `ensure_sighandler` "statically"
+        // outside `invoke()`.
+        fault::ensure_sighandler();
+
         unsafe extern "C" fn invoke(
             _trampoline: Trampoline,
             ctx: *mut vm::Ctx,
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            trap_info: *mut WasmTrapInfo,
-            user_error: *mut Option<Box<dyn Any + Send>>,
+            error_out: *mut Option<Box<dyn Any + Send>>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
             let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
@@ -384,8 +387,9 @@ impl RunnableModule for X64ExecutionContext {
             let args =
                 slice::from_raw_parts(args, num_params_plus_one.unwrap().as_ptr() as usize - 1);
 
-            let ret = match protect_unix::call_protected(
+            let ret = match fault::catch_unsafe_unwind(
                 || {
+                    // Puts the arguments onto the stack and calls Wasm entry.
                     #[cfg(target_arch = "x86_64")]
                     {
                         let args_reverse: SmallVec<[u64; 8]> = args.iter().cloned().rev().collect();
@@ -396,6 +400,9 @@ impl RunnableModule for X64ExecutionContext {
                             func.as_ptr(),
                         )
                     }
+
+                    // FIXME: Currently we are doing a hack here to convert between native aarch64 and
+                    // "emulated" x86 ABIs. Ideally, this should be done using handwritten assembly.
                     #[cfg(target_arch = "aarch64")]
                     {
                         struct CallCtx<'a> {
@@ -520,10 +527,7 @@ impl RunnableModule for X64ExecutionContext {
                     true
                 }
                 Err(err) => {
-                    match err {
-                        protect_unix::CallProtError::Trap(info) => *trap_info = info,
-                        protect_unix::CallProtError::Error(data) => *user_error = Some(data),
-                    }
+                    *error_out = Some(err);
                     false
                 }
             };
@@ -549,8 +553,7 @@ impl RunnableModule for X64ExecutionContext {
     }
 
     unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
-        protect_unix::TRAP_EARLY_DATA.with(|x| x.set(Some(data)));
-        protect_unix::trigger_trap();
+        fault::begin_unsafe_unwind(data);
     }
 
     fn get_code(&self) -> Option<&[u8]> {
@@ -639,6 +642,7 @@ struct CodegenConfig {
     memory_bound_check_mode: MemoryBoundCheckMode,
     enforce_stack_check: bool,
     track_state: bool,
+    full_preemption: bool,
 }
 
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
@@ -921,6 +925,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             memory_bound_check_mode: config.memory_bound_check_mode,
             enforce_stack_check: config.enforce_stack_check,
             track_state: config.track_state,
+            full_preemption: config.full_preemption,
         }));
         Ok(())
     }
@@ -1021,14 +1026,14 @@ impl X64FunctionCode {
                 Self::mark_trappable(a, m, fsm, control_stack);
                 etable
                     .offset_to_code
-                    .insert(a.get_offset().0, ExceptionCode::Arithmetic);
+                    .insert(a.get_offset().0, ExceptionCode::IllegalArithmetic);
                 op(a, sz, Location::GPR(GPR::RCX));
             }
             _ => {
                 Self::mark_trappable(a, m, fsm, control_stack);
                 etable
                     .offset_to_code
-                    .insert(a.get_offset().0, ExceptionCode::Arithmetic);
+                    .insert(a.get_offset().0, ExceptionCode::IllegalArithmetic);
                 op(a, sz, loc);
             }
         }
@@ -1701,14 +1706,11 @@ impl X64FunctionCode {
                 Location::GPR(GPR::RSP),
             );
 
-            // FIXME: Possible dynasm bug. This is a workaround.
-            // Using RSP as the source/destination operand of a `mov` instruction produces invalid code.
-            a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RCX));
             for (i, r) in used_xmms.iter().enumerate() {
                 a.emit_mov(
                     Size::S64,
                     Location::XMM(*r),
-                    Location::Memory(GPR::RCX, (i * 8) as i32),
+                    Location::Memory(GPR::RSP, (i * 8) as i32),
                 );
             }
             for r in used_xmms.iter().rev() {
@@ -1786,36 +1788,25 @@ impl X64FunctionCode {
                         }
                     }
                     match *param {
-                        // Dynasm bug: RSP in memory operand does not work
-                        Location::Imm64(_) | Location::XMM(_) => {
+                        Location::Imm64(_) => {
+                            // Dummy value slot to be filled with `mov`.
+                            a.emit_push(Size::S64, Location::GPR(GPR::RAX));
+
+                            // Use R10 as the temporary register here, since it is callee-saved and not
+                            // used by the callback `cb`.
+                            a.emit_mov(Size::S64, *param, Location::GPR(GPR::R10));
                             a.emit_mov(
                                 Size::S64,
-                                Location::GPR(GPR::RAX),
-                                Location::XMM(XMM::XMM0),
+                                Location::GPR(GPR::R10),
+                                Location::Memory(GPR::RSP, 0),
                             );
-                            a.emit_mov(
-                                Size::S64,
-                                Location::GPR(GPR::RCX),
-                                Location::XMM(XMM::XMM1),
-                            );
-                            a.emit_sub(Size::S64, Location::Imm32(8), Location::GPR(GPR::RSP));
-                            a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RCX));
-                            a.emit_mov(Size::S64, *param, Location::GPR(GPR::RAX));
-                            a.emit_mov(
-                                Size::S64,
-                                Location::GPR(GPR::RAX),
-                                Location::Memory(GPR::RCX, 0),
-                            );
-                            a.emit_mov(
-                                Size::S64,
-                                Location::XMM(XMM::XMM0),
-                                Location::GPR(GPR::RAX),
-                            );
-                            a.emit_mov(
-                                Size::S64,
-                                Location::XMM(XMM::XMM1),
-                                Location::GPR(GPR::RCX),
-                            );
+                        }
+                        Location::XMM(_) => {
+                            // Dummy value slot to be filled with `mov`.
+                            a.emit_push(Size::S64, Location::GPR(GPR::RAX));
+
+                            // XMM registers can be directly stored to memory.
+                            a.emit_mov(Size::S64, *param, Location::Memory(GPR::RSP, 0));
                         }
                         _ => a.emit_push(Size::S64, *param),
                     }
@@ -1888,12 +1879,10 @@ impl X64FunctionCode {
 
         // Restore XMMs.
         if used_xmms.len() > 0 {
-            // FIXME: Possible dynasm bug. This is a workaround.
-            a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RDX));
             for (i, r) in used_xmms.iter().enumerate() {
                 a.emit_mov(
                     Size::S64,
-                    Location::Memory(GPR::RDX, (i * 8) as i32),
+                    Location::Memory(GPR::RSP, (i * 8) as i32),
                     Location::XMM(*r),
                 );
             }
@@ -2014,9 +2003,12 @@ impl X64FunctionCode {
             a.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
             a.emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
 
-            Self::mark_range_with_exception_code(a, etable, ExceptionCode::Memory, |a| {
-                a.emit_conditional_trap(Condition::Above)
-            });
+            Self::mark_range_with_exception_code(
+                a,
+                etable,
+                ExceptionCode::MemoryOutOfBounds,
+                |a| a.emit_conditional_trap(Condition::Above),
+            );
 
             m.release_temp_gpr(tmp_bound);
         }
@@ -2056,13 +2048,16 @@ impl X64FunctionCode {
                 Location::Imm32(align - 1),
                 Location::GPR(tmp_aligncheck),
             );
-            Self::mark_range_with_exception_code(a, etable, ExceptionCode::Memory, |a| {
-                a.emit_conditional_trap(Condition::NotEqual)
-            });
+            Self::mark_range_with_exception_code(
+                a,
+                etable,
+                ExceptionCode::MemoryOutOfBounds,
+                |a| a.emit_conditional_trap(Condition::NotEqual),
+            );
             m.release_temp_gpr(tmp_aligncheck);
         }
 
-        Self::mark_range_with_exception_code(a, etable, ExceptionCode::Memory, |a| {
+        Self::mark_range_with_exception_code(a, etable, ExceptionCode::MemoryOutOfBounds, |a| {
             cb(a, m, tmp_addr)
         })?;
 
@@ -2116,6 +2111,10 @@ impl X64FunctionCode {
             true,
             value_size,
             |a, m, addr| {
+                // Memory moves with size < 32b do not zero upper bits.
+                if memory_sz < Size::S32 {
+                    a.emit_xor(Size::S32, Location::GPR(compare), Location::GPR(compare));
+                }
                 a.emit_mov(memory_sz, Location::Memory(addr, 0), Location::GPR(compare));
                 a.emit_mov(stack_sz, Location::GPR(compare), ret);
                 cb(a, m, compare, value);
@@ -2193,7 +2192,7 @@ impl X64FunctionCode {
         a.emit_label(trap);
         etable
             .offset_to_code
-            .insert(a.get_offset().0, ExceptionCode::Arithmetic);
+            .insert(a.get_offset().0, ExceptionCode::IllegalArithmetic);
         a.emit_ud2();
         a.emit_label(end);
     }
@@ -2321,7 +2320,7 @@ impl X64FunctionCode {
         a.emit_label(trap);
         etable
             .offset_to_code
-            .insert(a.get_offset().0, ExceptionCode::Arithmetic);
+            .insert(a.get_offset().0, ExceptionCode::IllegalArithmetic);
         a.emit_ud2();
         a.emit_label(end);
     }
@@ -2449,7 +2448,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             Self::mark_range_with_exception_code(
                 a,
                 self.exception_table.as_mut().unwrap(),
-                ExceptionCode::Memory,
+                ExceptionCode::MemoryOutOfBounds,
                 |a| a.emit_conditional_trap(Condition::Below),
             );
         }
@@ -2491,28 +2490,31 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         // Check interrupt signal without branching
         let activate_offset = a.get_offset().0;
 
-        a.emit_mov(
-            Size::S64,
-            Location::Memory(
-                Machine::get_vmctx_reg(),
-                vm::Ctx::offset_interrupt_signal_mem() as i32,
-            ),
-            Location::GPR(GPR::RAX),
-        );
-        self.fsm.loop_offsets.insert(
-            a.get_offset().0,
-            OffsetInfo {
-                end_offset: a.get_offset().0 + 1,
-                activate_offset,
-                diff_id: state_diff_id,
-            },
-        );
-        self.fsm.wasm_function_header_target_offset = Some(SuspendOffset::Loop(a.get_offset().0));
-        a.emit_mov(
-            Size::S64,
-            Location::Memory(GPR::RAX, 0),
-            Location::GPR(GPR::RAX),
-        );
+        if self.config.full_preemption {
+            a.emit_mov(
+                Size::S64,
+                Location::Memory(
+                    Machine::get_vmctx_reg(),
+                    vm::Ctx::offset_interrupt_signal_mem() as i32,
+                ),
+                Location::GPR(GPR::RAX),
+            );
+            self.fsm.loop_offsets.insert(
+                a.get_offset().0,
+                OffsetInfo {
+                    end_offset: a.get_offset().0 + 1,
+                    activate_offset,
+                    diff_id: state_diff_id,
+                },
+            );
+            self.fsm.wasm_function_header_target_offset =
+                Some(SuspendOffset::Loop(a.get_offset().0));
+            a.emit_mov(
+                Size::S64,
+                Location::Memory(GPR::RAX, 0),
+                Location::GPR(GPR::RAX),
+            );
+        }
 
         if self.machine.state.wasm_inst_offset != usize::MAX {
             return Err(CodegenError {
@@ -6320,10 +6322,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 Self::mark_range_with_exception_code(
                     a,
                     self.exception_table.as_mut().unwrap(),
-                    ExceptionCode::Memory,
+                    ExceptionCode::CallIndirectOOB,
                     |a| a.emit_conditional_trap(Condition::BelowEqual),
                 );
-                a.emit_mov(Size::S64, func_index, Location::GPR(table_count));
+                a.emit_mov(Size::S32, func_index, Location::GPR(table_count));
                 a.emit_imul_imm32_gpr64(vm::Anyfunc::size() as u32, table_count);
                 a.emit_add(
                     Size::S64,
@@ -6351,7 +6353,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 Self::mark_range_with_exception_code(
                     a,
                     self.exception_table.as_mut().unwrap(),
-                    ExceptionCode::Memory,
+                    ExceptionCode::IncorrectCallIndirectSignature,
                     |a| a.emit_conditional_trap(Condition::NotEqual),
                 );
 
@@ -6575,31 +6577,33 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 a.emit_label(label);
 
                 // Check interrupt signal without branching
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(
-                        Machine::get_vmctx_reg(),
-                        vm::Ctx::offset_interrupt_signal_mem() as i32,
-                    ),
-                    Location::GPR(GPR::RAX),
-                );
-                self.fsm.loop_offsets.insert(
-                    a.get_offset().0,
-                    OffsetInfo {
-                        end_offset: a.get_offset().0 + 1,
-                        activate_offset,
-                        diff_id: state_diff_id,
-                    },
-                );
-                self.fsm.wasm_offset_to_target_offset.insert(
-                    self.machine.state.wasm_inst_offset,
-                    SuspendOffset::Loop(a.get_offset().0),
-                );
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(GPR::RAX, 0),
-                    Location::GPR(GPR::RAX),
-                );
+                if self.config.full_preemption {
+                    a.emit_mov(
+                        Size::S64,
+                        Location::Memory(
+                            Machine::get_vmctx_reg(),
+                            vm::Ctx::offset_interrupt_signal_mem() as i32,
+                        ),
+                        Location::GPR(GPR::RAX),
+                    );
+                    self.fsm.loop_offsets.insert(
+                        a.get_offset().0,
+                        OffsetInfo {
+                            end_offset: a.get_offset().0 + 1,
+                            activate_offset,
+                            diff_id: state_diff_id,
+                        },
+                    );
+                    self.fsm.wasm_offset_to_target_offset.insert(
+                        self.machine.state.wasm_inst_offset,
+                        SuspendOffset::Loop(a.get_offset().0),
+                    );
+                    a.emit_mov(
+                        Size::S64,
+                        Location::Memory(GPR::RAX, 0),
+                        Location::GPR(GPR::RAX),
+                    );
+                }
             }
             Operator::Nop => {}
             Operator::MemorySize { reserved } => {

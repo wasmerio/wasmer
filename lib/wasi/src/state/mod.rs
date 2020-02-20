@@ -36,7 +36,7 @@ use wasmer_runtime_core::vm::Ctx;
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;
 /// all the rights enabled
-pub const ALL_RIGHTS: __wasi_rights_t = 0x1FFFFFFF;
+pub const ALL_RIGHTS: __wasi_rights_t = 0x1FFF_FFFF;
 const STDIN_DEFAULT_RIGHTS: __wasi_rights_t = __WASI_RIGHT_FD_DATASYNC
     | __WASI_RIGHT_FD_READ
     | __WASI_RIGHT_FD_SYNC
@@ -52,7 +52,10 @@ const STDOUT_DEFAULT_RIGHTS: __wasi_rights_t = __WASI_RIGHT_FD_DATASYNC
 const STDERR_DEFAULT_RIGHTS: __wasi_rights_t = STDOUT_DEFAULT_RIGHTS;
 
 /// Get WasiState from a Ctx
-/// This function is unsafe because it must be called on a WASI Ctx
+///
+/// # Safety
+/// - This function must be called on a `Ctx` that was created with `WasiState`
+///   in the data field
 pub unsafe fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
     &mut *(ctx.data as *mut WasiState)
 }
@@ -186,7 +189,7 @@ impl WasiFs {
         for dir in preopened_dirs {
             debug!("Attempting to preopen {}", &dir.to_string_lossy());
             // TODO: think about this
-            let default_rights = 0x1FFFFFFF; // all rights
+            let default_rights = ALL_RIGHTS;
             let cur_dir_metadata = dir.metadata().map_err(|e| {
                 format!(
                     "Could not get metadata for file {:?}: {}",
@@ -236,7 +239,7 @@ impl WasiFs {
         for (alias, real_dir) in mapped_dirs {
             debug!("Attempting to open {:?} at {}", real_dir, alias);
             // TODO: think about this
-            let default_rights = 0x1FFFFFFF; // all rights
+            let default_rights = ALL_RIGHTS;
             let cur_dir_metadata = real_dir.metadata().map_err(|e| {
                 format!(
                     "Could not get metadata for file {:?}: {}",
@@ -428,7 +431,7 @@ impl WasiFs {
 
         // create virtual root
         let root_inode = {
-            let all_rights = 0x1FFFFFFF;
+            let all_rights = ALL_RIGHTS;
             // TODO: make this a list of positive rigths instead of negative ones
             // root gets all right for now
             let root_rights = all_rights
@@ -525,10 +528,15 @@ impl WasiFs {
         next
     }
 
-    /// like create dir all, but it also opens it
+    /// This function is like create dir all, but it also opens it.
     /// Function is unsafe because it may break invariants and hasn't been tested.
     /// This is an experimental function and may be removed
-    // dead code because this is an API for external use
+    ///
+    /// # Safety
+    /// - Virtual directories created with this function must not conflict with
+    ///   the standard operation of the WASI filesystem.  This is vague and
+    ///   unlikely in pratice.  Join the discussion at https://github.com/wasmerio/wasmer/issues/1219
+    ///   for what the newer, safer WASI FS APIs should look like.
     #[allow(dead_code)]
     pub unsafe fn open_dir_all(
         &mut self,
@@ -1045,12 +1053,28 @@ impl WasiFs {
 
     pub fn fdstat(&self, fd: __wasi_fd_t) -> Result<__wasi_fdstat_t, __wasi_errno_t> {
         match fd {
-            __WASI_STDOUT_FILENO => {
+            __WASI_STDIN_FILENO => {
                 return Ok(__wasi_fdstat_t {
                     fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
                     fs_flags: 0,
-                    fs_rights_base: ALL_RIGHTS,
-                    fs_rights_inheriting: ALL_RIGHTS,
+                    fs_rights_base: STDIN_DEFAULT_RIGHTS,
+                    fs_rights_inheriting: 0,
+                })
+            }
+            __WASI_STDOUT_FILENO => {
+                return Ok(__wasi_fdstat_t {
+                    fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+                    fs_flags: __WASI_FDFLAG_APPEND,
+                    fs_rights_base: STDOUT_DEFAULT_RIGHTS,
+                    fs_rights_inheriting: 0,
+                })
+            }
+            __WASI_STDERR_FILENO => {
+                return Ok(__wasi_fdstat_t {
+                    fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+                    fs_flags: __WASI_FDFLAG_APPEND,
+                    fs_rights_base: STDERR_DEFAULT_RIGHTS,
+                    fs_rights_inheriting: 0,
                 })
             }
             _ => (),
@@ -1145,7 +1169,7 @@ impl WasiFs {
         stat.st_ino = self.get_next_inode_index();
 
         Ok(self.inodes.insert(InodeVal {
-            stat: stat,
+            stat,
             is_preopened,
             name,
             kind,
@@ -1194,10 +1218,14 @@ impl WasiFs {
         Ok(idx)
     }
 
-    /// This function is unsafe because it's the caller's responsibility to ensure that
-    /// all refences to the given inode have been removed from the filesystem
+    /// Low level function to remove an inode, that is it deletes the WASI FS's
+    /// knowledge of a file.
     ///
-    /// returns the inode if it existed and was removed
+    /// This function returns the inode if it existed and was removed.
+    ///
+    /// # Safety
+    /// - The caller must ensure that all references to the specified inode have
+    ///   been removed from the filesystem.
     pub unsafe fn remove_inode(&mut self, inode: Inode) -> Option<InodeVal> {
         self.inodes.remove(inode)
     }

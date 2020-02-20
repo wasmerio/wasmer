@@ -11,51 +11,11 @@ use std::{
     any::Any,
     convert::Infallible,
     ffi::c_void,
-    fmt,
     marker::PhantomData,
     mem, panic,
     ptr::{self, NonNull},
     sync::Arc,
 };
-
-/// Wasm trap info.
-#[repr(C)]
-pub enum WasmTrapInfo {
-    /// Unreachable trap.
-    Unreachable = 0,
-    /// Call indirect incorrect signature trap.
-    IncorrectCallIndirectSignature = 1,
-    /// Memory out of bounds trap.
-    MemoryOutOfBounds = 2,
-    /// Call indirect out of bounds trap.
-    CallIndirectOOB = 3,
-    /// Illegal arithmetic trap.
-    IllegalArithmetic = 4,
-    /// Misaligned atomic access trap.
-    MisalignedAtomicAccess = 5,
-    /// Unknown trap.
-    Unknown,
-}
-
-impl fmt::Display for WasmTrapInfo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                WasmTrapInfo::Unreachable => "unreachable",
-                WasmTrapInfo::IncorrectCallIndirectSignature => {
-                    "incorrect `call_indirect` signature"
-                }
-                WasmTrapInfo::MemoryOutOfBounds => "memory out-of-bounds access",
-                WasmTrapInfo::CallIndirectOOB => "`call_indirect` out-of-bounds",
-                WasmTrapInfo::IllegalArithmetic => "illegal arithmetic operation",
-                WasmTrapInfo::MisalignedAtomicAccess => "misaligned atomic access",
-                WasmTrapInfo::Unknown => "unknown",
-            }
-        )
-    }
-}
 
 /// This is just an empty trait to constrict that types that
 /// can be put into the third/fourth (depending if you include lifetimes)
@@ -77,8 +37,7 @@ pub type Invoke = unsafe extern "C" fn(
     func: NonNull<vm::Func>,
     args: *const u64,
     rets: *mut u64,
-    trap_info: *mut WasmTrapInfo,
-    user_error: *mut Option<Box<dyn Any + Send>>,
+    error_out: *mut Option<Box<dyn Any + Send>>,
     extra: Option<NonNull<c_void>>,
 ) -> bool;
 
@@ -91,6 +50,8 @@ pub struct Wasm {
     pub(crate) invoke: Invoke,
     pub(crate) invoke_env: Option<NonNull<c_void>>,
 }
+
+impl Kind for Wasm {}
 
 impl Wasm {
     /// Create new `Wasm` from given parts.
@@ -111,7 +72,6 @@ impl Wasm {
 /// by the host.
 pub struct Host(());
 
-impl Kind for Wasm {}
 impl Kind for Host {}
 
 /// Represents a list of WebAssembly values.
@@ -140,7 +100,7 @@ pub trait WasmTypeList {
 
     /// This method is used to distribute the values onto a function,
     /// e.g. `(1, 2).call(func, …)`. This form is unlikely to be used
-    /// directly in the code, see the `Func:call` implementation.
+    /// directly in the code, see the `Func::call` implementation.
     unsafe fn call<Rets>(
         self,
         f: NonNull<vm::Func>,
@@ -151,14 +111,15 @@ pub trait WasmTypeList {
         Rets: WasmTypeList;
 }
 
-/// Empty trait to specify the kind of `ExternalFunction`: With or
+/// Empty trait to specify the kind of `HostFunction`: With or
 /// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the
 /// `ImplicitVmCtx` structures.
 ///
-/// This type is never aimed to be used by a user. It is used by the
+/// This trait is never aimed to be used by a user. It is used by the
 /// trait system to automatically generate an appropriate `wrap`
 /// function.
-pub trait ExternalFunctionKind {}
+#[doc(hidden)]
+pub trait HostFunctionKind {}
 
 /// This empty structure indicates that an external function must
 /// contain an explicit `vm::Ctx` argument (at first position).
@@ -168,7 +129,10 @@ pub trait ExternalFunctionKind {}
 ///     x + 1
 /// }
 /// ```
+#[doc(hidden)]
 pub struct ExplicitVmCtx {}
+
+impl HostFunctionKind for ExplicitVmCtx {}
 
 /// This empty structure indicates that an external function has no
 /// `vm::Ctx` argument (at first position). Its signature is:
@@ -180,18 +144,17 @@ pub struct ExplicitVmCtx {}
 /// ```
 pub struct ImplicitVmCtx {}
 
-impl ExternalFunctionKind for ExplicitVmCtx {}
-impl ExternalFunctionKind for ImplicitVmCtx {}
+impl HostFunctionKind for ImplicitVmCtx {}
 
 /// Represents a function that can be converted to a `vm::Func`
 /// (function pointer) that can be called within WebAssembly.
-pub trait ExternalFunction<Kind, Args, Rets>
+pub trait HostFunction<Kind, Args, Rets>
 where
-    Kind: ExternalFunctionKind,
+    Kind: HostFunctionKind,
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    /// Conver to function pointer.
+    /// Convert to function pointer.
     fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
 }
 
@@ -268,8 +231,8 @@ where
     /// Creates a new `Func`.
     pub fn new<F, Kind>(func: F) -> Func<'a, Args, Rets, Host>
     where
-        Kind: ExternalFunctionKind,
-        F: ExternalFunction<Kind, Args, Rets>,
+        Kind: HostFunctionKind,
+        F: HostFunction<Kind, Args, Rets>,
     {
         let (func, func_env) = func.to_raw();
 
@@ -351,6 +314,7 @@ macro_rules! impl_traits {
         where
             $( $x: WasmExternType ),*;
 
+        #[allow(unused_parens)]
         impl< $( $x ),* > WasmTypeList for ( $( $x ),* )
         where
             $( $x: WasmExternType ),*
@@ -401,8 +365,7 @@ macro_rules! impl_traits {
                 let ( $( $x ),* ) = self;
                 let args = [ $( $x.to_native().to_binary()),* ];
                 let mut rets = Rets::empty_ret_array();
-                let mut trap = WasmTrapInfo::Unknown;
-                let mut user_error = None;
+                let mut error_out = None;
 
                 if (wasm.invoke)(
                     wasm.trampoline,
@@ -410,22 +373,20 @@ macro_rules! impl_traits {
                     f,
                     args.as_ptr(),
                     rets.as_mut().as_mut_ptr(),
-                    &mut trap,
-                    &mut user_error,
+                    &mut error_out,
                     wasm.invoke_env
                 ) {
                     Ok(Rets::from_ret_array(rets))
                 } else {
-                    if let Some(data) = user_error {
-                        Err(RuntimeError::Error { data })
-                    } else {
-                        Err(RuntimeError::Trap { msg: trap.to_string().into() })
-                    }
+                    Err(error_out.map(RuntimeError).unwrap_or_else(|| {
+                        RuntimeError(Box::new("invoke(): Unknown error".to_string()))
+                    }))
                 }
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        #[allow(unused_parens)]
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
@@ -540,7 +501,8 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        #[allow(unused_parens)]
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
@@ -652,13 +614,14 @@ macro_rules! impl_traits {
             }
         }
 
+        #[allow(unused_parens)]
         impl<'a $( , $x )*, Rets> Func<'a, ( $( $x ),* ), Rets, Wasm>
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
         {
             /// Call the typed func and return results.
-            #[allow(non_snake_case)]
+            #[allow(non_snake_case, clippy::too_many_arguments)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]
                 unsafe {

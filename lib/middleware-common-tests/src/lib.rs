@@ -165,12 +165,10 @@ mod tests {
         }
 
         let err = result.unwrap_err();
-        match err {
-            RuntimeError::Error { data } => {
-                assert!(data.downcast_ref::<ExecutionLimitExceededError>().is_some());
-            }
-            _ => unreachable!(),
-        }
+        assert!(err
+            .0
+            .downcast_ref::<ExecutionLimitExceededError>()
+            .is_some());
 
         // verify it used the correct number of points
         assert_eq!(get_points_used(&instance), 109); // Used points will be slightly more than `limit` because of the way we do gas checking.

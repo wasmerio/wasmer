@@ -1,6 +1,6 @@
 #![allow(unused, clippy::too_many_arguments)]
 pub mod types;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "freebsd", target_os = "linux", target_os = "macos"))]
 pub mod unix;
 #[cfg(any(target_os = "windows"))]
 pub mod windows;
@@ -23,7 +23,7 @@ use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
 use wasmer_runtime_core::{memory::Memory, vm::Ctx};
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "freebsd", target_os = "linux", target_os = "macos"))]
 pub use unix::*;
 
 #[cfg(any(target_os = "windows"))]
@@ -1221,7 +1221,14 @@ pub fn fd_write(
     iovs_len: u32,
     nwritten: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_write: fd={}", fd);
+    // If we are writing to stdout or stderr
+    // we skip debug to not pollute the stdout/err
+    // and do debugging happily after :)
+    if fd != __WASI_STDOUT_FILENO && fd != __WASI_STDERR_FILENO {
+        debug!("wasi::fd_write: fd={}", fd);
+    } else {
+        trace!("wasi::fd_write: fd={}", fd);
+    }
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nwritten_cell = wasi_try!(nwritten.deref(memory));

@@ -201,7 +201,7 @@ check-bench: check-bench-singlepass check-bench-llvm
 
 # TODO: We wanted `--workspace --exclude wasmer-runtime`, but can't due
 # to https://github.com/rust-lang/cargo/issues/6745 .
-NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests
+NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests -p wasmer-interface-types
 RUNTIME_CHECK = cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features
 check: check-bench
 	cargo check $(NOT_RUNTIME_CRATES)
@@ -308,7 +308,7 @@ dep-graph:
 	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-middleware-common-tests wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
 
 docs:
-	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --all --no-deps
+	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --workspace --document-private-items --no-deps
 	cd lib/runtime-c-api/ && doxygen doxyfile && cd ..
 	mkdir -p api-docs
 	mkdir -p api-docs/c

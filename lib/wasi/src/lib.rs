@@ -5,7 +5,8 @@
     unused_mut,
     unused_variables,
     unused_unsafe,
-    unreachable_patterns
+    unreachable_patterns,
+    clippy::missing_safety_doc
 )]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
@@ -43,7 +44,7 @@ pub use self::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 
 use wasmer_runtime_core::{func, import::ImportObject, imports};
 
-/// This is returned in the Box<dyn Any> RuntimeError::Error variant.
+/// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
 pub struct ExitCode {
     pub code: syscalls::types::__wasi_exitcode_t,

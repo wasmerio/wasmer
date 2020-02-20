@@ -2,6 +2,13 @@
 
 ## **[Unreleased]**
 
+- [#1216](https://github.com/wasmerio/wasmer/pull/1216) `wasmer-interface-types` receives a binary encoder.
+- [#1228](https://github.com/wasmerio/wasmer/pull/1228) Singlepass cleanup: Resolve several FIXMEs and remove protect_unix.
+- [#1218](https://github.com/wasmerio/wasmer/pull/1218) Enable Cranelift verifier in debug mode. Fix bug with table indices being the wrong type.
+- [#787](https://github.com/wasmerio/wasmer/pull/787) New crate `wasmer-interface-types` to implement WebAssembly Interface Types.
+- [#1213](https://github.com/wasmerio/wasmer/pull/1213) Fixed WASI `fdstat` to detect `isatty` properly.
+- [#1192](https://github.com/wasmerio/wasmer/pull/1192) Use `ExceptionCode` for error representation.
+- [#1191](https://github.com/wasmerio/wasmer/pull/1191) Fix singlepass miscompilation on `Operator::CallIndirect`.
 - [#1180](https://github.com/wasmerio/wasmer/pull/1180) Fix compilation for target `x86_64-unknown-linux-musl`.
 - [#1170](https://github.com/wasmerio/wasmer/pull/1170) Improve the WasiFs builder API with convenience methods for overriding stdin, stdout, and stderr as well as a new sub-builder for controlling the permissions and properties of preopened directories.  Also breaks that implementations of `WasiFile` must be `Send` -- please file an issue if this change causes you any issues.
 - [#1161](https://github.com/wasmerio/wasmer/pull/1161) Require imported functions to be `Send`. This is a breaking change that fixes a soundness issue in the API.

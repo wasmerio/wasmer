@@ -18,7 +18,7 @@ use nix::sys::signal::{
 use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 use std::sync::Once;
-use wasmer_runtime_core::typed_func::WasmTrapInfo;
+use wasmer_runtime_core::backend::ExceptionCode;
 
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
@@ -79,7 +79,7 @@ pub fn call_protected<T>(
             *jmp_buf = prev_jmp_buf;
 
             if let Some(data) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                Err(CallProtError::Error(data))
+                Err(CallProtError(data))
             } else {
                 let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
@@ -88,21 +88,31 @@ pub fn call_protected<T>(
                     srcloc: _,
                 }) = handler_data.lookup(inst_ptr)
                 {
-                    Err(CallProtError::Trap(match Signal::from_c_int(signum) {
+                    Err(CallProtError(Box::new(match Signal::from_c_int(signum) {
                         Ok(SIGILL) => match trapcode {
-                            TrapCode::BadSignature => WasmTrapInfo::IncorrectCallIndirectSignature,
-                            TrapCode::IndirectCallToNull => WasmTrapInfo::CallIndirectOOB,
-                            TrapCode::HeapOutOfBounds => WasmTrapInfo::MemoryOutOfBounds,
-                            TrapCode::TableOutOfBounds => WasmTrapInfo::CallIndirectOOB,
-                            _ => WasmTrapInfo::Unknown,
+                            TrapCode::StackOverflow => ExceptionCode::MemoryOutOfBounds,
+                            TrapCode::HeapOutOfBounds => ExceptionCode::MemoryOutOfBounds,
+                            TrapCode::TableOutOfBounds => ExceptionCode::CallIndirectOOB,
+                            TrapCode::OutOfBounds => ExceptionCode::MemoryOutOfBounds,
+                            TrapCode::IndirectCallToNull => ExceptionCode::CallIndirectOOB,
+                            TrapCode::BadSignature => ExceptionCode::IncorrectCallIndirectSignature,
+                            TrapCode::IntegerOverflow => ExceptionCode::IllegalArithmetic,
+                            TrapCode::IntegerDivisionByZero => ExceptionCode::IllegalArithmetic,
+                            TrapCode::BadConversionToInteger => ExceptionCode::IllegalArithmetic,
+                            TrapCode::UnreachableCodeReached => ExceptionCode::Unreachable,
+                            _ => {
+                                return Err(CallProtError(Box::new(
+                                    "unknown clif trap code".to_string(),
+                                )))
+                            }
                         },
-                        Ok(SIGSEGV) | Ok(SIGBUS) => WasmTrapInfo::MemoryOutOfBounds,
-                        Ok(SIGFPE) => WasmTrapInfo::IllegalArithmetic,
+                        Ok(SIGSEGV) | Ok(SIGBUS) => ExceptionCode::MemoryOutOfBounds,
+                        Ok(SIGFPE) => ExceptionCode::IllegalArithmetic,
                         _ => unimplemented!(
-                            "WasmTrapInfo::Unknown signal:{:?}",
+                            "ExceptionCode::Unknown signal:{:?}",
                             Signal::from_c_int(signum)
                         ),
-                    }))
+                    })))
                 } else {
                     let signal = match Signal::from_c_int(signum) {
                         Ok(SIGFPE) => "floating-point exception",
@@ -114,7 +124,7 @@ pub fn call_protected<T>(
                     };
                     // When the trap-handler is fully implemented, this will return more information.
                     let s = format!("unknown trap at {:p} - {}", faulting_addr, signal);
-                    Err(CallProtError::Error(Box::new(s)))
+                    Err(CallProtError(Box::new(s)))
                 }
             }
         } else {
@@ -139,6 +149,84 @@ pub unsafe fn do_unwind(signum: i32, siginfo: *const c_void, ucontext: *const c_
     CAUGHT_ADDRESSES.with(|cell| cell.set(get_faulting_addr_and_ip(siginfo, ucontext)));
 
     longjmp(jmp_buf as *mut ::nix::libc::c_void, signum)
+}
+
+#[cfg(all(target_os = "freebsd", target_arch = "aarch64"))]
+unsafe fn get_faulting_addr_and_ip(
+    _siginfo: *const c_void,
+    _ucontext: *const c_void,
+) -> (*const c_void, *const c_void) {
+    (::std::ptr::null(), ::std::ptr::null())
+}
+
+#[cfg(all(target_os = "freebsd", target_arch = "x86_64"))]
+unsafe fn get_faulting_addr_and_ip(
+    siginfo: *const c_void,
+    ucontext: *const c_void,
+) -> (*const c_void, *const c_void) {
+    #[repr(C)]
+    pub struct ucontext_t {
+        uc_sigmask: libc::sigset_t,
+        uc_mcontext: mcontext_t,
+        uc_link: *mut ucontext_t,
+        uc_stack: libc::stack_t,
+        uc_flags: i32,
+        __spare__: [i32; 4],
+    }
+
+    #[repr(C)]
+    pub struct mcontext_t {
+        mc_onstack: u64,
+        mc_rdi: u64,
+        mc_rsi: u64,
+        mc_rdx: u64,
+        mc_rcx: u64,
+        mc_r8: u64,
+        mc_r9: u64,
+        mc_rax: u64,
+        mc_rbx: u64,
+        mc_rbp: u64,
+        mc_r10: u64,
+        mc_r11: u64,
+        mc_r12: u64,
+        mc_r13: u64,
+        mc_r14: u64,
+        mc_r15: u64,
+        mc_trapno: u32,
+        mc_fs: u16,
+        mc_gs: u16,
+        mc_addr: u64,
+        mc_flags: u32,
+        mc_es: u16,
+        mc_ds: u16,
+        mc_err: u64,
+        mc_rip: u64,
+        mc_cs: u64,
+        mc_rflags: u64,
+        mc_rsp: u64,
+        mc_ss: u64,
+        mc_len: i64,
+
+        mc_fpformat: i64,
+        mc_ownedfp: i64,
+        mc_fpstate: [i64; 64], // mc_fpstate[0] is a pointer to savefpu
+
+        mc_fsbase: u64,
+        mc_gsbase: u64,
+
+        mc_xfpustate: u64,
+        mc_xfpustate_len: u64,
+
+        mc_spare: [i64; 4],
+    }
+
+    let siginfo = siginfo as *const siginfo_t;
+    let si_addr = (*siginfo).si_addr;
+
+    let ucontext = ucontext as *const ucontext_t;
+    let rip = (*ucontext).uc_mcontext.mc_rip;
+
+    (si_addr, rip as _)
 }
 
 #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
@@ -239,6 +327,8 @@ unsafe fn get_faulting_addr_and_ip(
 }
 
 #[cfg(not(any(
+    all(target_os = "freebsd", target_arch = "aarch64"),
+    all(target_os = "freebsd", target_arch = "x86_64"),
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "aarch64"),

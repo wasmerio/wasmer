@@ -500,6 +500,249 @@ impl FaultInfo {
     }
 }
 
+#[cfg(all(target_os = "freebsd", target_arch = "aarch64"))]
+/// Get fault info from siginfo and ucontext.
+pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
+    #[repr(C)]
+    pub struct ucontext_t {
+        uc_sigmask: libc::sigset_t,
+        uc_mcontext: mcontext_t,
+        uc_link: *mut ucontext_t,
+        uc_stack: libc::stack_t,
+        uc_flags: i32,
+        __spare__: [i32; 4],
+    }
+    #[repr(C)]
+    pub struct gpregs {
+        gp_x: [u64; 30],
+        gp_lr: u64,
+        gp_sp: u64,
+        gp_elr: u64,
+        gp_spsr: u64,
+        gp_pad: i32,
+    };
+    #[repr(C)]
+    pub struct fpregs {
+        fp_q: [u128; 32],
+        fp_sr: u32,
+        fp_cr: u32,
+        fp_flags: i32,
+        fp_pad: i32,
+    };
+    #[repr(C)]
+    pub struct mcontext_t {
+        mc_gpregs: gpregs,
+        mc_fpregs: fpregs,
+        mc_flags: i32,
+        mc_pad: i32,
+        mc_spare: [u64; 8],
+    }
+
+    let siginfo = siginfo as *const siginfo_t;
+    let si_addr = (*siginfo).si_addr;
+
+    let ucontext = ucontext as *mut ucontext_t;
+    let gregs = &(*ucontext).uc_mcontext.mc_gpregs;
+
+    let mut known_registers: [Option<u64>; 32] = [None; 32];
+
+    known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs.gp_x[15] as _);
+    known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(gregs.gp_x[14] as _);
+    known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(gregs.gp_x[13] as _);
+    known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(gregs.gp_x[12] as _);
+    known_registers[X64Register::GPR(GPR::R11).to_index().0] = Some(gregs.gp_x[11] as _);
+    known_registers[X64Register::GPR(GPR::R10).to_index().0] = Some(gregs.gp_x[10] as _);
+    known_registers[X64Register::GPR(GPR::R9).to_index().0] = Some(gregs.gp_x[9] as _);
+    known_registers[X64Register::GPR(GPR::R8).to_index().0] = Some(gregs.gp_x[8] as _);
+    known_registers[X64Register::GPR(GPR::RSI).to_index().0] = Some(gregs.gp_x[6] as _);
+    known_registers[X64Register::GPR(GPR::RDI).to_index().0] = Some(gregs.gp_x[7] as _);
+    known_registers[X64Register::GPR(GPR::RDX).to_index().0] = Some(gregs.gp_x[2] as _);
+    known_registers[X64Register::GPR(GPR::RCX).to_index().0] = Some(gregs.gp_x[1] as _);
+    known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(gregs.gp_x[3] as _);
+    known_registers[X64Register::GPR(GPR::RAX).to_index().0] = Some(gregs.gp_x[0] as _);
+
+    known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs.gp_x[5] as _);
+    known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs.gp_x[28] as _);
+
+    FaultInfo {
+        faulting_addr: si_addr as usize as _,
+        ip: std::mem::transmute::<&mut u64, &'static Cell<usize>>(
+            &mut (*ucontext).uc_mcontext.mc_gpregs.gp_elr,
+        ),
+        known_registers,
+    }
+}
+
+#[cfg(all(target_os = "freebsd", target_arch = "x86_64"))]
+/// Get fault info from siginfo and ucontext.
+pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {
+    use crate::state::x64::XMM;
+    #[repr(C)]
+    pub struct ucontext_t {
+        uc_sigmask: libc::sigset_t,
+        uc_mcontext: mcontext_t,
+        uc_link: *mut ucontext_t,
+        uc_stack: libc::stack_t,
+        uc_flags: i32,
+        __spare__: [i32; 4],
+    }
+    #[repr(C)]
+    pub struct mcontext_t {
+        mc_onstack: u64,
+        mc_rdi: u64,
+        mc_rsi: u64,
+        mc_rdx: u64,
+        mc_rcx: u64,
+        mc_r8: u64,
+        mc_r9: u64,
+        mc_rax: u64,
+        mc_rbx: u64,
+        mc_rbp: u64,
+        mc_r10: u64,
+        mc_r11: u64,
+        mc_r12: u64,
+        mc_r13: u64,
+        mc_r14: u64,
+        mc_r15: u64,
+        mc_trapno: u32,
+        mc_fs: u16,
+        mc_gs: u16,
+        mc_addr: u64,
+        mc_flags: u32,
+        mc_es: u16,
+        mc_ds: u16,
+        mc_err: u64,
+        mc_rip: u64,
+        mc_cs: u64,
+        mc_rflags: u64,
+        mc_rsp: u64,
+        mc_ss: u64,
+        mc_len: i64,
+
+        mc_fpformat: i64,
+        mc_ownedfp: i64,
+        mc_savefpu: *const savefpu,
+        mc_fpstate: [i64; 63], // mc_fpstate[0] is a pointer to savefpu
+
+        mc_fsbase: u64,
+        mc_gsbase: u64,
+
+        mc_xfpustate: u64,
+        mc_xfpustate_len: u64,
+
+        mc_spare: [i64; 4],
+    }
+    #[repr(C)]
+    pub struct xmmacc {
+        element: [u32; 4],
+    }
+    #[repr(C)]
+    pub struct __envxmm64 {
+        en_cw: u16,
+        en_sw: u16,
+        en_tw: u8,
+        en_zero: u8,
+        en_opcode: u16,
+        en_rip: u64,
+        en_rdp: u64,
+        en_mxcsr: u32,
+        en_mxcsr_mask: u32,
+    }
+    #[repr(C)]
+    pub struct fpacc87 {
+        fp_bytes: [u8; 10],
+    }
+    #[repr(C)]
+    pub struct sv_fp {
+        fp_acc: fpacc87,
+        fp_pad: [u8; 6],
+    }
+    #[repr(C, align(16))]
+    pub struct savefpu {
+        sv_env: __envxmm64,
+        sv_fp_t: [sv_fp; 8],
+        sv_xmm: [xmmacc; 16],
+        sv_pad: [u8; 96],
+    }
+
+    let siginfo = siginfo as *const siginfo_t;
+    let si_addr = (*siginfo).si_addr;
+
+    let ucontext = ucontext as *mut ucontext_t;
+    let gregs = &mut (*ucontext).uc_mcontext;
+
+    fn read_xmm(reg: &xmmacc) -> u64 {
+        (reg.element[0] as u64) | ((reg.element[1] as u64) << 32)
+    }
+
+    let mut known_registers: [Option<u64>; 32] = [None; 32];
+    known_registers[X64Register::GPR(GPR::R15).to_index().0] = Some(gregs.mc_r15);
+    known_registers[X64Register::GPR(GPR::R14).to_index().0] = Some(gregs.mc_r14);
+    known_registers[X64Register::GPR(GPR::R13).to_index().0] = Some(gregs.mc_r13);
+    known_registers[X64Register::GPR(GPR::R12).to_index().0] = Some(gregs.mc_r12);
+    known_registers[X64Register::GPR(GPR::R11).to_index().0] = Some(gregs.mc_r11);
+    known_registers[X64Register::GPR(GPR::R10).to_index().0] = Some(gregs.mc_r10);
+    known_registers[X64Register::GPR(GPR::R9).to_index().0] = Some(gregs.mc_r9);
+    known_registers[X64Register::GPR(GPR::R8).to_index().0] = Some(gregs.mc_r8);
+    known_registers[X64Register::GPR(GPR::RSI).to_index().0] = Some(gregs.mc_rsi);
+    known_registers[X64Register::GPR(GPR::RDI).to_index().0] = Some(gregs.mc_rdi);
+    known_registers[X64Register::GPR(GPR::RDX).to_index().0] = Some(gregs.mc_rdx);
+    known_registers[X64Register::GPR(GPR::RCX).to_index().0] = Some(gregs.mc_rcx);
+    known_registers[X64Register::GPR(GPR::RBX).to_index().0] = Some(gregs.mc_rbx);
+    known_registers[X64Register::GPR(GPR::RAX).to_index().0] = Some(gregs.mc_rax);
+
+    known_registers[X64Register::GPR(GPR::RBP).to_index().0] = Some(gregs.mc_rbp);
+    known_registers[X64Register::GPR(GPR::RSP).to_index().0] = Some(gregs.mc_rsp);
+
+    // https://lists.freebsd.org/pipermail/freebsd-arch/2011-December/012077.html
+    // https://people.freebsd.org/~kib/misc/defer_sig.c
+    const _MC_HASFPXSTATE: u32 = 0x4;
+    if (gregs.mc_flags & _MC_HASFPXSTATE) == 0 {
+        // XXX mc_fpstate[0] is actually a pointer to a struct savefpu
+        let fpregs = &*(*ucontext).uc_mcontext.mc_savefpu;
+        known_registers[X64Register::XMM(XMM::XMM0).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[0]));
+        known_registers[X64Register::XMM(XMM::XMM1).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[1]));
+        known_registers[X64Register::XMM(XMM::XMM2).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[2]));
+        known_registers[X64Register::XMM(XMM::XMM3).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[3]));
+        known_registers[X64Register::XMM(XMM::XMM4).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[4]));
+        known_registers[X64Register::XMM(XMM::XMM5).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[5]));
+        known_registers[X64Register::XMM(XMM::XMM6).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[6]));
+        known_registers[X64Register::XMM(XMM::XMM7).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[7]));
+        known_registers[X64Register::XMM(XMM::XMM8).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[8]));
+        known_registers[X64Register::XMM(XMM::XMM9).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[9]));
+        known_registers[X64Register::XMM(XMM::XMM10).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[10]));
+        known_registers[X64Register::XMM(XMM::XMM11).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[11]));
+        known_registers[X64Register::XMM(XMM::XMM12).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[12]));
+        known_registers[X64Register::XMM(XMM::XMM13).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[13]));
+        known_registers[X64Register::XMM(XMM::XMM14).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[14]));
+        known_registers[X64Register::XMM(XMM::XMM15).to_index().0] =
+            Some(read_xmm(&fpregs.sv_xmm[15]));
+    }
+
+    FaultInfo {
+        faulting_addr: si_addr,
+        ip: std::mem::transmute::<&mut u64, &'static Cell<usize>>(
+            &mut (*ucontext).uc_mcontext.mc_rip,
+        ),
+        known_registers,
+    }
+}
+
 #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
 /// Get fault info from siginfo and ucontext.
 pub unsafe fn get_fault_info(siginfo: *const c_void, ucontext: *mut c_void) -> FaultInfo {

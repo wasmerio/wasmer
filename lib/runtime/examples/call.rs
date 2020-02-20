@@ -70,8 +70,8 @@ fn main() -> Result<(), error::Error> {
 
     println!("result: {:?}", result);
 
-    if let Err(RuntimeError::Error { data }) = result {
-        if let Ok(exit_code) = data.downcast::<ExitCode>() {
+    if let Err(e) = result {
+        if let Ok(exit_code) = e.0.downcast::<ExitCode>() {
             println!("exit code: {:?}", exit_code);
         }
     }

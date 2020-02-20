@@ -486,7 +486,6 @@ fn execute_wasi(
 
     #[cfg(not(feature = "managed"))]
     {
-        use wasmer_runtime::error::RuntimeError;
         let result;
 
         #[cfg(unix)]
@@ -525,13 +524,8 @@ fn execute_wasi(
         }
 
         if let Err(ref err) = result {
-            match err {
-                RuntimeError::Trap { msg } => return Err(format!("wasm trap occured: {}", msg)),
-                RuntimeError::Error { data } => {
-                    if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
-                        std::process::exit(error_code.code as i32)
-                    }
-                }
+            if let Some(error_code) = err.0.downcast_ref::<wasmer_wasi::ExitCode>() {
+                std::process::exit(error_code.code as i32)
             }
             return Err(format!("error: {:?}", err));
         }
@@ -711,6 +705,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 symbol_map: em_symbol_map.clone(),
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
+
+                // Kernel loader does not support explicit preemption checkpoints.
+                full_preemption: false,
+
                 track_state,
                 features: options.features.into_backend_features(),
                 backend_specific_config,
@@ -725,6 +723,11 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             CompilerConfig {
                 symbol_map: em_symbol_map.clone(),
                 track_state,
+
+                // Enable full preemption if state tracking is enabled.
+                // Preemption only makes sense with state information.
+                full_preemption: track_state,
+
                 features: options.features.into_backend_features(),
                 backend_specific_config,
                 generate_debug_info: options.generate_debug_info,
@@ -822,7 +825,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             LoaderName::Kernel => Box::new(
                 instance
                     .load(::wasmer_kernel_loader::KernelLoader)
-                    .map_err(|e| format!("Can't use the local loader: {:?}", e))?,
+                    .map_err(|e| format!("Can't use the kernel loader: {:?}", e))?,
             ),
         };
         println!("{:?}", ins.call(index, &args));

@@ -13,7 +13,7 @@ use crate::{
     sig_registry::SigRegistry,
     structures::TypedIndex,
     table::Table,
-    typed_func::{Func, Wasm, WasmTrapInfo, WasmTypeList},
+    typed_func::{Func, Wasm, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Type, Value},
     vm::{self, InternalField},
 };
@@ -674,8 +674,7 @@ pub(crate) fn call_func_with_index_inner(
     } = wasm;
 
     let run_wasm = |result_space: *mut u64| unsafe {
-        let mut trap_info = WasmTrapInfo::Unknown;
-        let mut user_error = None;
+        let mut error_out = None;
 
         let success = invoke(
             trampoline,
@@ -683,21 +682,16 @@ pub(crate) fn call_func_with_index_inner(
             func_ptr,
             raw_args.as_ptr(),
             result_space,
-            &mut trap_info,
-            &mut user_error,
+            &mut error_out,
             invoke_env,
         );
 
         if success {
             Ok(())
         } else {
-            if let Some(data) = user_error {
-                Err(RuntimeError::Error { data })
-            } else {
-                Err(RuntimeError::Trap {
-                    msg: trap_info.to_string().into(),
-                })
-            }
+            Err(error_out
+                .map(RuntimeError)
+                .unwrap_or_else(|| RuntimeError(Box::new("invoke(): Unknown error".to_string()))))
         }
     };
 
