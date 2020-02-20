@@ -9,7 +9,7 @@ use std::sync::Arc;
 ///
 /// The debugger will wait for this function to be called and then take
 /// control to read the data we prepared.
-// implementation of this function is from wasmtime and is licensed under
+// Implementation of this function is derived from wasmtime and is licensed under
 // the Apache 2.0 license.  See ATTRIBUTIONS.md for full license and more
 // information.
 #[no_mangle]

@@ -79,7 +79,7 @@ where
         self.elems
     }
 
-    /// Iterate over the values of the map in order
+    /// Iterate over the values of the map in order.
     pub fn values(&self) -> impl Iterator<Item = &V> {
         self.elems.iter()
     }

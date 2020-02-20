@@ -213,15 +213,8 @@ impl FuncResolverBuilder {
         let compiled_functions = compiled_functions;
         let mut total_size = 0;
         // We separate into two iterators, one iterable and one into iterable
-        let (code_bufs, sinks): (
-            Vec<Vec<u8>>,
-            Vec<(
-                LocalFuncIndex,
-                Option<(CompiledFunctionData, ValueLabelsRanges, Vec<Option<i32>>)>,
-                RelocSink,
-                LocalTrapSink,
-            )>,
-        ) = compiled_functions.into_iter().unzip();
+        let (code_bufs, sinks): (Vec<Vec<u8>>, Vec<CompileMetadata>) =
+            compiled_functions.into_iter().unzip();
         for (code_buf, (_, debug_info, reloc_sink, mut local_trap_sink)) in
             code_bufs.iter().zip(sinks.into_iter())
         {
