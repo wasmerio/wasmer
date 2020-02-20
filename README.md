@@ -4,14 +4,10 @@
     <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
   </a>
 </p>
-<p align="center">
-<span>
   
 [Website](https://wasmer.io) • [Docs](https://docs.wasmer.io/) • [Examples](https://github.com/wasmerio/wasmer/tree/master/examples) • [Blog](https://medium.com/wasmer) • [Slack](https://slack.wasmer.io/) • [Twitter](https://twitter.com/wasmerio)
 
-</span>
-</p>
-<p align="center">
+<p>
   <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
     <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
   </a>
