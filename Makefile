@@ -302,8 +302,8 @@ build-capi:
 	mkdir -p ./capi/lib
 
 ifeq ($(OS), Windows_NT)
-	cp target/release/libwasmer_runtime_c_api.dll ./capi/lib/wasmer.dll
-	cp target/release/libwasmer_runtime_c_api.lib ./capi/lib/wasmer.lib
+	cp target/release/wasmer_runtime_c_api.dll ./capi/lib/wasmer.dll
+	cp target/release/wasmer_runtime_c_api.lib ./capi/lib/wasmer.lib
 else
 ifeq ($(UNAME_S), Darwin)
 	cp target/release/libwasmer_runtime_c_api.dylib ./capi/lib/libwasmer.dylib
