@@ -48,8 +48,6 @@ curl https://get.wasmer.io -sSfL | sh
   <summary><b>Alternative</b>: Install with Homebrew</summary>
   <p>
 
-If  you have [Homebrew](https://brew.sh/) installed in your system:
-
 ```sh
 brew install wasmer
 ```
