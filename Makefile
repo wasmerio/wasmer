@@ -350,6 +350,3 @@ docs-publish:
 	cd api-docs-repo && git add index.html crates/* c/*
 	cd api-docs-repo && (git diff-index --quiet HEAD || git commit -m "Publishing GitHub Pages")
 	cd api-docs-repo && git push origin gh-pages
-
-wapm:
-	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"

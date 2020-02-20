@@ -144,7 +144,7 @@ jobs:
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - bash: |
           git clone --branch $WAPM_VERSION https://github.com/wasmerio/wapm-cli.git
-          make wapm
+          cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
         displayName: Build WAPM
         condition: |
           startsWith(variables['Build.SourceBranch'], 'refs/tags')
