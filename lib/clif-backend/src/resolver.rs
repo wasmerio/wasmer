@@ -112,18 +112,18 @@ impl FuncResolverBuilder {
         let generate_debug_info = info.generate_debug_info;
         let fb = function_bodies.iter().collect::<Vec<(_, _)>>();
 
-        let compiled_functions: Result<
-            Vec<(
-                Vec<u8>,
-                (
-                    LocalFuncIndex,
-                    Option<(CompiledFunctionData, ValueLabelsRanges, Vec<Option<i32>>)>,
-                    RelocSink,
-                    LocalTrapSink,
-                ),
-            )>,
-            CompileError,
-        > = fb
+        /// Data about the the compiled machine code.
+        type CompileMetadata = (
+            LocalFuncIndex,
+            Option<(CompiledFunctionData, ValueLabelsRanges, Vec<Option<i32>>)>,
+            RelocSink,
+            LocalTrapSink,
+        );
+
+        /// Compiled machine code and information about it
+        type CompileData = (Vec<u8>, CompileMetadata);
+
+        let compiled_functions: Result<Vec<CompileData>, CompileError> = fb
             .par_iter()
             .map_init(
                 || Context::new(),

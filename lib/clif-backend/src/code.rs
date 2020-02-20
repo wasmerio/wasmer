@@ -257,7 +257,11 @@ pub struct CraneliftFunctionCodeGenerator {
     next_local: usize,
     position: Position,
     func_env: FunctionEnvironment,
+    /// Start location of the function as an offset in bytes in the Wasm module
+    /// from the beginning of the code section.
     start: u32,
+    /// End location of the function as an offset in bytes in the Wasm module
+    /// from the beginning of the code section.
     end: u32,
 }
 
@@ -1255,11 +1259,9 @@ fn declare_wasm_parameters(builder: &mut FunctionBuilder, entry_block: Ebb) -> u
             // This is a normal WebAssembly signature parameter, so create a local for it.
             let local = Variable::new(next_local);
             builder.declare_var(local, param_type.value_type);
-            //let value_label = ValueLabel::from_u32(next_local as u32);
             next_local += 1;
 
             let param_value = builder.ebb_params(entry_block)[i];
-            //builder.set_val_label(param_value, value_label);
             builder.def_var(local, param_value);
         }
         if param_type.purpose == ir::ArgumentPurpose::VMContext {

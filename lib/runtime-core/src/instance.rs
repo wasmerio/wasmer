@@ -79,13 +79,12 @@ impl Instance {
         unsafe {
             let backing = &mut *(&mut inner.backing as *mut _);
             let import_backing = &mut *(&mut inner.import_backing as *mut _);
-            let mut real_ctx = match imports.call_state_creator() {
+            let real_ctx = match imports.call_state_creator() {
                 Some((data, dtor)) => {
                     vm::Ctx::new_with_data(backing, import_backing, &module, data, dtor)
                 }
                 None => vm::Ctx::new(backing, import_backing, &module),
             };
-            real_ctx.internal.ctx = vmctx.as_mut_ptr();
             vmctx.as_mut_ptr().write(real_ctx);
         };
         Box::leak(vmctx);
