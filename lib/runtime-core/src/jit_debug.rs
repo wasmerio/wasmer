@@ -139,6 +139,12 @@ unsafe fn remove_node(jce: *mut JitCodeEntry) {
 #[derive(Debug)]
 struct JitCodeDebugInfoEntryHandleInner(*mut JitCodeEntry);
 
+// this is safe because the pointer is never mutated directly and then
+// [`JIT_DEBUG_DESCRIPTOR_LOCK`] should always be held whenever any mutation
+// can happen.
+unsafe impl Send for JitCodeDebugInfoEntryHandleInner {}
+unsafe impl Sync for JitCodeDebugInfoEntryHandleInner {}
+
 /// Handle to debug info about JIT code registered with a debugger
 #[derive(Debug, Clone)]
 pub(crate) struct JitCodeDebugInfoEntryHandle(Arc<JitCodeDebugInfoEntryHandleInner>);
