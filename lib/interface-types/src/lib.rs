@@ -56,5 +56,3 @@ mod macros;
 pub mod decoders;
 pub mod encoders;
 pub mod interpreter;
-
-pub use decoders::binary::parse as parse_binary;
