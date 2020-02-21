@@ -743,10 +743,8 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         _: &ModuleInfo,
     ) -> Result<
         (
-            (
-                X64ExecutionContext,
-                Option<wasmer_runtime_core::codegen::DebugMetadata>,
-            ),
+            X64ExecutionContext,
+            Option<wasmer_runtime_core::codegen::DebugMetadata>,
             Box<dyn CacheGen>,
         ),
         CodegenError,
@@ -843,19 +841,17 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         };
 
         Ok((
-            (
-                X64ExecutionContext {
-                    code: output,
-                    signatures: self.signatures.as_ref().unwrap().clone(),
-                    breakpoints: breakpoints,
-                    func_import_count: self.func_import_count,
-                    function_pointers: out_labels,
-                    function_offsets: out_offsets,
-                    msm: msm,
-                    exception_table,
-                },
-                None,
-            ),
+            X64ExecutionContext {
+                code: output,
+                signatures: self.signatures.as_ref().unwrap().clone(),
+                breakpoints: breakpoints,
+                func_import_count: self.func_import_count,
+                function_pointers: out_labels,
+                function_offsets: out_offsets,
+                msm: msm,
+                exception_table,
+            },
+            None,
             Box::new(cache),
         ))
     }

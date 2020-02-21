@@ -150,7 +150,8 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         module_info: &ModuleInfo,
     ) -> Result<
         (
-            (Caller, Option<wasmer_runtime_core::codegen::DebugMetadata>),
+            Caller,
+            Option<wasmer_runtime_core::codegen::DebugMetadata>,
             Box<dyn CacheGen>,
         ),
         CodegenError,
@@ -184,10 +185,8 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         ));
 
         Ok((
-            (
-                Caller::new(handler_data, trampolines, func_resolver),
-                debug_metadata,
-            ),
+            Caller::new(handler_data, trampolines, func_resolver),
+            debug_metadata,
             cache_gen,
         ))
     }

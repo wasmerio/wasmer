@@ -92,6 +92,7 @@ pub fn read_module<
         custom_sections: HashMap::new(),
 
         generate_debug_info: compiler_config.should_generate_debug_info(),
+        #[cfg(feature = "generate-debug-information")]
         debug_info_manager: Default::default(),
     }));
 

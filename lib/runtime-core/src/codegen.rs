@@ -121,7 +121,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     fn finalize(
         self,
         module_info: &ModuleInfo,
-    ) -> Result<((RM, Option<DebugMetadata>), Box<dyn CacheGen>), E>;
+    ) -> Result<(RM, Option<DebugMetadata>, Box<dyn CacheGen>), E>;
 
     /// Creates a module from cache.
     unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
@@ -273,11 +273,11 @@ impl<
         };
         let mut chain = (self.middleware_chain_generator)();
         let info = crate::parse::read_module(wasm, &mut mcg, &mut chain, &compiler_config)?;
-        let ((exec_context, compile_debug_info), cache_gen) =
-            mcg.finalize(&info.read().unwrap())
-                .map_err(|x| CompileError::InternalError {
-                    msg: format!("{:?}", x),
-                })?;
+        let (exec_context, compile_debug_info, cache_gen) = mcg
+            .finalize(&info.read().unwrap())
+            .map_err(|x| CompileError::InternalError {
+                msg: format!("{:?}", x),
+            })?;
 
         #[cfg(feature = "generate-debug-information")]
         {

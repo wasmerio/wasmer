@@ -16,6 +16,7 @@ use crate::{
 };
 
 use crate::backend::CacheGen;
+#[cfg(feature = "generate-debug-information")]
 use crate::jit_debug;
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -83,6 +84,7 @@ pub struct ModuleInfo {
     /// will be generated.
     pub generate_debug_info: bool,
 
+    #[cfg(feature = "generate-debug-information")]
     #[serde(skip)]
     /// Resource manager of debug information being used by a debugger.
     pub debug_info_manager: jit_debug::JITCodeDebugInfoManager,

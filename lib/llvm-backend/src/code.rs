@@ -8847,10 +8847,8 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         module_info: &ModuleInfo,
     ) -> Result<
         (
-            (
-                LLVMBackend,
-                Option<wasmer_runtime_core::codegen::DebugMetadata>,
-            ),
+            LLVMBackend,
+            Option<wasmer_runtime_core::codegen::DebugMetadata>,
             Box<dyn CacheGen>,
         ),
         CodegenError,
@@ -8942,7 +8940,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             &self.target_machine,
             &mut self.llvm_callbacks,
         );
-        Ok(((backend, None), Box::new(cache_gen)))
+        Ok((backend, None, Box::new(cache_gen)))
     }
 
     fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {

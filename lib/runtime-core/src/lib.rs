@@ -66,6 +66,7 @@ pub mod vmcalls;
 pub use trampoline_x64 as trampoline;
 #[cfg(unix)]
 pub mod fault;
+#[cfg(feature = "generate-debug-information")]
 pub mod jit_debug;
 pub mod state;
 #[cfg(feature = "managed")]
