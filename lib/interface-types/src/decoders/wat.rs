@@ -1,12 +1,13 @@
-//! Parse the WIT textual representation into an AST.
+//! Parse the WIT textual representation into an [AST](crate::ast).
 
 use crate::{ast::*, interpreter::Instruction};
+pub use wast::parser::ParseBuffer as Buffer;
 use wast::{
-    parser::{Cursor, Parse, Parser, Peek, Result},
+    parser::{self, Cursor, Parse, Parser, Peek, Result},
     Id, LParen,
 };
 
-mod kw {
+mod keyword {
     pub use wast::{
         custom_keyword,
         kw::{anyref, export, f32, f64, func, i32, i64, import, param, result},
@@ -51,44 +52,44 @@ impl Parse<'_> for InterfaceType {
     fn parse(parser: Parser<'_>) -> Result<Self> {
         let mut lookahead = parser.lookahead1();
 
-        if lookahead.peek::<kw::int>() {
-            parser.parse::<kw::int>()?;
+        if lookahead.peek::<keyword::int>() {
+            parser.parse::<keyword::int>()?;
 
             Ok(InterfaceType::Int)
-        } else if lookahead.peek::<kw::float>() {
-            parser.parse::<kw::float>()?;
+        } else if lookahead.peek::<keyword::float>() {
+            parser.parse::<keyword::float>()?;
 
             Ok(InterfaceType::Float)
-        } else if lookahead.peek::<kw::any>() {
-            parser.parse::<kw::any>()?;
+        } else if lookahead.peek::<keyword::any>() {
+            parser.parse::<keyword::any>()?;
 
             Ok(InterfaceType::Any)
-        } else if lookahead.peek::<kw::string>() {
-            parser.parse::<kw::string>()?;
+        } else if lookahead.peek::<keyword::string>() {
+            parser.parse::<keyword::string>()?;
 
             Ok(InterfaceType::String)
-        } else if lookahead.peek::<kw::seq>() {
-            parser.parse::<kw::seq>()?;
+        } else if lookahead.peek::<keyword::seq>() {
+            parser.parse::<keyword::seq>()?;
 
             Ok(InterfaceType::Seq)
-        } else if lookahead.peek::<kw::i32>() {
-            parser.parse::<kw::i32>()?;
+        } else if lookahead.peek::<keyword::i32>() {
+            parser.parse::<keyword::i32>()?;
 
             Ok(InterfaceType::I32)
-        } else if lookahead.peek::<kw::i64>() {
-            parser.parse::<kw::i64>()?;
+        } else if lookahead.peek::<keyword::i64>() {
+            parser.parse::<keyword::i64>()?;
 
             Ok(InterfaceType::I64)
-        } else if lookahead.peek::<kw::f32>() {
-            parser.parse::<kw::f32>()?;
+        } else if lookahead.peek::<keyword::f32>() {
+            parser.parse::<keyword::f32>()?;
 
             Ok(InterfaceType::F32)
-        } else if lookahead.peek::<kw::f64>() {
-            parser.parse::<kw::f64>()?;
+        } else if lookahead.peek::<keyword::f64>() {
+            parser.parse::<keyword::f64>()?;
 
             Ok(InterfaceType::F64)
-        } else if lookahead.peek::<kw::anyref>() {
-            parser.parse::<kw::anyref>()?;
+        } else if lookahead.peek::<keyword::anyref>() {
+            parser.parse::<keyword::anyref>()?;
 
             Ok(InterfaceType::AnyRef)
         } else {
@@ -101,92 +102,92 @@ impl<'a> Parse<'a> for Instruction<'a> {
     fn parse(parser: Parser<'a>) -> Result<Self> {
         let mut lookahead = parser.lookahead1();
 
-        if lookahead.peek::<kw::argument_get>() {
-            parser.parse::<kw::argument_get>()?;
+        if lookahead.peek::<keyword::argument_get>() {
+            parser.parse::<keyword::argument_get>()?;
 
             Ok(Instruction::ArgumentGet {
                 index: parser.parse()?,
             })
-        } else if lookahead.peek::<kw::call>() {
-            parser.parse::<kw::call>()?;
+        } else if lookahead.peek::<keyword::call>() {
+            parser.parse::<keyword::call>()?;
 
             Ok(Instruction::Call {
                 function_index: parser.parse::<u64>()? as usize,
             })
-        } else if lookahead.peek::<kw::call_export>() {
-            parser.parse::<kw::call_export>()?;
+        } else if lookahead.peek::<keyword::call_export>() {
+            parser.parse::<keyword::call_export>()?;
 
             Ok(Instruction::CallExport {
                 export_name: parser.parse()?,
             })
-        } else if lookahead.peek::<kw::read_utf8>() {
-            parser.parse::<kw::read_utf8>()?;
+        } else if lookahead.peek::<keyword::read_utf8>() {
+            parser.parse::<keyword::read_utf8>()?;
 
             Ok(Instruction::ReadUtf8)
-        } else if lookahead.peek::<kw::write_utf8>() {
-            parser.parse::<kw::write_utf8>()?;
+        } else if lookahead.peek::<keyword::write_utf8>() {
+            parser.parse::<keyword::write_utf8>()?;
 
             Ok(Instruction::WriteUtf8 {
                 allocator_name: parser.parse()?,
             })
-        } else if lookahead.peek::<kw::as_wasm>() {
-            parser.parse::<kw::as_wasm>()?;
+        } else if lookahead.peek::<keyword::as_wasm>() {
+            parser.parse::<keyword::as_wasm>()?;
 
             Ok(Instruction::AsWasm(parser.parse()?))
-        } else if lookahead.peek::<kw::as_interface>() {
-            parser.parse::<kw::as_interface>()?;
+        } else if lookahead.peek::<keyword::as_interface>() {
+            parser.parse::<keyword::as_interface>()?;
 
             Ok(Instruction::AsInterface(parser.parse()?))
-        } else if lookahead.peek::<kw::table_ref_add>() {
-            parser.parse::<kw::table_ref_add>()?;
+        } else if lookahead.peek::<keyword::table_ref_add>() {
+            parser.parse::<keyword::table_ref_add>()?;
 
             Ok(Instruction::TableRefAdd)
-        } else if lookahead.peek::<kw::table_ref_get>() {
-            parser.parse::<kw::table_ref_get>()?;
+        } else if lookahead.peek::<keyword::table_ref_get>() {
+            parser.parse::<keyword::table_ref_get>()?;
 
             Ok(Instruction::TableRefGet)
-        } else if lookahead.peek::<kw::call_method>() {
-            parser.parse::<kw::call_method>()?;
+        } else if lookahead.peek::<keyword::call_method>() {
+            parser.parse::<keyword::call_method>()?;
 
             Ok(Instruction::CallMethod(parser.parse()?))
-        } else if lookahead.peek::<kw::make_record>() {
-            parser.parse::<kw::make_record>()?;
+        } else if lookahead.peek::<keyword::make_record>() {
+            parser.parse::<keyword::make_record>()?;
 
             Ok(Instruction::MakeRecord(parser.parse()?))
-        } else if lookahead.peek::<kw::get_field>() {
-            parser.parse::<kw::get_field>()?;
+        } else if lookahead.peek::<keyword::get_field>() {
+            parser.parse::<keyword::get_field>()?;
 
             Ok(Instruction::GetField(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<kw::r#const>() {
-            parser.parse::<kw::r#const>()?;
+        } else if lookahead.peek::<keyword::r#const>() {
+            parser.parse::<keyword::r#const>()?;
 
             Ok(Instruction::Const(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<kw::fold_seq>() {
-            parser.parse::<kw::fold_seq>()?;
+        } else if lookahead.peek::<keyword::fold_seq>() {
+            parser.parse::<keyword::fold_seq>()?;
 
             Ok(Instruction::FoldSeq(parser.parse()?))
-        } else if lookahead.peek::<kw::add>() {
-            parser.parse::<kw::add>()?;
+        } else if lookahead.peek::<keyword::add>() {
+            parser.parse::<keyword::add>()?;
 
             Ok(Instruction::Add(parser.parse()?))
-        } else if lookahead.peek::<kw::mem_to_seq>() {
-            parser.parse::<kw::mem_to_seq>()?;
+        } else if lookahead.peek::<keyword::mem_to_seq>() {
+            parser.parse::<keyword::mem_to_seq>()?;
 
             Ok(Instruction::MemToSeq(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<kw::load>() {
-            parser.parse::<kw::load>()?;
+        } else if lookahead.peek::<keyword::load>() {
+            parser.parse::<keyword::load>()?;
 
             Ok(Instruction::Load(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<kw::seq_new>() {
-            parser.parse::<kw::seq_new>()?;
+        } else if lookahead.peek::<keyword::seq_new>() {
+            parser.parse::<keyword::seq_new>()?;
 
             Ok(Instruction::SeqNew(parser.parse()?))
-        } else if lookahead.peek::<kw::list_push>() {
-            parser.parse::<kw::list_push>()?;
+        } else if lookahead.peek::<keyword::list_push>() {
+            parser.parse::<keyword::list_push>()?;
 
             Ok(Instruction::ListPush)
-        } else if lookahead.peek::<kw::repeat_until>() {
-            parser.parse::<kw::repeat_until>()?;
+        } else if lookahead.peek::<keyword::repeat_until>() {
+            parser.parse::<keyword::repeat_until>()?;
 
             Ok(Instruction::RepeatUntil(parser.parse()?, parser.parse()?))
         } else {
@@ -230,8 +231,8 @@ impl Parse<'_> for FunctionType {
         parser.parens(|parser| {
             let mut lookahead = parser.lookahead1();
 
-            if lookahead.peek::<kw::param>() {
-                parser.parse::<kw::param>()?;
+            if lookahead.peek::<keyword::param>() {
+                parser.parse::<keyword::param>()?;
 
                 let mut inputs = vec![];
 
@@ -240,8 +241,8 @@ impl Parse<'_> for FunctionType {
                 }
 
                 Ok(FunctionType::Input(inputs))
-            } else if lookahead.peek::<kw::result>() {
-                parser.parse::<kw::result>()?;
+            } else if lookahead.peek::<keyword::result>() {
+                parser.parse::<keyword::result>()?;
 
                 let mut outputs = vec![];
 
@@ -277,13 +278,13 @@ impl<'a> Parse<'a> for Interface<'a> {
 
                 let mut lookahead = parser.lookahead1();
 
-                if lookahead.peek::<kw::export>() {
+                if lookahead.peek::<keyword::export>() {
                     Ok(Interface::Export(parser.parse()?))
-                } else if lookahead.peek::<kw::func>() {
+                } else if lookahead.peek::<keyword::func>() {
                     Ok(Interface::Import(parser.parse()?))
-                } else if lookahead.peek::<kw::adapt>() {
+                } else if lookahead.peek::<keyword::adapt>() {
                     Ok(Interface::Adapter(parser.parse()?))
-                } else if lookahead.peek::<kw::forward>() {
+                } else if lookahead.peek::<keyword::forward>() {
                     Ok(Interface::Forward(parser.parse()?))
                 } else {
                     Err(lookahead.error())
@@ -297,7 +298,7 @@ impl<'a> Parse<'a> for Interface<'a> {
 
 impl<'a> Parse<'a> for Export<'a> {
     fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<kw::export>()?;
+        parser.parse::<keyword::export>()?;
         let name = parser.parse()?;
 
         let mut input_types = vec![];
@@ -322,11 +323,11 @@ impl<'a> Parse<'a> for Export<'a> {
 
 impl<'a> Parse<'a> for Import<'a> {
     fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<kw::func>()?;
+        parser.parse::<keyword::func>()?;
         parser.parse::<Id>()?;
 
         let (namespace, name) = parser.parens(|parser| {
-            parser.parse::<kw::import>()?;
+            parser.parse::<keyword::import>()?;
 
             Ok((parser.parse()?, parser.parse()?))
         })?;
@@ -353,17 +354,17 @@ impl<'a> Parse<'a> for Import<'a> {
 
 impl<'a> Parse<'a> for Adapter<'a> {
     fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<kw::adapt>()?;
+        parser.parse::<keyword::adapt>()?;
 
         let (kind, namespace, name) = parser.parens(|parser| {
             let mut lookahead = parser.lookahead1();
 
-            if lookahead.peek::<kw::import>() {
-                parser.parse::<kw::import>()?;
+            if lookahead.peek::<keyword::import>() {
+                parser.parse::<keyword::import>()?;
 
                 Ok((AdapterKind::Import, parser.parse()?, parser.parse()?))
-            } else if lookahead.peek::<kw::export>() {
-                parser.parse::<kw::export>()?;
+            } else if lookahead.peek::<keyword::export>() {
+                parser.parse::<keyword::export>()?;
 
                 Ok((AdapterKind::Export, "", parser.parse()?))
             } else {
@@ -410,10 +411,10 @@ impl<'a> Parse<'a> for Adapter<'a> {
 
 impl<'a> Parse<'a> for Forward<'a> {
     fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<kw::forward>()?;
+        parser.parse::<keyword::forward>()?;
 
         let name = parser.parens(|parser| {
-            parser.parse::<kw::export>()?;
+            parser.parse::<keyword::export>()?;
 
             Ok(parser.parse()?)
         })?;
@@ -442,13 +443,101 @@ impl<'a> Parse<'a> for Interfaces<'a> {
     }
 }
 
+/// Parse a WIT definition in its textual format, and produces an
+/// [AST](crate::ast) with the [`Interfaces`](crate::ast::Interfaces)
+/// structure upon succesful.
+///
+/// # Examples
+///
+/// ```rust
+/// use wasmer_interface_types::{
+///     ast::*,
+///     decoders::wat::{parse, Buffer},
+///     interpreter::Instruction,
+/// };
+///
+/// # fn main() {
+/// let input = Buffer::new(
+///     r#"(@interface export "foo"
+///   (param i32))
+///
+/// (@interface export "bar")
+///
+/// (@interface func $ns_foo (import "ns" "foo")
+/// (result i32))
+///
+/// (@interface func $ns_bar (import "ns" "bar"))
+///
+/// (@interface adapt (import "ns" "foo")
+/// (param i32)
+/// arg.get 42)
+///
+/// (@interface adapt (export "bar")
+/// arg.get 42)
+///
+/// (@interface forward (export "main"))"#,
+/// )
+/// .unwrap();
+/// let output = Interfaces {
+///     exports: vec![
+///         Export {
+///             name: "foo",
+///             input_types: vec![InterfaceType::I32],
+///             output_types: vec![],
+///         },
+///         Export {
+///             name: "bar",
+///             input_types: vec![],
+///             output_types: vec![],
+///         },
+///     ],
+///     types: vec![],
+///     imports: vec![
+///         Import {
+///             namespace: "ns",
+///             name: "foo",
+///             input_types: vec![],
+///             output_types: vec![InterfaceType::I32],
+///         },
+///         Import {
+///             namespace: "ns",
+///             name: "bar",
+///             input_types: vec![],
+///             output_types: vec![],
+///         },
+///     ],
+///     adapters: vec![
+///         Adapter::Import {
+///             namespace: "ns",
+///             name: "foo",
+///             input_types: vec![InterfaceType::I32],
+///             output_types: vec![],
+///             instructions: vec![Instruction::ArgumentGet { index: 42 }],
+///         },
+///         Adapter::Export {
+///             name: "bar",
+///             input_types: vec![],
+///             output_types: vec![],
+///             instructions: vec![Instruction::ArgumentGet { index: 42 }],
+///         },
+///     ],
+///     forwards: vec![Forward { name: "main" }],
+/// };
+///
+/// assert_eq!(parse(&input).unwrap(), output);
+/// # }
+/// ```
+pub fn parse<'input>(input: &'input Buffer) -> Result<Interfaces<'input>> {
+    parser::parse::<Interfaces>(&input)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wast::parser::{self, ParseBuffer};
+    use wast::parser;
 
-    fn buffer(input: &str) -> ParseBuffer {
-        ParseBuffer::new(input).expect("Failed to build the parser buffer.")
+    fn buffer(input: &str) -> Buffer {
+        Buffer::new(input).expect("Failed to build the parser buffer.")
     }
 
     #[test]
