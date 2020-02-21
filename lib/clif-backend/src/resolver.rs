@@ -26,6 +26,7 @@ use wasmer_runtime_core::{
         SigRegistry,
     },
     cache::Error as CacheError,
+    codegen::WasmSpan,
     error::{CompileError, CompileResult},
     module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
@@ -96,7 +97,7 @@ impl FuncResolverBuilder {
 
     pub fn new(
         isa: &dyn isa::TargetIsa,
-        function_bodies: Map<LocalFuncIndex, (ir::Function, (u32, u32))>,
+        function_bodies: Map<LocalFuncIndex, (ir::Function, WasmSpan)>,
         info: &ModuleInfo,
     ) -> CompileResult<(
         Self,
@@ -127,7 +128,7 @@ impl FuncResolverBuilder {
             .par_iter()
             .map_init(
                 || Context::new(),
-                |ctx, (lfi, (func, (start, end)))| {
+                |ctx, (lfi, (func, loc))| {
                     let mut code_buf = Vec::new();
                     ctx.func = func.to_owned();
                     let mut reloc_sink = RelocSink::new();
@@ -179,8 +180,8 @@ impl FuncResolverBuilder {
 
                         let entry = CompiledFunctionData {
                             instructions,
-                            start_srcloc: wasm_debug::types::SourceLoc::new(*start),
-                            end_srcloc: wasm_debug::types::SourceLoc::new(*end),
+                            start_srcloc: wasm_debug::types::SourceLoc::new(loc.start()),
+                            end_srcloc: wasm_debug::types::SourceLoc::new(loc.end()),
                             // this not being 0 breaks inst-level debugging
                             body_offset: 0,
                             body_len: code_buf.len(),

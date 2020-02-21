@@ -682,7 +682,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     fn next_function(
         &mut self,
         _module_info: Arc<RwLock<ModuleInfo>>,
-        _loc: (u32, u32),
+        _loc: WasmSpan,
     ) -> Result<&mut X64FunctionCode, CodegenError> {
         let (mut assembler, mut function_labels, breakpoints, exception_table) =
             match self.functions.last_mut() {

@@ -65,6 +65,45 @@ impl fmt::Debug for InternalEvent {
     }
 }
 
+/// Type representing an area of Wasm code in bytes as an offset from the
+/// beginning of the code section.
+///
+/// `start` must be less than or equal to `end`.
+#[derive(Copy, Clone, Debug)]
+pub struct WasmSpan {
+    /// Start offset in bytes from the beginning of the Wasm code section
+    start: u32,
+    /// End offset in bytes from the beginning of the Wasm code section
+    end: u32,
+}
+
+impl WasmSpan {
+    /// Create a new `WasmSpan`.
+    ///
+    /// `start` must be less than or equal to `end`.
+    // TODO: mark this function as `const` when asserts get stabilized as `const`
+    // see: https://github.com/rust-lang/rust/issues/57563
+    pub fn new(start: u32, end: u32) -> Self {
+        debug_assert!(start <= end);
+        Self { start, end }
+    }
+
+    /// Start offset in bytes from the beginning of the Wasm code section
+    pub const fn start(&self) -> u32 {
+        self.start
+    }
+
+    /// End offset in bytes from the beginning of the Wasm code section
+    pub const fn end(&self) -> u32 {
+        self.end
+    }
+
+    /// Size in bytes of the span
+    pub const fn size(&self) -> u32 {
+        self.end - self.start
+    }
+}
+
 /// Information for a breakpoint
 #[cfg(unix)]
 pub struct BreakpointInfo<'a> {
@@ -115,7 +154,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     fn next_function(
         &mut self,
         module_info: Arc<RwLock<ModuleInfo>>,
-        loc: (u32, u32),
+        loc: WasmSpan,
     ) -> Result<&mut FCG, E>;
     /// Finalizes this module.
     fn finalize(

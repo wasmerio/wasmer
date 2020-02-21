@@ -8739,7 +8739,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
     fn next_function(
         &mut self,
         _module_info: Arc<RwLock<ModuleInfo>>,
-        _loc: (u32, u32),
+        _loc: WasmSpan,
     ) -> Result<&mut LLVMFunctionCodeGenerator<'ctx>, CodegenError> {
         // Creates a new function and returns the function-scope code generator for it.
         let (context, builder, intrinsics) = match self.functions.last_mut() {

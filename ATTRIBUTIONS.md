@@ -17,8 +17,8 @@ These are the projects that were used as inspiration and/or that we are using co
     of generating debug information for each function with Cranelift
     (for example, the sorting of the extended basic blocks before
     processing the instructions), and the API for transforming DWARF
-    see wasm-debug's attribution file for more information (TODO: link
-    and update here).
+    see [wasm-debug's attribution file](https://github.com/wasmerio/wasm-debug/blob/master/ATTRIBUTIONS.md)
+    for more information
 - [stackoverflow](https://stackoverflow.com/a/45795699/1072990): to create an efficient HashMap with pair keys
 - [Emscripten](https://github.com/kripken/emscripten): for emtests test sources to ensure compatibility
 - [The WebAssembly spec](https://github.com/WebAssembly/spec/tree/master/test): for implementation details of WebAssembly and spectests

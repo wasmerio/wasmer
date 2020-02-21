@@ -229,7 +229,10 @@ pub fn read_module<
                 }
 
                 let fcg = mcg
-                    .next_function(Arc::clone(&info), (range.start as u32, range.end as u32))
+                    .next_function(
+                        Arc::clone(&info),
+                        WasmSpan::new(range.start as u32, range.end as u32),
+                    )
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
 
                 {

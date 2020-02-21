@@ -71,7 +71,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     fn next_function(
         &mut self,
         module_info: Arc<RwLock<ModuleInfo>>,
-        loc: (u32, u32),
+        loc: WasmSpan,
     ) -> Result<&mut CraneliftFunctionCodeGenerator, CodegenError> {
         // define_function_body(
 
@@ -102,8 +102,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
                 target_config: self.isa.frontend_config().clone(),
                 clif_signatures: self.clif_signatures.clone(),
             },
-            start: loc.0,
-            end: loc.1,
+            loc,
         };
 
         let generate_debug_info = module_info.read().unwrap().generate_debug_info;
@@ -120,7 +119,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             &mut func_env.position,
         );
 
-        builder.set_srcloc(ir::SourceLoc::new(loc.0));
+        builder.set_srcloc(ir::SourceLoc::new(loc.start()));
 
         let entry_block = builder.create_ebb();
         builder.append_ebb_params_for_function_params(entry_block);
@@ -156,9 +155,9 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         ),
         CodegenError,
     > {
-        let mut func_bodies: Map<LocalFuncIndex, (ir::Function, (u32, u32))> = Map::new();
+        let mut func_bodies: Map<LocalFuncIndex, (ir::Function, WasmSpan)> = Map::new();
         for f in self.functions.into_iter() {
-            func_bodies.push((f.func, (f.start, f.end)));
+            func_bodies.push((f.func, f.loc));
         }
 
         let (func_resolver_builder, debug_metadata, handler_data) =
@@ -256,12 +255,8 @@ pub struct CraneliftFunctionCodeGenerator {
     next_local: usize,
     position: Position,
     func_env: FunctionEnvironment,
-    /// Start location of the function as an offset in bytes in the Wasm module
-    /// from the beginning of the code section.
-    start: u32,
-    /// End location of the function as an offset in bytes in the Wasm module
-    /// from the beginning of the code section.
-    end: u32,
+    /// Where the function lives in the Wasm module as a span of bytes
+    loc: WasmSpan,
 }
 
 pub struct FunctionEnvironment {

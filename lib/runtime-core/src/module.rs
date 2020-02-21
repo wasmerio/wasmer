@@ -87,7 +87,7 @@ pub struct ModuleInfo {
     #[cfg(feature = "generate-debug-information")]
     #[serde(skip)]
     /// Resource manager of debug information being used by a debugger.
-    pub debug_info_manager: jit_debug::JITCodeDebugInfoManager,
+    pub(crate) debug_info_manager: jit_debug::JitCodeDebugInfoManager,
 }
 
 impl ModuleInfo {
