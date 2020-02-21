@@ -9,3 +9,4 @@ edition = "2018"
 
 [dependencies]
 nom = "5.1"
+wast = "8.0"

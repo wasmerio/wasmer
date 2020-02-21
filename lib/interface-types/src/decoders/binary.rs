@@ -1,4 +1,4 @@
-//! Parse the WIT binary representation into an AST.
+//! Parse the WIT binary representation into an [AST](crate::ast).
 
 use crate::{ast::*, interpreter::Instruction};
 use nom::{
@@ -432,7 +432,8 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 }
 
 /// Parse a sequence of bytes, expecting it to be a valid WIT binary
-/// representation, into an `ast::Interfaces`.
+/// representation, into an [`Interfaces`](crate::ast::Interfaces)
+/// structure.
 ///
 /// # Example
 ///

@@ -666,6 +666,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
+name = "leb128"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3576a87f2ba00f6f106fdfcd16db1d698d648a26ad8e0573cad8537c3c362d2a"
+
+[[package]]
 name = "lexical-core"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1824,6 +1830,7 @@ name = "wasmer-interface-types"
 version = "0.14.0"
 dependencies = [
  "nom",
+ "wast",
 ]
 
 [[package]]
@@ -2038,6 +2045,15 @@ name = "wasmparser"
 version = "0.45.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b4eab1d9971d0803729cba3617b56eb04fcb4bd25361cb63880ed41a42f20d5"
+
+[[package]]
+name = "wast"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f9df3d716118a503b2f6bbb6ff46b21997ab0cc167b01de7a188e45e4b01e8d"
+dependencies = [
+ "leb128",
+]
 
 [[package]]
 name = "winapi"
