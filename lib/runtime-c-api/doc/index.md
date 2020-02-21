@@ -1,12 +1,9 @@
 # Wasmer Runtime C API
 
-[Wasmer] is a standalone [WebAssembly] runtime, aiming to be fully
-compatible with WASI, Emscripten, Rust and Go. [Learn
-more](https://github.com/wasmerio/wasmer).
+[Wasmer] is a standalone WebAssembly runtime for running WebAssembly [outside of the browser](https://webassembly.org/docs/non-web/), supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
 
-The `wasmer-runtime-c-api` crate exposes a C and a C++ API to interact
-with the Wasmer runtime. This document is the index of its
-auto-generated documentation.
+The Wasmer Runtime C API exposes a C and a C++ API to interact
+with the Wasmer Runtime, so you can use WebAssembly anywhere.
 
 [Wasmer]: https://github.com/wasmerio/wasmer
 [WebAssembly]: https://webassembly.org/
@@ -15,21 +12,22 @@ auto-generated documentation.
 
 Since the Wasmer runtime is written in Rust, the C and C++ API are
 designed to work hand-in-hand with its shared library. The C and C++
-header files, namely [`wasmer.h`] and `wasmer.hh` are documented
-here. Their source code can be found in the source tree of this
-crate. They are automatically generated, and always up-to-date in this
-repository. The C and C++ header files along with the runtime shared
+header files, namely [`wasmer.h`][wasmer_h] and `wasmer.hh` are documented
+in the docs.
+
+Their source code can be found in the source tree of the [wasmer-runtime-c-api](https://github.com/wasmerio/wasmer/tree/master/lib/runtime-c-api)
+crate.
+The C and C++ header files along with the runtime shared
 libraries (`.so`, `.dylib`, `.dll`) can also be downloaded in the
 Wasmer [release page].
 
-[`wasmer.h`]: ./wasmer_8h.html
 [release page]: https://github.com/wasmerio/wasmer/releases
 
 Here is a simple example to use the C API:
 
 ```c
 #include <stdio.h>
-#include "../wasmer.h"
+#include "wasmer.h"
 #include <assert.h>
 #include <stdint.h>
 
@@ -90,26 +88,12 @@ int main()
 }
 ```
 
-# Testing
+# Examples
 
-Tests are run using the release build of the library.  If you make
-changes or compile with non-default features, please ensure you
-rebuild in release mode for the tests to see the changes.
+You can check more examples of how to use the Wasmer C API here:
 
-The tests can be run via `cargo test`, such as:
+https://docs.wasmer.io/integrations/c/examples
 
-```sh
-$ cargo test --release -- --nocapture
-```
-
-To run tests manually, enter the `lib/runtime-c-api/tests` directory
-and run the following commands:
-
-```sh
-$ cmake .
-$ make
-$ make test
-```
 
 
 # License
@@ -118,7 +102,6 @@ Wasmer is primarily distributed under the terms of the [MIT
 license][mit-license] ([LICENSE][license]).
 
 
-[wasmer_h]: ./wasmer.h
-[wasmer_hh]: ./wasmer.hh
+[wasmer_h]: https://wasmerio.github.io/wasmer/c/runtime-c-api/wasmer_8h.html
 [mit-license]: http://opensource.org/licenses/MIT
 [license]: https://github.com/wasmerio/wasmer/blob/master/LICENSE

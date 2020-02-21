@@ -29,7 +29,7 @@ before_deploy:
   # Release
   - make release-singlepass
   - make wapm
-  - make build-install
+  - make build-install-package
   - mkdir -p artifacts
   - cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
 

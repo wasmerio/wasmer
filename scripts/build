@@ -7,7 +7,7 @@
 # To use the script, first make sure Docker is installed. Then build the
 # sandbox image with:
 #
-#   docker build --file Dockerfile.build --tag wasmer-build .
+#   docker build --file Dockerfile --tag wasmer-build .
 #
 # After the sandbox image is built successfully, you can run commands in it
 # with this script.

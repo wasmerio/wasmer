@@ -2,6 +2,9 @@
 
 ## **[Unreleased]**
 
+## 0.14.0 - 2020-02-20
+
+- [#1233](https://github.com/wasmerio/wasmer/pull/1233) Improved Wasmer C API release artifacts.
 - [#1216](https://github.com/wasmerio/wasmer/pull/1216) `wasmer-interface-types` receives a binary encoder.
 - [#1212](https://github.com/wasmerio/wasmer/pull/1212) Add `--generate-debug-info` and `-g` flags to `wasmer run` to generate debug information during compilation that is passed via the GDB JIT interface to a debugger to allow source-level debugging of Wasm files.  Currently only available on clif-backend, see PR for more information on its implementation.
 - [#1228](https://github.com/wasmerio/wasmer/pull/1228) Singlepass cleanup: Resolve several FIXMEs and remove protect_unix.
