@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1234](https://github.com/wasmerio/wasmer/pull/1234) Check for unused excluded spectest failures.
 - [#1232](https://github.com/wasmerio/wasmer/pull/1232) `wasmer-interface-types` has a WAT decoder.
 
 ## 0.14.0 - 2020-02-20
