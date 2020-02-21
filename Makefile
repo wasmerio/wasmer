@@ -287,12 +287,38 @@ bench-llvm:
 	cargo bench --all --no-default-features --features "backend-llvm" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
 
-# Build utils
-build-install:
+build-install-package:
+	# This command doesn't build the binary, just packages it
 	mkdir -p ./install/bin
 	cp ./wapm-cli/target/release/wapm ./install/bin/
 	cp ./target/release/wasmer ./install/bin/
 	tar -C ./install -zcvf wasmer.tar.gz bin/wapm bin/wasmer
+
+UNAME_S := $(shell uname -s)
+
+build-capi-package:
+	# This command doesn't build the C-API, just packages it
+	mkdir -p ./capi/
+	mkdir -p ./capi/include
+	mkdir -p ./capi/lib
+ifeq ($(OS), Windows_NT)
+	cp target/release/wasmer_runtime_c_api.dll ./capi/lib/wasmer.dll
+	cp target/release/wasmer_runtime_c_api.lib ./capi/lib/wasmer.lib
+else
+ifeq ($(UNAME_S), Darwin)
+	cp target/release/libwasmer_runtime_c_api.dylib ./capi/lib/libwasmer.dylib
+	cp target/release/libwasmer_runtime_c_api.dylib ./capi/lib/libwasmer.a
+	# Fix the rpath for the dylib
+	install_name_tool -id "@rpath/libwasmer.dylib" ./capi/lib/libwasmer.dylib
+else
+	cp target/release/libwasmer_runtime_c_api.so ./capi/lib/libwasmer.so
+	cp target/release/libwasmer_runtime_c_api.a ./capi/lib/libwasmer.a
+endif
+endif
+	find target/release/build -name 'wasmer.h*' -exec cp {} ./capi/include ';'
+	cp LICENSE ./capi/LICENSE
+	cp lib/runtime-c-api/doc/index.md ./capi/README.md
+	tar -C ./capi -zcvf wasmer-c-api.tar.gz lib include README.md LICENSE
 
 # For installing the contents locally
 do-install:
@@ -306,9 +332,11 @@ publish-release:
 dep-graph:
 	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-middleware-common-tests wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
 
-docs:
+docs-capi:
+	cd lib/runtime-c-api/ && doxygen doxyfile
+
+docs: docs-capi
 	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --workspace --document-private-items --no-deps
-	cd lib/runtime-c-api/ && doxygen doxyfile && cd ..
 	mkdir -p api-docs
 	mkdir -p api-docs/c
 	cp -R target/doc api-docs/crates
@@ -322,6 +350,3 @@ docs-publish:
 	cd api-docs-repo && git add index.html crates/* c/*
 	cd api-docs-repo && (git diff-index --quiet HEAD || git commit -m "Publishing GitHub Pages")
 	cd api-docs-repo && git push origin gh-pages
-
-wapm:
-	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"

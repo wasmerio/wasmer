@@ -13,7 +13,6 @@ jobs:
       vmImage: "macos-10.14"
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - script: |
           rustup component add rustfmt
@@ -28,7 +27,6 @@ jobs:
       vmImage: "ubuntu-18.04"
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
@@ -63,7 +61,6 @@ jobs:
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
@@ -97,7 +94,6 @@ jobs:
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
@@ -129,7 +125,6 @@ jobs:
       )
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
@@ -148,12 +143,15 @@ jobs:
         displayName: Build (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - bash: |
-          make wapm
+          git clone --branch $WAPM_VERSION https://github.com/wasmerio/wapm-cli.git
+          cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
         displayName: Build WAPM
         condition: |
           startsWith(variables['Build.SourceBranch'], 'refs/tags')
+        env:
+          WAPM_VERSION: 0.4.3
       - bash: |
-          make build-install
+          make build-install-package
           cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
         displayName: Build Distribution (*nix)
         condition: |
@@ -199,7 +197,6 @@ jobs:
       )
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
@@ -213,21 +210,25 @@ jobs:
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
       - bash: |
           make capi
-          cp target/release/libwasmer_runtime_c_api.so ./artifacts
-          find target/release/build -name 'wasmer.h*' -exec cp {} ./artifacts ';'
-        displayName: Build c-api (Linux)
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+        displayName: Build c-api
       - bash: |
-          make capi
-          install_name_tool -id "@rpath/libwasmer_runtime_c_api.dylib" target/release/libwasmer_runtime_c_api.dylib
-          cp target/release/libwasmer_runtime_c_api.dylib ./artifacts
-        displayName: Build c-api (Darwin)
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+          make build-capi-package
+          cp ./wasmer-c-api.tar.gz ./artifacts/$(./scripts/capi-name.sh)
+        displayName: Build c-api artifacts (Unix)
+        condition: |
+          and(
+            succeeded(),
+            not(eq(variables['Agent.OS'], 'Windows_NT'))
+          )
       - bash: |
-          make capi
-          cp target/release/wasmer_runtime_c_api.dll ./artifacts
-        displayName: Build c-api (Windows)
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+          make build-capi-package
+          cp ./wasmer-c-api.tar.gz ./artifacts/wasmer-c-api-windows.tar.gz
+        displayName: Build c-api artifacts (Windows)
+        condition: |
+          and(
+            succeeded(),
+            eq(variables['Agent.OS'], 'Windows_NT')
+          )
       - publish: $(System.DefaultWorkingDirectory)/artifacts
         artifact: library-$(Agent.OS)
 
@@ -239,7 +240,6 @@ jobs:
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
-        submodules: true
       - template: .azure/install-rust.yml
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
