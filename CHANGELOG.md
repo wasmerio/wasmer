@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- [#1232](https://github.com/wasmerio/wasmer/pull/1232) `wasmer-interface-types` has a WAT decoder.
+
 ## 0.14.0 - 2020-02-20
 
 - [#1233](https://github.com/wasmerio/wasmer/pull/1233) Improved Wasmer C API release artifacts.
