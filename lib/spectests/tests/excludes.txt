@@ -267,10 +267,6 @@ clif:fail:data.wast:186:windows # AssertUnlinkable - caught panic Any
 clif:fail:data.wast:194:windows # AssertUnlinkable - caught panic Any
 
 # LLVM
-llvm:fail:f32.wast:1621 # AssertReturn - result F32(0) ("0x0") does not match expected F32(2147483648) ("0x80000000")
-llvm:fail:f32.wast:2020 # AssertReturn - result F32(2147483648) ("0x80000000") does not match expected F32(0) ("0x0")
-llvm:fail:f64.wast:1621 # AssertReturn - result F64(0) ("0x0") does not match expected F64(9223372036854775808) ("0x8000000000000000")
-llvm:fail:f64.wast:2020 # AssertReturn - result F64(9223372036854775808) ("0x8000000000000000") does not match expected F64(0) ("0x0")
 llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
 
 # LLVM AArch64
@@ -312,18 +308,18 @@ singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
 singlepass:skip:atomic.wast:*:*:aarch64 # Threads not yet supported on singlepass
 
-singlepass:fail:address.wast:200:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:201:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:202:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:203:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:204:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:489:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:490:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:491:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:492:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:495:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:542:linux # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:589:linux # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:200:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589:linux:x86_64 # AssertTrap - expected trap, got []
 singlepass:fail:linking.wast:137:linux # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:139:linux # AssertTrap - expected trap, got Runtime:Error unknown error
 singlepass:fail:linking.wast:142:linux # AssertTrap - expected trap, got Runtime:Error unknown error
