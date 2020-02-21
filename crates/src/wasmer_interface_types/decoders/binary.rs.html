@@ -988,8 +988,9 @@
 <span id="988">988</span>
 <span id="989">989</span>
 <span id="990">990</span>
+<span id="991">991</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="doccomment">//! Parse the WIT binary representation into an AST.</span>
+<span class="doccomment">//! Parse the WIT binary representation into an [AST](crate::ast).</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>};
 <span class="kw">use</span> <span class="ident">nom</span>::{
@@ -1423,7 +1424,8 @@
 }
 
 <span class="doccomment">/// Parse a sequence of bytes, expecting it to be a valid WIT binary</span>
-<span class="doccomment">/// representation, into an `ast::Interfaces`.</span>
+<span class="doccomment">/// representation, into an [`Interfaces`](crate::ast::Interfaces)</span>
+<span class="doccomment">/// structure.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>

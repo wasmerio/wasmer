@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["binary","Parse the WIT binary representation into an AST."]]});
+initSidebarItems({"mod":[["binary","Parse the WIT binary representation into an AST."],["wat","Parse the WIT textual representation into an AST."]]});

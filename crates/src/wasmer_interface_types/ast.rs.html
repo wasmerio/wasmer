@@ -215,7 +215,7 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">str</span>;
 
 <span class="doccomment">/// Represents the types supported by WIT.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">InterfaceType</span> {
     <span class="doccomment">/// An integer.</span>
     <span class="ident">Int</span>,
@@ -400,7 +400,7 @@
 
 <span class="doccomment">/// Represents a set of interfaces, i.e. it entirely describes a WIT</span>
 <span class="doccomment">/// definition.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Default</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Interfaces</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
     <span class="doccomment">/// All the exported functions.</span>
     <span class="kw">pub</span> <span class="ident">exports</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Export</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span><span class="op">&gt;</span>,
