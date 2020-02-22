@@ -9039,9 +9039,6 @@
 <span id="9039">9039</span>
 <span id="9040">9040</span>
 <span id="9041">9041</span>
-<span id="9042">9042</span>
-<span id="9043">9043</span>
-<span id="9044">9044</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">backend</span>::<span class="ident">LLVMBackend</span>,
@@ -10003,7 +10000,6 @@
     <span class="ident">intrinsics</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Intrinsics</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">functions</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">LLVMFunctionCodeGenerator</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">SigIndex</span>, <span class="ident">FunctionType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">signatures_raw</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">SigIndex</span>, <span class="ident">FuncSig</span><span class="op">&gt;</span>,
     <span class="ident">function_signatures</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Map</span><span class="op">&lt;</span><span class="ident">FuncIndex</span>, <span class="ident">SigIndex</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">llvm_functions</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">FuncIndex</span>, <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">func_import_count</span>: <span class="ident">usize</span>,
@@ -17756,7 +17752,6 @@
             <span class="ident">module</span>: <span class="ident">ManuallyDrop</span>::<span class="ident">new</span>(<span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">RefCell</span>::<span class="ident">new</span>(<span class="ident">module</span>))),
             <span class="ident">functions</span>: <span class="macro">vec</span><span class="macro">!</span>[],
             <span class="ident">signatures</span>: <span class="ident">Map</span>::<span class="ident">new</span>(),
-            <span class="ident">signatures_raw</span>: <span class="ident">Map</span>::<span class="ident">new</span>(),
             <span class="ident">function_signatures</span>: <span class="prelude-val">None</span>,
             <span class="ident">llvm_functions</span>: <span class="ident">Rc</span>::<span class="ident">new</span>(<span class="ident">RefCell</span>::<span class="ident">new</span>(<span class="ident">HashMap</span>::<span class="ident">new</span>())),
             <span class="ident">func_import_count</span>: <span class="number">0</span>,
@@ -17778,7 +17773,7 @@
 
     <span class="kw">fn</span> <span class="ident">next_function</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">_module_info</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">module_info</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">LLVMFunctionCodeGenerator</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="comment">// Creates a new function and returns the function-scope code generator for it.</span>
         <span class="kw">let</span> (<span class="ident">context</span>, <span class="ident">builder</span>, <span class="ident">intrinsics</span>) <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">last_mut</span>() {
@@ -17796,7 +17791,7 @@
 
         <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">FuncIndex</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">func_import_count</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
         <span class="kw">let</span> <span class="ident">sig_id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">function_signatures</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>()[<span class="ident">func_index</span>];
-        <span class="kw">let</span> <span class="ident">func_sig</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">signatures_raw</span>[<span class="ident">sig_id</span>].<span class="ident">clone</span>();
+        <span class="kw">let</span> <span class="ident">func_sig</span> <span class="op">=</span> <span class="ident">module_info</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>().<span class="ident">signatures</span>[<span class="ident">sig_id</span>].<span class="ident">clone</span>();
 
         <span class="kw">let</span> <span class="ident">function</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">llvm_functions</span>.<span class="ident">borrow_mut</span>()[<span class="kw-2">&amp;</span><span class="ident">func_index</span>];
         <span class="ident">function</span>.<span class="ident">set_personality_function</span>(<span class="kw-2">*</span><span class="self">self</span>.<span class="ident">personality_func</span>);
@@ -17997,7 +17992,6 @@
                 )
             })
             .<span class="ident">collect</span>();
-        <span class="self">self</span>.<span class="ident">signatures_raw</span> <span class="op">=</span> <span class="ident">signatures</span>.<span class="ident">clone</span>();
         <span class="prelude-val">Ok</span>(())
     }
 
