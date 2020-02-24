@@ -279,8 +279,6 @@ impl<'input> ToString for &Adapter<'input> {
                             accumulator
                         }),
             ),
-
-            _ => todo!("To be implemented."),
         }
     }
 }
@@ -345,8 +343,6 @@ impl<'input> ToString for &Interfaces<'input> {
                     Adapter::Export { name, .. } => {
                         accumulator.push_str(&format!("\n\n;; Interface, Adapter {}\n", name))
                     }
-
-                    _ => todo!("To be implemented."),
                 }
                 accumulator.push_str(&adapter.to_string());
                 accumulator

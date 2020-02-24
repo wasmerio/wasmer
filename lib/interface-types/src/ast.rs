@@ -58,9 +58,6 @@ pub(crate) enum AdapterKind {
 
     /// An adapter defined for an exported function of a WebAssembly instance.
     Export,
-
-    /// A helper function.
-    HelperFunction,
 }
 
 /// Represents an exported function signature.
@@ -171,21 +168,6 @@ pub enum Adapter<'input> {
         input_types: Vec<InterfaceType>,
 
         /// The function output types.
-        output_types: Vec<InterfaceType>,
-
-        /// The instructions of the adapter.
-        instructions: Vec<Instruction<'input>>,
-    },
-
-    /// An adapter for a helper function.
-    HelperFunction {
-        /// The helper name.
-        name: &'input str,
-
-        /// The helper input types.
-        input_types: Vec<InterfaceType>,
-
-        /// The helper output types.
         output_types: Vec<InterfaceType>,
 
         /// The instructions of the adapter.

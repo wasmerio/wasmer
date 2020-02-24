@@ -426,8 +426,6 @@ impl<'a> Parse<'a> for Adapter<'a> {
                 output_types,
                 instructions,
             },
-
-            _ => unimplemented!("Adapter of kind “helper” is not implemented yet."),
         })
     }
 }

@@ -124,7 +124,6 @@ where
         match self {
             AdapterKind::Import => 0x00_u8.to_bytes(writer),
             AdapterKind::Export => 0x01_u8.to_bytes(writer),
-            AdapterKind::HelperFunction => 0x02_u8.to_bytes(writer),
         }
     }
 }
@@ -209,19 +208,6 @@ where
                 instructions,
             } => {
                 AdapterKind::Export.to_bytes(writer)?;
-                name.to_bytes(writer)?;
-                input_types.to_bytes(writer)?;
-                output_types.to_bytes(writer)?;
-                instructions.to_bytes(writer)?;
-            }
-
-            Adapter::HelperFunction {
-                name,
-                input_types,
-                output_types,
-                instructions,
-            } => {
-                AdapterKind::HelperFunction.to_bytes(writer)?;
                 name.to_bytes(writer)?;
                 input_types.to_bytes(writer)?;
                 output_types.to_bytes(writer)?;
@@ -468,7 +454,6 @@ mod tests {
     fn test_adapter_kind() {
         assert_to_bytes!(AdapterKind::Import, &[0x00]);
         assert_to_bytes!(AdapterKind::Export, &[0x01]);
-        assert_to_bytes!(AdapterKind::HelperFunction, &[0x02]);
     }
 
     #[test]
@@ -577,30 +562,6 @@ mod tests {
             },
             &[
                 0x01, // AdapterKind::Export
-                0x01, // string of length 1
-                0x61, // "a"
-                0x02, // list of 2 items
-                0x0c, // I32
-                0x0d, // I64
-                0x01, // list of 1 items
-                0x0c, // I32
-                0x01, // list of 1 item
-                0x00, 0x01, // ArgumentGet { index: 1 }
-            ]
-        );
-    }
-
-    #[test]
-    fn test_adapter_helper_function() {
-        assert_to_bytes!(
-            Adapter::HelperFunction {
-                name: "a",
-                input_types: vec![InterfaceType::I32, InterfaceType::I64],
-                output_types: vec![InterfaceType::I32],
-                instructions: vec![Instruction::ArgumentGet { index: 1 }],
-            },
-            &[
-                0x02, // AdapterKind::HelperFunction
                 0x01, // string of length 1
                 0x61, // "a"
                 0x02, // list of 2 items

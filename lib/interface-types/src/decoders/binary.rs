@@ -40,7 +40,6 @@ impl TryFrom<u8> for AdapterKind {
         Ok(match code {
             0x0 => Self::Import,
             0x1 => Self::Export,
-            0x2 => Self::HelperFunction,
             _ => return Err("Unknown adapter kind code."),
         })
     }
@@ -368,20 +367,6 @@ fn adapters<'input, E: ParseError<&'input [u8]>>(
                 consume!((input, adapter_instructions) = list(input, instruction)?);
 
                 adapters.push(Adapter::Export {
-                    name: adapter_name,
-                    input_types: adapter_input_types,
-                    output_types: adapter_output_types,
-                    instructions: adapter_instructions,
-                });
-            }
-
-            AdapterKind::HelperFunction => {
-                consume!((input, adapter_name) = string(input)?);
-                consume!((input, adapter_input_types) = list(input, ty)?);
-                consume!((input, adapter_output_types) = list(input, ty)?);
-                consume!((input, adapter_instructions) = list(input, instruction)?);
-
-                adapters.push(Adapter::HelperFunction {
                     name: adapter_name,
                     input_types: adapter_input_types,
                     output_types: adapter_output_types,
@@ -846,7 +831,7 @@ mod tests {
     #[test]
     fn test_adapters() {
         let input = &[
-            0x03, // 3 adapters
+            0x02, // 3 adapters
             0x00, // adapter kind: import
             0x01, // string of 1 byte
             0x61, // "a"
@@ -867,15 +852,6 @@ mod tests {
             0x0c, // I32
             0x01, // list of 1 item
             0x00, 0x01, // ArgumentGet { index: 1 }
-            0x02, // adapter kind: helper function
-            0x01, // string of 1 byte
-            0x64, // "d"
-            0x01, // list of 1 item
-            0x0c, // I32
-            0x01, // list of 1 item
-            0x0c, // I32
-            0x01, // list of 1 item
-            0x00, 0x01, // ArgumentGet { index: 1 }
         ];
         let output = Ok((
             &[] as &[u8],
@@ -889,12 +865,6 @@ mod tests {
                 },
                 Adapter::Export {
                     name: "c",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
-                    instructions: vec![Instruction::ArgumentGet { index: 1 }],
-                },
-                Adapter::HelperFunction {
-                    name: "d",
                     input_types: vec![InterfaceType::I32],
                     output_types: vec![InterfaceType::I32],
                     instructions: vec![Instruction::ArgumentGet { index: 1 }],
