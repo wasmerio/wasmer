@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-interface-types"
-version = "0.14.0"
+version = "0.14.1"
 description = "WebAssembly Interface Types library for Wasmer"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
