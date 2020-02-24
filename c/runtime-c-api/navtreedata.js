@@ -1,11 +1,7 @@
 var NAVTREE =
 [
   [ "wasmer-runtime-c-api", "index.html", [
-    [ "Wasmer Runtime C API", "index.html", [
-      [ "Usage", "index.html#autotoc_md1", null ],
-      [ "Examples", "index.html#autotoc_md2", null ],
-      [ "License", "index.html#autotoc_md3", null ]
-    ] ],
+    [ "Wasmer Runtime C API", "index.html", null ],
     [ "Data Structures", "annotated.html", [
       [ "Data Structures", "annotated.html", "annotated_dup" ],
       [ "Data Structure Index", "classes.html", null ],
