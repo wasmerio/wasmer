@@ -14,19 +14,19 @@
   <a href="https://spectrum.chat/wasmer">
     <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
   </a>
-  <a href="https://crates.io/crates/wasmer-runtime-core">
-    <img src="https://img.shields.io/crates/d/wasmer-runtime-core.svg?style=flat-square" alt="Number of downloads from crates.io">
+  <a href="https://crates.io/crates/wasmer-interface-types">
+    <img src="https://img.shields.io/crates/d/wasmer-interface-types.svg?style=flat-square" alt="Number of downloads from crates.io">
   </a>
-  <a href="https://docs.rs/wasmer-runtime-core">
-    <img src="https://docs.rs/wasmer-runtime-core/badge.svg" alt="Read our API documentation">
+  <a href="https://docs.rs/wasmer-interface-types">
+    <img src="https://docs.rs/wasmer-interface-types/badge.svg" alt="Read our API documentation">
   </a>
 </p>
 
-# Wasmer Runtime Core
+# Wasmer Interface Types
 
 Wasmer is a standalone JIT WebAssembly runtime, aiming to be fully
 compatible with WASI, Emscripten, Rust and Go. [Learn
 more](https://github.com/wasmerio/wasmer).
 
-This crate represents the core of the runtime.  Consider
-[`wasmer-runtime`] for higher level APIs.
+This crate is an implementation of [the living WebAssembly Interface
+Types standard](https://github.com/WebAssembly/interface-types).

@@ -1,4 +1,4 @@
-//! Parse the WIT binary representation into an AST.
+//! Parse the WIT binary representation into an [AST](crate::ast).
 
 use crate::{ast::*, interpreter::Instruction};
 use nom::{
@@ -407,8 +407,33 @@ fn forwards<'input, E: ParseError<&'input [u8]>>(
     Ok((input, forwards))
 }
 
+/// Parse complete interfaces.
+fn interfaces<'input, E: ParseError<&'input [u8]>>(
+    bytes: &'input [u8],
+) -> IResult<&'input [u8], Interfaces, E> {
+    let mut input = bytes;
+
+    consume!((input, exports) = exports(input)?);
+    consume!((input, types) = types(input)?);
+    consume!((input, imports) = imports(input)?);
+    consume!((input, adapters) = adapters(input)?);
+    consume!((input, forwards) = forwards(input)?);
+
+    Ok((
+        input,
+        Interfaces {
+            exports,
+            types,
+            imports,
+            adapters,
+            forwards,
+        },
+    ))
+}
+
 /// Parse a sequence of bytes, expecting it to be a valid WIT binary
-/// representation, into an `ast::Interfaces`.
+/// representation, into an [`Interfaces`](crate::ast::Interfaces)
+/// structure.
 ///
 /// # Example
 ///
@@ -500,24 +525,7 @@ fn forwards<'input, E: ParseError<&'input [u8]>>(
 pub fn parse<'input, E: ParseError<&'input [u8]>>(
     bytes: &'input [u8],
 ) -> IResult<&'input [u8], Interfaces, E> {
-    let mut input = bytes;
-
-    consume!((input, exports) = exports(input)?);
-    consume!((input, types) = types(input)?);
-    consume!((input, imports) = imports(input)?);
-    consume!((input, adapters) = adapters(input)?);
-    consume!((input, forwards) = forwards(input)?);
-
-    Ok((
-        input,
-        Interfaces {
-            exports,
-            types,
-            imports,
-            adapters,
-            forwards,
-        },
-    ))
+    interfaces(bytes)
 }
 
 #[cfg(test)]
@@ -978,6 +986,6 @@ mod tests {
             },
         ));
 
-        assert_eq!(parse::<()>(input), output);
+        assert_eq!(interfaces::<()>(input), output);
     }
 }

@@ -580,9 +580,9 @@ dependencies = [
 
 [[package]]
 name = "hex"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76cdda6bf525062a0c9e8f14ee2b37935c86b8efb6c8b69b3c83dfb518a914af"
+checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
 name = "indexmap"
@@ -666,6 +666,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
+name = "leb128"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3576a87f2ba00f6f106fdfcd16db1d698d648a26ad8e0573cad8537c3c362d2a"
+
+[[package]]
 name = "lexical-core"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -680,9 +686,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.66"
+version = "0.2.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d515b1f41455adea1313a4a2ac8a8a477634fbae63cc6100e3aebb207ce61558"
+checksum = "eb147597cdf94ed43ab7a9038716637d2d1bf2bc571da995d0028dec06bd3018"
 
 [[package]]
 name = "llvm-sys"
@@ -1706,7 +1712,7 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasmer"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "atty",
  "byteorder",
@@ -1737,7 +1743,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-clif-backend"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "byteorder",
  "cranelift-codegen",
@@ -1787,14 +1793,14 @@ dependencies = [
 
 [[package]]
 name = "wasmer-dev-utils"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "libc",
 ]
 
 [[package]]
 name = "wasmer-emscripten"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -1807,7 +1813,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten-tests"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "glob 0.3.0",
  "wabt",
@@ -1821,9 +1827,10 @@ dependencies = [
 
 [[package]]
 name = "wasmer-interface-types"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "nom",
+ "wast",
 ]
 
 [[package]]
@@ -1836,7 +1843,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-llvm-backend"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -1867,14 +1874,14 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middleware-common"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "wasmer-runtime-core",
 ]
 
 [[package]]
 name = "wasmer-middleware-common-tests"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "criterion",
  "wabt",
@@ -1887,7 +1894,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "criterion",
  "lazy_static",
@@ -1904,7 +1911,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-c-api"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "cbindgen",
  "libc",
@@ -1916,7 +1923,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-core"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "bincode",
  "blake3",
@@ -1942,7 +1949,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-core-tests"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "wabt",
  "wasmer-clif-backend",
@@ -1953,7 +1960,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-singlepass-backend"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "bincode",
  "byteorder",
@@ -1970,7 +1977,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-spectests"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "glob 0.3.0",
  "wabt",
@@ -1982,7 +1989,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "bincode",
  "byteorder",
@@ -1999,7 +2006,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "log",
  "minifb",
@@ -2012,7 +2019,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-tests"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "glob 0.3.0",
  "wasmer-clif-backend",
@@ -2025,7 +2032,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-win-exception-handler"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "cmake",
  "libc",
@@ -2038,6 +2045,15 @@ name = "wasmparser"
 version = "0.45.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b4eab1d9971d0803729cba3617b56eb04fcb4bd25361cb63880ed41a42f20d5"
+
+[[package]]
+name = "wast"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f9df3d716118a503b2f6bbb6ff46b21997ab0cc167b01de7a188e45e4b01e8d"
+dependencies = [
+ "leb128",
+]
 
 [[package]]
 name = "winapi"

@@ -1,4 +1,4 @@
-#![allow(non_camel_case_types)]
+#![allow(non_camel_case_types, clippy::identity_op)]
 
 use crate::ptr::{Array, WasmPtr};
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};

@@ -30,10 +30,10 @@ pub enum WasiVersion {
 }
 
 /// Namespace for the `Snapshot0` version.
-const SNAPSHOT0_NAMESPACE: &'static str = "wasi_unstable";
+const SNAPSHOT0_NAMESPACE: &str = "wasi_unstable";
 
 /// Namespace for the `Snapshot1` version.
-const SNAPSHOT1_NAMESPACE: &'static str = "wasi_snapshot_preview1";
+const SNAPSHOT1_NAMESPACE: &str = "wasi_snapshot_preview1";
 
 /// Detect the version of WASI being used based on the import
 /// namespaces.

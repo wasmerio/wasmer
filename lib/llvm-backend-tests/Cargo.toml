@@ -9,8 +9,8 @@ edition = "2018"
 
 [dependencies]
 wabt = "0.9.1"
-wasmer-runtime-core = { path = "../runtime-core", version = "0.13.1" }
-wasmer-runtime = { path = "../runtime", version = "0.13.1" }
-wasmer-llvm-backend = { path = "../llvm-backend", version = "0.13.1", features = ["test"] }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.14.0" }
+wasmer-runtime = { path = "../runtime", version = "0.14.0" }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.14.0", features = ["test"] }
 
 [features]

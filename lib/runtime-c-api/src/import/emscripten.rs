@@ -127,7 +127,7 @@ pub unsafe extern "C" fn wasmer_emscripten_call_main(
 /// `wasmer_emscripten_globals_t` from a `wasmer_module_t`.
 ///
 /// WARNING:
-///1
+///
 /// This `import_object_t` contains thin-wrappers around host system calls.
 /// Do not use this to execute untrusted code without additional sandboxing.
 #[no_mangle]

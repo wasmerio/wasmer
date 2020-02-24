@@ -958,7 +958,6 @@ pub struct LLVMModuleCodeGenerator<'ctx> {
     intrinsics: Option<Intrinsics<'ctx>>,
     functions: Vec<LLVMFunctionCodeGenerator<'ctx>>,
     signatures: Map<SigIndex, FunctionType<'ctx>>,
-    signatures_raw: Map<SigIndex, FuncSig>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
     llvm_functions: Rc<RefCell<HashMap<FuncIndex, FunctionValue<'ctx>>>>,
     func_import_count: usize,
@@ -8711,7 +8710,6 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             module: ManuallyDrop::new(Rc::new(RefCell::new(module))),
             functions: vec![],
             signatures: Map::new(),
-            signatures_raw: Map::new(),
             function_signatures: None,
             llvm_functions: Rc::new(RefCell::new(HashMap::new())),
             func_import_count: 0,
@@ -8733,7 +8731,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
 
     fn next_function(
         &mut self,
-        _module_info: Arc<RwLock<ModuleInfo>>,
+        module_info: Arc<RwLock<ModuleInfo>>,
     ) -> Result<&mut LLVMFunctionCodeGenerator<'ctx>, CodegenError> {
         // Creates a new function and returns the function-scope code generator for it.
         let (context, builder, intrinsics) = match self.functions.last_mut() {
@@ -8751,7 +8749,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
 
         let func_index = FuncIndex::new(self.func_import_count + self.functions.len());
         let sig_id = self.function_signatures.as_ref().unwrap()[func_index];
-        let func_sig = self.signatures_raw[sig_id].clone();
+        let func_sig = module_info.read().unwrap().signatures[sig_id].clone();
 
         let function = &self.llvm_functions.borrow_mut()[&func_index];
         function.set_personality_function(*self.personality_func);
@@ -8952,7 +8950,6 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
                 )
             })
             .collect();
-        self.signatures_raw = signatures.clone();
         Ok(())
     }
 
