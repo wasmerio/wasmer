@@ -98,16 +98,20 @@ use std::string::ToString;
 impl ToString for &InterfaceType {
     fn to_string(&self) -> String {
         match self {
-            InterfaceType::Int => "Int".into(),
-            InterfaceType::Float => "Float".into(),
-            InterfaceType::Any => "Any".into(),
-            InterfaceType::String => "String".into(),
-            InterfaceType::Seq => "Seq".into(),
-            InterfaceType::I32 => "i32".into(),
-            InterfaceType::I64 => "i64".into(),
+            InterfaceType::S8 => "s8".into(),
+            InterfaceType::S16 => "s16".into(),
+            InterfaceType::S32 => "s32".into(),
+            InterfaceType::S64 => "s64".into(),
+            InterfaceType::U8 => "u8".into(),
+            InterfaceType::U16 => "u16".into(),
+            InterfaceType::U32 => "u32".into(),
+            InterfaceType::U64 => "u64".into(),
             InterfaceType::F32 => "f32".into(),
             InterfaceType::F64 => "f64".into(),
-            InterfaceType::AnyRef => "anyref".into(),
+            InterfaceType::String => "string".into(),
+            InterfaceType::Anyref => "anyref".into(),
+            InterfaceType::I32 => "i32".into(),
+            InterfaceType::I64 => "i64".into(),
         }
     }
 }
@@ -374,19 +378,24 @@ mod tests {
     #[test]
     fn test_interface_types() {
         let inputs: Vec<String> = vec![
-            (&InterfaceType::Int).to_string(),
-            (&InterfaceType::Float).to_string(),
-            (&InterfaceType::Any).to_string(),
-            (&InterfaceType::String).to_string(),
-            (&InterfaceType::Seq).to_string(),
-            (&InterfaceType::I32).to_string(),
-            (&InterfaceType::I64).to_string(),
+            (&InterfaceType::S8).to_string(),
+            (&InterfaceType::S16).to_string(),
+            (&InterfaceType::S32).to_string(),
+            (&InterfaceType::S64).to_string(),
+            (&InterfaceType::U8).to_string(),
+            (&InterfaceType::U16).to_string(),
+            (&InterfaceType::U32).to_string(),
+            (&InterfaceType::U64).to_string(),
             (&InterfaceType::F32).to_string(),
             (&InterfaceType::F64).to_string(),
-            (&InterfaceType::AnyRef).to_string(),
+            (&InterfaceType::String).to_string(),
+            (&InterfaceType::Anyref).to_string(),
+            (&InterfaceType::I32).to_string(),
+            (&InterfaceType::I64).to_string(),
         ];
         let outputs = vec![
-            "Int", "Float", "Any", "String", "Seq", "i32", "i64", "f32", "f64", "anyref",
+            "s8", "s16", "s32", "s64", "u8", "u16", "u32", "u64", "f32", "f64", "string", "anyref",
+            "i32", "i64",
         ];
 
         assert_eq!(inputs, outputs);
@@ -403,19 +412,19 @@ mod tests {
                 allocator_name: "foo",
             })
                 .to_string(),
-            (&Instruction::AsWasm(InterfaceType::Int)).to_string(),
-            (&Instruction::AsInterface(InterfaceType::AnyRef)).to_string(),
+            (&Instruction::AsWasm(InterfaceType::I32)).to_string(),
+            (&Instruction::AsInterface(InterfaceType::I32)).to_string(),
             (&Instruction::TableRefAdd).to_string(),
             (&Instruction::TableRefGet).to_string(),
             (&Instruction::CallMethod(7)).to_string(),
-            (&Instruction::MakeRecord(InterfaceType::Int)).to_string(),
-            (&Instruction::GetField(InterfaceType::Int, 7)).to_string(),
+            (&Instruction::MakeRecord(InterfaceType::I32)).to_string(),
+            (&Instruction::GetField(InterfaceType::I32, 7)).to_string(),
             (&Instruction::Const(InterfaceType::I32, 7)).to_string(),
             (&Instruction::FoldSeq(7)).to_string(),
-            (&Instruction::Add(InterfaceType::Int)).to_string(),
-            (&Instruction::MemToSeq(InterfaceType::Int, "foo")).to_string(),
-            (&Instruction::Load(InterfaceType::Int, "foo")).to_string(),
-            (&Instruction::SeqNew(InterfaceType::Int)).to_string(),
+            (&Instruction::Add(InterfaceType::I32)).to_string(),
+            (&Instruction::MemToSeq(InterfaceType::I32, "foo")).to_string(),
+            (&Instruction::Load(InterfaceType::I32, "foo")).to_string(),
+            (&Instruction::SeqNew(InterfaceType::I32)).to_string(),
             (&Instruction::ListPush).to_string(),
             (&Instruction::RepeatUntil(1, 2)).to_string(),
         ];
@@ -425,19 +434,19 @@ mod tests {
             r#"call-export "foo""#,
             "read-utf8",
             r#"write-utf8 "foo""#,
-            "as-wasm Int",
-            "as-interface anyref",
+            "as-wasm i32",
+            "as-interface i32",
             "table-ref-add",
             "table-ref-get",
             "call-method 7",
-            "make-record Int",
-            "get-field Int 7",
+            "make-record i32",
+            "get-field i32 7",
             "const i32 7",
             "fold-seq 7",
-            "add Int",
-            r#"mem-to-seq Int "foo""#,
-            r#"load Int "foo""#,
-            "seq.new Int",
+            "add i32",
+            r#"mem-to-seq i32 "foo""#,
+            r#"load i32 "foo""#,
+            "seq.new i32",
             "list.push",
             "repeat-until 1 2",
         ];
@@ -493,7 +502,7 @@ mod tests {
             (&Import {
                 namespace: "ns",
                 name: "foo",
-                input_types: vec![InterfaceType::Int, InterfaceType::String],
+                input_types: vec![InterfaceType::I32, InterfaceType::String],
                 output_types: vec![InterfaceType::String],
             })
                 .to_string(),
@@ -521,12 +530,12 @@ mod tests {
         ];
         let outputs = vec![
             r#"(@interface func $ns_foo (import "ns" "foo")
-  (param Int String)
-  (result String))"#,
+  (param i32 string)
+  (result string))"#,
             r#"(@interface func $ns_foo (import "ns" "foo")
-  (param String))"#,
+  (param string))"#,
             r#"(@interface func $ns_foo (import "ns" "foo")
-  (result String))"#,
+  (result string))"#,
             r#"(@interface func $ns_foo (import "ns" "foo"))"#,
         ];
 

@@ -8,21 +8,25 @@ use nom::{
 use std::{convert::TryFrom, str};
 
 /// Parse an `InterfaceType`.
-impl TryFrom<u64> for InterfaceType {
+impl TryFrom<u8> for InterfaceType {
     type Error = &'static str;
 
-    fn try_from(code: u64) -> Result<Self, Self::Error> {
+    fn try_from(code: u8) -> Result<Self, Self::Error> {
         Ok(match code {
-            0x7fff => Self::Int,
-            0x7ffe => Self::Float,
-            0x7ffd => Self::Any,
-            0x7ffc => Self::String,
-            0x7ffb => Self::Seq,
-            0x7f => Self::I32,
-            0x7e => Self::I64,
-            0x7d => Self::F32,
-            0x7c => Self::F64,
-            0x6f => Self::AnyRef,
+            0 => Self::S8,
+            1 => Self::S16,
+            2 => Self::S32,
+            3 => Self::S64,
+            4 => Self::U8,
+            5 => Self::U16,
+            6 => Self::U32,
+            7 => Self::U64,
+            8 => Self::F32,
+            9 => Self::F64,
+            10 => Self::String,
+            11 => Self::Anyref,
+            12 => Self::I32,
+            13 => Self::I64,
             _ => return Err("Unknown interface type code."),
         })
     }
@@ -133,7 +137,7 @@ fn ty<'input, E: ParseError<&'input [u8]>>(
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
     }
 
-    let (output, ty) = uleb(input)?;
+    let (output, ty) = byte(input)?;
 
     match InterfaceType::try_from(ty) {
         Ok(ty) => Ok((output, ty)),
@@ -450,9 +454,9 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///     0x02, // string of 2 bytes
 ///     0x61, 0x62, // "a", "b"
 ///     0x01, // list of 1 item
-///     0x7f, // I32
+///     0x02, // S32
 ///     0x01, // list of 1 item
-///     0x7f, // I32
+///     0x02, // S32
 ///     0x01, // 1 type
 ///     0x02, // string of 2 bytes
 ///     0x61, 0x62, // "a", "b"
@@ -462,17 +466,17 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///     0x01, // string of 1 byte
 ///     0x65, // "e"
 ///     0x02, // list of 2 items
-///     0x7f, // I32
-///     0x7f, // I32
+///     0x02, // S32
+///     0x02, // S32
 ///     0x01, // 1 import
 ///     0x01, // string of 1 byte
 ///     0x61, // "a"
 ///     0x01, // string of 1 byte
 ///     0x62, // "b"
 ///     0x01, // list of 1 item
-///     0x7f, // I32
+///     0x02, // S32
 ///     0x01, // list of 1 item
-///     0x7e, // I64
+///     0x03, // S64
 ///     0x01, // 1 adapter
 ///     0x00, // adapter kind: import
 ///     0x01, // string of 1 byte
@@ -480,9 +484,9 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///     0x01, // string of 1 byte
 ///     0x62, // "b"
 ///     0x01, // list of 1 item
-///     0x7f, // I32
+///     0x02, // S32
 ///     0x01, // list of 1 item
-///     0x7f, // I32
+///     0x02, // S32
 ///     0x01, // list of 1 item
 ///     0x00, 0x01, // ArgumentGet { index: 1 }
 ///     0x01, // 1 adapter
@@ -494,25 +498,25 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///     Interfaces {
 ///         exports: vec![Export {
 ///             name: "ab",
-///             input_types: vec![InterfaceType::I32],
-///             output_types: vec![InterfaceType::I32],
+///             input_types: vec![InterfaceType::S32],
+///             output_types: vec![InterfaceType::S32],
 ///         }],
 ///         types: vec![Type::new(
 ///             "ab",
 ///             vec!["cd", "e"],
-///             vec![InterfaceType::I32, InterfaceType::I32],
+///             vec![InterfaceType::S32, InterfaceType::S32],
 ///         )],
 ///         imports: vec![Import {
 ///             namespace: "a",
 ///             name: "b",
-///             input_types: vec![InterfaceType::I32],
-///             output_types: vec![InterfaceType::I64],
+///             input_types: vec![InterfaceType::S32],
+///             output_types: vec![InterfaceType::S64],
 ///         }],
 ///         adapters: vec![Adapter::Import {
 ///             namespace: "a",
 ///             name: "b",
-///             input_types: vec![InterfaceType::I32],
-///             output_types: vec![InterfaceType::I32],
+///             input_types: vec![InterfaceType::S32],
+///             output_types: vec![InterfaceType::S32],
 ///             instructions: vec![Instruction::ArgumentGet { index: 1 }],
 ///         }],
 ///         forwards: vec![Forward { name: "a" }],
@@ -639,32 +643,40 @@ mod tests {
     #[test]
     fn test_ty() {
         let input = &[
-            0x0a, // list of 10 items
-            0xff, 0xff, 0x01, // Int
-            0xfe, 0xff, 0x01, // Float
-            0xfd, 0xff, 0x01, // Any
-            0xfc, 0xff, 0x01, // String
-            0xfb, 0xff, 0x01, // Seq
-            0x7f, // I32
-            0x7e, // I64
-            0x7d, // F32
-            0x7c, // F64
-            0x6f, // AnyRef
+            0x0e, // list of 14 items
+            0x00, // S8
+            0x01, // S16
+            0x02, // S32
+            0x03, // S64
+            0x04, // U8
+            0x05, // U16
+            0x06, // U32
+            0x07, // U64
+            0x08, // F32
+            0x09, // F64
+            0x0a, // String
+            0x0b, // Anyref
+            0x0c, // I32
+            0x0d, // I64
             0x01,
         ];
         let output = Ok((
             &[0x01][..],
             vec![
-                InterfaceType::Int,
-                InterfaceType::Float,
-                InterfaceType::Any,
-                InterfaceType::String,
-                InterfaceType::Seq,
-                InterfaceType::I32,
-                InterfaceType::I64,
+                InterfaceType::S8,
+                InterfaceType::S16,
+                InterfaceType::S32,
+                InterfaceType::S64,
+                InterfaceType::U8,
+                InterfaceType::U16,
+                InterfaceType::U32,
+                InterfaceType::U64,
                 InterfaceType::F32,
                 InterfaceType::F64,
-                InterfaceType::AnyRef,
+                InterfaceType::String,
+                InterfaceType::Anyref,
+                InterfaceType::I32,
+                InterfaceType::I64,
             ],
         ));
 
@@ -680,19 +692,19 @@ mod tests {
             0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
             0x03, // ReadUtf8
             0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
-            0x05, 0xff, 0xff, 0x01, // AsWasm(Int)
-            0x06, 0x7e, // AsInterface(I64)
+            0x05, 0x00, // AsWasm(S8)
+            0x06, 0x00, // AsInterface(S8)
             0x07, // TableRefAdd
             0x08, // TableRefGet
             0x09, 0x01, // CallMethod(1)
-            0x0a, 0x7f, // MakeRecord(I32)
-            0x0c, 0xff, 0xff, 0x01, 0x02, // GetField(Int, 2)
-            0x0d, 0x7f, 0x01, // Const(I32, 1)
+            0x0a, 0x0c, // MakeRecord(I32)
+            0x0c, 0x00, 0x02, // GetField(S8, 2)
+            0x0d, 0x0c, 0x01, // Const(I32, 1)
             0x0e, 0x01, // FoldSeq(1)
-            0x0f, 0x7f, // Add(I32)
-            0x10, 0x7f, 0x03, 0x61, 0x62, 0x63, // MemToSeq(I32, "abc")
-            0x11, 0x7f, 0x03, 0x61, 0x62, 0x63, // Load(I32, "abc")
-            0x12, 0x7f, // SeqNew(I32)
+            0x0f, 0x00, // Add(I32)
+            0x10, 0x00, 0x03, 0x61, 0x62, 0x63, // MemToSeq(S8, "abc")
+            0x11, 0x00, 0x03, 0x61, 0x62, 0x63, // Load(S8, "abc")
+            0x12, 0x00, // SeqNew(S8)
             0x13, // ListPush
             0x14, 0x01, 0x02, // RepeatUntil(1, 2)
             0x0a,
@@ -707,19 +719,19 @@ mod tests {
                 Instruction::WriteUtf8 {
                     allocator_name: "abc",
                 },
-                Instruction::AsWasm(InterfaceType::Int),
-                Instruction::AsInterface(InterfaceType::I64),
+                Instruction::AsWasm(InterfaceType::S8),
+                Instruction::AsInterface(InterfaceType::S8),
                 Instruction::TableRefAdd,
                 Instruction::TableRefGet,
                 Instruction::CallMethod(1),
                 Instruction::MakeRecord(InterfaceType::I32),
-                Instruction::GetField(InterfaceType::Int, 2),
+                Instruction::GetField(InterfaceType::S8, 2),
                 Instruction::Const(InterfaceType::I32, 1),
                 Instruction::FoldSeq(1),
-                Instruction::Add(InterfaceType::I32),
-                Instruction::MemToSeq(InterfaceType::I32, "abc"),
-                Instruction::Load(InterfaceType::I32, "abc"),
-                Instruction::SeqNew(InterfaceType::I32),
+                Instruction::Add(InterfaceType::S8),
+                Instruction::MemToSeq(InterfaceType::S8, "abc"),
+                Instruction::Load(InterfaceType::S8, "abc"),
+                Instruction::SeqNew(InterfaceType::S8),
                 Instruction::ListPush,
                 Instruction::RepeatUntil(1, 2),
             ],
@@ -735,9 +747,9 @@ mod tests {
             0x02, // string of 2 bytes
             0x61, 0x62, // "a", "b"
             0x01, // list of 1 item
-            0x7f, // I32
+            0x00, // S8
             0x01, // list of 1 item
-            0x7f, // I32
+            0x00, // S8
             0x02, // string of 2 bytes
             0x63, 0x64, // "c", "d"
             0x00, // list of 0 item
@@ -748,8 +760,8 @@ mod tests {
             vec![
                 Export {
                     name: "ab",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
+                    input_types: vec![InterfaceType::S8],
+                    output_types: vec![InterfaceType::S8],
                 },
                 Export {
                     name: "cd",
@@ -774,15 +786,15 @@ mod tests {
             0x01, // string of 1 byte
             0x65, // "e"
             0x02, // list of 2 items
-            0x7f, // I32
-            0x7f, // I32
+            0x02, // S32
+            0x02, // S32
         ];
         let output = Ok((
             &[] as &[u8],
             vec![Type::new(
                 "ab",
                 vec!["cd", "e"],
-                vec![InterfaceType::I32, InterfaceType::I32],
+                vec![InterfaceType::S32, InterfaceType::S32],
             )],
         ));
 
@@ -798,17 +810,17 @@ mod tests {
             0x01, // string of 1 byte
             0x62, // "b"
             0x01, // list of 1 item
-            0x7f, // I32
+            0x02, // S32
             0x01, // list of 1 item
-            0x7e, // I64
+            0x03, // S64
             0x01, // string of 1 byte
             0x63, // "c"
             0x01, // string of 1 byte
             0x64, // "d"
             0x01, // list of 1 item
-            0x7f, // I32
+            0x02, // S32
             0x01, // list of 1 item
-            0x7e, // I64
+            0x03, // S64
         ];
         let output = Ok((
             &[] as &[u8],
@@ -816,14 +828,14 @@ mod tests {
                 Import {
                     namespace: "a",
                     name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I64],
+                    input_types: vec![InterfaceType::S32],
+                    output_types: vec![InterfaceType::S64],
                 },
                 Import {
                     namespace: "c",
                     name: "d",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I64],
+                    input_types: vec![InterfaceType::S32],
+                    output_types: vec![InterfaceType::S64],
                 },
             ],
         ));
@@ -841,27 +853,27 @@ mod tests {
             0x01, // string of 1 byte
             0x62, // "b"
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // list of 1 item
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, // adapter kind: export
             0x01, // string of 1 byte
             0x63, // "c"
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // list of 1 item
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x02, // adapter kind: helper function
             0x01, // string of 1 byte
             0x64, // "d"
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // list of 1 item
             0x00, 0x01, // ArgumentGet { index: 1 }
         ];
@@ -917,9 +929,9 @@ mod tests {
             0x02, // string of 2 bytes
             0x61, 0x62, // "a", "b"
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // 1 type
             0x02, // string of 2 bytes
             0x61, 0x62, // "a", "b"
@@ -929,17 +941,17 @@ mod tests {
             0x01, // string of 1 byte
             0x65, // "e"
             0x02, // list of 2 items
-            0x7f, // I32
-            0x7f, // I32
+            0x0c, // I32
+            0x0c, // I32
             0x01, // 1 import
             0x01, // string of 1 byte
             0x61, // "a"
             0x01, // string of 1 byte
             0x62, // "b"
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // list of 1 item
-            0x7e, // I64
+            0x0d, // I64
             0x01, // 1 adapter
             0x00, // adapter kind: import
             0x01, // string of 1 byte
@@ -947,9 +959,9 @@ mod tests {
             0x01, // string of 1 byte
             0x62, // "b"
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // list of 1 item
-            0x7f, // I32
+            0x0c, // I32
             0x01, // list of 1 item
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, // 1 adapter

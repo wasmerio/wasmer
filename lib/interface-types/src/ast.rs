@@ -7,26 +7,29 @@ use std::str;
 /// Represents the types supported by WIT.
 #[derive(PartialEq, Debug)]
 pub enum InterfaceType {
-    /// An integer.
-    Int,
+    /// A 8-bits signed integer.
+    S8,
 
-    /// A float.
-    Float,
+    /// A 16-bits signed integer.
+    S16,
 
-    /// Opaque reference.
-    Any,
+    /// A 32-bits signed integer.
+    S32,
 
-    /// A string.
-    String,
+    /// A 64-bits signed integer.
+    S64,
 
-    /// A sequence.
-    Seq,
+    /// A 8-bits unsigned integer.
+    U8,
 
-    /// A 32-bits integer.
-    I32,
+    /// A 16-bits unsigned integer.
+    U16,
 
-    /// A 64-bits integer.
-    I64,
+    /// A 32-bits unsigned integer.
+    U32,
+
+    /// A 64-bits unsigned integer.
+    U64,
 
     /// A 32-bits float.
     F32,
@@ -34,8 +37,17 @@ pub enum InterfaceType {
     /// A 64-bits float.
     F64,
 
+    /// A stirng.
+    String,
+
     /// An `any` reference.
-    AnyRef,
+    Anyref,
+
+    /// A 32-bits integer (as defined in WebAssembly core).
+    I32,
+
+    /// A 64-bits integer (as defiend in WebAssembly core).
+    I64,
 }
 
 /// Represents the kind of adapter.

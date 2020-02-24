@@ -97,16 +97,20 @@ where
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
         match self {
-            InterfaceType::Int => 0x7fff_u64.to_bytes(writer),
-            InterfaceType::Float => 0x7ffe_u64.to_bytes(writer),
-            InterfaceType::Any => 0x7ffd_u64.to_bytes(writer),
-            InterfaceType::String => 0x7ffc_u64.to_bytes(writer),
-            InterfaceType::Seq => 0x7ffb_u64.to_bytes(writer),
-            InterfaceType::I32 => 0x7f_u64.to_bytes(writer),
-            InterfaceType::I64 => 0x7e_u64.to_bytes(writer),
-            InterfaceType::F32 => 0x7d_u64.to_bytes(writer),
-            InterfaceType::F64 => 0x7c_u64.to_bytes(writer),
-            InterfaceType::AnyRef => 0x6f_u64.to_bytes(writer),
+            InterfaceType::S8 => 0x00_u8.to_bytes(writer),
+            InterfaceType::S16 => 0x01_u8.to_bytes(writer),
+            InterfaceType::S32 => 0x02_u8.to_bytes(writer),
+            InterfaceType::S64 => 0x03_u8.to_bytes(writer),
+            InterfaceType::U8 => 0x04_u8.to_bytes(writer),
+            InterfaceType::U16 => 0x05_u8.to_bytes(writer),
+            InterfaceType::U32 => 0x06_u8.to_bytes(writer),
+            InterfaceType::U64 => 0x07_u8.to_bytes(writer),
+            InterfaceType::F32 => 0x08_u8.to_bytes(writer),
+            InterfaceType::F64 => 0x09_u8.to_bytes(writer),
+            InterfaceType::String => 0x0a_u8.to_bytes(writer),
+            InterfaceType::Anyref => 0x0b_u8.to_bytes(writer),
+            InterfaceType::I32 => 0x0c_u8.to_bytes(writer),
+            InterfaceType::I64 => 0x0d_u8.to_bytes(writer),
         }
     }
 }
@@ -444,16 +448,20 @@ mod tests {
 
     #[test]
     fn test_interface_type() {
-        assert_to_bytes!(InterfaceType::Int, &[0xff, 0xff, 0x01]);
-        assert_to_bytes!(InterfaceType::Float, &[0xfe, 0xff, 0x01]);
-        assert_to_bytes!(InterfaceType::Any, &[0xfd, 0xff, 0x01]);
-        assert_to_bytes!(InterfaceType::String, &[0xfc, 0xff, 0x01]);
-        assert_to_bytes!(InterfaceType::Seq, &[0xfb, 0xff, 0x01]);
-        assert_to_bytes!(InterfaceType::I32, &[0x7f]);
-        assert_to_bytes!(InterfaceType::I64, &[0x7e]);
-        assert_to_bytes!(InterfaceType::F32, &[0x7d]);
-        assert_to_bytes!(InterfaceType::F64, &[0x7c]);
-        assert_to_bytes!(InterfaceType::AnyRef, &[0x6f]);
+        assert_to_bytes!(InterfaceType::S8, &[0x00]);
+        assert_to_bytes!(InterfaceType::S16, &[0x01]);
+        assert_to_bytes!(InterfaceType::S32, &[0x02]);
+        assert_to_bytes!(InterfaceType::S64, &[0x03]);
+        assert_to_bytes!(InterfaceType::U8, &[0x04]);
+        assert_to_bytes!(InterfaceType::U16, &[0x05]);
+        assert_to_bytes!(InterfaceType::U32, &[0x06]);
+        assert_to_bytes!(InterfaceType::U64, &[0x07]);
+        assert_to_bytes!(InterfaceType::F32, &[0x08]);
+        assert_to_bytes!(InterfaceType::F64, &[0x09]);
+        assert_to_bytes!(InterfaceType::String, &[0x0a]);
+        assert_to_bytes!(InterfaceType::Anyref, &[0x0b]);
+        assert_to_bytes!(InterfaceType::I32, &[0x0c]);
+        assert_to_bytes!(InterfaceType::I64, &[0x0d]);
     }
 
     #[test]
@@ -477,10 +485,10 @@ mod tests {
                 0x62, // "b"
                 0x63, // "c"
                 0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
+                0x0c, // I32
+                0x0d, // I64
                 0x01, // list of 1 items
-                0x7f, // I32
+                0x0c, // I32
             ]
         );
     }
@@ -502,8 +510,8 @@ mod tests {
                 0x01, // string of length 1
                 0x63, // "c"
                 0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
+                0x0c, // I32
+                0x0d, // I64
             ]
         );
     }
@@ -523,10 +531,10 @@ mod tests {
                 0x01, // string of length 1
                 0x62, // "b"
                 0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
+                0x0c, // I32
+                0x0d, // I64
                 0x01, // list of 1 items
-                0x7f, // I32
+                0x0c, // I32
             ]
         );
     }
@@ -548,10 +556,10 @@ mod tests {
                 0x01, // string of length 1
                 0x62, // "b"
                 0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
+                0x0c, // I32
+                0x0d, // I64
                 0x01, // list of 1 items
-                0x7f, // I32
+                0x0c, // I32
                 0x01, // list of 1 item
                 0x00, 0x01, // ArgumentGet { index: 1 }
             ]
@@ -572,10 +580,10 @@ mod tests {
                 0x01, // string of length 1
                 0x61, // "a"
                 0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
+                0x0c, // I32
+                0x0d, // I64
                 0x01, // list of 1 items
-                0x7f, // I32
+                0x0c, // I32
                 0x01, // list of 1 item
                 0x00, 0x01, // ArgumentGet { index: 1 }
             ]
@@ -596,10 +604,10 @@ mod tests {
                 0x01, // string of length 1
                 0x61, // "a"
                 0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
+                0x0c, // I32
+                0x0d, // I64
                 0x01, // list of 1 items
-                0x7f, // I32
+                0x0c, // I32
                 0x01, // list of 1 item
                 0x00, 0x01, // ArgumentGet { index: 1 }
             ]
@@ -652,9 +660,9 @@ mod tests {
                 0x02, // string of 2 bytes
                 0x61, 0x62, // "a", "b"
                 0x01, // list of 1 item
-                0x7f, // I32
+                0x0c, // I32
                 0x01, // list of 1 item
-                0x7f, // I32
+                0x0c, // I32
                 0x01, // 1 type
                 0x02, // string of 2 bytes
                 0x61, 0x62, // "a", "b"
@@ -664,17 +672,17 @@ mod tests {
                 0x01, // string of 1 byte
                 0x65, // "e"
                 0x02, // list of 2 items
-                0x7f, // I32
-                0x7f, // I32
+                0x0c, // I32
+                0x0c, // I32
                 0x01, // 1 import
                 0x01, // string of 1 byte
                 0x61, // "a"
                 0x01, // string of 1 byte
                 0x62, // "b"
                 0x01, // list of 1 item
-                0x7f, // I32
+                0x0c, // I32
                 0x01, // list of 1 item
-                0x7e, // I64
+                0x0d, // I64
                 0x01, // 1 adapter
                 0x00, // adapter kind: import
                 0x01, // string of 1 byte
@@ -682,9 +690,9 @@ mod tests {
                 0x01, // string of 1 byte
                 0x62, // "b"
                 0x01, // list of 1 item
-                0x7f, // I32
+                0x0c, // I32
                 0x01, // list of 1 item
-                0x7f, // I32
+                0x0c, // I32
                 0x01, // list of 1 item
                 0x00, 0x01, // ArgumentGet { index: 1 }
                 0x01, // 1 adapter
@@ -705,13 +713,13 @@ mod tests {
                 Instruction::WriteUtf8 {
                     allocator_name: "abc",
                 },
-                Instruction::AsWasm(InterfaceType::Int),
+                Instruction::AsWasm(InterfaceType::I32),
                 Instruction::AsInterface(InterfaceType::I64),
                 Instruction::TableRefAdd,
                 Instruction::TableRefGet,
                 Instruction::CallMethod(1),
                 Instruction::MakeRecord(InterfaceType::I32),
-                Instruction::GetField(InterfaceType::Int, 2),
+                Instruction::GetField(InterfaceType::I32, 2),
                 Instruction::Const(InterfaceType::I32, 1),
                 Instruction::FoldSeq(1),
                 Instruction::Add(InterfaceType::I32),
@@ -728,19 +736,19 @@ mod tests {
                 0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
                 0x03, // ReadUtf8
                 0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
-                0x05, 0xff, 0xff, 0x01, // AsWasm(Int)
-                0x06, 0x7e, // AsInterface(I64)
+                0x05, 0x0c, // AsWasm(Int)
+                0x06, 0x0d, // AsInterface(I64)
                 0x07, // TableRefAdd
                 0x08, // TableRefGet
                 0x09, 0x01, // CallMethod(1)
-                0x0a, 0x7f, // MakeRecord(I32)
-                0x0c, 0xff, 0xff, 0x01, 0x02, // GetField(Int, 2)
-                0x0d, 0x7f, 0x01, // Const(I32, 1)
+                0x0a, 0x0c, // MakeRecord(I32)
+                0x0c, 0x0c, 0x02, // GetField(I32, 2)
+                0x0d, 0x0c, 0x01, // Const(I32, 1)
                 0x0e, 0x01, // FoldSeq(1)
-                0x0f, 0x7f, // Add(I32)
-                0x10, 0x7f, 0x03, 0x61, 0x62, 0x63, // MemToSeq(I32, "abc")
-                0x11, 0x7f, 0x03, 0x61, 0x62, 0x63, // Load(I32, "abc")
-                0x12, 0x7f, // SeqNew(I32)
+                0x0f, 0x0c, // Add(I32)
+                0x10, 0x0c, 0x03, 0x61, 0x62, 0x63, // MemToSeq(I32, "abc")
+                0x11, 0x0c, 0x03, 0x61, 0x62, 0x63, // Load(I32, "abc")
+                0x12, 0x0c, // SeqNew(I32)
                 0x13, // ListPush
                 0x14, 0x01, 0x02, // RepeatUntil(1, 2)
             ]

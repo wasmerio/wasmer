@@ -18,11 +18,15 @@ mod keyword {
     custom_keyword!(forward);
 
     // New types.
-    custom_keyword!(int);
-    custom_keyword!(float);
-    custom_keyword!(any);
+    custom_keyword!(s8);
+    custom_keyword!(s16);
+    custom_keyword!(s32);
+    custom_keyword!(s64);
+    custom_keyword!(u8);
+    custom_keyword!(u16);
+    custom_keyword!(u32);
+    custom_keyword!(u64);
     custom_keyword!(string);
-    custom_keyword!(seq);
 
     // Instructions.
     custom_keyword!(argument_get = "arg.get");
@@ -47,39 +51,42 @@ mod keyword {
     custom_keyword!(repeat_until = "repeat-until");
 }
 
-/// Issue: Uppercased keyword aren't supported for the moment.
 impl Parse<'_> for InterfaceType {
     fn parse(parser: Parser<'_>) -> Result<Self> {
         let mut lookahead = parser.lookahead1();
 
-        if lookahead.peek::<keyword::int>() {
-            parser.parse::<keyword::int>()?;
+        if lookahead.peek::<keyword::s8>() {
+            parser.parse::<keyword::s8>()?;
 
-            Ok(InterfaceType::Int)
-        } else if lookahead.peek::<keyword::float>() {
-            parser.parse::<keyword::float>()?;
+            Ok(InterfaceType::S8)
+        } else if lookahead.peek::<keyword::s16>() {
+            parser.parse::<keyword::s16>()?;
 
-            Ok(InterfaceType::Float)
-        } else if lookahead.peek::<keyword::any>() {
-            parser.parse::<keyword::any>()?;
+            Ok(InterfaceType::S16)
+        } else if lookahead.peek::<keyword::s32>() {
+            parser.parse::<keyword::s32>()?;
 
-            Ok(InterfaceType::Any)
-        } else if lookahead.peek::<keyword::string>() {
-            parser.parse::<keyword::string>()?;
+            Ok(InterfaceType::S32)
+        } else if lookahead.peek::<keyword::s64>() {
+            parser.parse::<keyword::s64>()?;
 
-            Ok(InterfaceType::String)
-        } else if lookahead.peek::<keyword::seq>() {
-            parser.parse::<keyword::seq>()?;
+            Ok(InterfaceType::S64)
+        } else if lookahead.peek::<keyword::u8>() {
+            parser.parse::<keyword::u8>()?;
 
-            Ok(InterfaceType::Seq)
-        } else if lookahead.peek::<keyword::i32>() {
-            parser.parse::<keyword::i32>()?;
+            Ok(InterfaceType::U8)
+        } else if lookahead.peek::<keyword::u16>() {
+            parser.parse::<keyword::u16>()?;
 
-            Ok(InterfaceType::I32)
-        } else if lookahead.peek::<keyword::i64>() {
-            parser.parse::<keyword::i64>()?;
+            Ok(InterfaceType::U16)
+        } else if lookahead.peek::<keyword::u32>() {
+            parser.parse::<keyword::u32>()?;
 
-            Ok(InterfaceType::I64)
+            Ok(InterfaceType::U32)
+        } else if lookahead.peek::<keyword::u64>() {
+            parser.parse::<keyword::u64>()?;
+
+            Ok(InterfaceType::U64)
         } else if lookahead.peek::<keyword::f32>() {
             parser.parse::<keyword::f32>()?;
 
@@ -88,10 +95,26 @@ impl Parse<'_> for InterfaceType {
             parser.parse::<keyword::f64>()?;
 
             Ok(InterfaceType::F64)
+        } else if lookahead.peek::<keyword::string>() {
+            parser.parse::<keyword::string>()?;
+
+            Ok(InterfaceType::String)
+        } else if lookahead.peek::<keyword::string>() {
+            parser.parse::<keyword::string>()?;
+
+            Ok(InterfaceType::String)
         } else if lookahead.peek::<keyword::anyref>() {
             parser.parse::<keyword::anyref>()?;
 
-            Ok(InterfaceType::AnyRef)
+            Ok(InterfaceType::Anyref)
+        } else if lookahead.peek::<keyword::i32>() {
+            parser.parse::<keyword::i32>()?;
+
+            Ok(InterfaceType::I32)
+        } else if lookahead.peek::<keyword::i64>() {
+            parser.parse::<keyword::i64>()?;
+
+            Ok(InterfaceType::I64)
         } else {
             Err(lookahead.error())
         }
@@ -464,16 +487,16 @@ impl<'a> Parse<'a> for Interfaces<'a> {
 /// (@interface export "bar")
 ///
 /// (@interface func $ns_foo (import "ns" "foo")
-/// (result i32))
+///   (result i32))
 ///
 /// (@interface func $ns_bar (import "ns" "bar"))
 ///
 /// (@interface adapt (import "ns" "foo")
-/// (param i32)
-/// arg.get 42)
+///   (param i32)
+///   arg.get 42)
 ///
 /// (@interface adapt (export "bar")
-/// arg.get 42)
+///   arg.get 42)
 ///
 /// (@interface forward (export "main"))"#,
 /// )
@@ -543,19 +566,24 @@ mod tests {
     #[test]
     fn test_interface_type() {
         let inputs = vec![
-            "int", "float", "any", "string", "seq", "i32", "i64", "f32", "f64", "anyref",
+            "s8", "s16", "s32", "s64", "u8", "u16", "u32", "u64", "f32", "f64", "string", "anyref",
+            "i32", "i64",
         ];
         let outputs = vec![
-            InterfaceType::Int,
-            InterfaceType::Float,
-            InterfaceType::Any,
-            InterfaceType::String,
-            InterfaceType::Seq,
-            InterfaceType::I32,
-            InterfaceType::I64,
+            InterfaceType::S8,
+            InterfaceType::S16,
+            InterfaceType::S32,
+            InterfaceType::S64,
+            InterfaceType::U8,
+            InterfaceType::U16,
+            InterfaceType::U32,
+            InterfaceType::U64,
             InterfaceType::F32,
             InterfaceType::F64,
-            InterfaceType::AnyRef,
+            InterfaceType::String,
+            InterfaceType::Anyref,
+            InterfaceType::I32,
+            InterfaceType::I64,
         ];
 
         assert_eq!(inputs.len(), outputs.len());
@@ -576,19 +604,19 @@ mod tests {
             r#"call-export "foo""#,
             "read-utf8",
             r#"write-utf8 "foo""#,
-            "as-wasm int",
+            "as-wasm s8",
             "as-interface anyref",
             "table-ref-add",
             "table-ref-get",
             "call-method 7",
-            "make-record int",
-            "get-field int 7",
+            "make-record s8",
+            "get-field i32 7",
             "const i32 7",
             "fold-seq 7",
-            "add int",
-            r#"mem-to-seq int "foo""#,
-            r#"load int "foo""#,
-            "seq.new int",
+            "add i32",
+            r#"mem-to-seq i32 "foo""#,
+            r#"load i32 "foo""#,
+            "seq.new i32",
             "list.push",
             "repeat-until 1 2",
         ];
@@ -600,19 +628,19 @@ mod tests {
             Instruction::WriteUtf8 {
                 allocator_name: "foo",
             },
-            Instruction::AsWasm(InterfaceType::Int),
-            Instruction::AsInterface(InterfaceType::AnyRef),
+            Instruction::AsWasm(InterfaceType::S8),
+            Instruction::AsInterface(InterfaceType::Anyref),
             Instruction::TableRefAdd,
             Instruction::TableRefGet,
             Instruction::CallMethod(7),
-            Instruction::MakeRecord(InterfaceType::Int),
-            Instruction::GetField(InterfaceType::Int, 7),
+            Instruction::MakeRecord(InterfaceType::S8),
+            Instruction::GetField(InterfaceType::I32, 7),
             Instruction::Const(InterfaceType::I32, 7),
             Instruction::FoldSeq(7),
-            Instruction::Add(InterfaceType::Int),
-            Instruction::MemToSeq(InterfaceType::Int, "foo"),
-            Instruction::Load(InterfaceType::Int, "foo"),
-            Instruction::SeqNew(InterfaceType::Int),
+            Instruction::Add(InterfaceType::I32),
+            Instruction::MemToSeq(InterfaceType::I32, "foo"),
+            Instruction::Load(InterfaceType::I32, "foo"),
+            Instruction::SeqNew(InterfaceType::I32),
             Instruction::ListPush,
             Instruction::RepeatUntil(1, 2),
         ];
