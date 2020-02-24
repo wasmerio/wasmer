@@ -154,7 +154,7 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
                 Ok(n + 1)
             }),
 
-            "callback_closure_polymorphic" => Func::<i32, i32, _>::new_polymorphic(
+            "callback_closure_polymorphic" => Func::new_polymorphic(
                 Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
                 |_, params| -> Vec<Value> {
                     match params[0] {

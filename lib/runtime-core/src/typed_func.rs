@@ -189,9 +189,21 @@ where
 /// Represents a function that can be used by WebAssembly.
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
+
+    /// The function pointer.
     func: NonNull<vm::Func>,
+
+    /// The function environment.
     func_env: Option<NonNull<vm::FuncEnv>>,
+
+    /// The famous `vm::Ctx`.
     vmctx: *mut vm::Ctx,
+
+    /// The signature is usually infered from `Args` and `Rets`. In
+    /// case of polymorphic function, the signature is only known at
+    /// runtime.
+    signature: Arc<FuncSig>,
+
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
@@ -214,6 +226,7 @@ where
             func,
             func_env,
             vmctx,
+            signature: Arc::new(FuncSig::new(Args::types(), Rets::types())),
             _phantom: PhantomData,
         }
     }
@@ -225,7 +238,7 @@ where
     Rets: WasmTypeList,
 {
     /// Creates a new `Func`.
-    pub fn new<F, Kind>(func: F) -> Func<'a, Args, Rets, Host>
+    pub fn new<F, Kind>(func: F) -> Self
     where
         Kind: ExternalFunctionKind,
         F: ExternalFunction<Kind, Args, Rets>,
@@ -237,14 +250,17 @@ where
             func,
             func_env,
             vmctx: ptr::null_mut(),
+            signature: Arc::new(FuncSig::new(Args::types(), Rets::types())),
             _phantom: PhantomData,
         }
     }
+}
 
+impl<'a> Func<'a, (), (), Host> {
     /// Creates a polymorphic function.
     #[allow(unused_variables)]
     #[cfg(all(unix, target_arch = "x86_64"))]
-    pub fn new_polymorphic<F>(signature: Arc<FuncSig>, func: F) -> Func<'a, Args, Rets, Host>
+    pub fn new_polymorphic<F>(signature: Arc<FuncSig>, func: F) -> Self
     where
         F: Fn(&mut vm::Ctx, &[crate::types::Value]) -> Vec<crate::types::Value> + 'static,
     {
@@ -254,7 +270,7 @@ where
 
         struct PolymorphicContext {
             arg_types: Vec<Type>,
-            func: Box<Fn(&mut vm::Ctx, &[Value]) -> Vec<Value>>,
+            func: Box<dyn Fn(&mut vm::Ctx, &[Value]) -> Vec<Value>>,
         }
         unsafe extern "C" fn enter_host_polymorphic(
             ctx: *const CallContext,
@@ -305,11 +321,13 @@ where
         let ptr = builder
             .append_global()
             .expect("cannot bump-allocate global trampoline memory");
+
         Func {
             inner: Host(()),
             func: ptr.cast::<vm::Func>(),
             func_env: None,
             vmctx: ptr::null_mut(),
+            signature,
             _phantom: PhantomData,
         }
     }
@@ -751,12 +769,11 @@ where
             func_env @ Some(_) => Context::ExternalWithEnv(self.vmctx, func_env),
             None => Context::Internal,
         };
-        let signature = Arc::new(FuncSig::new(Args::types(), Rets::types()));
 
         Export::Function {
             func,
             ctx,
-            signature,
+            signature: self.signature.clone(),
         }
     }
 }
