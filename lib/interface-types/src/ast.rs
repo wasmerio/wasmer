@@ -50,16 +50,6 @@ pub enum InterfaceType {
     I64,
 }
 
-/// Represents the kind of adapter.
-#[derive(PartialEq, Debug)]
-pub(crate) enum AdapterKind {
-    /// An adapter defined for an imported function of a WebAssembly instance.
-    Import,
-
-    /// An adapter defined for an exported function of a WebAssembly instance.
-    Export,
-}
-
 /// Represents a type signature.
 #[derive(PartialEq, Debug)]
 pub struct Type {
@@ -70,20 +60,7 @@ pub struct Type {
     pub outputs: Vec<InterfaceType>,
 }
 
-/// Represents an exported function signature.
-#[derive(PartialEq, Debug)]
-pub struct Export<'input> {
-    /// The function name.
-    pub name: &'input str,
-
-    /// The function input types.
-    pub input_types: Vec<InterfaceType>,
-
-    /// The function output types.
-    pub output_types: Vec<InterfaceType>,
-}
-
-/// Represents an imported function signature.
+/// Represents an imported function.
 #[derive(PartialEq, Debug)]
 pub struct Import<'input> {
     /// The function namespace.
@@ -92,48 +69,57 @@ pub struct Import<'input> {
     /// The function name.
     pub name: &'input str,
 
-    /// The function input types.
-    pub input_types: Vec<InterfaceType>,
+    /// The type signature.
+    pub signature_type: u32,
+}
 
-    /// The function output types.
-    pub output_types: Vec<InterfaceType>,
+/// Represents an exported function signature.
+#[derive(PartialEq, Debug)]
+pub struct Export<'input> {
+    /// The export name.
+    pub name: &'input str,
+
+    /// The WIT function type being exported.
+    pub function_type: u32,
+}
+
+/// Represents an implementation.
+#[derive(PartialEq, Debug)]
+pub struct Implementation {
+    /// The core function type.
+    pub core_function_type: u32,
+
+    /// The adapter function type.
+    pub adapter_function_type: u32,
 }
 
 /// Represents an adapter.
 #[derive(PartialEq, Debug)]
-pub enum Adapter<'input> {
-    /// An adapter for an imported function.
-    Import {
-        /// The function namespace.
-        namespace: &'input str,
+pub struct Adapter<'input> {
+    /// The adapter function type.
+    pub function_type: u32,
 
-        /// The function name.
-        name: &'input str,
+    /// The instructions.
+    pub instructions: Vec<Instruction<'input>>,
+}
 
-        /// The function input types.
-        input_types: Vec<InterfaceType>,
+/// Represents the kind of interface.
+#[derive(PartialEq, Debug)]
+pub(crate) enum InterfaceKind {
+    /// A type.
+    Type,
 
-        /// The function output types.
-        output_types: Vec<InterfaceType>,
+    /// An imported function.
+    Import,
 
-        /// The instructions of the adapter.
-        instructions: Vec<Instruction<'input>>,
-    },
+    /// An adapter.
+    Adapter,
 
-    /// An adapter for an exported function.
-    Export {
-        /// The function name.
-        name: &'input str,
+    /// An exported function.
+    Export,
 
-        /// The function input types.
-        input_types: Vec<InterfaceType>,
-
-        /// The function output types.
-        output_types: Vec<InterfaceType>,
-
-        /// The instructions of the adapter.
-        instructions: Vec<Instruction<'input>>,
-    },
+    /// An implementation.
+    Implementation,
 }
 
 /// Represents a set of interfaces, i.e. it entirely describes a WIT
@@ -143,12 +129,15 @@ pub struct Interfaces<'input> {
     /// All the types.
     pub types: Vec<Type>,
 
-    /// All the exported functions.
-    pub exports: Vec<Export<'input>>,
-
     /// All the imported functions.
     pub imports: Vec<Import<'input>>,
 
     /// All the adapters.
     pub adapters: Vec<Adapter<'input>>,
+
+    /// All the exported functions.
+    pub exports: Vec<Export<'input>>,
+
+    /// All the implementations.
+    pub implementations: Vec<Implementation>,
 }

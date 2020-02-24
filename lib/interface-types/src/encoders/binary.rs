@@ -1,9 +1,6 @@
 //! Writes the AST into bytes representing WIT with its binary format.
 
-use crate::{
-    ast::{Adapter, AdapterKind, Export, Import, InterfaceType, Interfaces, Type},
-    interpreter::Instruction,
-};
+use crate::{ast::*, interpreter::Instruction};
 use std::io::{self, Write};
 
 /// A trait for converting a value to bytes.
@@ -115,32 +112,19 @@ where
     }
 }
 
-/// Encode an `AdapterKind` into bytes.
-impl<W> ToBytes<W> for AdapterKind
+/// Encode an `InterfaceKind` into bytes.
+impl<W> ToBytes<W> for InterfaceKind
 where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
         match self {
-            AdapterKind::Import => 0x00_u8.to_bytes(writer),
-            AdapterKind::Export => 0x01_u8.to_bytes(writer),
+            Self::Type => 0x00_u8.to_bytes(writer),
+            Self::Import => 0x01_u8.to_bytes(writer),
+            Self::Adapter => 0x02_u8.to_bytes(writer),
+            Self::Export => 0x03_u8.to_bytes(writer),
+            Self::Implementation => 0x04_u8.to_bytes(writer),
         }
-    }
-}
-
-/// Encode an `Export` into bytes.
-///
-/// Decoder is in `decoders::binary::exports`.
-impl<W> ToBytes<W> for Export<'_>
-where
-    W: Write,
-{
-    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.name.to_bytes(writer)?;
-        self.input_types.to_bytes(writer)?;
-        self.output_types.to_bytes(writer)?;
-
-        Ok(())
     }
 }
 
@@ -169,8 +153,7 @@ where
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
         self.namespace.to_bytes(writer)?;
         self.name.to_bytes(writer)?;
-        self.input_types.to_bytes(writer)?;
-        self.output_types.to_bytes(writer)?;
+        (self.signature_type as u64).to_bytes(writer)?;
 
         Ok(())
     }
@@ -178,41 +161,44 @@ where
 
 /// Encode an `Adapter` into bytes.
 ///
-/// Decoder is in `decoders::binary::imports`.
+/// Decoder is in `decoders::binary::adapters`.
 impl<W> ToBytes<W> for Adapter<'_>
 where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        match self {
-            Adapter::Import {
-                namespace,
-                name,
-                input_types,
-                output_types,
-                instructions,
-            } => {
-                AdapterKind::Import.to_bytes(writer)?;
-                namespace.to_bytes(writer)?;
-                name.to_bytes(writer)?;
-                input_types.to_bytes(writer)?;
-                output_types.to_bytes(writer)?;
-                instructions.to_bytes(writer)?;
-            }
+        (self.function_type as u64).to_bytes(writer)?;
+        self.instructions.to_bytes(writer)?;
 
-            Adapter::Export {
-                name,
-                input_types,
-                output_types,
-                instructions,
-            } => {
-                AdapterKind::Export.to_bytes(writer)?;
-                name.to_bytes(writer)?;
-                input_types.to_bytes(writer)?;
-                output_types.to_bytes(writer)?;
-                instructions.to_bytes(writer)?;
-            }
-        }
+        Ok(())
+    }
+}
+
+/// Encode an `Export` into bytes.
+///
+/// Decoder is in `decoders::binary::exports`.
+impl<W> ToBytes<W> for Export<'_>
+where
+    W: Write,
+{
+    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
+        self.name.to_bytes(writer)?;
+        (self.function_type as u64).to_bytes(writer)?;
+
+        Ok(())
+    }
+}
+
+/// Encode an `Implementation` into bytes.
+///
+/// Decoder is in `decoders::binary::implementations`.
+impl<W> ToBytes<W> for Implementation
+where
+    W: Write,
+{
+    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
+        (self.core_function_type as u64).to_bytes(writer)?;
+        (self.adapter_function_type as u64).to_bytes(writer)?;
 
         Ok(())
     }
@@ -226,10 +212,32 @@ where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.exports.to_bytes(writer)?;
-        self.types.to_bytes(writer)?;
-        self.imports.to_bytes(writer)?;
-        self.adapters.to_bytes(writer)?;
+        if !self.types.is_empty() {
+            InterfaceKind::Type.to_bytes(writer)?;
+            self.types.to_bytes(writer)?;
+        }
+
+        if !self.imports.is_empty() {
+            InterfaceKind::Import.to_bytes(writer)?;
+            self.imports.to_bytes(writer)?;
+        }
+
+        if !self.adapters.is_empty() {
+            InterfaceKind::Adapter.to_bytes(writer)?;
+            self.adapters.to_bytes(writer)?;
+        }
+
+        if !self.exports.is_empty() {
+            InterfaceKind::Export.to_bytes(writer)?;
+            self.exports.to_bytes(writer)?;
+        }
+
+        if !self.implementations.is_empty() {
+            InterfaceKind::Implementation.to_bytes(writer)?;
+            self.implementations.to_bytes(writer)?;
+        }
+
+        //self.adapters.to_bytes(writer)?;
 
         Ok(())
     }
@@ -437,9 +445,12 @@ mod tests {
     }
 
     #[test]
-    fn test_adapter_kind() {
-        assert_to_bytes!(AdapterKind::Import, &[0x00]);
-        assert_to_bytes!(AdapterKind::Export, &[0x01]);
+    fn test_interface_kind() {
+        assert_to_bytes!(InterfaceKind::Type, &[0x00]);
+        assert_to_bytes!(InterfaceKind::Import, &[0x01]);
+        assert_to_bytes!(InterfaceKind::Function, &[0x02]);
+        assert_to_bytes!(InterfaceKind::Export, &[0x03]);
+        assert_to_bytes!(InterfaceKind::Implementation, &[0x04]);
     }
 
     #[test]
@@ -515,7 +526,7 @@ mod tests {
                 instructions: vec![Instruction::ArgumentGet { index: 1 }],
             },
             &[
-                0x00, // AdapterKind::Import
+                0x01, // InterfaceKind::Import
                 0x01, // string of length 1
                 0x61, // "a"
                 0x01, // string of length 1
@@ -541,7 +552,7 @@ mod tests {
                 instructions: vec![Instruction::ArgumentGet { index: 1 }],
             },
             &[
-                0x01, // AdapterKind::Export
+                0x03, // InterfaceKind::Export
                 0x01, // string of length 1
                 0x61, // "a"
                 0x02, // list of 2 items

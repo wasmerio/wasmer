@@ -84,10 +84,7 @@
 //! # }
 //! ```
 
-use crate::{
-    ast::{Adapter, Export, Import, InterfaceType, Interfaces, Type},
-    interpreter::Instruction,
-};
+use crate::{ast::*, interpreter::Instruction};
 use std::string::ToString;
 
 /// Encode an `InterfaceType` into a string.
@@ -198,18 +195,6 @@ fn output_types_to_result(output_types: &[InterfaceType]) -> String {
     }
 }
 
-/// Encode an `Export` into a string.
-impl<'input> ToString for &Export<'input> {
-    fn to_string(&self) -> String {
-        format!(
-            r#"(@interface export "{name}"{inputs}{outputs})"#,
-            name = self.name,
-            inputs = input_types_to_param(&self.input_types),
-            outputs = output_types_to_result(&self.output_types),
-        )
-    }
-}
-
 /// Encode a `Type` into a string.
 impl<'input> ToString for &Type {
     fn to_string(&self) -> String {
@@ -225,11 +210,10 @@ impl<'input> ToString for &Type {
 impl<'input> ToString for &Import<'input> {
     fn to_string(&self) -> String {
         format!(
-            r#"(@interface func ${namespace}_{name} (import "{namespace}" "{name}"){inputs}{outputs})"#,
+            r#"(@interface import "{namespace}" "{name}" (func (type {type})))"#,
             namespace = self.namespace,
             name = self.name,
-            inputs = input_types_to_param(&self.input_types),
-            outputs = output_types_to_result(&self.output_types),
+            type = self.signature_type,
         )
     }
 }
@@ -237,49 +221,40 @@ impl<'input> ToString for &Import<'input> {
 /// Encode an `Adapter` into a string.
 impl<'input> ToString for &Adapter<'input> {
     fn to_string(&self) -> String {
-        match self {
-            Adapter::Import {
-                namespace,
-                name,
-                input_types,
-                output_types,
-                instructions,
-            } => format!(
-                r#"(@interface adapt (import "{namespace}" "{name}"){inputs}{outputs}{instructions})"#,
-                namespace = namespace,
-                name = name,
-                inputs = input_types_to_param(&input_types),
-                outputs = output_types_to_result(&output_types),
-                instructions =
-                    instructions
-                        .iter()
-                        .fold(String::new(), |mut accumulator, instruction| {
-                            accumulator.push_str("\n  ");
-                            accumulator.push_str(&instruction.to_string());
-                            accumulator
-                        }),
-            ),
+        format!(
+            r#"(@interface func (type {function_type}){instructions})"#,
+            function_type = self.function_type,
+            instructions =
+                self.instructions
+                    .iter()
+                    .fold(String::new(), |mut accumulator, instruction| {
+                        accumulator.push_str("\n  ");
+                        accumulator.push_str(&instruction.to_string());
+                        accumulator
+                    }),
+        )
+    }
+}
 
-            Adapter::Export {
-                name,
-                input_types,
-                output_types,
-                instructions,
-            } => format!(
-                r#"(@interface adapt (export "{name}"){inputs}{outputs}{instructions})"#,
-                name = name,
-                inputs = input_types_to_param(&input_types),
-                outputs = output_types_to_result(&output_types),
-                instructions =
-                    instructions
-                        .iter()
-                        .fold(String::new(), |mut accumulator, instruction| {
-                            accumulator.push_str("\n  ");
-                            accumulator.push_str(&instruction.to_string());
-                            accumulator
-                        }),
-            ),
-        }
+/// Encode an `Export` into a string.
+impl<'input> ToString for &Export<'input> {
+    fn to_string(&self) -> String {
+        format!(
+            r#"(@interface export "{name}" (func {type}))"#,
+            name = self.name,
+            type = self.function_type,
+        )
+    }
+}
+
+/// Encode an `Implementation` into a string.
+impl<'input> ToString for &Implementation {
+    fn to_string(&self) -> String {
+        format!(
+            r#"(@interface implement (func {core_function_type}) (func {adapter_function_type}))"#,
+            core_function_type = self.core_function_type,
+            adapter_function_type = self.adapter_function_type,
+        )
     }
 }
 
@@ -287,15 +262,6 @@ impl<'input> ToString for &Adapter<'input> {
 impl<'input> ToString for &Interfaces<'input> {
     fn to_string(&self) -> String {
         let mut output = String::from(";; Interfaces");
-
-        let exports = self
-            .exports
-            .iter()
-            .fold(String::new(), |mut accumulator, export| {
-                accumulator.push_str(&format!("\n\n;; Interface, Export {}\n", export.name));
-                accumulator.push_str(&export.to_string());
-                accumulator
-            });
 
         let types = self
             .types
@@ -309,10 +275,6 @@ impl<'input> ToString for &Interfaces<'input> {
             .imports
             .iter()
             .fold(String::new(), |mut accumulator, import| {
-                accumulator.push_str(&format!(
-                    "\n\n;; Interface, Import {}.{}\n",
-                    import.namespace, import.name
-                ));
                 accumulator.push_str(&import.to_string());
                 accumulator
             });
@@ -321,26 +283,31 @@ impl<'input> ToString for &Interfaces<'input> {
             .adapters
             .iter()
             .fold(String::new(), |mut accumulator, adapter| {
-                match adapter {
-                    Adapter::Import {
-                        namespace, name, ..
-                    } => accumulator.push_str(&format!(
-                        "\n\n;; Interface, Adapter {}.{}\n",
-                        namespace, name
-                    )),
-
-                    Adapter::Export { name, .. } => {
-                        accumulator.push_str(&format!("\n\n;; Interface, Adapter {}\n", name))
-                    }
-                }
                 accumulator.push_str(&adapter.to_string());
                 accumulator
             });
 
-        output.push_str(&exports);
+        let exports = self
+            .exports
+            .iter()
+            .fold(String::new(), |mut accumulator, export| {
+                accumulator.push_str(&export.to_string());
+                accumulator
+            });
+
+        let implementations =
+            self.implementations
+                .iter()
+                .fold(String::new(), |mut accumulator, implementation| {
+                    accumulator.push_str(&implementation.to_string());
+                    accumulator
+                });
+
         output.push_str(&types);
         output.push_str(&imports);
         output.push_str(&adapters);
+        output.push_str(&exports);
+        output.push_str(&implementations);
 
         output
     }

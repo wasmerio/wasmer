@@ -5,6 +5,11 @@ macro_rules! consume {
         let (next_input, $parser_output) = $parser_expression;
         $input = next_input;
     };
+
+    (($input:ident, mut $parser_output:ident) = $parser_expression:expr) => {
+        let (next_input, mut $parser_output) = $parser_expression;
+        $input = next_input;
+    };
 }
 
 /// This macro creates an executable instruction for the interpreter.

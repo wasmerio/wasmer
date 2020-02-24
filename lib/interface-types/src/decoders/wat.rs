@@ -2,10 +2,7 @@
 
 use crate::{ast::*, interpreter::Instruction};
 pub use wast::parser::ParseBuffer as Buffer;
-use wast::{
-    parser::{self, Cursor, Parse, Parser, Peek, Result},
-    Id, LParen,
-};
+use wast::parser::{self, Cursor, Parse, Parser, Peek, Result};
 
 mod keyword {
     pub use wast::{
@@ -14,7 +11,7 @@ mod keyword {
     };
 
     // New keywords.
-    custom_keyword!(adapt);
+    custom_keyword!(implement);
     custom_keyword!(r#type = "type");
 
     // New types.
@@ -283,10 +280,11 @@ impl Parse<'_> for FunctionType {
 
 #[derive(PartialEq, Debug)]
 enum Interface<'a> {
-    Export(Export<'a>),
     Type(Type),
     Import(Import<'a>),
     Adapter(Adapter<'a>),
+    Export(Export<'a>),
+    Implementation(Implementation),
 }
 
 impl<'a> Parse<'a> for Interface<'a> {
@@ -299,14 +297,16 @@ impl<'a> Parse<'a> for Interface<'a> {
 
                 let mut lookahead = parser.lookahead1();
 
-                if lookahead.peek::<keyword::export>() {
-                    Ok(Interface::Export(parser.parse()?))
-                } else if lookahead.peek::<keyword::func>() {
-                    Ok(Interface::Import(parser.parse()?))
-                } else if lookahead.peek::<keyword::adapt>() {
-                    Ok(Interface::Adapter(parser.parse()?))
-                } else if lookahead.peek::<keyword::r#type>() {
+                if lookahead.peek::<keyword::r#type>() {
                     Ok(Interface::Type(parser.parse()?))
+                } else if lookahead.peek::<keyword::import>() {
+                    Ok(Interface::Import(parser.parse()?))
+                } else if lookahead.peek::<keyword::func>() {
+                    Ok(Interface::Adapter(parser.parse()?))
+                } else if lookahead.peek::<keyword::export>() {
+                    Ok(Interface::Export(parser.parse()?))
+                } else if lookahead.peek::<keyword::implement>() {
+                    Ok(Interface::Implementation(parser.parse()?))
                 } else {
                     Err(lookahead.error())
                 }
@@ -343,113 +343,92 @@ impl<'a> Parse<'a> for Type {
     }
 }
 
-impl<'a> Parse<'a> for Export<'a> {
-    fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<keyword::export>()?;
-        let name = parser.parse()?;
-
-        let mut input_types = vec![];
-        let mut output_types = vec![];
-
-        while !parser.is_empty() {
-            let function_type = parser.parse::<FunctionType>()?;
-
-            match function_type {
-                FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
-                FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
-            }
-        }
-
-        Ok(Export {
-            name,
-            input_types,
-            output_types,
-        })
-    }
-}
-
 impl<'a> Parse<'a> for Import<'a> {
     fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<keyword::func>()?;
-        parser.parse::<Id>()?;
+        parser.parse::<keyword::import>()?;
 
-        let (namespace, name) = parser.parens(|parser| {
-            parser.parse::<keyword::import>()?;
+        let namespace = parser.parse()?;
+        let name = parser.parse()?;
 
-            Ok((parser.parse()?, parser.parse()?))
+        let signature_type = parser.parens(|parser| {
+            parser.parse::<keyword::func>()?;
+
+            parser.parens(|parser| {
+                parser.parse::<keyword::r#type>()?;
+
+                parser.parse()
+            })
         })?;
-        let mut input_types = vec![];
-        let mut output_types = vec![];
-
-        while !parser.is_empty() {
-            let function_type = parser.parse::<FunctionType>()?;
-
-            match function_type {
-                FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
-                FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
-            }
-        }
 
         Ok(Import {
             namespace,
             name,
-            input_types,
-            output_types,
+            signature_type,
+        })
+    }
+}
+
+impl<'a> Parse<'a> for Export<'a> {
+    fn parse(parser: Parser<'a>) -> Result<Self> {
+        parser.parse::<keyword::export>()?;
+
+        let name = parser.parse()?;
+
+        let function_type = parser.parens(|parser| {
+            parser.parse::<keyword::func>()?;
+
+            parser.parse()
+        })?;
+
+        Ok(Export {
+            name,
+            function_type,
+        })
+    }
+}
+
+impl<'a> Parse<'a> for Implementation {
+    fn parse(parser: Parser<'a>) -> Result<Self> {
+        parser.parse::<keyword::implement>()?;
+
+        let core_function_type = parser.parens(|parser| {
+            parser.parse::<keyword::func>()?;
+
+            parser.parse()
+        })?;
+
+        let adapter_function_type = parser.parens(|parser| {
+            parser.parse::<keyword::func>()?;
+
+            parser.parse()
+        })?;
+
+        Ok(Implementation {
+            core_function_type,
+            adapter_function_type,
         })
     }
 }
 
 impl<'a> Parse<'a> for Adapter<'a> {
     fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<keyword::adapt>()?;
+        parser.parse::<keyword::func>()?;
 
-        let (kind, namespace, name) = parser.parens(|parser| {
-            let mut lookahead = parser.lookahead1();
+        let function_type = parser.parens(|parser| {
+            parser.parse::<keyword::r#type>()?;
 
-            if lookahead.peek::<keyword::import>() {
-                parser.parse::<keyword::import>()?;
-
-                Ok((AdapterKind::Import, parser.parse()?, parser.parse()?))
-            } else if lookahead.peek::<keyword::export>() {
-                parser.parse::<keyword::export>()?;
-
-                Ok((AdapterKind::Export, "", parser.parse()?))
-            } else {
-                Err(lookahead.error())
-            }
+            parser.parse()
         })?;
-        let mut input_types = vec![];
-        let mut output_types = vec![];
+
         let mut instructions = vec![];
 
         while !parser.is_empty() {
-            if parser.peek::<LParen>() {
-                let function_type = parser.parse::<FunctionType>()?;
-
-                match function_type {
-                    FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
-                    FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
-                }
-            } else {
-                instructions.push(parser.parse()?);
-            }
+            instructions.push(parser.parse()?);
         }
 
-        Ok(match kind {
-            AdapterKind::Import => Adapter::Import {
-                namespace,
-                name,
-                input_types,
-                output_types,
-                instructions,
-            },
-
-            AdapterKind::Export => Adapter::Export {
-                name,
-                input_types,
-                output_types,
-                instructions,
-            },
+        Ok(Adapter {
+            function_type,
+            instructions,
         })
     }
 }
@@ -462,10 +441,13 @@ impl<'a> Parse<'a> for Interfaces<'a> {
             let interface = parser.parse::<Interface>()?;
 
             match interface {
-                Interface::Export(export) => interfaces.exports.push(export),
                 Interface::Type(ty) => interfaces.types.push(ty),
                 Interface::Import(import) => interfaces.imports.push(import),
                 Interface::Adapter(adapter) => interfaces.adapters.push(adapter),
+                Interface::Export(export) => interfaces.exports.push(export),
+                Interface::Implementation(implementation) => {
+                    interfaces.implementations.push(implementation)
+                }
             }
         }
 
