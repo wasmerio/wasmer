@@ -211,9 +211,13 @@ impl<'input> ToString for &Export<'input> {
 }
 
 /// Encode a `Type` into a string.
-impl<'input> ToString for &Type<'input> {
+impl<'input> ToString for &Type {
     fn to_string(&self) -> String {
-        todo!("To be implemented.")
+        format!(
+            r#"(@interface type (func{inputs}{outputs}))"#,
+            inputs = input_types_to_param(&self.inputs),
+            outputs = output_types_to_result(&self.outputs),
+        )
     }
 }
 
@@ -297,7 +301,6 @@ impl<'input> ToString for &Interfaces<'input> {
             .types
             .iter()
             .fold(String::new(), |mut accumulator, ty| {
-                accumulator.push_str(&format!("\n\n;; Interface, Ty {}\n", ty.name));
                 accumulator.push_str(&ty.to_string());
                 accumulator
             });
@@ -421,6 +424,44 @@ mod tests {
             "seq.new i32",
             "list.push",
             "repeat-until 1 2",
+        ];
+
+        assert_eq!(inputs, outputs);
+    }
+
+    #[test]
+    fn test_types() {
+        let inputs: Vec<String> = vec![
+            (&Type {
+                inputs: vec![InterfaceType::I32, InterfaceType::F32],
+                outputs: vec![InterfaceType::I32],
+            })
+                .to_string(),
+            (&Type {
+                inputs: vec![InterfaceType::I32],
+                outputs: vec![],
+            })
+                .to_string(),
+            (&Type {
+                inputs: vec![],
+                outputs: vec![InterfaceType::I32],
+            })
+                .to_string(),
+            (&Type {
+                inputs: vec![],
+                outputs: vec![],
+            })
+                .to_string(),
+        ];
+        let outputs = vec![
+            r#"(@interface type (func
+  (param i32 f32)
+  (result i32)))"#,
+            r#"(@interface type (func
+  (param i32)))"#,
+            r#"(@interface type (func
+  (result i32)))"#,
+            r#"(@interface type (func))"#,
         ];
 
         assert_eq!(inputs, outputs);

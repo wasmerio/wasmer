@@ -11,11 +11,10 @@ fn test_binary_encoding_decoding_roundtrip() {
             input_types: vec![InterfaceType::I32],
             output_types: vec![InterfaceType::I32],
         }],
-        types: vec![Type::new(
-            "ab",
-            vec!["cd", "e"],
-            vec![InterfaceType::I32, InterfaceType::I32],
-        )],
+        types: vec![Type {
+            inputs: vec![InterfaceType::I32, InterfaceType::I32],
+            outputs: vec![InterfaceType::S32],
+        }],
         imports: vec![Import {
             namespace: "a",
             name: "b",

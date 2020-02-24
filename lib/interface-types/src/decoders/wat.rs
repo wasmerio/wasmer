@@ -15,6 +15,7 @@ mod keyword {
 
     // New keywords.
     custom_keyword!(adapt);
+    custom_keyword!(r#type = "type");
 
     // New types.
     custom_keyword!(s8);
@@ -283,8 +284,7 @@ impl Parse<'_> for FunctionType {
 #[derive(PartialEq, Debug)]
 enum Interface<'a> {
     Export(Export<'a>),
-    #[allow(dead_code)]
-    Type(Type<'a>),
+    Type(Type),
     Import(Import<'a>),
     Adapter(Adapter<'a>),
 }
@@ -305,6 +305,8 @@ impl<'a> Parse<'a> for Interface<'a> {
                     Ok(Interface::Import(parser.parse()?))
                 } else if lookahead.peek::<keyword::adapt>() {
                     Ok(Interface::Adapter(parser.parse()?))
+                } else if lookahead.peek::<keyword::r#type>() {
+                    Ok(Interface::Type(parser.parse()?))
                 } else {
                     Err(lookahead.error())
                 }
@@ -312,6 +314,32 @@ impl<'a> Parse<'a> for Interface<'a> {
                 Err(lookahead.error())
             }
         })
+    }
+}
+
+impl<'a> Parse<'a> for Type {
+    fn parse(parser: Parser<'a>) -> Result<Self> {
+        parser.parse::<keyword::r#type>()?;
+
+        let (inputs, outputs) = parser.parens(|parser| {
+            parser.parse::<keyword::func>()?;
+
+            let mut input_types = vec![];
+            let mut output_types = vec![];
+
+            while !parser.is_empty() {
+                let function_type = parser.parse::<FunctionType>()?;
+
+                match function_type {
+                    FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
+                    FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
+                }
+            }
+
+            Ok((input_types, output_types))
+        })?;
+
+        Ok(Type { inputs, outputs })
     }
 }
 
@@ -661,6 +689,17 @@ mod tests {
         let output = FunctionType::Output(vec![InterfaceType::I32, InterfaceType::String]);
 
         assert_eq!(parser::parse::<FunctionType>(&input).unwrap(), output);
+    }
+
+    #[test]
+    fn test_type() {
+        let input = buffer(r#"(@interface type (func (param i32 i32) (result i32)))"#);
+        let output = Interface::Type(Type {
+            inputs: vec![InterfaceType::I32, InterfaceType::I32],
+            outputs: vec![InterfaceType::I32],
+        });
+
+        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
 
     #[test]

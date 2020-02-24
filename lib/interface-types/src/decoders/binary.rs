@@ -295,11 +295,10 @@ fn types<'input, E: ParseError<&'input [u8]>>(
     let mut types = Vec::with_capacity(number_of_types as usize);
 
     for _ in 0..number_of_types {
-        consume!((input, type_name) = string(input)?);
-        consume!((input, type_fields) = list(input, string)?);
-        consume!((input, type_types) = list(input, ty)?);
+        consume!((input, inputs) = list(input, ty)?);
+        consume!((input, outputs) = list(input, ty)?);
 
-        types.push(Type::new(type_name, type_fields, type_types));
+        types.push(Type { inputs, outputs });
     }
 
     Ok((input, types))
@@ -424,15 +423,10 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///     0x01, // list of 1 item
 ///     0x02, // S32
 ///     0x01, // 1 type
-///     0x02, // string of 2 bytes
-///     0x61, 0x62, // "a", "b"
-///     0x02, // list of 2 items
-///     0x02, // string of 2 bytes
-///     0x63, 0x64, // "c", "d"
-///     0x01, // string of 1 byte
-///     0x65, // "e"
 ///     0x02, // list of 2 items
 ///     0x02, // S32
+///     0x02, // S32
+///     0x01, // list of 1 item
 ///     0x02, // S32
 ///     0x01, // 1 import
 ///     0x01, // string of 1 byte
@@ -464,11 +458,10 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///             input_types: vec![InterfaceType::S32],
 ///             output_types: vec![InterfaceType::S32],
 ///         }],
-///         types: vec![Type::new(
-///             "ab",
-///             vec!["cd", "e"],
-///             vec![InterfaceType::S32, InterfaceType::S32],
-///         )],
+///         types: vec![Type {
+///             inputs: vec![InterfaceType::S32, InterfaceType::S32],
+///             outputs: vec![InterfaceType::S32],
+///         }],
 ///         imports: vec![Import {
 ///             namespace: "a",
 ///             name: "b",
@@ -740,24 +733,18 @@ mod tests {
     fn test_types() {
         let input = &[
             0x01, // 1 type
-            0x02, // string of 2 bytes
-            0x61, 0x62, // "a", "b"
-            0x02, // list of 2 items
-            0x02, // string of 2 bytes
-            0x63, 0x64, // "c", "d"
-            0x01, // string of 1 byte
-            0x65, // "e"
             0x02, // list of 2 items
             0x02, // S32
+            0x02, // S32
+            0x01, // list of 2 items
             0x02, // S32
         ];
         let output = Ok((
             &[] as &[u8],
-            vec![Type::new(
-                "ab",
-                vec!["cd", "e"],
-                vec![InterfaceType::S32, InterfaceType::S32],
-            )],
+            vec![Type {
+                inputs: vec![InterfaceType::S32, InterfaceType::S32],
+                outputs: vec![InterfaceType::S32],
+            }],
         ));
 
         assert_eq!(types::<()>(input), output);
@@ -863,16 +850,10 @@ mod tests {
             0x01, // list of 1 item
             0x0c, // I32
             0x01, // 1 type
-            0x02, // string of 2 bytes
-            0x61, 0x62, // "a", "b"
-            0x02, // list of 2 items
-            0x02, // string of 2 bytes
-            0x63, 0x64, // "c", "d"
-            0x01, // string of 1 byte
-            0x65, // "e"
             0x02, // list of 2 items
             0x0c, // I32
             0x0c, // I32
+            0x00, // list of 0 item
             0x01, // 1 import
             0x01, // string of 1 byte
             0x61, // "a"
@@ -903,11 +884,10 @@ mod tests {
                     input_types: vec![InterfaceType::I32],
                     output_types: vec![InterfaceType::I32],
                 }],
-                types: vec![Type::new(
-                    "ab",
-                    vec!["cd", "e"],
-                    vec![InterfaceType::I32, InterfaceType::I32],
-                )],
+                types: vec![Type {
+                    inputs: vec![InterfaceType::I32, InterfaceType::I32],
+                    outputs: vec![],
+                }],
                 imports: vec![Import {
                     namespace: "a",
                     name: "b",

@@ -147,14 +147,13 @@ where
 /// Encode a `Type` into bytes.
 ///
 /// Decoder is in `decoders::binary::types`.
-impl<W> ToBytes<W> for Type<'_>
+impl<W> ToBytes<W> for Type
 where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.name.to_bytes(writer)?;
-        self.field_names().to_bytes(writer)?;
-        self.field_types().to_bytes(writer)?;
+        self.inputs.to_bytes(writer)?;
+        self.outputs.to_bytes(writer)?;
 
         Ok(())
     }
@@ -468,22 +467,16 @@ mod tests {
     #[test]
     fn test_type() {
         assert_to_bytes!(
-            Type::new(
-                "a",
-                vec!["b", "c"],
-                vec![InterfaceType::I32, InterfaceType::I64],
-            ),
+            Type {
+                inputs: vec![InterfaceType::I32, InterfaceType::I64],
+                outputs: vec![InterfaceType::S32],
+            },
             &[
-                0x01, // string of length 1
-                0x61, // "a"
-                0x02, // list of 2 items
-                0x01, // string of length 1
-                0x62, // "b"
-                0x01, // string of length 1
-                0x63, // "c"
                 0x02, // list of 2 items
                 0x0c, // I32
                 0x0d, // I64
+                0x01, // list of 1 items
+                0x02, // I64
             ]
         );
     }
@@ -571,11 +564,10 @@ mod tests {
                     input_types: vec![InterfaceType::I32],
                     output_types: vec![InterfaceType::I32],
                 }],
-                types: vec![Type::new(
-                    "ab",
-                    vec!["cd", "e"],
-                    vec![InterfaceType::I32, InterfaceType::I32],
-                )],
+                types: vec![Type {
+                    inputs: vec![InterfaceType::I32, InterfaceType::I32],
+                    outputs: vec![InterfaceType::S32],
+                }],
                 imports: vec![Import {
                     namespace: "a",
                     name: "b",
@@ -599,16 +591,11 @@ mod tests {
                 0x01, // list of 1 item
                 0x0c, // I32
                 0x01, // 1 type
-                0x02, // string of 2 bytes
-                0x61, 0x62, // "a", "b"
-                0x02, // list of 2 items
-                0x02, // string of 2 bytes
-                0x63, 0x64, // "c", "d"
-                0x01, // string of 1 byte
-                0x65, // "e"
                 0x02, // list of 2 items
                 0x0c, // I32
                 0x0c, // I32
+                0x01, // list of 1 item
+                0x02, // S32
                 0x01, // 1 import
                 0x01, // string of 1 byte
                 0x61, // "a"
