@@ -240,7 +240,7 @@ dependencies = [
  "cranelift-codegen-shared",
  "cranelift-entity",
  "log",
- "smallvec 1.2.0",
+ "smallvec",
  "target-lexicon",
  "thiserror",
 ]
@@ -926,7 +926,7 @@ dependencies = [
  "cloudabi",
  "libc",
  "redox_syscall",
- "smallvec 1.2.0",
+ "smallvec",
  "winapi",
 ]
 
@@ -1416,15 +1416,6 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "0.6.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7b0758c52e15a8b5e3691eae6cc559f08eee9406e548a4477ba4e67770a82b6"
-dependencies = [
- "maybe-uninit",
-]
-
-[[package]]
-name = "smallvec"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c2fb2ec9bcd216a5b0d0ccf31ab17b5ed1d627960edff65bbe95d3ce221cefc"
@@ -1773,7 +1764,7 @@ checksum = "6d2e13201ef9ef527ad30a6bf1b08e3e024a40cf2731f393d80375dc88506207"
 dependencies = [
  "cranelift-codegen",
  "log",
- "smallvec 1.2.0",
+ "smallvec",
  "target-lexicon",
 ]
 
@@ -1855,7 +1846,7 @@ dependencies = [
  "regex",
  "rustc_version",
  "semver",
- "smallvec 0.6.13",
+ "smallvec",
  "wabt",
  "wasmer-runtime-core",
  "wasmparser",
@@ -1942,7 +1933,7 @@ dependencies = [
  "serde-bench",
  "serde_bytes",
  "serde_derive",
- "smallvec 0.6.13",
+ "smallvec",
  "wasmparser",
  "winapi",
 ]
@@ -1971,7 +1962,7 @@ dependencies = [
  "nix",
  "serde",
  "serde_derive",
- "smallvec 0.6.13",
+ "smallvec",
  "wasmer-runtime-core",
 ]
 
