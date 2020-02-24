@@ -4,7 +4,7 @@ use wasmer_runtime_core::{
     error::RuntimeError,
     imports,
     memory::Memory,
-    typed_func::Func,
+    typed_func::{ErasedFunc, Func},
     types::{FuncSig, MemoryDescriptor, Type, Value},
     units::Pages,
     vm, Instance,
@@ -154,7 +154,7 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
                 Ok(n + 1)
             }),
 
-            "callback_closure_polymorphic" => Func::new_polymorphic(
+            "callback_closure_polymorphic" => ErasedFunc::new_polymorphic(
                 Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
                 |_, params| -> Vec<Value> {
                     match params[0] {

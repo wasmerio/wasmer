@@ -190,6 +190,32 @@ where
     }
 }
 
+/// Represents a type-erased function provided by either the host or the WebAssembly program.
+#[allow(dead_code)]
+pub struct ErasedFunc<'a> {
+    inner: Box<dyn Kind>,
+
+    /// The function pointer.
+    func: NonNull<vm::Func>,
+
+    /// The function environment.
+    func_env: Option<NonNull<vm::FuncEnv>>,
+
+    /// The famous `vm::Ctx`.
+    vmctx: *mut vm::Ctx,
+
+    /// The runtime signature of this function.
+    ///
+    /// When converted from a `Func`, this is determined by the static `Args` and `Rets` type parameters.
+    /// otherwise the signature is dynamically assigned during `ErasedFunc` creation, usually when creating
+    /// a polymorphic host function.
+    signature: Arc<FuncSig>,
+
+    _phantom: PhantomData<&'a ()>,
+}
+
+unsafe impl<'a> Send for ErasedFunc<'a> {}
+
 /// Represents a function that can be used by WebAssembly.
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
@@ -203,16 +229,29 @@ pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     /// The famous `vm::Ctx`.
     vmctx: *mut vm::Ctx,
 
-    /// The signature is usually infered from `Args` and `Rets`. In
-    /// case of polymorphic function, the signature is only known at
-    /// runtime.
-    signature: Arc<FuncSig>,
-
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
 unsafe impl<'a, Args, Rets> Send for Func<'a, Args, Rets, Wasm> {}
 unsafe impl<'a, Args, Rets> Send for Func<'a, Args, Rets, Host> {}
+
+impl<'a, Args, Rets, Inner> From<Func<'a, Args, Rets, Inner>> for ErasedFunc<'a>
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+    Inner: Kind + 'static,
+{
+    fn from(that: Func<'a, Args, Rets, Inner>) -> ErasedFunc<'a> {
+        ErasedFunc {
+            inner: Box::new(that.inner),
+            func: that.func,
+            func_env: that.func_env,
+            vmctx: that.vmctx,
+            signature: Arc::new(FuncSig::new(Args::types(), Rets::types())),
+            _phantom: PhantomData,
+        }
+    }
+}
 
 impl<'a, Args, Rets> Func<'a, Args, Rets, Wasm>
 where
@@ -230,7 +269,6 @@ where
             func,
             func_env,
             vmctx,
-            signature: Arc::new(FuncSig::new(Args::types(), Rets::types())),
             _phantom: PhantomData,
         }
     }
@@ -254,13 +292,12 @@ where
             func,
             func_env,
             vmctx: ptr::null_mut(),
-            signature: Arc::new(FuncSig::new(Args::types(), Rets::types())),
             _phantom: PhantomData,
         }
     }
 }
 
-impl<'a> Func<'a, (), (), Host> {
+impl<'a> ErasedFunc<'a> {
     /// Creates a polymorphic function.
     #[allow(unused_variables)]
     #[cfg(all(unix, target_arch = "x86_64"))]
@@ -326,8 +363,8 @@ impl<'a> Func<'a, (), (), Host> {
             .append_global()
             .expect("cannot bump-allocate global trampoline memory");
 
-        Func {
-            inner: Host(()),
+        ErasedFunc {
+            inner: Box::new(Host(())),
             func: ptr.cast::<vm::Func>(),
             func_env: None,
             vmctx: ptr::null_mut(),
@@ -765,6 +802,22 @@ impl_traits!([C] S24, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T
 impl_traits!([C] S25, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y);
 impl_traits!([C] S26, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z);
 
+impl<'a> IsExport for ErasedFunc<'a> {
+    fn to_export(&self) -> Export {
+        let func = unsafe { FuncPointer::new(self.func.as_ptr()) };
+        let ctx = match self.func_env {
+            func_env @ Some(_) => Context::ExternalWithEnv(self.vmctx, func_env),
+            None => Context::Internal,
+        };
+
+        Export::Function {
+            func,
+            ctx,
+            signature: self.signature.clone(),
+        }
+    }
+}
+
 impl<'a, Args, Rets, Inner> IsExport for Func<'a, Args, Rets, Inner>
 where
     Args: WasmTypeList,
@@ -781,7 +834,7 @@ where
         Export::Function {
             func,
             ctx,
-            signature: self.signature.clone(),
+            signature: Arc::new(FuncSig::new(Args::types(), Rets::types())),
         }
     }
 }
