@@ -1,7 +1,7 @@
 //! Writes the AST into bytes representing WIT with its binary format.
 
 use crate::{
-    ast::{Adapter, AdapterKind, Export, Forward, Import, InterfaceType, Interfaces, Type},
+    ast::{Adapter, AdapterKind, Export, Import, InterfaceType, Interfaces, Type},
     interpreter::Instruction,
 };
 use std::io::{self, Write};
@@ -219,18 +219,6 @@ where
     }
 }
 
-/// Encode an `Forward` into bytes.
-///
-/// Decoder is `decoders::binary::forwards`.
-impl<W> ToBytes<W> for Forward<'_>
-where
-    W: Write,
-{
-    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.name.to_bytes(writer)
-    }
-}
-
 /// Encode an `Interfaces` into bytes.
 ///
 /// Decoder is `decoders::binary::parse`.
@@ -243,7 +231,6 @@ where
         self.types.to_bytes(writer)?;
         self.imports.to_bytes(writer)?;
         self.adapters.to_bytes(writer)?;
-        self.forwards.to_bytes(writer)?;
 
         Ok(())
     }
@@ -576,18 +563,6 @@ mod tests {
     }
 
     #[test]
-    fn test_forward() {
-        assert_to_bytes!(
-            Forward { name: "ab" },
-            &[
-                0x02, // string of length 2
-                0x61, // "a"
-                0x62, // "b"
-            ]
-        );
-    }
-
-    #[test]
     fn test_interfaces() {
         assert_to_bytes!(
             Interfaces {
@@ -614,7 +589,6 @@ mod tests {
                     output_types: vec![InterfaceType::I32],
                     instructions: vec![Instruction::ArgumentGet { index: 1 }],
                 }],
-                forwards: vec![Forward { name: "a" }],
             },
             &[
                 0x01, // 1 export
@@ -656,9 +630,6 @@ mod tests {
                 0x0c, // I32
                 0x01, // list of 1 item
                 0x00, 0x01, // ArgumentGet { index: 1 }
-                0x01, // 1 adapter
-                0x01, // string of 1 byte
-                0x61, // "a"
             ]
         );
     }

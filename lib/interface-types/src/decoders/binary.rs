@@ -379,23 +379,6 @@ fn adapters<'input, E: ParseError<&'input [u8]>>(
     Ok((input, adapters))
 }
 
-/// Parse a list of forwarded exports.
-fn forwards<'input, E: ParseError<&'input [u8]>>(
-    mut input: &'input [u8],
-) -> IResult<&'input [u8], Vec<Forward>, E> {
-    consume!((input, number_of_forwards) = uleb(input)?);
-
-    let mut forwards = Vec::with_capacity(number_of_forwards as usize);
-
-    for _ in 0..number_of_forwards {
-        consume!((input, forward_name) = string(input)?);
-
-        forwards.push(Forward { name: forward_name });
-    }
-
-    Ok((input, forwards))
-}
-
 /// Parse complete interfaces.
 fn interfaces<'input, E: ParseError<&'input [u8]>>(
     bytes: &'input [u8],
@@ -406,7 +389,6 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
     consume!((input, types) = types(input)?);
     consume!((input, imports) = imports(input)?);
     consume!((input, adapters) = adapters(input)?);
-    consume!((input, forwards) = forwards(input)?);
 
     Ok((
         input,
@@ -415,7 +397,6 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
             types,
             imports,
             adapters,
-            forwards,
         },
     ))
 }
@@ -474,9 +455,6 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///     0x02, // S32
 ///     0x01, // list of 1 item
 ///     0x00, 0x01, // ArgumentGet { index: 1 }
-///     0x01, // 1 adapter
-///     0x01, // string of 1 byte
-///     0x61, // "a"
 /// ];
 /// let output = Ok((
 ///     &[] as &[u8],
@@ -504,7 +482,6 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///             output_types: vec![InterfaceType::S32],
 ///             instructions: vec![Instruction::ArgumentGet { index: 1 }],
 ///         }],
-///         forwards: vec![Forward { name: "a" }],
 ///     },
 /// ));
 ///
@@ -876,23 +853,6 @@ mod tests {
     }
 
     #[test]
-    fn test_forwards() {
-        let input = &[
-            0x02, // 2 adapters
-            0x01, // string of 1 byte
-            0x61, // "a"
-            0x02, // string of 2 bytes
-            0x62, 0x63, // "b", "c"
-        ];
-        let output = Ok((
-            &[] as &[u8],
-            vec![Forward { name: "a" }, Forward { name: "bc" }],
-        ));
-
-        assert_eq!(forwards::<()>(input), output);
-    }
-
-    #[test]
     fn test_parse() {
         let input = &[
             0x01, // 1 export
@@ -934,9 +894,6 @@ mod tests {
             0x0c, // I32
             0x01, // list of 1 item
             0x00, 0x01, // ArgumentGet { index: 1 }
-            0x01, // 1 adapter
-            0x01, // string of 1 byte
-            0x61, // "a"
         ];
         let output = Ok((
             &[] as &[u8],
@@ -964,7 +921,6 @@ mod tests {
                     output_types: vec![InterfaceType::I32],
                     instructions: vec![Instruction::ArgumentGet { index: 1 }],
                 }],
-                forwards: vec![Forward { name: "a" }],
             },
         ));
 

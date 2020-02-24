@@ -15,7 +15,6 @@ mod keyword {
 
     // New keywords.
     custom_keyword!(adapt);
-    custom_keyword!(forward);
 
     // New types.
     custom_keyword!(s8);
@@ -288,7 +287,6 @@ enum Interface<'a> {
     Type(Type<'a>),
     Import(Import<'a>),
     Adapter(Adapter<'a>),
-    Forward(Forward<'a>),
 }
 
 impl<'a> Parse<'a> for Interface<'a> {
@@ -307,8 +305,6 @@ impl<'a> Parse<'a> for Interface<'a> {
                     Ok(Interface::Import(parser.parse()?))
                 } else if lookahead.peek::<keyword::adapt>() {
                     Ok(Interface::Adapter(parser.parse()?))
-                } else if lookahead.peek::<keyword::forward>() {
-                    Ok(Interface::Forward(parser.parse()?))
                 } else {
                     Err(lookahead.error())
                 }
@@ -430,20 +426,6 @@ impl<'a> Parse<'a> for Adapter<'a> {
     }
 }
 
-impl<'a> Parse<'a> for Forward<'a> {
-    fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<keyword::forward>()?;
-
-        let name = parser.parens(|parser| {
-            parser.parse::<keyword::export>()?;
-
-            Ok(parser.parse()?)
-        })?;
-
-        Ok(Forward { name })
-    }
-}
-
 impl<'a> Parse<'a> for Interfaces<'a> {
     fn parse(parser: Parser<'a>) -> Result<Self> {
         let mut interfaces: Interfaces = Default::default();
@@ -456,7 +438,6 @@ impl<'a> Parse<'a> for Interfaces<'a> {
                 Interface::Type(ty) => interfaces.types.push(ty),
                 Interface::Import(import) => interfaces.imports.push(import),
                 Interface::Adapter(adapter) => interfaces.adapters.push(adapter),
-                Interface::Forward(forward) => interfaces.forwards.push(forward),
             }
         }
 
@@ -494,9 +475,7 @@ impl<'a> Parse<'a> for Interfaces<'a> {
 ///   arg.get 42)
 ///
 /// (@interface adapt (export "bar")
-///   arg.get 42)
-///
-/// (@interface forward (export "main"))"#,
+///   arg.get 42)"#,
 /// )
 /// .unwrap();
 /// let output = Interfaces {
@@ -542,7 +521,6 @@ impl<'a> Parse<'a> for Interfaces<'a> {
 ///             instructions: vec![Instruction::ArgumentGet { index: 42 }],
 ///         },
 ///     ],
-///     forwards: vec![Forward { name: "main" }],
 /// };
 ///
 /// assert_eq!(parse(&input).unwrap(), output);
@@ -826,13 +804,6 @@ mod tests {
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
-    #[test]
-    fn test_forward() {
-        let input = buffer(r#"(@interface forward (export "foo"))"#);
-        let output = Interface::Forward(Forward { name: "foo" });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
 
     #[test]
     fn test_interfaces() {
@@ -852,9 +823,7 @@ mod tests {
   arg.get 42)
 
 (@interface adapt (export "bar")
-  arg.get 42)
-
-(@interface forward (export "main"))"#,
+  arg.get 42)"#,
         );
         let output = Interfaces {
             exports: vec![
@@ -899,7 +868,6 @@ mod tests {
                     instructions: vec![Instruction::ArgumentGet { index: 42 }],
                 },
             ],
-            forwards: vec![Forward { name: "main" }],
         };
 
         assert_eq!(parser::parse::<Interfaces>(&input).unwrap(), output);

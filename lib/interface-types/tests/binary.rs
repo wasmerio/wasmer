@@ -29,7 +29,6 @@ fn test_binary_encoding_decoding_roundtrip() {
             output_types: vec![InterfaceType::I32],
             instructions: vec![Instruction::ArgumentGet { index: 1 }],
         }],
-        forwards: vec![Forward { name: "a" }],
     };
 
     let mut binary = vec![];

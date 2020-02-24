@@ -53,7 +53,6 @@
 //!             instructions: vec![Instruction::ArgumentGet { index: 42 }],
 //!         },
 //!     ],
-//!     forwards: vec![Forward { name: "main" }],
 //! })
 //!     .to_string();
 //! let output = r#";; Interfaces
@@ -79,17 +78,14 @@
 //!
 //! ;; Interface, Adapter bar
 //! (@interface adapt (export "bar")
-//!   arg.get 42)
-//!
-//! ;; Interface, Forward main
-//! (@interface forward (export "main"))"#;
+//!   arg.get 42)"#;
 //!
 //! assert_eq!(input, output);
 //! # }
 //! ```
 
 use crate::{
-    ast::{Adapter, Export, Forward, Import, InterfaceType, Interfaces, Type},
+    ast::{Adapter, Export, Import, InterfaceType, Interfaces, Type},
     interpreter::Instruction,
 };
 use std::string::ToString;
@@ -283,16 +279,6 @@ impl<'input> ToString for &Adapter<'input> {
     }
 }
 
-/// Encode a `Forward` into a string.
-impl<'input> ToString for &Forward<'input> {
-    fn to_string(&self) -> String {
-        format!(
-            r#"(@interface forward (export "{name}"))"#,
-            name = self.name,
-        )
-    }
-}
-
 /// Encode an `Interfaces` into a string.
 impl<'input> ToString for &Interfaces<'input> {
     fn to_string(&self) -> String {
@@ -348,20 +334,10 @@ impl<'input> ToString for &Interfaces<'input> {
                 accumulator
             });
 
-        let forwards = self
-            .forwards
-            .iter()
-            .fold(String::new(), |mut accumulator, forward| {
-                accumulator.push_str(&format!("\n\n;; Interface, Forward {}\n", forward.name));
-                accumulator.push_str(&forward.to_string());
-                accumulator
-            });
-
         output.push_str(&exports);
         output.push_str(&types);
         output.push_str(&imports);
         output.push_str(&adapters);
-        output.push_str(&forwards);
 
         output
     }
@@ -630,14 +606,6 @@ mod tests {
     }
 
     #[test]
-    fn test_forward() {
-        let input: String = (&Forward { name: "main" }).to_string();
-        let output = r#"(@interface forward (export "main"))"#;
-
-        assert_eq!(input, output);
-    }
-
-    #[test]
     fn test_interfaces() {
         let input: String = (&Interfaces {
             exports: vec![
@@ -682,7 +650,6 @@ mod tests {
                     instructions: vec![Instruction::ArgumentGet { index: 42 }],
                 },
             ],
-            forwards: vec![Forward { name: "main" }],
         })
             .to_string();
         let output = r#";; Interfaces
@@ -708,10 +675,7 @@ mod tests {
 
 ;; Interface, Adapter bar
 (@interface adapt (export "bar")
-  arg.get 42)
-
-;; Interface, Forward main
-(@interface forward (export "main"))"#;
+  arg.get 42)"#;
 
         assert_eq!(input, output);
     }

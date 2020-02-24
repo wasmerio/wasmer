@@ -175,13 +175,6 @@ pub enum Adapter<'input> {
     },
 }
 
-/// Represented a forwarded export.
-#[derive(PartialEq, Debug)]
-pub struct Forward<'input> {
-    /// The forwarded export name.
-    pub name: &'input str,
-}
-
 /// Represents a set of interfaces, i.e. it entirely describes a WIT
 /// definition.
 #[derive(PartialEq, Default, Debug)]
@@ -197,7 +190,4 @@ pub struct Interfaces<'input> {
 
     /// All the adapters.
     pub adapters: Vec<Adapter<'input>>,
-
-    /// All the forwarded functions.
-    pub forwards: Vec<Forward<'input>>,
 }
