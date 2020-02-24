@@ -74,6 +74,8 @@ public:
   inline size_t get_stack_map_size() const { return stack_map_size; }
   inline uint8_t *get_code_ptr() const { return (uint8_t *)code_start_ptr; }
   inline size_t get_code_size() const { return code_size; }
+  inline uint8_t *get_readwrite_section_ptr() const { return readwrite_section.base; }
+  inline size_t get_readwrite_section_size() const { return readwrite_section.size; }
 
   virtual uint8_t *allocateCodeSection(uintptr_t size, unsigned alignment,
                                        unsigned section_id,
@@ -189,6 +191,8 @@ public:
   size_t get_stack_map_size() const;
   uint8_t *get_code_ptr() const;
   size_t get_code_size() const;
+  uint8_t *get_readwrite_ptr() const;
+  size_t get_readwrite_size() const;
 
   bool _init_failed = false;
 
@@ -324,5 +328,13 @@ const uint8_t *llvm_backend_get_code_ptr(const WasmModule *module) {
 
 size_t llvm_backend_get_code_size(const WasmModule *module) {
   return module->get_code_size();
+}
+
+const uint8_t *llvm_backend_get_readwrite_ptr(const WasmModule *module) {
+  return module->get_readwrite_ptr();
+}
+
+size_t llvm_backend_get_readwrite_size(const WasmModule *module) {
+  return module->get_readwrite_size();
 }
 }

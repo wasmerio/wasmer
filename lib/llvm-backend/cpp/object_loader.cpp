@@ -269,3 +269,11 @@ uint8_t *WasmModule::get_code_ptr() const {
 size_t WasmModule::get_code_size() const {
   return memory_manager->get_code_size();
 }
+
+uint8_t *WasmModule::get_readwrite_ptr() const {
+  return memory_manager->get_readwrite_section_ptr();
+}
+
+size_t WasmModule::get_readwrite_size() const {
+  return memory_manager->get_readwrite_section_size();
+}

@@ -243,6 +243,10 @@ pub trait RunnableModule: Send + Sync {
         None
     }
 
+    fn get_readwrite_section(&self) -> Option<&[u8]> {
+        None
+    }
+
     /// Returns the beginning offsets of all functions, including import trampolines.
     fn get_offsets(&self) -> Option<Vec<usize>> {
         None
