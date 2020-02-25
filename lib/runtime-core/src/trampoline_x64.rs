@@ -8,9 +8,10 @@
 
 use crate::loader::CodeMemory;
 use crate::vm::Ctx;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::ptr::NonNull;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 use std::{mem, slice};
 
 lazy_static! {
@@ -32,43 +33,88 @@ lazy_static! {
         }
     };
 
-    static ref TRAMPOLINES: TrampBuffer = TrampBuffer::new();
+    static ref TRAMPOLINES: TrampBuffer = TrampBuffer::new(64 * 1048576);
 }
 
-struct TrampBuffer {
+/// The global trampoline buffer.
+pub(self) struct TrampBuffer {
+    /// A fixed-(virtual)-size executable+writable buffer for storing trampolines.
     buffer: CodeMemory,
-    len: AtomicUsize,
+
+    /// Allocation state.
+    alloc: Mutex<AllocState>,
+}
+
+/// The allocation state of a `TrampBuffer`.
+struct AllocState {
+    /// Records all allocated blocks in `buffer`.
+    blocks: BTreeMap<usize, usize>,
 }
 
 impl TrampBuffer {
-    /// Creates a trampoline buffer.
-    fn new() -> TrampBuffer {
+    /// Creates a trampoline buffer with a given (virtual) size.
+    pub(self) fn new(size: usize) -> TrampBuffer {
         // Pre-allocate 64 MiB of virtual memory for code.
-        let mem = CodeMemory::new(64 * 1048576);
+        let mem = CodeMemory::new(size);
         mem.make_writable_executable();
         TrampBuffer {
             buffer: mem,
-            len: AtomicUsize::new(0),
+            alloc: Mutex::new(AllocState {
+                blocks: BTreeMap::new(),
+            }),
         }
     }
 
-    /// Bump allocation. Copies `buf` to the end of this code memory.
-    ///
-    /// FIXME: Proper storage recycling.
-    fn append(&self, buf: &[u8]) -> Option<NonNull<u8>> {
-        let begin = self.len.fetch_add(buf.len(), Ordering::SeqCst);
-        let end = begin + buf.len();
+    /// Removes a previously-`insert`ed trampoline.
+    pub(self) unsafe fn remove(&self, start: NonNull<u8>) {
+        let start = start.as_ptr() as usize - self.buffer.get_backing_ptr() as usize;
+        let mut alloc = self.alloc.lock().unwrap();
+        alloc
+            .blocks
+            .remove(&start)
+            .expect("TrampBuffer::remove(): Attempting to remove a non-existent allocation.");
+    }
 
-        // Length overflowed. Revert and return None.
-        if end > self.buffer.len() {
-            self.len.fetch_sub(buf.len(), Ordering::SeqCst);
-            return None;
+    /// Allocates a region of executable memory and copies `buf` to the end of this region.
+    ///
+    /// Returns `None` if no memory is available.
+    pub(self) fn insert(&self, buf: &[u8]) -> Option<NonNull<u8>> {
+        // First, assume an available start position...
+        let mut assumed_start: usize = 0;
+
+        let mut alloc = self.alloc.lock().unwrap();
+        let mut found = false;
+
+        // Then, try invalidating that assumption...
+        for (&start, &end) in &alloc.blocks {
+            if start - assumed_start < buf.len() {
+                // Unavailable. Move to next free block.
+                assumed_start = end;
+            } else {
+                // This free block can be used.
+                found = true;
+                break;
+            }
         }
 
-        // Now we have unique ownership to `self.buffer[begin..end]`.
+        if !found {
+            // No previous free blocks were found. Try allocating at the end.
+            if self.buffer.len() - assumed_start < buf.len() {
+                // No more free space. Cannot allocate.
+                return None;
+            } else {
+                // Extend towards the end.
+            }
+        }
+
+        // Now we know `assumed_start` is valid.
+        let start = assumed_start;
+        alloc.blocks.insert(start, start + buf.len());
+
+        // We have unique ownership to `self.buffer[start..start + buf.len()]`.
         let slice = unsafe {
             std::slice::from_raw_parts_mut(
-                self.buffer.get_backing_ptr().offset(begin as _),
+                self.buffer.get_backing_ptr().offset(start as _),
                 buf.len(),
             )
         };
@@ -265,9 +311,19 @@ impl TrampolineBufferBuilder {
         idx
     }
 
-    /// Appends to the global trampoline buffer.
-    pub fn append_global(self) -> Option<NonNull<u8>> {
-        TRAMPOLINES.append(&self.code)
+    /// Inserts to the global trampoline buffer.
+    pub fn insert_global(self) -> Option<NonNull<u8>> {
+        TRAMPOLINES.insert(&self.code)
+    }
+
+    /// Removes from the global trampoline buffer.
+    pub unsafe fn remove_global(ptr: NonNull<u8>) {
+        TRAMPOLINES.remove(ptr);
+    }
+
+    /// Gets the current (non-executable) code in this builder.
+    pub fn code(&self) -> &[u8] {
+        &self.code
     }
 
     /// Consumes the builder and builds the trampoline buffer.
@@ -342,5 +398,86 @@ mod tests {
             ) as i32
         };
         assert_eq!(ret, 136);
+    }
+
+    #[test]
+    fn test_many_global_trampolines() {
+        unsafe extern "C" fn inner(n: *const CallContext, args: *const u64) -> u64 {
+            let n = n as usize;
+            let mut result: u64 = 0;
+            for i in 0..n {
+                result += *args.offset(i as _);
+            }
+            result
+        }
+
+        // Use the smallest possible buffer size (page size) to check memory releasing logic.
+        let buffer = TrampBuffer::new(4096);
+
+        // Validate the previous trampoline instead of the current one to ensure that no overwrite happened.
+        let mut prev: Option<(NonNull<u8>, u64)> = None;
+
+        for i in 0..5000usize {
+            let mut builder = TrampolineBufferBuilder::new();
+            let n = i % 8;
+            builder.add_callinfo_trampoline(inner, n as _, n as _);
+            let ptr = buffer
+                .insert(builder.code())
+                .expect("cannot insert new code into global buffer");
+
+            if let Some((ptr, expected)) = prev.take() {
+                use std::mem::transmute;
+
+                // Test different argument counts.
+                unsafe {
+                    match expected {
+                        0 => {
+                            let f = transmute::<_, extern "C" fn() -> u64>(ptr);
+                            assert_eq!(f(), 0);
+                        }
+                        1 => {
+                            let f = transmute::<_, extern "C" fn(u64) -> u64>(ptr);
+                            assert_eq!(f(1), 1);
+                        }
+                        3 => {
+                            let f = transmute::<_, extern "C" fn(u64, u64) -> u64>(ptr);
+                            assert_eq!(f(1, 2), 3);
+                        }
+                        6 => {
+                            let f = transmute::<_, extern "C" fn(u64, u64, u64) -> u64>(ptr);
+                            assert_eq!(f(1, 2, 3), 6);
+                        }
+                        10 => {
+                            let f = transmute::<_, extern "C" fn(u64, u64, u64, u64) -> u64>(ptr);
+                            assert_eq!(f(1, 2, 3, 4), 10);
+                        }
+                        15 => {
+                            let f =
+                                transmute::<_, extern "C" fn(u64, u64, u64, u64, u64) -> u64>(ptr);
+                            assert_eq!(f(1, 2, 3, 4, 5), 15);
+                        }
+                        21 => {
+                            let f = transmute::<
+                                _,
+                                extern "C" fn(u64, u64, u64, u64, u64, u64) -> u64,
+                            >(ptr);
+                            assert_eq!(f(1, 2, 3, 4, 5, 6), 21);
+                        }
+                        28 => {
+                            let f = transmute::<
+                                _,
+                                extern "C" fn(u64, u64, u64, u64, u64, u64, u64) -> u64,
+                            >(ptr);
+                            assert_eq!(f(1, 2, 3, 4, 5, 6, 7), 28);
+                        }
+                        _ => unreachable!(),
+                    }
+                    buffer.remove(ptr);
+                }
+            }
+
+            let expected = (0..=n as u64).fold(0u64, |a, b| a + b);
+            prev = Some((ptr, expected))
+        }
     }
 }
