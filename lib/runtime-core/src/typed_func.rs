@@ -360,11 +360,25 @@ impl<'a> ErasedFunc<'a> {
             (signature.params().len() + 1) as u32, // +vmctx
         );
         let ptr = builder
-            .append_global()
+            .insert_global()
             .expect("cannot bump-allocate global trampoline memory");
 
+        struct AutoRelease {
+            ptr: NonNull<u8>,
+        }
+
+        impl Drop for AutoRelease {
+            fn drop(&mut self) {
+                unsafe {
+                    TrampolineBufferBuilder::remove_global(self.ptr);
+                }
+            }
+        }
+
+        impl Kind for AutoRelease {}
+
         ErasedFunc {
-            inner: Box::new(Host(())),
+            inner: Box::new(AutoRelease { ptr }),
             func: ptr.cast::<vm::Func>(),
             func_env: None,
             vmctx: ptr::null_mut(),
@@ -940,5 +954,19 @@ mod tests {
                 "foo" => func!(foo),
             },
         };
+    }
+
+    #[test]
+    fn test_many_new_polymorphics() {
+        use crate::types::{FuncSig, Type};
+
+        // Check that generating a lot (1M) of polymorphic functions doesn't use up the executable buffer.
+        for _ in 0..1000000 {
+            let arglist = vec![Type::I32; 100];
+            ErasedFunc::new_polymorphic(
+                Arc::new(FuncSig::new(arglist, vec![Type::I32])),
+                |_, _| unreachable!(),
+            );
+        }
     }
 }
