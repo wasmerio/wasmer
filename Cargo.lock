@@ -240,7 +240,7 @@ dependencies = [
  "cranelift-codegen-shared",
  "cranelift-entity",
  "log",
- "smallvec 1.2.0",
+ "smallvec",
  "target-lexicon",
  "thiserror",
 ]
@@ -926,7 +926,7 @@ dependencies = [
  "cloudabi",
  "libc",
  "redox_syscall",
- "smallvec 1.2.0",
+ "smallvec",
  "winapi",
 ]
 
@@ -1416,15 +1416,6 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "0.6.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7b0758c52e15a8b5e3691eae6cc559f08eee9406e548a4477ba4e67770a82b6"
-dependencies = [
- "maybe-uninit",
-]
-
-[[package]]
-name = "smallvec"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c2fb2ec9bcd216a5b0d0ccf31ab17b5ed1d627960edff65bbe95d3ce221cefc"
@@ -1712,7 +1703,7 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasmer"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "atty",
  "byteorder",
@@ -1743,7 +1734,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-clif-backend"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "byteorder",
  "cranelift-codegen",
@@ -1773,7 +1764,7 @@ checksum = "6d2e13201ef9ef527ad30a6bf1b08e3e024a40cf2731f393d80375dc88506207"
 dependencies = [
  "cranelift-codegen",
  "log",
- "smallvec 1.2.0",
+ "smallvec",
  "target-lexicon",
 ]
 
@@ -1793,14 +1784,14 @@ dependencies = [
 
 [[package]]
 name = "wasmer-dev-utils"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "libc",
 ]
 
 [[package]]
 name = "wasmer-emscripten"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -1813,7 +1804,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten-tests"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "glob 0.3.0",
  "wabt",
@@ -1827,7 +1818,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-interface-types"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "nom",
  "wast",
@@ -1843,7 +1834,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-llvm-backend"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "byteorder",
  "cc",
@@ -1855,7 +1846,7 @@ dependencies = [
  "regex",
  "rustc_version",
  "semver",
- "smallvec 0.6.13",
+ "smallvec",
  "wabt",
  "wasmer-runtime-core",
  "wasmparser",
@@ -1874,14 +1865,14 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middleware-common"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "wasmer-runtime-core",
 ]
 
 [[package]]
 name = "wasmer-middleware-common-tests"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "criterion",
  "wabt",
@@ -1894,7 +1885,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "criterion",
  "lazy_static",
@@ -1911,7 +1902,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-c-api"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "cbindgen",
  "libc",
@@ -1923,7 +1914,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-core"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "bincode",
  "blake3",
@@ -1942,14 +1933,14 @@ dependencies = [
  "serde-bench",
  "serde_bytes",
  "serde_derive",
- "smallvec 0.6.13",
+ "smallvec",
  "wasmparser",
  "winapi",
 ]
 
 [[package]]
 name = "wasmer-runtime-core-tests"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "wabt",
  "wasmer-clif-backend",
@@ -1960,7 +1951,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-singlepass-backend"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "bincode",
  "byteorder",
@@ -1971,13 +1962,13 @@ dependencies = [
  "nix",
  "serde",
  "serde_derive",
- "smallvec 0.6.13",
+ "smallvec",
  "wasmer-runtime-core",
 ]
 
 [[package]]
 name = "wasmer-spectests"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "glob 0.3.0",
  "wabt",
@@ -1989,7 +1980,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "bincode",
  "byteorder",
@@ -2006,7 +1997,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "log",
  "minifb",
@@ -2019,7 +2010,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-tests"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "glob 0.3.0",
  "wasmer-clif-backend",
@@ -2032,7 +2023,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-win-exception-handler"
-version = "0.14.0"
+version = "0.14.1"
 dependencies = [
  "cmake",
  "libc",
