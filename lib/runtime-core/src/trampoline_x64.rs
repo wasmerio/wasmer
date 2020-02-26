@@ -37,7 +37,7 @@ lazy_static! {
 }
 
 /// The global trampoline buffer.
-pub(self) struct TrampBuffer {
+struct TrampBuffer {
     /// A fixed-(virtual)-size executable+writable buffer for storing trampolines.
     buffer: CodeMemory,
 
@@ -53,7 +53,7 @@ struct AllocState {
 
 impl TrampBuffer {
     /// Creates a trampoline buffer with a given (virtual) size.
-    pub(self) fn new(size: usize) -> TrampBuffer {
+    fn new(size: usize) -> TrampBuffer {
         // Pre-allocate 64 MiB of virtual memory for code.
         let mem = CodeMemory::new(size);
         mem.make_writable_executable();
@@ -66,7 +66,7 @@ impl TrampBuffer {
     }
 
     /// Removes a previously-`insert`ed trampoline.
-    pub(self) unsafe fn remove(&self, start: NonNull<u8>) {
+    unsafe fn remove(&self, start: NonNull<u8>) {
         let start = start.as_ptr() as usize - self.buffer.get_backing_ptr() as usize;
         let mut alloc = self.alloc.lock().unwrap();
         alloc
@@ -78,7 +78,7 @@ impl TrampBuffer {
     /// Allocates a region of executable memory and copies `buf` to the end of this region.
     ///
     /// Returns `None` if no memory is available.
-    pub(self) fn insert(&self, buf: &[u8]) -> Option<NonNull<u8>> {
+    fn insert(&self, buf: &[u8]) -> Option<NonNull<u8>> {
         // First, assume an available start position...
         let mut assumed_start: usize = 0;
 
