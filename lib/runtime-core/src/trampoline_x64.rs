@@ -66,6 +66,8 @@ impl TrampBuffer {
     }
 
     /// Removes a previously-`insert`ed trampoline.
+    ///
+    /// For safety, refer to the public interface `TrampolineBufferBuilder::remove_global`.
     unsafe fn remove(&self, start: NonNull<u8>) {
         let start = start.as_ptr() as usize - self.buffer.get_backing_ptr() as usize;
         let mut alloc = self.alloc.lock().unwrap();
@@ -311,12 +313,18 @@ impl TrampolineBufferBuilder {
         idx
     }
 
-    /// Inserts to the global trampoline buffer.
+    /// Inserts this trampoline to the global trampoline buffer.
     pub fn insert_global(self) -> Option<NonNull<u8>> {
         TRAMPOLINES.insert(&self.code)
     }
 
-    /// Removes from the global trampoline buffer.
+    /// Removes the trampoline pointed to by `ptr` from the global trampoline buffer. Panics if `ptr`
+    /// does not point to any trampoline.
+    ///
+    /// # Safety
+    ///
+    /// Calling this function invalidates the trampoline `ptr` points to and recycles its memory. You
+    /// should ensure that `ptr` isn't used after calling `remove_global`.
     pub unsafe fn remove_global(ptr: NonNull<u8>) {
         TRAMPOLINES.remove(ptr);
     }
