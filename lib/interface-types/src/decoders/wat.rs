@@ -470,67 +470,39 @@ impl<'a> Parse<'a> for Interfaces<'a> {
 ///
 /// # fn main() {
 /// let input = Buffer::new(
-///     r#"(@interface export "foo"
-///   (param i32))
+///     r#"(@interface type (func (param i32) (result s8)))
 ///
-/// (@interface export "bar")
+/// (@interface import "ns" "foo" (func (type 0)))
 ///
-/// (@interface func $ns_foo (import "ns" "foo")
-///   (result i32))
+/// (@interface func (type 0) arg.get 42)
 ///
-/// (@interface func $ns_bar (import "ns" "bar"))
+/// (@interface export "bar" (func 0))
 ///
-/// (@interface adapt (import "ns" "foo")
-///   (param i32)
-///   arg.get 42)
-///
-/// (@interface adapt (export "bar")
-///   arg.get 42)"#,
+/// (@interface implement (func 0) (func 1))"#,
 /// )
 /// .unwrap();
 /// let output = Interfaces {
-///     exports: vec![
-///         Export {
-///             name: "foo",
-///             input_types: vec![InterfaceType::I32],
-///             output_types: vec![],
-///         },
-///         Export {
-///             name: "bar",
-///             input_types: vec![],
-///             output_types: vec![],
-///         },
-///     ],
-///     types: vec![],
-///     imports: vec![
-///         Import {
-///             namespace: "ns",
-///             name: "foo",
-///             input_types: vec![],
-///             output_types: vec![InterfaceType::I32],
-///         },
-///         Import {
-///             namespace: "ns",
-///             name: "bar",
-///             input_types: vec![],
-///             output_types: vec![],
-///         },
-///     ],
-///     adapters: vec![
-///         Adapter::Import {
-///             namespace: "ns",
-///             name: "foo",
-///             input_types: vec![InterfaceType::I32],
-///             output_types: vec![],
-///             instructions: vec![Instruction::ArgumentGet { index: 42 }],
-///         },
-///         Adapter::Export {
-///             name: "bar",
-///             input_types: vec![],
-///             output_types: vec![],
-///             instructions: vec![Instruction::ArgumentGet { index: 42 }],
-///         },
-///     ],
+///     types: vec![Type {
+///         inputs: vec![InterfaceType::I32],
+///         outputs: vec![InterfaceType::S8],
+///     }],
+///     imports: vec![Import {
+///         namespace: "ns",
+///         name: "foo",
+///         signature_type: 0,
+///     }],
+///     adapters: vec![Adapter {
+///         function_type: 0,
+///         instructions: vec![Instruction::ArgumentGet { index: 42 }],
+///     }],
+///     exports: vec![Export {
+///         name: "bar",
+///         function_type: 0,
+///     }],
+///     implementations: vec![Implementation {
+///         core_function_type: 0,
+///         adapter_function_type: 1,
+///     }],
 /// };
 ///
 /// assert_eq!(parse(&input).unwrap(), output);
@@ -685,48 +657,11 @@ mod tests {
     }
 
     #[test]
-    fn test_export_with_no_param_no_result() {
-        let input = buffer(r#"(@interface export "foo")"#);
+    fn test_export() {
+        let input = buffer(r#"(@interface export "foo" (func 0))"#);
         let output = Interface::Export(Export {
             name: "foo",
-            input_types: vec![],
-            output_types: vec![],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_export_with_some_param_no_result() {
-        let input = buffer(r#"(@interface export "foo" (param i32))"#);
-        let output = Interface::Export(Export {
-            name: "foo",
-            input_types: vec![InterfaceType::I32],
-            output_types: vec![],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_export_with_no_param_some_result() {
-        let input = buffer(r#"(@interface export "foo" (result i32))"#);
-        let output = Interface::Export(Export {
-            name: "foo",
-            input_types: vec![],
-            output_types: vec![InterfaceType::I32],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_export_with_some_param_some_result() {
-        let input = buffer(r#"(@interface export "foo" (param string) (result i32 i32))"#);
-        let output = Interface::Export(Export {
-            name: "foo",
-            input_types: vec![InterfaceType::String],
-            output_types: vec![InterfaceType::I32, InterfaceType::I32],
+            function_type: 0,
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
@@ -734,93 +669,44 @@ mod tests {
 
     #[test]
     fn test_export_escaped_name() {
-        let input = buffer(r#"(@interface export "fo\"o")"#);
+        let input = buffer(r#"(@interface export "fo\"o" (func 0))"#);
         let output = Interface::Export(Export {
             name: r#"fo"o"#,
-            input_types: vec![],
-            output_types: vec![],
+            function_type: 0,
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
 
     #[test]
-    fn test_import_with_no_param_no_result() {
-        let input = buffer(r#"(@interface func $ns_foo (import "ns" "foo"))"#);
+    fn test_import() {
+        let input = buffer(r#"(@interface import "ns" "foo" (func (type 0)))"#);
         let output = Interface::Import(Import {
             namespace: "ns",
             name: "foo",
-            input_types: vec![],
-            output_types: vec![],
+            signature_type: 0,
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
 
     #[test]
-    fn test_import_with_some_param_no_result() {
-        let input = buffer(r#"(@interface func $ns_foo (import "ns" "foo") (param i32))"#);
-        let output = Interface::Import(Import {
-            namespace: "ns",
-            name: "foo",
-            input_types: vec![InterfaceType::I32],
-            output_types: vec![],
+    fn test_adapter() {
+        let input = buffer(r#"(@interface func (type 0) arg.get 42)"#);
+        let output = Interface::Adapter(Adapter {
+            function_type: 0,
+            instructions: vec![Instruction::ArgumentGet { index: 42 }],
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
 
     #[test]
-    fn test_import_with_no_param_some_result() {
-        let input = buffer(r#"(@interface func $ns_foo (import "ns" "foo") (result i32))"#);
-        let output = Interface::Import(Import {
-            namespace: "ns",
-            name: "foo",
-            input_types: vec![],
-            output_types: vec![InterfaceType::I32],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_import_with_some_param_some_result() {
-        let input = buffer(
-            r#"(@interface func $ns_foo (import "ns" "foo") (param string) (result i32 i32))"#,
-        );
-        let output = Interface::Import(Import {
-            namespace: "ns",
-            name: "foo",
-            input_types: vec![InterfaceType::String],
-            output_types: vec![InterfaceType::I32, InterfaceType::I32],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_adapter_import() {
-        let input =
-            buffer(r#"(@interface adapt (import "ns" "foo") (param i32 i32) (result i32))"#);
-        let output = Interface::Adapter(Adapter::Import {
-            namespace: "ns",
-            name: "foo",
-            input_types: vec![InterfaceType::I32, InterfaceType::I32],
-            output_types: vec![InterfaceType::I32],
-            instructions: vec![],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_adapter_export() {
-        let input = buffer(r#"(@interface adapt (export "foo") (param i32 i32) (result i32))"#);
-        let output = Interface::Adapter(Adapter::Export {
-            name: "foo",
-            input_types: vec![InterfaceType::I32, InterfaceType::I32],
-            output_types: vec![InterfaceType::I32],
-            instructions: vec![],
+    fn test_implementation() {
+        let input = buffer(r#"(@interface implement (func 0) (func 1))"#);
+        let output = Interface::Implementation(Implementation {
+            core_function_type: 0,
+            adapter_function_type: 1,
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
@@ -829,66 +715,38 @@ mod tests {
     #[test]
     fn test_interfaces() {
         let input = buffer(
-            r#"(@interface export "foo"
-  (param i32))
+            r#"(@interface type (func (param i32) (result s8)))
 
-(@interface export "bar")
+(@interface import "ns" "foo" (func (type 0)))
 
-(@interface func $ns_foo (import "ns" "foo")
-  (result i32))
+(@interface func (type 0) arg.get 42)
 
-(@interface func $ns_bar (import "ns" "bar"))
+(@interface export "bar" (func 0))
 
-(@interface adapt (import "ns" "foo")
-  (param i32)
-  arg.get 42)
-
-(@interface adapt (export "bar")
-  arg.get 42)"#,
+(@interface implement (func 0) (func 1))"#,
         );
         let output = Interfaces {
-            exports: vec![
-                Export {
-                    name: "foo",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![],
-                },
-                Export {
-                    name: "bar",
-                    input_types: vec![],
-                    output_types: vec![],
-                },
-            ],
-            types: vec![],
-            imports: vec![
-                Import {
-                    namespace: "ns",
-                    name: "foo",
-                    input_types: vec![],
-                    output_types: vec![InterfaceType::I32],
-                },
-                Import {
-                    namespace: "ns",
-                    name: "bar",
-                    input_types: vec![],
-                    output_types: vec![],
-                },
-            ],
-            adapters: vec![
-                Adapter::Import {
-                    namespace: "ns",
-                    name: "foo",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![],
-                    instructions: vec![Instruction::ArgumentGet { index: 42 }],
-                },
-                Adapter::Export {
-                    name: "bar",
-                    input_types: vec![],
-                    output_types: vec![],
-                    instructions: vec![Instruction::ArgumentGet { index: 42 }],
-                },
-            ],
+            types: vec![Type {
+                inputs: vec![InterfaceType::I32],
+                outputs: vec![InterfaceType::S8],
+            }],
+            imports: vec![Import {
+                namespace: "ns",
+                name: "foo",
+                signature_type: 0,
+            }],
+            adapters: vec![Adapter {
+                function_type: 0,
+                instructions: vec![Instruction::ArgumentGet { index: 42 }],
+            }],
+            exports: vec![Export {
+                name: "bar",
+                function_type: 0,
+            }],
+            implementations: vec![Implementation {
+                core_function_type: 0,
+                adapter_function_type: 1,
+            }],
         };
 
         assert_eq!(parser::parse::<Interfaces>(&input).unwrap(), output);

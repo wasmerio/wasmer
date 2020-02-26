@@ -237,8 +237,6 @@ where
             self.implementations.to_bytes(writer)?;
         }
 
-        //self.adapters.to_bytes(writer)?;
-
         Ok(())
     }
 }
@@ -448,7 +446,7 @@ mod tests {
     fn test_interface_kind() {
         assert_to_bytes!(InterfaceKind::Type, &[0x00]);
         assert_to_bytes!(InterfaceKind::Import, &[0x01]);
-        assert_to_bytes!(InterfaceKind::Function, &[0x02]);
+        assert_to_bytes!(InterfaceKind::Adapter, &[0x02]);
         assert_to_bytes!(InterfaceKind::Export, &[0x03]);
         assert_to_bytes!(InterfaceKind::Implementation, &[0x04]);
     }
@@ -458,19 +456,14 @@ mod tests {
         assert_to_bytes!(
             Export {
                 name: "abc",
-                input_types: vec![InterfaceType::I32, InterfaceType::I64],
-                output_types: vec![InterfaceType::I32]
+                function_type: 0,
             },
             &[
                 0x03, // string of length 3
                 0x61, // "a"
                 0x62, // "b"
                 0x63, // "c"
-                0x02, // list of 2 items
-                0x0c, // I32
-                0x0d, // I64
-                0x01, // list of 1 items
-                0x0c, // I32
+                0x00, // function type
             ]
         );
     }
@@ -498,68 +491,27 @@ mod tests {
             Import {
                 namespace: "a",
                 name: "b",
-                input_types: vec![InterfaceType::I32, InterfaceType::I64],
-                output_types: vec![InterfaceType::I32],
+                signature_type: 0,
             },
             &[
                 0x01, // string of length 1
                 0x61, // "a"
                 0x01, // string of length 1
                 0x62, // "b"
-                0x02, // list of 2 items
-                0x0c, // I32
-                0x0d, // I64
-                0x01, // list of 1 items
-                0x0c, // I32
+                0x00, // signature typr
             ]
         );
     }
 
     #[test]
-    fn test_adapter_import() {
+    fn test_adapter() {
         assert_to_bytes!(
-            Adapter::Import {
-                namespace: "a",
-                name: "b",
-                input_types: vec![InterfaceType::I32, InterfaceType::I64],
-                output_types: vec![InterfaceType::I32],
+            Adapter {
+                function_type: 0,
                 instructions: vec![Instruction::ArgumentGet { index: 1 }],
             },
             &[
-                0x01, // InterfaceKind::Import
-                0x01, // string of length 1
-                0x61, // "a"
-                0x01, // string of length 1
-                0x62, // "b"
-                0x02, // list of 2 items
-                0x0c, // I32
-                0x0d, // I64
-                0x01, // list of 1 items
-                0x0c, // I32
-                0x01, // list of 1 item
-                0x00, 0x01, // ArgumentGet { index: 1 }
-            ]
-        );
-    }
-
-    #[test]
-    fn test_adapter_export() {
-        assert_to_bytes!(
-            Adapter::Export {
-                name: "a",
-                input_types: vec![InterfaceType::I32, InterfaceType::I64],
-                output_types: vec![InterfaceType::I32],
-                instructions: vec![Instruction::ArgumentGet { index: 1 }],
-            },
-            &[
-                0x03, // InterfaceKind::Export
-                0x01, // string of length 1
-                0x61, // "a"
-                0x02, // list of 2 items
-                0x0c, // I32
-                0x0d, // I64
-                0x01, // list of 1 items
-                0x0c, // I32
+                0x00, // function type
                 0x01, // list of 1 item
                 0x00, 0x01, // ArgumentGet { index: 1 }
             ]
@@ -570,64 +522,60 @@ mod tests {
     fn test_interfaces() {
         assert_to_bytes!(
             Interfaces {
-                exports: vec![Export {
-                    name: "ab",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
-                }],
                 types: vec![Type {
-                    inputs: vec![InterfaceType::I32, InterfaceType::I32],
-                    outputs: vec![InterfaceType::S32],
+                    inputs: vec![InterfaceType::S8],
+                    outputs: vec![InterfaceType::S16],
                 }],
                 imports: vec![Import {
-                    namespace: "a",
-                    name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I64],
+                    namespace: "ab",
+                    name: "c",
+                    signature_type: 0,
                 }],
-                adapters: vec![Adapter::Import {
-                    namespace: "a",
-                    name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
+                adapters: vec![Adapter {
+                    function_type: 0,
                     instructions: vec![Instruction::ArgumentGet { index: 1 }],
+                }],
+                exports: vec![Export {
+                    name: "ab",
+                    function_type: 1,
+                }],
+                implementations: vec![Implementation {
+                    core_function_type: 2,
+                    adapter_function_type: 3,
                 }],
             },
             &[
+                0x00, // type section
+                0x01, // 1 type
+                0x01, // list of 1 item
+                0x00, // S8
+                0x01, // list of 1 item
+                0x01, // S16
+                //
+                0x01, // import section
+                0x01, // 1 import
+                0x02, // string of 2 bytes
+                0x61, 0x62, // "a", "b"
+                0x01, // string of 1 byte
+                0x63, // "c"
+                0x00, // signature type
+                //
+                0x02, // adapter section
+                0x01, // 1 adapter
+                0x00, // function type
+                0x01, // list of 1 item
+                0x00, 0x01, // ArgumentGet { index: 1 }
+                //
+                0x03, // export section
                 0x01, // 1 export
                 0x02, // string of 2 bytes
                 0x61, 0x62, // "a", "b"
-                0x01, // list of 1 item
-                0x0c, // I32
-                0x01, // list of 1 item
-                0x0c, // I32
-                0x01, // 1 type
-                0x02, // list of 2 items
-                0x0c, // I32
-                0x0c, // I32
-                0x01, // list of 1 item
-                0x02, // S32
-                0x01, // 1 import
-                0x01, // string of 1 byte
-                0x61, // "a"
-                0x01, // string of 1 byte
-                0x62, // "b"
-                0x01, // list of 1 item
-                0x0c, // I32
-                0x01, // list of 1 item
-                0x0d, // I64
-                0x01, // 1 adapter
-                0x00, // adapter kind: import
-                0x01, // string of 1 byte
-                0x61, // "a"
-                0x01, // string of 1 byte
-                0x62, // "b"
-                0x01, // list of 1 item
-                0x0c, // I32
-                0x01, // list of 1 item
-                0x0c, // I32
-                0x01, // list of 1 item
-                0x00, 0x01, // ArgumentGet { index: 1 }
+                0x01, // function type
+                //
+                0x04, // implementation section
+                0x01, // 1 implementation
+                0x02, // core function type
+                0x03, // adapter function type
             ]
         );
     }

@@ -11,74 +11,46 @@
 //!
 //! # fn main() {
 //! let input: String = (&Interfaces {
-//!     exports: vec![
-//!         Export {
-//!             name: "foo",
-//!             input_types: vec![InterfaceType::I32],
-//!             output_types: vec![],
-//!         },
-//!         Export {
-//!             name: "bar",
-//!             input_types: vec![],
-//!             output_types: vec![],
-//!         },
-//!     ],
-//!     types: vec![],
-//!     imports: vec![
-//!         Import {
-//!             namespace: "ns",
-//!             name: "foo",
-//!             input_types: vec![],
-//!             output_types: vec![InterfaceType::I32],
-//!         },
-//!         Import {
-//!             namespace: "ns",
-//!             name: "bar",
-//!             input_types: vec![],
-//!             output_types: vec![],
-//!         },
-//!     ],
-//!     adapters: vec![
-//!         Adapter::Import {
-//!             namespace: "ns",
-//!             name: "foo",
-//!             input_types: vec![InterfaceType::I32],
-//!             output_types: vec![],
-//!             instructions: vec![Instruction::ArgumentGet { index: 42 }],
-//!         },
-//!         Adapter::Export {
-//!             name: "bar",
-//!             input_types: vec![],
-//!             output_types: vec![],
-//!             instructions: vec![Instruction::ArgumentGet { index: 42 }],
-//!         },
-//!     ],
+//!     types: vec![Type {
+//!         inputs: vec![InterfaceType::I32],
+//!         outputs: vec![InterfaceType::S8],
+//!     }],
+//!     imports: vec![Import {
+//!         namespace: "ns",
+//!         name: "foo",
+//!         signature_type: 0,
+//!     }],
+//!     adapters: vec![Adapter {
+//!         function_type: 0,
+//!         instructions: vec![Instruction::ArgumentGet { index: 42 }],
+//!     }],
+//!     exports: vec![Export {
+//!         name: "bar",
+//!         function_type: 0,
+//!     }],
+//!     implementations: vec![Implementation {
+//!         core_function_type: 0,
+//!         adapter_function_type: 1,
+//!     }],
 //! })
 //!     .to_string();
-//! let output = r#";; Interfaces
-//!
-//! ;; Interface, Export foo
-//! (@interface export "foo"
-//!   (param i32))
-//!
-//! ;; Interface, Export bar
-//! (@interface export "bar")
-//!
-//! ;; Interface, Import ns.foo
-//! (@interface func $ns_foo (import "ns" "foo")
-//!   (result i32))
-//!
-//! ;; Interface, Import ns.bar
-//! (@interface func $ns_bar (import "ns" "bar"))
-//!
-//! ;; Interface, Adapter ns.foo
-//! (@interface adapt (import "ns" "foo")
+//! let output = r#";; Types
+//! (@interface type (func
 //!   (param i32)
+//!   (result s8)))
+//!
+//! ;; Imports
+//! (@interface import "ns" "foo" (func (type 0)))
+//!
+//! ;; Adapters
+//! (@interface func (type 0)
 //!   arg.get 42)
 //!
-//! ;; Interface, Adapter bar
-//! (@interface adapt (export "bar")
-//!   arg.get 42)"#;
+//! ;; Exports
+//! (@interface export "bar" (func 0))
+//!
+//! ;; Implementations
+//! (@interface implement (func 0) (func 1))"#;
 //!
 //! assert_eq!(input, output);
 //! # }
@@ -261,12 +233,13 @@ impl<'input> ToString for &Implementation {
 /// Encode an `Interfaces` into a string.
 impl<'input> ToString for &Interfaces<'input> {
     fn to_string(&self) -> String {
-        let mut output = String::from(";; Interfaces");
+        let mut output = String::new();
 
         let types = self
             .types
             .iter()
             .fold(String::new(), |mut accumulator, ty| {
+                accumulator.push('\n');
                 accumulator.push_str(&ty.to_string());
                 accumulator
             });
@@ -275,6 +248,7 @@ impl<'input> ToString for &Interfaces<'input> {
             .imports
             .iter()
             .fold(String::new(), |mut accumulator, import| {
+                accumulator.push('\n');
                 accumulator.push_str(&import.to_string());
                 accumulator
             });
@@ -283,6 +257,7 @@ impl<'input> ToString for &Interfaces<'input> {
             .adapters
             .iter()
             .fold(String::new(), |mut accumulator, adapter| {
+                accumulator.push('\n');
                 accumulator.push_str(&adapter.to_string());
                 accumulator
             });
@@ -291,6 +266,7 @@ impl<'input> ToString for &Interfaces<'input> {
             .exports
             .iter()
             .fold(String::new(), |mut accumulator, export| {
+                accumulator.push('\n');
                 accumulator.push_str(&export.to_string());
                 accumulator
             });
@@ -299,15 +275,49 @@ impl<'input> ToString for &Interfaces<'input> {
             self.implementations
                 .iter()
                 .fold(String::new(), |mut accumulator, implementation| {
+                    accumulator.push('\n');
                     accumulator.push_str(&implementation.to_string());
                     accumulator
                 });
 
-        output.push_str(&types);
-        output.push_str(&imports);
-        output.push_str(&adapters);
-        output.push_str(&exports);
-        output.push_str(&implementations);
+        let separator = |output: &mut String| {
+            if !output.is_empty() {
+                output.push_str("\n\n");
+            }
+        };
+
+        if !types.is_empty() {
+            output.push_str(";; Types");
+            output.push_str(&types);
+        }
+
+        separator(&mut output);
+
+        if !imports.is_empty() {
+            output.push_str(";; Imports");
+            output.push_str(&imports);
+        }
+
+        separator(&mut output);
+
+        if !adapters.is_empty() {
+            output.push_str(";; Adapters");
+            output.push_str(&adapters);
+        }
+
+        separator(&mut output);
+
+        if !exports.is_empty() {
+            output.push_str(";; Exports");
+            output.push_str(&exports);
+        }
+
+        separator(&mut output);
+
+        if !implementations.is_empty() {
+            output.push_str(";; Implementations");
+            output.push_str(&implementations);
+        }
 
         output
     }
@@ -436,254 +446,85 @@ mod tests {
 
     #[test]
     fn test_exports() {
-        let inputs: Vec<String> = vec![
-            (&Export {
-                name: "foo",
-                input_types: vec![InterfaceType::I32, InterfaceType::F32],
-                output_types: vec![InterfaceType::I32],
-            })
-                .to_string(),
-            (&Export {
-                name: "foo",
-                input_types: vec![InterfaceType::I32],
-                output_types: vec![],
-            })
-                .to_string(),
-            (&Export {
-                name: "foo",
-                input_types: vec![],
-                output_types: vec![InterfaceType::I32],
-            })
-                .to_string(),
-            (&Export {
-                name: "foo",
-                input_types: vec![],
-                output_types: vec![],
-            })
-                .to_string(),
-        ];
-        let outputs = vec![
-            r#"(@interface export "foo"
-  (param i32 f32)
-  (result i32))"#,
-            r#"(@interface export "foo"
-  (param i32))"#,
-            r#"(@interface export "foo"
-  (result i32))"#,
-            r#"(@interface export "foo")"#,
-        ];
+        let input = (&Export {
+            name: "foo",
+            function_type: 0,
+        })
+            .to_string();
+        let output = r#"(@interface export "foo" (func 0))"#;
 
-        assert_eq!(inputs, outputs);
+        assert_eq!(input, output);
     }
 
     #[test]
     fn test_imports() {
-        let inputs: Vec<String> = vec![
-            (&Import {
-                namespace: "ns",
-                name: "foo",
-                input_types: vec![InterfaceType::I32, InterfaceType::String],
-                output_types: vec![InterfaceType::String],
-            })
-                .to_string(),
-            (&Import {
-                namespace: "ns",
-                name: "foo",
-                input_types: vec![InterfaceType::String],
-                output_types: vec![],
-            })
-                .to_string(),
-            (&Import {
-                namespace: "ns",
-                name: "foo",
-                input_types: vec![],
-                output_types: vec![InterfaceType::String],
-            })
-                .to_string(),
-            (&Import {
-                namespace: "ns",
-                name: "foo",
-                input_types: vec![],
-                output_types: vec![],
-            })
-                .to_string(),
-        ];
-        let outputs = vec![
-            r#"(@interface func $ns_foo (import "ns" "foo")
-  (param i32 string)
-  (result string))"#,
-            r#"(@interface func $ns_foo (import "ns" "foo")
-  (param string))"#,
-            r#"(@interface func $ns_foo (import "ns" "foo")
-  (result string))"#,
-            r#"(@interface func $ns_foo (import "ns" "foo"))"#,
-        ];
+        let input = (&Import {
+            namespace: "ns",
+            name: "foo",
+            signature_type: 0,
+        })
+            .to_string();
+        let output = r#"(@interface import "ns" "foo" (func (type 0)))"#;
 
-        assert_eq!(inputs, outputs);
+        assert_eq!(input, output);
     }
 
     #[test]
-    fn test_adapters() {
-        let inputs: Vec<String> = vec![
-            (&Adapter::Import {
-                namespace: "ns",
-                name: "foo",
-                input_types: vec![InterfaceType::I32, InterfaceType::F32],
-                output_types: vec![InterfaceType::I32],
-                instructions: vec![
-                    Instruction::ArgumentGet { index: 0 },
-                    Instruction::WriteUtf8 {
-                        allocator_name: "hello",
-                    },
-                    Instruction::CallExport { export_name: "f" },
-                ],
-            })
-                .to_string(),
-            (&Adapter::Import {
-                namespace: "ns",
-                name: "foo",
-                input_types: vec![InterfaceType::I32],
-                output_types: vec![],
-                instructions: vec![Instruction::CallExport { export_name: "f" }],
-            })
-                .to_string(),
-            (&Adapter::Import {
-                namespace: "ns",
-                name: "foo",
-                input_types: vec![],
-                output_types: vec![InterfaceType::I32],
-                instructions: vec![Instruction::CallExport { export_name: "f" }],
-            })
-                .to_string(),
-            (&Adapter::Export {
-                name: "foo",
-                input_types: vec![InterfaceType::I32, InterfaceType::F32],
-                output_types: vec![InterfaceType::I32],
-                instructions: vec![
-                    Instruction::ArgumentGet { index: 0 },
-                    Instruction::WriteUtf8 {
-                        allocator_name: "hello",
-                    },
-                    Instruction::CallExport { export_name: "f" },
-                ],
-            })
-                .to_string(),
-            (&Adapter::Export {
-                name: "foo",
-                input_types: vec![InterfaceType::I32],
-                output_types: vec![],
-                instructions: vec![Instruction::CallExport { export_name: "f" }],
-            })
-                .to_string(),
-            (&Adapter::Export {
-                name: "foo",
-                input_types: vec![],
-                output_types: vec![InterfaceType::I32],
-                instructions: vec![Instruction::CallExport { export_name: "f" }],
-            })
-                .to_string(),
-        ];
-        let outputs = vec![
-            r#"(@interface adapt (import "ns" "foo")
-  (param i32 f32)
-  (result i32)
-  arg.get 0
-  write-utf8 "hello"
-  call-export "f")"#,
-            r#"(@interface adapt (import "ns" "foo")
-  (param i32)
-  call-export "f")"#,
-            r#"(@interface adapt (import "ns" "foo")
-  (result i32)
-  call-export "f")"#,
-            r#"(@interface adapt (export "foo")
-  (param i32 f32)
-  (result i32)
-  arg.get 0
-  write-utf8 "hello"
-  call-export "f")"#,
-            r#"(@interface adapt (export "foo")
-  (param i32)
-  call-export "f")"#,
-            r#"(@interface adapt (export "foo")
-  (result i32)
-  call-export "f")"#,
-        ];
+    fn test_adapter() {
+        let input = (&Adapter {
+            function_type: 0,
+            instructions: vec![Instruction::ArgumentGet { index: 42 }],
+        })
+            .to_string();
+        let output = r#"(@interface func (type 0)
+  arg.get 42)"#;
 
-        assert_eq!(inputs, outputs);
+        assert_eq!(input, output);
     }
 
     #[test]
     fn test_interfaces() {
         let input: String = (&Interfaces {
-            exports: vec![
-                Export {
-                    name: "foo",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![],
-                },
-                Export {
-                    name: "bar",
-                    input_types: vec![],
-                    output_types: vec![],
-                },
-            ],
-            types: vec![],
-            imports: vec![
-                Import {
-                    namespace: "ns",
-                    name: "foo",
-                    input_types: vec![],
-                    output_types: vec![InterfaceType::I32],
-                },
-                Import {
-                    namespace: "ns",
-                    name: "bar",
-                    input_types: vec![],
-                    output_types: vec![],
-                },
-            ],
-            adapters: vec![
-                Adapter::Import {
-                    namespace: "ns",
-                    name: "foo",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![],
-                    instructions: vec![Instruction::ArgumentGet { index: 42 }],
-                },
-                Adapter::Export {
-                    name: "bar",
-                    input_types: vec![],
-                    output_types: vec![],
-                    instructions: vec![Instruction::ArgumentGet { index: 42 }],
-                },
-            ],
+            types: vec![Type {
+                inputs: vec![InterfaceType::I32],
+                outputs: vec![InterfaceType::S8],
+            }],
+            imports: vec![Import {
+                namespace: "ns",
+                name: "foo",
+                signature_type: 0,
+            }],
+            adapters: vec![Adapter {
+                function_type: 0,
+                instructions: vec![Instruction::ArgumentGet { index: 42 }],
+            }],
+            exports: vec![Export {
+                name: "bar",
+                function_type: 0,
+            }],
+            implementations: vec![Implementation {
+                core_function_type: 0,
+                adapter_function_type: 1,
+            }],
         })
             .to_string();
-        let output = r#";; Interfaces
-
-;; Interface, Export foo
-(@interface export "foo"
-  (param i32))
-
-;; Interface, Export bar
-(@interface export "bar")
-
-;; Interface, Import ns.foo
-(@interface func $ns_foo (import "ns" "foo")
-  (result i32))
-
-;; Interface, Import ns.bar
-(@interface func $ns_bar (import "ns" "bar"))
-
-;; Interface, Adapter ns.foo
-(@interface adapt (import "ns" "foo")
+        let output = r#";; Types
+(@interface type (func
   (param i32)
+  (result s8)))
+
+;; Imports
+(@interface import "ns" "foo" (func (type 0)))
+
+;; Adapters
+(@interface func (type 0)
   arg.get 42)
 
-;; Interface, Adapter bar
-(@interface adapt (export "bar")
-  arg.get 42)"#;
+;; Exports
+(@interface export "bar" (func 0))
+
+;; Implementations
+(@interface implement (func 0) (func 1))"#;
 
         assert_eq!(input, output);
     }

@@ -83,16 +83,6 @@ pub struct Export<'input> {
     pub function_type: u32,
 }
 
-/// Represents an implementation.
-#[derive(PartialEq, Debug)]
-pub struct Implementation {
-    /// The core function type.
-    pub core_function_type: u32,
-
-    /// The adapter function type.
-    pub adapter_function_type: u32,
-}
-
 /// Represents an adapter.
 #[derive(PartialEq, Debug)]
 pub struct Adapter<'input> {
@@ -101,6 +91,16 @@ pub struct Adapter<'input> {
 
     /// The instructions.
     pub instructions: Vec<Instruction<'input>>,
+}
+
+/// Represents an implementation.
+#[derive(PartialEq, Debug)]
+pub struct Implementation {
+    /// The core function type.
+    pub core_function_type: u32,
+
+    /// The adapter function type.
+    pub adapter_function_type: u32,
 }
 
 /// Represents the kind of interface.

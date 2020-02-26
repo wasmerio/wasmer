@@ -376,41 +376,43 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ) -> IResult<&'input [u8], Interfaces, E> {
     let mut input = bytes;
 
-    consume!((input, interface_kind) = byte(input)?);
-
-    let interface_kind = InterfaceKind::try_from(interface_kind)
-        .map_err(|_| Err::Error(make_error(input, ErrorKind::ParseTo)))?;
-
     let mut all_types = vec![];
     let mut all_imports = vec![];
     let mut all_adapters = vec![];
     let mut all_exports = vec![];
     let mut all_implementations = vec![];
 
-    match interface_kind {
-        InterfaceKind::Type => {
-            consume!((input, mut new_types) = types(input)?);
-            all_types.append(&mut new_types);
-        }
+    while !input.is_empty() {
+        consume!((input, interface_kind) = byte(input)?);
 
-        InterfaceKind::Import => {
-            consume!((input, mut new_imports) = imports(input)?);
-            all_imports.append(&mut new_imports);
-        }
+        let interface_kind = InterfaceKind::try_from(interface_kind)
+            .map_err(|_| Err::Error(make_error(input, ErrorKind::ParseTo)))?;
 
-        InterfaceKind::Adapter => {
-            consume!((input, mut new_adapters) = adapters(input)?);
-            all_adapters.append(&mut new_adapters);
-        }
+        match interface_kind {
+            InterfaceKind::Type => {
+                consume!((input, mut new_types) = types(input)?);
+                all_types.append(&mut new_types);
+            }
 
-        InterfaceKind::Export => {
-            consume!((input, mut new_exports) = exports(input)?);
-            all_exports.append(&mut new_exports);
-        }
+            InterfaceKind::Import => {
+                consume!((input, mut new_imports) = imports(input)?);
+                all_imports.append(&mut new_imports);
+            }
 
-        InterfaceKind::Implementation => {
-            consume!((input, mut new_implementations) = implementations(input)?);
-            all_implementations.append(&mut new_implementations)
+            InterfaceKind::Adapter => {
+                consume!((input, mut new_adapters) = adapters(input)?);
+                all_adapters.append(&mut new_adapters);
+            }
+
+            InterfaceKind::Export => {
+                consume!((input, mut new_exports) = exports(input)?);
+                all_exports.append(&mut new_exports);
+            }
+
+            InterfaceKind::Implementation => {
+                consume!((input, mut new_implementations) = implementations(input)?);
+                all_implementations.append(&mut new_implementations)
+            }
         }
     }
 
@@ -441,65 +443,61 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///
 /// # fn main() {
 /// let input = &[
+///     0x00, // type section
+///     0x01, // 1 type
+///     0x01, // list of 1 item
+///     0x00, // S8
+///     0x01, // list of 1 item
+///     0x01, // S16
+///     //
+///     0x01, // import section
+///     0x01, // 1 import
+///     0x02, // string of 2 bytes
+///     0x61, 0x62, // "a", "b"
+///     0x01, // string of 1 byte
+///     0x63, // "c"
+///     0x00, // signature type
+///     //
+///     0x02, // adapter section
+///     0x01, // 1 adapter
+///     0x00, // function type
+///     0x01, // list of 1 item
+///     0x00, 0x01, // ArgumentGet { index: 1 }
+///     //
+///     0x03, // export section
 ///     0x01, // 1 export
 ///     0x02, // string of 2 bytes
 ///     0x61, 0x62, // "a", "b"
-///     0x01, // list of 1 item
-///     0x02, // S32
-///     0x01, // list of 1 item
-///     0x02, // S32
-///     0x01, // 1 type
-///     0x02, // list of 2 items
-///     0x02, // S32
-///     0x02, // S32
-///     0x01, // list of 1 item
-///     0x02, // S32
-///     0x01, // 1 import
-///     0x01, // string of 1 byte
-///     0x61, // "a"
-///     0x01, // string of 1 byte
-///     0x62, // "b"
-///     0x01, // list of 1 item
-///     0x02, // S32
-///     0x01, // list of 1 item
-///     0x03, // S64
-///     0x01, // 1 adapter
-///     0x00, // adapter kind: import
-///     0x01, // string of 1 byte
-///     0x61, // "a"
-///     0x01, // string of 1 byte
-///     0x62, // "b"
-///     0x01, // list of 1 item
-///     0x02, // S32
-///     0x01, // list of 1 item
-///     0x02, // S32
-///     0x01, // list of 1 item
-///     0x00, 0x01, // ArgumentGet { index: 1 }
+///     0x01, // function type
+///     //
+///     0x04, // implementation section
+///     0x01, // 1 implementation
+///     0x02, // core function type
+///     0x03, // adapter function type
 /// ];
 /// let output = Ok((
 ///     &[] as &[u8],
 ///     Interfaces {
-///         exports: vec![Export {
-///             name: "ab",
-///             input_types: vec![InterfaceType::S32],
-///             output_types: vec![InterfaceType::S32],
-///         }],
 ///         types: vec![Type {
-///             inputs: vec![InterfaceType::S32, InterfaceType::S32],
-///             outputs: vec![InterfaceType::S32],
+///             inputs: vec![InterfaceType::S8],
+///             outputs: vec![InterfaceType::S16],
 ///         }],
 ///         imports: vec![Import {
-///             namespace: "a",
-///             name: "b",
-///             input_types: vec![InterfaceType::S32],
-///             output_types: vec![InterfaceType::S64],
+///             namespace: "ab",
+///             name: "c",
+///             signature_type: 0,
 ///         }],
-///         adapters: vec![Adapter::Import {
-///             namespace: "a",
-///             name: "b",
-///             input_types: vec![InterfaceType::S32],
-///             output_types: vec![InterfaceType::S32],
+///         adapters: vec![Adapter {
+///             function_type: 0,
 ///             instructions: vec![Instruction::ArgumentGet { index: 1 }],
+///         }],
+///         exports: vec![Export {
+///             name: "ab",
+///             function_type: 1,
+///         }],
+///         implementations: vec![Implementation {
+///             core_function_type: 2,
+///             adapter_function_type: 3,
 ///         }],
 ///     },
 /// ));
@@ -727,27 +725,21 @@ mod tests {
             0x02, // 2 exports
             0x02, // string of 2 bytes
             0x61, 0x62, // "a", "b"
-            0x01, // list of 1 item
-            0x00, // S8
-            0x01, // list of 1 item
-            0x00, // S8
+            0x01, // function type
             0x02, // string of 2 bytes
             0x63, 0x64, // "c", "d"
-            0x00, // list of 0 item
-            0x00, // list of 0 item
+            0x02, // function type
         ];
         let output = Ok((
             &[] as &[u8],
             vec![
                 Export {
                     name: "ab",
-                    input_types: vec![InterfaceType::S8],
-                    output_types: vec![InterfaceType::S8],
+                    function_type: 1,
                 },
                 Export {
                     name: "cd",
-                    input_types: vec![],
-                    output_types: vec![],
+                    function_type: 2,
                 },
             ],
         ));
@@ -784,18 +776,12 @@ mod tests {
             0x61, // "a"
             0x01, // string of 1 byte
             0x62, // "b"
-            0x01, // list of 1 item
-            0x02, // S32
-            0x01, // list of 1 item
-            0x03, // S64
+            0x01, // signature type
             0x01, // string of 1 byte
             0x63, // "c"
             0x01, // string of 1 byte
             0x64, // "d"
-            0x01, // list of 1 item
-            0x02, // S32
-            0x01, // list of 1 item
-            0x03, // S64
+            0x02, // signature type
         ];
         let output = Ok((
             &[] as &[u8],
@@ -803,14 +789,12 @@ mod tests {
                 Import {
                     namespace: "a",
                     name: "b",
-                    input_types: vec![InterfaceType::S32],
-                    output_types: vec![InterfaceType::S64],
+                    signature_type: 1,
                 },
                 Import {
                     namespace: "c",
                     name: "d",
-                    input_types: vec![InterfaceType::S32],
-                    output_types: vec![InterfaceType::S64],
+                    signature_type: 2,
                 },
             ],
         ));
@@ -870,67 +854,62 @@ mod tests {
     #[test]
     fn test_parse() {
         let input = &[
+            0x00, // type section
+            0x01, // 1 type
+            0x01, // list of 1 item
+            0x00, // S8
+            0x01, // list of 1 item
+            0x01, // S16
+            //
+            0x01, // import section
+            0x01, // 1 import
+            0x02, // string of 2 bytes
+            0x61, 0x62, // "a", "b"
+            0x01, // string of 1 byte
+            0x63, // "c"
+            0x00, // signature type
+            //
+            0x02, // adapter section
+            0x01, // 1 adapter
+            0x00, // function type
+            0x01, // list of 1 item
+            0x00, 0x01, // ArgumentGet { index: 1 }
+            //
+            0x03, // export section
             0x01, // 1 export
             0x02, // string of 2 bytes
             0x61, 0x62, // "a", "b"
-            0x01, // list of 1 item
-            0x0c, // I32
-            0x01, // list of 1 item
-            0x0c, // I32
-            0x01, // 1 type
-            0x02, // list of 2 items
-            0x0c, // I32
-            0x0c, // I32
-            0x00, // list of 0 item
-            0x01, // 1 import
-            0x01, // string of 1 byte
-            0x61, // "a"
-            0x01, // string of 1 byte
-            0x62, // "b"
-            0x01, // list of 1 item
-            0x0c, // I32
-            0x01, // list of 1 item
-            0x0d, // I64
-                  /*
-                  0x01, // 1 adapter
-                  0x00, // adapter kind: import
-                  0x01, // string of 1 byte
-                  0x61, // "a"
-                  0x01, // string of 1 byte
-                  0x62, // "b"
-                  0x01, // list of 1 item
-                  0x0c, // I32
-                  0x01, // list of 1 item
-                  0x0c, // I32
-                  0x01, // list of 1 item
-                  0x00, 0x01, // ArgumentGet { index: 1 }
-                  */
+            0x01, // function type
+            //
+            0x04, // implementation section
+            0x01, // 1 implementation
+            0x02, // core function type
+            0x03, // adapter function type
         ];
         let output = Ok((
             &[] as &[u8],
             Interfaces {
-                exports: vec![Export {
-                    name: "ab",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
-                }],
                 types: vec![Type {
-                    inputs: vec![InterfaceType::I32, InterfaceType::I32],
-                    outputs: vec![],
+                    inputs: vec![InterfaceType::S8],
+                    outputs: vec![InterfaceType::S16],
                 }],
                 imports: vec![Import {
-                    namespace: "a",
-                    name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I64],
+                    namespace: "ab",
+                    name: "c",
+                    signature_type: 0,
                 }],
-                adapters: vec![/*Adapter::Import {
-                    namespace: "a",
-                    name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
+                adapters: vec![Adapter {
+                    function_type: 0,
                     instructions: vec![Instruction::ArgumentGet { index: 1 }],
-                }*/],
+                }],
+                exports: vec![Export {
+                    name: "ab",
+                    function_type: 1,
+                }],
+                implementations: vec![Implementation {
+                    core_function_type: 2,
+                    adapter_function_type: 3,
+                }],
             },
         ));
 
