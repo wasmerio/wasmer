@@ -9,7 +9,6 @@
 //!     interpreter::Instruction,
 //! };
 //!
-//! # fn main() {
 //! let input: String = (&Interfaces {
 //!     types: vec![Type {
 //!         inputs: vec![InterfaceType::I32],
@@ -53,7 +52,6 @@
 //! (@interface implement (func 0) (func 1))"#;
 //!
 //! assert_eq!(input, output);
-//! # }
 //! ```
 
 use crate::{ast::*, interpreter::Instruction};

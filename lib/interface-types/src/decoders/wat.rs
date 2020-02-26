@@ -120,10 +120,6 @@ impl Parse<'_> for InterfaceType {
             parser.parse::<keyword::string>()?;
 
             Ok(InterfaceType::String)
-        } else if lookahead.peek::<keyword::string>() {
-            parser.parse::<keyword::string>()?;
-
-            Ok(InterfaceType::String)
         } else if lookahead.peek::<keyword::anyref>() {
             parser.parse::<keyword::anyref>()?;
 
@@ -143,6 +139,7 @@ impl Parse<'_> for InterfaceType {
 }
 
 impl<'a> Parse<'a> for Instruction<'a> {
+    #[allow(clippy::cognitive_complexity)]
     fn parse(parser: Parser<'a>) -> Result<Self> {
         let mut lookahead = parser.lookahead1();
 
@@ -588,7 +585,6 @@ impl<'a> Parse<'a> for Interfaces<'a> {
 ///     interpreter::Instruction,
 /// };
 ///
-/// # fn main() {
 /// let input = Buffer::new(
 ///     r#"(@interface type (func (param i32) (result s8)))
 ///
@@ -626,7 +622,6 @@ impl<'a> Parse<'a> for Interfaces<'a> {
 /// };
 ///
 /// assert_eq!(parse(&input).unwrap(), output);
-/// # }
 /// ```
 pub fn parse<'input>(input: &'input Buffer) -> Result<Interfaces<'input>> {
     parser::parse::<Interfaces>(&input)

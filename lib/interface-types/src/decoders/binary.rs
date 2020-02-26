@@ -415,7 +415,6 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///     interpreter::Instruction,
 /// };
 ///
-/// # fn main() {
 /// let input = &[
 ///     0x00, // type section
 ///     0x01, // 1 type
@@ -477,7 +476,6 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 /// ));
 ///
 /// assert_eq!(parse::<()>(input), output);
-/// # }
 /// ```
 pub fn parse<'input, E: ParseError<&'input [u8]>>(
     bytes: &'input [u8],
