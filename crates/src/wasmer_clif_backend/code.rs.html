@@ -1239,6 +1239,72 @@
 <span id="1239">1239</span>
 <span id="1240">1240</span>
 <span id="1241">1241</span>
+<span id="1242">1242</span>
+<span id="1243">1243</span>
+<span id="1244">1244</span>
+<span id="1245">1245</span>
+<span id="1246">1246</span>
+<span id="1247">1247</span>
+<span id="1248">1248</span>
+<span id="1249">1249</span>
+<span id="1250">1250</span>
+<span id="1251">1251</span>
+<span id="1252">1252</span>
+<span id="1253">1253</span>
+<span id="1254">1254</span>
+<span id="1255">1255</span>
+<span id="1256">1256</span>
+<span id="1257">1257</span>
+<span id="1258">1258</span>
+<span id="1259">1259</span>
+<span id="1260">1260</span>
+<span id="1261">1261</span>
+<span id="1262">1262</span>
+<span id="1263">1263</span>
+<span id="1264">1264</span>
+<span id="1265">1265</span>
+<span id="1266">1266</span>
+<span id="1267">1267</span>
+<span id="1268">1268</span>
+<span id="1269">1269</span>
+<span id="1270">1270</span>
+<span id="1271">1271</span>
+<span id="1272">1272</span>
+<span id="1273">1273</span>
+<span id="1274">1274</span>
+<span id="1275">1275</span>
+<span id="1276">1276</span>
+<span id="1277">1277</span>
+<span id="1278">1278</span>
+<span id="1279">1279</span>
+<span id="1280">1280</span>
+<span id="1281">1281</span>
+<span id="1282">1282</span>
+<span id="1283">1283</span>
+<span id="1284">1284</span>
+<span id="1285">1285</span>
+<span id="1286">1286</span>
+<span id="1287">1287</span>
+<span id="1288">1288</span>
+<span id="1289">1289</span>
+<span id="1290">1290</span>
+<span id="1291">1291</span>
+<span id="1292">1292</span>
+<span id="1293">1293</span>
+<span id="1294">1294</span>
+<span id="1295">1295</span>
+<span id="1296">1296</span>
+<span id="1297">1297</span>
+<span id="1298">1298</span>
+<span id="1299">1299</span>
+<span id="1300">1300</span>
+<span id="1301">1301</span>
+<span id="1302">1302</span>
+<span id="1303">1303</span>
+<span id="1304">1304</span>
+<span id="1305">1305</span>
+<span id="1306">1306</span>
+<span id="1307">1307</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Parts of the following code are Copyright 2018 Cranelift Developers</span>
 <span class="comment">// and subject to the license https://github.com/CraneStation/cranelift/blob/c47ca7bafc8fc48358f1baa72360e61fc1f7a0f2/cranelift-wasm/LICENSE</span>
@@ -1249,13 +1315,14 @@
 };
 
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">entity</span>::<span class="ident">EntityRef</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">ir</span>::{<span class="self">self</span>, <span class="ident">Ebb</span>, <span class="ident">Function</span>, <span class="ident">InstBuilder</span>};
+<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">ir</span>::{<span class="self">self</span>, <span class="ident">Block</span>, <span class="ident">Function</span>, <span class="ident">InstBuilder</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">isa</span>::<span class="ident">CallConv</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">cursor</span>::<span class="ident">FuncCursor</span>, <span class="ident">isa</span>};
 <span class="kw">use</span> <span class="ident">cranelift_frontend</span>::{<span class="ident">FunctionBuilder</span>, <span class="ident">Position</span>, <span class="ident">Variable</span>};
 <span class="kw">use</span> <span class="ident">cranelift_wasm</span>::{<span class="self">self</span>, <span class="ident">FuncTranslator</span>, <span class="ident">ModuleTranslationState</span>};
 <span class="kw">use</span> <span class="ident">cranelift_wasm</span>::{<span class="ident">get_vmctx_value_label</span>, <span class="ident">translate_operator</span>};
 <span class="kw">use</span> <span class="ident">cranelift_wasm</span>::{<span class="ident">FuncEnvironment</span>, <span class="ident">ReturnMode</span>, <span class="ident">TargetEnvironment</span>, <span class="ident">WasmError</span>};
+
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>};
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">error</span>::<span class="ident">CompileError</span>;
@@ -1345,7 +1412,7 @@
             },
         };
 
-        <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">func_env</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">num_ebbs</span>(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
+        <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">func_env</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">num_blocks</span>(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
         <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">func_env</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">num_insts</span>(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">FunctionBuilder</span>::<span class="ident">new</span>(
@@ -1357,20 +1424,20 @@
         <span class="comment">// TODO srcloc</span>
         <span class="comment">//builder.set_srcloc(cur_srcloc(&amp;reader));</span>
 
-        <span class="kw">let</span> <span class="ident">entry_block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_ebb</span>();
-        <span class="ident">builder</span>.<span class="ident">append_ebb_params_for_function_params</span>(<span class="ident">entry_block</span>);
+        <span class="kw">let</span> <span class="ident">entry_block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_block</span>();
+        <span class="ident">builder</span>.<span class="ident">append_block_params_for_function_params</span>(<span class="ident">entry_block</span>);
         <span class="ident">builder</span>.<span class="ident">switch_to_block</span>(<span class="ident">entry_block</span>); <span class="comment">// This also creates values for the arguments.</span>
         <span class="ident">builder</span>.<span class="ident">seal_block</span>(<span class="ident">entry_block</span>);
         <span class="comment">// Make sure the entry block is inserted in the layout before we make any callbacks to</span>
         <span class="comment">// `environ`. The callback functions may need to insert things in the entry block.</span>
-        <span class="ident">builder</span>.<span class="ident">ensure_inserted_ebb</span>();
+        <span class="ident">builder</span>.<span class="ident">ensure_inserted_block</span>();
 
         <span class="ident">declare_wasm_parameters</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">builder</span>, <span class="ident">entry_block</span>);
 
         <span class="comment">// Set up the translation state with a single pushed control block representing the whole</span>
         <span class="comment">// function and its return values.</span>
-        <span class="kw">let</span> <span class="ident">exit_block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_ebb</span>();
-        <span class="ident">builder</span>.<span class="ident">append_ebb_params_for_function_returns</span>(<span class="ident">exit_block</span>);
+        <span class="kw">let</span> <span class="ident">exit_block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_block</span>();
+        <span class="ident">builder</span>.<span class="ident">append_block_params_for_function_returns</span>(<span class="ident">exit_block</span>);
         <span class="ident">func_env</span>
             .<span class="ident">func_translator</span>
             .<span class="ident">state</span>
@@ -2247,7 +2314,7 @@
         <span class="ident">_src</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
         <span class="ident">_len</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">cranelift_wasm</span>::<span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;table.copy yet implemented&quot;</span>);
+        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;table.copy not yet implemented&quot;</span>);
     }
 
     <span class="kw">fn</span> <span class="ident">translate_table_init</span>(
@@ -2260,7 +2327,7 @@
         <span class="ident">_src</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
         <span class="ident">_len</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">cranelift_wasm</span>::<span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;table.init yet implemented&quot;</span>);
+        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;table.init not yet implemented&quot;</span>);
     }
 
     <span class="kw">fn</span> <span class="ident">translate_elem_drop</span>(
@@ -2268,7 +2335,72 @@
         <span class="ident">_pos</span>: <span class="ident">FuncCursor</span>,
         <span class="ident">_seg_index</span>: <span class="ident">u32</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">cranelift_wasm</span>::<span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;elem.drop yet implemented&quot;</span>);
+        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;elem.drop not yet implemented&quot;</span>);
+    }
+
+    <span class="kw">fn</span> <span class="ident">translate_table_grow</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">_pos</span>: <span class="ident">FuncCursor</span>,
+        <span class="ident">_table_index</span>: <span class="ident">u32</span>,
+        <span class="ident">_delta</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+        <span class="ident">_init_value</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">cranelift_wasm</span>::<span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir</span>::<span class="ident">Value</span><span class="op">&gt;</span> {
+        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;table.grow not yet implemented&quot;</span>);
+    }
+
+    <span class="kw">fn</span> <span class="ident">translate_table_get</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">_pos</span>: <span class="ident">FuncCursor</span>,
+        <span class="ident">_table_index</span>: <span class="ident">u32</span>,
+        <span class="ident">_index</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">cranelift_wasm</span>::<span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir</span>::<span class="ident">Value</span><span class="op">&gt;</span> {
+        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;table.get not yet implemented&quot;</span>);
+    }
+
+    <span class="kw">fn</span> <span class="ident">translate_table_set</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">_pos</span>: <span class="ident">FuncCursor</span>,
+        <span class="ident">_table_index</span>: <span class="ident">u32</span>,
+        <span class="ident">_value</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+        <span class="ident">_index</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">cranelift_wasm</span>::<span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;table.set not yet implemented&quot;</span>);
+    }
+
+    <span class="kw">fn</span> <span class="ident">translate_table_fill</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">_pos</span>: <span class="ident">FuncCursor</span>,
+        <span class="ident">_table_index</span>: <span class="ident">u32</span>,
+        <span class="ident">_dst</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+        <span class="ident">_val</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+        <span class="ident">_len</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">cranelift_wasm</span>::<span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;table.fill not yet implemented&quot;</span>);
+    }
+
+    <span class="kw">fn</span> <span class="ident">translate_ref_func</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">_pos</span>: <span class="ident">FuncCursor</span>,
+        <span class="ident">_func_index</span>: <span class="ident">u32</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">cranelift_wasm</span>::<span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir</span>::<span class="ident">Value</span><span class="op">&gt;</span> {
+        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;ref.func not yet implemented&quot;</span>);
+    }
+
+    <span class="kw">fn</span> <span class="ident">translate_custom_global_get</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">_pos</span>: <span class="ident">FuncCursor</span>,
+        <span class="ident">_global_index</span>: <span class="ident">cranelift_wasm</span>::<span class="ident">GlobalIndex</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">cranelift_wasm</span>::<span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir</span>::<span class="ident">Value</span><span class="op">&gt;</span> {
+        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;custom global.get not yet implemented&quot;</span>);
+    }
+
+    <span class="kw">fn</span> <span class="ident">translate_custom_global_set</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">_pos</span>: <span class="ident">FuncCursor</span>,
+        <span class="ident">_global_index</span>: <span class="ident">cranelift_wasm</span>::<span class="ident">GlobalIndex</span>,
+        <span class="ident">_val</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">cranelift_wasm</span>::<span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;custom global.set not yet implemented&quot;</span>);
     }
 }
 
@@ -2457,7 +2589,7 @@
 <span class="doccomment">/// Declare local variables for the signature parameters that correspond to WebAssembly locals.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Return the number of local variables declared.</span>
-<span class="kw">fn</span> <span class="ident">declare_wasm_parameters</span>(<span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>, <span class="ident">entry_block</span>: <span class="ident">Ebb</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+<span class="kw">fn</span> <span class="ident">declare_wasm_parameters</span>(<span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>, <span class="ident">entry_block</span>: <span class="ident">Block</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
     <span class="kw">let</span> <span class="ident">sig_len</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">signature</span>.<span class="ident">params</span>.<span class="ident">len</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">next_local</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">sig_len</span> {
@@ -2470,11 +2602,11 @@
             <span class="ident">builder</span>.<span class="ident">declare_var</span>(<span class="ident">local</span>, <span class="ident">param_type</span>.<span class="ident">value_type</span>);
             <span class="ident">next_local</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
 
-            <span class="kw">let</span> <span class="ident">param_value</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ebb_params</span>(<span class="ident">entry_block</span>)[<span class="ident">i</span>];
+            <span class="kw">let</span> <span class="ident">param_value</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">block_params</span>(<span class="ident">entry_block</span>)[<span class="ident">i</span>];
             <span class="ident">builder</span>.<span class="ident">def_var</span>(<span class="ident">local</span>, <span class="ident">param_value</span>);
         }
         <span class="kw">if</span> <span class="ident">param_type</span>.<span class="ident">purpose</span> <span class="op">=</span><span class="op">=</span> <span class="ident">ir</span>::<span class="ident">ArgumentPurpose</span>::<span class="ident">VMContext</span> {
-            <span class="kw">let</span> <span class="ident">param_value</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ebb_params</span>(<span class="ident">entry_block</span>)[<span class="ident">i</span>];
+            <span class="kw">let</span> <span class="ident">param_value</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">block_params</span>(<span class="ident">entry_block</span>)[<span class="ident">i</span>];
             <span class="ident">builder</span>.<span class="ident">set_val_label</span>(<span class="ident">param_value</span>, <span class="ident">get_vmctx_value_label</span>());
         }
     }

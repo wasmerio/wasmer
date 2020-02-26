@@ -14,19 +14,21 @@
 <span id="14">14</span>
 <span id="15">15</span>
 <span id="16">16</span>
+<span id="17">17</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">code</span>::<span class="ident">CodegenError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">parse</span>::<span class="ident">wp_type_to_type</span>;
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::<span class="ident">Type</span>;
-<span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">BinaryReaderError</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>};
+<span class="kw">use</span> <span class="ident">wasmparser</span>::<span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>;
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">blocktype_to_type</span>(<span class="ident">ty</span>: <span class="ident">WpTypeOrFuncType</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Type</span>, <span class="ident">BinaryReaderError</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">blocktype_to_type</span>(<span class="ident">ty</span>: <span class="ident">WpTypeOrFuncType</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Type</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
     <span class="kw">match</span> <span class="ident">ty</span> {
-        <span class="ident">WpTypeOrFuncType</span>::<span class="ident">Type</span>(<span class="ident">inner_ty</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wp_type_to_type</span>(<span class="ident">inner_ty</span>),
+        <span class="ident">WpTypeOrFuncType</span>::<span class="ident">Type</span>(<span class="ident">inner_ty</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">wp_type_to_type</span>(<span class="ident">inner_ty</span>)<span class="question-mark">?</span>),
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">BinaryReaderError</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
                 <span class="ident">message</span>:
-                    <span class="string">&quot;the wasmer llvm backend does not yet support the multi-value return extension&quot;</span>,
-                <span class="ident">offset</span>: <span class="op">-</span><span class="number">1isize</span> <span class="kw">as</span> <span class="ident">usize</span>,
+                    <span class="string">&quot;the wasmer llvm backend does not yet support the multi-value return extension&quot;</span>
+                        .<span class="ident">to_string</span>(),
             });
         }
     }

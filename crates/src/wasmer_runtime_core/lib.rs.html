@@ -356,7 +356,7 @@
         <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">read</span>();
         <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">state</span> {
             <span class="ident">wasmparser</span>::<span class="ident">ParserState</span>::<span class="ident">EndWasm</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">break</span> <span class="prelude-val">Ok</span>(()),
-            <span class="ident">wasmparser</span>::<span class="ident">ParserState</span>::<span class="ident">Error</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">break</span> <span class="prelude-val">Err</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>)),
+            <span class="ident">wasmparser</span>::<span class="ident">ParserState</span>::<span class="ident">Error</span>(<span class="kw-2">ref</span> <span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">break</span> <span class="prelude-val">Err</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>)),
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {}
         }
     }
