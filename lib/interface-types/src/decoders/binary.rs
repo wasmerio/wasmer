@@ -104,7 +104,7 @@ fn string<'input, E: ParseError<&'input [u8]>>(
     ))
 }
 
-/// Parse a list, with a item parser.
+/// Parse a list, with an item parser.
 #[allow(clippy::type_complexity)]
 fn list<'input, I, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
@@ -802,54 +802,24 @@ mod tests {
         assert_eq!(imports::<()>(input), output);
     }
 
-    /*
     #[test]
     fn test_adapters() {
         let input = &[
-            0x02, // 3 adapters
-            0x00, // adapter kind: import
-            0x01, // string of 1 byte
-            0x61, // "a"
-            0x01, // string of 1 byte
-            0x62, // "b"
-            0x01, // list of 1 item
-            0x0c, // I32
-            0x01, // list of 1 item
-            0x0c, // I32
-            0x01, // list of 1 item
-            0x00, 0x01, // ArgumentGet { index: 1 }
-            0x01, // adapter kind: export
-            0x01, // string of 1 byte
-            0x63, // "c"
-            0x01, // list of 1 item
-            0x0c, // I32
-            0x01, // list of 1 item
-            0x0c, // I32
+            0x01, // 1 adapters
+            0x00, // function type
             0x01, // list of 1 item
             0x00, 0x01, // ArgumentGet { index: 1 }
         ];
         let output = Ok((
             &[] as &[u8],
-            vec![
-                Adapter::Import {
-                    namespace: "a",
-                    name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
-                    instructions: vec![Instruction::ArgumentGet { index: 1 }],
-                },
-                Adapter::Export {
-                    name: "c",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
-                    instructions: vec![Instruction::ArgumentGet { index: 1 }],
-                },
-            ],
+            vec![Adapter {
+                function_type: 0,
+                instructions: vec![Instruction::ArgumentGet { index: 1 }],
+            }],
         ));
 
         assert_eq!(adapters::<()>(input), output);
     }
-    */
 
     #[test]
     fn test_parse() {
