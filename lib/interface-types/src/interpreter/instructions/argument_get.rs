@@ -1,9 +1,9 @@
 executable_instruction!(
-    argument_get(index: u64, instruction_name: String) -> _ {
+    argument_get(index: u32, instruction_name: String) -> _ {
         move |runtime| -> _ {
             let invocation_inputs = runtime.invocation_inputs;
 
-            if index >= (invocation_inputs.len() as u64) {
+            if index >= (invocation_inputs.len() as u32) {
                 return Err(format!(
                     "`{}` cannot access argument #{} because it doesn't exist.",
                     instruction_name, index

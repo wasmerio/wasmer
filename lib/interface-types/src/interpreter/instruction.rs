@@ -6,7 +6,7 @@ pub enum Instruction<'input> {
     /// The `arg.get` instruction.
     ArgumentGet {
         /// The argument index.
-        index: u64,
+        index: u32,
     },
 
     /// The `call` instruction.

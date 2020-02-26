@@ -156,7 +156,12 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
     Ok(match opcode {
         0x00 => {
             consume!((input, argument_0) = uleb(input)?);
-            (input, Instruction::ArgumentGet { index: argument_0 })
+            (
+                input,
+                Instruction::ArgumentGet {
+                    index: argument_0 as u32,
+                },
+            )
         }
 
         0x01 => {

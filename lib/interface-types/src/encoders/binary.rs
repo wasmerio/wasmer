@@ -252,7 +252,7 @@ where
         match self {
             Instruction::ArgumentGet { index } => {
                 0x00_u8.to_bytes(writer)?;
-                index.to_bytes(writer)?;
+                (*index as u64).to_bytes(writer)?;
             }
 
             Instruction::Call { function_index } => {
