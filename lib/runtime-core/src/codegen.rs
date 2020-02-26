@@ -205,8 +205,8 @@ fn validate_with_features(bytes: &[u8], features: &Features) -> CompileResult<()
         let state = parser.read();
         match *state {
             wasmparser::ParserState::EndWasm => break Ok(()),
-            wasmparser::ParserState::Error(err) => Err(CompileError::ValidationError {
-                msg: err.message.to_string(),
+            wasmparser::ParserState::Error(ref err) => Err(CompileError::ValidationError {
+                msg: err.message().to_string(),
             })?,
             _ => {}
         }

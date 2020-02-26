@@ -16,7 +16,7 @@ use wasmer_runtime_core::{
 struct NullRelocSink {}
 
 impl RelocSink for NullRelocSink {
-    fn reloc_ebb(&mut self, _: u32, _: Reloc, _: u32) {}
+    fn reloc_block(&mut self, _: u32, _: Reloc, _: u32) {}
     fn reloc_external(&mut self, _: u32, _: Reloc, _: &ir::ExternalName, _: i64) {}
 
     fn reloc_constant(&mut self, _: u32, _: Reloc, _: u32) {
@@ -158,12 +158,12 @@ fn generate_func(func_sig: &FuncSig) -> ir::Function {
 
     let export_sig_ref = func.import_signature(generate_export_signature(func_sig));
 
-    let entry_ebb = func.dfg.make_ebb();
-    let vmctx_ptr = func.dfg.append_ebb_param(entry_ebb, ir::types::I64);
-    let func_ptr = func.dfg.append_ebb_param(entry_ebb, ir::types::I64);
-    let args_ptr = func.dfg.append_ebb_param(entry_ebb, ir::types::I64);
-    let returns_ptr = func.dfg.append_ebb_param(entry_ebb, ir::types::I64);
-    func.layout.append_ebb(entry_ebb);
+    let entry_ebb = func.dfg.make_block();
+    let vmctx_ptr = func.dfg.append_block_param(entry_ebb, ir::types::I64);
+    let func_ptr = func.dfg.append_block_param(entry_ebb, ir::types::I64);
+    let args_ptr = func.dfg.append_block_param(entry_ebb, ir::types::I64);
+    let returns_ptr = func.dfg.append_block_param(entry_ebb, ir::types::I64);
+    func.layout.append_block(entry_ebb);
 
     let mut pos = FuncCursor::new(&mut func).at_first_insertion_point(entry_ebb);
 

@@ -7,13 +7,14 @@ use crate::{
 };
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder};
+use cranelift_codegen::ir::{self, Block, Function, InstBuilder};
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::{cursor::FuncCursor, isa};
 use cranelift_frontend::{FunctionBuilder, Position, Variable};
 use cranelift_wasm::{self, FuncTranslator, ModuleTranslationState};
 use cranelift_wasm::{get_vmctx_value_label, translate_operator};
 use cranelift_wasm::{FuncEnvironment, ReturnMode, TargetEnvironment, WasmError};
+
 use std::mem;
 use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::error::CompileError;
@@ -103,7 +104,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             },
         };
 
-        debug_assert_eq!(func_env.func.dfg.num_ebbs(), 0, "Function must be empty");
+        debug_assert_eq!(func_env.func.dfg.num_blocks(), 0, "Function must be empty");
         debug_assert_eq!(func_env.func.dfg.num_insts(), 0, "Function must be empty");
 
         let mut builder = FunctionBuilder::new(
@@ -115,20 +116,20 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         // TODO srcloc
         //builder.set_srcloc(cur_srcloc(&reader));
 
-        let entry_block = builder.create_ebb();
-        builder.append_ebb_params_for_function_params(entry_block);
+        let entry_block = builder.create_block();
+        builder.append_block_params_for_function_params(entry_block);
         builder.switch_to_block(entry_block); // This also creates values for the arguments.
         builder.seal_block(entry_block);
         // Make sure the entry block is inserted in the layout before we make any callbacks to
         // `environ`. The callback functions may need to insert things in the entry block.
-        builder.ensure_inserted_ebb();
+        builder.ensure_inserted_block();
 
         declare_wasm_parameters(&mut builder, entry_block);
 
         // Set up the translation state with a single pushed control block representing the whole
         // function and its return values.
-        let exit_block = builder.create_ebb();
-        builder.append_ebb_params_for_function_returns(exit_block);
+        let exit_block = builder.create_block();
+        builder.append_block_params_for_function_returns(exit_block);
         func_env
             .func_translator
             .state
@@ -1005,7 +1006,7 @@ impl FuncEnvironment for FunctionEnvironment {
         _src: ir::Value,
         _len: ir::Value,
     ) -> cranelift_wasm::WasmResult<()> {
-        unimplemented!("table.copy yet implemented");
+        unimplemented!("table.copy not yet implemented");
     }
 
     fn translate_table_init(
@@ -1018,7 +1019,7 @@ impl FuncEnvironment for FunctionEnvironment {
         _src: ir::Value,
         _len: ir::Value,
     ) -> cranelift_wasm::WasmResult<()> {
-        unimplemented!("table.init yet implemented");
+        unimplemented!("table.init not yet implemented");
     }
 
     fn translate_elem_drop(
@@ -1026,7 +1027,72 @@ impl FuncEnvironment for FunctionEnvironment {
         _pos: FuncCursor,
         _seg_index: u32,
     ) -> cranelift_wasm::WasmResult<()> {
-        unimplemented!("elem.drop yet implemented");
+        unimplemented!("elem.drop not yet implemented");
+    }
+
+    fn translate_table_grow(
+        &mut self,
+        _pos: FuncCursor,
+        _table_index: u32,
+        _delta: ir::Value,
+        _init_value: ir::Value,
+    ) -> cranelift_wasm::WasmResult<ir::Value> {
+        unimplemented!("table.grow not yet implemented");
+    }
+
+    fn translate_table_get(
+        &mut self,
+        _pos: FuncCursor,
+        _table_index: u32,
+        _index: ir::Value,
+    ) -> cranelift_wasm::WasmResult<ir::Value> {
+        unimplemented!("table.get not yet implemented");
+    }
+
+    fn translate_table_set(
+        &mut self,
+        _pos: FuncCursor,
+        _table_index: u32,
+        _value: ir::Value,
+        _index: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("table.set not yet implemented");
+    }
+
+    fn translate_table_fill(
+        &mut self,
+        _pos: FuncCursor,
+        _table_index: u32,
+        _dst: ir::Value,
+        _val: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("table.fill not yet implemented");
+    }
+
+    fn translate_ref_func(
+        &mut self,
+        _pos: FuncCursor,
+        _func_index: u32,
+    ) -> cranelift_wasm::WasmResult<ir::Value> {
+        unimplemented!("ref.func not yet implemented");
+    }
+
+    fn translate_custom_global_get(
+        &mut self,
+        _pos: FuncCursor,
+        _global_index: cranelift_wasm::GlobalIndex,
+    ) -> cranelift_wasm::WasmResult<ir::Value> {
+        unimplemented!("custom global.get not yet implemented");
+    }
+
+    fn translate_custom_global_set(
+        &mut self,
+        _pos: FuncCursor,
+        _global_index: cranelift_wasm::GlobalIndex,
+        _val: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("custom global.set not yet implemented");
     }
 }
 
@@ -1215,7 +1281,7 @@ fn pointer_type(mcg: &CraneliftModuleCodeGenerator) -> ir::Type {
 /// Declare local variables for the signature parameters that correspond to WebAssembly locals.
 ///
 /// Return the number of local variables declared.
-fn declare_wasm_parameters(builder: &mut FunctionBuilder, entry_block: Ebb) -> usize {
+fn declare_wasm_parameters(builder: &mut FunctionBuilder, entry_block: Block) -> usize {
     let sig_len = builder.func.signature.params.len();
     let mut next_local = 0;
     for i in 0..sig_len {
@@ -1228,11 +1294,11 @@ fn declare_wasm_parameters(builder: &mut FunctionBuilder, entry_block: Ebb) -> u
             builder.declare_var(local, param_type.value_type);
             next_local += 1;
 
-            let param_value = builder.ebb_params(entry_block)[i];
+            let param_value = builder.block_params(entry_block)[i];
             builder.def_var(local, param_value);
         }
         if param_type.purpose == ir::ArgumentPurpose::VMContext {
-            let param_value = builder.ebb_params(entry_block)[i];
+            let param_value = builder.block_params(entry_block)[i];
             builder.set_val_label(param_value, get_vmctx_value_label());
         }
     }
