@@ -37,7 +37,7 @@ pub enum InterfaceType {
     /// A 64-bits float.
     F64,
 
-    /// A stirng.
+    /// A string.
     String,
 
     /// An `any` reference.
