@@ -1105,7 +1105,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
         &mut self,
         event: Event,
         module_info: &ModuleInfo,
-        _loc: u32,
+        _source_loc: u32,
     ) -> Result<(), CodegenError> {
         let mut state = &mut self.state;
         let builder = self.builder.as_ref().unwrap();

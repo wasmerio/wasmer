@@ -403,7 +403,7 @@ impl MiddlewareChain {
         fcg: Option<&mut FCG>,
         ev: Event,
         module_info: &ModuleInfo,
-        loc: u32,
+        source_loc: u32,
     ) -> Result<(), String> {
         let mut sink = EventSink {
             buffer: SmallVec::new(),
@@ -412,12 +412,12 @@ impl MiddlewareChain {
         for m in &mut self.chain {
             let prev: SmallVec<[Event; 2]> = sink.buffer.drain().collect();
             for ev in prev {
-                m.feed_event(ev, module_info, &mut sink, loc)?;
+                m.feed_event(ev, module_info, &mut sink, source_loc)?;
             }
         }
         if let Some(fcg) = fcg {
             for ev in sink.buffer {
-                fcg.feed_event(ev, module_info, loc)
+                fcg.feed_event(ev, module_info, source_loc)
                     .map_err(|x| format!("{:?}", x))?;
             }
         }
@@ -436,7 +436,7 @@ pub trait FunctionMiddleware {
         op: Event<'a, 'b>,
         module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
-        loc: u32,
+        source_loc: u32,
     ) -> Result<(), Self::Error>;
 }
 
@@ -446,7 +446,7 @@ pub(crate) trait GenericFunctionMiddleware {
         op: Event<'a, 'b>,
         module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
-        loc: u32,
+        source_loc: u32,
     ) -> Result<(), String>;
 }
 
@@ -456,9 +456,9 @@ impl<E: Debug, T: FunctionMiddleware<Error = E>> GenericFunctionMiddleware for T
         op: Event<'a, 'b>,
         module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
-        loc: u32,
+        source_loc: u32,
     ) -> Result<(), String> {
-        <Self as FunctionMiddleware>::feed_event(self, op, module_info, sink, loc)
+        <Self as FunctionMiddleware>::feed_event(self, op, module_info, sink, source_loc)
             .map_err(|x| format!("{:?}", x))
     }
 }
@@ -478,7 +478,8 @@ pub trait FunctionCodeGenerator<E: Debug> {
     fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
 
     /// Called for each operator.
-    fn feed_event(&mut self, op: Event, module_info: &ModuleInfo, loc: u32) -> Result<(), E>;
+    fn feed_event(&mut self, op: Event, module_info: &ModuleInfo, source_loc: u32)
+        -> Result<(), E>;
 
     /// Finalizes the function.
     fn finalize(&mut self) -> Result<(), E>;

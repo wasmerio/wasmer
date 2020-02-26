@@ -2530,7 +2530,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         &mut self,
         ev: Event,
         module_info: &ModuleInfo,
-        _loc: u32,
+        _source_loc: u32,
     ) -> Result<(), CodegenError> {
         let a = self.assembler.as_mut().unwrap();
 

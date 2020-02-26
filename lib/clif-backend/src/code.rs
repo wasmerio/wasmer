@@ -1112,7 +1112,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         &mut self,
         event: Event,
         _module_info: &ModuleInfo,
-        loc: u32,
+        source_loc: u32,
     ) -> Result<(), CodegenError> {
         let op = match event {
             Event::Wasm(x) => x,
@@ -1136,7 +1136,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             &mut self.position,
         );
         builder.func.collect_debug_info();
-        builder.set_srcloc(ir::SourceLoc::new(loc));
+        builder.set_srcloc(ir::SourceLoc::new(source_loc));
         let module_state = ModuleTranslationState::new();
         let func_state = &mut self.func_translator.state;
         translate_operator(
