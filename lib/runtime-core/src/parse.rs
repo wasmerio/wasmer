@@ -21,15 +21,15 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 use wasmparser::{
-    BinaryReaderError, ExternalKind, FuncType, ImportSectionEntryType, Operator, Type as WpType,
-    WasmDecoder,
+    BinaryReaderError, ElemSectionEntryTable, ElementItem, ExternalKind, FuncType,
+    ImportSectionEntryType, Operator, Type as WpType, WasmDecoder,
 };
 
 /// Kind of load error.
 #[derive(Debug)]
 pub enum LoadError {
     /// Parse error.
-    Parse(BinaryReaderError),
+    Parse(String),
     /// Code generation error.
     Codegen(String),
 }
@@ -44,7 +44,13 @@ impl From<LoadError> for CompileError {
 
 impl From<BinaryReaderError> for LoadError {
     fn from(other: BinaryReaderError) -> LoadError {
-        LoadError::Parse(other)
+        LoadError::Parse(format!("{:?}", other))
+    }
+}
+
+impl From<&BinaryReaderError> for LoadError {
+    fn from(other: &BinaryReaderError) -> LoadError {
+        LoadError::Parse(format!("{:?}", other))
     }
 }
 
@@ -106,7 +112,7 @@ pub fn read_module<
         use wasmparser::ParserState;
         let state = parser.read();
         match *state {
-            ParserState::Error(err) => Err(LoadError::Parse(err))?,
+            ParserState::Error(ref err) => return Err(err.clone().into()),
             ParserState::TypeSectionEntry(ref ty) => {
                 info.write()
                     .unwrap()
@@ -253,7 +259,7 @@ pub fn read_module<
                 loop {
                     let state = parser.read();
                     match state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(*err)),
+                        ParserState::Error(err) => return Err(err.into()),
                         ParserState::FunctionBodyLocals { ref locals } => {
                             for &(count, ty) in locals.iter() {
                                 fcg.feed_local(ty, count as usize)
@@ -292,15 +298,18 @@ pub fn read_module<
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 func_count = func_count.wrapping_add(1);
             }
-            ParserState::BeginActiveElementSectionEntry(table_index) => {
-                let table_index = TableIndex::new(table_index as usize);
+            ParserState::BeginElementSectionEntry {
+                table: ElemSectionEntryTable::Active(table_index_raw),
+                ty: WpType::AnyFunc,
+            } => {
+                let table_index = TableIndex::new(table_index_raw as usize);
                 let mut elements: Option<Vec<FuncIndex>> = None;
                 let mut base: Option<Initializer> = None;
 
                 loop {
                     let state = parser.read();
                     match *state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                        ParserState::Error(ref err) => return Err(err.into()),
                         ParserState::InitExpressionOperator(ref op) => {
                             base = Some(eval_init_expr(op)?)
                         }
@@ -308,9 +317,11 @@ pub fn read_module<
                             elements = Some(
                                 _elements
                                     .iter()
-                                    .cloned()
-                                    .map(|index| FuncIndex::new(index as usize))
-                                    .collect(),
+                                    .map(|elem_idx| match elem_idx {
+                                        ElementItem::Null => Err(LoadError::Parse(format!("Error at table {}: null entries in tables are not yet supported", table_index_raw))),
+                                        ElementItem::Func(idx) => Ok(FuncIndex::new(*idx as usize)),
+                                    })
+                                    .collect::<Result<Vec<FuncIndex>, LoadError>>()?,
                             );
                         }
                         ParserState::BeginInitExpressionBody
@@ -328,6 +339,15 @@ pub fn read_module<
 
                 info.write().unwrap().elem_initializers.push(table_init);
             }
+            ParserState::BeginElementSectionEntry {
+                table: ElemSectionEntryTable::Active(table_index),
+                ty,
+            } => {
+                return Err(LoadError::Parse(format!(
+                    "Error at table {}: type \"{:?}\" is not supported in tables yet",
+                    table_index, ty
+                )));
+            }
             ParserState::BeginActiveDataSectionEntry(memory_index) => {
                 let memory_index = MemoryIndex::new(memory_index as usize);
                 let mut base: Option<Initializer> = None;
@@ -336,7 +356,7 @@ pub fn read_module<
                 loop {
                     let state = parser.read();
                     match *state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                        ParserState::Error(ref err) => return Err(err.into()),
                         ParserState::InitExpressionOperator(ref op) => {
                             base = Some(eval_init_expr(op)?)
                         }
@@ -363,7 +383,7 @@ pub fn read_module<
                 let init = loop {
                     let state = parser.read();
                     match *state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                        ParserState::Error(ref err) => return Err(err.into()),
                         ParserState::InitExpressionOperator(ref op) => {
                             break eval_init_expr(op)?;
                         }
@@ -402,7 +422,7 @@ pub fn read_module<
 }
 
 /// Convert given `WpType` to `Type`.
-pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
+pub fn wp_type_to_type(ty: WpType) -> Result<Type, LoadError> {
     match ty {
         WpType::I32 => Ok(Type::I32),
         WpType::I64 => Ok(Type::I64),
@@ -410,10 +430,9 @@ pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
         WpType::F64 => Ok(Type::F64),
         WpType::V128 => Ok(Type::V128),
         _ => {
-            return Err(BinaryReaderError {
-                message: "broken invariant, invalid type",
-                offset: -1isize as usize,
-            });
+            return Err(LoadError::Parse(
+                "broken invariant, invalid type".to_string(),
+            ));
         }
     }
 }
@@ -429,7 +448,7 @@ pub fn type_to_wp_type(ty: Type) -> WpType {
     }
 }
 
-fn func_type_to_func_sig(func_ty: &FuncType) -> Result<FuncSig, BinaryReaderError> {
+fn func_type_to_func_sig(func_ty: &FuncType) -> Result<FuncSig, LoadError> {
     assert_eq!(func_ty.form, WpType::Func);
 
     Ok(FuncSig::new(
@@ -448,7 +467,7 @@ fn func_type_to_func_sig(func_ty: &FuncType) -> Result<FuncSig, BinaryReaderErro
     ))
 }
 
-fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
+fn eval_init_expr(op: &Operator) -> Result<Initializer, LoadError> {
     Ok(match *op {
         Operator::GlobalGet { global_index } => {
             Initializer::GetGlobal(ImportedGlobalIndex::new(global_index as usize))
@@ -465,10 +484,9 @@ fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
             Initializer::Const(Value::V128(u128::from_le_bytes(*value.bytes())))
         }
         _ => {
-            return Err(BinaryReaderError {
-                message: "init expr evaluation failed: unsupported opcode",
-                offset: -1isize as usize,
-            });
+            return Err(LoadError::Parse(
+                "init expr evaluation failed: unsupported opcode".to_string(),
+            ));
         }
     })
 }
