@@ -300,7 +300,7 @@ pub fn read_module<
             }
             ParserState::BeginElementSectionEntry {
                 table: ElemSectionEntryTable::Active(table_index_raw),
-                ty: WpType::Func,
+                ty: WpType::AnyFunc,
             } => {
                 let table_index = TableIndex::new(table_index_raw as usize);
                 let mut elements: Option<Vec<FuncIndex>> = None;
