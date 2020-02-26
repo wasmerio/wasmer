@@ -191,9 +191,8 @@ where
 }
 
 /// Represents a type-erased function provided by either the host or the WebAssembly program.
-#[allow(dead_code)]
 pub struct ErasedFunc<'a> {
-    inner: Box<dyn Kind>,
+    _inner: Box<dyn Kind>,
 
     /// The function pointer.
     func: NonNull<vm::Func>,
@@ -243,7 +242,7 @@ where
 {
     fn from(that: Func<'a, Args, Rets, Inner>) -> ErasedFunc<'a> {
         ErasedFunc {
-            inner: Box::new(that.inner),
+            _inner: Box::new(that.inner),
             func: that.func,
             func_env: that.func_env,
             vmctx: that.vmctx,
@@ -378,7 +377,7 @@ impl<'a> ErasedFunc<'a> {
         impl Kind for AutoRelease {}
 
         ErasedFunc {
-            inner: Box::new(AutoRelease { ptr }),
+            _inner: Box::new(AutoRelease { ptr }),
             func: ptr.cast::<vm::Func>(),
             func_env: None,
             vmctx: ptr::null_mut(),
