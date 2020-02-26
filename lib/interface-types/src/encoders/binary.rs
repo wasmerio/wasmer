@@ -271,6 +271,46 @@ where
                 0x04_u8.to_bytes(writer)?;
                 allocator_name.to_bytes(writer)?;
             }
+
+            Instruction::I32ToS8 => 0x07_u8.to_bytes(writer)?,
+            Instruction::I32ToS8X => 0x08_u8.to_bytes(writer)?,
+            Instruction::I32ToU8 => 0x09_u8.to_bytes(writer)?,
+            Instruction::I32ToS16 => 0x0a_u8.to_bytes(writer)?,
+            Instruction::I32ToS16X => 0x0b_u8.to_bytes(writer)?,
+            Instruction::I32ToU16 => 0x0c_u8.to_bytes(writer)?,
+            Instruction::I32ToS32 => 0x0d_u8.to_bytes(writer)?,
+            Instruction::I32ToU32 => 0x0e_u8.to_bytes(writer)?,
+            Instruction::I32ToS64 => 0x0f_u8.to_bytes(writer)?,
+            Instruction::I32ToU64 => 0x10_u8.to_bytes(writer)?,
+            Instruction::I64ToS8 => 0x11_u8.to_bytes(writer)?,
+            Instruction::I64ToS8X => 0x12_u8.to_bytes(writer)?,
+            Instruction::I64ToU8 => 0x13_u8.to_bytes(writer)?,
+            Instruction::I64ToS16 => 0x14_u8.to_bytes(writer)?,
+            Instruction::I64ToS16X => 0x15_u8.to_bytes(writer)?,
+            Instruction::I64ToU16 => 0x16_u8.to_bytes(writer)?,
+            Instruction::I64ToS32 => 0x17_u8.to_bytes(writer)?,
+            Instruction::I64ToS32X => 0x18_u8.to_bytes(writer)?,
+            Instruction::I64ToU32 => 0x19_u8.to_bytes(writer)?,
+            Instruction::I64ToS64 => 0x1a_u8.to_bytes(writer)?,
+            Instruction::I64ToU64 => 0x1b_u8.to_bytes(writer)?,
+            Instruction::S8ToI32 => 0x1c_u8.to_bytes(writer)?,
+            Instruction::U8ToI32 => 0x1d_u8.to_bytes(writer)?,
+            Instruction::S16ToI32 => 0x1e_u8.to_bytes(writer)?,
+            Instruction::U16ToI32 => 0x1f_u8.to_bytes(writer)?,
+            Instruction::S32ToI32 => 0x20_u8.to_bytes(writer)?,
+            Instruction::U32ToI32 => 0x21_u8.to_bytes(writer)?,
+            Instruction::S64ToI32 => 0x22_u8.to_bytes(writer)?,
+            Instruction::S64ToI32X => 0x23_u8.to_bytes(writer)?,
+            Instruction::U64ToI32 => 0x24_u8.to_bytes(writer)?,
+            Instruction::U64ToI32X => 0x25_u8.to_bytes(writer)?,
+            Instruction::S8ToI64 => 0x26_u8.to_bytes(writer)?,
+            Instruction::U8ToI64 => 0x27_u8.to_bytes(writer)?,
+            Instruction::S16ToI64 => 0x28_u8.to_bytes(writer)?,
+            Instruction::U16ToI64 => 0x29_u8.to_bytes(writer)?,
+            Instruction::S32ToI64 => 0x2a_u8.to_bytes(writer)?,
+            Instruction::U32ToI64 => 0x2b_u8.to_bytes(writer)?,
+            Instruction::S64ToI64 => 0x2c_u8.to_bytes(writer)?,
+            Instruction::U64ToI64 => 0x2d_u8.to_bytes(writer)?,
         }
 
         Ok(())
@@ -520,14 +560,92 @@ mod tests {
                 Instruction::WriteUtf8 {
                     allocator_name: "abc",
                 },
+                Instruction::I32ToS8,
+                Instruction::I32ToS8X,
+                Instruction::I32ToU8,
+                Instruction::I32ToS16,
+                Instruction::I32ToS16X,
+                Instruction::I32ToU16,
+                Instruction::I32ToS32,
+                Instruction::I32ToU32,
+                Instruction::I32ToS64,
+                Instruction::I32ToU64,
+                Instruction::I64ToS8,
+                Instruction::I64ToS8X,
+                Instruction::I64ToU8,
+                Instruction::I64ToS16,
+                Instruction::I64ToS16X,
+                Instruction::I64ToU16,
+                Instruction::I64ToS32,
+                Instruction::I64ToS32X,
+                Instruction::I64ToU32,
+                Instruction::I64ToS64,
+                Instruction::I64ToU64,
+                Instruction::S8ToI32,
+                Instruction::U8ToI32,
+                Instruction::S16ToI32,
+                Instruction::U16ToI32,
+                Instruction::S32ToI32,
+                Instruction::U32ToI32,
+                Instruction::S64ToI32,
+                Instruction::S64ToI32X,
+                Instruction::U64ToI32,
+                Instruction::U64ToI32X,
+                Instruction::S8ToI64,
+                Instruction::U8ToI64,
+                Instruction::S16ToI64,
+                Instruction::U16ToI64,
+                Instruction::S32ToI64,
+                Instruction::U32ToI64,
+                Instruction::S64ToI64,
+                Instruction::U64ToI64,
             ],
             &[
-                0x05, // list of 5 items
+                0x2c, // list of 44 items
                 0x00, 0x01, // ArgumentGet { index: 1 }
                 0x01, 0x01, // Call { function_index: 1 }
                 0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
                 0x03, // ReadUtf8
                 0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
+                0x07, // I32ToS8
+                0x08, // I32ToS8X
+                0x09, // I32ToU8
+                0x0a, // I32ToS16
+                0x0b, // I32ToS16X
+                0x0c, // I32ToU16
+                0x0d, // I32ToS32
+                0x0e, // I32ToU32
+                0x0f, // I32ToS64
+                0x10, // I32ToU64
+                0x11, // I64ToS8
+                0x12, // I64ToS8X
+                0x13, // I64ToU8
+                0x14, // I64ToS16
+                0x15, // I64ToS16X
+                0x16, // I64ToU16
+                0x17, // I64ToS32
+                0x18, // I64ToS32X
+                0x19, // I64ToU32
+                0x1a, // I64ToS64
+                0x1b, // I64ToU64
+                0x1c, // S8ToI32
+                0x1d, // U8ToI32
+                0x1e, // S16ToI32
+                0x1f, // U16ToI32
+                0x20, // S32ToI32
+                0x21, // U32ToI32
+                0x22, // S64ToI32
+                0x23, // S64ToI32X
+                0x24, // U64ToI32
+                0x25, // U64ToI32X
+                0x26, // S8ToI64
+                0x27, // U8ToI64
+                0x28, // S16ToI64
+                0x29, // U16ToI64
+                0x2a, // S32ToI64
+                0x2b, // U32ToI64
+                0x2c, // S64ToI64
+                0x2d, // U64ToI64
             ]
         );
     }

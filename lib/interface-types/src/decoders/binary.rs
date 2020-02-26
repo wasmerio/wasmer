@@ -196,6 +196,46 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
             )
         }
 
+        0x07 => (input, Instruction::I32ToS8),
+        0x08 => (input, Instruction::I32ToS8X),
+        0x09 => (input, Instruction::I32ToU8),
+        0x0a => (input, Instruction::I32ToS16),
+        0x0b => (input, Instruction::I32ToS16X),
+        0x0c => (input, Instruction::I32ToU16),
+        0x0d => (input, Instruction::I32ToS32),
+        0x0e => (input, Instruction::I32ToU32),
+        0x0f => (input, Instruction::I32ToS64),
+        0x10 => (input, Instruction::I32ToU64),
+        0x11 => (input, Instruction::I64ToS8),
+        0x12 => (input, Instruction::I64ToS8X),
+        0x13 => (input, Instruction::I64ToU8),
+        0x14 => (input, Instruction::I64ToS16),
+        0x15 => (input, Instruction::I64ToS16X),
+        0x16 => (input, Instruction::I64ToU16),
+        0x17 => (input, Instruction::I64ToS32),
+        0x18 => (input, Instruction::I64ToS32X),
+        0x19 => (input, Instruction::I64ToU32),
+        0x1a => (input, Instruction::I64ToS64),
+        0x1b => (input, Instruction::I64ToU64),
+        0x1c => (input, Instruction::S8ToI32),
+        0x1d => (input, Instruction::U8ToI32),
+        0x1e => (input, Instruction::S16ToI32),
+        0x1f => (input, Instruction::U16ToI32),
+        0x20 => (input, Instruction::S32ToI32),
+        0x21 => (input, Instruction::U32ToI32),
+        0x22 => (input, Instruction::S64ToI32),
+        0x23 => (input, Instruction::S64ToI32X),
+        0x24 => (input, Instruction::U64ToI32),
+        0x25 => (input, Instruction::U64ToI32X),
+        0x26 => (input, Instruction::S8ToI64),
+        0x27 => (input, Instruction::U8ToI64),
+        0x28 => (input, Instruction::S16ToI64),
+        0x29 => (input, Instruction::U16ToI64),
+        0x2a => (input, Instruction::S32ToI64),
+        0x2b => (input, Instruction::U32ToI64),
+        0x2c => (input, Instruction::S64ToI64),
+        0x2d => (input, Instruction::U64ToI64),
+
         _ => return Err(Err::Error(make_error(input, ErrorKind::ParseTo))),
     })
 }
@@ -599,12 +639,51 @@ mod tests {
     #[test]
     fn test_instructions() {
         let input = &[
-            0x05, // list of 5 items
+            0x2c, // list of 44 items
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, 0x01, // Call { function_index: 1 }
             0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
             0x03, // ReadUtf8
             0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
+            0x07, // I32ToS8
+            0x08, // I32ToS8X
+            0x09, // I32ToU8
+            0x0a, // I32ToS16
+            0x0b, // I32ToS16X
+            0x0c, // I32ToU16
+            0x0d, // I32ToS32
+            0x0e, // I32ToU32
+            0x0f, // I32ToS64
+            0x10, // I32ToU64
+            0x11, // I64ToS8
+            0x12, // I64ToS8X
+            0x13, // I64ToU8
+            0x14, // I64ToS16
+            0x15, // I64ToS16X
+            0x16, // I64ToU16
+            0x17, // I64ToS32
+            0x18, // I64ToS32X
+            0x19, // I64ToU32
+            0x1a, // I64ToS64
+            0x1b, // I64ToU64
+            0x1c, // S8ToI32
+            0x1d, // U8ToI32
+            0x1e, // S16ToI32
+            0x1f, // U16ToI32
+            0x20, // S32ToI32
+            0x21, // U32ToI32
+            0x22, // S64ToI32
+            0x23, // S64ToI32X
+            0x24, // U64ToI32
+            0x25, // U64ToI32X
+            0x26, // S8ToI64
+            0x27, // U8ToI64
+            0x28, // S16ToI64
+            0x29, // U16ToI64
+            0x2a, // S32ToI64
+            0x2b, // U32ToI64
+            0x2c, // S64ToI64
+            0x2d, // U64ToI64
             0x0a,
         ];
         let output = Ok((
@@ -617,6 +696,45 @@ mod tests {
                 Instruction::WriteUtf8 {
                     allocator_name: "abc",
                 },
+                Instruction::I32ToS8,
+                Instruction::I32ToS8X,
+                Instruction::I32ToU8,
+                Instruction::I32ToS16,
+                Instruction::I32ToS16X,
+                Instruction::I32ToU16,
+                Instruction::I32ToS32,
+                Instruction::I32ToU32,
+                Instruction::I32ToS64,
+                Instruction::I32ToU64,
+                Instruction::I64ToS8,
+                Instruction::I64ToS8X,
+                Instruction::I64ToU8,
+                Instruction::I64ToS16,
+                Instruction::I64ToS16X,
+                Instruction::I64ToU16,
+                Instruction::I64ToS32,
+                Instruction::I64ToS32X,
+                Instruction::I64ToU32,
+                Instruction::I64ToS64,
+                Instruction::I64ToU64,
+                Instruction::S8ToI32,
+                Instruction::U8ToI32,
+                Instruction::S16ToI32,
+                Instruction::U16ToI32,
+                Instruction::S32ToI32,
+                Instruction::U32ToI32,
+                Instruction::S64ToI32,
+                Instruction::S64ToI32X,
+                Instruction::U64ToI32,
+                Instruction::U64ToI32X,
+                Instruction::S8ToI64,
+                Instruction::U8ToI64,
+                Instruction::S16ToI64,
+                Instruction::U16ToI64,
+                Instruction::S32ToI64,
+                Instruction::U32ToI64,
+                Instruction::S64ToI64,
+                Instruction::U64ToI64,
             ],
         ));
 
