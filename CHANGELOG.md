@@ -2,6 +2,12 @@
 
 ## **[Unreleased]**
 
+## 0.14.1 - 2020-02-24
+
+- [#1245](https://github.com/wasmerio/wasmer/pull/1245) Use Ubuntu 16.04 in CI so that we use an earlier version of GLIBC.
+- [#1234](https://github.com/wasmerio/wasmer/pull/1234) Check for unused excluded spectest failures.
+- [#1232](https://github.com/wasmerio/wasmer/pull/1232) `wasmer-interface-types` has a WAT decoder.
+
 ## 0.14.0 - 2020-02-20
 
 - [#1233](https://github.com/wasmerio/wasmer/pull/1233) Improved Wasmer C API release artifacts.

@@ -159,12 +159,12 @@ impl FuncResolverBuilder {
                     let debug_entry = if generate_debug_info {
                         let func = &ctx.func;
                         let encinfo = isa.encoding_info();
-                        let mut ebbs = func.layout.ebbs().collect::<Vec<_>>();
-                        ebbs.sort_by_key(|ebb| func.offsets[*ebb]);
-                        let instructions = ebbs
+                        let mut blocks = func.layout.blocks().collect::<Vec<_>>();
+                        blocks.sort_by_key(|block| func.offsets[*block]);
+                        let instructions = blocks
                             .into_iter()
-                            .flat_map(|ebb| {
-                                func.inst_offsets(ebb, &encinfo)
+                            .flat_map(|block| {
+                                func.inst_offsets(block, &encinfo)
                                     .map(|(offset, inst, length)| {
                                         let srcloc = func.srclocs[inst];
                                         let val = srcloc.bits();

@@ -5,7 +5,7 @@ use crate::interpreter::Instruction;
 use std::str;
 
 /// Represents the types supported by WIT.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Debug)]
 pub enum InterfaceType {
     /// An integer.
     Int,
@@ -190,7 +190,7 @@ pub struct Forward<'input> {
 
 /// Represents a set of interfaces, i.e. it entirely describes a WIT
 /// definition.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Default, Debug)]
 pub struct Interfaces<'input> {
     /// All the exported functions.
     pub exports: Vec<Export<'input>>,

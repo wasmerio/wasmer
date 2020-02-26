@@ -267,10 +267,6 @@ clif:fail:data.wast:186:windows # AssertUnlinkable - caught panic Any
 clif:fail:data.wast:194:windows # AssertUnlinkable - caught panic Any
 
 # LLVM
-llvm:fail:f32.wast:1621 # AssertReturn - result F32(0) ("0x0") does not match expected F32(2147483648) ("0x80000000")
-llvm:fail:f32.wast:2020 # AssertReturn - result F32(2147483648) ("0x80000000") does not match expected F32(0) ("0x0")
-llvm:fail:f64.wast:1621 # AssertReturn - result F64(0) ("0x0") does not match expected F64(9223372036854775808) ("0x8000000000000000")
-llvm:fail:f64.wast:2020 # AssertReturn - result F64(9223372036854775808) ("0x8000000000000000") does not match expected F64(0) ("0x0")
 llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
 
 # LLVM AArch64
@@ -312,48 +308,65 @@ singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
 singlepass:skip:atomic.wast:*:*:aarch64 # Threads not yet supported on singlepass
 
-singlepass:fail:address.wast:194 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:195 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:196 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:197 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:198 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:200 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:201 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:202 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:203 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:204 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:481 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:482 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:483 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:484 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:485 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:486 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:487 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:489 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:490 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:491 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:492 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:493 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:494 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:495 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:541 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:542 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:588 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:589 # AssertTrap - expected trap, got []
-singlepass:fail:globals.wast:243 # AssertInvalid - Should be invalid
-singlepass:fail:linking.wast:134 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:169 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:175 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:181 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: unknown error
+singlepass:fail:address.wast:200:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:linking.wast:137:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:139:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:142:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:144:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:147:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:149:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:185:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:187:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:388:linux # AssertReturn - Call failed RuntimeError: unknown error
+
+singlepass:fail:address.wast:194:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:195:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:196:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:197:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:198:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:200:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:481:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:482:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:483:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:484:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:485:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:486:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:487:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:493:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:494:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:541:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:588:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589:macos # AssertTrap - expected trap, got []
+singlepass:fail:linking.wast:137:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:139:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:142:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:144:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:147:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:149:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:185:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:187:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:388:macos # AssertReturn - Call failed RuntimeError: unknown error
 
 # These failures only happen on AArch64 and not on x86-64. 
 singlepass:fail:conversions.wast:83:*:aarch64 # AssertTrap - expected trap, got [I32(2147483647)]

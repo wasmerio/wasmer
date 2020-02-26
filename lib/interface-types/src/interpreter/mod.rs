@@ -43,8 +43,8 @@ pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory, Mem
 
 /// An interpreter is the central piece of this crate. It is a set of
 /// executable instructions. Each instruction takes the runtime as
-/// argument. The runtime holds the invocation inputs, the stack, and
-/// the WebAssembly instance.
+/// argument. The runtime holds the invocation inputs, [the
+/// stack](stack), and [the WebAssembly instance](wasm).
 ///
 /// When the interpreter executes the instructions, each of them can
 /// query the WebAssembly instance, operates on the stack, or reads

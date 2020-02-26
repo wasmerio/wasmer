@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
-    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/logo.png" alt="Wasmer logo">
+    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
   </a>
 </p>
 
