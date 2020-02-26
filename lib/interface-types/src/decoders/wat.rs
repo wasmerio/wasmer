@@ -150,66 +150,6 @@ impl<'a> Parse<'a> for Instruction<'a> {
             Ok(Instruction::WriteUtf8 {
                 allocator_name: parser.parse()?,
             })
-        } else if lookahead.peek::<keyword::as_wasm>() {
-            parser.parse::<keyword::as_wasm>()?;
-
-            Ok(Instruction::AsWasm(parser.parse()?))
-        } else if lookahead.peek::<keyword::as_interface>() {
-            parser.parse::<keyword::as_interface>()?;
-
-            Ok(Instruction::AsInterface(parser.parse()?))
-        } else if lookahead.peek::<keyword::table_ref_add>() {
-            parser.parse::<keyword::table_ref_add>()?;
-
-            Ok(Instruction::TableRefAdd)
-        } else if lookahead.peek::<keyword::table_ref_get>() {
-            parser.parse::<keyword::table_ref_get>()?;
-
-            Ok(Instruction::TableRefGet)
-        } else if lookahead.peek::<keyword::call_method>() {
-            parser.parse::<keyword::call_method>()?;
-
-            Ok(Instruction::CallMethod(parser.parse()?))
-        } else if lookahead.peek::<keyword::make_record>() {
-            parser.parse::<keyword::make_record>()?;
-
-            Ok(Instruction::MakeRecord(parser.parse()?))
-        } else if lookahead.peek::<keyword::get_field>() {
-            parser.parse::<keyword::get_field>()?;
-
-            Ok(Instruction::GetField(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<keyword::r#const>() {
-            parser.parse::<keyword::r#const>()?;
-
-            Ok(Instruction::Const(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<keyword::fold_seq>() {
-            parser.parse::<keyword::fold_seq>()?;
-
-            Ok(Instruction::FoldSeq(parser.parse()?))
-        } else if lookahead.peek::<keyword::add>() {
-            parser.parse::<keyword::add>()?;
-
-            Ok(Instruction::Add(parser.parse()?))
-        } else if lookahead.peek::<keyword::mem_to_seq>() {
-            parser.parse::<keyword::mem_to_seq>()?;
-
-            Ok(Instruction::MemToSeq(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<keyword::load>() {
-            parser.parse::<keyword::load>()?;
-
-            Ok(Instruction::Load(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<keyword::seq_new>() {
-            parser.parse::<keyword::seq_new>()?;
-
-            Ok(Instruction::SeqNew(parser.parse()?))
-        } else if lookahead.peek::<keyword::list_push>() {
-            parser.parse::<keyword::list_push>()?;
-
-            Ok(Instruction::ListPush)
-        } else if lookahead.peek::<keyword::repeat_until>() {
-            parser.parse::<keyword::repeat_until>()?;
-
-            Ok(Instruction::RepeatUntil(parser.parse()?, parser.parse()?))
         } else {
             Err(lookahead.error())
         }
@@ -562,21 +502,6 @@ mod tests {
             r#"call-export "foo""#,
             "read-utf8",
             r#"write-utf8 "foo""#,
-            "as-wasm s8",
-            "as-interface anyref",
-            "table-ref-add",
-            "table-ref-get",
-            "call-method 7",
-            "make-record s8",
-            "get-field i32 7",
-            "const i32 7",
-            "fold-seq 7",
-            "add i32",
-            r#"mem-to-seq i32 "foo""#,
-            r#"load i32 "foo""#,
-            "seq.new i32",
-            "list.push",
-            "repeat-until 1 2",
         ];
         let outputs = vec![
             Instruction::ArgumentGet { index: 7 },
@@ -586,21 +511,6 @@ mod tests {
             Instruction::WriteUtf8 {
                 allocator_name: "foo",
             },
-            Instruction::AsWasm(InterfaceType::S8),
-            Instruction::AsInterface(InterfaceType::Anyref),
-            Instruction::TableRefAdd,
-            Instruction::TableRefGet,
-            Instruction::CallMethod(7),
-            Instruction::MakeRecord(InterfaceType::S8),
-            Instruction::GetField(InterfaceType::I32, 7),
-            Instruction::Const(InterfaceType::I32, 7),
-            Instruction::FoldSeq(7),
-            Instruction::Add(InterfaceType::I32),
-            Instruction::MemToSeq(InterfaceType::I32, "foo"),
-            Instruction::Load(InterfaceType::I32, "foo"),
-            Instruction::SeqNew(InterfaceType::I32),
-            Instruction::ListPush,
-            Instruction::RepeatUntil(1, 2),
         ];
 
         assert_eq!(inputs.len(), outputs.len());

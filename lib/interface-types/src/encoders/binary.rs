@@ -271,77 +271,6 @@ where
                 0x04_u8.to_bytes(writer)?;
                 allocator_name.to_bytes(writer)?;
             }
-
-            Instruction::AsWasm(interface_type) => {
-                0x05_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-            }
-
-            Instruction::AsInterface(interface_type) => {
-                0x06_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-            }
-
-            Instruction::TableRefAdd => 0x07_u8.to_bytes(writer)?,
-
-            Instruction::TableRefGet => 0x08_u8.to_bytes(writer)?,
-
-            Instruction::CallMethod(function_index) => {
-                0x09_u8.to_bytes(writer)?;
-                function_index.to_bytes(writer)?;
-            }
-
-            Instruction::MakeRecord(interface_type) => {
-                0x0a_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-            }
-
-            Instruction::GetField(interface_type, field_index) => {
-                0x0c_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-                field_index.to_bytes(writer)?;
-            }
-
-            Instruction::Const(interface_type, index) => {
-                0x0d_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-                index.to_bytes(writer)?;
-            }
-
-            Instruction::FoldSeq(index) => {
-                0x0e_u8.to_bytes(writer)?;
-                index.to_bytes(writer)?;
-            }
-
-            Instruction::Add(interface_type) => {
-                0x0f_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-            }
-
-            Instruction::MemToSeq(interface_type, string) => {
-                0x10_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-                string.to_bytes(writer)?;
-            }
-
-            Instruction::Load(interface_type, string) => {
-                0x11_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-                string.to_bytes(writer)?;
-            }
-
-            Instruction::SeqNew(interface_type) => {
-                0x12_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-            }
-
-            Instruction::ListPush => 0x13_u8.to_bytes(writer)?,
-
-            Instruction::RepeatUntil(index1, index2) => {
-                0x14_u8.to_bytes(writer)?;
-                index1.to_bytes(writer)?;
-                index2.to_bytes(writer)?;
-            }
         }
 
         Ok(())
@@ -591,44 +520,14 @@ mod tests {
                 Instruction::WriteUtf8 {
                     allocator_name: "abc",
                 },
-                Instruction::AsWasm(InterfaceType::I32),
-                Instruction::AsInterface(InterfaceType::I64),
-                Instruction::TableRefAdd,
-                Instruction::TableRefGet,
-                Instruction::CallMethod(1),
-                Instruction::MakeRecord(InterfaceType::I32),
-                Instruction::GetField(InterfaceType::I32, 2),
-                Instruction::Const(InterfaceType::I32, 1),
-                Instruction::FoldSeq(1),
-                Instruction::Add(InterfaceType::I32),
-                Instruction::MemToSeq(InterfaceType::I32, "abc"),
-                Instruction::Load(InterfaceType::I32, "abc"),
-                Instruction::SeqNew(InterfaceType::I32),
-                Instruction::ListPush,
-                Instruction::RepeatUntil(1, 2),
             ],
             &[
-                0x14, // list of 20 items
+                0x05, // list of 5 items
                 0x00, 0x01, // ArgumentGet { index: 1 }
                 0x01, 0x01, // Call { function_index: 1 }
                 0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
                 0x03, // ReadUtf8
                 0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
-                0x05, 0x0c, // AsWasm(Int)
-                0x06, 0x0d, // AsInterface(I64)
-                0x07, // TableRefAdd
-                0x08, // TableRefGet
-                0x09, 0x01, // CallMethod(1)
-                0x0a, 0x0c, // MakeRecord(I32)
-                0x0c, 0x0c, 0x02, // GetField(I32, 2)
-                0x0d, 0x0c, 0x01, // Const(I32, 1)
-                0x0e, 0x01, // FoldSeq(1)
-                0x0f, 0x0c, // Add(I32)
-                0x10, 0x0c, 0x03, 0x61, 0x62, 0x63, // MemToSeq(I32, "abc")
-                0x11, 0x0c, 0x03, 0x61, 0x62, 0x63, // Load(I32, "abc")
-                0x12, 0x0c, // SeqNew(I32)
-                0x13, // ListPush
-                0x14, 0x01, 0x02, // RepeatUntil(1, 2)
             ]
         );
     }

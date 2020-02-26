@@ -196,77 +196,6 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
             )
         }
 
-        0x05 => {
-            consume!((input, argument_0) = ty(input)?);
-            (input, Instruction::AsWasm(argument_0))
-        }
-
-        0x06 => {
-            consume!((input, argument_0) = ty(input)?);
-            (input, Instruction::AsInterface(argument_0))
-        }
-
-        0x07 => (input, Instruction::TableRefAdd),
-
-        0x08 => (input, Instruction::TableRefGet),
-
-        0x09 => {
-            consume!((input, argument_0) = uleb(input)?);
-            (input, Instruction::CallMethod(argument_0))
-        }
-
-        0x0a => {
-            consume!((input, argument_0) = ty(input)?);
-            (input, Instruction::MakeRecord(argument_0))
-        }
-
-        0x0c => {
-            consume!((input, argument_0) = ty(input)?);
-            consume!((input, argument_1) = uleb(input)?);
-            (input, Instruction::GetField(argument_0, argument_1))
-        }
-
-        0x0d => {
-            consume!((input, argument_0) = ty(input)?);
-            consume!((input, argument_1) = uleb(input)?);
-            (input, Instruction::Const(argument_0, argument_1))
-        }
-
-        0x0e => {
-            consume!((input, argument_0) = uleb(input)?);
-            (input, Instruction::FoldSeq(argument_0))
-        }
-
-        0x0f => {
-            consume!((input, argument_0) = ty(input)?);
-            (input, Instruction::Add(argument_0))
-        }
-
-        0x10 => {
-            consume!((input, argument_0) = ty(input)?);
-            consume!((input, argument_1) = string(input)?);
-            (input, Instruction::MemToSeq(argument_0, argument_1))
-        }
-
-        0x11 => {
-            consume!((input, argument_0) = ty(input)?);
-            consume!((input, argument_1) = string(input)?);
-            (input, Instruction::Load(argument_0, argument_1))
-        }
-
-        0x12 => {
-            consume!((input, argument_0) = ty(input)?);
-            (input, Instruction::SeqNew(argument_0))
-        }
-
-        0x13 => (input, Instruction::ListPush),
-
-        0x14 => {
-            consume!((input, argument_0) = uleb(input)?);
-            consume!((input, argument_1) = uleb(input)?);
-            (input, Instruction::RepeatUntil(argument_0, argument_1))
-        }
-
         _ => return Err(Err::Error(make_error(input, ErrorKind::ParseTo))),
     })
 }
@@ -670,27 +599,12 @@ mod tests {
     #[test]
     fn test_instructions() {
         let input = &[
-            0x14, // list of 20 items
+            0x05, // list of 5 items
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, 0x01, // Call { function_index: 1 }
             0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
             0x03, // ReadUtf8
             0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
-            0x05, 0x00, // AsWasm(S8)
-            0x06, 0x00, // AsInterface(S8)
-            0x07, // TableRefAdd
-            0x08, // TableRefGet
-            0x09, 0x01, // CallMethod(1)
-            0x0a, 0x0c, // MakeRecord(I32)
-            0x0c, 0x00, 0x02, // GetField(S8, 2)
-            0x0d, 0x0c, 0x01, // Const(I32, 1)
-            0x0e, 0x01, // FoldSeq(1)
-            0x0f, 0x00, // Add(I32)
-            0x10, 0x00, 0x03, 0x61, 0x62, 0x63, // MemToSeq(S8, "abc")
-            0x11, 0x00, 0x03, 0x61, 0x62, 0x63, // Load(S8, "abc")
-            0x12, 0x00, // SeqNew(S8)
-            0x13, // ListPush
-            0x14, 0x01, 0x02, // RepeatUntil(1, 2)
             0x0a,
         ];
         let output = Ok((
@@ -703,21 +617,6 @@ mod tests {
                 Instruction::WriteUtf8 {
                     allocator_name: "abc",
                 },
-                Instruction::AsWasm(InterfaceType::S8),
-                Instruction::AsInterface(InterfaceType::S8),
-                Instruction::TableRefAdd,
-                Instruction::TableRefGet,
-                Instruction::CallMethod(1),
-                Instruction::MakeRecord(InterfaceType::I32),
-                Instruction::GetField(InterfaceType::S8, 2),
-                Instruction::Const(InterfaceType::I32, 1),
-                Instruction::FoldSeq(1),
-                Instruction::Add(InterfaceType::S8),
-                Instruction::MemToSeq(InterfaceType::S8, "abc"),
-                Instruction::Load(InterfaceType::S8, "abc"),
-                Instruction::SeqNew(InterfaceType::S8),
-                Instruction::ListPush,
-                Instruction::RepeatUntil(1, 2),
             ],
         ));
 

@@ -92,39 +92,6 @@ impl<'input> ToString for &Instruction<'input> {
             Instruction::WriteUtf8 { allocator_name } => {
                 format!(r#"write-utf8 "{}""#, allocator_name)
             }
-            Instruction::AsWasm(interface_type) => {
-                format!("as-wasm {}", interface_type.to_string())
-            }
-            Instruction::AsInterface(interface_type) => {
-                format!("as-interface {}", interface_type.to_string())
-            }
-            Instruction::TableRefAdd => "table-ref-add".into(),
-            Instruction::TableRefGet => "table-ref-get".into(),
-            Instruction::CallMethod(index) => format!("call-method {}", index),
-            Instruction::MakeRecord(interface_type) => {
-                format!("make-record {}", interface_type.to_string())
-            }
-            Instruction::GetField(interface_type, field_index) => {
-                format!("get-field {} {}", interface_type.to_string(), field_index)
-            }
-            Instruction::Const(interface_type, value) => {
-                format!("const {} {}", interface_type.to_string(), value)
-            }
-            Instruction::FoldSeq(import_index) => format!("fold-seq {}", import_index),
-            Instruction::Add(interface_type) => format!("add {}", interface_type.to_string()),
-            Instruction::MemToSeq(interface_type, memory) => {
-                format!(r#"mem-to-seq {} "{}""#, interface_type.to_string(), memory)
-            }
-            Instruction::Load(interface_type, memory) => {
-                format!(r#"load {} "{}""#, interface_type.to_string(), memory)
-            }
-            Instruction::SeqNew(interface_type) => {
-                format!("seq.new {}", interface_type.to_string())
-            }
-            Instruction::ListPush => "list.push".into(),
-            Instruction::RepeatUntil(condition_index, step_index) => {
-                format!("repeat-until {} {}", condition_index, step_index)
-            }
         }
     }
 }
@@ -364,21 +331,6 @@ mod tests {
                 allocator_name: "foo",
             })
                 .to_string(),
-            (&Instruction::AsWasm(InterfaceType::I32)).to_string(),
-            (&Instruction::AsInterface(InterfaceType::I32)).to_string(),
-            (&Instruction::TableRefAdd).to_string(),
-            (&Instruction::TableRefGet).to_string(),
-            (&Instruction::CallMethod(7)).to_string(),
-            (&Instruction::MakeRecord(InterfaceType::I32)).to_string(),
-            (&Instruction::GetField(InterfaceType::I32, 7)).to_string(),
-            (&Instruction::Const(InterfaceType::I32, 7)).to_string(),
-            (&Instruction::FoldSeq(7)).to_string(),
-            (&Instruction::Add(InterfaceType::I32)).to_string(),
-            (&Instruction::MemToSeq(InterfaceType::I32, "foo")).to_string(),
-            (&Instruction::Load(InterfaceType::I32, "foo")).to_string(),
-            (&Instruction::SeqNew(InterfaceType::I32)).to_string(),
-            (&Instruction::ListPush).to_string(),
-            (&Instruction::RepeatUntil(1, 2)).to_string(),
         ];
         let outputs = vec![
             "arg.get 7",
@@ -386,21 +338,6 @@ mod tests {
             r#"call-export "foo""#,
             "read-utf8",
             r#"write-utf8 "foo""#,
-            "as-wasm i32",
-            "as-interface i32",
-            "table-ref-add",
-            "table-ref-get",
-            "call-method 7",
-            "make-record i32",
-            "get-field i32 7",
-            "const i32 7",
-            "fold-seq 7",
-            "add i32",
-            r#"mem-to-seq i32 "foo""#,
-            r#"load i32 "foo""#,
-            "seq.new i32",
-            "list.push",
-            "repeat-until 1 2",
         ];
 
         assert_eq!(inputs, outputs);

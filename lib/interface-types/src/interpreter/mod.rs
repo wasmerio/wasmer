@@ -208,7 +208,6 @@ where
                     Instruction::WriteUtf8 { allocator_name } => {
                         instructions::write_utf8((*allocator_name).to_owned(), instruction_name)
                     }
-                    _ => unimplemented!(),
                 }
             })
             .collect();
