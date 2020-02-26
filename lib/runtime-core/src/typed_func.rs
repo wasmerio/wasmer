@@ -330,7 +330,7 @@ impl<'a> ErasedFunc<'a> {
                         Type::F32 => Value::F32(f32::from_bits(*args.offset(i as _) as u32)),
                         Type::F64 => Value::F64(f64::from_bits(*args.offset(i as _) as u64)),
                         Type::V128 => {
-                            panic!("enter_host_polymorphic: 128-bit types are not supported")
+                            todo!("enter_host_polymorphic: 128-bit types are not supported")
                         }
                     }
                 })
