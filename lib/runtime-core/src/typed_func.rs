@@ -305,7 +305,7 @@ impl<'a> ErasedFunc<'a> {
     where
         F: Fn(&mut vm::Ctx, &[crate::types::Value]) -> Vec<crate::types::Value> + 'static,
     {
-        use crate::trampoline_x64::*;
+        use crate::trampoline_x64::{CallContext, TrampolineBufferBuilder};
         use crate::types::Value;
         use std::convert::TryFrom;
 
