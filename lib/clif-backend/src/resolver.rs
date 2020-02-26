@@ -113,6 +113,12 @@ impl FuncResolverBuilder {
         let generate_debug_info = info.generate_debug_info;
         let fb = function_bodies.iter().collect::<Vec<(_, _)>>();
 
+        #[cfg(feature = "generate-debug-information")]
+        use wasm_debug::types::CompiledFunctionData;
+
+        #[cfg(not(feature = "generate-debug-information"))]
+        type CompiledFunctionData = ();
+
         /// Data about the the compiled machine code.
         type CompileMetadata = (
             LocalFuncIndex,
@@ -128,7 +134,7 @@ impl FuncResolverBuilder {
             .par_iter()
             .map_init(
                 || Context::new(),
-                |ctx, (lfi, (func, loc))| {
+                |ctx, (lfi, (func, _loc))| {
                     let mut code_buf = Vec::new();
                     ctx.func = func.to_owned();
                     let mut reloc_sink = RelocSink::new();
@@ -149,6 +155,7 @@ impl FuncResolverBuilder {
                         _ => CompileError::InternalError { msg: e.to_string() },
                     })?;
 
+                    #[cfg(feature = "generate-debug-information")]
                     let debug_entry = if generate_debug_info {
                         let func = &ctx.func;
                         let encinfo = isa.encoding_info();
@@ -180,8 +187,8 @@ impl FuncResolverBuilder {
 
                         let entry = CompiledFunctionData {
                             instructions,
-                            start_srcloc: wasm_debug::types::SourceLoc::new(loc.start()),
-                            end_srcloc: wasm_debug::types::SourceLoc::new(loc.end()),
+                            start_srcloc: wasm_debug::types::SourceLoc::new(_loc.start()),
+                            end_srcloc: wasm_debug::types::SourceLoc::new(_loc.end()),
                             // this not being 0 breaks inst-level debugging
                             body_offset: 0,
                             body_len: code_buf.len(),
@@ -191,13 +198,15 @@ impl FuncResolverBuilder {
                         None
                     };
 
+                    #[cfg(not(feature = "generate-debug-information"))]
+                    let debug_entry = None;
+
                     ctx.clear();
                     Ok((code_buf, (*lfi, debug_entry, reloc_sink, local_trap_sink)))
                 },
             )
             .collect();
 
-        use wasm_debug::types::CompiledFunctionData;
         let mut debug_metadata = if generate_debug_info {
             Some(wasmer_runtime_core::codegen::DebugMetadata {
                 func_info: Map::new(),
@@ -216,42 +225,47 @@ impl FuncResolverBuilder {
         // We separate into two iterators, one iterable and one into iterable
         let (code_bufs, sinks): (Vec<Vec<u8>>, Vec<CompileMetadata>) =
             compiled_functions.into_iter().unzip();
-        for (code_buf, (_, debug_info, reloc_sink, mut local_trap_sink)) in
+        for (code_buf, (_, _debug_info, reloc_sink, mut local_trap_sink)) in
             code_bufs.iter().zip(sinks.into_iter())
         {
             let rounded_size = round_up(code_buf.len(), mem::size_of::<usize>());
-            if let Some(ref mut dbg_metadata) = debug_metadata {
-                let (entry, vlr, stackslots) = debug_info.unwrap();
-                dbg_metadata.func_info.push(entry);
-                let new_vlr = vlr
-                    .into_iter()
-                    .map(|(k, v)| {
-                        (
-                            wasm_debug::types::ValueLabel::from_u32(k.as_u32()),
-                            v.into_iter()
-                                .map(|item| wasm_debug::types::ValueLocRange {
-                                    start: item.start,
-                                    end: item.end,
-                                    loc: match item.loc {
-                                        cranelift_codegen::ir::ValueLoc::Unassigned => {
-                                            wasm_debug::types::ValueLoc::Unassigned
-                                        }
-                                        cranelift_codegen::ir::ValueLoc::Reg(ru) => {
-                                            wasm_debug::types::ValueLoc::Reg(ru)
-                                        }
-                                        cranelift_codegen::ir::ValueLoc::Stack(st) => {
-                                            wasm_debug::types::ValueLoc::Stack(
-                                                wasm_debug::types::StackSlot::from_u32(st.as_u32()),
-                                            )
-                                        }
-                                    },
-                                })
-                                .collect::<Vec<wasm_debug::types::ValueLocRange>>(),
-                        )
-                    })
-                    .collect::<wasm_debug::types::ValueLabelsRangesInner>();
-                dbg_metadata.inst_info.push(new_vlr);
-                dbg_metadata.stack_slot_offsets.push(stackslots);
+            #[cfg(feature = "generate-debug-information")]
+            {
+                if let Some(ref mut dbg_metadata) = debug_metadata {
+                    let (entry, vlr, stackslots) = _debug_info.unwrap();
+                    dbg_metadata.func_info.push(entry);
+                    let new_vlr = vlr
+                        .into_iter()
+                        .map(|(k, v)| {
+                            (
+                                wasm_debug::types::ValueLabel::from_u32(k.as_u32()),
+                                v.into_iter()
+                                    .map(|item| wasm_debug::types::ValueLocRange {
+                                        start: item.start,
+                                        end: item.end,
+                                        loc: match item.loc {
+                                            cranelift_codegen::ir::ValueLoc::Unassigned => {
+                                                wasm_debug::types::ValueLoc::Unassigned
+                                            }
+                                            cranelift_codegen::ir::ValueLoc::Reg(ru) => {
+                                                wasm_debug::types::ValueLoc::Reg(ru)
+                                            }
+                                            cranelift_codegen::ir::ValueLoc::Stack(st) => {
+                                                wasm_debug::types::ValueLoc::Stack(
+                                                    wasm_debug::types::StackSlot::from_u32(
+                                                        st.as_u32(),
+                                                    ),
+                                                )
+                                            }
+                                        },
+                                    })
+                                    .collect::<Vec<wasm_debug::types::ValueLocRange>>(),
+                            )
+                        })
+                        .collect::<wasm_debug::types::ValueLabelsRangesInner>();
+                    dbg_metadata.inst_info.push(new_vlr);
+                    dbg_metadata.stack_slot_offsets.push(stackslots);
+                }
             }
 
             // Clear the local trap sink and consolidate all trap info

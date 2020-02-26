@@ -277,7 +277,6 @@ pub fn read_module<
                     }
                 }
 
-                // read instruction locations into vector for debug purposes
                 {
                     let info_read = info.read().unwrap();
                     let mut cur_pos =
