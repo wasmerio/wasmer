@@ -476,7 +476,7 @@ mod tests {
                 }
             }
 
-            let expected = (0..=n as u64).fold(0u64, |a, b| a + b);
+            let expected = (0..=n as u64).sum();
             prev = Some((ptr, expected))
         }
     }
