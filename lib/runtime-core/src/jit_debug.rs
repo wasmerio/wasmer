@@ -93,7 +93,9 @@ static mut __jit_debug_descriptor: JitDebugDescriptor = JitDebugDescriptor {
 
 #[cfg(feature = "generate-debug-information-no-export-symbols")]
 extern "C" {
+    #[no_mangle]
     static mut __jit_debug_descriptor: JitDebugDescriptor;
+    #[no_mangle]
     fn __jit_debug_register_code();
 }
 

@@ -142,21 +142,15 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 capi-test: test-capi
 
 test-rest:
-	cargo test --release \
-		--all \
-		--exclude wasmer-runtime-c-api \
-		--exclude wasmer-emscripten \
-		--exclude wasmer-spectests \
-		--exclude wasmer-wasi \
-		--exclude wasmer-middleware-common \
-		--exclude wasmer-middleware-common-tests \
-		--exclude wasmer-singlepass-backend \
-		--exclude wasmer-clif-backend \
-		--exclude wasmer-llvm-backend \
-		--exclude wasmer-wasi-tests \
-		--exclude wasmer-emscripten-tests \
-		--exclude wasmer-runtime-core-tests
-
+	cargo test --release -p wasmer-dev-utils
+	cargo test --release -p wasmer-interface-types
+	cargo test --release -p wasmer-kernel-loader
+	cargo test --release -p kernel-net
+	cargo test --release -p wasmer-llvm-backend-tests
+	cargo test --release -p wasmer-runtime
+	cargo test --release -p wasmer-runtime-core
+	cargo test --release -p wasmer-wasi-experimental-io-devices
+	cargo test --release -p wasmer-win-exception-handler
 
 test: spectests emtests middleware wasitests test-rest examples
 

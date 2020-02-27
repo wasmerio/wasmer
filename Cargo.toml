@@ -80,7 +80,7 @@ serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
 
 [features]
-default = ["fast-tests", "wasi", "backend-cranelift", "wabt", "wasmer-runtime-core/generate-debug-information"]
+default = ["fast-tests", "wasi", "backend-cranelift", "wabt"]
 "loader-kernel" = ["wasmer-kernel-loader"]
 debug = ["fern", "log/max_level_debug", "log/release_max_level_debug"]
 trace = ["fern", "log/max_level_trace", "log/release_max_level_trace"]
@@ -98,8 +98,7 @@ backend-llvm = [
     "wasmer-llvm-backend",
     "wasmer-runtime/llvm",
     "wasmer-middleware-common-tests/llvm",
-    "wasmer-runtime-core/generate-debug-information",
-    "wasmer-runtime-core/generate-debug-information-no-export-symbols",
+    "wasmer-runtime-core/generate-debug-information-no-export-symbols"
 ]
 backend-singlepass = [
     "wasmer-singlepass-backend",
