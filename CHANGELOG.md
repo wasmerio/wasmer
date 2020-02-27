@@ -2,6 +2,11 @@
 
 ## **[Unreleased]**
 
+- [#1212](https://github.com/wasmerio/wasmer/pull/1212) Add support for GDB JIT debugging:
+  - Add `--generate-debug-info` and `-g` flags to `wasmer run` to generate debug information during compilation. The debug info is passed via the GDB JIT interface to a debugger to allow source-level debugging of Wasm files. Currently only available on clif-backend.
+  - Break public middleware APIs: there is now a `source_loc` parameter that should be passed through if applicable.
+  - Break compiler trait methods such as `feed_local`, `feed_event` as well as `ModuleCodeGenerator::finalize`.
+
 ## 0.14.1 - 2020-02-24
 
 - [#1245](https://github.com/wasmerio/wasmer/pull/1245) Use Ubuntu 16.04 in CI so that we use an earlier version of GLIBC.
@@ -12,7 +17,6 @@
 
 - [#1233](https://github.com/wasmerio/wasmer/pull/1233) Improved Wasmer C API release artifacts.
 - [#1216](https://github.com/wasmerio/wasmer/pull/1216) `wasmer-interface-types` receives a binary encoder.
-- [#1212](https://github.com/wasmerio/wasmer/pull/1212) Add `--generate-debug-info` and `-g` flags to `wasmer run` to generate debug information during compilation that is passed via the GDB JIT interface to a debugger to allow source-level debugging of Wasm files. Currently only available on clif-backend, see PR for more information on its implementation.
 - [#1228](https://github.com/wasmerio/wasmer/pull/1228) Singlepass cleanup: Resolve several FIXMEs and remove protect_unix.
 - [#1218](https://github.com/wasmerio/wasmer/pull/1218) Enable Cranelift verifier in debug mode. Fix bug with table indices being the wrong type.
 - [#787](https://github.com/wasmerio/wasmer/pull/787) New crate `wasmer-interface-types` to implement WebAssembly Interface Types.
