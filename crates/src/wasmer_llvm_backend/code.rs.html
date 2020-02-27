@@ -9039,6 +9039,19 @@
 <span id="9039">9039</span>
 <span id="9040">9040</span>
 <span id="9041">9041</span>
+<span id="9042">9042</span>
+<span id="9043">9043</span>
+<span id="9044">9044</span>
+<span id="9045">9045</span>
+<span id="9046">9046</span>
+<span id="9047">9047</span>
+<span id="9048">9048</span>
+<span id="9049">9049</span>
+<span id="9050">9050</span>
+<span id="9051">9051</span>
+<span id="9052">9052</span>
+<span id="9053">9053</span>
+<span id="9054">9054</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">backend</span>::<span class="ident">LLVMBackend</span>,
@@ -10041,7 +10054,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">feed_local</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">WpType</span>, <span class="ident">count</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">feed_local</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">WpType</span>, <span class="ident">count</span>: <span class="ident">usize</span>, <span class="ident">_loc</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">param_len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">num_params</span>;
 
         <span class="kw">let</span> <span class="ident">wasmer_ty</span> <span class="op">=</span> <span class="ident">wp_type_to_type</span>(<span class="ident">ty</span>)<span class="question-mark">?</span>;
@@ -10142,7 +10155,12 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">feed_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Event</span>, <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">feed_event</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">event</span>: <span class="ident">Event</span>,
+        <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
+        <span class="ident">_source_loc</span>: <span class="ident">u32</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">state</span>;
         <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">context</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">context</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
@@ -17774,6 +17792,7 @@
     <span class="kw">fn</span> <span class="ident">next_function</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">module_info</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">_loc</span>: <span class="ident">WasmSpan</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">LLVMFunctionCodeGenerator</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="comment">// Creates a new function and returns the function-scope code generator for it.</span>
         <span class="kw">let</span> (<span class="ident">context</span>, <span class="ident">builder</span>, <span class="ident">intrinsics</span>) <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">last_mut</span>() {
@@ -17879,7 +17898,14 @@
     <span class="kw">fn</span> <span class="ident">finalize</span>(
         <span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">LLVMBackend</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CacheGen</span><span class="op">&gt;</span>), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+        (
+            <span class="ident">LLVMBackend</span>,
+            <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasmer_runtime_core</span>::<span class="ident">codegen</span>::<span class="ident">DebugMetadata</span><span class="op">&gt;</span>,
+            <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CacheGen</span><span class="op">&gt;</span>,
+        ),
+        <span class="ident">CodegenError</span>,
+    <span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">context</span>, <span class="ident">builder</span>, <span class="ident">intrinsics</span>) <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">last_mut</span>() {
             <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> (
                 <span class="ident">x</span>.<span class="ident">context</span>.<span class="ident">take</span>().<span class="ident">unwrap</span>(),
@@ -17967,7 +17993,7 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">target_machine</span>,
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">llvm_callbacks</span>,
         );
-        <span class="prelude-val">Ok</span>((<span class="ident">backend</span>, <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">cache_gen</span>)))
+        <span class="prelude-val">Ok</span>((<span class="ident">backend</span>, <span class="prelude-val">None</span>, <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">cache_gen</span>)))
     }
 
     <span class="kw">fn</span> <span class="ident">feed_compiler_config</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerConfig</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {

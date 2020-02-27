@@ -1134,6 +1134,10 @@
 <span id="1134">1134</span>
 <span id="1135">1135</span>
 <span id="1136">1136</span>
+<span id="1137">1137</span>
+<span id="1138">1138</span>
+<span id="1139">1139</span>
+<span id="1140">1140</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The runtime vm module contains data structures and helper functions used during runtime to</span>
 <span class="doccomment">//! execute wasm instance functions.</span>
@@ -2267,6 +2271,10 @@
                 <span class="ident">em_symbol_map</span>: <span class="prelude-val">None</span>,
 
                 <span class="ident">custom_sections</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
+
+                <span class="ident">generate_debug_info</span>: <span class="bool-val">false</span>,
+                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;generate-debug-information&quot;</span>)]</span>
+                <span class="ident">debug_info_manager</span>: <span class="kw">crate</span>::<span class="ident">jit_debug</span>::<span class="ident">JitCodeDebugInfoManager</span>::<span class="ident">new</span>(),
             },
         }
     }

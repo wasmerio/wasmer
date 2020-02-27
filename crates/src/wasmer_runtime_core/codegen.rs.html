@@ -372,6 +372,118 @@
 <span id="372">372</span>
 <span id="373">373</span>
 <span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The codegen module provides common functions and data structures used by multiple backends</span>
 <span class="doccomment">//! during the code generation process.</span>
@@ -440,6 +552,45 @@
     }
 }
 
+<span class="doccomment">/// Type representing an area of Wasm code in bytes as an offset from the</span>
+<span class="doccomment">/// beginning of the code section.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// `start` must be less than or equal to `end`.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasmSpan</span> {
+    <span class="doccomment">/// Start offset in bytes from the beginning of the Wasm code section</span>
+    <span class="ident">start</span>: <span class="ident">u32</span>,
+    <span class="doccomment">/// End offset in bytes from the beginning of the Wasm code section</span>
+    <span class="ident">end</span>: <span class="ident">u32</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">WasmSpan</span> {
+    <span class="doccomment">/// Create a new `WasmSpan`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// `start` must be less than or equal to `end`.</span>
+    <span class="comment">// TODO: mark this function as `const` when asserts get stabilized as `const`</span>
+    <span class="comment">// see: https://github.com/rust-lang/rust/issues/57563</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">start</span>: <span class="ident">u32</span>, <span class="ident">end</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">start</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">end</span>);
+        <span class="self">Self</span> { <span class="ident">start</span>, <span class="ident">end</span> }
+    }
+
+    <span class="doccomment">/// Start offset in bytes from the beginning of the Wasm code section</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">start</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
+        <span class="self">self</span>.<span class="ident">start</span>
+    }
+
+    <span class="doccomment">/// End offset in bytes from the beginning of the Wasm code section</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">end</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
+        <span class="self">self</span>.<span class="ident">end</span>
+    }
+
+    <span class="doccomment">/// Size in bytes of the span</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
+        <span class="self">self</span>.<span class="ident">end</span> <span class="op">-</span> <span class="self">self</span>.<span class="ident">start</span>
+    }
+}
+
 <span class="doccomment">/// Information for a breakpoint</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BreakpointInfo</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
@@ -487,12 +638,43 @@
     <span class="doccomment">/// Checks the precondition for a module.</span>
     <span class="kw">fn</span> <span class="ident">check_precondition</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">E</span><span class="op">&gt;</span>;
     <span class="doccomment">/// Creates a new function and returns the function-scope code generator for it.</span>
-    <span class="kw">fn</span> <span class="ident">next_function</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">module_info</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FCG</span>, <span class="ident">E</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">next_function</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">module_info</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">loc</span>: <span class="ident">WasmSpan</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FCG</span>, <span class="ident">E</span><span class="op">&gt;</span>;
     <span class="doccomment">/// Finalizes this module.</span>
-    <span class="kw">fn</span> <span class="ident">finalize</span>(<span class="self">self</span>, <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">RM</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CacheGen</span><span class="op">&gt;</span>), <span class="ident">E</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">finalize</span>(
+        <span class="self">self</span>,
+        <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">RM</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">DebugMetadata</span><span class="op">&gt;</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CacheGen</span><span class="op">&gt;</span>), <span class="ident">E</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Creates a module from cache.</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_cache</span>(<span class="ident">cache</span>: <span class="ident">Artifact</span>, <span class="kw">_</span>: <span class="ident">Token</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ModuleInner</span>, <span class="ident">CacheError</span><span class="op">&gt;</span>;
+}
+
+<span class="doccomment">/// Mock item when compiling without debug info generation.</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;generate-debug-information&quot;</span>))]</span>
+<span class="kw">type</span> <span class="ident">CompiledFunctionData</span> <span class="op">=</span> ();
+
+<span class="doccomment">/// Mock item when compiling without debug info generation.</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;generate-debug-information&quot;</span>))]</span>
+<span class="kw">type</span> <span class="ident">ValueLabelsRangesInner</span> <span class="op">=</span> ();
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;generate-debug-information&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">wasm_debug</span>::<span class="ident">types</span>::{<span class="ident">CompiledFunctionData</span>, <span class="ident">ValueLabelsRangesInner</span>};
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+<span class="doccomment">/// Useful information for debugging gathered by compiling a Wasm module.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DebugMetadata</span> {
+    <span class="doccomment">/// [`CompiledFunctionData`] in [`FuncIndex`] order</span>
+    <span class="kw">pub</span> <span class="ident">func_info</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">FuncIndex</span>, <span class="ident">CompiledFunctionData</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// [`ValueLabelsRangesInner`] in [`FuncIndex`] order</span>
+    <span class="kw">pub</span> <span class="ident">inst_info</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">FuncIndex</span>, <span class="ident">ValueLabelsRangesInner</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Stack slot offsets in [`FuncIndex`] order</span>
+    <span class="kw">pub</span> <span class="ident">stack_slot_offsets</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">FuncIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// function pointers and their lengths</span>
+    <span class="kw">pub</span> <span class="ident">pointers</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>, <span class="ident">usize</span>)<span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// A streaming compiler which is designed to generated code for a module based on a stream</span>
@@ -596,6 +778,7 @@
         <span class="ident">CGEN</span>: <span class="ident">Fn</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MiddlewareChain</span>,
     <span class="op">&gt;</span> <span class="ident">Compiler</span> <span class="kw">for</span> <span class="ident">StreamingCompiler</span><span class="op">&lt;</span><span class="ident">MCG</span>, <span class="ident">FCG</span>, <span class="ident">RM</span>, <span class="ident">E</span>, <span class="ident">CGEN</span><span class="op">&gt;</span>
 {
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_variables</span>)]</span>
     <span class="kw">fn</span> <span class="ident">compile</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">wasm</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
@@ -616,11 +799,47 @@
         };
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">chain</span> <span class="op">=</span> (<span class="self">self</span>.<span class="ident">middleware_chain_generator</span>)();
         <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="kw">crate</span>::<span class="ident">parse</span>::<span class="ident">read_module</span>(<span class="ident">wasm</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">mcg</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">chain</span>, <span class="kw-2">&amp;</span><span class="ident">compiler_config</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> (<span class="ident">exec_context</span>, <span class="ident">cache_gen</span>) <span class="op">=</span>
-            <span class="ident">mcg</span>.<span class="ident">finalize</span>(<span class="kw-2">&amp;</span><span class="ident">info</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>())
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">CompileError</span>::<span class="ident">InternalError</span> {
-                    <span class="ident">msg</span>: <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">x</span>),
-                })<span class="question-mark">?</span>;
+        <span class="kw">let</span> (<span class="ident">exec_context</span>, <span class="ident">compile_debug_info</span>, <span class="ident">cache_gen</span>) <span class="op">=</span> <span class="ident">mcg</span>
+            .<span class="ident">finalize</span>(<span class="kw-2">&amp;</span><span class="ident">info</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>())
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">CompileError</span>::<span class="ident">InternalError</span> {
+                <span class="ident">msg</span>: <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">x</span>),
+            })<span class="question-mark">?</span>;
+
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;generate-debug-information&quot;</span>)]</span>
+        {
+            <span class="kw">if</span> <span class="ident">compiler_config</span>.<span class="ident">should_generate_debug_info</span>() {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">dbg_info</span>) <span class="op">=</span> <span class="ident">compile_debug_info</span> {
+                    <span class="kw">let</span> <span class="ident">debug_info</span> <span class="op">=</span> <span class="ident">wasm_debug</span>::<span class="ident">read_debuginfo</span>(<span class="ident">wasm</span>);
+                    <span class="kw">let</span> <span class="ident">extra_info</span> <span class="op">=</span> <span class="ident">wasm_debug</span>::<span class="ident">types</span>::<span class="ident">ModuleVmctxInfo</span>::<span class="ident">new</span>(
+                        <span class="kw">crate</span>::<span class="ident">vm</span>::<span class="ident">Ctx</span>::<span class="ident">offset_memory_base</span>() <span class="kw">as</span> <span class="kw">_</span>,
+                        <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw">crate</span>::<span class="ident">vm</span>::<span class="ident">Ctx</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="kw">_</span>,
+                        <span class="ident">dbg_info</span>.<span class="ident">stack_slot_offsets</span>.<span class="ident">values</span>(),
+                    );
+                    <span class="kw">let</span> <span class="ident">compiled_fn_map</span> <span class="op">=</span>
+                        <span class="ident">wasm_debug</span>::<span class="ident">types</span>::<span class="ident">create_module_address_map</span>(<span class="ident">dbg_info</span>.<span class="ident">func_info</span>.<span class="ident">values</span>());
+                    <span class="kw">let</span> <span class="ident">range_map</span> <span class="op">=</span>
+                        <span class="ident">wasm_debug</span>::<span class="ident">types</span>::<span class="ident">build_values_ranges</span>(<span class="ident">dbg_info</span>.<span class="ident">inst_info</span>.<span class="ident">values</span>());
+                    <span class="kw">let</span> <span class="ident">raw_func_slice</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">dbg_info</span>.<span class="ident">pointers</span>;
+
+                    <span class="kw">let</span> <span class="ident">debug_image</span> <span class="op">=</span> <span class="ident">wasm_debug</span>::<span class="ident">emit_debugsections_image</span>(
+                        <span class="ident">target_lexicon</span>::<span class="ident">HOST</span>,
+                        <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>,
+                        <span class="kw-2">&amp;</span><span class="ident">debug_info</span>,
+                        <span class="kw-2">&amp;</span><span class="ident">extra_info</span>,
+                        <span class="kw-2">&amp;</span><span class="ident">compiled_fn_map</span>,
+                        <span class="kw-2">&amp;</span><span class="ident">range_map</span>,
+                        <span class="ident">raw_func_slice</span>,
+                    )
+                    .<span class="ident">expect</span>(<span class="string">&quot;make debug image&quot;</span>);
+
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
+                    <span class="ident">writer</span>
+                        .<span class="ident">debug_info_manager</span>
+                        .<span class="ident">register_new_jit_code_entry</span>(<span class="kw-2">&amp;</span><span class="ident">debug_image</span>);
+                }
+            }
+        }
+
         <span class="prelude-val">Ok</span>(<span class="ident">ModuleInner</span> {
             <span class="ident">cache_gen</span>,
             <span class="ident">runnable_module</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">exec_context</span>)),
@@ -671,6 +890,7 @@
         <span class="ident">fcg</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FCG</span><span class="op">&gt;</span>,
         <span class="ident">ev</span>: <span class="ident">Event</span>,
         <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
+        <span class="ident">source_loc</span>: <span class="ident">u32</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sink</span> <span class="op">=</span> <span class="ident">EventSink</span> {
             <span class="ident">buffer</span>: <span class="ident">SmallVec</span>::<span class="ident">new</span>(),
@@ -679,12 +899,12 @@
         <span class="kw">for</span> <span class="ident">m</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">chain</span> {
             <span class="kw">let</span> <span class="ident">prev</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">Event</span>; <span class="number">2</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">sink</span>.<span class="ident">buffer</span>.<span class="ident">drain</span>().<span class="ident">collect</span>();
             <span class="kw">for</span> <span class="ident">ev</span> <span class="kw">in</span> <span class="ident">prev</span> {
-                <span class="ident">m</span>.<span class="ident">feed_event</span>(<span class="ident">ev</span>, <span class="ident">module_info</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">sink</span>)<span class="question-mark">?</span>;
+                <span class="ident">m</span>.<span class="ident">feed_event</span>(<span class="ident">ev</span>, <span class="ident">module_info</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">sink</span>, <span class="ident">source_loc</span>)<span class="question-mark">?</span>;
             }
         }
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">fcg</span>) <span class="op">=</span> <span class="ident">fcg</span> {
             <span class="kw">for</span> <span class="ident">ev</span> <span class="kw">in</span> <span class="ident">sink</span>.<span class="ident">buffer</span> {
-                <span class="ident">fcg</span>.<span class="ident">feed_event</span>(<span class="ident">ev</span>, <span class="ident">module_info</span>)
+                <span class="ident">fcg</span>.<span class="ident">feed_event</span>(<span class="ident">ev</span>, <span class="ident">module_info</span>, <span class="ident">source_loc</span>)
                     .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">x</span>))<span class="question-mark">?</span>;
             }
         }
@@ -703,6 +923,7 @@
         <span class="ident">op</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>,
         <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
         <span class="ident">sink</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">EventSink</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>,
+        <span class="ident">source_loc</span>: <span class="ident">u32</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
 }
 
@@ -712,6 +933,7 @@
         <span class="ident">op</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>,
         <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
         <span class="ident">sink</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">EventSink</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>,
+        <span class="ident">source_loc</span>: <span class="ident">u32</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span>;
 }
 
@@ -721,8 +943,9 @@
         <span class="ident">op</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>,
         <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
         <span class="ident">sink</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">EventSink</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>,
+        <span class="ident">source_loc</span>: <span class="ident">u32</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">FunctionMiddleware</span><span class="op">&gt;</span>::<span class="ident">feed_event</span>(<span class="self">self</span>, <span class="ident">op</span>, <span class="ident">module_info</span>, <span class="ident">sink</span>)
+        <span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">FunctionMiddleware</span><span class="op">&gt;</span>::<span class="ident">feed_event</span>(<span class="self">self</span>, <span class="ident">op</span>, <span class="ident">module_info</span>, <span class="ident">sink</span>, <span class="ident">source_loc</span>)
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">x</span>))
     }
 }
@@ -736,13 +959,14 @@
     <span class="kw">fn</span> <span class="ident">feed_param</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">WpType</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">E</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Adds `n` locals to the function.</span>
-    <span class="kw">fn</span> <span class="ident">feed_local</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">WpType</span>, <span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">E</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">feed_local</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">WpType</span>, <span class="ident">n</span>: <span class="ident">usize</span>, <span class="ident">loc</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">E</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Called before the first call to `feed_opcode`.</span>
     <span class="kw">fn</span> <span class="ident">begin_body</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">E</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Called for each operator.</span>
-    <span class="kw">fn</span> <span class="ident">feed_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">op</span>: <span class="ident">Event</span>, <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">E</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">feed_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">op</span>: <span class="ident">Event</span>, <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">source_loc</span>: <span class="ident">u32</span>)
+        <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">E</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Finalizes the function.</span>
     <span class="kw">fn</span> <span class="ident">finalize</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">E</span><span class="op">&gt;</span>;

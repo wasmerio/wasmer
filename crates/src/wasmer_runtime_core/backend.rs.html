@@ -274,6 +274,17 @@
 <span id="274">274</span>
 <span id="275">275</span>
 <span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">error</span>::<span class="ident">CompileResult</span>,
@@ -417,6 +428,17 @@
     <span class="kw">pub</span> <span class="ident">cpu_features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
     <span class="kw">pub</span> <span class="ident">backend_specific_config</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BackendCompilerConfig</span><span class="op">&gt;</span>,
+
+    <span class="kw">pub</span> <span class="ident">generate_debug_info</span>: <span class="ident">bool</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">CompilerConfig</span> {
+    <span class="doccomment">/// Use this to check if we should be generating debug information.</span>
+    <span class="doccomment">/// This function takes into account the features that runtime-core was</span>
+    <span class="doccomment">/// compiled with in addition to the value of the `generate_debug_info` field.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">should_generate_debug_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;generate-debug-information&quot;</span>) <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="self">self</span>.<span class="ident">generate_debug_info</span>
+    }
 }
 
 <span class="doccomment">/// An exception table for a `RunnableModule`.</span>

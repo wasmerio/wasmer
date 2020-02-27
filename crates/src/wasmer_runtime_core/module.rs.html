@@ -328,6 +328,17 @@
 <span id="328">328</span>
 <span id="329">329</span>
 <span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The module module contains the implementation data structures and helper functions used to</span>
 <span class="doccomment">//! manipulate and access wasm modules.</span>
@@ -347,6 +358,8 @@
 };
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">backend</span>::<span class="ident">CacheGen</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;generate-debug-information&quot;</span>)]</span>
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">jit_debug</span>;
 <span class="kw">use</span> <span class="ident">indexmap</span>::<span class="ident">IndexMap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashMap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
@@ -408,6 +421,15 @@
 
     <span class="doccomment">/// Custom sections.</span>
     <span class="kw">pub</span> <span class="ident">custom_sections</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// Flag controlling whether or not debug information for use in a debugger</span>
+    <span class="doccomment">/// will be generated.</span>
+    <span class="kw">pub</span> <span class="ident">generate_debug_info</span>: <span class="ident">bool</span>,
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;generate-debug-information&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">skip</span>)]</span>
+    <span class="doccomment">/// Resource manager of debug information being used by a debugger.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">debug_info_manager</span>: <span class="ident">jit_debug</span>::<span class="ident">JitCodeDebugInfoManager</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">ModuleInfo</span> {

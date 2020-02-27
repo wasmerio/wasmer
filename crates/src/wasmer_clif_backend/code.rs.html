@@ -1305,6 +1305,33 @@
 <span id="1305">1305</span>
 <span id="1306">1306</span>
 <span id="1307">1307</span>
+<span id="1308">1308</span>
+<span id="1309">1309</span>
+<span id="1310">1310</span>
+<span id="1311">1311</span>
+<span id="1312">1312</span>
+<span id="1313">1313</span>
+<span id="1314">1314</span>
+<span id="1315">1315</span>
+<span id="1316">1316</span>
+<span id="1317">1317</span>
+<span id="1318">1318</span>
+<span id="1319">1319</span>
+<span id="1320">1320</span>
+<span id="1321">1321</span>
+<span id="1322">1322</span>
+<span id="1323">1323</span>
+<span id="1324">1324</span>
+<span id="1325">1325</span>
+<span id="1326">1326</span>
+<span id="1327">1327</span>
+<span id="1328">1328</span>
+<span id="1329">1329</span>
+<span id="1330">1330</span>
+<span id="1331">1331</span>
+<span id="1332">1332</span>
+<span id="1333">1333</span>
+<span id="1334">1334</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Parts of the following code are Copyright 2018 Cranelift Developers</span>
 <span class="comment">// and subject to the license https://github.com/CraneStation/cranelift/blob/c47ca7bafc8fc48358f1baa72360e61fc1f7a0f2/cranelift-wasm/LICENSE</span>
@@ -1380,6 +1407,7 @@
     <span class="kw">fn</span> <span class="ident">next_function</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">module_info</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">loc</span>: <span class="ident">WasmSpan</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">CraneliftFunctionCodeGenerator</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="comment">// define_function_body(</span>
 
@@ -1410,7 +1438,13 @@
                 <span class="ident">target_config</span>: <span class="self">self</span>.<span class="ident">isa</span>.<span class="ident">frontend_config</span>().<span class="ident">clone</span>(),
                 <span class="ident">clif_signatures</span>: <span class="self">self</span>.<span class="ident">clif_signatures</span>.<span class="ident">clone</span>(),
             },
+            <span class="ident">loc</span>,
         };
+
+        <span class="kw">let</span> <span class="ident">generate_debug_info</span> <span class="op">=</span> <span class="ident">module_info</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>().<span class="ident">generate_debug_info</span>;
+        <span class="kw">if</span> <span class="ident">generate_debug_info</span> {
+            <span class="ident">func_env</span>.<span class="ident">func</span>.<span class="ident">collect_debug_info</span>();
+        }
 
         <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">func_env</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">num_blocks</span>(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
         <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">func_env</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">num_insts</span>(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
@@ -1421,8 +1455,7 @@
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">func_env</span>.<span class="ident">position</span>,
         );
 
-        <span class="comment">// TODO srcloc</span>
-        <span class="comment">//builder.set_srcloc(cur_srcloc(&amp;reader));</span>
+        <span class="ident">builder</span>.<span class="ident">set_srcloc</span>(<span class="ident">ir</span>::<span class="ident">SourceLoc</span>::<span class="ident">new</span>(<span class="ident">loc</span>.<span class="ident">start</span>()));
 
         <span class="kw">let</span> <span class="ident">entry_block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_block</span>();
         <span class="ident">builder</span>.<span class="ident">append_block_params_for_function_params</span>(<span class="ident">entry_block</span>);
@@ -1450,13 +1483,20 @@
     <span class="kw">fn</span> <span class="ident">finalize</span>(
         <span class="self">self</span>,
         <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Caller</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CacheGen</span><span class="op">&gt;</span>), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_bodies</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">LocalFuncIndex</span>, <span class="ident">ir</span>::<span class="ident">Function</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Map</span>::<span class="ident">new</span>();
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+        (
+            <span class="ident">Caller</span>,
+            <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasmer_runtime_core</span>::<span class="ident">codegen</span>::<span class="ident">DebugMetadata</span><span class="op">&gt;</span>,
+            <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CacheGen</span><span class="op">&gt;</span>,
+        ),
+        <span class="ident">CodegenError</span>,
+    <span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_bodies</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">LocalFuncIndex</span>, (<span class="ident">ir</span>::<span class="ident">Function</span>, <span class="ident">WasmSpan</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Map</span>::<span class="ident">new</span>();
         <span class="kw">for</span> <span class="ident">f</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">into_iter</span>() {
-            <span class="ident">func_bodies</span>.<span class="ident">push</span>(<span class="ident">f</span>.<span class="ident">func</span>);
+            <span class="ident">func_bodies</span>.<span class="ident">push</span>((<span class="ident">f</span>.<span class="ident">func</span>, <span class="ident">f</span>.<span class="ident">loc</span>));
         }
 
-        <span class="kw">let</span> (<span class="ident">func_resolver_builder</span>, <span class="ident">handler_data</span>) <span class="op">=</span>
+        <span class="kw">let</span> (<span class="ident">func_resolver_builder</span>, <span class="ident">debug_metadata</span>, <span class="ident">handler_data</span>) <span class="op">=</span>
             <span class="ident">FuncResolverBuilder</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">isa</span>, <span class="ident">func_bodies</span>, <span class="ident">module_info</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">trampolines</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Trampolines</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">isa</span>, <span class="ident">module_info</span>));
@@ -1481,6 +1521,7 @@
 
         <span class="prelude-val">Ok</span>((
             <span class="ident">Caller</span>::<span class="ident">new</span>(<span class="ident">handler_data</span>, <span class="ident">trampolines</span>, <span class="ident">func_resolver</span>),
+            <span class="ident">debug_metadata</span>,
             <span class="ident">cache_gen</span>,
         ))
     }
@@ -1550,6 +1591,8 @@
     <span class="ident">next_local</span>: <span class="ident">usize</span>,
     <span class="ident">position</span>: <span class="ident">Position</span>,
     <span class="ident">func_env</span>: <span class="ident">FunctionEnvironment</span>,
+    <span class="doccomment">/// Where the function lives in the Wasm module as a span of bytes</span>
+    <span class="ident">loc</span>: <span class="ident">WasmSpan</span>,
 }
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FunctionEnvironment</span> {
@@ -2443,13 +2486,14 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">feed_local</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">WpType</span>, <span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">feed_local</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">WpType</span>, <span class="ident">n</span>: <span class="ident">usize</span>, <span class="ident">loc</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">next_local</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">next_local</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">FunctionBuilder</span>::<span class="ident">new</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">func</span>,
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">func_translator</span>.<span class="ident">func_ctx</span>,
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">position</span>,
         );
+        <span class="ident">builder</span>.<span class="ident">set_srcloc</span>(<span class="ident">ir</span>::<span class="ident">SourceLoc</span>::<span class="ident">new</span>(<span class="ident">loc</span>));
         <span class="ident">cranelift_wasm</span>::<span class="ident">declare_locals</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">builder</span>,
             <span class="ident">n</span> <span class="kw">as</span> <span class="ident">u32</span>,
@@ -2465,7 +2509,12 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">feed_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Event</span>, <span class="ident">_module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">feed_event</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">event</span>: <span class="ident">Event</span>,
+        <span class="ident">_module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
+        <span class="ident">source_loc</span>: <span class="ident">u32</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">event</span> {
             <span class="ident">Event</span>::<span class="ident">Wasm</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">x</span>,
             <span class="ident">Event</span>::<span class="ident">WasmOwned</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">x</span>,
@@ -2487,6 +2536,8 @@
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">func_translator</span>.<span class="ident">func_ctx</span>,
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">position</span>,
         );
+        <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">collect_debug_info</span>();
+        <span class="ident">builder</span>.<span class="ident">set_srcloc</span>(<span class="ident">ir</span>::<span class="ident">SourceLoc</span>::<span class="ident">new</span>(<span class="ident">source_loc</span>));
         <span class="kw">let</span> <span class="ident">module_state</span> <span class="op">=</span> <span class="ident">ModuleTranslationState</span>::<span class="ident">new</span>();
         <span class="kw">let</span> <span class="ident">func_state</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">func_translator</span>.<span class="ident">state</span>;
         <span class="ident">translate_operator</span>(
@@ -2496,6 +2547,7 @@
             <span class="ident">func_state</span>,
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">func_env</span>,
         )<span class="question-mark">?</span>;
+
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -2514,7 +2566,7 @@
         <span class="comment">//</span>
         <span class="comment">// If the exit block is unreachable, it may not have the correct arguments, so we would</span>
         <span class="comment">// generate a return instruction that doesn&#39;t match the signature.</span>
-        <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">reachable</span> {
+        <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">reachable</span>() {
             <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">builder</span>.<span class="ident">is_pristine</span>());
             <span class="kw">if</span> <span class="op">!</span><span class="ident">builder</span>.<span class="ident">is_unreachable</span>() {
                 <span class="kw">match</span> <span class="ident">return_mode</span> {
@@ -2523,6 +2575,8 @@
                 };
             }
         }
+
+        <span class="ident">builder</span>.<span class="ident">finalize</span>();
 
         <span class="comment">// Discard any remaining values on the stack. Either we just returned them,</span>
         <span class="comment">// or the end of the function is unreachable.</span>

@@ -9911,6 +9911,20 @@
 <span id="9911">9911</span>
 <span id="9912">9912</span>
 <span id="9913">9913</span>
+<span id="9914">9914</span>
+<span id="9915">9915</span>
+<span id="9916">9916</span>
+<span id="9917">9917</span>
+<span id="9918">9918</span>
+<span id="9919">9919</span>
+<span id="9920">9920</span>
+<span id="9921">9921</span>
+<span id="9922">9922</span>
+<span id="9923">9923</span>
+<span id="9924">9924</span>
+<span id="9925">9925</span>
+<span id="9926">9926</span>
+<span id="9927">9927</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">forget_copy</span>)]</span> <span class="comment">// Used by dynasm.</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">unused_imports</span>)]</span>
@@ -10596,6 +10610,7 @@
     <span class="kw">fn</span> <span class="ident">next_function</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">_module_info</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">_loc</span>: <span class="ident">WasmSpan</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">X64FunctionCode</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">assembler</span>, <span class="kw-2">mut</span> <span class="ident">function_labels</span>, <span class="ident">breakpoints</span>, <span class="ident">exception_table</span>) <span class="op">=</span>
             <span class="kw">match</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">last_mut</span>() {
@@ -10654,7 +10669,14 @@
     <span class="kw">fn</span> <span class="ident">finalize</span>(
         <span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">X64ExecutionContext</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CacheGen</span><span class="op">&gt;</span>), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+        (
+            <span class="ident">X64ExecutionContext</span>,
+            <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasmer_runtime_core</span>::<span class="ident">codegen</span>::<span class="ident">DebugMetadata</span><span class="op">&gt;</span>,
+            <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CacheGen</span><span class="op">&gt;</span>,
+        ),
+        <span class="ident">CodegenError</span>,
+    <span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">assembler</span>, <span class="ident">function_labels</span>, <span class="ident">breakpoints</span>, <span class="ident">exception_table</span>) <span class="op">=</span>
             <span class="kw">match</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">last_mut</span>() {
                 <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> (
@@ -10757,6 +10779,7 @@
                 <span class="ident">msm</span>: <span class="ident">msm</span>,
                 <span class="ident">exception_table</span>,
             },
+            <span class="prelude-val">None</span>,
             <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">cache</span>),
         ))
     }
@@ -12318,7 +12341,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">feed_local</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_ty</span>: <span class="ident">WpType</span>, <span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">feed_local</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_ty</span>: <span class="ident">WpType</span>, <span class="ident">n</span>: <span class="ident">usize</span>, <span class="ident">_loc</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">num_locals</span> <span class="op">+</span><span class="op">=</span> <span class="ident">n</span>;
         <span class="prelude-val">Ok</span>(())
     }
@@ -12431,7 +12454,12 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">feed_event</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ev</span>: <span class="ident">Event</span>, <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">feed_event</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">ev</span>: <span class="ident">Event</span>,
+        <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
+        <span class="ident">_source_loc</span>: <span class="ident">u32</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>();
 
         <span class="kw">match</span> <span class="ident">ev</span> {
