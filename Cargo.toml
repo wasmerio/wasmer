@@ -90,6 +90,7 @@ fast-tests = []
 backend-cranelift = [
     "wasmer-clif-backend",
     "wasmer-clif-backend/generate-debug-information",
+    "wasmer-runtime-core/generate-debug-information",
     "wasmer-runtime/cranelift",
     "wasmer-middleware-common-tests/clif",
 ]
@@ -97,6 +98,7 @@ backend-llvm = [
     "wasmer-llvm-backend",
     "wasmer-runtime/llvm",
     "wasmer-middleware-common-tests/llvm",
+    "wasmer-runtime-core/generate-debug-information",
     "wasmer-runtime-core/generate-debug-information-no-export-symbols",
 ]
 backend-singlepass = [
