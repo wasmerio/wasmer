@@ -2,6 +2,11 @@
 
 ## **[Unreleased]**
 
+- [#1212](https://github.com/wasmerio/wasmer/pull/1212) Add support for GDB JIT debugging:
+  - Add `--generate-debug-info` and `-g` flags to `wasmer run` to generate debug information during compilation. The debug info is passed via the GDB JIT interface to a debugger to allow source-level debugging of Wasm files. Currently only available on clif-backend.
+  - Break public middleware APIs: there is now a `source_loc` parameter that should be passed through if applicable.
+  - Break compiler trait methods such as `feed_local`, `feed_event` as well as `ModuleCodeGenerator::finalize`.
+
 ## 0.14.1 - 2020-02-24
 
 - [#1245](https://github.com/wasmerio/wasmer/pull/1245) Use Ubuntu 16.04 in CI so that we use an earlier version of GLIBC.

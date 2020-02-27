@@ -72,6 +72,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     fn next_function(
         &mut self,
         module_info: Arc<RwLock<ModuleInfo>>,
+        loc: WasmSpan,
     ) -> Result<&mut CraneliftFunctionCodeGenerator, CodegenError> {
         // define_function_body(
 
@@ -102,7 +103,13 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
                 target_config: self.isa.frontend_config().clone(),
                 clif_signatures: self.clif_signatures.clone(),
             },
+            loc,
         };
+
+        let generate_debug_info = module_info.read().unwrap().generate_debug_info;
+        if generate_debug_info {
+            func_env.func.collect_debug_info();
+        }
 
         debug_assert_eq!(func_env.func.dfg.num_blocks(), 0, "Function must be empty");
         debug_assert_eq!(func_env.func.dfg.num_insts(), 0, "Function must be empty");
@@ -113,8 +120,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             &mut func_env.position,
         );
 
-        // TODO srcloc
-        //builder.set_srcloc(cur_srcloc(&reader));
+        builder.set_srcloc(ir::SourceLoc::new(loc.start()));
 
         let entry_block = builder.create_block();
         builder.append_block_params_for_function_params(entry_block);
@@ -142,13 +148,20 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     fn finalize(
         self,
         module_info: &ModuleInfo,
-    ) -> Result<(Caller, Box<dyn CacheGen>), CodegenError> {
-        let mut func_bodies: Map<LocalFuncIndex, ir::Function> = Map::new();
+    ) -> Result<
+        (
+            Caller,
+            Option<wasmer_runtime_core::codegen::DebugMetadata>,
+            Box<dyn CacheGen>,
+        ),
+        CodegenError,
+    > {
+        let mut func_bodies: Map<LocalFuncIndex, (ir::Function, WasmSpan)> = Map::new();
         for f in self.functions.into_iter() {
-            func_bodies.push(f.func);
+            func_bodies.push((f.func, f.loc));
         }
 
-        let (func_resolver_builder, handler_data) =
+        let (func_resolver_builder, debug_metadata, handler_data) =
             FuncResolverBuilder::new(&*self.isa, func_bodies, module_info)?;
 
         let trampolines = Arc::new(Trampolines::new(&*self.isa, module_info));
@@ -173,6 +186,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
         Ok((
             Caller::new(handler_data, trampolines, func_resolver),
+            debug_metadata,
             cache_gen,
         ))
     }
@@ -242,6 +256,8 @@ pub struct CraneliftFunctionCodeGenerator {
     next_local: usize,
     position: Position,
     func_env: FunctionEnvironment,
+    /// Where the function lives in the Wasm module as a span of bytes
+    loc: WasmSpan,
 }
 
 pub struct FunctionEnvironment {
@@ -1135,13 +1151,14 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         Ok(())
     }
 
-    fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
+    fn feed_local(&mut self, ty: WpType, n: usize, loc: u32) -> Result<(), CodegenError> {
         let mut next_local = self.next_local;
         let mut builder = FunctionBuilder::new(
             &mut self.func,
             &mut self.func_translator.func_ctx,
             &mut self.position,
         );
+        builder.set_srcloc(ir::SourceLoc::new(loc));
         cranelift_wasm::declare_locals(
             &mut builder,
             n as u32,
@@ -1157,7 +1174,12 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         Ok(())
     }
 
-    fn feed_event(&mut self, event: Event, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
+    fn feed_event(
+        &mut self,
+        event: Event,
+        _module_info: &ModuleInfo,
+        source_loc: u32,
+    ) -> Result<(), CodegenError> {
         let op = match event {
             Event::Wasm(x) => x,
             Event::WasmOwned(ref x) => x,
@@ -1179,6 +1201,8 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             &mut self.func_translator.func_ctx,
             &mut self.position,
         );
+        builder.func.collect_debug_info();
+        builder.set_srcloc(ir::SourceLoc::new(source_loc));
         let module_state = ModuleTranslationState::new();
         let func_state = &mut self.func_translator.state;
         translate_operator(
@@ -1188,6 +1212,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             func_state,
             &mut self.func_env,
         )?;
+
         Ok(())
     }
 
@@ -1206,7 +1231,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         //
         // If the exit block is unreachable, it may not have the correct arguments, so we would
         // generate a return instruction that doesn't match the signature.
-        if state.reachable {
+        if state.reachable() {
             debug_assert!(builder.is_pristine());
             if !builder.is_unreachable() {
                 match return_mode {
@@ -1215,6 +1240,8 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
                 };
             }
         }
+
+        builder.finalize();
 
         // Discard any remaining values on the stack. Either we just returned them,
         // or the end of the function is unreachable.

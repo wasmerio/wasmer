@@ -1130,6 +1130,10 @@ mod vm_ctx_tests {
                 em_symbol_map: None,
 
                 custom_sections: HashMap::new(),
+
+                generate_debug_info: false,
+                #[cfg(feature = "generate-debug-information")]
+                debug_info_manager: crate::jit_debug::JitCodeDebugInfoManager::new(),
             },
         }
     }

@@ -78,6 +78,11 @@ where
     pub fn into_vec(self) -> Vec<V> {
         self.elems
     }
+
+    /// Iterate over the values of the map in order.
+    pub fn values(&self) -> impl Iterator<Item = &V> {
+        self.elems.iter()
+    }
 }
 
 impl<K, V> Map<K, V>
