@@ -15,6 +15,7 @@ use std::sync::{Arc, Mutex};
 // Implementation of this function is derived from wasmtime and is licensed under
 // the Apache 2.0 license.  See ATTRIBUTIONS.md for full license and more
 // information.
+#[linkage = "linkonce"]
 #[no_mangle]
 #[inline(never)]
 extern "C" fn __jit_debug_register_code() {
@@ -80,6 +81,7 @@ struct JitDebugDescriptor {
 /// The data is in the form of a doubly linked list. This global variable acts
 /// as a head node with extra information about the operation that we want the
 /// debugger to perform.
+#[linkage = "linkonce"]
 #[no_mangle]
 #[allow(non_upper_case_globals)]
 static mut __jit_debug_descriptor: JitDebugDescriptor = JitDebugDescriptor {
