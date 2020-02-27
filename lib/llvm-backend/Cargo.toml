@@ -10,7 +10,7 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.14.1" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.14.1", features = ["generate-debug-information-no-export-symbols"] }
 wasmparser = "0.51.3"
 smallvec = "0.6"
 goblin = "0.0.24"

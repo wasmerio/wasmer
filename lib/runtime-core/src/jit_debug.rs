@@ -196,11 +196,9 @@ impl JitCodeDebugInfoManager {
             // ensure we set the version, even if externally linked
             __jit_debug_descriptor.version = 1;
         }
-        Self {
-            inner: vec![],
-        }
+        Self { inner: vec![] }
     }
-    
+
     /// Register debug info relating to JIT code with the debugger.
     pub(crate) fn register_new_jit_code_entry(
         &mut self,
