@@ -167,7 +167,7 @@ pub fn validate_and_report_errors_with_features(
         let state = parser.read();
         match *state {
             wasmparser::ParserState::EndWasm => break Ok(()),
-            wasmparser::ParserState::Error(e) => break Err(format!("{}", e)),
+            wasmparser::ParserState::Error(ref e) => break Err(format!("{}", e)),
             _ => {}
         }
     }

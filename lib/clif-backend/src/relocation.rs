@@ -98,7 +98,7 @@ pub struct RelocSink {
 }
 
 impl binemit::RelocSink for RelocSink {
-    fn reloc_ebb(
+    fn reloc_block(
         &mut self,
         _offset: binemit::CodeOffset,
         _reloc: binemit::Reloc,
