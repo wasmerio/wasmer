@@ -266,55 +266,64 @@ pub fn read_module<
                     }
                 }
 
-                let mut operator_parser = parser.create_binary_reader();
-
-                // read locals in function body
-                {
-                    let local_count = operator_parser.read_local_count().unwrap();
-                    let mut total = 0;
-                    for _ in 0..local_count {
-                        let cur_pos =
-                            range.start as u32 + operator_parser.current_position() as u32;
-                        let (count, ty) = operator_parser
-                            .read_local_decl(&mut total)
-                            .expect("Expected local");
-                        fcg.feed_local(ty, count as usize, cur_pos)
-                            .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                let info_read = info.read().unwrap();
+                let mut cur_pos = parser.current_poisiton() as u32;
+                let mut state = parser.read();
+                // loop until the function body starts
+                loop {
+                    match state {
+                        ParserState::Error(err) => return Err(err.into()),
+                        ParserState::FunctionBodyLocals { ref locals } => {
+                            for &(count, ty) in locals.iter() {
+                                fcg.feed_local(ty, count as usize, cur_pos)
+                                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                            }
+                        }
+                        ParserState::CodeOperator(_) => {
+                            // the body of the function has started
+                            fcg.begin_body(&info_read)
+                                .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                            middlewares
+                                .run(
+                                    Some(fcg),
+                                    Event::Internal(InternalEvent::FunctionBegin(id as u32)),
+                                    &info_read,
+                                    cur_pos,
+                                )
+                                .map_err(LoadError::Codegen)?;
+                            // go to other loop
+                            break;
+                        }
+                        ParserState::EndFunctionBody => break,
+                        _ => unreachable!(),
                     }
+                    cur_pos = parser.current_poisiton() as u32;
+                    state = parser.read();
                 }
 
-                {
-                    let info_read = info.read().unwrap();
-                    let mut cur_pos =
-                        range.start as u32 + operator_parser.current_position() as u32;
-                    fcg.begin_body(&info_read)
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    middlewares
-                        .run(
-                            Some(fcg),
-                            Event::Internal(InternalEvent::FunctionBegin(id as u32)),
-                            &info_read,
-                            cur_pos,
-                        )
-                        .map_err(LoadError::Codegen)?;
-
-                    while let Ok(op) = operator_parser.read_operator() {
-                        middlewares
-                            .run(Some(fcg), Event::WasmOwned(op), &info_read, cur_pos)
-                            .map_err(LoadError::Codegen)?;
-                        cur_pos = range.start as u32 + operator_parser.current_position() as u32;
+                // loop until the function body ends
+                loop {
+                    match state {
+                        ParserState::Error(err) => return Err(err.into()),
+                        ParserState::CodeOperator(op) => {
+                            middlewares
+                                .run(Some(fcg), Event::Wasm(op), &info_read, cur_pos)
+                                .map_err(LoadError::Codegen)?;
+                        }
+                        ParserState::EndFunctionBody => break,
+                        _ => unreachable!(),
                     }
-
-                    cur_pos = range.start as u32 + operator_parser.current_position() as u32;
-                    middlewares
-                        .run(
-                            Some(fcg),
-                            Event::Internal(InternalEvent::FunctionEnd),
-                            &info_read,
-                            cur_pos,
-                        )
-                        .map_err(LoadError::Codegen)?;
+                    cur_pos = parser.current_poisiton() as u32;
+                    state = parser.read();
                 }
+                middlewares
+                    .run(
+                        Some(fcg),
+                        Event::Internal(InternalEvent::FunctionEnd),
+                        &info_read,
+                        cur_pos,
+                    )
+                    .map_err(LoadError::Codegen)?;
 
                 fcg.finalize()
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
