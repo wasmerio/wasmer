@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 // Implementation of this function is derived from wasmtime and is licensed under
 // the Apache 2.0 license.  See ATTRIBUTIONS.md for full license and more
 // information.
-#[linkage = "linkonce"]
+#[cfg(not(feature = "generate-debug-information-no-export-symbols"))]
 #[no_mangle]
 #[inline(never)]
 extern "C" fn __jit_debug_register_code() {
@@ -81,7 +81,7 @@ struct JitDebugDescriptor {
 /// The data is in the form of a doubly linked list. This global variable acts
 /// as a head node with extra information about the operation that we want the
 /// debugger to perform.
-#[linkage = "linkonce"]
+#[cfg(not(feature = "generate-debug-information-no-export-symbols"))]
 #[no_mangle]
 #[allow(non_upper_case_globals)]
 static mut __jit_debug_descriptor: JitDebugDescriptor = JitDebugDescriptor {
@@ -90,6 +90,12 @@ static mut __jit_debug_descriptor: JitDebugDescriptor = JitDebugDescriptor {
     relevant_entry: ptr::null_mut(),
     first_entry: ptr::null_mut(),
 };
+
+#[cfg(feature = "generate-debug-information-no-export-symbols")]
+extern "C" {
+    static mut __jit_debug_descriptor: JitDebugDescriptor;
+    fn __jit_debug_register_code();
+}
 
 lazy_static! {
     /// Global lock on [`__jit_debug_descriptor`]. Acquire this lock when
@@ -173,12 +179,28 @@ impl Drop for JitCodeDebugInfoEntryHandleInner {
 }
 
 /// Manager of debug info registered with the debugger.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub(crate) struct JitCodeDebugInfoManager {
     inner: Vec<JitCodeDebugInfoEntryHandle>,
 }
 
+impl Default for JitCodeDebugInfoManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JitCodeDebugInfoManager {
+    pub(crate) fn new() -> Self {
+        unsafe {
+            // ensure we set the version, even if externally linked
+            __jit_debug_descriptor.version = 1;
+        }
+        Self {
+            inner: vec![],
+        }
+    }
+    
     /// Register debug info relating to JIT code with the debugger.
     pub(crate) fn register_new_jit_code_entry(
         &mut self,

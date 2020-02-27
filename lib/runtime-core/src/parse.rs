@@ -99,7 +99,7 @@ pub fn read_module<
 
         generate_debug_info: compiler_config.should_generate_debug_info(),
         #[cfg(feature = "generate-debug-information")]
-        debug_info_manager: Default::default(),
+        debug_info_manager: crate::jit_debug::JitCodeDebugInfoManager::new(),
     }));
 
     let mut parser = wasmparser::ValidatingParser::new(

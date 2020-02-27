@@ -97,6 +97,7 @@ backend-llvm = [
     "wasmer-llvm-backend",
     "wasmer-runtime/llvm",
     "wasmer-middleware-common-tests/llvm",
+    "wasmer-runtime-core/generate-debug-information-no-export-symbols",
 ]
 backend-singlepass = [
     "wasmer-singlepass-backend",
