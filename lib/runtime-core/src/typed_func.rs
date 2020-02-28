@@ -348,6 +348,12 @@ impl<'a> DynamicFunc<'a> {
                 );
             }
         }
+
+        // Disable "fat" closures for possible future changes.
+        if mem::size_of::<F>() != 0 {
+            unimplemented!("DynamicFunc with captured environment is not yet supported");
+        }
+
         let mut builder = TrampolineBufferBuilder::new();
         let ctx: Box<PolymorphicContext> = Box::new(PolymorphicContext {
             arg_types: signature.params().to_vec(),
