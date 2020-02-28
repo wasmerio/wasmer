@@ -191,7 +191,7 @@ where
 }
 
 /// Represents a type-erased function provided by either the host or the WebAssembly program.
-pub struct ErasedFunc<'a> {
+pub struct DynamicFunc<'a> {
     _inner: Box<dyn Kind>,
 
     /// The function pointer.
@@ -206,14 +206,14 @@ pub struct ErasedFunc<'a> {
     /// The runtime signature of this function.
     ///
     /// When converted from a `Func`, this is determined by the static `Args` and `Rets` type parameters.
-    /// otherwise the signature is dynamically assigned during `ErasedFunc` creation, usually when creating
+    /// otherwise the signature is dynamically assigned during `DynamicFunc` creation, usually when creating
     /// a polymorphic host function.
     signature: Arc<FuncSig>,
 
     _phantom: PhantomData<&'a ()>,
 }
 
-unsafe impl<'a> Send for ErasedFunc<'a> {}
+unsafe impl<'a> Send for DynamicFunc<'a> {}
 
 /// Represents a function that can be used by WebAssembly.
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
@@ -234,14 +234,14 @@ pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
 unsafe impl<'a, Args, Rets> Send for Func<'a, Args, Rets, Wasm> {}
 unsafe impl<'a, Args, Rets> Send for Func<'a, Args, Rets, Host> {}
 
-impl<'a, Args, Rets, Inner> From<Func<'a, Args, Rets, Inner>> for ErasedFunc<'a>
+impl<'a, Args, Rets, Inner> From<Func<'a, Args, Rets, Inner>> for DynamicFunc<'a>
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
     Inner: Kind + 'static,
 {
-    fn from(that: Func<'a, Args, Rets, Inner>) -> ErasedFunc<'a> {
-        ErasedFunc {
+    fn from(that: Func<'a, Args, Rets, Inner>) -> DynamicFunc<'a> {
+        DynamicFunc {
             _inner: Box::new(that.inner),
             func: that.func,
             func_env: that.func_env,
@@ -296,11 +296,11 @@ where
     }
 }
 
-impl<'a> ErasedFunc<'a> {
-    /// Creates a polymorphic function.
+impl<'a> DynamicFunc<'a> {
+    /// Creates a dynamic function that is polymorphic over its argument and return types.
     #[allow(unused_variables)]
     #[cfg(all(unix, target_arch = "x86_64"))]
-    pub fn new_polymorphic<F>(signature: Arc<FuncSig>, func: F) -> Self
+    pub fn new<F>(signature: Arc<FuncSig>, func: F) -> Self
     where
         F: Fn(&mut vm::Ctx, &[crate::types::Value]) -> Vec<crate::types::Value> + 'static,
     {
@@ -349,13 +349,14 @@ impl<'a> ErasedFunc<'a> {
             }
         }
         let mut builder = TrampolineBufferBuilder::new();
-        let ctx = Box::new(PolymorphicContext {
+        let ctx: Box<PolymorphicContext> = Box::new(PolymorphicContext {
             arg_types: signature.params().to_vec(),
             func: Box::new(func),
         });
+        let ctx = Box::into_raw(ctx);
         builder.add_callinfo_trampoline(
             enter_host_polymorphic,
-            Box::into_raw(ctx) as *const _,
+            ctx as *const _,
             (signature.params().len() + 1) as u32, // +vmctx
         );
         let ptr = builder
@@ -364,20 +365,22 @@ impl<'a> ErasedFunc<'a> {
 
         struct AutoRelease {
             ptr: NonNull<u8>,
+            ctx: *mut PolymorphicContext,
         }
 
         impl Drop for AutoRelease {
             fn drop(&mut self) {
                 unsafe {
                     TrampolineBufferBuilder::remove_global(self.ptr);
+                    Box::from_raw(self.ctx);
                 }
             }
         }
 
         impl Kind for AutoRelease {}
 
-        ErasedFunc {
-            _inner: Box::new(AutoRelease { ptr }),
+        DynamicFunc {
+            _inner: Box::new(AutoRelease { ptr, ctx }),
             func: ptr.cast::<vm::Func>(),
             func_env: None,
             vmctx: ptr::null_mut(),
@@ -815,7 +818,7 @@ impl_traits!([C] S24, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T
 impl_traits!([C] S25, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y);
 impl_traits!([C] S26, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z);
 
-impl<'a> IsExport for ErasedFunc<'a> {
+impl<'a> IsExport for DynamicFunc<'a> {
     fn to_export(&self) -> Export {
         let func = unsafe { FuncPointer::new(self.func.as_ptr()) };
         let ctx = match self.func_env {
@@ -956,13 +959,13 @@ mod tests {
     }
 
     #[test]
-    fn test_many_new_polymorphics() {
+    fn test_many_new_dynamics() {
         use crate::types::{FuncSig, Type};
 
         // Check that generating a lot (1M) of polymorphic functions doesn't use up the executable buffer.
         for _ in 0..1000000 {
             let arglist = vec![Type::I32; 100];
-            ErasedFunc::new_polymorphic(
+            DynamicFunc::new(
                 Arc::new(FuncSig::new(arglist, vec![Type::I32])),
                 |_, _| unreachable!(),
             );
