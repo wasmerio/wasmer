@@ -906,89 +906,6 @@
 <span id="906">906</span>
 <span id="907">907</span>
 <span id="908">908</span>
-<span id="909">909</span>
-<span id="910">910</span>
-<span id="911">911</span>
-<span id="912">912</span>
-<span id="913">913</span>
-<span id="914">914</span>
-<span id="915">915</span>
-<span id="916">916</span>
-<span id="917">917</span>
-<span id="918">918</span>
-<span id="919">919</span>
-<span id="920">920</span>
-<span id="921">921</span>
-<span id="922">922</span>
-<span id="923">923</span>
-<span id="924">924</span>
-<span id="925">925</span>
-<span id="926">926</span>
-<span id="927">927</span>
-<span id="928">928</span>
-<span id="929">929</span>
-<span id="930">930</span>
-<span id="931">931</span>
-<span id="932">932</span>
-<span id="933">933</span>
-<span id="934">934</span>
-<span id="935">935</span>
-<span id="936">936</span>
-<span id="937">937</span>
-<span id="938">938</span>
-<span id="939">939</span>
-<span id="940">940</span>
-<span id="941">941</span>
-<span id="942">942</span>
-<span id="943">943</span>
-<span id="944">944</span>
-<span id="945">945</span>
-<span id="946">946</span>
-<span id="947">947</span>
-<span id="948">948</span>
-<span id="949">949</span>
-<span id="950">950</span>
-<span id="951">951</span>
-<span id="952">952</span>
-<span id="953">953</span>
-<span id="954">954</span>
-<span id="955">955</span>
-<span id="956">956</span>
-<span id="957">957</span>
-<span id="958">958</span>
-<span id="959">959</span>
-<span id="960">960</span>
-<span id="961">961</span>
-<span id="962">962</span>
-<span id="963">963</span>
-<span id="964">964</span>
-<span id="965">965</span>
-<span id="966">966</span>
-<span id="967">967</span>
-<span id="968">968</span>
-<span id="969">969</span>
-<span id="970">970</span>
-<span id="971">971</span>
-<span id="972">972</span>
-<span id="973">973</span>
-<span id="974">974</span>
-<span id="975">975</span>
-<span id="976">976</span>
-<span id="977">977</span>
-<span id="978">978</span>
-<span id="979">979</span>
-<span id="980">980</span>
-<span id="981">981</span>
-<span id="982">982</span>
-<span id="983">983</span>
-<span id="984">984</span>
-<span id="985">985</span>
-<span id="986">986</span>
-<span id="987">987</span>
-<span id="988">988</span>
-<span id="989">989</span>
-<span id="990">990</span>
-<span id="991">991</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parse the WIT binary representation into an [AST](crate::ast).</span>
 
@@ -1000,36 +917,42 @@
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert</span>::<span class="ident">TryFrom</span>, <span class="ident">str</span>};
 
 <span class="doccomment">/// Parse an `InterfaceType`.</span>
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InterfaceType</span> {
+<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InterfaceType</span> {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">code</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">code</span>: <span class="ident">u8</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">code</span> {
-            <span class="number">0x7fff</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Int</span>,
-            <span class="number">0x7ffe</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Float</span>,
-            <span class="number">0x7ffd</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Any</span>,
-            <span class="number">0x7ffc</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">String</span>,
-            <span class="number">0x7ffb</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Seq</span>,
-            <span class="number">0x7f</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">I32</span>,
-            <span class="number">0x7e</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">I64</span>,
-            <span class="number">0x7d</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">F32</span>,
-            <span class="number">0x7c</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">F64</span>,
-            <span class="number">0x6f</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">AnyRef</span>,
+            <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">S8</span>,
+            <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">S16</span>,
+            <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">S32</span>,
+            <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">S64</span>,
+            <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">U8</span>,
+            <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">U16</span>,
+            <span class="number">6</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">U32</span>,
+            <span class="number">7</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">U64</span>,
+            <span class="number">8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">F32</span>,
+            <span class="number">9</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">F64</span>,
+            <span class="number">10</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">String</span>,
+            <span class="number">11</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Anyref</span>,
+            <span class="number">12</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">I32</span>,
+            <span class="number">13</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">I64</span>,
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Unknown interface type code.&quot;</span>),
         })
     }
 }
 
-<span class="doccomment">/// Parse an adapter kind.</span>
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AdapterKind</span> {
+<span class="doccomment">/// Parse an interface kind.</span>
+<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InterfaceKind</span> {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
 
     <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">code</span>: <span class="ident">u8</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">code</span> {
-            <span class="number">0x0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Import</span>,
-            <span class="number">0x1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Export</span>,
-            <span class="number">0x2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">HelperFunction</span>,
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Unknown adapter kind code.&quot;</span>),
+            <span class="number">0x00</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Type</span>,
+            <span class="number">0x01</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Import</span>,
+            <span class="number">0x02</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Adapter</span>,
+            <span class="number">0x03</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Export</span>,
+            <span class="number">0x04</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Implementation</span>,
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Unknown interface kind code.&quot;</span>),
         })
     }
 }
@@ -1090,7 +1013,7 @@
     ))
 }
 
-<span class="doccomment">/// Parse a list, with a item parser.</span>
+<span class="doccomment">/// Parse a list, with an item parser.</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">type_complexity</span>)]</span>
 <span class="kw">fn</span> <span class="ident">list</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span>, <span class="ident">I</span>, <span class="ident">E</span>: <span class="ident">ParseError</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(
     <span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>],
@@ -1125,7 +1048,7 @@
         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="prelude-val">Err</span>::<span class="ident">Error</span>(<span class="ident">make_error</span>(<span class="ident">input</span>, <span class="ident">ErrorKind</span>::<span class="ident">Eof</span>)));
     }
 
-    <span class="kw">let</span> (<span class="ident">output</span>, <span class="ident">ty</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>;
+    <span class="kw">let</span> (<span class="ident">output</span>, <span class="ident">ty</span>) <span class="op">=</span> <span class="ident">byte</span>(<span class="ident">input</span>)<span class="question-mark">?</span>;
 
     <span class="kw">match</span> <span class="ident">InterfaceType</span>::<span class="ident">try_from</span>(<span class="ident">ty</span>) {
         <span class="prelude-val">Ok</span>(<span class="ident">ty</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>((<span class="ident">output</span>, <span class="ident">ty</span>)),
@@ -1142,7 +1065,12 @@
     <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">opcode</span> {
         <span class="number">0x00</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="ident">argument_0</span> })
+            (
+                <span class="ident">input</span>,
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> {
+                    <span class="ident">index</span>: <span class="ident">argument_0</span> <span class="kw">as</span> <span class="ident">u32</span>,
+                },
+            )
         }
 
         <span class="number">0x01</span> <span class="op">=</span><span class="op">&gt;</span> {
@@ -1177,102 +1105,48 @@
             )
         }
 
-        <span class="number">0x05</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">ty</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">AsWasm</span>(<span class="ident">argument_0</span>))
-        }
-
-        <span class="number">0x06</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">ty</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">AsInterface</span>(<span class="ident">argument_0</span>))
-        }
-
-        <span class="number">0x07</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">TableRefAdd</span>),
-
-        <span class="number">0x08</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">TableRefGet</span>),
-
-        <span class="number">0x09</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">CallMethod</span>(<span class="ident">argument_0</span>))
-        }
-
-        <span class="number">0x0a</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">ty</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">MakeRecord</span>(<span class="ident">argument_0</span>))
-        }
-
-        <span class="number">0x0c</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">ty</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_1</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">GetField</span>(<span class="ident">argument_0</span>, <span class="ident">argument_1</span>))
-        }
-
-        <span class="number">0x0d</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">ty</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_1</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">Const</span>(<span class="ident">argument_0</span>, <span class="ident">argument_1</span>))
-        }
-
-        <span class="number">0x0e</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">FoldSeq</span>(<span class="ident">argument_0</span>))
-        }
-
-        <span class="number">0x0f</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">ty</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">Add</span>(<span class="ident">argument_0</span>))
-        }
-
-        <span class="number">0x10</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">ty</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_1</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">MemToSeq</span>(<span class="ident">argument_0</span>, <span class="ident">argument_1</span>))
-        }
-
-        <span class="number">0x11</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">ty</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_1</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">Load</span>(<span class="ident">argument_0</span>, <span class="ident">argument_1</span>))
-        }
-
-        <span class="number">0x12</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">ty</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">SeqNew</span>(<span class="ident">argument_0</span>))
-        }
-
-        <span class="number">0x13</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">ListPush</span>),
-
-        <span class="number">0x14</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_1</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-            (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">RepeatUntil</span>(<span class="ident">argument_0</span>, <span class="ident">argument_1</span>))
-        }
+        <span class="number">0x07</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span>),
+        <span class="number">0x08</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span>),
+        <span class="number">0x09</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I32ToU8</span>),
+        <span class="number">0x0a</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I32ToS16</span>),
+        <span class="number">0x0b</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I32ToS16X</span>),
+        <span class="number">0x0c</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I32ToU16</span>),
+        <span class="number">0x0d</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I32ToS32</span>),
+        <span class="number">0x0e</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I32ToU32</span>),
+        <span class="number">0x0f</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I32ToS64</span>),
+        <span class="number">0x10</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I32ToU64</span>),
+        <span class="number">0x11</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToS8</span>),
+        <span class="number">0x12</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToS8X</span>),
+        <span class="number">0x13</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToU8</span>),
+        <span class="number">0x14</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToS16</span>),
+        <span class="number">0x15</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToS16X</span>),
+        <span class="number">0x16</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToU16</span>),
+        <span class="number">0x17</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToS32</span>),
+        <span class="number">0x18</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToS32X</span>),
+        <span class="number">0x19</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToU32</span>),
+        <span class="number">0x1a</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToS64</span>),
+        <span class="number">0x1b</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64ToU64</span>),
+        <span class="number">0x1c</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">S8ToI32</span>),
+        <span class="number">0x1d</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">U8ToI32</span>),
+        <span class="number">0x1e</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">S16ToI32</span>),
+        <span class="number">0x1f</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">U16ToI32</span>),
+        <span class="number">0x20</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">S32ToI32</span>),
+        <span class="number">0x21</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">U32ToI32</span>),
+        <span class="number">0x22</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">S64ToI32</span>),
+        <span class="number">0x23</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">S64ToI32X</span>),
+        <span class="number">0x24</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">U64ToI32</span>),
+        <span class="number">0x25</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">U64ToI32X</span>),
+        <span class="number">0x26</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">S8ToI64</span>),
+        <span class="number">0x27</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">U8ToI64</span>),
+        <span class="number">0x28</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">S16ToI64</span>),
+        <span class="number">0x29</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">U16ToI64</span>),
+        <span class="number">0x2a</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">S32ToI64</span>),
+        <span class="number">0x2b</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">U32ToI64</span>),
+        <span class="number">0x2c</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">S64ToI64</span>),
+        <span class="number">0x2d</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">U64ToI64</span>),
 
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="prelude-val">Err</span>::<span class="ident">Error</span>(<span class="ident">make_error</span>(<span class="ident">input</span>, <span class="ident">ErrorKind</span>::<span class="ident">ParseTo</span>))),
     })
-}
-
-<span class="doccomment">/// Parse a list of exports.</span>
-<span class="kw">fn</span> <span class="ident">exports</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span>, <span class="ident">E</span>: <span class="ident">ParseError</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(
-    <span class="kw-2">mut</span> <span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>],
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>], <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Export</span><span class="op">&gt;</span>, <span class="ident">E</span><span class="op">&gt;</span> {
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">number_of_exports</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">exports</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">number_of_exports</span> <span class="kw">as</span> <span class="ident">usize</span>);
-
-    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">number_of_exports</span> {
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">export_name</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">export_input_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">export_output_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
-
-        <span class="ident">exports</span>.<span class="ident">push</span>(<span class="ident">Export</span> {
-            <span class="ident">name</span>: <span class="ident">export_name</span>,
-            <span class="ident">input_types</span>: <span class="ident">export_input_types</span>,
-            <span class="ident">output_types</span>: <span class="ident">export_output_types</span>,
-        });
-    }
-
-    <span class="prelude-val">Ok</span>((<span class="ident">input</span>, <span class="ident">exports</span>))
 }
 
 <span class="doccomment">/// Parse a list of types.</span>
@@ -1284,11 +1158,10 @@
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">types</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">number_of_types</span> <span class="kw">as</span> <span class="ident">usize</span>);
 
     <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">number_of_types</span> {
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">type_name</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">type_fields</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">string</span>)<span class="question-mark">?</span>);
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">type_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">inputs</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">outputs</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
 
-        <span class="ident">types</span>.<span class="ident">push</span>(<span class="ident">Type</span>::<span class="ident">new</span>(<span class="ident">type_name</span>, <span class="ident">type_fields</span>, <span class="ident">type_types</span>));
+        <span class="ident">types</span>.<span class="ident">push</span>(<span class="ident">Type</span> { <span class="ident">inputs</span>, <span class="ident">outputs</span> });
     }
 
     <span class="prelude-val">Ok</span>((<span class="ident">input</span>, <span class="ident">types</span>))
@@ -1303,16 +1176,14 @@
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">number_of_imports</span> <span class="kw">as</span> <span class="ident">usize</span>);
 
     <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">number_of_imports</span> {
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">import_namespace</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">import_name</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">import_input_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">import_output_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">namespace</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">name</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">signature_type</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
 
         <span class="ident">imports</span>.<span class="ident">push</span>(<span class="ident">Import</span> {
-            <span class="ident">namespace</span>: <span class="ident">import_namespace</span>,
-            <span class="ident">name</span>: <span class="ident">import_name</span>,
-            <span class="ident">input_types</span>: <span class="ident">import_input_types</span>,
-            <span class="ident">output_types</span>: <span class="ident">import_output_types</span>,
+            <span class="ident">namespace</span>,
+            <span class="ident">name</span>,
+            <span class="ident">signature_type</span>: <span class="ident">signature_type</span> <span class="kw">as</span> <span class="ident">u32</span>,
         });
     }
 
@@ -1328,75 +1199,58 @@
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">adapters</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">number_of_adapters</span> <span class="kw">as</span> <span class="ident">usize</span>);
 
     <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">number_of_adapters</span> {
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_kind</span>) <span class="op">=</span> <span class="ident">byte</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-        <span class="kw">let</span> <span class="ident">adapter_kind</span> <span class="op">=</span> <span class="ident">AdapterKind</span>::<span class="ident">try_from</span>(<span class="ident">adapter_kind</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Err</span>::<span class="ident">Error</span>(<span class="ident">make_error</span>(<span class="ident">input</span>, <span class="ident">ErrorKind</span>::<span class="ident">ParseTo</span>)))<span class="question-mark">?</span>;
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">function_type</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">instructions</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">instruction</span>)<span class="question-mark">?</span>);
 
-        <span class="kw">match</span> <span class="ident">adapter_kind</span> {
-            <span class="ident">AdapterKind</span>::<span class="ident">Import</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_namespace</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_name</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_input_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_output_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_instructions</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">instruction</span>)<span class="question-mark">?</span>);
-
-                <span class="ident">adapters</span>.<span class="ident">push</span>(<span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                    <span class="ident">namespace</span>: <span class="ident">adapter_namespace</span>,
-                    <span class="ident">name</span>: <span class="ident">adapter_name</span>,
-                    <span class="ident">input_types</span>: <span class="ident">adapter_input_types</span>,
-                    <span class="ident">output_types</span>: <span class="ident">adapter_output_types</span>,
-                    <span class="ident">instructions</span>: <span class="ident">adapter_instructions</span>,
-                });
-            }
-
-            <span class="ident">AdapterKind</span>::<span class="ident">Export</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_name</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_input_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_output_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_instructions</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">instruction</span>)<span class="question-mark">?</span>);
-
-                <span class="ident">adapters</span>.<span class="ident">push</span>(<span class="ident">Adapter</span>::<span class="ident">Export</span> {
-                    <span class="ident">name</span>: <span class="ident">adapter_name</span>,
-                    <span class="ident">input_types</span>: <span class="ident">adapter_input_types</span>,
-                    <span class="ident">output_types</span>: <span class="ident">adapter_output_types</span>,
-                    <span class="ident">instructions</span>: <span class="ident">adapter_instructions</span>,
-                });
-            }
-
-            <span class="ident">AdapterKind</span>::<span class="ident">HelperFunction</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_name</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_input_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_output_types</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>);
-                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_instructions</span>) <span class="op">=</span> <span class="ident">list</span>(<span class="ident">input</span>, <span class="ident">instruction</span>)<span class="question-mark">?</span>);
-
-                <span class="ident">adapters</span>.<span class="ident">push</span>(<span class="ident">Adapter</span>::<span class="ident">HelperFunction</span> {
-                    <span class="ident">name</span>: <span class="ident">adapter_name</span>,
-                    <span class="ident">input_types</span>: <span class="ident">adapter_input_types</span>,
-                    <span class="ident">output_types</span>: <span class="ident">adapter_output_types</span>,
-                    <span class="ident">instructions</span>: <span class="ident">adapter_instructions</span>,
-                });
-            }
-        }
+        <span class="ident">adapters</span>.<span class="ident">push</span>(<span class="ident">Adapter</span> {
+            <span class="ident">function_type</span>: <span class="ident">function_type</span> <span class="kw">as</span> <span class="ident">u32</span>,
+            <span class="ident">instructions</span>,
+        });
     }
 
     <span class="prelude-val">Ok</span>((<span class="ident">input</span>, <span class="ident">adapters</span>))
 }
 
-<span class="doccomment">/// Parse a list of forwarded exports.</span>
-<span class="kw">fn</span> <span class="ident">forwards</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span>, <span class="ident">E</span>: <span class="ident">ParseError</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(
+<span class="doccomment">/// Parse a list of exports.</span>
+<span class="kw">fn</span> <span class="ident">exports</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span>, <span class="ident">E</span>: <span class="ident">ParseError</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>],
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>], <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Forward</span><span class="op">&gt;</span>, <span class="ident">E</span><span class="op">&gt;</span> {
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">number_of_forwards</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>], <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Export</span><span class="op">&gt;</span>, <span class="ident">E</span><span class="op">&gt;</span> {
+    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">number_of_exports</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">forwards</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">number_of_forwards</span> <span class="kw">as</span> <span class="ident">usize</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">exports</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">number_of_exports</span> <span class="kw">as</span> <span class="ident">usize</span>);
 
-    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">number_of_forwards</span> {
-        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">forward_name</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">number_of_exports</span> {
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">name</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">function_type</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
 
-        <span class="ident">forwards</span>.<span class="ident">push</span>(<span class="ident">Forward</span> { <span class="ident">name</span>: <span class="ident">forward_name</span> });
+        <span class="ident">exports</span>.<span class="ident">push</span>(<span class="ident">Export</span> {
+            <span class="ident">name</span>,
+            <span class="ident">function_type</span>: <span class="ident">function_type</span> <span class="kw">as</span> <span class="ident">u32</span>,
+        });
     }
 
-    <span class="prelude-val">Ok</span>((<span class="ident">input</span>, <span class="ident">forwards</span>))
+    <span class="prelude-val">Ok</span>((<span class="ident">input</span>, <span class="ident">exports</span>))
+}
+
+<span class="doccomment">/// Parse a list of implementations.</span>
+<span class="kw">fn</span> <span class="ident">implementations</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span>, <span class="ident">E</span>: <span class="ident">ParseError</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(
+    <span class="kw-2">mut</span> <span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>],
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>], <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Implementation</span><span class="op">&gt;</span>, <span class="ident">E</span><span class="op">&gt;</span> {
+    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">number_of_implementations</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">implementations</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">number_of_implementations</span> <span class="kw">as</span> <span class="ident">usize</span>);
+
+    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">number_of_implementations</span> {
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">core_function_type</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapter_function_type</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+
+        <span class="ident">implementations</span>.<span class="ident">push</span>(<span class="ident">Implementation</span> {
+            <span class="ident">core_function_type</span>: <span class="ident">core_function_type</span> <span class="kw">as</span> <span class="ident">u32</span>,
+            <span class="ident">adapter_function_type</span>: <span class="ident">adapter_function_type</span> <span class="kw">as</span> <span class="ident">u32</span>,
+        });
+    }
+
+    <span class="prelude-val">Ok</span>((<span class="ident">input</span>, <span class="ident">implementations</span>))
 }
 
 <span class="doccomment">/// Parse complete interfaces.</span>
@@ -1405,20 +1259,54 @@
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>], <span class="ident">Interfaces</span>, <span class="ident">E</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">bytes</span>;
 
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">exports</span>) <span class="op">=</span> <span class="ident">exports</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">types</span>) <span class="op">=</span> <span class="ident">types</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">imports</span>) <span class="op">=</span> <span class="ident">imports</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">adapters</span>) <span class="op">=</span> <span class="ident">adapters</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-    <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">forwards</span>) <span class="op">=</span> <span class="ident">forwards</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">all_types</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">all_imports</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">all_adapters</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">all_exports</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">all_implementations</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+
+    <span class="kw">while</span> <span class="op">!</span><span class="ident">input</span>.<span class="ident">is_empty</span>() {
+        <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">interface_kind</span>) <span class="op">=</span> <span class="ident">byte</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+
+        <span class="kw">let</span> <span class="ident">interface_kind</span> <span class="op">=</span> <span class="ident">InterfaceKind</span>::<span class="ident">try_from</span>(<span class="ident">interface_kind</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Err</span>::<span class="ident">Error</span>(<span class="ident">make_error</span>(<span class="ident">input</span>, <span class="ident">ErrorKind</span>::<span class="ident">ParseTo</span>)))<span class="question-mark">?</span>;
+
+        <span class="kw">match</span> <span class="ident">interface_kind</span> {
+            <span class="ident">InterfaceKind</span>::<span class="ident">Type</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="kw-2">mut</span> <span class="ident">new_types</span>) <span class="op">=</span> <span class="ident">types</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+                <span class="ident">all_types</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_types</span>);
+            }
+
+            <span class="ident">InterfaceKind</span>::<span class="ident">Import</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="kw-2">mut</span> <span class="ident">new_imports</span>) <span class="op">=</span> <span class="ident">imports</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+                <span class="ident">all_imports</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_imports</span>);
+            }
+
+            <span class="ident">InterfaceKind</span>::<span class="ident">Adapter</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="kw-2">mut</span> <span class="ident">new_adapters</span>) <span class="op">=</span> <span class="ident">adapters</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+                <span class="ident">all_adapters</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_adapters</span>);
+            }
+
+            <span class="ident">InterfaceKind</span>::<span class="ident">Export</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="kw-2">mut</span> <span class="ident">new_exports</span>) <span class="op">=</span> <span class="ident">exports</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+                <span class="ident">all_exports</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_exports</span>);
+            }
+
+            <span class="ident">InterfaceKind</span>::<span class="ident">Implementation</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="kw-2">mut</span> <span class="ident">new_implementations</span>) <span class="op">=</span> <span class="ident">implementations</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+                <span class="ident">all_implementations</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_implementations</span>)
+            }
+        }
+    }
 
     <span class="prelude-val">Ok</span>((
         <span class="ident">input</span>,
         <span class="ident">Interfaces</span> {
-            <span class="ident">exports</span>,
-            <span class="ident">types</span>,
-            <span class="ident">imports</span>,
-            <span class="ident">adapters</span>,
-            <span class="ident">forwards</span>,
+            <span class="ident">types</span>: <span class="ident">all_types</span>,
+            <span class="ident">imports</span>: <span class="ident">all_imports</span>,
+            <span class="ident">adapters</span>: <span class="ident">all_adapters</span>,
+            <span class="ident">exports</span>: <span class="ident">all_exports</span>,
+            <span class="ident">implementations</span>: <span class="ident">all_implementations</span>,
         },
     ))
 }
@@ -1436,83 +1324,67 @@
 <span class="doccomment">///     interpreter::Instruction,</span>
 <span class="doccomment">/// };</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// let input = &amp;[</span>
+<span class="doccomment">///     0x00, // type section</span>
+<span class="doccomment">///     0x01, // 1 type</span>
+<span class="doccomment">///     0x01, // list of 1 item</span>
+<span class="doccomment">///     0x00, // S8</span>
+<span class="doccomment">///     0x01, // list of 1 item</span>
+<span class="doccomment">///     0x01, // S16</span>
+<span class="doccomment">///     //</span>
+<span class="doccomment">///     0x01, // import section</span>
+<span class="doccomment">///     0x01, // 1 import</span>
+<span class="doccomment">///     0x02, // string of 2 bytes</span>
+<span class="doccomment">///     0x61, 0x62, // &quot;a&quot;, &quot;b&quot;</span>
+<span class="doccomment">///     0x01, // string of 1 byte</span>
+<span class="doccomment">///     0x63, // &quot;c&quot;</span>
+<span class="doccomment">///     0x00, // signature type</span>
+<span class="doccomment">///     //</span>
+<span class="doccomment">///     0x02, // adapter section</span>
+<span class="doccomment">///     0x01, // 1 adapter</span>
+<span class="doccomment">///     0x00, // function type</span>
+<span class="doccomment">///     0x01, // list of 1 item</span>
+<span class="doccomment">///     0x00, 0x01, // ArgumentGet { index: 1 }</span>
+<span class="doccomment">///     //</span>
+<span class="doccomment">///     0x03, // export section</span>
 <span class="doccomment">///     0x01, // 1 export</span>
 <span class="doccomment">///     0x02, // string of 2 bytes</span>
 <span class="doccomment">///     0x61, 0x62, // &quot;a&quot;, &quot;b&quot;</span>
-<span class="doccomment">///     0x01, // list of 1 item</span>
-<span class="doccomment">///     0x7f, // I32</span>
-<span class="doccomment">///     0x01, // list of 1 item</span>
-<span class="doccomment">///     0x7f, // I32</span>
-<span class="doccomment">///     0x01, // 1 type</span>
-<span class="doccomment">///     0x02, // string of 2 bytes</span>
-<span class="doccomment">///     0x61, 0x62, // &quot;a&quot;, &quot;b&quot;</span>
-<span class="doccomment">///     0x02, // list of 2 items</span>
-<span class="doccomment">///     0x02, // string of 2 bytes</span>
-<span class="doccomment">///     0x63, 0x64, // &quot;c&quot;, &quot;d&quot;</span>
-<span class="doccomment">///     0x01, // string of 1 byte</span>
-<span class="doccomment">///     0x65, // &quot;e&quot;</span>
-<span class="doccomment">///     0x02, // list of 2 items</span>
-<span class="doccomment">///     0x7f, // I32</span>
-<span class="doccomment">///     0x7f, // I32</span>
-<span class="doccomment">///     0x01, // 1 import</span>
-<span class="doccomment">///     0x01, // string of 1 byte</span>
-<span class="doccomment">///     0x61, // &quot;a&quot;</span>
-<span class="doccomment">///     0x01, // string of 1 byte</span>
-<span class="doccomment">///     0x62, // &quot;b&quot;</span>
-<span class="doccomment">///     0x01, // list of 1 item</span>
-<span class="doccomment">///     0x7f, // I32</span>
-<span class="doccomment">///     0x01, // list of 1 item</span>
-<span class="doccomment">///     0x7e, // I64</span>
-<span class="doccomment">///     0x01, // 1 adapter</span>
-<span class="doccomment">///     0x00, // adapter kind: import</span>
-<span class="doccomment">///     0x01, // string of 1 byte</span>
-<span class="doccomment">///     0x61, // &quot;a&quot;</span>
-<span class="doccomment">///     0x01, // string of 1 byte</span>
-<span class="doccomment">///     0x62, // &quot;b&quot;</span>
-<span class="doccomment">///     0x01, // list of 1 item</span>
-<span class="doccomment">///     0x7f, // I32</span>
-<span class="doccomment">///     0x01, // list of 1 item</span>
-<span class="doccomment">///     0x7f, // I32</span>
-<span class="doccomment">///     0x01, // list of 1 item</span>
-<span class="doccomment">///     0x00, 0x01, // ArgumentGet { index: 1 }</span>
-<span class="doccomment">///     0x01, // 1 adapter</span>
-<span class="doccomment">///     0x01, // string of 1 byte</span>
-<span class="doccomment">///     0x61, // &quot;a&quot;</span>
+<span class="doccomment">///     0x01, // function type</span>
+<span class="doccomment">///     //</span>
+<span class="doccomment">///     0x04, // implementation section</span>
+<span class="doccomment">///     0x01, // 1 implementation</span>
+<span class="doccomment">///     0x02, // core function type</span>
+<span class="doccomment">///     0x03, // adapter function type</span>
 <span class="doccomment">/// ];</span>
 <span class="doccomment">/// let output = Ok((</span>
 <span class="doccomment">///     &amp;[] as &amp;[u8],</span>
 <span class="doccomment">///     Interfaces {</span>
-<span class="doccomment">///         exports: vec![Export {</span>
-<span class="doccomment">///             name: &quot;ab&quot;,</span>
-<span class="doccomment">///             input_types: vec![InterfaceType::I32],</span>
-<span class="doccomment">///             output_types: vec![InterfaceType::I32],</span>
+<span class="doccomment">///         types: vec![Type {</span>
+<span class="doccomment">///             inputs: vec![InterfaceType::S8],</span>
+<span class="doccomment">///             outputs: vec![InterfaceType::S16],</span>
 <span class="doccomment">///         }],</span>
-<span class="doccomment">///         types: vec![Type::new(</span>
-<span class="doccomment">///             &quot;ab&quot;,</span>
-<span class="doccomment">///             vec![&quot;cd&quot;, &quot;e&quot;],</span>
-<span class="doccomment">///             vec![InterfaceType::I32, InterfaceType::I32],</span>
-<span class="doccomment">///         )],</span>
 <span class="doccomment">///         imports: vec![Import {</span>
-<span class="doccomment">///             namespace: &quot;a&quot;,</span>
-<span class="doccomment">///             name: &quot;b&quot;,</span>
-<span class="doccomment">///             input_types: vec![InterfaceType::I32],</span>
-<span class="doccomment">///             output_types: vec![InterfaceType::I64],</span>
+<span class="doccomment">///             namespace: &quot;ab&quot;,</span>
+<span class="doccomment">///             name: &quot;c&quot;,</span>
+<span class="doccomment">///             signature_type: 0,</span>
 <span class="doccomment">///         }],</span>
-<span class="doccomment">///         adapters: vec![Adapter::Import {</span>
-<span class="doccomment">///             namespace: &quot;a&quot;,</span>
-<span class="doccomment">///             name: &quot;b&quot;,</span>
-<span class="doccomment">///             input_types: vec![InterfaceType::I32],</span>
-<span class="doccomment">///             output_types: vec![InterfaceType::I32],</span>
+<span class="doccomment">///         adapters: vec![Adapter {</span>
+<span class="doccomment">///             function_type: 0,</span>
 <span class="doccomment">///             instructions: vec![Instruction::ArgumentGet { index: 1 }],</span>
 <span class="doccomment">///         }],</span>
-<span class="doccomment">///         forwards: vec![Forward { name: &quot;a&quot; }],</span>
+<span class="doccomment">///         exports: vec![Export {</span>
+<span class="doccomment">///             name: &quot;ab&quot;,</span>
+<span class="doccomment">///             function_type: 1,</span>
+<span class="doccomment">///         }],</span>
+<span class="doccomment">///         implementations: vec![Implementation {</span>
+<span class="doccomment">///             core_function_type: 2,</span>
+<span class="doccomment">///             adapter_function_type: 3,</span>
+<span class="doccomment">///         }],</span>
 <span class="doccomment">///     },</span>
 <span class="doccomment">/// ));</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// assert_eq!(parse::&lt;()&gt;(input), output);</span>
-<span class="doccomment">/// # }</span>
 <span class="doccomment">/// ```</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span>, <span class="ident">E</span>: <span class="ident">ParseError</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>(
     <span class="ident">bytes</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> [<span class="ident">u8</span>],
@@ -1631,32 +1503,40 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_ty</span>() {
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[
-            <span class="number">0x0a</span>, <span class="comment">// list of 10 items</span>
-            <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0x01</span>, <span class="comment">// Int</span>
-            <span class="number">0xfe</span>, <span class="number">0xff</span>, <span class="number">0x01</span>, <span class="comment">// Float</span>
-            <span class="number">0xfd</span>, <span class="number">0xff</span>, <span class="number">0x01</span>, <span class="comment">// Any</span>
-            <span class="number">0xfc</span>, <span class="number">0xff</span>, <span class="number">0x01</span>, <span class="comment">// String</span>
-            <span class="number">0xfb</span>, <span class="number">0xff</span>, <span class="number">0x01</span>, <span class="comment">// Seq</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x7e</span>, <span class="comment">// I64</span>
-            <span class="number">0x7d</span>, <span class="comment">// F32</span>
-            <span class="number">0x7c</span>, <span class="comment">// F64</span>
-            <span class="number">0x6f</span>, <span class="comment">// AnyRef</span>
+            <span class="number">0x0e</span>, <span class="comment">// list of 14 items</span>
+            <span class="number">0x00</span>, <span class="comment">// S8</span>
+            <span class="number">0x01</span>, <span class="comment">// S16</span>
+            <span class="number">0x02</span>, <span class="comment">// S32</span>
+            <span class="number">0x03</span>, <span class="comment">// S64</span>
+            <span class="number">0x04</span>, <span class="comment">// U8</span>
+            <span class="number">0x05</span>, <span class="comment">// U16</span>
+            <span class="number">0x06</span>, <span class="comment">// U32</span>
+            <span class="number">0x07</span>, <span class="comment">// U64</span>
+            <span class="number">0x08</span>, <span class="comment">// F32</span>
+            <span class="number">0x09</span>, <span class="comment">// F64</span>
+            <span class="number">0x0a</span>, <span class="comment">// String</span>
+            <span class="number">0x0b</span>, <span class="comment">// Anyref</span>
+            <span class="number">0x0c</span>, <span class="comment">// I32</span>
+            <span class="number">0x0d</span>, <span class="comment">// I64</span>
             <span class="number">0x01</span>,
         ];
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((
             <span class="kw-2">&amp;</span>[<span class="number">0x01</span>][..],
             <span class="macro">vec</span><span class="macro">!</span>[
-                <span class="ident">InterfaceType</span>::<span class="ident">Int</span>,
-                <span class="ident">InterfaceType</span>::<span class="ident">Float</span>,
-                <span class="ident">InterfaceType</span>::<span class="ident">Any</span>,
-                <span class="ident">InterfaceType</span>::<span class="ident">String</span>,
-                <span class="ident">InterfaceType</span>::<span class="ident">Seq</span>,
-                <span class="ident">InterfaceType</span>::<span class="ident">I32</span>,
-                <span class="ident">InterfaceType</span>::<span class="ident">I64</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">S8</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">S16</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">S32</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">S64</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">U8</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">U16</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">U32</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">U64</span>,
                 <span class="ident">InterfaceType</span>::<span class="ident">F32</span>,
                 <span class="ident">InterfaceType</span>::<span class="ident">F64</span>,
-                <span class="ident">InterfaceType</span>::<span class="ident">AnyRef</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">String</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">Anyref</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">I32</span>,
+                <span class="ident">InterfaceType</span>::<span class="ident">I64</span>,
             ],
         ));
 
@@ -1666,27 +1546,51 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_instructions</span>() {
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[
-            <span class="number">0x14</span>, <span class="comment">// list of 20 items</span>
+            <span class="number">0x2c</span>, <span class="comment">// list of 44 items</span>
             <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
             <span class="number">0x01</span>, <span class="number">0x01</span>, <span class="comment">// Call { function_index: 1 }</span>
             <span class="number">0x02</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// CallExport { export_name: &quot;abc&quot; }</span>
             <span class="number">0x03</span>, <span class="comment">// ReadUtf8</span>
             <span class="number">0x04</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// WriteUtf8 { allocator_name: &quot;abc&quot; }</span>
-            <span class="number">0x05</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0x01</span>, <span class="comment">// AsWasm(Int)</span>
-            <span class="number">0x06</span>, <span class="number">0x7e</span>, <span class="comment">// AsInterface(I64)</span>
-            <span class="number">0x07</span>, <span class="comment">// TableRefAdd</span>
-            <span class="number">0x08</span>, <span class="comment">// TableRefGet</span>
-            <span class="number">0x09</span>, <span class="number">0x01</span>, <span class="comment">// CallMethod(1)</span>
-            <span class="number">0x0a</span>, <span class="number">0x7f</span>, <span class="comment">// MakeRecord(I32)</span>
-            <span class="number">0x0c</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0x01</span>, <span class="number">0x02</span>, <span class="comment">// GetField(Int, 2)</span>
-            <span class="number">0x0d</span>, <span class="number">0x7f</span>, <span class="number">0x01</span>, <span class="comment">// Const(I32, 1)</span>
-            <span class="number">0x0e</span>, <span class="number">0x01</span>, <span class="comment">// FoldSeq(1)</span>
-            <span class="number">0x0f</span>, <span class="number">0x7f</span>, <span class="comment">// Add(I32)</span>
-            <span class="number">0x10</span>, <span class="number">0x7f</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// MemToSeq(I32, &quot;abc&quot;)</span>
-            <span class="number">0x11</span>, <span class="number">0x7f</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// Load(I32, &quot;abc&quot;)</span>
-            <span class="number">0x12</span>, <span class="number">0x7f</span>, <span class="comment">// SeqNew(I32)</span>
-            <span class="number">0x13</span>, <span class="comment">// ListPush</span>
-            <span class="number">0x14</span>, <span class="number">0x01</span>, <span class="number">0x02</span>, <span class="comment">// RepeatUntil(1, 2)</span>
+            <span class="number">0x07</span>, <span class="comment">// I32ToS8</span>
+            <span class="number">0x08</span>, <span class="comment">// I32ToS8X</span>
+            <span class="number">0x09</span>, <span class="comment">// I32ToU8</span>
+            <span class="number">0x0a</span>, <span class="comment">// I32ToS16</span>
+            <span class="number">0x0b</span>, <span class="comment">// I32ToS16X</span>
+            <span class="number">0x0c</span>, <span class="comment">// I32ToU16</span>
+            <span class="number">0x0d</span>, <span class="comment">// I32ToS32</span>
+            <span class="number">0x0e</span>, <span class="comment">// I32ToU32</span>
+            <span class="number">0x0f</span>, <span class="comment">// I32ToS64</span>
+            <span class="number">0x10</span>, <span class="comment">// I32ToU64</span>
+            <span class="number">0x11</span>, <span class="comment">// I64ToS8</span>
+            <span class="number">0x12</span>, <span class="comment">// I64ToS8X</span>
+            <span class="number">0x13</span>, <span class="comment">// I64ToU8</span>
+            <span class="number">0x14</span>, <span class="comment">// I64ToS16</span>
+            <span class="number">0x15</span>, <span class="comment">// I64ToS16X</span>
+            <span class="number">0x16</span>, <span class="comment">// I64ToU16</span>
+            <span class="number">0x17</span>, <span class="comment">// I64ToS32</span>
+            <span class="number">0x18</span>, <span class="comment">// I64ToS32X</span>
+            <span class="number">0x19</span>, <span class="comment">// I64ToU32</span>
+            <span class="number">0x1a</span>, <span class="comment">// I64ToS64</span>
+            <span class="number">0x1b</span>, <span class="comment">// I64ToU64</span>
+            <span class="number">0x1c</span>, <span class="comment">// S8ToI32</span>
+            <span class="number">0x1d</span>, <span class="comment">// U8ToI32</span>
+            <span class="number">0x1e</span>, <span class="comment">// S16ToI32</span>
+            <span class="number">0x1f</span>, <span class="comment">// U16ToI32</span>
+            <span class="number">0x20</span>, <span class="comment">// S32ToI32</span>
+            <span class="number">0x21</span>, <span class="comment">// U32ToI32</span>
+            <span class="number">0x22</span>, <span class="comment">// S64ToI32</span>
+            <span class="number">0x23</span>, <span class="comment">// S64ToI32X</span>
+            <span class="number">0x24</span>, <span class="comment">// U64ToI32</span>
+            <span class="number">0x25</span>, <span class="comment">// U64ToI32X</span>
+            <span class="number">0x26</span>, <span class="comment">// S8ToI64</span>
+            <span class="number">0x27</span>, <span class="comment">// U8ToI64</span>
+            <span class="number">0x28</span>, <span class="comment">// S16ToI64</span>
+            <span class="number">0x29</span>, <span class="comment">// U16ToI64</span>
+            <span class="number">0x2a</span>, <span class="comment">// S32ToI64</span>
+            <span class="number">0x2b</span>, <span class="comment">// U32ToI64</span>
+            <span class="number">0x2c</span>, <span class="comment">// S64ToI64</span>
+            <span class="number">0x2d</span>, <span class="comment">// U64ToI64</span>
             <span class="number">0x0a</span>,
         ];
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((
@@ -1699,21 +1603,45 @@
                 <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
                     <span class="ident">allocator_name</span>: <span class="string">&quot;abc&quot;</span>,
                 },
-                <span class="ident">Instruction</span>::<span class="ident">AsWasm</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>),
-                <span class="ident">Instruction</span>::<span class="ident">AsInterface</span>(<span class="ident">InterfaceType</span>::<span class="ident">I64</span>),
-                <span class="ident">Instruction</span>::<span class="ident">TableRefAdd</span>,
-                <span class="ident">Instruction</span>::<span class="ident">TableRefGet</span>,
-                <span class="ident">Instruction</span>::<span class="ident">CallMethod</span>(<span class="number">1</span>),
-                <span class="ident">Instruction</span>::<span class="ident">MakeRecord</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>),
-                <span class="ident">Instruction</span>::<span class="ident">GetField</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>, <span class="number">2</span>),
-                <span class="ident">Instruction</span>::<span class="ident">Const</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="number">1</span>),
-                <span class="ident">Instruction</span>::<span class="ident">FoldSeq</span>(<span class="number">1</span>),
-                <span class="ident">Instruction</span>::<span class="ident">Add</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>),
-                <span class="ident">Instruction</span>::<span class="ident">MemToSeq</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="string">&quot;abc&quot;</span>),
-                <span class="ident">Instruction</span>::<span class="ident">Load</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="string">&quot;abc&quot;</span>),
-                <span class="ident">Instruction</span>::<span class="ident">SeqNew</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>),
-                <span class="ident">Instruction</span>::<span class="ident">ListPush</span>,
-                <span class="ident">Instruction</span>::<span class="ident">RepeatUntil</span>(<span class="number">1</span>, <span class="number">2</span>),
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToU8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS16X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToU16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToU32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToU64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS8X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToU8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS16X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToU16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS32X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToU32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToU64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S8ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U8ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S16ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U16ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S32ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U32ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S64ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S64ToI32X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U64ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U64ToI32X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S8ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U8ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S16ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U16ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S32ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U32ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S64ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U64ToI64</span>,
             ],
         ));
 
@@ -1726,27 +1654,21 @@
             <span class="number">0x02</span>, <span class="comment">// 2 exports</span>
             <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
             <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="comment">// &quot;a&quot;, &quot;b&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
+            <span class="number">0x01</span>, <span class="comment">// function type</span>
             <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
             <span class="number">0x63</span>, <span class="number">0x64</span>, <span class="comment">// &quot;c&quot;, &quot;d&quot;</span>
-            <span class="number">0x00</span>, <span class="comment">// list of 0 item</span>
-            <span class="number">0x00</span>, <span class="comment">// list of 0 item</span>
+            <span class="number">0x02</span>, <span class="comment">// function type</span>
         ];
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((
             <span class="kw-2">&amp;</span>[] <span class="kw">as</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
             <span class="macro">vec</span><span class="macro">!</span>[
                 <span class="ident">Export</span> {
                     <span class="ident">name</span>: <span class="string">&quot;ab&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                    <span class="ident">function_type</span>: <span class="number">1</span>,
                 },
                 <span class="ident">Export</span> {
                     <span class="ident">name</span>: <span class="string">&quot;cd&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+                    <span class="ident">function_type</span>: <span class="number">2</span>,
                 },
             ],
         ));
@@ -1758,24 +1680,18 @@
     <span class="kw">fn</span> <span class="ident">test_types</span>() {
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[
             <span class="number">0x01</span>, <span class="comment">// 1 type</span>
-            <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
-            <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="comment">// &quot;a&quot;, &quot;b&quot;</span>
             <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-            <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
-            <span class="number">0x63</span>, <span class="number">0x64</span>, <span class="comment">// &quot;c&quot;, &quot;d&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x65</span>, <span class="comment">// &quot;e&quot;</span>
-            <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
+            <span class="number">0x02</span>, <span class="comment">// S32</span>
+            <span class="number">0x02</span>, <span class="comment">// S32</span>
+            <span class="number">0x01</span>, <span class="comment">// list of 2 items</span>
+            <span class="number">0x02</span>, <span class="comment">// S32</span>
         ];
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((
             <span class="kw-2">&amp;</span>[] <span class="kw">as</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-            <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Type</span>::<span class="ident">new</span>(
-                <span class="string">&quot;ab&quot;</span>,
-                <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;cd&quot;</span>, <span class="string">&quot;e&quot;</span>],
-                <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-            )],
+            <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Type</span> {
+                <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">S32</span>, <span class="ident">InterfaceType</span>::<span class="ident">S32</span>],
+                <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">S32</span>],
+            }],
         ));
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">types</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>(<span class="ident">input</span>), <span class="ident">output</span>);
@@ -1789,18 +1705,12 @@
             <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
             <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
             <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7e</span>, <span class="comment">// I64</span>
+            <span class="number">0x01</span>, <span class="comment">// signature type</span>
             <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
             <span class="number">0x63</span>, <span class="comment">// &quot;c&quot;</span>
             <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
             <span class="number">0x64</span>, <span class="comment">// &quot;d&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7e</span>, <span class="comment">// I64</span>
+            <span class="number">0x02</span>, <span class="comment">// signature type</span>
         ];
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((
             <span class="kw-2">&amp;</span>[] <span class="kw">as</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
@@ -1808,14 +1718,12 @@
                 <span class="ident">Import</span> {
                     <span class="ident">namespace</span>: <span class="string">&quot;a&quot;</span>,
                     <span class="ident">name</span>: <span class="string">&quot;b&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
+                    <span class="ident">signature_type</span>: <span class="number">1</span>,
                 },
                 <span class="ident">Import</span> {
                     <span class="ident">namespace</span>: <span class="string">&quot;c&quot;</span>,
                     <span class="ident">name</span>: <span class="string">&quot;d&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
+                    <span class="ident">signature_type</span>: <span class="number">2</span>,
                 },
             ],
         ));
@@ -1826,155 +1734,81 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_adapters</span>() {
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[
-            <span class="number">0x03</span>, <span class="comment">// 3 adapters</span>
-            <span class="number">0x00</span>, <span class="comment">// adapter kind: import</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
-            <span class="number">0x01</span>, <span class="comment">// adapter kind: export</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x63</span>, <span class="comment">// &quot;c&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
-            <span class="number">0x02</span>, <span class="comment">// adapter kind: helper function</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x64</span>, <span class="comment">// &quot;d&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
+            <span class="number">0x01</span>, <span class="comment">// 1 adapters</span>
+            <span class="number">0x00</span>, <span class="comment">// function type</span>
             <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
             <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
         ];
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((
             <span class="kw-2">&amp;</span>[] <span class="kw">as</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-            <span class="macro">vec</span><span class="macro">!</span>[
-                <span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;a&quot;</span>,
-                    <span class="ident">name</span>: <span class="string">&quot;b&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> }],
-                },
-                <span class="ident">Adapter</span>::<span class="ident">Export</span> {
-                    <span class="ident">name</span>: <span class="string">&quot;c&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> }],
-                },
-                <span class="ident">Adapter</span>::<span class="ident">HelperFunction</span> {
-                    <span class="ident">name</span>: <span class="string">&quot;d&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> }],
-                },
-            ],
+            <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Adapter</span> {
+                <span class="ident">function_type</span>: <span class="number">0</span>,
+                <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> }],
+            }],
         ));
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">adapters</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>(<span class="ident">input</span>), <span class="ident">output</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_forwards</span>() {
-        <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[
-            <span class="number">0x02</span>, <span class="comment">// 2 adapters</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
-            <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
-            <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// &quot;b&quot;, &quot;c&quot;</span>
-        ];
-        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((
-            <span class="kw-2">&amp;</span>[] <span class="kw">as</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-            <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Forward</span> { <span class="ident">name</span>: <span class="string">&quot;a&quot;</span> }, <span class="ident">Forward</span> { <span class="ident">name</span>: <span class="string">&quot;bc&quot;</span> }],
-        ));
-
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">forwards</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>(<span class="ident">input</span>), <span class="ident">output</span>);
-    }
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_parse</span>() {
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[
+            <span class="number">0x00</span>, <span class="comment">// type section</span>
+            <span class="number">0x01</span>, <span class="comment">// 1 type</span>
+            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
+            <span class="number">0x00</span>, <span class="comment">// S8</span>
+            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
+            <span class="number">0x01</span>, <span class="comment">// S16</span>
+            <span class="comment">//</span>
+            <span class="number">0x01</span>, <span class="comment">// import section</span>
+            <span class="number">0x01</span>, <span class="comment">// 1 import</span>
+            <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
+            <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="comment">// &quot;a&quot;, &quot;b&quot;</span>
+            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
+            <span class="number">0x63</span>, <span class="comment">// &quot;c&quot;</span>
+            <span class="number">0x00</span>, <span class="comment">// signature type</span>
+            <span class="comment">//</span>
+            <span class="number">0x02</span>, <span class="comment">// adapter section</span>
+            <span class="number">0x01</span>, <span class="comment">// 1 adapter</span>
+            <span class="number">0x00</span>, <span class="comment">// function type</span>
+            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
+            <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
+            <span class="comment">//</span>
+            <span class="number">0x03</span>, <span class="comment">// export section</span>
             <span class="number">0x01</span>, <span class="comment">// 1 export</span>
             <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
             <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="comment">// &quot;a&quot;, &quot;b&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// 1 type</span>
-            <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
-            <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="comment">// &quot;a&quot;, &quot;b&quot;</span>
-            <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-            <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
-            <span class="number">0x63</span>, <span class="number">0x64</span>, <span class="comment">// &quot;c&quot;, &quot;d&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x65</span>, <span class="comment">// &quot;e&quot;</span>
-            <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// 1 import</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7e</span>, <span class="comment">// I64</span>
-            <span class="number">0x01</span>, <span class="comment">// 1 adapter</span>
-            <span class="number">0x00</span>, <span class="comment">// adapter kind: import</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x7f</span>, <span class="comment">// I32</span>
-            <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-            <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
-            <span class="number">0x01</span>, <span class="comment">// 1 adapter</span>
-            <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-            <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
+            <span class="number">0x01</span>, <span class="comment">// function type</span>
+            <span class="comment">//</span>
+            <span class="number">0x04</span>, <span class="comment">// implementation section</span>
+            <span class="number">0x01</span>, <span class="comment">// 1 implementation</span>
+            <span class="number">0x02</span>, <span class="comment">// core function type</span>
+            <span class="number">0x03</span>, <span class="comment">// adapter function type</span>
         ];
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((
             <span class="kw-2">&amp;</span>[] <span class="kw">as</span> <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
             <span class="ident">Interfaces</span> {
-                <span class="ident">exports</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Export</span> {
-                    <span class="ident">name</span>: <span class="string">&quot;ab&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                <span class="ident">types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Type</span> {
+                    <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">S8</span>],
+                    <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">S16</span>],
                 }],
-                <span class="ident">types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Type</span>::<span class="ident">new</span>(
-                    <span class="string">&quot;ab&quot;</span>,
-                    <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;cd&quot;</span>, <span class="string">&quot;e&quot;</span>],
-                    <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                )],
                 <span class="ident">imports</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Import</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;a&quot;</span>,
-                    <span class="ident">name</span>: <span class="string">&quot;b&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
+                    <span class="ident">namespace</span>: <span class="string">&quot;ab&quot;</span>,
+                    <span class="ident">name</span>: <span class="string">&quot;c&quot;</span>,
+                    <span class="ident">signature_type</span>: <span class="number">0</span>,
                 }],
-                <span class="ident">adapters</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;a&quot;</span>,
-                    <span class="ident">name</span>: <span class="string">&quot;b&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                <span class="ident">adapters</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Adapter</span> {
+                    <span class="ident">function_type</span>: <span class="number">0</span>,
                     <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> }],
                 }],
-                <span class="ident">forwards</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Forward</span> { <span class="ident">name</span>: <span class="string">&quot;a&quot;</span> }],
+                <span class="ident">exports</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Export</span> {
+                    <span class="ident">name</span>: <span class="string">&quot;ab&quot;</span>,
+                    <span class="ident">function_type</span>: <span class="number">1</span>,
+                }],
+                <span class="ident">implementations</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Implementation</span> {
+                    <span class="ident">core_function_type</span>: <span class="number">2</span>,
+                    <span class="ident">adapter_function_type</span>: <span class="number">3</span>,
+                }],
             },
         ));
 

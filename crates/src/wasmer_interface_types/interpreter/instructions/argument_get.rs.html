@@ -54,11 +54,11 @@
 <span id="54">54</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="macro">executable_instruction</span><span class="macro">!</span>(
-    <span class="ident">argument_get</span>(<span class="ident">index</span>: <span class="ident">u64</span>, <span class="ident">instruction_name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
+    <span class="ident">argument_get</span>(<span class="ident">index</span>: <span class="ident">u32</span>, <span class="ident">instruction_name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
         <span class="kw">move</span> <span class="op">|</span><span class="ident">runtime</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
             <span class="kw">let</span> <span class="ident">invocation_inputs</span> <span class="op">=</span> <span class="ident">runtime</span>.<span class="ident">invocation_inputs</span>;
 
-            <span class="kw">if</span> <span class="ident">index</span> <span class="op">&gt;</span><span class="op">=</span> (<span class="ident">invocation_inputs</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>) {
+            <span class="kw">if</span> <span class="ident">index</span> <span class="op">&gt;</span><span class="op">=</span> (<span class="ident">invocation_inputs</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>) {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format</span><span class="macro">!</span>(
                     <span class="string">&quot;`{}` cannot access argument #{} because it doesn&#39;t exist.&quot;</span>,
                     <span class="ident">instruction_name</span>, <span class="ident">index</span>

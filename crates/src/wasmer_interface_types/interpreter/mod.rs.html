@@ -237,8 +237,6 @@
 <span id="237">237</span>
 <span id="238">238</span>
 <span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A stack-based interpreter to execute instructions of WIT adapters.</span>
 
@@ -308,7 +306,6 @@
 <span class="doccomment">///     Instruction, Interpreter,</span>
 <span class="doccomment">/// };</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// // 1. Creates an interpreter from a set of instructions. They will</span>
 <span class="doccomment">/// //    be transformed into executable instructions.</span>
 <span class="doccomment">/// let interpreter: Interpreter&lt;Instance, Export, LocalImport, Memory, MemoryView&gt; = (&amp;vec![</span>
@@ -358,7 +355,6 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// // 5. Read the stack to get the result.</span>
 <span class="doccomment">/// assert_eq!(stack.as_slice(), &amp;[InterfaceValue::I32(7)]);</span>
-<span class="doccomment">/// # }</span>
 <span class="doccomment">/// ```</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Interpreter</span><span class="op">&lt;</span><span class="ident">Instance</span>, <span class="ident">Export</span>, <span class="ident">LocalImport</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span><span class="op">&gt;</span>
 <span class="kw">where</span>

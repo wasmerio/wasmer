@@ -581,136 +581,6 @@
 <span id="581">581</span>
 <span id="582">582</span>
 <span id="583">583</span>
-<span id="584">584</span>
-<span id="585">585</span>
-<span id="586">586</span>
-<span id="587">587</span>
-<span id="588">588</span>
-<span id="589">589</span>
-<span id="590">590</span>
-<span id="591">591</span>
-<span id="592">592</span>
-<span id="593">593</span>
-<span id="594">594</span>
-<span id="595">595</span>
-<span id="596">596</span>
-<span id="597">597</span>
-<span id="598">598</span>
-<span id="599">599</span>
-<span id="600">600</span>
-<span id="601">601</span>
-<span id="602">602</span>
-<span id="603">603</span>
-<span id="604">604</span>
-<span id="605">605</span>
-<span id="606">606</span>
-<span id="607">607</span>
-<span id="608">608</span>
-<span id="609">609</span>
-<span id="610">610</span>
-<span id="611">611</span>
-<span id="612">612</span>
-<span id="613">613</span>
-<span id="614">614</span>
-<span id="615">615</span>
-<span id="616">616</span>
-<span id="617">617</span>
-<span id="618">618</span>
-<span id="619">619</span>
-<span id="620">620</span>
-<span id="621">621</span>
-<span id="622">622</span>
-<span id="623">623</span>
-<span id="624">624</span>
-<span id="625">625</span>
-<span id="626">626</span>
-<span id="627">627</span>
-<span id="628">628</span>
-<span id="629">629</span>
-<span id="630">630</span>
-<span id="631">631</span>
-<span id="632">632</span>
-<span id="633">633</span>
-<span id="634">634</span>
-<span id="635">635</span>
-<span id="636">636</span>
-<span id="637">637</span>
-<span id="638">638</span>
-<span id="639">639</span>
-<span id="640">640</span>
-<span id="641">641</span>
-<span id="642">642</span>
-<span id="643">643</span>
-<span id="644">644</span>
-<span id="645">645</span>
-<span id="646">646</span>
-<span id="647">647</span>
-<span id="648">648</span>
-<span id="649">649</span>
-<span id="650">650</span>
-<span id="651">651</span>
-<span id="652">652</span>
-<span id="653">653</span>
-<span id="654">654</span>
-<span id="655">655</span>
-<span id="656">656</span>
-<span id="657">657</span>
-<span id="658">658</span>
-<span id="659">659</span>
-<span id="660">660</span>
-<span id="661">661</span>
-<span id="662">662</span>
-<span id="663">663</span>
-<span id="664">664</span>
-<span id="665">665</span>
-<span id="666">666</span>
-<span id="667">667</span>
-<span id="668">668</span>
-<span id="669">669</span>
-<span id="670">670</span>
-<span id="671">671</span>
-<span id="672">672</span>
-<span id="673">673</span>
-<span id="674">674</span>
-<span id="675">675</span>
-<span id="676">676</span>
-<span id="677">677</span>
-<span id="678">678</span>
-<span id="679">679</span>
-<span id="680">680</span>
-<span id="681">681</span>
-<span id="682">682</span>
-<span id="683">683</span>
-<span id="684">684</span>
-<span id="685">685</span>
-<span id="686">686</span>
-<span id="687">687</span>
-<span id="688">688</span>
-<span id="689">689</span>
-<span id="690">690</span>
-<span id="691">691</span>
-<span id="692">692</span>
-<span id="693">693</span>
-<span id="694">694</span>
-<span id="695">695</span>
-<span id="696">696</span>
-<span id="697">697</span>
-<span id="698">698</span>
-<span id="699">699</span>
-<span id="700">700</span>
-<span id="701">701</span>
-<span id="702">702</span>
-<span id="703">703</span>
-<span id="704">704</span>
-<span id="705">705</span>
-<span id="706">706</span>
-<span id="707">707</span>
-<span id="708">708</span>
-<span id="709">709</span>
-<span id="710">710</span>
-<span id="711">711</span>
-<span id="712">712</span>
-<span id="713">713</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Writes the AST into a string representing WIT with its textual format.</span>
 <span class="doccomment">//!</span>
@@ -723,105 +593,72 @@
 <span class="doccomment">//!     interpreter::Instruction,</span>
 <span class="doccomment">//! };</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! # fn main() {</span>
 <span class="doccomment">//! let input: String = (&amp;Interfaces {</span>
-<span class="doccomment">//!     exports: vec![</span>
-<span class="doccomment">//!         Export {</span>
-<span class="doccomment">//!             name: &quot;foo&quot;,</span>
-<span class="doccomment">//!             input_types: vec![InterfaceType::I32],</span>
-<span class="doccomment">//!             output_types: vec![],</span>
-<span class="doccomment">//!         },</span>
-<span class="doccomment">//!         Export {</span>
-<span class="doccomment">//!             name: &quot;bar&quot;,</span>
-<span class="doccomment">//!             input_types: vec![],</span>
-<span class="doccomment">//!             output_types: vec![],</span>
-<span class="doccomment">//!         },</span>
-<span class="doccomment">//!     ],</span>
-<span class="doccomment">//!     types: vec![],</span>
-<span class="doccomment">//!     imports: vec![</span>
-<span class="doccomment">//!         Import {</span>
-<span class="doccomment">//!             namespace: &quot;ns&quot;,</span>
-<span class="doccomment">//!             name: &quot;foo&quot;,</span>
-<span class="doccomment">//!             input_types: vec![],</span>
-<span class="doccomment">//!             output_types: vec![InterfaceType::I32],</span>
-<span class="doccomment">//!         },</span>
-<span class="doccomment">//!         Import {</span>
-<span class="doccomment">//!             namespace: &quot;ns&quot;,</span>
-<span class="doccomment">//!             name: &quot;bar&quot;,</span>
-<span class="doccomment">//!             input_types: vec![],</span>
-<span class="doccomment">//!             output_types: vec![],</span>
-<span class="doccomment">//!         },</span>
-<span class="doccomment">//!     ],</span>
-<span class="doccomment">//!     adapters: vec![</span>
-<span class="doccomment">//!         Adapter::Import {</span>
-<span class="doccomment">//!             namespace: &quot;ns&quot;,</span>
-<span class="doccomment">//!             name: &quot;foo&quot;,</span>
-<span class="doccomment">//!             input_types: vec![InterfaceType::I32],</span>
-<span class="doccomment">//!             output_types: vec![],</span>
-<span class="doccomment">//!             instructions: vec![Instruction::ArgumentGet { index: 42 }],</span>
-<span class="doccomment">//!         },</span>
-<span class="doccomment">//!         Adapter::Export {</span>
-<span class="doccomment">//!             name: &quot;bar&quot;,</span>
-<span class="doccomment">//!             input_types: vec![],</span>
-<span class="doccomment">//!             output_types: vec![],</span>
-<span class="doccomment">//!             instructions: vec![Instruction::ArgumentGet { index: 42 }],</span>
-<span class="doccomment">//!         },</span>
-<span class="doccomment">//!     ],</span>
-<span class="doccomment">//!     forwards: vec![Forward { name: &quot;main&quot; }],</span>
+<span class="doccomment">//!     types: vec![Type {</span>
+<span class="doccomment">//!         inputs: vec![InterfaceType::I32],</span>
+<span class="doccomment">//!         outputs: vec![InterfaceType::S8],</span>
+<span class="doccomment">//!     }],</span>
+<span class="doccomment">//!     imports: vec![Import {</span>
+<span class="doccomment">//!         namespace: &quot;ns&quot;,</span>
+<span class="doccomment">//!         name: &quot;foo&quot;,</span>
+<span class="doccomment">//!         signature_type: 0,</span>
+<span class="doccomment">//!     }],</span>
+<span class="doccomment">//!     adapters: vec![Adapter {</span>
+<span class="doccomment">//!         function_type: 0,</span>
+<span class="doccomment">//!         instructions: vec![Instruction::ArgumentGet { index: 42 }],</span>
+<span class="doccomment">//!     }],</span>
+<span class="doccomment">//!     exports: vec![Export {</span>
+<span class="doccomment">//!         name: &quot;bar&quot;,</span>
+<span class="doccomment">//!         function_type: 0,</span>
+<span class="doccomment">//!     }],</span>
+<span class="doccomment">//!     implementations: vec![Implementation {</span>
+<span class="doccomment">//!         core_function_type: 0,</span>
+<span class="doccomment">//!         adapter_function_type: 1,</span>
+<span class="doccomment">//!     }],</span>
 <span class="doccomment">//! })</span>
 <span class="doccomment">//!     .to_string();</span>
-<span class="doccomment">//! let output = r#&quot;;; Interfaces</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ;; Interface, Export foo</span>
-<span class="doccomment">//! (@interface export &quot;foo&quot;</span>
-<span class="doccomment">//!   (param i32))</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ;; Interface, Export bar</span>
-<span class="doccomment">//! (@interface export &quot;bar&quot;)</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ;; Interface, Import ns.foo</span>
-<span class="doccomment">//! (@interface func $ns_foo (import &quot;ns&quot; &quot;foo&quot;)</span>
-<span class="doccomment">//!   (result i32))</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ;; Interface, Import ns.bar</span>
-<span class="doccomment">//! (@interface func $ns_bar (import &quot;ns&quot; &quot;bar&quot;))</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ;; Interface, Adapter ns.foo</span>
-<span class="doccomment">//! (@interface adapt (import &quot;ns&quot; &quot;foo&quot;)</span>
+<span class="doccomment">//! let output = r#&quot;;; Types</span>
+<span class="doccomment">//! (@interface type (func</span>
 <span class="doccomment">//!   (param i32)</span>
+<span class="doccomment">//!   (result s8)))</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ;; Imports</span>
+<span class="doccomment">//! (@interface import &quot;ns&quot; &quot;foo&quot; (func (type 0)))</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ;; Adapters</span>
+<span class="doccomment">//! (@interface func (type 0)</span>
 <span class="doccomment">//!   arg.get 42)</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! ;; Interface, Adapter bar</span>
-<span class="doccomment">//! (@interface adapt (export &quot;bar&quot;)</span>
-<span class="doccomment">//!   arg.get 42)</span>
+<span class="doccomment">//! ;; Exports</span>
+<span class="doccomment">//! (@interface export &quot;bar&quot; (func 0))</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! ;; Interface, Forward main</span>
-<span class="doccomment">//! (@interface forward (export &quot;main&quot;))&quot;#;</span>
+<span class="doccomment">//! ;; Implementations</span>
+<span class="doccomment">//! (@interface implement (func 0) (func 1))&quot;#;</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! assert_eq!(input, output);</span>
-<span class="doccomment">//! # }</span>
 <span class="doccomment">//! ```</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">ast</span>::{<span class="ident">Adapter</span>, <span class="ident">Export</span>, <span class="ident">Forward</span>, <span class="ident">Import</span>, <span class="ident">InterfaceType</span>, <span class="ident">Interfaces</span>, <span class="ident">Type</span>},
-    <span class="ident">interpreter</span>::<span class="ident">Instruction</span>,
-};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">string</span>::<span class="ident">ToString</span>;
 
 <span class="doccomment">/// Encode an `InterfaceType` into a string.</span>
 <span class="kw">impl</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">InterfaceType</span> {
     <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">InterfaceType</span>::<span class="ident">Int</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;Int&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">InterfaceType</span>::<span class="ident">Float</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;Float&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">InterfaceType</span>::<span class="ident">Any</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;Any&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">InterfaceType</span>::<span class="ident">String</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;String&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">InterfaceType</span>::<span class="ident">Seq</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;Seq&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">InterfaceType</span>::<span class="ident">I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">InterfaceType</span>::<span class="ident">I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">S8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s8&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">S16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s16&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">S32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">S64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">U8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u8&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">U16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u16&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">U32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">U64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u64&quot;</span>.<span class="ident">into</span>(),
             <span class="ident">InterfaceType</span>::<span class="ident">F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;f32&quot;</span>.<span class="ident">into</span>(),
             <span class="ident">InterfaceType</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;f64&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">InterfaceType</span>::<span class="ident">AnyRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;anyref&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">String</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;string&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">Anyref</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;anyref&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">InterfaceType</span>::<span class="ident">I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64&quot;</span>.<span class="ident">into</span>(),
         }
     }
 }
@@ -837,39 +674,45 @@
             <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> { <span class="ident">allocator_name</span> } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">format</span><span class="macro">!</span>(<span class="string">r#&quot;write-utf8 &quot;{}&quot;&quot;#</span>, <span class="ident">allocator_name</span>)
             }
-            <span class="ident">Instruction</span>::<span class="ident">AsWasm</span>(<span class="ident">interface_type</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;as-wasm {}&quot;</span>, <span class="ident">interface_type</span>.<span class="ident">to_string</span>())
-            }
-            <span class="ident">Instruction</span>::<span class="ident">AsInterface</span>(<span class="ident">interface_type</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;as-interface {}&quot;</span>, <span class="ident">interface_type</span>.<span class="ident">to_string</span>())
-            }
-            <span class="ident">Instruction</span>::<span class="ident">TableRefAdd</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;table-ref-add&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">Instruction</span>::<span class="ident">TableRefGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;table-ref-get&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">Instruction</span>::<span class="ident">CallMethod</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;call-method {}&quot;</span>, <span class="ident">index</span>),
-            <span class="ident">Instruction</span>::<span class="ident">MakeRecord</span>(<span class="ident">interface_type</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;make-record {}&quot;</span>, <span class="ident">interface_type</span>.<span class="ident">to_string</span>())
-            }
-            <span class="ident">Instruction</span>::<span class="ident">GetField</span>(<span class="ident">interface_type</span>, <span class="ident">field_index</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;get-field {} {}&quot;</span>, <span class="ident">interface_type</span>.<span class="ident">to_string</span>(), <span class="ident">field_index</span>)
-            }
-            <span class="ident">Instruction</span>::<span class="ident">Const</span>(<span class="ident">interface_type</span>, <span class="ident">value</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;const {} {}&quot;</span>, <span class="ident">interface_type</span>.<span class="ident">to_string</span>(), <span class="ident">value</span>)
-            }
-            <span class="ident">Instruction</span>::<span class="ident">FoldSeq</span>(<span class="ident">import_index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;fold-seq {}&quot;</span>, <span class="ident">import_index</span>),
-            <span class="ident">Instruction</span>::<span class="ident">Add</span>(<span class="ident">interface_type</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;add {}&quot;</span>, <span class="ident">interface_type</span>.<span class="ident">to_string</span>()),
-            <span class="ident">Instruction</span>::<span class="ident">MemToSeq</span>(<span class="ident">interface_type</span>, <span class="ident">memory</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">r#&quot;mem-to-seq {} &quot;{}&quot;&quot;#</span>, <span class="ident">interface_type</span>.<span class="ident">to_string</span>(), <span class="ident">memory</span>)
-            }
-            <span class="ident">Instruction</span>::<span class="ident">Load</span>(<span class="ident">interface_type</span>, <span class="ident">memory</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">r#&quot;load {} &quot;{}&quot;&quot;#</span>, <span class="ident">interface_type</span>.<span class="ident">to_string</span>(), <span class="ident">memory</span>)
-            }
-            <span class="ident">Instruction</span>::<span class="ident">SeqNew</span>(<span class="ident">interface_type</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;seq.new {}&quot;</span>, <span class="ident">interface_type</span>.<span class="ident">to_string</span>())
-            }
-            <span class="ident">Instruction</span>::<span class="ident">ListPush</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;list.push&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">Instruction</span>::<span class="ident">RepeatUntil</span>(<span class="ident">condition_index</span>, <span class="ident">step_index</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;repeat-until {} {}&quot;</span>, <span class="ident">condition_index</span>, <span class="ident">step_index</span>)
-            }
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-s8&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-s8x&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I32ToU8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-u8&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-s16&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS16X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-s16x&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I32ToU16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-u16&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-s32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I32ToU32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-u32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-s64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I32ToU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-u64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-s8&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS8X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-s8x&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToU8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-u8&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-s16&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS16X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-s16x&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToU16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-u16&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-s32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS32X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-s32x&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToU32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-u32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-s64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">I64ToU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64-to-u64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">S8ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s8-to-i32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">U8ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u8-to-i32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">S16ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s16-to-i32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">U16ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u16-to-i32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">S32ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s32-to-i32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">U32ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u32-to-i32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">S64ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s64-to-i32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">S64ToI32X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s64-to-i32x&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">U64ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u64-to-i32&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">U64ToI32X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u64-to-i32x&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">S8ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s8-to-i64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">U8ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u8-to-i64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">S16ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s16-to-i64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">U16ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u16-to-i64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">S32ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s32-to-i64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">U32ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u32-to-i64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">S64ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;s64-to-i64&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">U64ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;u64-to-i64&quot;</span>.<span class="ident">into</span>(),
         }
     }
 }
@@ -912,22 +755,14 @@
     }
 }
 
-<span class="doccomment">/// Encode an `Export` into a string.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Export</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
+<span class="doccomment">/// Encode a `Type` into a string.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Type</span> {
     <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
         <span class="macro">format</span><span class="macro">!</span>(
-            <span class="string">r#&quot;(@interface export &quot;{name}&quot;{inputs}{outputs})&quot;#</span>,
-            <span class="ident">name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">name</span>,
-            <span class="ident">inputs</span> <span class="op">=</span> <span class="ident">input_types_to_param</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">input_types</span>),
-            <span class="ident">outputs</span> <span class="op">=</span> <span class="ident">output_types_to_result</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">output_types</span>),
+            <span class="string">r#&quot;(@interface type (func{inputs}{outputs}))&quot;#</span>,
+            <span class="ident">inputs</span> <span class="op">=</span> <span class="ident">input_types_to_param</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inputs</span>),
+            <span class="ident">outputs</span> <span class="op">=</span> <span class="ident">output_types_to_result</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">outputs</span>),
         )
-    }
-}
-
-<span class="doccomment">/// Encode a `Type` into a string.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Type</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
-        <span class="macro">todo</span><span class="macro">!</span>(<span class="string">&quot;To be implemented.&quot;</span>)
     }
 }
 
@@ -935,11 +770,10 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Import</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
         <span class="macro">format</span><span class="macro">!</span>(
-            <span class="string">r#&quot;(@interface func ${namespace}_{name} (import &quot;{namespace}&quot; &quot;{name}&quot;){inputs}{outputs})&quot;#</span>,
+            <span class="string">r#&quot;(@interface import &quot;{namespace}&quot; &quot;{name}&quot; (func (type {type})))&quot;#</span>,
             <span class="ident">namespace</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">namespace</span>,
             <span class="ident">name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">name</span>,
-            <span class="ident">inputs</span> <span class="op">=</span> <span class="ident">input_types_to_param</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">input_types</span>),
-            <span class="ident">outputs</span> <span class="op">=</span> <span class="ident">output_types_to_result</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">output_types</span>),
+            <span class="kw">type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">signature_type</span>,
         )
     }
 }
@@ -947,60 +781,39 @@
 <span class="doccomment">/// Encode an `Adapter` into a string.</span>
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Adapter</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                <span class="ident">namespace</span>,
-                <span class="ident">name</span>,
-                <span class="ident">input_types</span>,
-                <span class="ident">output_types</span>,
-                <span class="ident">instructions</span>,
-            } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(
-                <span class="string">r#&quot;(@interface adapt (import &quot;{namespace}&quot; &quot;{name}&quot;){inputs}{outputs}{instructions})&quot;#</span>,
-                <span class="ident">namespace</span> <span class="op">=</span> <span class="ident">namespace</span>,
-                <span class="ident">name</span> <span class="op">=</span> <span class="ident">name</span>,
-                <span class="ident">inputs</span> <span class="op">=</span> <span class="ident">input_types_to_param</span>(<span class="kw-2">&amp;</span><span class="ident">input_types</span>),
-                <span class="ident">outputs</span> <span class="op">=</span> <span class="ident">output_types_to_result</span>(<span class="kw-2">&amp;</span><span class="ident">output_types</span>),
-                <span class="ident">instructions</span> <span class="op">=</span>
-                    <span class="ident">instructions</span>
-                        .<span class="ident">iter</span>()
-                        .<span class="ident">fold</span>(<span class="ident">String</span>::<span class="ident">new</span>(), <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">accumulator</span>, <span class="ident">instruction</span><span class="op">|</span> {
-                            <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="string">&quot;\n  &quot;</span>);
-                            <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">instruction</span>.<span class="ident">to_string</span>());
-                            <span class="ident">accumulator</span>
-                        }),
-            ),
-
-            <span class="ident">Adapter</span>::<span class="ident">Export</span> {
-                <span class="ident">name</span>,
-                <span class="ident">input_types</span>,
-                <span class="ident">output_types</span>,
-                <span class="ident">instructions</span>,
-            } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(
-                <span class="string">r#&quot;(@interface adapt (export &quot;{name}&quot;){inputs}{outputs}{instructions})&quot;#</span>,
-                <span class="ident">name</span> <span class="op">=</span> <span class="ident">name</span>,
-                <span class="ident">inputs</span> <span class="op">=</span> <span class="ident">input_types_to_param</span>(<span class="kw-2">&amp;</span><span class="ident">input_types</span>),
-                <span class="ident">outputs</span> <span class="op">=</span> <span class="ident">output_types_to_result</span>(<span class="kw-2">&amp;</span><span class="ident">output_types</span>),
-                <span class="ident">instructions</span> <span class="op">=</span>
-                    <span class="ident">instructions</span>
-                        .<span class="ident">iter</span>()
-                        .<span class="ident">fold</span>(<span class="ident">String</span>::<span class="ident">new</span>(), <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">accumulator</span>, <span class="ident">instruction</span><span class="op">|</span> {
-                            <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="string">&quot;\n  &quot;</span>);
-                            <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">instruction</span>.<span class="ident">to_string</span>());
-                            <span class="ident">accumulator</span>
-                        }),
-            ),
-
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">todo</span><span class="macro">!</span>(<span class="string">&quot;To be implemented.&quot;</span>),
-        }
+        <span class="macro">format</span><span class="macro">!</span>(
+            <span class="string">r#&quot;(@interface func (type {function_type}){instructions})&quot;#</span>,
+            <span class="ident">function_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">function_type</span>,
+            <span class="ident">instructions</span> <span class="op">=</span>
+                <span class="self">self</span>.<span class="ident">instructions</span>
+                    .<span class="ident">iter</span>()
+                    .<span class="ident">fold</span>(<span class="ident">String</span>::<span class="ident">new</span>(), <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">accumulator</span>, <span class="ident">instruction</span><span class="op">|</span> {
+                        <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="string">&quot;\n  &quot;</span>);
+                        <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">instruction</span>.<span class="ident">to_string</span>());
+                        <span class="ident">accumulator</span>
+                    }),
+        )
     }
 }
 
-<span class="doccomment">/// Encode a `Forward` into a string.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Forward</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
+<span class="doccomment">/// Encode an `Export` into a string.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Export</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
         <span class="macro">format</span><span class="macro">!</span>(
-            <span class="string">r#&quot;(@interface forward (export &quot;{name}&quot;))&quot;#</span>,
+            <span class="string">r#&quot;(@interface export &quot;{name}&quot; (func {type}))&quot;#</span>,
             <span class="ident">name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">name</span>,
+            <span class="kw">type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">function_type</span>,
+        )
+    }
+}
+
+<span class="doccomment">/// Encode an `Implementation` into a string.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Implementation</span> {
+    <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
+        <span class="macro">format</span><span class="macro">!</span>(
+            <span class="string">r#&quot;(@interface implement (func {core_function_type}) (func {adapter_function_type}))&quot;#</span>,
+            <span class="ident">core_function_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">core_function_type</span>,
+            <span class="ident">adapter_function_type</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">adapter_function_type</span>,
         )
     }
 }
@@ -1008,22 +821,13 @@
 <span class="doccomment">/// Encode an `Interfaces` into a string.</span>
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Interfaces</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">from</span>(<span class="string">&quot;;; Interfaces&quot;</span>);
-
-        <span class="kw">let</span> <span class="ident">exports</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">exports</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">fold</span>(<span class="ident">String</span>::<span class="ident">new</span>(), <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">accumulator</span>, <span class="ident">export</span><span class="op">|</span> {
-                <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n\n;; Interface, Export {}\n&quot;</span>, <span class="ident">export</span>.<span class="ident">name</span>));
-                <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">export</span>.<span class="ident">to_string</span>());
-                <span class="ident">accumulator</span>
-            });
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
 
         <span class="kw">let</span> <span class="ident">types</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">types</span>
             .<span class="ident">iter</span>()
             .<span class="ident">fold</span>(<span class="ident">String</span>::<span class="ident">new</span>(), <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">accumulator</span>, <span class="ident">ty</span><span class="op">|</span> {
-                <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n\n;; Interface, Ty {}\n&quot;</span>, <span class="ident">ty</span>.<span class="ident">name</span>));
+                <span class="ident">accumulator</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
                 <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">ty</span>.<span class="ident">to_string</span>());
                 <span class="ident">accumulator</span>
             });
@@ -1032,10 +836,7 @@
             .<span class="ident">imports</span>
             .<span class="ident">iter</span>()
             .<span class="ident">fold</span>(<span class="ident">String</span>::<span class="ident">new</span>(), <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">accumulator</span>, <span class="ident">import</span><span class="op">|</span> {
-                <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(
-                    <span class="string">&quot;\n\n;; Interface, Import {}.{}\n&quot;</span>,
-                    <span class="ident">import</span>.<span class="ident">namespace</span>, <span class="ident">import</span>.<span class="ident">name</span>
-                ));
+                <span class="ident">accumulator</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
                 <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">import</span>.<span class="ident">to_string</span>());
                 <span class="ident">accumulator</span>
             });
@@ -1044,38 +845,67 @@
             .<span class="ident">adapters</span>
             .<span class="ident">iter</span>()
             .<span class="ident">fold</span>(<span class="ident">String</span>::<span class="ident">new</span>(), <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">accumulator</span>, <span class="ident">adapter</span><span class="op">|</span> {
-                <span class="kw">match</span> <span class="ident">adapter</span> {
-                    <span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                        <span class="ident">namespace</span>, <span class="ident">name</span>, ..
-                    } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(
-                        <span class="string">&quot;\n\n;; Interface, Adapter {}.{}\n&quot;</span>,
-                        <span class="ident">namespace</span>, <span class="ident">name</span>
-                    )),
-
-                    <span class="ident">Adapter</span>::<span class="ident">Export</span> { <span class="ident">name</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n\n;; Interface, Adapter {}\n&quot;</span>, <span class="ident">name</span>))
-                    }
-
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">todo</span><span class="macro">!</span>(<span class="string">&quot;To be implemented.&quot;</span>),
-                }
+                <span class="ident">accumulator</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
                 <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">adapter</span>.<span class="ident">to_string</span>());
                 <span class="ident">accumulator</span>
             });
 
-        <span class="kw">let</span> <span class="ident">forwards</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">forwards</span>
+        <span class="kw">let</span> <span class="ident">exports</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">exports</span>
             .<span class="ident">iter</span>()
-            .<span class="ident">fold</span>(<span class="ident">String</span>::<span class="ident">new</span>(), <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">accumulator</span>, <span class="ident">forward</span><span class="op">|</span> {
-                <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\n\n;; Interface, Forward {}\n&quot;</span>, <span class="ident">forward</span>.<span class="ident">name</span>));
-                <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">forward</span>.<span class="ident">to_string</span>());
+            .<span class="ident">fold</span>(<span class="ident">String</span>::<span class="ident">new</span>(), <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">accumulator</span>, <span class="ident">export</span><span class="op">|</span> {
+                <span class="ident">accumulator</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
+                <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">export</span>.<span class="ident">to_string</span>());
                 <span class="ident">accumulator</span>
             });
 
-        <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">exports</span>);
-        <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">types</span>);
-        <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">imports</span>);
-        <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">adapters</span>);
-        <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">forwards</span>);
+        <span class="kw">let</span> <span class="ident">implementations</span> <span class="op">=</span>
+            <span class="self">self</span>.<span class="ident">implementations</span>
+                .<span class="ident">iter</span>()
+                .<span class="ident">fold</span>(<span class="ident">String</span>::<span class="ident">new</span>(), <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">accumulator</span>, <span class="ident">implementation</span><span class="op">|</span> {
+                    <span class="ident">accumulator</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
+                    <span class="ident">accumulator</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">implementation</span>.<span class="ident">to_string</span>());
+                    <span class="ident">accumulator</span>
+                });
+
+        <span class="kw">let</span> <span class="ident">separator</span> <span class="op">=</span> <span class="op">|</span><span class="ident">output</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span><span class="op">|</span> {
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">output</span>.<span class="ident">is_empty</span>() {
+                <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="string">&quot;\n\n&quot;</span>);
+            }
+        };
+
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">types</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="string">&quot;;; Types&quot;</span>);
+            <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">types</span>);
+        }
+
+        <span class="ident">separator</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">output</span>);
+
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">imports</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="string">&quot;;; Imports&quot;</span>);
+            <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">imports</span>);
+        }
+
+        <span class="ident">separator</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">output</span>);
+
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">adapters</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="string">&quot;;; Adapters&quot;</span>);
+            <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">adapters</span>);
+        }
+
+        <span class="ident">separator</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">output</span>);
+
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">exports</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="string">&quot;;; Exports&quot;</span>);
+            <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">exports</span>);
+        }
+
+        <span class="ident">separator</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">output</span>);
+
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">implementations</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="string">&quot;;; Implementations&quot;</span>);
+            <span class="ident">output</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">implementations</span>);
+        }
 
         <span class="ident">output</span>
     }
@@ -1088,19 +918,24 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_interface_types</span>() {
         <span class="kw">let</span> <span class="ident">inputs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
-            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">Int</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">Float</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">Any</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">String</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">Seq</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">I32</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">I64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">S8</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">S16</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">S32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">S64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">U8</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">U16</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">U32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">U64</span>).<span class="ident">to_string</span>(),
             (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">F32</span>).<span class="ident">to_string</span>(),
             (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">F64</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">AnyRef</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">String</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">Anyref</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">I32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">InterfaceType</span>::<span class="ident">I64</span>).<span class="ident">to_string</span>(),
         ];
         <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
-            <span class="string">&quot;Int&quot;</span>, <span class="string">&quot;Float&quot;</span>, <span class="string">&quot;Any&quot;</span>, <span class="string">&quot;String&quot;</span>, <span class="string">&quot;Seq&quot;</span>, <span class="string">&quot;i32&quot;</span>, <span class="string">&quot;i64&quot;</span>, <span class="string">&quot;f32&quot;</span>, <span class="string">&quot;f64&quot;</span>, <span class="string">&quot;anyref&quot;</span>,
+            <span class="string">&quot;s8&quot;</span>, <span class="string">&quot;s16&quot;</span>, <span class="string">&quot;s32&quot;</span>, <span class="string">&quot;s64&quot;</span>, <span class="string">&quot;u8&quot;</span>, <span class="string">&quot;u16&quot;</span>, <span class="string">&quot;u32&quot;</span>, <span class="string">&quot;u64&quot;</span>, <span class="string">&quot;f32&quot;</span>, <span class="string">&quot;f64&quot;</span>, <span class="string">&quot;string&quot;</span>, <span class="string">&quot;anyref&quot;</span>,
+            <span class="string">&quot;i32&quot;</span>, <span class="string">&quot;i64&quot;</span>,
         ];
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inputs</span>, <span class="ident">outputs</span>);
@@ -1117,21 +952,45 @@
                 <span class="ident">allocator_name</span>: <span class="string">&quot;foo&quot;</span>,
             })
                 .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">AsWasm</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">AsInterface</span>(<span class="ident">InterfaceType</span>::<span class="ident">AnyRef</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">TableRefAdd</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">TableRefGet</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">CallMethod</span>(<span class="number">7</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">MakeRecord</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">GetField</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>, <span class="number">7</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">Const</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="number">7</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">FoldSeq</span>(<span class="number">7</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">Add</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">MemToSeq</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>, <span class="string">&quot;foo&quot;</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">Load</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>, <span class="string">&quot;foo&quot;</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">SeqNew</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>)).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">ListPush</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">RepeatUntil</span>(<span class="number">1</span>, <span class="number">2</span>)).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToS8</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToU8</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToS16</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToS16X</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToU16</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToS32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToU32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToS64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToU64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToS8</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToS8X</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToU8</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToS16</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToS16X</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToU16</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToS32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToS32X</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToU32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToS64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64ToU64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">S8ToI32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">U8ToI32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">S16ToI32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">U16ToI32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">S32ToI32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">U32ToI32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">S64ToI32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">S64ToI32X</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">U64ToI32</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">U64ToI32X</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">S8ToI64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">U8ToI64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">S16ToI64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">U16ToI64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">S32ToI64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">U32ToI64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">S64ToI64</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">U64ToI64</span>).<span class="ident">to_string</span>(),
         ];
         <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             <span class="string">&quot;arg.get 7&quot;</span>,
@@ -1139,21 +998,83 @@
             <span class="string">r#&quot;call-export &quot;foo&quot;&quot;#</span>,
             <span class="string">&quot;read-utf8&quot;</span>,
             <span class="string">r#&quot;write-utf8 &quot;foo&quot;&quot;#</span>,
-            <span class="string">&quot;as-wasm Int&quot;</span>,
-            <span class="string">&quot;as-interface anyref&quot;</span>,
-            <span class="string">&quot;table-ref-add&quot;</span>,
-            <span class="string">&quot;table-ref-get&quot;</span>,
-            <span class="string">&quot;call-method 7&quot;</span>,
-            <span class="string">&quot;make-record Int&quot;</span>,
-            <span class="string">&quot;get-field Int 7&quot;</span>,
-            <span class="string">&quot;const i32 7&quot;</span>,
-            <span class="string">&quot;fold-seq 7&quot;</span>,
-            <span class="string">&quot;add Int&quot;</span>,
-            <span class="string">r#&quot;mem-to-seq Int &quot;foo&quot;&quot;#</span>,
-            <span class="string">r#&quot;load Int &quot;foo&quot;&quot;#</span>,
-            <span class="string">&quot;seq.new Int&quot;</span>,
-            <span class="string">&quot;list.push&quot;</span>,
-            <span class="string">&quot;repeat-until 1 2&quot;</span>,
+            <span class="string">&quot;i32-to-s8&quot;</span>,
+            <span class="string">&quot;i32-to-s8x&quot;</span>,
+            <span class="string">&quot;i32-to-u8&quot;</span>,
+            <span class="string">&quot;i32-to-s16&quot;</span>,
+            <span class="string">&quot;i32-to-s16x&quot;</span>,
+            <span class="string">&quot;i32-to-u16&quot;</span>,
+            <span class="string">&quot;i32-to-s32&quot;</span>,
+            <span class="string">&quot;i32-to-u32&quot;</span>,
+            <span class="string">&quot;i32-to-s64&quot;</span>,
+            <span class="string">&quot;i32-to-u64&quot;</span>,
+            <span class="string">&quot;i64-to-s8&quot;</span>,
+            <span class="string">&quot;i64-to-s8x&quot;</span>,
+            <span class="string">&quot;i64-to-u8&quot;</span>,
+            <span class="string">&quot;i64-to-s16&quot;</span>,
+            <span class="string">&quot;i64-to-s16x&quot;</span>,
+            <span class="string">&quot;i64-to-u16&quot;</span>,
+            <span class="string">&quot;i64-to-s32&quot;</span>,
+            <span class="string">&quot;i64-to-s32x&quot;</span>,
+            <span class="string">&quot;i64-to-u32&quot;</span>,
+            <span class="string">&quot;i64-to-s64&quot;</span>,
+            <span class="string">&quot;i64-to-u64&quot;</span>,
+            <span class="string">&quot;s8-to-i32&quot;</span>,
+            <span class="string">&quot;u8-to-i32&quot;</span>,
+            <span class="string">&quot;s16-to-i32&quot;</span>,
+            <span class="string">&quot;u16-to-i32&quot;</span>,
+            <span class="string">&quot;s32-to-i32&quot;</span>,
+            <span class="string">&quot;u32-to-i32&quot;</span>,
+            <span class="string">&quot;s64-to-i32&quot;</span>,
+            <span class="string">&quot;s64-to-i32x&quot;</span>,
+            <span class="string">&quot;u64-to-i32&quot;</span>,
+            <span class="string">&quot;u64-to-i32x&quot;</span>,
+            <span class="string">&quot;s8-to-i64&quot;</span>,
+            <span class="string">&quot;u8-to-i64&quot;</span>,
+            <span class="string">&quot;s16-to-i64&quot;</span>,
+            <span class="string">&quot;u16-to-i64&quot;</span>,
+            <span class="string">&quot;s32-to-i64&quot;</span>,
+            <span class="string">&quot;u32-to-i64&quot;</span>,
+            <span class="string">&quot;s64-to-i64&quot;</span>,
+            <span class="string">&quot;u64-to-i64&quot;</span>,
+        ];
+
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inputs</span>, <span class="ident">outputs</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_types</span>() {
+        <span class="kw">let</span> <span class="ident">inputs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
+            (<span class="kw-2">&amp;</span><span class="ident">Type</span> {
+                <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">F32</span>],
+                <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+            })
+                .<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Type</span> {
+                <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+            })
+                .<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Type</span> {
+                <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+                <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+            })
+                .<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Type</span> {
+                <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+                <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+            })
+                .<span class="ident">to_string</span>(),
+        ];
+        <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
+            <span class="string">r#&quot;(@interface type (func
+  (param i32 f32)
+  (result i32)))&quot;#</span>,
+            <span class="string">r#&quot;(@interface type (func
+  (param i32)))&quot;#</span>,
+            <span class="string">r#&quot;(@interface type (func
+  (result i32)))&quot;#</span>,
+            <span class="string">r#&quot;(@interface type (func))&quot;#</span>,
         ];
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inputs</span>, <span class="ident">outputs</span>);
@@ -1161,187 +1082,38 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_exports</span>() {
-        <span class="kw">let</span> <span class="ident">inputs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
-            (<span class="kw-2">&amp;</span><span class="ident">Export</span> {
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">F32</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Export</span> {
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Export</span> {
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Export</span> {
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-            })
-                .<span class="ident">to_string</span>(),
-        ];
-        <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
-            <span class="string">r#&quot;(@interface export &quot;foo&quot;
-  (param i32 f32)
-  (result i32))&quot;#</span>,
-            <span class="string">r#&quot;(@interface export &quot;foo&quot;
-  (param i32))&quot;#</span>,
-            <span class="string">r#&quot;(@interface export &quot;foo&quot;
-  (result i32))&quot;#</span>,
-            <span class="string">r#&quot;(@interface export &quot;foo&quot;)&quot;#</span>,
-        ];
+        <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="ident">Export</span> {
+            <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
+            <span class="ident">function_type</span>: <span class="number">0</span>,
+        })
+            .<span class="ident">to_string</span>();
+        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="string">r#&quot;(@interface export &quot;foo&quot; (func 0))&quot;#</span>;
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inputs</span>, <span class="ident">outputs</span>);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">input</span>, <span class="ident">output</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_imports</span>() {
-        <span class="kw">let</span> <span class="ident">inputs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
-            (<span class="kw-2">&amp;</span><span class="ident">Import</span> {
-                <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">Int</span>, <span class="ident">InterfaceType</span>::<span class="ident">String</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">String</span>],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Import</span> {
-                <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">String</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Import</span> {
-                <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">String</span>],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Import</span> {
-                <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-            })
-                .<span class="ident">to_string</span>(),
-        ];
-        <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
-            <span class="string">r#&quot;(@interface func $ns_foo (import &quot;ns&quot; &quot;foo&quot;)
-  (param Int String)
-  (result String))&quot;#</span>,
-            <span class="string">r#&quot;(@interface func $ns_foo (import &quot;ns&quot; &quot;foo&quot;)
-  (param String))&quot;#</span>,
-            <span class="string">r#&quot;(@interface func $ns_foo (import &quot;ns&quot; &quot;foo&quot;)
-  (result String))&quot;#</span>,
-            <span class="string">r#&quot;(@interface func $ns_foo (import &quot;ns&quot; &quot;foo&quot;))&quot;#</span>,
-        ];
+        <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="ident">Import</span> {
+            <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
+            <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
+            <span class="ident">signature_type</span>: <span class="number">0</span>,
+        })
+            .<span class="ident">to_string</span>();
+        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="string">r#&quot;(@interface import &quot;ns&quot; &quot;foo&quot; (func (type 0)))&quot;#</span>;
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inputs</span>, <span class="ident">outputs</span>);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">input</span>, <span class="ident">output</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_adapters</span>() {
-        <span class="kw">let</span> <span class="ident">inputs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
-            (<span class="kw-2">&amp;</span><span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">F32</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                    <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
-                    <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
-                        <span class="ident">allocator_name</span>: <span class="string">&quot;hello&quot;</span>,
-                    },
-                    <span class="ident">Instruction</span>::<span class="ident">CallExport</span> { <span class="ident">export_name</span>: <span class="string">&quot;f&quot;</span> },
-                ],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">CallExport</span> { <span class="ident">export_name</span>: <span class="string">&quot;f&quot;</span> }],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">CallExport</span> { <span class="ident">export_name</span>: <span class="string">&quot;f&quot;</span> }],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Adapter</span>::<span class="ident">Export</span> {
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">F32</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                    <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
-                    <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
-                        <span class="ident">allocator_name</span>: <span class="string">&quot;hello&quot;</span>,
-                    },
-                    <span class="ident">Instruction</span>::<span class="ident">CallExport</span> { <span class="ident">export_name</span>: <span class="string">&quot;f&quot;</span> },
-                ],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Adapter</span>::<span class="ident">Export</span> {
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">CallExport</span> { <span class="ident">export_name</span>: <span class="string">&quot;f&quot;</span> }],
-            })
-                .<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Adapter</span>::<span class="ident">Export</span> {
-                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">CallExport</span> { <span class="ident">export_name</span>: <span class="string">&quot;f&quot;</span> }],
-            })
-                .<span class="ident">to_string</span>(),
-        ];
-        <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
-            <span class="string">r#&quot;(@interface adapt (import &quot;ns&quot; &quot;foo&quot;)
-  (param i32 f32)
-  (result i32)
-  arg.get 0
-  write-utf8 &quot;hello&quot;
-  call-export &quot;f&quot;)&quot;#</span>,
-            <span class="string">r#&quot;(@interface adapt (import &quot;ns&quot; &quot;foo&quot;)
-  (param i32)
-  call-export &quot;f&quot;)&quot;#</span>,
-            <span class="string">r#&quot;(@interface adapt (import &quot;ns&quot; &quot;foo&quot;)
-  (result i32)
-  call-export &quot;f&quot;)&quot;#</span>,
-            <span class="string">r#&quot;(@interface adapt (export &quot;foo&quot;)
-  (param i32 f32)
-  (result i32)
-  arg.get 0
-  write-utf8 &quot;hello&quot;
-  call-export &quot;f&quot;)&quot;#</span>,
-            <span class="string">r#&quot;(@interface adapt (export &quot;foo&quot;)
-  (param i32)
-  call-export &quot;f&quot;)&quot;#</span>,
-            <span class="string">r#&quot;(@interface adapt (export &quot;foo&quot;)
-  (result i32)
-  call-export &quot;f&quot;)&quot;#</span>,
-        ];
-
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inputs</span>, <span class="ident">outputs</span>);
-    }
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_forward</span>() {
-        <span class="kw">let</span> <span class="ident">input</span>: <span class="ident">String</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="ident">Forward</span> { <span class="ident">name</span>: <span class="string">&quot;main&quot;</span> }).<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="string">r#&quot;(@interface forward (export &quot;main&quot;))&quot;#</span>;
+    <span class="kw">fn</span> <span class="ident">test_adapter</span>() {
+        <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="ident">Adapter</span> {
+            <span class="ident">function_type</span>: <span class="number">0</span>,
+            <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">42</span> }],
+        })
+            .<span class="ident">to_string</span>();
+        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="string">r#&quot;(@interface func (type 0)
+  arg.get 42)&quot;#</span>;
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">input</span>, <span class="ident">output</span>);
     }
@@ -1349,78 +1121,46 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_interfaces</span>() {
         <span class="kw">let</span> <span class="ident">input</span>: <span class="ident">String</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="ident">Interfaces</span> {
-            <span class="ident">exports</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                <span class="ident">Export</span> {
-                    <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                },
-                <span class="ident">Export</span> {
-                    <span class="ident">name</span>: <span class="string">&quot;bar&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                },
-            ],
-            <span class="ident">types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-            <span class="ident">imports</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                <span class="ident">Import</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
-                    <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                },
-                <span class="ident">Import</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
-                    <span class="ident">name</span>: <span class="string">&quot;bar&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                },
-            ],
-            <span class="ident">adapters</span>: <span class="macro">vec</span><span class="macro">!</span>[
-                <span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
-                    <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                    <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">42</span> }],
-                },
-                <span class="ident">Adapter</span>::<span class="ident">Export</span> {
-                    <span class="ident">name</span>: <span class="string">&quot;bar&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                    <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">42</span> }],
-                },
-            ],
-            <span class="ident">forwards</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Forward</span> { <span class="ident">name</span>: <span class="string">&quot;main&quot;</span> }],
+            <span class="ident">types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Type</span> {
+                <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">S8</span>],
+            }],
+            <span class="ident">imports</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Import</span> {
+                <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>,
+                <span class="ident">name</span>: <span class="string">&quot;foo&quot;</span>,
+                <span class="ident">signature_type</span>: <span class="number">0</span>,
+            }],
+            <span class="ident">adapters</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Adapter</span> {
+                <span class="ident">function_type</span>: <span class="number">0</span>,
+                <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">42</span> }],
+            }],
+            <span class="ident">exports</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Export</span> {
+                <span class="ident">name</span>: <span class="string">&quot;bar&quot;</span>,
+                <span class="ident">function_type</span>: <span class="number">0</span>,
+            }],
+            <span class="ident">implementations</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Implementation</span> {
+                <span class="ident">core_function_type</span>: <span class="number">0</span>,
+                <span class="ident">adapter_function_type</span>: <span class="number">1</span>,
+            }],
         })
             .<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="string">r#&quot;;; Interfaces
-
-;; Interface, Export foo
-(@interface export &quot;foo&quot;
-  (param i32))
-
-;; Interface, Export bar
-(@interface export &quot;bar&quot;)
-
-;; Interface, Import ns.foo
-(@interface func $ns_foo (import &quot;ns&quot; &quot;foo&quot;)
-  (result i32))
-
-;; Interface, Import ns.bar
-(@interface func $ns_bar (import &quot;ns&quot; &quot;bar&quot;))
-
-;; Interface, Adapter ns.foo
-(@interface adapt (import &quot;ns&quot; &quot;foo&quot;)
+        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="string">r#&quot;;; Types
+(@interface type (func
   (param i32)
+  (result s8)))
+
+;; Imports
+(@interface import &quot;ns&quot; &quot;foo&quot; (func (type 0)))
+
+;; Adapters
+(@interface func (type 0)
   arg.get 42)
 
-;; Interface, Adapter bar
-(@interface adapt (export &quot;bar&quot;)
-  arg.get 42)
+;; Exports
+(@interface export &quot;bar&quot; (func 0))
 
-;; Interface, Forward main
-(@interface forward (export &quot;main&quot;))&quot;#</span>;
+;; Implementations
+(@interface implement (func 0) (func 1))&quot;#</span>;
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">input</span>, <span class="ident">output</span>);
     }

@@ -650,110 +650,10 @@
 <span id="650">650</span>
 <span id="651">651</span>
 <span id="652">652</span>
-<span id="653">653</span>
-<span id="654">654</span>
-<span id="655">655</span>
-<span id="656">656</span>
-<span id="657">657</span>
-<span id="658">658</span>
-<span id="659">659</span>
-<span id="660">660</span>
-<span id="661">661</span>
-<span id="662">662</span>
-<span id="663">663</span>
-<span id="664">664</span>
-<span id="665">665</span>
-<span id="666">666</span>
-<span id="667">667</span>
-<span id="668">668</span>
-<span id="669">669</span>
-<span id="670">670</span>
-<span id="671">671</span>
-<span id="672">672</span>
-<span id="673">673</span>
-<span id="674">674</span>
-<span id="675">675</span>
-<span id="676">676</span>
-<span id="677">677</span>
-<span id="678">678</span>
-<span id="679">679</span>
-<span id="680">680</span>
-<span id="681">681</span>
-<span id="682">682</span>
-<span id="683">683</span>
-<span id="684">684</span>
-<span id="685">685</span>
-<span id="686">686</span>
-<span id="687">687</span>
-<span id="688">688</span>
-<span id="689">689</span>
-<span id="690">690</span>
-<span id="691">691</span>
-<span id="692">692</span>
-<span id="693">693</span>
-<span id="694">694</span>
-<span id="695">695</span>
-<span id="696">696</span>
-<span id="697">697</span>
-<span id="698">698</span>
-<span id="699">699</span>
-<span id="700">700</span>
-<span id="701">701</span>
-<span id="702">702</span>
-<span id="703">703</span>
-<span id="704">704</span>
-<span id="705">705</span>
-<span id="706">706</span>
-<span id="707">707</span>
-<span id="708">708</span>
-<span id="709">709</span>
-<span id="710">710</span>
-<span id="711">711</span>
-<span id="712">712</span>
-<span id="713">713</span>
-<span id="714">714</span>
-<span id="715">715</span>
-<span id="716">716</span>
-<span id="717">717</span>
-<span id="718">718</span>
-<span id="719">719</span>
-<span id="720">720</span>
-<span id="721">721</span>
-<span id="722">722</span>
-<span id="723">723</span>
-<span id="724">724</span>
-<span id="725">725</span>
-<span id="726">726</span>
-<span id="727">727</span>
-<span id="728">728</span>
-<span id="729">729</span>
-<span id="730">730</span>
-<span id="731">731</span>
-<span id="732">732</span>
-<span id="733">733</span>
-<span id="734">734</span>
-<span id="735">735</span>
-<span id="736">736</span>
-<span id="737">737</span>
-<span id="738">738</span>
-<span id="739">739</span>
-<span id="740">740</span>
-<span id="741">741</span>
-<span id="742">742</span>
-<span id="743">743</span>
-<span id="744">744</span>
-<span id="745">745</span>
-<span id="746">746</span>
-<span id="747">747</span>
-<span id="748">748</span>
-<span id="749">749</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Writes the AST into bytes representing WIT with its binary format.</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">ast</span>::{<span class="ident">Adapter</span>, <span class="ident">AdapterKind</span>, <span class="ident">Export</span>, <span class="ident">Forward</span>, <span class="ident">Import</span>, <span class="ident">InterfaceType</span>, <span class="ident">Interfaces</span>, <span class="ident">Type</span>},
-    <span class="ident">interpreter</span>::<span class="ident">Instruction</span>,
-};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::{<span class="self">self</span>, <span class="ident">Write</span>};
 
 <span class="doccomment">/// A trait for converting a value to bytes.</span>
@@ -847,61 +747,50 @@
 {
     <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">writer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">W</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">InterfaceType</span>::<span class="ident">Int</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x7fff_u64</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">InterfaceType</span>::<span class="ident">Float</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x7ffe_u64</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">InterfaceType</span>::<span class="ident">Any</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x7ffd_u64</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">InterfaceType</span>::<span class="ident">String</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x7ffc_u64</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">InterfaceType</span>::<span class="ident">Seq</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x7ffb_u64</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">InterfaceType</span>::<span class="ident">I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x7f_u64</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">InterfaceType</span>::<span class="ident">I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x7e_u64</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">InterfaceType</span>::<span class="ident">F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x7d_u64</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">InterfaceType</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x7c_u64</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">InterfaceType</span>::<span class="ident">AnyRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x6f_u64</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">S8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x00_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">S16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x01_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">S32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x02_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">S64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x03_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">U8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x04_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">U16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x05_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">U32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x06_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">U64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x07_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x08_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x09_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">String</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0a_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">Anyref</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0b_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0c_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="ident">InterfaceType</span>::<span class="ident">I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0d_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
         }
     }
 }
 
-<span class="doccomment">/// Encode an `AdapterKind` into bytes.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="ident">ToBytes</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AdapterKind</span>
+<span class="doccomment">/// Encode an `InterfaceKind` into bytes.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="ident">ToBytes</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InterfaceKind</span>
 <span class="kw">where</span>
     <span class="ident">W</span>: <span class="ident">Write</span>,
 {
     <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">writer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">W</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">AdapterKind</span>::<span class="ident">Import</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x00_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">AdapterKind</span>::<span class="ident">Export</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x01_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
-            <span class="ident">AdapterKind</span>::<span class="ident">HelperFunction</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x02_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="self">Self</span>::<span class="ident">Type</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x00_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="self">Self</span>::<span class="ident">Import</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x01_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="self">Self</span>::<span class="ident">Adapter</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x02_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="self">Self</span>::<span class="ident">Export</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x03_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
+            <span class="self">Self</span>::<span class="ident">Implementation</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x04_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>),
         }
-    }
-}
-
-<span class="doccomment">/// Encode an `Export` into bytes.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Decoder is in `decoders::binary::exports`.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="ident">ToBytes</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">W</span>: <span class="ident">Write</span>,
-{
-    <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">writer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">W</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">input_types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">output_types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(())
     }
 }
 
 <span class="doccomment">/// Encode a `Type` into bytes.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Decoder is in `decoders::binary::types`.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="ident">ToBytes</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Type</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="ident">ToBytes</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Type</span>
 <span class="kw">where</span>
     <span class="ident">W</span>: <span class="ident">Write</span>,
 {
     <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">writer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">W</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">field_names</span>().<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">field_types</span>().<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        <span class="self">self</span>.<span class="ident">inputs</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        <span class="self">self</span>.<span class="ident">outputs</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -917,8 +806,7 @@
     <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">writer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">W</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">namespace</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
         <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">input_types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">output_types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        (<span class="self">self</span>.<span class="ident">signature_type</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -926,68 +814,46 @@
 
 <span class="doccomment">/// Encode an `Adapter` into bytes.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Decoder is in `decoders::binary::imports`.</span>
+<span class="doccomment">/// Decoder is in `decoders::binary::adapters`.</span>
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="ident">ToBytes</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Adapter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">W</span>: <span class="ident">Write</span>,
 {
     <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">writer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">W</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                <span class="ident">namespace</span>,
-                <span class="ident">name</span>,
-                <span class="ident">input_types</span>,
-                <span class="ident">output_types</span>,
-                <span class="ident">instructions</span>,
-            } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">AdapterKind</span>::<span class="ident">Import</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">namespace</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">name</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">input_types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">output_types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">instructions</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Adapter</span>::<span class="ident">Export</span> {
-                <span class="ident">name</span>,
-                <span class="ident">input_types</span>,
-                <span class="ident">output_types</span>,
-                <span class="ident">instructions</span>,
-            } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">AdapterKind</span>::<span class="ident">Export</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">name</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">input_types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">output_types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">instructions</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Adapter</span>::<span class="ident">HelperFunction</span> {
-                <span class="ident">name</span>,
-                <span class="ident">input_types</span>,
-                <span class="ident">output_types</span>,
-                <span class="ident">instructions</span>,
-            } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">AdapterKind</span>::<span class="ident">HelperFunction</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">name</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">input_types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">output_types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">instructions</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-        }
+        (<span class="self">self</span>.<span class="ident">function_type</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        <span class="self">self</span>.<span class="ident">instructions</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="doccomment">/// Encode an `Forward` into bytes.</span>
+<span class="doccomment">/// Encode an `Export` into bytes.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Decoder is `decoders::binary::forwards`.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="ident">ToBytes</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Forward</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>
+<span class="doccomment">/// Decoder is in `decoders::binary::exports`.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="ident">ToBytes</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">W</span>: <span class="ident">Write</span>,
 {
     <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">writer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">W</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)
+        <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        (<span class="self">self</span>.<span class="ident">function_type</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="doccomment">/// Encode an `Implementation` into bytes.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Decoder is in `decoders::binary::implementations`.</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="ident">ToBytes</span><span class="op">&lt;</span><span class="ident">W</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Implementation</span>
+<span class="kw">where</span>
+    <span class="ident">W</span>: <span class="ident">Write</span>,
+{
+    <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">writer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">W</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        (<span class="self">self</span>.<span class="ident">core_function_type</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        (<span class="self">self</span>.<span class="ident">adapter_function_type</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -999,11 +865,30 @@
     <span class="ident">W</span>: <span class="ident">Write</span>,
 {
     <span class="kw">fn</span> <span class="ident">to_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">writer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">W</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">exports</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">imports</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">adapters</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">forwards</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">types</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">InterfaceKind</span>::<span class="ident">Type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">types</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        }
+
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">imports</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">InterfaceKind</span>::<span class="ident">Import</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">imports</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        }
+
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">adapters</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">InterfaceKind</span>::<span class="ident">Adapter</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">adapters</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        }
+
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">exports</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">InterfaceKind</span>::<span class="ident">Export</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">exports</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        }
+
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">implementations</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">InterfaceKind</span>::<span class="ident">Implementation</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">implementations</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+        }
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -1020,7 +905,7 @@
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span> } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="number">0x00_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">index</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+                (<span class="kw-2">*</span><span class="ident">index</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
             }
 
             <span class="ident">Instruction</span>::<span class="ident">Call</span> { <span class="ident">function_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
@@ -1040,76 +925,45 @@
                 <span class="ident">allocator_name</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Instruction</span>::<span class="ident">AsWasm</span>(<span class="ident">interface_type</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x05_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">interface_type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">AsInterface</span>(<span class="ident">interface_type</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x06_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">interface_type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">TableRefAdd</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x07_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-
-            <span class="ident">Instruction</span>::<span class="ident">TableRefGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x08_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-
-            <span class="ident">Instruction</span>::<span class="ident">CallMethod</span>(<span class="ident">function_index</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x09_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">function_index</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">MakeRecord</span>(<span class="ident">interface_type</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x0a_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">interface_type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">GetField</span>(<span class="ident">interface_type</span>, <span class="ident">field_index</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x0c_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">interface_type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">field_index</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">Const</span>(<span class="ident">interface_type</span>, <span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x0d_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">interface_type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">index</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">FoldSeq</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x0e_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">index</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">Add</span>(<span class="ident">interface_type</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x0f_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">interface_type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">MemToSeq</span>(<span class="ident">interface_type</span>, <span class="ident">string</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x10_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">interface_type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">string</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">Load</span>(<span class="ident">interface_type</span>, <span class="ident">string</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x11_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">interface_type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">string</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">SeqNew</span>(<span class="ident">interface_type</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x12_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">interface_type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">ListPush</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x13_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-
-            <span class="ident">Instruction</span>::<span class="ident">RepeatUntil</span>(<span class="ident">index1</span>, <span class="ident">index2</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x14_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">index1</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">index2</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x07_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x08_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32ToU8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x09_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0a_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS16X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0b_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32ToU16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0c_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0d_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32ToU32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0e_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32ToS64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0f_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32ToU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x10_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x11_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS8X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x12_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToU8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x13_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x14_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS16X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x15_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToU16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x16_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x17_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS32X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x18_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToU32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x19_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToS64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1a_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64ToU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1b_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S8ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1c_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U8ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1d_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S16ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1e_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U16ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1f_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S32ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x20_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U32ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x21_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S64ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x22_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S64ToI32X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x23_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U64ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x24_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U64ToI32X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x25_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S8ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x26_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U8ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x27_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S16ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x28_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U16ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x29_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S32ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x2a_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U32ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x2b_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S64ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x2c_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U64ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x2d_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
         }
 
         <span class="prelude-val">Ok</span>(())
@@ -1194,23 +1048,29 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_interface_type</span>() {
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>, <span class="kw-2">&amp;</span>[<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0x01</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">Float</span>, <span class="kw-2">&amp;</span>[<span class="number">0xfe</span>, <span class="number">0xff</span>, <span class="number">0x01</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">Any</span>, <span class="kw-2">&amp;</span>[<span class="number">0xfd</span>, <span class="number">0xff</span>, <span class="number">0x01</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">String</span>, <span class="kw-2">&amp;</span>[<span class="number">0xfc</span>, <span class="number">0xff</span>, <span class="number">0x01</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">Seq</span>, <span class="kw-2">&amp;</span>[<span class="number">0xfb</span>, <span class="number">0xff</span>, <span class="number">0x01</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="kw-2">&amp;</span>[<span class="number">0x7f</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">I64</span>, <span class="kw-2">&amp;</span>[<span class="number">0x7e</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">F32</span>, <span class="kw-2">&amp;</span>[<span class="number">0x7d</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">F64</span>, <span class="kw-2">&amp;</span>[<span class="number">0x7c</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">AnyRef</span>, <span class="kw-2">&amp;</span>[<span class="number">0x6f</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">S8</span>, <span class="kw-2">&amp;</span>[<span class="number">0x00</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">S16</span>, <span class="kw-2">&amp;</span>[<span class="number">0x01</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">S32</span>, <span class="kw-2">&amp;</span>[<span class="number">0x02</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">S64</span>, <span class="kw-2">&amp;</span>[<span class="number">0x03</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">U8</span>, <span class="kw-2">&amp;</span>[<span class="number">0x04</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">U16</span>, <span class="kw-2">&amp;</span>[<span class="number">0x05</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">U32</span>, <span class="kw-2">&amp;</span>[<span class="number">0x06</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">U64</span>, <span class="kw-2">&amp;</span>[<span class="number">0x07</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">F32</span>, <span class="kw-2">&amp;</span>[<span class="number">0x08</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">F64</span>, <span class="kw-2">&amp;</span>[<span class="number">0x09</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">String</span>, <span class="kw-2">&amp;</span>[<span class="number">0x0a</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">Anyref</span>, <span class="kw-2">&amp;</span>[<span class="number">0x0b</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="kw-2">&amp;</span>[<span class="number">0x0c</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceType</span>::<span class="ident">I64</span>, <span class="kw-2">&amp;</span>[<span class="number">0x0d</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_adapter_kind</span>() {
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">AdapterKind</span>::<span class="ident">Import</span>, <span class="kw-2">&amp;</span>[<span class="number">0x00</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">AdapterKind</span>::<span class="ident">Export</span>, <span class="kw-2">&amp;</span>[<span class="number">0x01</span>]);
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">AdapterKind</span>::<span class="ident">HelperFunction</span>, <span class="kw-2">&amp;</span>[<span class="number">0x02</span>]);
+    <span class="kw">fn</span> <span class="ident">test_interface_kind</span>() {
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceKind</span>::<span class="ident">Type</span>, <span class="kw-2">&amp;</span>[<span class="number">0x00</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceKind</span>::<span class="ident">Import</span>, <span class="kw-2">&amp;</span>[<span class="number">0x01</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceKind</span>::<span class="ident">Adapter</span>, <span class="kw-2">&amp;</span>[<span class="number">0x02</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceKind</span>::<span class="ident">Export</span>, <span class="kw-2">&amp;</span>[<span class="number">0x03</span>]);
+        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(<span class="ident">InterfaceKind</span>::<span class="ident">Implementation</span>, <span class="kw-2">&amp;</span>[<span class="number">0x04</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -1218,19 +1078,14 @@
         <span class="macro">assert_to_bytes</span><span class="macro">!</span>(
             <span class="ident">Export</span> {
                 <span class="ident">name</span>: <span class="string">&quot;abc&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>]
+                <span class="ident">function_type</span>: <span class="number">0</span>,
             },
             <span class="kw-2">&amp;</span>[
                 <span class="number">0x03</span>, <span class="comment">// string of length 3</span>
                 <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
                 <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
                 <span class="number">0x63</span>, <span class="comment">// &quot;c&quot;</span>
-                <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x7e</span>, <span class="comment">// I64</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
+                <span class="number">0x00</span>, <span class="comment">// function type</span>
             ]
         );
     }
@@ -1238,22 +1093,16 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_type</span>() {
         <span class="macro">assert_to_bytes</span><span class="macro">!</span>(
-            <span class="ident">Type</span>::<span class="ident">new</span>(
-                <span class="string">&quot;a&quot;</span>,
-                <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>],
-                <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
-            ),
+            <span class="ident">Type</span> {
+                <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
+                <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">S32</span>],
+            },
             <span class="kw-2">&amp;</span>[
-                <span class="number">0x01</span>, <span class="comment">// string of length 1</span>
-                <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
                 <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-                <span class="number">0x01</span>, <span class="comment">// string of length 1</span>
-                <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
-                <span class="number">0x01</span>, <span class="comment">// string of length 1</span>
-                <span class="number">0x63</span>, <span class="comment">// &quot;c&quot;</span>
-                <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x7e</span>, <span class="comment">// I64</span>
+                <span class="number">0x0c</span>, <span class="comment">// I32</span>
+                <span class="number">0x0d</span>, <span class="comment">// I64</span>
+                <span class="number">0x01</span>, <span class="comment">// list of 1 items</span>
+                <span class="number">0x02</span>, <span class="comment">// I64</span>
             ]
         );
     }
@@ -1264,106 +1113,29 @@
             <span class="ident">Import</span> {
                 <span class="ident">namespace</span>: <span class="string">&quot;a&quot;</span>,
                 <span class="ident">name</span>: <span class="string">&quot;b&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                <span class="ident">signature_type</span>: <span class="number">0</span>,
             },
             <span class="kw-2">&amp;</span>[
                 <span class="number">0x01</span>, <span class="comment">// string of length 1</span>
                 <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
                 <span class="number">0x01</span>, <span class="comment">// string of length 1</span>
                 <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
-                <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x7e</span>, <span class="comment">// I64</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
+                <span class="number">0x00</span>, <span class="comment">// signature typr</span>
             ]
         );
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_adapter_import</span>() {
+    <span class="kw">fn</span> <span class="ident">test_adapter</span>() {
         <span class="macro">assert_to_bytes</span><span class="macro">!</span>(
-            <span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                <span class="ident">namespace</span>: <span class="string">&quot;a&quot;</span>,
-                <span class="ident">name</span>: <span class="string">&quot;b&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+            <span class="ident">Adapter</span> {
+                <span class="ident">function_type</span>: <span class="number">0</span>,
                 <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> }],
             },
             <span class="kw-2">&amp;</span>[
-                <span class="number">0x00</span>, <span class="comment">// AdapterKind::Import</span>
-                <span class="number">0x01</span>, <span class="comment">// string of length 1</span>
-                <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
-                <span class="number">0x01</span>, <span class="comment">// string of length 1</span>
-                <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
-                <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x7e</span>, <span class="comment">// I64</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
+                <span class="number">0x00</span>, <span class="comment">// function type</span>
                 <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
                 <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
-            ]
-        );
-    }
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_adapter_export</span>() {
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(
-            <span class="ident">Adapter</span>::<span class="ident">Export</span> {
-                <span class="ident">name</span>: <span class="string">&quot;a&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> }],
-            },
-            <span class="kw-2">&amp;</span>[
-                <span class="number">0x01</span>, <span class="comment">// AdapterKind::Export</span>
-                <span class="number">0x01</span>, <span class="comment">// string of length 1</span>
-                <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
-                <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x7e</span>, <span class="comment">// I64</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-                <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
-            ]
-        );
-    }
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_adapter_helper_function</span>() {
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(
-            <span class="ident">Adapter</span>::<span class="ident">HelperFunction</span> {
-                <span class="ident">name</span>: <span class="string">&quot;a&quot;</span>,
-                <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
-                <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> }],
-            },
-            <span class="kw-2">&amp;</span>[
-                <span class="number">0x02</span>, <span class="comment">// AdapterKind::HelperFunction</span>
-                <span class="number">0x01</span>, <span class="comment">// string of length 1</span>
-                <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
-                <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x7e</span>, <span class="comment">// I64</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-                <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
-            ]
-        );
-    }
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_forward</span>() {
-        <span class="macro">assert_to_bytes</span><span class="macro">!</span>(
-            <span class="ident">Forward</span> { <span class="ident">name</span>: <span class="string">&quot;ab&quot;</span> },
-            <span class="kw-2">&amp;</span>[
-                <span class="number">0x02</span>, <span class="comment">// string of length 2</span>
-                <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
-                <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
             ]
         );
     }
@@ -1372,74 +1144,60 @@
     <span class="kw">fn</span> <span class="ident">test_interfaces</span>() {
         <span class="macro">assert_to_bytes</span><span class="macro">!</span>(
             <span class="ident">Interfaces</span> {
-                <span class="ident">exports</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Export</span> {
-                    <span class="ident">name</span>: <span class="string">&quot;ab&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                <span class="ident">types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Type</span> {
+                    <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">S8</span>],
+                    <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">S16</span>],
                 }],
-                <span class="ident">types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Type</span>::<span class="ident">new</span>(
-                    <span class="string">&quot;ab&quot;</span>,
-                    <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;cd&quot;</span>, <span class="string">&quot;e&quot;</span>],
-                    <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                )],
                 <span class="ident">imports</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Import</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;a&quot;</span>,
-                    <span class="ident">name</span>: <span class="string">&quot;b&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I64</span>],
+                    <span class="ident">namespace</span>: <span class="string">&quot;ab&quot;</span>,
+                    <span class="ident">name</span>: <span class="string">&quot;c&quot;</span>,
+                    <span class="ident">signature_type</span>: <span class="number">0</span>,
                 }],
-                <span class="ident">adapters</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Adapter</span>::<span class="ident">Import</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;a&quot;</span>,
-                    <span class="ident">name</span>: <span class="string">&quot;b&quot;</span>,
-                    <span class="ident">input_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                    <span class="ident">output_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                <span class="ident">adapters</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Adapter</span> {
+                    <span class="ident">function_type</span>: <span class="number">0</span>,
                     <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> }],
                 }],
-                <span class="ident">forwards</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Forward</span> { <span class="ident">name</span>: <span class="string">&quot;a&quot;</span> }],
+                <span class="ident">exports</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Export</span> {
+                    <span class="ident">name</span>: <span class="string">&quot;ab&quot;</span>,
+                    <span class="ident">function_type</span>: <span class="number">1</span>,
+                }],
+                <span class="ident">implementations</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Implementation</span> {
+                    <span class="ident">core_function_type</span>: <span class="number">2</span>,
+                    <span class="ident">adapter_function_type</span>: <span class="number">3</span>,
+                }],
             },
             <span class="kw-2">&amp;</span>[
+                <span class="number">0x00</span>, <span class="comment">// type section</span>
+                <span class="number">0x01</span>, <span class="comment">// 1 type</span>
+                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
+                <span class="number">0x00</span>, <span class="comment">// S8</span>
+                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
+                <span class="number">0x01</span>, <span class="comment">// S16</span>
+                <span class="comment">//</span>
+                <span class="number">0x01</span>, <span class="comment">// import section</span>
+                <span class="number">0x01</span>, <span class="comment">// 1 import</span>
+                <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
+                <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="comment">// &quot;a&quot;, &quot;b&quot;</span>
+                <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
+                <span class="number">0x63</span>, <span class="comment">// &quot;c&quot;</span>
+                <span class="number">0x00</span>, <span class="comment">// signature type</span>
+                <span class="comment">//</span>
+                <span class="number">0x02</span>, <span class="comment">// adapter section</span>
+                <span class="number">0x01</span>, <span class="comment">// 1 adapter</span>
+                <span class="number">0x00</span>, <span class="comment">// function type</span>
+                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
+                <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
+                <span class="comment">//</span>
+                <span class="number">0x03</span>, <span class="comment">// export section</span>
                 <span class="number">0x01</span>, <span class="comment">// 1 export</span>
                 <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
                 <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="comment">// &quot;a&quot;, &quot;b&quot;</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x01</span>, <span class="comment">// 1 type</span>
-                <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
-                <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="comment">// &quot;a&quot;, &quot;b&quot;</span>
-                <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-                <span class="number">0x02</span>, <span class="comment">// string of 2 bytes</span>
-                <span class="number">0x63</span>, <span class="number">0x64</span>, <span class="comment">// &quot;c&quot;, &quot;d&quot;</span>
-                <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-                <span class="number">0x65</span>, <span class="comment">// &quot;e&quot;</span>
-                <span class="number">0x02</span>, <span class="comment">// list of 2 items</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x01</span>, <span class="comment">// 1 import</span>
-                <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-                <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
-                <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-                <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-                <span class="number">0x7e</span>, <span class="comment">// I64</span>
-                <span class="number">0x01</span>, <span class="comment">// 1 adapter</span>
-                <span class="number">0x00</span>, <span class="comment">// adapter kind: import</span>
-                <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-                <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
-                <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-                <span class="number">0x62</span>, <span class="comment">// &quot;b&quot;</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-                <span class="number">0x7f</span>, <span class="comment">// I32</span>
-                <span class="number">0x01</span>, <span class="comment">// list of 1 item</span>
-                <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
-                <span class="number">0x01</span>, <span class="comment">// 1 adapter</span>
-                <span class="number">0x01</span>, <span class="comment">// string of 1 byte</span>
-                <span class="number">0x61</span>, <span class="comment">// &quot;a&quot;</span>
+                <span class="number">0x01</span>, <span class="comment">// function type</span>
+                <span class="comment">//</span>
+                <span class="number">0x04</span>, <span class="comment">// implementation section</span>
+                <span class="number">0x01</span>, <span class="comment">// 1 implementation</span>
+                <span class="number">0x02</span>, <span class="comment">// core function type</span>
+                <span class="number">0x03</span>, <span class="comment">// adapter function type</span>
             ]
         );
     }
@@ -1455,44 +1213,92 @@
                 <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
                     <span class="ident">allocator_name</span>: <span class="string">&quot;abc&quot;</span>,
                 },
-                <span class="ident">Instruction</span>::<span class="ident">AsWasm</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>),
-                <span class="ident">Instruction</span>::<span class="ident">AsInterface</span>(<span class="ident">InterfaceType</span>::<span class="ident">I64</span>),
-                <span class="ident">Instruction</span>::<span class="ident">TableRefAdd</span>,
-                <span class="ident">Instruction</span>::<span class="ident">TableRefGet</span>,
-                <span class="ident">Instruction</span>::<span class="ident">CallMethod</span>(<span class="number">1</span>),
-                <span class="ident">Instruction</span>::<span class="ident">MakeRecord</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>),
-                <span class="ident">Instruction</span>::<span class="ident">GetField</span>(<span class="ident">InterfaceType</span>::<span class="ident">Int</span>, <span class="number">2</span>),
-                <span class="ident">Instruction</span>::<span class="ident">Const</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="number">1</span>),
-                <span class="ident">Instruction</span>::<span class="ident">FoldSeq</span>(<span class="number">1</span>),
-                <span class="ident">Instruction</span>::<span class="ident">Add</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>),
-                <span class="ident">Instruction</span>::<span class="ident">MemToSeq</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="string">&quot;abc&quot;</span>),
-                <span class="ident">Instruction</span>::<span class="ident">Load</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="string">&quot;abc&quot;</span>),
-                <span class="ident">Instruction</span>::<span class="ident">SeqNew</span>(<span class="ident">InterfaceType</span>::<span class="ident">I32</span>),
-                <span class="ident">Instruction</span>::<span class="ident">ListPush</span>,
-                <span class="ident">Instruction</span>::<span class="ident">RepeatUntil</span>(<span class="number">1</span>, <span class="number">2</span>),
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToU8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS16X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToU16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToU32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToS64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32ToU64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS8X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToU8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS16X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToU16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS32X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToU32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToS64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64ToU64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S8ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U8ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S16ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U16ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S32ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U32ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S64ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S64ToI32X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U64ToI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U64ToI32X</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S8ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U8ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S16ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U16ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S32ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U32ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S64ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U64ToI64</span>,
             ],
             <span class="kw-2">&amp;</span>[
-                <span class="number">0x14</span>, <span class="comment">// list of 20 items</span>
+                <span class="number">0x2c</span>, <span class="comment">// list of 44 items</span>
                 <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
                 <span class="number">0x01</span>, <span class="number">0x01</span>, <span class="comment">// Call { function_index: 1 }</span>
                 <span class="number">0x02</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// CallExport { export_name: &quot;abc&quot; }</span>
                 <span class="number">0x03</span>, <span class="comment">// ReadUtf8</span>
                 <span class="number">0x04</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// WriteUtf8 { allocator_name: &quot;abc&quot; }</span>
-                <span class="number">0x05</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0x01</span>, <span class="comment">// AsWasm(Int)</span>
-                <span class="number">0x06</span>, <span class="number">0x7e</span>, <span class="comment">// AsInterface(I64)</span>
-                <span class="number">0x07</span>, <span class="comment">// TableRefAdd</span>
-                <span class="number">0x08</span>, <span class="comment">// TableRefGet</span>
-                <span class="number">0x09</span>, <span class="number">0x01</span>, <span class="comment">// CallMethod(1)</span>
-                <span class="number">0x0a</span>, <span class="number">0x7f</span>, <span class="comment">// MakeRecord(I32)</span>
-                <span class="number">0x0c</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0x01</span>, <span class="number">0x02</span>, <span class="comment">// GetField(Int, 2)</span>
-                <span class="number">0x0d</span>, <span class="number">0x7f</span>, <span class="number">0x01</span>, <span class="comment">// Const(I32, 1)</span>
-                <span class="number">0x0e</span>, <span class="number">0x01</span>, <span class="comment">// FoldSeq(1)</span>
-                <span class="number">0x0f</span>, <span class="number">0x7f</span>, <span class="comment">// Add(I32)</span>
-                <span class="number">0x10</span>, <span class="number">0x7f</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// MemToSeq(I32, &quot;abc&quot;)</span>
-                <span class="number">0x11</span>, <span class="number">0x7f</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// Load(I32, &quot;abc&quot;)</span>
-                <span class="number">0x12</span>, <span class="number">0x7f</span>, <span class="comment">// SeqNew(I32)</span>
-                <span class="number">0x13</span>, <span class="comment">// ListPush</span>
-                <span class="number">0x14</span>, <span class="number">0x01</span>, <span class="number">0x02</span>, <span class="comment">// RepeatUntil(1, 2)</span>
+                <span class="number">0x07</span>, <span class="comment">// I32ToS8</span>
+                <span class="number">0x08</span>, <span class="comment">// I32ToS8X</span>
+                <span class="number">0x09</span>, <span class="comment">// I32ToU8</span>
+                <span class="number">0x0a</span>, <span class="comment">// I32ToS16</span>
+                <span class="number">0x0b</span>, <span class="comment">// I32ToS16X</span>
+                <span class="number">0x0c</span>, <span class="comment">// I32ToU16</span>
+                <span class="number">0x0d</span>, <span class="comment">// I32ToS32</span>
+                <span class="number">0x0e</span>, <span class="comment">// I32ToU32</span>
+                <span class="number">0x0f</span>, <span class="comment">// I32ToS64</span>
+                <span class="number">0x10</span>, <span class="comment">// I32ToU64</span>
+                <span class="number">0x11</span>, <span class="comment">// I64ToS8</span>
+                <span class="number">0x12</span>, <span class="comment">// I64ToS8X</span>
+                <span class="number">0x13</span>, <span class="comment">// I64ToU8</span>
+                <span class="number">0x14</span>, <span class="comment">// I64ToS16</span>
+                <span class="number">0x15</span>, <span class="comment">// I64ToS16X</span>
+                <span class="number">0x16</span>, <span class="comment">// I64ToU16</span>
+                <span class="number">0x17</span>, <span class="comment">// I64ToS32</span>
+                <span class="number">0x18</span>, <span class="comment">// I64ToS32X</span>
+                <span class="number">0x19</span>, <span class="comment">// I64ToU32</span>
+                <span class="number">0x1a</span>, <span class="comment">// I64ToS64</span>
+                <span class="number">0x1b</span>, <span class="comment">// I64ToU64</span>
+                <span class="number">0x1c</span>, <span class="comment">// S8ToI32</span>
+                <span class="number">0x1d</span>, <span class="comment">// U8ToI32</span>
+                <span class="number">0x1e</span>, <span class="comment">// S16ToI32</span>
+                <span class="number">0x1f</span>, <span class="comment">// U16ToI32</span>
+                <span class="number">0x20</span>, <span class="comment">// S32ToI32</span>
+                <span class="number">0x21</span>, <span class="comment">// U32ToI32</span>
+                <span class="number">0x22</span>, <span class="comment">// S64ToI32</span>
+                <span class="number">0x23</span>, <span class="comment">// S64ToI32X</span>
+                <span class="number">0x24</span>, <span class="comment">// U64ToI32</span>
+                <span class="number">0x25</span>, <span class="comment">// U64ToI32X</span>
+                <span class="number">0x26</span>, <span class="comment">// S8ToI64</span>
+                <span class="number">0x27</span>, <span class="comment">// U8ToI64</span>
+                <span class="number">0x28</span>, <span class="comment">// S16ToI64</span>
+                <span class="number">0x29</span>, <span class="comment">// U16ToI64</span>
+                <span class="number">0x2a</span>, <span class="comment">// S32ToI64</span>
+                <span class="number">0x2b</span>, <span class="comment">// U32ToI64</span>
+                <span class="number">0x2c</span>, <span class="comment">// S64ToI64</span>
+                <span class="number">0x2d</span>, <span class="comment">// U64ToI64</span>
             ]
         );
     }
