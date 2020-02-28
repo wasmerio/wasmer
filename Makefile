@@ -315,6 +315,11 @@ endif
 	cp lib/runtime-c-api/doc/index.md ./capi/README.md
 	tar -C ./capi -zcvf wasmer-c-api.tar.gz lib include README.md LICENSE
 
+WAPM_VERSION = 0.4.3
+build-wapm:
+	git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
+	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+
 # For installing the contents locally
 do-install:
 	tar -C ~/.wasmer -zxvf wasmer.tar.gz
