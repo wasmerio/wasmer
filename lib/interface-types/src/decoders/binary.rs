@@ -8,36 +8,42 @@ use nom::{
 use std::{convert::TryFrom, str};
 
 /// Parse an `InterfaceType`.
-impl TryFrom<u64> for InterfaceType {
+impl TryFrom<u8> for InterfaceType {
     type Error = &'static str;
 
-    fn try_from(code: u64) -> Result<Self, Self::Error> {
+    fn try_from(code: u8) -> Result<Self, Self::Error> {
         Ok(match code {
-            0x7fff => Self::Int,
-            0x7ffe => Self::Float,
-            0x7ffd => Self::Any,
-            0x7ffc => Self::String,
-            0x7ffb => Self::Seq,
-            0x7f => Self::I32,
-            0x7e => Self::I64,
-            0x7d => Self::F32,
-            0x7c => Self::F64,
-            0x6f => Self::AnyRef,
+            0 => Self::S8,
+            1 => Self::S16,
+            2 => Self::S32,
+            3 => Self::S64,
+            4 => Self::U8,
+            5 => Self::U16,
+            6 => Self::U32,
+            7 => Self::U64,
+            8 => Self::F32,
+            9 => Self::F64,
+            10 => Self::String,
+            11 => Self::Anyref,
+            12 => Self::I32,
+            13 => Self::I64,
             _ => return Err("Unknown interface type code."),
         })
     }
 }
 
-/// Parse an adapter kind.
-impl TryFrom<u8> for AdapterKind {
+/// Parse an interface kind.
+impl TryFrom<u8> for InterfaceKind {
     type Error = &'static str;
 
     fn try_from(code: u8) -> Result<Self, Self::Error> {
         Ok(match code {
-            0x0 => Self::Import,
-            0x1 => Self::Export,
-            0x2 => Self::HelperFunction,
-            _ => return Err("Unknown adapter kind code."),
+            0x00 => Self::Type,
+            0x01 => Self::Import,
+            0x02 => Self::Adapter,
+            0x03 => Self::Export,
+            0x04 => Self::Implementation,
+            _ => return Err("Unknown interface kind code."),
         })
     }
 }
@@ -98,7 +104,7 @@ fn string<'input, E: ParseError<&'input [u8]>>(
     ))
 }
 
-/// Parse a list, with a item parser.
+/// Parse a list, with an item parser.
 #[allow(clippy::type_complexity)]
 fn list<'input, I, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
@@ -133,7 +139,7 @@ fn ty<'input, E: ParseError<&'input [u8]>>(
         return Err(Err::Error(make_error(input, ErrorKind::Eof)));
     }
 
-    let (output, ty) = uleb(input)?;
+    let (output, ty) = byte(input)?;
 
     match InterfaceType::try_from(ty) {
         Ok(ty) => Ok((output, ty)),
@@ -150,7 +156,12 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
     Ok(match opcode {
         0x00 => {
             consume!((input, argument_0) = uleb(input)?);
-            (input, Instruction::ArgumentGet { index: argument_0 })
+            (
+                input,
+                Instruction::ArgumentGet {
+                    index: argument_0 as u32,
+                },
+            )
         }
 
         0x01 => {
@@ -185,102 +196,48 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
             )
         }
 
-        0x05 => {
-            consume!((input, argument_0) = ty(input)?);
-            (input, Instruction::AsWasm(argument_0))
-        }
-
-        0x06 => {
-            consume!((input, argument_0) = ty(input)?);
-            (input, Instruction::AsInterface(argument_0))
-        }
-
-        0x07 => (input, Instruction::TableRefAdd),
-
-        0x08 => (input, Instruction::TableRefGet),
-
-        0x09 => {
-            consume!((input, argument_0) = uleb(input)?);
-            (input, Instruction::CallMethod(argument_0))
-        }
-
-        0x0a => {
-            consume!((input, argument_0) = ty(input)?);
-            (input, Instruction::MakeRecord(argument_0))
-        }
-
-        0x0c => {
-            consume!((input, argument_0) = ty(input)?);
-            consume!((input, argument_1) = uleb(input)?);
-            (input, Instruction::GetField(argument_0, argument_1))
-        }
-
-        0x0d => {
-            consume!((input, argument_0) = ty(input)?);
-            consume!((input, argument_1) = uleb(input)?);
-            (input, Instruction::Const(argument_0, argument_1))
-        }
-
-        0x0e => {
-            consume!((input, argument_0) = uleb(input)?);
-            (input, Instruction::FoldSeq(argument_0))
-        }
-
-        0x0f => {
-            consume!((input, argument_0) = ty(input)?);
-            (input, Instruction::Add(argument_0))
-        }
-
-        0x10 => {
-            consume!((input, argument_0) = ty(input)?);
-            consume!((input, argument_1) = string(input)?);
-            (input, Instruction::MemToSeq(argument_0, argument_1))
-        }
-
-        0x11 => {
-            consume!((input, argument_0) = ty(input)?);
-            consume!((input, argument_1) = string(input)?);
-            (input, Instruction::Load(argument_0, argument_1))
-        }
-
-        0x12 => {
-            consume!((input, argument_0) = ty(input)?);
-            (input, Instruction::SeqNew(argument_0))
-        }
-
-        0x13 => (input, Instruction::ListPush),
-
-        0x14 => {
-            consume!((input, argument_0) = uleb(input)?);
-            consume!((input, argument_1) = uleb(input)?);
-            (input, Instruction::RepeatUntil(argument_0, argument_1))
-        }
+        0x07 => (input, Instruction::I32ToS8),
+        0x08 => (input, Instruction::I32ToS8X),
+        0x09 => (input, Instruction::I32ToU8),
+        0x0a => (input, Instruction::I32ToS16),
+        0x0b => (input, Instruction::I32ToS16X),
+        0x0c => (input, Instruction::I32ToU16),
+        0x0d => (input, Instruction::I32ToS32),
+        0x0e => (input, Instruction::I32ToU32),
+        0x0f => (input, Instruction::I32ToS64),
+        0x10 => (input, Instruction::I32ToU64),
+        0x11 => (input, Instruction::I64ToS8),
+        0x12 => (input, Instruction::I64ToS8X),
+        0x13 => (input, Instruction::I64ToU8),
+        0x14 => (input, Instruction::I64ToS16),
+        0x15 => (input, Instruction::I64ToS16X),
+        0x16 => (input, Instruction::I64ToU16),
+        0x17 => (input, Instruction::I64ToS32),
+        0x18 => (input, Instruction::I64ToS32X),
+        0x19 => (input, Instruction::I64ToU32),
+        0x1a => (input, Instruction::I64ToS64),
+        0x1b => (input, Instruction::I64ToU64),
+        0x1c => (input, Instruction::S8ToI32),
+        0x1d => (input, Instruction::U8ToI32),
+        0x1e => (input, Instruction::S16ToI32),
+        0x1f => (input, Instruction::U16ToI32),
+        0x20 => (input, Instruction::S32ToI32),
+        0x21 => (input, Instruction::U32ToI32),
+        0x22 => (input, Instruction::S64ToI32),
+        0x23 => (input, Instruction::S64ToI32X),
+        0x24 => (input, Instruction::U64ToI32),
+        0x25 => (input, Instruction::U64ToI32X),
+        0x26 => (input, Instruction::S8ToI64),
+        0x27 => (input, Instruction::U8ToI64),
+        0x28 => (input, Instruction::S16ToI64),
+        0x29 => (input, Instruction::U16ToI64),
+        0x2a => (input, Instruction::S32ToI64),
+        0x2b => (input, Instruction::U32ToI64),
+        0x2c => (input, Instruction::S64ToI64),
+        0x2d => (input, Instruction::U64ToI64),
 
         _ => return Err(Err::Error(make_error(input, ErrorKind::ParseTo))),
     })
-}
-
-/// Parse a list of exports.
-fn exports<'input, E: ParseError<&'input [u8]>>(
-    mut input: &'input [u8],
-) -> IResult<&'input [u8], Vec<Export>, E> {
-    consume!((input, number_of_exports) = uleb(input)?);
-
-    let mut exports = Vec::with_capacity(number_of_exports as usize);
-
-    for _ in 0..number_of_exports {
-        consume!((input, export_name) = string(input)?);
-        consume!((input, export_input_types) = list(input, ty)?);
-        consume!((input, export_output_types) = list(input, ty)?);
-
-        exports.push(Export {
-            name: export_name,
-            input_types: export_input_types,
-            output_types: export_output_types,
-        });
-    }
-
-    Ok((input, exports))
 }
 
 /// Parse a list of types.
@@ -292,11 +249,10 @@ fn types<'input, E: ParseError<&'input [u8]>>(
     let mut types = Vec::with_capacity(number_of_types as usize);
 
     for _ in 0..number_of_types {
-        consume!((input, type_name) = string(input)?);
-        consume!((input, type_fields) = list(input, string)?);
-        consume!((input, type_types) = list(input, ty)?);
+        consume!((input, inputs) = list(input, ty)?);
+        consume!((input, outputs) = list(input, ty)?);
 
-        types.push(Type::new(type_name, type_fields, type_types));
+        types.push(Type { inputs, outputs });
     }
 
     Ok((input, types))
@@ -311,16 +267,14 @@ fn imports<'input, E: ParseError<&'input [u8]>>(
     let mut imports = Vec::with_capacity(number_of_imports as usize);
 
     for _ in 0..number_of_imports {
-        consume!((input, import_namespace) = string(input)?);
-        consume!((input, import_name) = string(input)?);
-        consume!((input, import_input_types) = list(input, ty)?);
-        consume!((input, import_output_types) = list(input, ty)?);
+        consume!((input, namespace) = string(input)?);
+        consume!((input, name) = string(input)?);
+        consume!((input, signature_type) = uleb(input)?);
 
         imports.push(Import {
-            namespace: import_namespace,
-            name: import_name,
-            input_types: import_input_types,
-            output_types: import_output_types,
+            namespace,
+            name,
+            signature_type: signature_type as u32,
         });
     }
 
@@ -336,75 +290,58 @@ fn adapters<'input, E: ParseError<&'input [u8]>>(
     let mut adapters = Vec::with_capacity(number_of_adapters as usize);
 
     for _ in 0..number_of_adapters {
-        consume!((input, adapter_kind) = byte(input)?);
-        let adapter_kind = AdapterKind::try_from(adapter_kind)
-            .map_err(|_| Err::Error(make_error(input, ErrorKind::ParseTo)))?;
+        consume!((input, function_type) = uleb(input)?);
+        consume!((input, instructions) = list(input, instruction)?);
 
-        match adapter_kind {
-            AdapterKind::Import => {
-                consume!((input, adapter_namespace) = string(input)?);
-                consume!((input, adapter_name) = string(input)?);
-                consume!((input, adapter_input_types) = list(input, ty)?);
-                consume!((input, adapter_output_types) = list(input, ty)?);
-                consume!((input, adapter_instructions) = list(input, instruction)?);
-
-                adapters.push(Adapter::Import {
-                    namespace: adapter_namespace,
-                    name: adapter_name,
-                    input_types: adapter_input_types,
-                    output_types: adapter_output_types,
-                    instructions: adapter_instructions,
-                });
-            }
-
-            AdapterKind::Export => {
-                consume!((input, adapter_name) = string(input)?);
-                consume!((input, adapter_input_types) = list(input, ty)?);
-                consume!((input, adapter_output_types) = list(input, ty)?);
-                consume!((input, adapter_instructions) = list(input, instruction)?);
-
-                adapters.push(Adapter::Export {
-                    name: adapter_name,
-                    input_types: adapter_input_types,
-                    output_types: adapter_output_types,
-                    instructions: adapter_instructions,
-                });
-            }
-
-            AdapterKind::HelperFunction => {
-                consume!((input, adapter_name) = string(input)?);
-                consume!((input, adapter_input_types) = list(input, ty)?);
-                consume!((input, adapter_output_types) = list(input, ty)?);
-                consume!((input, adapter_instructions) = list(input, instruction)?);
-
-                adapters.push(Adapter::HelperFunction {
-                    name: adapter_name,
-                    input_types: adapter_input_types,
-                    output_types: adapter_output_types,
-                    instructions: adapter_instructions,
-                });
-            }
-        }
+        adapters.push(Adapter {
+            function_type: function_type as u32,
+            instructions,
+        });
     }
 
     Ok((input, adapters))
 }
 
-/// Parse a list of forwarded exports.
-fn forwards<'input, E: ParseError<&'input [u8]>>(
+/// Parse a list of exports.
+fn exports<'input, E: ParseError<&'input [u8]>>(
     mut input: &'input [u8],
-) -> IResult<&'input [u8], Vec<Forward>, E> {
-    consume!((input, number_of_forwards) = uleb(input)?);
+) -> IResult<&'input [u8], Vec<Export>, E> {
+    consume!((input, number_of_exports) = uleb(input)?);
 
-    let mut forwards = Vec::with_capacity(number_of_forwards as usize);
+    let mut exports = Vec::with_capacity(number_of_exports as usize);
 
-    for _ in 0..number_of_forwards {
-        consume!((input, forward_name) = string(input)?);
+    for _ in 0..number_of_exports {
+        consume!((input, name) = string(input)?);
+        consume!((input, function_type) = uleb(input)?);
 
-        forwards.push(Forward { name: forward_name });
+        exports.push(Export {
+            name,
+            function_type: function_type as u32,
+        });
     }
 
-    Ok((input, forwards))
+    Ok((input, exports))
+}
+
+/// Parse a list of implementations.
+fn implementations<'input, E: ParseError<&'input [u8]>>(
+    mut input: &'input [u8],
+) -> IResult<&'input [u8], Vec<Implementation>, E> {
+    consume!((input, number_of_implementations) = uleb(input)?);
+
+    let mut implementations = Vec::with_capacity(number_of_implementations as usize);
+
+    for _ in 0..number_of_implementations {
+        consume!((input, core_function_type) = uleb(input)?);
+        consume!((input, adapter_function_type) = uleb(input)?);
+
+        implementations.push(Implementation {
+            core_function_type: core_function_type as u32,
+            adapter_function_type: adapter_function_type as u32,
+        });
+    }
+
+    Ok((input, implementations))
 }
 
 /// Parse complete interfaces.
@@ -413,20 +350,54 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ) -> IResult<&'input [u8], Interfaces, E> {
     let mut input = bytes;
 
-    consume!((input, exports) = exports(input)?);
-    consume!((input, types) = types(input)?);
-    consume!((input, imports) = imports(input)?);
-    consume!((input, adapters) = adapters(input)?);
-    consume!((input, forwards) = forwards(input)?);
+    let mut all_types = vec![];
+    let mut all_imports = vec![];
+    let mut all_adapters = vec![];
+    let mut all_exports = vec![];
+    let mut all_implementations = vec![];
+
+    while !input.is_empty() {
+        consume!((input, interface_kind) = byte(input)?);
+
+        let interface_kind = InterfaceKind::try_from(interface_kind)
+            .map_err(|_| Err::Error(make_error(input, ErrorKind::ParseTo)))?;
+
+        match interface_kind {
+            InterfaceKind::Type => {
+                consume!((input, mut new_types) = types(input)?);
+                all_types.append(&mut new_types);
+            }
+
+            InterfaceKind::Import => {
+                consume!((input, mut new_imports) = imports(input)?);
+                all_imports.append(&mut new_imports);
+            }
+
+            InterfaceKind::Adapter => {
+                consume!((input, mut new_adapters) = adapters(input)?);
+                all_adapters.append(&mut new_adapters);
+            }
+
+            InterfaceKind::Export => {
+                consume!((input, mut new_exports) = exports(input)?);
+                all_exports.append(&mut new_exports);
+            }
+
+            InterfaceKind::Implementation => {
+                consume!((input, mut new_implementations) = implementations(input)?);
+                all_implementations.append(&mut new_implementations)
+            }
+        }
+    }
 
     Ok((
         input,
         Interfaces {
-            exports,
-            types,
-            imports,
-            adapters,
-            forwards,
+            types: all_types,
+            imports: all_imports,
+            adapters: all_adapters,
+            exports: all_exports,
+            implementations: all_implementations,
         },
     ))
 }
@@ -444,83 +415,67 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///     interpreter::Instruction,
 /// };
 ///
-/// # fn main() {
 /// let input = &[
+///     0x00, // type section
+///     0x01, // 1 type
+///     0x01, // list of 1 item
+///     0x00, // S8
+///     0x01, // list of 1 item
+///     0x01, // S16
+///     //
+///     0x01, // import section
+///     0x01, // 1 import
+///     0x02, // string of 2 bytes
+///     0x61, 0x62, // "a", "b"
+///     0x01, // string of 1 byte
+///     0x63, // "c"
+///     0x00, // signature type
+///     //
+///     0x02, // adapter section
+///     0x01, // 1 adapter
+///     0x00, // function type
+///     0x01, // list of 1 item
+///     0x00, 0x01, // ArgumentGet { index: 1 }
+///     //
+///     0x03, // export section
 ///     0x01, // 1 export
 ///     0x02, // string of 2 bytes
 ///     0x61, 0x62, // "a", "b"
-///     0x01, // list of 1 item
-///     0x7f, // I32
-///     0x01, // list of 1 item
-///     0x7f, // I32
-///     0x01, // 1 type
-///     0x02, // string of 2 bytes
-///     0x61, 0x62, // "a", "b"
-///     0x02, // list of 2 items
-///     0x02, // string of 2 bytes
-///     0x63, 0x64, // "c", "d"
-///     0x01, // string of 1 byte
-///     0x65, // "e"
-///     0x02, // list of 2 items
-///     0x7f, // I32
-///     0x7f, // I32
-///     0x01, // 1 import
-///     0x01, // string of 1 byte
-///     0x61, // "a"
-///     0x01, // string of 1 byte
-///     0x62, // "b"
-///     0x01, // list of 1 item
-///     0x7f, // I32
-///     0x01, // list of 1 item
-///     0x7e, // I64
-///     0x01, // 1 adapter
-///     0x00, // adapter kind: import
-///     0x01, // string of 1 byte
-///     0x61, // "a"
-///     0x01, // string of 1 byte
-///     0x62, // "b"
-///     0x01, // list of 1 item
-///     0x7f, // I32
-///     0x01, // list of 1 item
-///     0x7f, // I32
-///     0x01, // list of 1 item
-///     0x00, 0x01, // ArgumentGet { index: 1 }
-///     0x01, // 1 adapter
-///     0x01, // string of 1 byte
-///     0x61, // "a"
+///     0x01, // function type
+///     //
+///     0x04, // implementation section
+///     0x01, // 1 implementation
+///     0x02, // core function type
+///     0x03, // adapter function type
 /// ];
 /// let output = Ok((
 ///     &[] as &[u8],
 ///     Interfaces {
-///         exports: vec![Export {
-///             name: "ab",
-///             input_types: vec![InterfaceType::I32],
-///             output_types: vec![InterfaceType::I32],
+///         types: vec![Type {
+///             inputs: vec![InterfaceType::S8],
+///             outputs: vec![InterfaceType::S16],
 ///         }],
-///         types: vec![Type::new(
-///             "ab",
-///             vec!["cd", "e"],
-///             vec![InterfaceType::I32, InterfaceType::I32],
-///         )],
 ///         imports: vec![Import {
-///             namespace: "a",
-///             name: "b",
-///             input_types: vec![InterfaceType::I32],
-///             output_types: vec![InterfaceType::I64],
+///             namespace: "ab",
+///             name: "c",
+///             signature_type: 0,
 ///         }],
-///         adapters: vec![Adapter::Import {
-///             namespace: "a",
-///             name: "b",
-///             input_types: vec![InterfaceType::I32],
-///             output_types: vec![InterfaceType::I32],
+///         adapters: vec![Adapter {
+///             function_type: 0,
 ///             instructions: vec![Instruction::ArgumentGet { index: 1 }],
 ///         }],
-///         forwards: vec![Forward { name: "a" }],
+///         exports: vec![Export {
+///             name: "ab",
+///             function_type: 1,
+///         }],
+///         implementations: vec![Implementation {
+///             core_function_type: 2,
+///             adapter_function_type: 3,
+///         }],
 ///     },
 /// ));
 ///
 /// assert_eq!(parse::<()>(input), output);
-/// # }
 /// ```
 pub fn parse<'input, E: ParseError<&'input [u8]>>(
     bytes: &'input [u8],
@@ -639,32 +594,40 @@ mod tests {
     #[test]
     fn test_ty() {
         let input = &[
-            0x0a, // list of 10 items
-            0xff, 0xff, 0x01, // Int
-            0xfe, 0xff, 0x01, // Float
-            0xfd, 0xff, 0x01, // Any
-            0xfc, 0xff, 0x01, // String
-            0xfb, 0xff, 0x01, // Seq
-            0x7f, // I32
-            0x7e, // I64
-            0x7d, // F32
-            0x7c, // F64
-            0x6f, // AnyRef
+            0x0e, // list of 14 items
+            0x00, // S8
+            0x01, // S16
+            0x02, // S32
+            0x03, // S64
+            0x04, // U8
+            0x05, // U16
+            0x06, // U32
+            0x07, // U64
+            0x08, // F32
+            0x09, // F64
+            0x0a, // String
+            0x0b, // Anyref
+            0x0c, // I32
+            0x0d, // I64
             0x01,
         ];
         let output = Ok((
             &[0x01][..],
             vec![
-                InterfaceType::Int,
-                InterfaceType::Float,
-                InterfaceType::Any,
-                InterfaceType::String,
-                InterfaceType::Seq,
-                InterfaceType::I32,
-                InterfaceType::I64,
+                InterfaceType::S8,
+                InterfaceType::S16,
+                InterfaceType::S32,
+                InterfaceType::S64,
+                InterfaceType::U8,
+                InterfaceType::U16,
+                InterfaceType::U32,
+                InterfaceType::U64,
                 InterfaceType::F32,
                 InterfaceType::F64,
-                InterfaceType::AnyRef,
+                InterfaceType::String,
+                InterfaceType::Anyref,
+                InterfaceType::I32,
+                InterfaceType::I64,
             ],
         ));
 
@@ -674,27 +637,51 @@ mod tests {
     #[test]
     fn test_instructions() {
         let input = &[
-            0x14, // list of 20 items
+            0x2c, // list of 44 items
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, 0x01, // Call { function_index: 1 }
             0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
             0x03, // ReadUtf8
             0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
-            0x05, 0xff, 0xff, 0x01, // AsWasm(Int)
-            0x06, 0x7e, // AsInterface(I64)
-            0x07, // TableRefAdd
-            0x08, // TableRefGet
-            0x09, 0x01, // CallMethod(1)
-            0x0a, 0x7f, // MakeRecord(I32)
-            0x0c, 0xff, 0xff, 0x01, 0x02, // GetField(Int, 2)
-            0x0d, 0x7f, 0x01, // Const(I32, 1)
-            0x0e, 0x01, // FoldSeq(1)
-            0x0f, 0x7f, // Add(I32)
-            0x10, 0x7f, 0x03, 0x61, 0x62, 0x63, // MemToSeq(I32, "abc")
-            0x11, 0x7f, 0x03, 0x61, 0x62, 0x63, // Load(I32, "abc")
-            0x12, 0x7f, // SeqNew(I32)
-            0x13, // ListPush
-            0x14, 0x01, 0x02, // RepeatUntil(1, 2)
+            0x07, // I32ToS8
+            0x08, // I32ToS8X
+            0x09, // I32ToU8
+            0x0a, // I32ToS16
+            0x0b, // I32ToS16X
+            0x0c, // I32ToU16
+            0x0d, // I32ToS32
+            0x0e, // I32ToU32
+            0x0f, // I32ToS64
+            0x10, // I32ToU64
+            0x11, // I64ToS8
+            0x12, // I64ToS8X
+            0x13, // I64ToU8
+            0x14, // I64ToS16
+            0x15, // I64ToS16X
+            0x16, // I64ToU16
+            0x17, // I64ToS32
+            0x18, // I64ToS32X
+            0x19, // I64ToU32
+            0x1a, // I64ToS64
+            0x1b, // I64ToU64
+            0x1c, // S8ToI32
+            0x1d, // U8ToI32
+            0x1e, // S16ToI32
+            0x1f, // U16ToI32
+            0x20, // S32ToI32
+            0x21, // U32ToI32
+            0x22, // S64ToI32
+            0x23, // S64ToI32X
+            0x24, // U64ToI32
+            0x25, // U64ToI32X
+            0x26, // S8ToI64
+            0x27, // U8ToI64
+            0x28, // S16ToI64
+            0x29, // U16ToI64
+            0x2a, // S32ToI64
+            0x2b, // U32ToI64
+            0x2c, // S64ToI64
+            0x2d, // U64ToI64
             0x0a,
         ];
         let output = Ok((
@@ -707,21 +694,45 @@ mod tests {
                 Instruction::WriteUtf8 {
                     allocator_name: "abc",
                 },
-                Instruction::AsWasm(InterfaceType::Int),
-                Instruction::AsInterface(InterfaceType::I64),
-                Instruction::TableRefAdd,
-                Instruction::TableRefGet,
-                Instruction::CallMethod(1),
-                Instruction::MakeRecord(InterfaceType::I32),
-                Instruction::GetField(InterfaceType::Int, 2),
-                Instruction::Const(InterfaceType::I32, 1),
-                Instruction::FoldSeq(1),
-                Instruction::Add(InterfaceType::I32),
-                Instruction::MemToSeq(InterfaceType::I32, "abc"),
-                Instruction::Load(InterfaceType::I32, "abc"),
-                Instruction::SeqNew(InterfaceType::I32),
-                Instruction::ListPush,
-                Instruction::RepeatUntil(1, 2),
+                Instruction::I32ToS8,
+                Instruction::I32ToS8X,
+                Instruction::I32ToU8,
+                Instruction::I32ToS16,
+                Instruction::I32ToS16X,
+                Instruction::I32ToU16,
+                Instruction::I32ToS32,
+                Instruction::I32ToU32,
+                Instruction::I32ToS64,
+                Instruction::I32ToU64,
+                Instruction::I64ToS8,
+                Instruction::I64ToS8X,
+                Instruction::I64ToU8,
+                Instruction::I64ToS16,
+                Instruction::I64ToS16X,
+                Instruction::I64ToU16,
+                Instruction::I64ToS32,
+                Instruction::I64ToS32X,
+                Instruction::I64ToU32,
+                Instruction::I64ToS64,
+                Instruction::I64ToU64,
+                Instruction::S8ToI32,
+                Instruction::U8ToI32,
+                Instruction::S16ToI32,
+                Instruction::U16ToI32,
+                Instruction::S32ToI32,
+                Instruction::U32ToI32,
+                Instruction::S64ToI32,
+                Instruction::S64ToI32X,
+                Instruction::U64ToI32,
+                Instruction::U64ToI32X,
+                Instruction::S8ToI64,
+                Instruction::U8ToI64,
+                Instruction::S16ToI64,
+                Instruction::U16ToI64,
+                Instruction::S32ToI64,
+                Instruction::U32ToI64,
+                Instruction::S64ToI64,
+                Instruction::U64ToI64,
             ],
         ));
 
@@ -734,27 +745,21 @@ mod tests {
             0x02, // 2 exports
             0x02, // string of 2 bytes
             0x61, 0x62, // "a", "b"
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x7f, // I32
+            0x01, // function type
             0x02, // string of 2 bytes
             0x63, 0x64, // "c", "d"
-            0x00, // list of 0 item
-            0x00, // list of 0 item
+            0x02, // function type
         ];
         let output = Ok((
             &[] as &[u8],
             vec![
                 Export {
                     name: "ab",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
+                    function_type: 1,
                 },
                 Export {
                     name: "cd",
-                    input_types: vec![],
-                    output_types: vec![],
+                    function_type: 2,
                 },
             ],
         ));
@@ -766,24 +771,18 @@ mod tests {
     fn test_types() {
         let input = &[
             0x01, // 1 type
-            0x02, // string of 2 bytes
-            0x61, 0x62, // "a", "b"
             0x02, // list of 2 items
-            0x02, // string of 2 bytes
-            0x63, 0x64, // "c", "d"
-            0x01, // string of 1 byte
-            0x65, // "e"
-            0x02, // list of 2 items
-            0x7f, // I32
-            0x7f, // I32
+            0x02, // S32
+            0x02, // S32
+            0x01, // list of 2 items
+            0x02, // S32
         ];
         let output = Ok((
             &[] as &[u8],
-            vec![Type::new(
-                "ab",
-                vec!["cd", "e"],
-                vec![InterfaceType::I32, InterfaceType::I32],
-            )],
+            vec![Type {
+                inputs: vec![InterfaceType::S32, InterfaceType::S32],
+                outputs: vec![InterfaceType::S32],
+            }],
         ));
 
         assert_eq!(types::<()>(input), output);
@@ -797,18 +796,12 @@ mod tests {
             0x61, // "a"
             0x01, // string of 1 byte
             0x62, // "b"
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x7e, // I64
+            0x01, // signature type
             0x01, // string of 1 byte
             0x63, // "c"
             0x01, // string of 1 byte
             0x64, // "d"
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x7e, // I64
+            0x02, // signature type
         ];
         let output = Ok((
             &[] as &[u8],
@@ -816,14 +809,12 @@ mod tests {
                 Import {
                     namespace: "a",
                     name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I64],
+                    signature_type: 1,
                 },
                 Import {
                     namespace: "c",
                     name: "d",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I64],
+                    signature_type: 2,
                 },
             ],
         ));
@@ -834,155 +825,81 @@ mod tests {
     #[test]
     fn test_adapters() {
         let input = &[
-            0x03, // 3 adapters
-            0x00, // adapter kind: import
-            0x01, // string of 1 byte
-            0x61, // "a"
-            0x01, // string of 1 byte
-            0x62, // "b"
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x00, 0x01, // ArgumentGet { index: 1 }
-            0x01, // adapter kind: export
-            0x01, // string of 1 byte
-            0x63, // "c"
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x00, 0x01, // ArgumentGet { index: 1 }
-            0x02, // adapter kind: helper function
-            0x01, // string of 1 byte
-            0x64, // "d"
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x7f, // I32
+            0x01, // 1 adapters
+            0x00, // function type
             0x01, // list of 1 item
             0x00, 0x01, // ArgumentGet { index: 1 }
         ];
         let output = Ok((
             &[] as &[u8],
-            vec![
-                Adapter::Import {
-                    namespace: "a",
-                    name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
-                    instructions: vec![Instruction::ArgumentGet { index: 1 }],
-                },
-                Adapter::Export {
-                    name: "c",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
-                    instructions: vec![Instruction::ArgumentGet { index: 1 }],
-                },
-                Adapter::HelperFunction {
-                    name: "d",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
-                    instructions: vec![Instruction::ArgumentGet { index: 1 }],
-                },
-            ],
+            vec![Adapter {
+                function_type: 0,
+                instructions: vec![Instruction::ArgumentGet { index: 1 }],
+            }],
         ));
 
         assert_eq!(adapters::<()>(input), output);
     }
 
     #[test]
-    fn test_forwards() {
-        let input = &[
-            0x02, // 2 adapters
-            0x01, // string of 1 byte
-            0x61, // "a"
-            0x02, // string of 2 bytes
-            0x62, 0x63, // "b", "c"
-        ];
-        let output = Ok((
-            &[] as &[u8],
-            vec![Forward { name: "a" }, Forward { name: "bc" }],
-        ));
-
-        assert_eq!(forwards::<()>(input), output);
-    }
-
-    #[test]
     fn test_parse() {
         let input = &[
+            0x00, // type section
+            0x01, // 1 type
+            0x01, // list of 1 item
+            0x00, // S8
+            0x01, // list of 1 item
+            0x01, // S16
+            //
+            0x01, // import section
+            0x01, // 1 import
+            0x02, // string of 2 bytes
+            0x61, 0x62, // "a", "b"
+            0x01, // string of 1 byte
+            0x63, // "c"
+            0x00, // signature type
+            //
+            0x02, // adapter section
+            0x01, // 1 adapter
+            0x00, // function type
+            0x01, // list of 1 item
+            0x00, 0x01, // ArgumentGet { index: 1 }
+            //
+            0x03, // export section
             0x01, // 1 export
             0x02, // string of 2 bytes
             0x61, 0x62, // "a", "b"
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // 1 type
-            0x02, // string of 2 bytes
-            0x61, 0x62, // "a", "b"
-            0x02, // list of 2 items
-            0x02, // string of 2 bytes
-            0x63, 0x64, // "c", "d"
-            0x01, // string of 1 byte
-            0x65, // "e"
-            0x02, // list of 2 items
-            0x7f, // I32
-            0x7f, // I32
-            0x01, // 1 import
-            0x01, // string of 1 byte
-            0x61, // "a"
-            0x01, // string of 1 byte
-            0x62, // "b"
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x7e, // I64
-            0x01, // 1 adapter
-            0x00, // adapter kind: import
-            0x01, // string of 1 byte
-            0x61, // "a"
-            0x01, // string of 1 byte
-            0x62, // "b"
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x7f, // I32
-            0x01, // list of 1 item
-            0x00, 0x01, // ArgumentGet { index: 1 }
-            0x01, // 1 adapter
-            0x01, // string of 1 byte
-            0x61, // "a"
+            0x01, // function type
+            //
+            0x04, // implementation section
+            0x01, // 1 implementation
+            0x02, // core function type
+            0x03, // adapter function type
         ];
         let output = Ok((
             &[] as &[u8],
             Interfaces {
-                exports: vec![Export {
-                    name: "ab",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
+                types: vec![Type {
+                    inputs: vec![InterfaceType::S8],
+                    outputs: vec![InterfaceType::S16],
                 }],
-                types: vec![Type::new(
-                    "ab",
-                    vec!["cd", "e"],
-                    vec![InterfaceType::I32, InterfaceType::I32],
-                )],
                 imports: vec![Import {
-                    namespace: "a",
-                    name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I64],
+                    namespace: "ab",
+                    name: "c",
+                    signature_type: 0,
                 }],
-                adapters: vec![Adapter::Import {
-                    namespace: "a",
-                    name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
+                adapters: vec![Adapter {
+                    function_type: 0,
                     instructions: vec![Instruction::ArgumentGet { index: 1 }],
                 }],
-                forwards: vec![Forward { name: "a" }],
+                exports: vec![Export {
+                    name: "ab",
+                    function_type: 1,
+                }],
+                implementations: vec![Implementation {
+                    core_function_type: 2,
+                    adapter_function_type: 3,
+                }],
             },
         ));
 

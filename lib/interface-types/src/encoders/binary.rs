@@ -1,9 +1,6 @@
 //! Writes the AST into bytes representing WIT with its binary format.
 
-use crate::{
-    ast::{Adapter, AdapterKind, Export, Forward, Import, InterfaceType, Interfaces, Type},
-    interpreter::Instruction,
-};
+use crate::{ast::*, interpreter::Instruction};
 use std::io::{self, Write};
 
 /// A trait for converting a value to bytes.
@@ -97,61 +94,50 @@ where
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
         match self {
-            InterfaceType::Int => 0x7fff_u64.to_bytes(writer),
-            InterfaceType::Float => 0x7ffe_u64.to_bytes(writer),
-            InterfaceType::Any => 0x7ffd_u64.to_bytes(writer),
-            InterfaceType::String => 0x7ffc_u64.to_bytes(writer),
-            InterfaceType::Seq => 0x7ffb_u64.to_bytes(writer),
-            InterfaceType::I32 => 0x7f_u64.to_bytes(writer),
-            InterfaceType::I64 => 0x7e_u64.to_bytes(writer),
-            InterfaceType::F32 => 0x7d_u64.to_bytes(writer),
-            InterfaceType::F64 => 0x7c_u64.to_bytes(writer),
-            InterfaceType::AnyRef => 0x6f_u64.to_bytes(writer),
+            InterfaceType::S8 => 0x00_u8.to_bytes(writer),
+            InterfaceType::S16 => 0x01_u8.to_bytes(writer),
+            InterfaceType::S32 => 0x02_u8.to_bytes(writer),
+            InterfaceType::S64 => 0x03_u8.to_bytes(writer),
+            InterfaceType::U8 => 0x04_u8.to_bytes(writer),
+            InterfaceType::U16 => 0x05_u8.to_bytes(writer),
+            InterfaceType::U32 => 0x06_u8.to_bytes(writer),
+            InterfaceType::U64 => 0x07_u8.to_bytes(writer),
+            InterfaceType::F32 => 0x08_u8.to_bytes(writer),
+            InterfaceType::F64 => 0x09_u8.to_bytes(writer),
+            InterfaceType::String => 0x0a_u8.to_bytes(writer),
+            InterfaceType::Anyref => 0x0b_u8.to_bytes(writer),
+            InterfaceType::I32 => 0x0c_u8.to_bytes(writer),
+            InterfaceType::I64 => 0x0d_u8.to_bytes(writer),
         }
     }
 }
 
-/// Encode an `AdapterKind` into bytes.
-impl<W> ToBytes<W> for AdapterKind
+/// Encode an `InterfaceKind` into bytes.
+impl<W> ToBytes<W> for InterfaceKind
 where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
         match self {
-            AdapterKind::Import => 0x00_u8.to_bytes(writer),
-            AdapterKind::Export => 0x01_u8.to_bytes(writer),
-            AdapterKind::HelperFunction => 0x02_u8.to_bytes(writer),
+            Self::Type => 0x00_u8.to_bytes(writer),
+            Self::Import => 0x01_u8.to_bytes(writer),
+            Self::Adapter => 0x02_u8.to_bytes(writer),
+            Self::Export => 0x03_u8.to_bytes(writer),
+            Self::Implementation => 0x04_u8.to_bytes(writer),
         }
-    }
-}
-
-/// Encode an `Export` into bytes.
-///
-/// Decoder is in `decoders::binary::exports`.
-impl<W> ToBytes<W> for Export<'_>
-where
-    W: Write,
-{
-    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.name.to_bytes(writer)?;
-        self.input_types.to_bytes(writer)?;
-        self.output_types.to_bytes(writer)?;
-
-        Ok(())
     }
 }
 
 /// Encode a `Type` into bytes.
 ///
 /// Decoder is in `decoders::binary::types`.
-impl<W> ToBytes<W> for Type<'_>
+impl<W> ToBytes<W> for Type
 where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.name.to_bytes(writer)?;
-        self.field_names().to_bytes(writer)?;
-        self.field_types().to_bytes(writer)?;
+        self.inputs.to_bytes(writer)?;
+        self.outputs.to_bytes(writer)?;
 
         Ok(())
     }
@@ -167,8 +153,7 @@ where
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
         self.namespace.to_bytes(writer)?;
         self.name.to_bytes(writer)?;
-        self.input_types.to_bytes(writer)?;
-        self.output_types.to_bytes(writer)?;
+        (self.signature_type as u64).to_bytes(writer)?;
 
         Ok(())
     }
@@ -176,68 +161,46 @@ where
 
 /// Encode an `Adapter` into bytes.
 ///
-/// Decoder is in `decoders::binary::imports`.
+/// Decoder is in `decoders::binary::adapters`.
 impl<W> ToBytes<W> for Adapter<'_>
 where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        match self {
-            Adapter::Import {
-                namespace,
-                name,
-                input_types,
-                output_types,
-                instructions,
-            } => {
-                AdapterKind::Import.to_bytes(writer)?;
-                namespace.to_bytes(writer)?;
-                name.to_bytes(writer)?;
-                input_types.to_bytes(writer)?;
-                output_types.to_bytes(writer)?;
-                instructions.to_bytes(writer)?;
-            }
-
-            Adapter::Export {
-                name,
-                input_types,
-                output_types,
-                instructions,
-            } => {
-                AdapterKind::Export.to_bytes(writer)?;
-                name.to_bytes(writer)?;
-                input_types.to_bytes(writer)?;
-                output_types.to_bytes(writer)?;
-                instructions.to_bytes(writer)?;
-            }
-
-            Adapter::HelperFunction {
-                name,
-                input_types,
-                output_types,
-                instructions,
-            } => {
-                AdapterKind::HelperFunction.to_bytes(writer)?;
-                name.to_bytes(writer)?;
-                input_types.to_bytes(writer)?;
-                output_types.to_bytes(writer)?;
-                instructions.to_bytes(writer)?;
-            }
-        }
+        (self.function_type as u64).to_bytes(writer)?;
+        self.instructions.to_bytes(writer)?;
 
         Ok(())
     }
 }
 
-/// Encode an `Forward` into bytes.
+/// Encode an `Export` into bytes.
 ///
-/// Decoder is `decoders::binary::forwards`.
-impl<W> ToBytes<W> for Forward<'_>
+/// Decoder is in `decoders::binary::exports`.
+impl<W> ToBytes<W> for Export<'_>
 where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.name.to_bytes(writer)
+        self.name.to_bytes(writer)?;
+        (self.function_type as u64).to_bytes(writer)?;
+
+        Ok(())
+    }
+}
+
+/// Encode an `Implementation` into bytes.
+///
+/// Decoder is in `decoders::binary::implementations`.
+impl<W> ToBytes<W> for Implementation
+where
+    W: Write,
+{
+    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
+        (self.core_function_type as u64).to_bytes(writer)?;
+        (self.adapter_function_type as u64).to_bytes(writer)?;
+
+        Ok(())
     }
 }
 
@@ -249,11 +212,30 @@ where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.exports.to_bytes(writer)?;
-        self.types.to_bytes(writer)?;
-        self.imports.to_bytes(writer)?;
-        self.adapters.to_bytes(writer)?;
-        self.forwards.to_bytes(writer)?;
+        if !self.types.is_empty() {
+            InterfaceKind::Type.to_bytes(writer)?;
+            self.types.to_bytes(writer)?;
+        }
+
+        if !self.imports.is_empty() {
+            InterfaceKind::Import.to_bytes(writer)?;
+            self.imports.to_bytes(writer)?;
+        }
+
+        if !self.adapters.is_empty() {
+            InterfaceKind::Adapter.to_bytes(writer)?;
+            self.adapters.to_bytes(writer)?;
+        }
+
+        if !self.exports.is_empty() {
+            InterfaceKind::Export.to_bytes(writer)?;
+            self.exports.to_bytes(writer)?;
+        }
+
+        if !self.implementations.is_empty() {
+            InterfaceKind::Implementation.to_bytes(writer)?;
+            self.implementations.to_bytes(writer)?;
+        }
 
         Ok(())
     }
@@ -270,7 +252,7 @@ where
         match self {
             Instruction::ArgumentGet { index } => {
                 0x00_u8.to_bytes(writer)?;
-                index.to_bytes(writer)?;
+                (*index as u64).to_bytes(writer)?;
             }
 
             Instruction::Call { function_index } => {
@@ -290,76 +272,45 @@ where
                 allocator_name.to_bytes(writer)?;
             }
 
-            Instruction::AsWasm(interface_type) => {
-                0x05_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-            }
-
-            Instruction::AsInterface(interface_type) => {
-                0x06_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-            }
-
-            Instruction::TableRefAdd => 0x07_u8.to_bytes(writer)?,
-
-            Instruction::TableRefGet => 0x08_u8.to_bytes(writer)?,
-
-            Instruction::CallMethod(function_index) => {
-                0x09_u8.to_bytes(writer)?;
-                function_index.to_bytes(writer)?;
-            }
-
-            Instruction::MakeRecord(interface_type) => {
-                0x0a_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-            }
-
-            Instruction::GetField(interface_type, field_index) => {
-                0x0c_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-                field_index.to_bytes(writer)?;
-            }
-
-            Instruction::Const(interface_type, index) => {
-                0x0d_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-                index.to_bytes(writer)?;
-            }
-
-            Instruction::FoldSeq(index) => {
-                0x0e_u8.to_bytes(writer)?;
-                index.to_bytes(writer)?;
-            }
-
-            Instruction::Add(interface_type) => {
-                0x0f_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-            }
-
-            Instruction::MemToSeq(interface_type, string) => {
-                0x10_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-                string.to_bytes(writer)?;
-            }
-
-            Instruction::Load(interface_type, string) => {
-                0x11_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-                string.to_bytes(writer)?;
-            }
-
-            Instruction::SeqNew(interface_type) => {
-                0x12_u8.to_bytes(writer)?;
-                interface_type.to_bytes(writer)?;
-            }
-
-            Instruction::ListPush => 0x13_u8.to_bytes(writer)?,
-
-            Instruction::RepeatUntil(index1, index2) => {
-                0x14_u8.to_bytes(writer)?;
-                index1.to_bytes(writer)?;
-                index2.to_bytes(writer)?;
-            }
+            Instruction::I32ToS8 => 0x07_u8.to_bytes(writer)?,
+            Instruction::I32ToS8X => 0x08_u8.to_bytes(writer)?,
+            Instruction::I32ToU8 => 0x09_u8.to_bytes(writer)?,
+            Instruction::I32ToS16 => 0x0a_u8.to_bytes(writer)?,
+            Instruction::I32ToS16X => 0x0b_u8.to_bytes(writer)?,
+            Instruction::I32ToU16 => 0x0c_u8.to_bytes(writer)?,
+            Instruction::I32ToS32 => 0x0d_u8.to_bytes(writer)?,
+            Instruction::I32ToU32 => 0x0e_u8.to_bytes(writer)?,
+            Instruction::I32ToS64 => 0x0f_u8.to_bytes(writer)?,
+            Instruction::I32ToU64 => 0x10_u8.to_bytes(writer)?,
+            Instruction::I64ToS8 => 0x11_u8.to_bytes(writer)?,
+            Instruction::I64ToS8X => 0x12_u8.to_bytes(writer)?,
+            Instruction::I64ToU8 => 0x13_u8.to_bytes(writer)?,
+            Instruction::I64ToS16 => 0x14_u8.to_bytes(writer)?,
+            Instruction::I64ToS16X => 0x15_u8.to_bytes(writer)?,
+            Instruction::I64ToU16 => 0x16_u8.to_bytes(writer)?,
+            Instruction::I64ToS32 => 0x17_u8.to_bytes(writer)?,
+            Instruction::I64ToS32X => 0x18_u8.to_bytes(writer)?,
+            Instruction::I64ToU32 => 0x19_u8.to_bytes(writer)?,
+            Instruction::I64ToS64 => 0x1a_u8.to_bytes(writer)?,
+            Instruction::I64ToU64 => 0x1b_u8.to_bytes(writer)?,
+            Instruction::S8ToI32 => 0x1c_u8.to_bytes(writer)?,
+            Instruction::U8ToI32 => 0x1d_u8.to_bytes(writer)?,
+            Instruction::S16ToI32 => 0x1e_u8.to_bytes(writer)?,
+            Instruction::U16ToI32 => 0x1f_u8.to_bytes(writer)?,
+            Instruction::S32ToI32 => 0x20_u8.to_bytes(writer)?,
+            Instruction::U32ToI32 => 0x21_u8.to_bytes(writer)?,
+            Instruction::S64ToI32 => 0x22_u8.to_bytes(writer)?,
+            Instruction::S64ToI32X => 0x23_u8.to_bytes(writer)?,
+            Instruction::U64ToI32 => 0x24_u8.to_bytes(writer)?,
+            Instruction::U64ToI32X => 0x25_u8.to_bytes(writer)?,
+            Instruction::S8ToI64 => 0x26_u8.to_bytes(writer)?,
+            Instruction::U8ToI64 => 0x27_u8.to_bytes(writer)?,
+            Instruction::S16ToI64 => 0x28_u8.to_bytes(writer)?,
+            Instruction::U16ToI64 => 0x29_u8.to_bytes(writer)?,
+            Instruction::S32ToI64 => 0x2a_u8.to_bytes(writer)?,
+            Instruction::U32ToI64 => 0x2b_u8.to_bytes(writer)?,
+            Instruction::S64ToI64 => 0x2c_u8.to_bytes(writer)?,
+            Instruction::U64ToI64 => 0x2d_u8.to_bytes(writer)?,
         }
 
         Ok(())
@@ -444,23 +395,29 @@ mod tests {
 
     #[test]
     fn test_interface_type() {
-        assert_to_bytes!(InterfaceType::Int, &[0xff, 0xff, 0x01]);
-        assert_to_bytes!(InterfaceType::Float, &[0xfe, 0xff, 0x01]);
-        assert_to_bytes!(InterfaceType::Any, &[0xfd, 0xff, 0x01]);
-        assert_to_bytes!(InterfaceType::String, &[0xfc, 0xff, 0x01]);
-        assert_to_bytes!(InterfaceType::Seq, &[0xfb, 0xff, 0x01]);
-        assert_to_bytes!(InterfaceType::I32, &[0x7f]);
-        assert_to_bytes!(InterfaceType::I64, &[0x7e]);
-        assert_to_bytes!(InterfaceType::F32, &[0x7d]);
-        assert_to_bytes!(InterfaceType::F64, &[0x7c]);
-        assert_to_bytes!(InterfaceType::AnyRef, &[0x6f]);
+        assert_to_bytes!(InterfaceType::S8, &[0x00]);
+        assert_to_bytes!(InterfaceType::S16, &[0x01]);
+        assert_to_bytes!(InterfaceType::S32, &[0x02]);
+        assert_to_bytes!(InterfaceType::S64, &[0x03]);
+        assert_to_bytes!(InterfaceType::U8, &[0x04]);
+        assert_to_bytes!(InterfaceType::U16, &[0x05]);
+        assert_to_bytes!(InterfaceType::U32, &[0x06]);
+        assert_to_bytes!(InterfaceType::U64, &[0x07]);
+        assert_to_bytes!(InterfaceType::F32, &[0x08]);
+        assert_to_bytes!(InterfaceType::F64, &[0x09]);
+        assert_to_bytes!(InterfaceType::String, &[0x0a]);
+        assert_to_bytes!(InterfaceType::Anyref, &[0x0b]);
+        assert_to_bytes!(InterfaceType::I32, &[0x0c]);
+        assert_to_bytes!(InterfaceType::I64, &[0x0d]);
     }
 
     #[test]
-    fn test_adapter_kind() {
-        assert_to_bytes!(AdapterKind::Import, &[0x00]);
-        assert_to_bytes!(AdapterKind::Export, &[0x01]);
-        assert_to_bytes!(AdapterKind::HelperFunction, &[0x02]);
+    fn test_interface_kind() {
+        assert_to_bytes!(InterfaceKind::Type, &[0x00]);
+        assert_to_bytes!(InterfaceKind::Import, &[0x01]);
+        assert_to_bytes!(InterfaceKind::Adapter, &[0x02]);
+        assert_to_bytes!(InterfaceKind::Export, &[0x03]);
+        assert_to_bytes!(InterfaceKind::Implementation, &[0x04]);
     }
 
     #[test]
@@ -468,19 +425,14 @@ mod tests {
         assert_to_bytes!(
             Export {
                 name: "abc",
-                input_types: vec![InterfaceType::I32, InterfaceType::I64],
-                output_types: vec![InterfaceType::I32]
+                function_type: 0,
             },
             &[
                 0x03, // string of length 3
                 0x61, // "a"
                 0x62, // "b"
                 0x63, // "c"
-                0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
-                0x01, // list of 1 items
-                0x7f, // I32
+                0x00, // function type
             ]
         );
     }
@@ -488,22 +440,16 @@ mod tests {
     #[test]
     fn test_type() {
         assert_to_bytes!(
-            Type::new(
-                "a",
-                vec!["b", "c"],
-                vec![InterfaceType::I32, InterfaceType::I64],
-            ),
+            Type {
+                inputs: vec![InterfaceType::I32, InterfaceType::I64],
+                outputs: vec![InterfaceType::S32],
+            },
             &[
-                0x01, // string of length 1
-                0x61, // "a"
                 0x02, // list of 2 items
-                0x01, // string of length 1
-                0x62, // "b"
-                0x01, // string of length 1
-                0x63, // "c"
-                0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
+                0x0c, // I32
+                0x0d, // I64
+                0x01, // list of 1 items
+                0x02, // I64
             ]
         );
     }
@@ -514,106 +460,29 @@ mod tests {
             Import {
                 namespace: "a",
                 name: "b",
-                input_types: vec![InterfaceType::I32, InterfaceType::I64],
-                output_types: vec![InterfaceType::I32],
+                signature_type: 0,
             },
             &[
                 0x01, // string of length 1
                 0x61, // "a"
                 0x01, // string of length 1
                 0x62, // "b"
-                0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
-                0x01, // list of 1 items
-                0x7f, // I32
+                0x00, // signature typr
             ]
         );
     }
 
     #[test]
-    fn test_adapter_import() {
+    fn test_adapter() {
         assert_to_bytes!(
-            Adapter::Import {
-                namespace: "a",
-                name: "b",
-                input_types: vec![InterfaceType::I32, InterfaceType::I64],
-                output_types: vec![InterfaceType::I32],
+            Adapter {
+                function_type: 0,
                 instructions: vec![Instruction::ArgumentGet { index: 1 }],
             },
             &[
-                0x00, // AdapterKind::Import
-                0x01, // string of length 1
-                0x61, // "a"
-                0x01, // string of length 1
-                0x62, // "b"
-                0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
-                0x01, // list of 1 items
-                0x7f, // I32
+                0x00, // function type
                 0x01, // list of 1 item
                 0x00, 0x01, // ArgumentGet { index: 1 }
-            ]
-        );
-    }
-
-    #[test]
-    fn test_adapter_export() {
-        assert_to_bytes!(
-            Adapter::Export {
-                name: "a",
-                input_types: vec![InterfaceType::I32, InterfaceType::I64],
-                output_types: vec![InterfaceType::I32],
-                instructions: vec![Instruction::ArgumentGet { index: 1 }],
-            },
-            &[
-                0x01, // AdapterKind::Export
-                0x01, // string of length 1
-                0x61, // "a"
-                0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
-                0x01, // list of 1 items
-                0x7f, // I32
-                0x01, // list of 1 item
-                0x00, 0x01, // ArgumentGet { index: 1 }
-            ]
-        );
-    }
-
-    #[test]
-    fn test_adapter_helper_function() {
-        assert_to_bytes!(
-            Adapter::HelperFunction {
-                name: "a",
-                input_types: vec![InterfaceType::I32, InterfaceType::I64],
-                output_types: vec![InterfaceType::I32],
-                instructions: vec![Instruction::ArgumentGet { index: 1 }],
-            },
-            &[
-                0x02, // AdapterKind::HelperFunction
-                0x01, // string of length 1
-                0x61, // "a"
-                0x02, // list of 2 items
-                0x7f, // I32
-                0x7e, // I64
-                0x01, // list of 1 items
-                0x7f, // I32
-                0x01, // list of 1 item
-                0x00, 0x01, // ArgumentGet { index: 1 }
-            ]
-        );
-    }
-
-    #[test]
-    fn test_forward() {
-        assert_to_bytes!(
-            Forward { name: "ab" },
-            &[
-                0x02, // string of length 2
-                0x61, // "a"
-                0x62, // "b"
             ]
         );
     }
@@ -622,74 +491,60 @@ mod tests {
     fn test_interfaces() {
         assert_to_bytes!(
             Interfaces {
-                exports: vec![Export {
-                    name: "ab",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
+                types: vec![Type {
+                    inputs: vec![InterfaceType::S8],
+                    outputs: vec![InterfaceType::S16],
                 }],
-                types: vec![Type::new(
-                    "ab",
-                    vec!["cd", "e"],
-                    vec![InterfaceType::I32, InterfaceType::I32],
-                )],
                 imports: vec![Import {
-                    namespace: "a",
-                    name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I64],
+                    namespace: "ab",
+                    name: "c",
+                    signature_type: 0,
                 }],
-                adapters: vec![Adapter::Import {
-                    namespace: "a",
-                    name: "b",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![InterfaceType::I32],
+                adapters: vec![Adapter {
+                    function_type: 0,
                     instructions: vec![Instruction::ArgumentGet { index: 1 }],
                 }],
-                forwards: vec![Forward { name: "a" }],
+                exports: vec![Export {
+                    name: "ab",
+                    function_type: 1,
+                }],
+                implementations: vec![Implementation {
+                    core_function_type: 2,
+                    adapter_function_type: 3,
+                }],
             },
             &[
+                0x00, // type section
+                0x01, // 1 type
+                0x01, // list of 1 item
+                0x00, // S8
+                0x01, // list of 1 item
+                0x01, // S16
+                //
+                0x01, // import section
+                0x01, // 1 import
+                0x02, // string of 2 bytes
+                0x61, 0x62, // "a", "b"
+                0x01, // string of 1 byte
+                0x63, // "c"
+                0x00, // signature type
+                //
+                0x02, // adapter section
+                0x01, // 1 adapter
+                0x00, // function type
+                0x01, // list of 1 item
+                0x00, 0x01, // ArgumentGet { index: 1 }
+                //
+                0x03, // export section
                 0x01, // 1 export
                 0x02, // string of 2 bytes
                 0x61, 0x62, // "a", "b"
-                0x01, // list of 1 item
-                0x7f, // I32
-                0x01, // list of 1 item
-                0x7f, // I32
-                0x01, // 1 type
-                0x02, // string of 2 bytes
-                0x61, 0x62, // "a", "b"
-                0x02, // list of 2 items
-                0x02, // string of 2 bytes
-                0x63, 0x64, // "c", "d"
-                0x01, // string of 1 byte
-                0x65, // "e"
-                0x02, // list of 2 items
-                0x7f, // I32
-                0x7f, // I32
-                0x01, // 1 import
-                0x01, // string of 1 byte
-                0x61, // "a"
-                0x01, // string of 1 byte
-                0x62, // "b"
-                0x01, // list of 1 item
-                0x7f, // I32
-                0x01, // list of 1 item
-                0x7e, // I64
-                0x01, // 1 adapter
-                0x00, // adapter kind: import
-                0x01, // string of 1 byte
-                0x61, // "a"
-                0x01, // string of 1 byte
-                0x62, // "b"
-                0x01, // list of 1 item
-                0x7f, // I32
-                0x01, // list of 1 item
-                0x7f, // I32
-                0x01, // list of 1 item
-                0x00, 0x01, // ArgumentGet { index: 1 }
-                0x01, // 1 adapter
-                0x01, // string of 1 byte
-                0x61, // "a"
+                0x01, // function type
+                //
+                0x04, // implementation section
+                0x01, // 1 implementation
+                0x02, // core function type
+                0x03, // adapter function type
             ]
         );
     }
@@ -705,44 +560,92 @@ mod tests {
                 Instruction::WriteUtf8 {
                     allocator_name: "abc",
                 },
-                Instruction::AsWasm(InterfaceType::Int),
-                Instruction::AsInterface(InterfaceType::I64),
-                Instruction::TableRefAdd,
-                Instruction::TableRefGet,
-                Instruction::CallMethod(1),
-                Instruction::MakeRecord(InterfaceType::I32),
-                Instruction::GetField(InterfaceType::Int, 2),
-                Instruction::Const(InterfaceType::I32, 1),
-                Instruction::FoldSeq(1),
-                Instruction::Add(InterfaceType::I32),
-                Instruction::MemToSeq(InterfaceType::I32, "abc"),
-                Instruction::Load(InterfaceType::I32, "abc"),
-                Instruction::SeqNew(InterfaceType::I32),
-                Instruction::ListPush,
-                Instruction::RepeatUntil(1, 2),
+                Instruction::I32ToS8,
+                Instruction::I32ToS8X,
+                Instruction::I32ToU8,
+                Instruction::I32ToS16,
+                Instruction::I32ToS16X,
+                Instruction::I32ToU16,
+                Instruction::I32ToS32,
+                Instruction::I32ToU32,
+                Instruction::I32ToS64,
+                Instruction::I32ToU64,
+                Instruction::I64ToS8,
+                Instruction::I64ToS8X,
+                Instruction::I64ToU8,
+                Instruction::I64ToS16,
+                Instruction::I64ToS16X,
+                Instruction::I64ToU16,
+                Instruction::I64ToS32,
+                Instruction::I64ToS32X,
+                Instruction::I64ToU32,
+                Instruction::I64ToS64,
+                Instruction::I64ToU64,
+                Instruction::S8ToI32,
+                Instruction::U8ToI32,
+                Instruction::S16ToI32,
+                Instruction::U16ToI32,
+                Instruction::S32ToI32,
+                Instruction::U32ToI32,
+                Instruction::S64ToI32,
+                Instruction::S64ToI32X,
+                Instruction::U64ToI32,
+                Instruction::U64ToI32X,
+                Instruction::S8ToI64,
+                Instruction::U8ToI64,
+                Instruction::S16ToI64,
+                Instruction::U16ToI64,
+                Instruction::S32ToI64,
+                Instruction::U32ToI64,
+                Instruction::S64ToI64,
+                Instruction::U64ToI64,
             ],
             &[
-                0x14, // list of 20 items
+                0x2c, // list of 44 items
                 0x00, 0x01, // ArgumentGet { index: 1 }
                 0x01, 0x01, // Call { function_index: 1 }
                 0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
                 0x03, // ReadUtf8
                 0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
-                0x05, 0xff, 0xff, 0x01, // AsWasm(Int)
-                0x06, 0x7e, // AsInterface(I64)
-                0x07, // TableRefAdd
-                0x08, // TableRefGet
-                0x09, 0x01, // CallMethod(1)
-                0x0a, 0x7f, // MakeRecord(I32)
-                0x0c, 0xff, 0xff, 0x01, 0x02, // GetField(Int, 2)
-                0x0d, 0x7f, 0x01, // Const(I32, 1)
-                0x0e, 0x01, // FoldSeq(1)
-                0x0f, 0x7f, // Add(I32)
-                0x10, 0x7f, 0x03, 0x61, 0x62, 0x63, // MemToSeq(I32, "abc")
-                0x11, 0x7f, 0x03, 0x61, 0x62, 0x63, // Load(I32, "abc")
-                0x12, 0x7f, // SeqNew(I32)
-                0x13, // ListPush
-                0x14, 0x01, 0x02, // RepeatUntil(1, 2)
+                0x07, // I32ToS8
+                0x08, // I32ToS8X
+                0x09, // I32ToU8
+                0x0a, // I32ToS16
+                0x0b, // I32ToS16X
+                0x0c, // I32ToU16
+                0x0d, // I32ToS32
+                0x0e, // I32ToU32
+                0x0f, // I32ToS64
+                0x10, // I32ToU64
+                0x11, // I64ToS8
+                0x12, // I64ToS8X
+                0x13, // I64ToU8
+                0x14, // I64ToS16
+                0x15, // I64ToS16X
+                0x16, // I64ToU16
+                0x17, // I64ToS32
+                0x18, // I64ToS32X
+                0x19, // I64ToU32
+                0x1a, // I64ToS64
+                0x1b, // I64ToU64
+                0x1c, // S8ToI32
+                0x1d, // U8ToI32
+                0x1e, // S16ToI32
+                0x1f, // U16ToI32
+                0x20, // S32ToI32
+                0x21, // U32ToI32
+                0x22, // S64ToI32
+                0x23, // S64ToI32X
+                0x24, // U64ToI32
+                0x25, // U64ToI32X
+                0x26, // S8ToI64
+                0x27, // U8ToI64
+                0x28, // S16ToI64
+                0x29, // U16ToI64
+                0x2a, // S32ToI64
+                0x2b, // U32ToI64
+                0x2c, // S64ToI64
+                0x2d, // U64ToI64
             ]
         );
     }

@@ -6,30 +6,33 @@ use wasmer_interface_types::{
 #[test]
 fn test_binary_encoding_decoding_roundtrip() {
     let original_ast = Interfaces {
-        exports: vec![Export {
-            name: "ab",
-            input_types: vec![InterfaceType::I32],
-            output_types: vec![InterfaceType::I32],
-        }],
-        types: vec![Type::new(
-            "ab",
-            vec!["cd", "e"],
-            vec![InterfaceType::I32, InterfaceType::I32],
-        )],
+        types: vec![
+            Type {
+                inputs: vec![],
+                outputs: vec![],
+            },
+            Type {
+                inputs: vec![InterfaceType::I32, InterfaceType::I32],
+                outputs: vec![InterfaceType::S32],
+            },
+        ],
         imports: vec![Import {
             namespace: "a",
             name: "b",
-            input_types: vec![InterfaceType::I32],
-            output_types: vec![InterfaceType::I64],
+            signature_type: 0,
         }],
-        adapters: vec![Adapter::Import {
-            namespace: "a",
-            name: "b",
-            input_types: vec![InterfaceType::I32],
-            output_types: vec![InterfaceType::I32],
+        adapters: vec![Adapter {
+            function_type: 0,
             instructions: vec![Instruction::ArgumentGet { index: 1 }],
         }],
-        forwards: vec![Forward { name: "a" }],
+        exports: vec![Export {
+            name: "ab",
+            function_type: 1,
+        }],
+        implementations: vec![Implementation {
+            core_function_type: 0,
+            adapter_function_type: 0,
+        }],
     };
 
     let mut binary = vec![];
