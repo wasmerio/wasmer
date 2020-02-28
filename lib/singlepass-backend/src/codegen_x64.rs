@@ -682,6 +682,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     fn next_function(
         &mut self,
         _module_info: Arc<RwLock<ModuleInfo>>,
+        _loc: WasmSpan,
     ) -> Result<&mut X64FunctionCode, CodegenError> {
         let (mut assembler, mut function_labels, breakpoints, exception_table) =
             match self.functions.last_mut() {
@@ -740,7 +741,14 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     fn finalize(
         mut self,
         _: &ModuleInfo,
-    ) -> Result<(X64ExecutionContext, Box<dyn CacheGen>), CodegenError> {
+    ) -> Result<
+        (
+            X64ExecutionContext,
+            Option<wasmer_runtime_core::codegen::DebugMetadata>,
+            Box<dyn CacheGen>,
+        ),
+        CodegenError,
+    > {
         let (assembler, function_labels, breakpoints, exception_table) =
             match self.functions.last_mut() {
                 Some(x) => (
@@ -843,6 +851,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
                 msm: msm,
                 exception_table,
             },
+            None,
             Box::new(cache),
         ))
     }
@@ -2404,7 +2413,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         Ok(())
     }
 
-    fn feed_local(&mut self, _ty: WpType, n: usize) -> Result<(), CodegenError> {
+    fn feed_local(&mut self, _ty: WpType, n: usize, _loc: u32) -> Result<(), CodegenError> {
         self.num_locals += n;
         Ok(())
     }
@@ -2517,7 +2526,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         Ok(())
     }
 
-    fn feed_event(&mut self, ev: Event, module_info: &ModuleInfo) -> Result<(), CodegenError> {
+    fn feed_event(
+        &mut self,
+        ev: Event,
+        module_info: &ModuleInfo,
+        _source_loc: u32,
+    ) -> Result<(), CodegenError> {
         let a = self.assembler.as_mut().unwrap();
 
         match ev {

@@ -20,6 +20,8 @@ libc = "0.2.60"
 hex = "0.4"
 smallvec = "0.6"
 bincode = "1.1"
+wasm-debug = { optional = true, version = "0.1.0" }
+target-lexicon = "0.9"
 
 [dependencies.indexmap]
 version = "1.2"
@@ -52,3 +54,8 @@ cc = "1.0"
 [features]
 managed = []
 deterministic-execution = ["wasmparser/deterministic"]
+# generate debug information from Wasm DWARF for use with the GDB JIT interface
+generate-debug-information = ["wasm-debug"]
+# don't export symbols related to the GDB JIT interafce, LLVM or some other native
+# code will be providing them
+generate-debug-information-no-export-symbols = []

@@ -140,6 +140,17 @@ pub struct CompilerConfig {
     pub cpu_features: Option<String>,
 
     pub backend_specific_config: Option<BackendCompilerConfig>,
+
+    pub generate_debug_info: bool,
+}
+
+impl CompilerConfig {
+    /// Use this to check if we should be generating debug information.
+    /// This function takes into account the features that runtime-core was
+    /// compiled with in addition to the value of the `generate_debug_info` field.
+    pub(crate) fn should_generate_debug_info(&self) -> bool {
+        cfg!(feature = "generate-debug-information") && self.generate_debug_info
+    }
 }
 
 /// An exception table for a `RunnableModule`.

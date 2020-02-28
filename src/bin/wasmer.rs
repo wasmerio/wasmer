@@ -258,6 +258,10 @@ struct Run {
     #[structopt(long = "debug", short = "d")]
     debug: bool,
 
+    /// Generate debug information for use in a debugger
+    #[structopt(long = "generate-debug-info", short = "g")]
+    generate_debug_info: bool,
+
     /// Application arguments
     #[structopt(name = "--", multiple = true)]
     args: Vec<String>,
@@ -557,6 +561,10 @@ impl LLVMCallbacks for LLVMCLIOptions {
 
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
+    if options.generate_debug_info && options.backend != Backend::Cranelift {
+        return Err("Generating debug information is currently only available with the `cranelift` backend.".to_owned());
+    }
+
     let disable_cache = options.disable_cache;
 
     let mapped_dirs = get_mapped_dirs(&options.mapped_dirs[..])?;
@@ -722,6 +730,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
                 features: options.features.into_backend_features(),
                 backend_specific_config,
+                generate_debug_info: options.generate_debug_info,
                 ..Default::default()
             },
             &*compiler,
@@ -1019,6 +1028,7 @@ fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
 
 fn run(options: &mut Run) {
     options.backend = get_backend(options.backend, &options.path);
+
     #[cfg(any(feature = "debug", feature = "trace"))]
     {
         if options.debug {
