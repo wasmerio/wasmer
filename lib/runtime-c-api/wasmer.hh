@@ -269,7 +269,7 @@ struct wasmer_instance_context_t {
 
 };
 
-/// The `wasmer_limit_option_t` struct repreesents an optional limit
+/// The `wasmer_limit_option_t` struct represents an optional limit
 /// for `wasmer_limits_t`.
 struct wasmer_limit_option_t {
   /// Whether the limit is set.
@@ -360,7 +360,7 @@ void wasmer_emscripten_destroy_globals(wasmer_emscripten_globals_t *globals);
 /// `wasmer_emscripten_globals_t` from a `wasmer_module_t`.
 ///
 /// WARNING:
-///1
+///
 /// This `import_object_t` contains thin-wrappers around host system calls.
 /// Do not use this to execute untrusted code without additional sandboxing.
 wasmer_import_object_t *wasmer_emscripten_generate_import_object(wasmer_emscripten_globals_t *globals);
