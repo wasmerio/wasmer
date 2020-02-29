@@ -71,11 +71,6 @@ pub enum WasiStateCreationError {
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
     for byte in alias.bytes() {
         match byte {
-            b'/' => {
-                return Err(WasiStateCreationError::MappedDirAliasFormattingError(
-                    format!("Alias \"{}\" contains the character '/'", alias),
-                ));
-            }
             b'\0' => {
                 return Err(WasiStateCreationError::MappedDirAliasFormattingError(
                     format!("Alias \"{}\" contains a nul byte", alias),
