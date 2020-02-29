@@ -9,7 +9,7 @@
       <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
     </a>
     <a href="https://slack.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square&logo=slack" alt="Slack channel">
+      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel">
     </a> 
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
