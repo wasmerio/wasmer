@@ -28,11 +28,16 @@ script:
 before_deploy:
   # Release
   - make release-singlepass
+  - mkdir -p artifacts
+  # Make capi
+  - make test-capi-singlepass
+  - make capi-singlepass
+  - make build-capi-package
+  - cp ./wasmer-c-api.tar.gz ./artifacts/$(./scripts/capi-name.sh)
   # Build WAPM
   - make build-wapm
   # Make package
   - make build-install-package
-  - mkdir -p artifacts
   - cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)
 
 # before_deploy:
