@@ -30,7 +30,7 @@
 
 </div>
 
-<hr />
+<br />
 
 [Wasmer](https://wasmer.io/) is a standalone [WebAssembly](https://webassembly.org/) runtime:
 * **Universal**: Wasmer is available in *Linux, macOS and Windows* (for both Desktop and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c))
