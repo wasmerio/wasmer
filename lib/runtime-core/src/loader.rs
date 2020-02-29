@@ -140,12 +140,12 @@ impl CodeMemory {
         unimplemented!("CodeMemory::new");
     }
 
-    /// Makes this code memory executable.
+    /// Makes this code memory executable and not writable.
     pub fn make_executable(&self) {
         unimplemented!("CodeMemory::make_executable");
     }
 
-    /// Makes this code memory writable.
+    /// Makes this code memory writable and not executable.
     pub fn make_writable(&self) {
         unimplemented!("CodeMemory::make_writable");
     }
@@ -185,14 +185,14 @@ impl CodeMemory {
         }
     }
 
-    /// Makes this code memory executable.
+    /// Makes this code memory executable and not writable.
     pub fn make_executable(&self) {
         if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_EXEC) } != 0 {
             panic!("cannot set code memory to executable");
         }
     }
 
-    /// Makes this code memory writable.
+    /// Makes this code memory writable and not executable.
     pub fn make_writable(&self) {
         if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_WRITE) } != 0 {
             panic!("cannot set code memory to writable");
