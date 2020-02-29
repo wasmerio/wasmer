@@ -54,7 +54,6 @@ struct AllocState {
 impl TrampBuffer {
     /// Creates a trampoline buffer with a given (virtual) size.
     fn new(size: usize) -> TrampBuffer {
-        // Pre-allocate 64 MiB of virtual memory for code.
         let mem = CodeMemory::new(size);
         mem.make_writable_executable();
         TrampBuffer {
