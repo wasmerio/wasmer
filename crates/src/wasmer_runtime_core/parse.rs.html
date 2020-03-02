@@ -791,7 +791,7 @@
                 }
 
                 <span class="kw">let</span> <span class="ident">info_read</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cur_pos</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">current_poisiton</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cur_pos</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">current_position</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">read</span>();
                 <span class="comment">// loop until the function body starts</span>
                 <span class="kw">loop</span> {
@@ -821,7 +821,7 @@
                         <span class="ident">ParserState</span>::<span class="ident">EndFunctionBody</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">break</span>,
                         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
                     }
-                    <span class="ident">cur_pos</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">current_poisiton</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                    <span class="ident">cur_pos</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">current_position</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                     <span class="ident">state</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">read</span>();
                 }
 
@@ -837,7 +837,7 @@
                         <span class="ident">ParserState</span>::<span class="ident">EndFunctionBody</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">break</span>,
                         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
                     }
-                    <span class="ident">cur_pos</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">current_poisiton</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                    <span class="ident">cur_pos</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">current_position</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                     <span class="ident">state</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">read</span>();
                 }
                 <span class="ident">middlewares</span>
