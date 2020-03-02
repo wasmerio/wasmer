@@ -1879,7 +1879,7 @@ dependencies = [
  "wasmer-clif-fork-wasm",
  "wasmer-runtime-core",
  "wasmer-win-exception-handler",
- "wasmparser 0.51.3",
+ "wasmparser 0.51.4",
  "winapi",
 ]
 
@@ -1906,7 +1906,7 @@ dependencies = [
  "log",
  "thiserror",
  "wasmer-clif-fork-frontend",
- "wasmparser 0.51.3",
+ "wasmparser 0.51.4",
 ]
 
 [[package]]
@@ -1976,7 +1976,7 @@ dependencies = [
  "smallvec 0.6.13",
  "wabt",
  "wasmer-runtime-core",
- "wasmparser 0.51.3",
+ "wasmparser 0.51.4",
  "winapi",
 ]
 
@@ -2063,7 +2063,7 @@ dependencies = [
  "smallvec 0.6.13",
  "target-lexicon 0.9.0",
  "wasm-debug",
- "wasmparser 0.51.3",
+ "wasmparser 0.51.4",
  "winapi",
 ]
 
@@ -2168,9 +2168,9 @@ checksum = "c702914acda5feeeffbc29e4d953e5b9ce79d8b98da4dbf18a77086e116c5470"
 
 [[package]]
 name = "wasmparser"
-version = "0.51.3"
+version = "0.51.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "447465bb5cf5ecd5918919ef3a0002e0839c87fb2a9483d4816d9b2cc36221fa"
+checksum = "aeb1956b19469d1c5e63e459d29e7b5aa0f558d9f16fcef09736f8a265e6c10a"
 
 [[package]]
 name = "wast"
