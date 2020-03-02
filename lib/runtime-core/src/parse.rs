@@ -267,7 +267,7 @@ pub fn read_module<
                 }
 
                 let info_read = info.read().unwrap();
-                let mut cur_pos = parser.current_poisiton() as u32;
+                let mut cur_pos = parser.current_position() as u32;
                 let mut state = parser.read();
                 // loop until the function body starts
                 loop {
@@ -297,7 +297,7 @@ pub fn read_module<
                         ParserState::EndFunctionBody => break,
                         _ => unreachable!(),
                     }
-                    cur_pos = parser.current_poisiton() as u32;
+                    cur_pos = parser.current_position() as u32;
                     state = parser.read();
                 }
 
@@ -313,7 +313,7 @@ pub fn read_module<
                         ParserState::EndFunctionBody => break,
                         _ => unreachable!(),
                     }
-                    cur_pos = parser.current_poisiton() as u32;
+                    cur_pos = parser.current_position() as u32;
                     state = parser.read();
                 }
                 middlewares
