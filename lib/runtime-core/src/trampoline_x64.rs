@@ -48,6 +48,8 @@ struct TrampBuffer {
 /// The allocation state of a `TrampBuffer`.
 struct AllocState {
     /// Records all allocated blocks in `buffer`.
+    ///
+    /// Maps the start address of each block to its end address.
     blocks: BTreeMap<usize, usize>,
 }
 
@@ -103,8 +105,6 @@ impl TrampBuffer {
             if self.buffer.len() - assumed_start < buf.len() {
                 // No more free space. Cannot allocate.
                 return None;
-            } else {
-                // Extend towards the end.
             }
         }
 
