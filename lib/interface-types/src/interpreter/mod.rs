@@ -233,10 +233,8 @@ where
                     Instruction::U16ToI32 => instructions::u16_to_i32(),
                     Instruction::S32ToI32 => instructions::s32_to_i32(),
                     Instruction::U32ToI32 => instructions::u32_to_i32(),
-                    Instruction::S64ToI32 => instructions::s64_to_i32(),
-                    //Instruction::S64ToI32X
-                    Instruction::U64ToI32 => instructions::u64_to_i32(),
-                    //Instruction::U64ToI32X
+                    Instruction::S64ToI32 | Instruction::S64ToI32X => instructions::s64_to_i32(),
+                    Instruction::U64ToI32 | Instruction::U64ToI32X => instructions::u64_to_i32(),
                     Instruction::S8ToI64 => instructions::s8_to_i64(),
                     Instruction::U8ToI64 => instructions::u8_to_i64(),
                     Instruction::S16ToI64 => instructions::s16_to_i64(),
