@@ -143,13 +143,10 @@ jobs:
         displayName: Build (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - bash: |
-          git clone --branch $WAPM_VERSION https://github.com/wasmerio/wapm-cli.git
-          cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+          make build-wapm
         displayName: Build WAPM
         condition: |
           startsWith(variables['Build.SourceBranch'], 'refs/tags')
-        env:
-          WAPM_VERSION: 0.4.3
       - bash: |
           make build-install-package
           cp ./wasmer.tar.gz ./artifacts/$(./scripts/binary-name.sh)

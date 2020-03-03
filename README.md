@@ -1,35 +1,49 @@
 
-<p align="center">
+<div align="center">
   <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
     <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
   </a>
-</p>
+  
+  <p>
+    <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
+      <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
+    </a>
+    <a href="https://slack.wasmer.io">
+      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel">
+    </a> 
+    <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
+      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
+    </a>
+  </p>
 
-<p align="center">
-  <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
-    <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
-  </a>
-  <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
-    <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
-  </a>
-  <a href="https://spectrum.chat/wasmer">
-    <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
-  </a>
-</p>
+  <h3>
+    <a href="https://wasmer.io/">Website</a>
+    <span> • </span>
+    <a href="https://docs.wasmer.io">Docs</a>
+    <span> • </span>
+    <a href="https://medium.com/wasmer/">Blog</a>
+    <span> • </span>
+    <a href="https://slack.wasmer.io/">Slack</a>
+    <span> • </span>
+    <a href="https://twitter.com/wasmerio">Twitter</a>
+  </h3>
 
-[Website](https://wasmer.io) • [Docs](https://docs.wasmer.io/) • [Examples](https://github.com/wasmerio/wasmer/tree/master/examples) • [Blog](https://medium.com/wasmer) • [Slack](https://slack.wasmer.io/) • [Twitter](https://twitter.com/wasmerio)
+</div>
 
-[Wasmer](https://wasmer.io/) is a standalone WebAssembly runtime for running WebAssembly [outside of the browser](https://webassembly.org/docs/non-web/):
-* *Universal*: Wasmer is available in **Linux, macOS and Windows** (for both Desktop and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c))
-* *Pluggable*: Wasmer can be used from almost **any programming language**
-* *Safe*: supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/)
+<br />
+
+[Wasmer](https://wasmer.io/) is a standalone [WebAssembly](https://webassembly.org/) runtime:
+* **Universal**: Wasmer is available in *Linux, macOS and Windows* (for both Desktop and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c))
+* **Fast**: Wasmer aims to run WebAssembly at near-native speed
+* **Pluggable**: Wasmer can be used from almost **any programming language**
+* **Safe**: supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/)
 
 It is used to run software fast, universally and safely: standalone applications and universal libraries.
 
 ## Contents
 
 - [Quickstart](#quickstart)
-- [Language Integrations](#examples)
+- [Language Integrations](#language-integrations)
 - [Contribute](#contribute)
 - [Community](#community)
 

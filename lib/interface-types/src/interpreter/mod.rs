@@ -66,7 +66,6 @@ pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory, Mem
 ///     Instruction, Interpreter,
 /// };
 ///
-/// # fn main() {
 /// // 1. Creates an interpreter from a set of instructions. They will
 /// //    be transformed into executable instructions.
 /// let interpreter: Interpreter<Instance, Export, LocalImport, Memory, MemoryView> = (&vec![
@@ -116,7 +115,6 @@ pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory, Mem
 ///
 /// // 5. Read the stack to get the result.
 /// assert_eq!(stack.as_slice(), &[InterfaceValue::I32(7)]);
-/// # }
 /// ```
 pub struct Interpreter<Instance, Export, LocalImport, Memory, MemoryView>
 where

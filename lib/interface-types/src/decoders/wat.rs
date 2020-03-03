@@ -2,10 +2,7 @@
 
 use crate::{ast::*, interpreter::Instruction};
 pub use wast::parser::ParseBuffer as Buffer;
-use wast::{
-    parser::{self, Cursor, Parse, Parser, Peek, Result},
-    Id, LParen,
-};
+use wast::parser::{self, Cursor, Parse, Parser, Peek, Result};
 
 mod keyword {
     pub use wast::{
@@ -14,15 +11,19 @@ mod keyword {
     };
 
     // New keywords.
-    custom_keyword!(adapt);
-    custom_keyword!(forward);
+    custom_keyword!(implement);
+    custom_keyword!(r#type = "type");
 
     // New types.
-    custom_keyword!(int);
-    custom_keyword!(float);
-    custom_keyword!(any);
+    custom_keyword!(s8);
+    custom_keyword!(s16);
+    custom_keyword!(s32);
+    custom_keyword!(s64);
+    custom_keyword!(u8);
+    custom_keyword!(u16);
+    custom_keyword!(u32);
+    custom_keyword!(u64);
     custom_keyword!(string);
-    custom_keyword!(seq);
 
     // Instructions.
     custom_keyword!(argument_get = "arg.get");
@@ -30,56 +31,83 @@ mod keyword {
     custom_keyword!(call_export = "call-export");
     custom_keyword!(read_utf8 = "read-utf8");
     custom_keyword!(write_utf8 = "write-utf8");
-    custom_keyword!(as_wasm = "as-wasm");
-    custom_keyword!(as_interface = "as-interface");
-    custom_keyword!(table_ref_add = "table-ref-add");
-    custom_keyword!(table_ref_get = "table-ref-get");
-    custom_keyword!(call_method = "call-method");
-    custom_keyword!(make_record = "make-record");
-    custom_keyword!(get_field = "get-field");
-    custom_keyword!(r#const = "const");
-    custom_keyword!(fold_seq = "fold-seq");
-    custom_keyword!(add);
-    custom_keyword!(mem_to_seq = "mem-to-seq");
-    custom_keyword!(load);
-    custom_keyword!(seq_new = "seq.new");
-    custom_keyword!(list_push = "list.push");
-    custom_keyword!(repeat_until = "repeat-until");
+    custom_keyword!(i32_to_s8 = "i32-to-s8");
+    custom_keyword!(i32_to_s8x = "i32-to-s8x");
+    custom_keyword!(i32_to_u8 = "i32-to-u8");
+    custom_keyword!(i32_to_s16 = "i32-to-s16");
+    custom_keyword!(i32_to_s16x = "i32-to-s16x");
+    custom_keyword!(i32_to_u16 = "i32-to-u16");
+    custom_keyword!(i32_to_s32 = "i32-to-s32");
+    custom_keyword!(i32_to_u32 = "i32-to-u32");
+    custom_keyword!(i32_to_s64 = "i32-to-s64");
+    custom_keyword!(i32_to_u64 = "i32-to-u64");
+    custom_keyword!(i64_to_s8 = "i64-to-s8");
+    custom_keyword!(i64_to_s8x = "i64-to-s8x");
+    custom_keyword!(i64_to_u8 = "i64-to-u8");
+    custom_keyword!(i64_to_s16 = "i64-to-s16");
+    custom_keyword!(i64_to_s16x = "i64-to-s16x");
+    custom_keyword!(i64_to_u16 = "i64-to-u16");
+    custom_keyword!(i64_to_s32 = "i64-to-s32");
+    custom_keyword!(i64_to_s32x = "i64-to-s32x");
+    custom_keyword!(i64_to_u32 = "i64-to-u32");
+    custom_keyword!(i64_to_s64 = "i64-to-s64");
+    custom_keyword!(i64_to_u64 = "i64-to-u64");
+    custom_keyword!(s8_to_i32 = "s8-to-i32");
+    custom_keyword!(u8_to_i32 = "u8-to-i32");
+    custom_keyword!(s16_to_i32 = "s16-to-i32");
+    custom_keyword!(u16_to_i32 = "u16-to-i32");
+    custom_keyword!(s32_to_i32 = "s32-to-i32");
+    custom_keyword!(u32_to_i32 = "u32-to-i32");
+    custom_keyword!(s64_to_i32 = "s64-to-i32");
+    custom_keyword!(s64_to_i32x = "s64-to-i32x");
+    custom_keyword!(u64_to_i32 = "u64-to-i32");
+    custom_keyword!(u64_to_i32x = "u64-to-i32x");
+    custom_keyword!(s8_to_i64 = "s8-to-i64");
+    custom_keyword!(u8_to_i64 = "u8-to-i64");
+    custom_keyword!(s16_to_i64 = "s16-to-i64");
+    custom_keyword!(u16_to_i64 = "u16-to-i64");
+    custom_keyword!(s32_to_i64 = "s32-to-i64");
+    custom_keyword!(u32_to_i64 = "u32-to-i64");
+    custom_keyword!(s64_to_i64 = "s64-to-i64");
+    custom_keyword!(u64_to_i64 = "u64-to-i64");
 }
 
-/// Issue: Uppercased keyword aren't supported for the moment.
 impl Parse<'_> for InterfaceType {
     fn parse(parser: Parser<'_>) -> Result<Self> {
         let mut lookahead = parser.lookahead1();
 
-        if lookahead.peek::<keyword::int>() {
-            parser.parse::<keyword::int>()?;
+        if lookahead.peek::<keyword::s8>() {
+            parser.parse::<keyword::s8>()?;
 
-            Ok(InterfaceType::Int)
-        } else if lookahead.peek::<keyword::float>() {
-            parser.parse::<keyword::float>()?;
+            Ok(InterfaceType::S8)
+        } else if lookahead.peek::<keyword::s16>() {
+            parser.parse::<keyword::s16>()?;
 
-            Ok(InterfaceType::Float)
-        } else if lookahead.peek::<keyword::any>() {
-            parser.parse::<keyword::any>()?;
+            Ok(InterfaceType::S16)
+        } else if lookahead.peek::<keyword::s32>() {
+            parser.parse::<keyword::s32>()?;
 
-            Ok(InterfaceType::Any)
-        } else if lookahead.peek::<keyword::string>() {
-            parser.parse::<keyword::string>()?;
+            Ok(InterfaceType::S32)
+        } else if lookahead.peek::<keyword::s64>() {
+            parser.parse::<keyword::s64>()?;
 
-            Ok(InterfaceType::String)
-        } else if lookahead.peek::<keyword::seq>() {
-            parser.parse::<keyword::seq>()?;
+            Ok(InterfaceType::S64)
+        } else if lookahead.peek::<keyword::u8>() {
+            parser.parse::<keyword::u8>()?;
 
-            Ok(InterfaceType::Seq)
-        } else if lookahead.peek::<keyword::i32>() {
-            parser.parse::<keyword::i32>()?;
+            Ok(InterfaceType::U8)
+        } else if lookahead.peek::<keyword::u16>() {
+            parser.parse::<keyword::u16>()?;
 
-            Ok(InterfaceType::I32)
-        } else if lookahead.peek::<keyword::i64>() {
-            parser.parse::<keyword::i64>()?;
+            Ok(InterfaceType::U16)
+        } else if lookahead.peek::<keyword::u32>() {
+            parser.parse::<keyword::u32>()?;
 
-            Ok(InterfaceType::I64)
+            Ok(InterfaceType::U32)
+        } else if lookahead.peek::<keyword::u64>() {
+            parser.parse::<keyword::u64>()?;
+
+            Ok(InterfaceType::U64)
         } else if lookahead.peek::<keyword::f32>() {
             parser.parse::<keyword::f32>()?;
 
@@ -88,10 +116,22 @@ impl Parse<'_> for InterfaceType {
             parser.parse::<keyword::f64>()?;
 
             Ok(InterfaceType::F64)
+        } else if lookahead.peek::<keyword::string>() {
+            parser.parse::<keyword::string>()?;
+
+            Ok(InterfaceType::String)
         } else if lookahead.peek::<keyword::anyref>() {
             parser.parse::<keyword::anyref>()?;
 
-            Ok(InterfaceType::AnyRef)
+            Ok(InterfaceType::Anyref)
+        } else if lookahead.peek::<keyword::i32>() {
+            parser.parse::<keyword::i32>()?;
+
+            Ok(InterfaceType::I32)
+        } else if lookahead.peek::<keyword::i64>() {
+            parser.parse::<keyword::i64>()?;
+
+            Ok(InterfaceType::I64)
         } else {
             Err(lookahead.error())
         }
@@ -99,6 +139,7 @@ impl Parse<'_> for InterfaceType {
 }
 
 impl<'a> Parse<'a> for Instruction<'a> {
+    #[allow(clippy::cognitive_complexity)]
     fn parse(parser: Parser<'a>) -> Result<Self> {
         let mut lookahead = parser.lookahead1();
 
@@ -130,66 +171,162 @@ impl<'a> Parse<'a> for Instruction<'a> {
             Ok(Instruction::WriteUtf8 {
                 allocator_name: parser.parse()?,
             })
-        } else if lookahead.peek::<keyword::as_wasm>() {
-            parser.parse::<keyword::as_wasm>()?;
+        } else if lookahead.peek::<keyword::i32_to_s8>() {
+            parser.parse::<keyword::i32_to_s8>()?;
 
-            Ok(Instruction::AsWasm(parser.parse()?))
-        } else if lookahead.peek::<keyword::as_interface>() {
-            parser.parse::<keyword::as_interface>()?;
+            Ok(Instruction::I32ToS8)
+        } else if lookahead.peek::<keyword::i32_to_s8x>() {
+            parser.parse::<keyword::i32_to_s8x>()?;
 
-            Ok(Instruction::AsInterface(parser.parse()?))
-        } else if lookahead.peek::<keyword::table_ref_add>() {
-            parser.parse::<keyword::table_ref_add>()?;
+            Ok(Instruction::I32ToS8X)
+        } else if lookahead.peek::<keyword::i32_to_u8>() {
+            parser.parse::<keyword::i32_to_u8>()?;
 
-            Ok(Instruction::TableRefAdd)
-        } else if lookahead.peek::<keyword::table_ref_get>() {
-            parser.parse::<keyword::table_ref_get>()?;
+            Ok(Instruction::I32ToU8)
+        } else if lookahead.peek::<keyword::i32_to_s16>() {
+            parser.parse::<keyword::i32_to_s16>()?;
 
-            Ok(Instruction::TableRefGet)
-        } else if lookahead.peek::<keyword::call_method>() {
-            parser.parse::<keyword::call_method>()?;
+            Ok(Instruction::I32ToS16)
+        } else if lookahead.peek::<keyword::i32_to_s16x>() {
+            parser.parse::<keyword::i32_to_s16x>()?;
 
-            Ok(Instruction::CallMethod(parser.parse()?))
-        } else if lookahead.peek::<keyword::make_record>() {
-            parser.parse::<keyword::make_record>()?;
+            Ok(Instruction::I32ToS16X)
+        } else if lookahead.peek::<keyword::i32_to_u16>() {
+            parser.parse::<keyword::i32_to_u16>()?;
 
-            Ok(Instruction::MakeRecord(parser.parse()?))
-        } else if lookahead.peek::<keyword::get_field>() {
-            parser.parse::<keyword::get_field>()?;
+            Ok(Instruction::I32ToU16)
+        } else if lookahead.peek::<keyword::i32_to_s32>() {
+            parser.parse::<keyword::i32_to_s32>()?;
 
-            Ok(Instruction::GetField(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<keyword::r#const>() {
-            parser.parse::<keyword::r#const>()?;
+            Ok(Instruction::I32ToS32)
+        } else if lookahead.peek::<keyword::i32_to_u32>() {
+            parser.parse::<keyword::i32_to_u32>()?;
 
-            Ok(Instruction::Const(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<keyword::fold_seq>() {
-            parser.parse::<keyword::fold_seq>()?;
+            Ok(Instruction::I32ToU32)
+        } else if lookahead.peek::<keyword::i32_to_s64>() {
+            parser.parse::<keyword::i32_to_s64>()?;
 
-            Ok(Instruction::FoldSeq(parser.parse()?))
-        } else if lookahead.peek::<keyword::add>() {
-            parser.parse::<keyword::add>()?;
+            Ok(Instruction::I32ToS64)
+        } else if lookahead.peek::<keyword::i32_to_u64>() {
+            parser.parse::<keyword::i32_to_u64>()?;
 
-            Ok(Instruction::Add(parser.parse()?))
-        } else if lookahead.peek::<keyword::mem_to_seq>() {
-            parser.parse::<keyword::mem_to_seq>()?;
+            Ok(Instruction::I32ToU64)
+        } else if lookahead.peek::<keyword::i64_to_s8>() {
+            parser.parse::<keyword::i64_to_s8>()?;
 
-            Ok(Instruction::MemToSeq(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<keyword::load>() {
-            parser.parse::<keyword::load>()?;
+            Ok(Instruction::I64ToS8)
+        } else if lookahead.peek::<keyword::i64_to_s8x>() {
+            parser.parse::<keyword::i64_to_s8x>()?;
 
-            Ok(Instruction::Load(parser.parse()?, parser.parse()?))
-        } else if lookahead.peek::<keyword::seq_new>() {
-            parser.parse::<keyword::seq_new>()?;
+            Ok(Instruction::I64ToS8X)
+        } else if lookahead.peek::<keyword::i64_to_u8>() {
+            parser.parse::<keyword::i64_to_u8>()?;
 
-            Ok(Instruction::SeqNew(parser.parse()?))
-        } else if lookahead.peek::<keyword::list_push>() {
-            parser.parse::<keyword::list_push>()?;
+            Ok(Instruction::I64ToU8)
+        } else if lookahead.peek::<keyword::i64_to_s16>() {
+            parser.parse::<keyword::i64_to_s16>()?;
 
-            Ok(Instruction::ListPush)
-        } else if lookahead.peek::<keyword::repeat_until>() {
-            parser.parse::<keyword::repeat_until>()?;
+            Ok(Instruction::I64ToS16)
+        } else if lookahead.peek::<keyword::i64_to_s16x>() {
+            parser.parse::<keyword::i64_to_s16x>()?;
 
-            Ok(Instruction::RepeatUntil(parser.parse()?, parser.parse()?))
+            Ok(Instruction::I64ToS16X)
+        } else if lookahead.peek::<keyword::i64_to_u16>() {
+            parser.parse::<keyword::i64_to_u16>()?;
+
+            Ok(Instruction::I64ToU16)
+        } else if lookahead.peek::<keyword::i64_to_s32>() {
+            parser.parse::<keyword::i64_to_s32>()?;
+
+            Ok(Instruction::I64ToS32)
+        } else if lookahead.peek::<keyword::i64_to_s32x>() {
+            parser.parse::<keyword::i64_to_s32x>()?;
+
+            Ok(Instruction::I64ToS32X)
+        } else if lookahead.peek::<keyword::i64_to_u32>() {
+            parser.parse::<keyword::i64_to_u32>()?;
+
+            Ok(Instruction::I64ToU32)
+        } else if lookahead.peek::<keyword::i64_to_s64>() {
+            parser.parse::<keyword::i64_to_s64>()?;
+
+            Ok(Instruction::I64ToS64)
+        } else if lookahead.peek::<keyword::i64_to_u64>() {
+            parser.parse::<keyword::i64_to_u64>()?;
+
+            Ok(Instruction::I64ToU64)
+        } else if lookahead.peek::<keyword::s8_to_i32>() {
+            parser.parse::<keyword::s8_to_i32>()?;
+
+            Ok(Instruction::S8ToI32)
+        } else if lookahead.peek::<keyword::u8_to_i32>() {
+            parser.parse::<keyword::u8_to_i32>()?;
+
+            Ok(Instruction::U8ToI32)
+        } else if lookahead.peek::<keyword::s16_to_i32>() {
+            parser.parse::<keyword::s16_to_i32>()?;
+
+            Ok(Instruction::S16ToI32)
+        } else if lookahead.peek::<keyword::u16_to_i32>() {
+            parser.parse::<keyword::u16_to_i32>()?;
+
+            Ok(Instruction::U16ToI32)
+        } else if lookahead.peek::<keyword::s32_to_i32>() {
+            parser.parse::<keyword::s32_to_i32>()?;
+
+            Ok(Instruction::S32ToI32)
+        } else if lookahead.peek::<keyword::u32_to_i32>() {
+            parser.parse::<keyword::u32_to_i32>()?;
+
+            Ok(Instruction::U32ToI32)
+        } else if lookahead.peek::<keyword::s64_to_i32>() {
+            parser.parse::<keyword::s64_to_i32>()?;
+
+            Ok(Instruction::S64ToI32)
+        } else if lookahead.peek::<keyword::s64_to_i32x>() {
+            parser.parse::<keyword::s64_to_i32x>()?;
+
+            Ok(Instruction::S64ToI32X)
+        } else if lookahead.peek::<keyword::u64_to_i32>() {
+            parser.parse::<keyword::u64_to_i32>()?;
+
+            Ok(Instruction::U64ToI32)
+        } else if lookahead.peek::<keyword::u64_to_i32x>() {
+            parser.parse::<keyword::u64_to_i32x>()?;
+
+            Ok(Instruction::U64ToI32X)
+        } else if lookahead.peek::<keyword::s8_to_i64>() {
+            parser.parse::<keyword::s8_to_i64>()?;
+
+            Ok(Instruction::S8ToI64)
+        } else if lookahead.peek::<keyword::u8_to_i64>() {
+            parser.parse::<keyword::u8_to_i64>()?;
+
+            Ok(Instruction::U8ToI64)
+        } else if lookahead.peek::<keyword::s16_to_i64>() {
+            parser.parse::<keyword::s16_to_i64>()?;
+
+            Ok(Instruction::S16ToI64)
+        } else if lookahead.peek::<keyword::u16_to_i64>() {
+            parser.parse::<keyword::u16_to_i64>()?;
+
+            Ok(Instruction::U16ToI64)
+        } else if lookahead.peek::<keyword::s32_to_i64>() {
+            parser.parse::<keyword::s32_to_i64>()?;
+
+            Ok(Instruction::S32ToI64)
+        } else if lookahead.peek::<keyword::u32_to_i64>() {
+            parser.parse::<keyword::u32_to_i64>()?;
+
+            Ok(Instruction::U32ToI64)
+        } else if lookahead.peek::<keyword::s64_to_i64>() {
+            parser.parse::<keyword::s64_to_i64>()?;
+
+            Ok(Instruction::S64ToI64)
+        } else if lookahead.peek::<keyword::u64_to_i64>() {
+            parser.parse::<keyword::u64_to_i64>()?;
+
+            Ok(Instruction::U64ToI64)
         } else {
             Err(lookahead.error())
         }
@@ -260,12 +397,11 @@ impl Parse<'_> for FunctionType {
 
 #[derive(PartialEq, Debug)]
 enum Interface<'a> {
-    Export(Export<'a>),
-    #[allow(dead_code)]
-    Type(Type<'a>),
+    Type(Type),
     Import(Import<'a>),
     Adapter(Adapter<'a>),
-    Forward(Forward<'a>),
+    Export(Export<'a>),
+    Implementation(Implementation),
 }
 
 impl<'a> Parse<'a> for Interface<'a> {
@@ -278,14 +414,16 @@ impl<'a> Parse<'a> for Interface<'a> {
 
                 let mut lookahead = parser.lookahead1();
 
-                if lookahead.peek::<keyword::export>() {
-                    Ok(Interface::Export(parser.parse()?))
-                } else if lookahead.peek::<keyword::func>() {
+                if lookahead.peek::<keyword::r#type>() {
+                    Ok(Interface::Type(parser.parse()?))
+                } else if lookahead.peek::<keyword::import>() {
                     Ok(Interface::Import(parser.parse()?))
-                } else if lookahead.peek::<keyword::adapt>() {
+                } else if lookahead.peek::<keyword::func>() {
                     Ok(Interface::Adapter(parser.parse()?))
-                } else if lookahead.peek::<keyword::forward>() {
-                    Ok(Interface::Forward(parser.parse()?))
+                } else if lookahead.peek::<keyword::export>() {
+                    Ok(Interface::Export(parser.parse()?))
+                } else if lookahead.peek::<keyword::implement>() {
+                    Ok(Interface::Implementation(parser.parse()?))
                 } else {
                     Err(lookahead.error())
                 }
@@ -296,130 +434,119 @@ impl<'a> Parse<'a> for Interface<'a> {
     }
 }
 
-impl<'a> Parse<'a> for Export<'a> {
+impl<'a> Parse<'a> for Type {
     fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<keyword::export>()?;
-        let name = parser.parse()?;
+        parser.parse::<keyword::r#type>()?;
 
-        let mut input_types = vec![];
-        let mut output_types = vec![];
+        let (inputs, outputs) = parser.parens(|parser| {
+            parser.parse::<keyword::func>()?;
 
-        while !parser.is_empty() {
-            let function_type = parser.parse::<FunctionType>()?;
+            let mut input_types = vec![];
+            let mut output_types = vec![];
 
-            match function_type {
-                FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
-                FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
-            }
-        }
-
-        Ok(Export {
-            name,
-            input_types,
-            output_types,
-        })
-    }
-}
-
-impl<'a> Parse<'a> for Import<'a> {
-    fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<keyword::func>()?;
-        parser.parse::<Id>()?;
-
-        let (namespace, name) = parser.parens(|parser| {
-            parser.parse::<keyword::import>()?;
-
-            Ok((parser.parse()?, parser.parse()?))
-        })?;
-        let mut input_types = vec![];
-        let mut output_types = vec![];
-
-        while !parser.is_empty() {
-            let function_type = parser.parse::<FunctionType>()?;
-
-            match function_type {
-                FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
-                FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
-            }
-        }
-
-        Ok(Import {
-            namespace,
-            name,
-            input_types,
-            output_types,
-        })
-    }
-}
-
-impl<'a> Parse<'a> for Adapter<'a> {
-    fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<keyword::adapt>()?;
-
-        let (kind, namespace, name) = parser.parens(|parser| {
-            let mut lookahead = parser.lookahead1();
-
-            if lookahead.peek::<keyword::import>() {
-                parser.parse::<keyword::import>()?;
-
-                Ok((AdapterKind::Import, parser.parse()?, parser.parse()?))
-            } else if lookahead.peek::<keyword::export>() {
-                parser.parse::<keyword::export>()?;
-
-                Ok((AdapterKind::Export, "", parser.parse()?))
-            } else {
-                Err(lookahead.error())
-            }
-        })?;
-        let mut input_types = vec![];
-        let mut output_types = vec![];
-        let mut instructions = vec![];
-
-        while !parser.is_empty() {
-            if parser.peek::<LParen>() {
+            while !parser.is_empty() {
                 let function_type = parser.parse::<FunctionType>()?;
 
                 match function_type {
                     FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
                     FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
                 }
-            } else {
-                instructions.push(parser.parse()?);
             }
-        }
 
-        Ok(match kind {
-            AdapterKind::Import => Adapter::Import {
-                namespace,
-                name,
-                input_types,
-                output_types,
-                instructions,
-            },
+            Ok((input_types, output_types))
+        })?;
 
-            AdapterKind::Export => Adapter::Export {
-                name,
-                input_types,
-                output_types,
-                instructions,
-            },
+        Ok(Type { inputs, outputs })
+    }
+}
 
-            _ => unimplemented!("Adapter of kind “helper” is not implemented yet."),
+impl<'a> Parse<'a> for Import<'a> {
+    fn parse(parser: Parser<'a>) -> Result<Self> {
+        parser.parse::<keyword::import>()?;
+
+        let namespace = parser.parse()?;
+        let name = parser.parse()?;
+
+        let signature_type = parser.parens(|parser| {
+            parser.parse::<keyword::func>()?;
+
+            parser.parens(|parser| {
+                parser.parse::<keyword::r#type>()?;
+
+                parser.parse()
+            })
+        })?;
+
+        Ok(Import {
+            namespace,
+            name,
+            signature_type,
         })
     }
 }
 
-impl<'a> Parse<'a> for Forward<'a> {
+impl<'a> Parse<'a> for Export<'a> {
     fn parse(parser: Parser<'a>) -> Result<Self> {
-        parser.parse::<keyword::forward>()?;
+        parser.parse::<keyword::export>()?;
 
-        let name = parser.parens(|parser| {
-            parser.parse::<keyword::export>()?;
+        let name = parser.parse()?;
 
-            Ok(parser.parse()?)
+        let function_type = parser.parens(|parser| {
+            parser.parse::<keyword::func>()?;
+
+            parser.parse()
         })?;
 
-        Ok(Forward { name })
+        Ok(Export {
+            name,
+            function_type,
+        })
+    }
+}
+
+impl<'a> Parse<'a> for Implementation {
+    fn parse(parser: Parser<'a>) -> Result<Self> {
+        parser.parse::<keyword::implement>()?;
+
+        let core_function_type = parser.parens(|parser| {
+            parser.parse::<keyword::func>()?;
+
+            parser.parse()
+        })?;
+
+        let adapter_function_type = parser.parens(|parser| {
+            parser.parse::<keyword::func>()?;
+
+            parser.parse()
+        })?;
+
+        Ok(Implementation {
+            core_function_type,
+            adapter_function_type,
+        })
+    }
+}
+
+impl<'a> Parse<'a> for Adapter<'a> {
+    fn parse(parser: Parser<'a>) -> Result<Self> {
+        parser.parse::<keyword::func>()?;
+
+        let function_type = parser.parens(|parser| {
+            parser.parse::<keyword::r#type>()?;
+
+            parser.parse()
+        })?;
+
+        let mut instructions = vec![];
+
+        while !parser.is_empty() {
+            instructions.push(parser.parse()?);
+        }
+
+        Ok(Adapter {
+            function_type,
+            instructions,
+        })
     }
 }
 
@@ -431,11 +558,13 @@ impl<'a> Parse<'a> for Interfaces<'a> {
             let interface = parser.parse::<Interface>()?;
 
             match interface {
-                Interface::Export(export) => interfaces.exports.push(export),
                 Interface::Type(ty) => interfaces.types.push(ty),
                 Interface::Import(import) => interfaces.imports.push(import),
                 Interface::Adapter(adapter) => interfaces.adapters.push(adapter),
-                Interface::Forward(forward) => interfaces.forwards.push(forward),
+                Interface::Export(export) => interfaces.exports.push(export),
+                Interface::Implementation(implementation) => {
+                    interfaces.implementations.push(implementation)
+                }
             }
         }
 
@@ -456,76 +585,43 @@ impl<'a> Parse<'a> for Interfaces<'a> {
 ///     interpreter::Instruction,
 /// };
 ///
-/// # fn main() {
 /// let input = Buffer::new(
-///     r#"(@interface export "foo"
-///   (param i32))
+///     r#"(@interface type (func (param i32) (result s8)))
 ///
-/// (@interface export "bar")
+/// (@interface import "ns" "foo" (func (type 0)))
 ///
-/// (@interface func $ns_foo (import "ns" "foo")
-/// (result i32))
+/// (@interface func (type 0) arg.get 42)
 ///
-/// (@interface func $ns_bar (import "ns" "bar"))
+/// (@interface export "bar" (func 0))
 ///
-/// (@interface adapt (import "ns" "foo")
-/// (param i32)
-/// arg.get 42)
-///
-/// (@interface adapt (export "bar")
-/// arg.get 42)
-///
-/// (@interface forward (export "main"))"#,
+/// (@interface implement (func 0) (func 1))"#,
 /// )
 /// .unwrap();
 /// let output = Interfaces {
-///     exports: vec![
-///         Export {
-///             name: "foo",
-///             input_types: vec![InterfaceType::I32],
-///             output_types: vec![],
-///         },
-///         Export {
-///             name: "bar",
-///             input_types: vec![],
-///             output_types: vec![],
-///         },
-///     ],
-///     types: vec![],
-///     imports: vec![
-///         Import {
-///             namespace: "ns",
-///             name: "foo",
-///             input_types: vec![],
-///             output_types: vec![InterfaceType::I32],
-///         },
-///         Import {
-///             namespace: "ns",
-///             name: "bar",
-///             input_types: vec![],
-///             output_types: vec![],
-///         },
-///     ],
-///     adapters: vec![
-///         Adapter::Import {
-///             namespace: "ns",
-///             name: "foo",
-///             input_types: vec![InterfaceType::I32],
-///             output_types: vec![],
-///             instructions: vec![Instruction::ArgumentGet { index: 42 }],
-///         },
-///         Adapter::Export {
-///             name: "bar",
-///             input_types: vec![],
-///             output_types: vec![],
-///             instructions: vec![Instruction::ArgumentGet { index: 42 }],
-///         },
-///     ],
-///     forwards: vec![Forward { name: "main" }],
+///     types: vec![Type {
+///         inputs: vec![InterfaceType::I32],
+///         outputs: vec![InterfaceType::S8],
+///     }],
+///     imports: vec![Import {
+///         namespace: "ns",
+///         name: "foo",
+///         signature_type: 0,
+///     }],
+///     adapters: vec![Adapter {
+///         function_type: 0,
+///         instructions: vec![Instruction::ArgumentGet { index: 42 }],
+///     }],
+///     exports: vec![Export {
+///         name: "bar",
+///         function_type: 0,
+///     }],
+///     implementations: vec![Implementation {
+///         core_function_type: 0,
+///         adapter_function_type: 1,
+///     }],
 /// };
 ///
 /// assert_eq!(parse(&input).unwrap(), output);
-/// # }
 /// ```
 pub fn parse<'input>(input: &'input Buffer) -> Result<Interfaces<'input>> {
     parser::parse::<Interfaces>(&input)
@@ -543,19 +639,24 @@ mod tests {
     #[test]
     fn test_interface_type() {
         let inputs = vec![
-            "int", "float", "any", "string", "seq", "i32", "i64", "f32", "f64", "anyref",
+            "s8", "s16", "s32", "s64", "u8", "u16", "u32", "u64", "f32", "f64", "string", "anyref",
+            "i32", "i64",
         ];
         let outputs = vec![
-            InterfaceType::Int,
-            InterfaceType::Float,
-            InterfaceType::Any,
-            InterfaceType::String,
-            InterfaceType::Seq,
-            InterfaceType::I32,
-            InterfaceType::I64,
+            InterfaceType::S8,
+            InterfaceType::S16,
+            InterfaceType::S32,
+            InterfaceType::S64,
+            InterfaceType::U8,
+            InterfaceType::U16,
+            InterfaceType::U32,
+            InterfaceType::U64,
             InterfaceType::F32,
             InterfaceType::F64,
-            InterfaceType::AnyRef,
+            InterfaceType::String,
+            InterfaceType::Anyref,
+            InterfaceType::I32,
+            InterfaceType::I64,
         ];
 
         assert_eq!(inputs.len(), outputs.len());
@@ -576,21 +677,45 @@ mod tests {
             r#"call-export "foo""#,
             "read-utf8",
             r#"write-utf8 "foo""#,
-            "as-wasm int",
-            "as-interface anyref",
-            "table-ref-add",
-            "table-ref-get",
-            "call-method 7",
-            "make-record int",
-            "get-field int 7",
-            "const i32 7",
-            "fold-seq 7",
-            "add int",
-            r#"mem-to-seq int "foo""#,
-            r#"load int "foo""#,
-            "seq.new int",
-            "list.push",
-            "repeat-until 1 2",
+            "i32-to-s8",
+            "i32-to-s8x",
+            "i32-to-u8",
+            "i32-to-s16",
+            "i32-to-s16x",
+            "i32-to-u16",
+            "i32-to-s32",
+            "i32-to-u32",
+            "i32-to-s64",
+            "i32-to-u64",
+            "i64-to-s8",
+            "i64-to-s8x",
+            "i64-to-u8",
+            "i64-to-s16",
+            "i64-to-s16x",
+            "i64-to-u16",
+            "i64-to-s32",
+            "i64-to-s32x",
+            "i64-to-u32",
+            "i64-to-s64",
+            "i64-to-u64",
+            "s8-to-i32",
+            "u8-to-i32",
+            "s16-to-i32",
+            "u16-to-i32",
+            "s32-to-i32",
+            "u32-to-i32",
+            "s64-to-i32",
+            "s64-to-i32x",
+            "u64-to-i32",
+            "u64-to-i32x",
+            "s8-to-i64",
+            "u8-to-i64",
+            "s16-to-i64",
+            "u16-to-i64",
+            "s32-to-i64",
+            "u32-to-i64",
+            "s64-to-i64",
+            "u64-to-i64",
         ];
         let outputs = vec![
             Instruction::ArgumentGet { index: 7 },
@@ -600,21 +725,45 @@ mod tests {
             Instruction::WriteUtf8 {
                 allocator_name: "foo",
             },
-            Instruction::AsWasm(InterfaceType::Int),
-            Instruction::AsInterface(InterfaceType::AnyRef),
-            Instruction::TableRefAdd,
-            Instruction::TableRefGet,
-            Instruction::CallMethod(7),
-            Instruction::MakeRecord(InterfaceType::Int),
-            Instruction::GetField(InterfaceType::Int, 7),
-            Instruction::Const(InterfaceType::I32, 7),
-            Instruction::FoldSeq(7),
-            Instruction::Add(InterfaceType::Int),
-            Instruction::MemToSeq(InterfaceType::Int, "foo"),
-            Instruction::Load(InterfaceType::Int, "foo"),
-            Instruction::SeqNew(InterfaceType::Int),
-            Instruction::ListPush,
-            Instruction::RepeatUntil(1, 2),
+            Instruction::I32ToS8,
+            Instruction::I32ToS8X,
+            Instruction::I32ToU8,
+            Instruction::I32ToS16,
+            Instruction::I32ToS16X,
+            Instruction::I32ToU16,
+            Instruction::I32ToS32,
+            Instruction::I32ToU32,
+            Instruction::I32ToS64,
+            Instruction::I32ToU64,
+            Instruction::I64ToS8,
+            Instruction::I64ToS8X,
+            Instruction::I64ToU8,
+            Instruction::I64ToS16,
+            Instruction::I64ToS16X,
+            Instruction::I64ToU16,
+            Instruction::I64ToS32,
+            Instruction::I64ToS32X,
+            Instruction::I64ToU32,
+            Instruction::I64ToS64,
+            Instruction::I64ToU64,
+            Instruction::S8ToI32,
+            Instruction::U8ToI32,
+            Instruction::S16ToI32,
+            Instruction::U16ToI32,
+            Instruction::S32ToI32,
+            Instruction::U32ToI32,
+            Instruction::S64ToI32,
+            Instruction::S64ToI32X,
+            Instruction::U64ToI32,
+            Instruction::U64ToI32X,
+            Instruction::S8ToI64,
+            Instruction::U8ToI64,
+            Instruction::S16ToI64,
+            Instruction::U16ToI64,
+            Instruction::S32ToI64,
+            Instruction::U32ToI64,
+            Instruction::S64ToI64,
+            Instruction::U64ToI64,
         ];
 
         assert_eq!(inputs.len(), outputs.len());
@@ -660,48 +809,22 @@ mod tests {
     }
 
     #[test]
-    fn test_export_with_no_param_no_result() {
-        let input = buffer(r#"(@interface export "foo")"#);
-        let output = Interface::Export(Export {
-            name: "foo",
-            input_types: vec![],
-            output_types: vec![],
+    fn test_type() {
+        let input = buffer(r#"(@interface type (func (param i32 i32) (result i32)))"#);
+        let output = Interface::Type(Type {
+            inputs: vec![InterfaceType::I32, InterfaceType::I32],
+            outputs: vec![InterfaceType::I32],
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
 
     #[test]
-    fn test_export_with_some_param_no_result() {
-        let input = buffer(r#"(@interface export "foo" (param i32))"#);
+    fn test_export() {
+        let input = buffer(r#"(@interface export "foo" (func 0))"#);
         let output = Interface::Export(Export {
             name: "foo",
-            input_types: vec![InterfaceType::I32],
-            output_types: vec![],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_export_with_no_param_some_result() {
-        let input = buffer(r#"(@interface export "foo" (result i32))"#);
-        let output = Interface::Export(Export {
-            name: "foo",
-            input_types: vec![],
-            output_types: vec![InterfaceType::I32],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_export_with_some_param_some_result() {
-        let input = buffer(r#"(@interface export "foo" (param string) (result i32 i32))"#);
-        let output = Interface::Export(Export {
-            name: "foo",
-            input_types: vec![InterfaceType::String],
-            output_types: vec![InterfaceType::I32, InterfaceType::I32],
+            function_type: 0,
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
@@ -709,101 +832,45 @@ mod tests {
 
     #[test]
     fn test_export_escaped_name() {
-        let input = buffer(r#"(@interface export "fo\"o")"#);
+        let input = buffer(r#"(@interface export "fo\"o" (func 0))"#);
         let output = Interface::Export(Export {
             name: r#"fo"o"#,
-            input_types: vec![],
-            output_types: vec![],
+            function_type: 0,
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
 
     #[test]
-    fn test_import_with_no_param_no_result() {
-        let input = buffer(r#"(@interface func $ns_foo (import "ns" "foo"))"#);
+    fn test_import() {
+        let input = buffer(r#"(@interface import "ns" "foo" (func (type 0)))"#);
         let output = Interface::Import(Import {
             namespace: "ns",
             name: "foo",
-            input_types: vec![],
-            output_types: vec![],
+            signature_type: 0,
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
 
     #[test]
-    fn test_import_with_some_param_no_result() {
-        let input = buffer(r#"(@interface func $ns_foo (import "ns" "foo") (param i32))"#);
-        let output = Interface::Import(Import {
-            namespace: "ns",
-            name: "foo",
-            input_types: vec![InterfaceType::I32],
-            output_types: vec![],
+    fn test_adapter() {
+        let input = buffer(r#"(@interface func (type 0) arg.get 42)"#);
+        let output = Interface::Adapter(Adapter {
+            function_type: 0,
+            instructions: vec![Instruction::ArgumentGet { index: 42 }],
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
 
     #[test]
-    fn test_import_with_no_param_some_result() {
-        let input = buffer(r#"(@interface func $ns_foo (import "ns" "foo") (result i32))"#);
-        let output = Interface::Import(Import {
-            namespace: "ns",
-            name: "foo",
-            input_types: vec![],
-            output_types: vec![InterfaceType::I32],
+    fn test_implementation() {
+        let input = buffer(r#"(@interface implement (func 0) (func 1))"#);
+        let output = Interface::Implementation(Implementation {
+            core_function_type: 0,
+            adapter_function_type: 1,
         });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_import_with_some_param_some_result() {
-        let input = buffer(
-            r#"(@interface func $ns_foo (import "ns" "foo") (param string) (result i32 i32))"#,
-        );
-        let output = Interface::Import(Import {
-            namespace: "ns",
-            name: "foo",
-            input_types: vec![InterfaceType::String],
-            output_types: vec![InterfaceType::I32, InterfaceType::I32],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_adapter_import() {
-        let input =
-            buffer(r#"(@interface adapt (import "ns" "foo") (param i32 i32) (result i32))"#);
-        let output = Interface::Adapter(Adapter::Import {
-            namespace: "ns",
-            name: "foo",
-            input_types: vec![InterfaceType::I32, InterfaceType::I32],
-            output_types: vec![InterfaceType::I32],
-            instructions: vec![],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-
-    #[test]
-    fn test_adapter_export() {
-        let input = buffer(r#"(@interface adapt (export "foo") (param i32 i32) (result i32))"#);
-        let output = Interface::Adapter(Adapter::Export {
-            name: "foo",
-            input_types: vec![InterfaceType::I32, InterfaceType::I32],
-            output_types: vec![InterfaceType::I32],
-            instructions: vec![],
-        });
-
-        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
-    }
-    #[test]
-    fn test_forward() {
-        let input = buffer(r#"(@interface forward (export "foo"))"#);
-        let output = Interface::Forward(Forward { name: "foo" });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
@@ -811,69 +878,38 @@ mod tests {
     #[test]
     fn test_interfaces() {
         let input = buffer(
-            r#"(@interface export "foo"
-  (param i32))
+            r#"(@interface type (func (param i32) (result s8)))
 
-(@interface export "bar")
+(@interface import "ns" "foo" (func (type 0)))
 
-(@interface func $ns_foo (import "ns" "foo")
-  (result i32))
+(@interface func (type 0) arg.get 42)
 
-(@interface func $ns_bar (import "ns" "bar"))
+(@interface export "bar" (func 0))
 
-(@interface adapt (import "ns" "foo")
-  (param i32)
-  arg.get 42)
-
-(@interface adapt (export "bar")
-  arg.get 42)
-
-(@interface forward (export "main"))"#,
+(@interface implement (func 0) (func 1))"#,
         );
         let output = Interfaces {
-            exports: vec![
-                Export {
-                    name: "foo",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![],
-                },
-                Export {
-                    name: "bar",
-                    input_types: vec![],
-                    output_types: vec![],
-                },
-            ],
-            types: vec![],
-            imports: vec![
-                Import {
-                    namespace: "ns",
-                    name: "foo",
-                    input_types: vec![],
-                    output_types: vec![InterfaceType::I32],
-                },
-                Import {
-                    namespace: "ns",
-                    name: "bar",
-                    input_types: vec![],
-                    output_types: vec![],
-                },
-            ],
-            adapters: vec![
-                Adapter::Import {
-                    namespace: "ns",
-                    name: "foo",
-                    input_types: vec![InterfaceType::I32],
-                    output_types: vec![],
-                    instructions: vec![Instruction::ArgumentGet { index: 42 }],
-                },
-                Adapter::Export {
-                    name: "bar",
-                    input_types: vec![],
-                    output_types: vec![],
-                    instructions: vec![Instruction::ArgumentGet { index: 42 }],
-                },
-            ],
-            forwards: vec![Forward { name: "main" }],
+            types: vec![Type {
+                inputs: vec![InterfaceType::I32],
+                outputs: vec![InterfaceType::S8],
+            }],
+            imports: vec![Import {
+                namespace: "ns",
+                name: "foo",
+                signature_type: 0,
+            }],
+            adapters: vec![Adapter {
+                function_type: 0,
+                instructions: vec![Instruction::ArgumentGet { index: 42 }],
+            }],
+            exports: vec![Export {
+                name: "bar",
+                function_type: 0,
+            }],
+            implementations: vec![Implementation {
+                core_function_type: 0,
+                adapter_function_type: 1,
+            }],
         };
 
         assert_eq!(parser::parse::<Interfaces>(&input).unwrap(), output);
