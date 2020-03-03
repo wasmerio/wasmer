@@ -13,11 +13,11 @@ macro_rules! lowering_lifting {
                                 .push(InterfaceValue::$to_variant(value.try_into().map_err(
                                     |_| {
                                         concat!(
-                                            "Failed to cast ",
+                                            "Failed to cast `",
                                             stringify!($from_variant),
-                                            " to ",
+                                            "` to `",
                                             stringify!($to_variant),
-                                            "."
+                                            "`."
                                         ).to_string()
                                     },
                                 )?))
@@ -96,6 +96,14 @@ mod tests {
             invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::S8(42)],
+    );
+
+    test_executable_instruction!(
+        test_convert_fails =
+            instructions: [Instruction::ArgumentGet { index: 0}, Instruction::I32ToS8],
+            invocation_inputs: [InterfaceValue::I32(128)],
+            instance: Instance::new(),
+            error: "Failed to cast `I32` to `S8`."
     );
 
     test_executable_instruction!(
