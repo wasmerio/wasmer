@@ -1686,13 +1686,13 @@
 <span class="doccomment">/// `typed_func` module within the `wrap` functions, to wrap imported</span>
 <span class="doccomment">/// functions.</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Func</span>(<span class="kw">pub</span>(<span class="self">self</span>) <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>);
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Func</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>);
 
 <span class="doccomment">/// Represents a function environment pointer, like a captured</span>
 <span class="doccomment">/// environment of a closure. It is mostly used in the `typed_func`</span>
 <span class="doccomment">/// module within the `wrap` functions, to wrap imported functions.</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FuncEnv</span>(<span class="kw">pub</span>(<span class="self">self</span>) <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>);
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FuncEnv</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>);
 
 <span class="doccomment">/// Represents a function context. It is used by imported functions</span>
 <span class="doccomment">/// only.</span>
