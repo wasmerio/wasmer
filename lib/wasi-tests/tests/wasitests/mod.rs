@@ -24,6 +24,7 @@ mod path_link;
 mod path_rename;
 mod path_symlink;
 mod poll_oneoff;
+mod preopen;
 mod quine;
 mod readlink;
 mod wasi_sees_virtual_root;

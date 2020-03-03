@@ -1,4 +1,4 @@
-#![deny(
+/*#![deny(
     dead_code,
     nonstandard_style,
     unused_imports,
@@ -7,7 +7,7 @@
     unused_unsafe,
     unreachable_patterns,
     clippy::missing_safety_doc
-)]
+)]*/
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
@@ -65,17 +65,33 @@ pub fn generate_import_object(
                 drop(Box::from_raw(data as *mut WasiState));
             }
         }
+        let args = args.clone();
+        let envs = envs.clone();
         let preopened_files = preopened_files.clone();
         let mapped_dirs = mapped_dirs.clone();
+        let prog_name = args
+            .get(0)
+            .and_then(|p| std::str::from_utf8(p).ok())
+            .unwrap_or("unnamed_program")
+            .to_string();
+        let mut wasi_state_builder = WasiState::new(&prog_name);
+        if !args.is_empty() {
+            wasi_state_builder.args(&args[1..]);
+        }
 
-        // this deprecation warning only applies to external callers
-        #[allow(deprecated)]
-        let state = Box::new(WasiState {
-            fs: WasiFs::new(&preopened_files, &mapped_dirs).expect("Could not create WASI FS"),
-            args: args.clone(),
-            envs: envs.clone(),
-        });
-
+        let state: Box<WasiState> = Box::new(
+            wasi_state_builder
+                .envs(envs.iter().map(|e| {
+                    let mut split = e.split(|c| *c == b'=');
+                    (split.next().unwrap(), split.next().unwrap())
+                }))
+                .preopen_dirs(preopened_files)
+                .expect("preopen directories")
+                .map_dirs(mapped_dirs)
+                .expect("preopen mapped directories")
+                .build()
+                .expect("build WasiState"),
+        );
         (
             Box::into_raw(state) as *mut c_void,
             state_destructor as fn(*mut c_void),

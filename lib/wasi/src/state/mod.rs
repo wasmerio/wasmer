@@ -313,19 +313,6 @@ impl WasiFs {
                 )
             })?;
 
-            let kind = if cur_dir_metadata.is_dir() {
-                Kind::Dir {
-                    parent: Some(root_inode),
-                    path: path.clone(),
-                    entries: Default::default(),
-                }
-            } else {
-                return Err(format!(
-                    "WASI only supports pre-opened directories right now; found \"{}\"",
-                    &path.to_string_lossy()
-                ));
-            };
-
             let rights = {
                 // TODO: review tell' and fd_readwrite
                 let mut rights =
@@ -368,17 +355,153 @@ impl WasiFs {
 
                 rights
             };
-            let inode = if let Some(alias) = &alias {
-                wasi_fs.create_inode(kind, true, alias.clone())
+            // TODO make mut
+            let kind = if cur_dir_metadata.is_dir() {
+                Kind::Dir {
+                    parent: Some(root_inode),
+                    path: path.clone(),
+                    entries: Default::default(),
+                }
             } else {
-                wasi_fs.create_inode(kind, true, path.to_string_lossy().into_owned())
-            }
-            .map_err(|e| {
-                format!(
-                    "Failed to create inode for preopened dir: WASI error code: {}",
-                    e
-                )
-            })?;
+                return Err(format!(
+                    "WASI only supports pre-opened directories right now; found \"{}\"",
+                    &path.to_string_lossy()
+                ));
+            };
+            let inode = if let Some(alias) = &alias {
+                let mut parent_inode = root_inode;
+                let mut parent_inode_set = false;
+
+                let get_or_build_cur_dir = |wasi_fs: &mut WasiFs| {
+                    if let Kind::Root { entries } = &wasi_fs.inodes[root_inode].kind {
+                        // pretty hacky, we should probably come up with
+                        // a better solution for curdir in general
+                        // means `/.` is a valid path that's not the same as `/`.
+                        if let Some(inode) = entries.get(".") {
+                            return *inode;
+                        } else {
+                            // if we haven't seen this directory before, preopen it
+                            let cur_dir_kind = Kind::Dir {
+                                parent: Some(root_inode),
+                                path: PathBuf::from("."),
+                                entries: Default::default(),
+                            };
+
+                            let cur_dir_inode = wasi_fs.create_inode_with_stat(
+                                cur_dir_kind,
+                                true,
+                                ".".to_string(),
+                                __wasi_filestat_t {
+                                    st_filetype: __WASI_FILETYPE_DIRECTORY,
+                                    ..__wasi_filestat_t::default()
+                                },
+                            );
+
+                            // reborrow to insert
+                            if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
+                                entries.insert(".".to_string(), cur_dir_inode);
+                                return cur_dir_inode;
+                            } else {
+                                unreachable!("In root context, can't not find root");
+                            }
+                        }
+                    } else {
+                        unreachable!("Root inode from WasiFs::init can't access root!");
+                    }
+                };
+
+                use std::path::Component;
+                for component in Path::new(alias).components() {
+                    match component {
+                        Component::RootDir => {
+                            assert!(!parent_inode_set, "Alias contains multiple bases!");
+                            parent_inode = root_inode;
+                            parent_inode_set = true;
+                        }
+                        Component::Prefix(p) => {
+                            return Err(format!("Prefixes in mapped dir aliases currently not supported, found {:?} in {}", p, alias));
+                        }
+                        Component::CurDir => {
+                            assert!(!parent_inode_set, "Alias contains multiple bases!");
+                            parent_inode = get_or_build_cur_dir(&mut wasi_fs);
+                            parent_inode_set = true;
+                        }
+                        Component::ParentDir => {
+                            if let Kind::Dir { parent, .. } = &wasi_fs.inodes[parent_inode].kind {
+                                if let Some(p) = parent {
+                                    parent_inode = *p;
+                                    continue;
+                                }
+                            }
+                            return Err(format!("Could not find parent directory at inode {:?}, when building directories for \"{}\"", parent_inode, alias));
+                        }
+                        Component::Normal(segment) => {
+                            if !parent_inode_set {
+                                parent_inode = get_or_build_cur_dir(&mut wasi_fs);
+                                parent_inode_set = true;
+                            }
+                            let segment_name = segment.to_string_lossy().to_string();
+                            // check if we already track this directory, if so just use that
+                            if let Kind::Root { entries } | Kind::Dir { entries, .. } =
+                                &wasi_fs.inodes[parent_inode].kind
+                            {
+                                if let Some(inode) = entries.get(&segment_name) {
+                                    parent_inode = *inode;
+                                    continue;
+                                }
+                            }
+                            // if we haven't seen this directory before, preopen it
+                            let intermediate_dir = Kind::Dir {
+                                parent: Some(parent_inode),
+                                // TODO: review use of path
+                                path: PathBuf::from(&segment),
+                                entries: Default::default(),
+                            };
+
+                            let seg_inode = wasi_fs.create_inode_with_default_stat(
+                                intermediate_dir,
+                                true,
+                                segment_name.clone(),
+                            );
+
+                            if let Kind::Root { entries } | Kind::Dir { entries, .. } =
+                                &mut wasi_fs.inodes[parent_inode].kind
+                            {
+                                entries.insert(segment_name, seg_inode);
+                            }
+                            parent_inode = seg_inode;
+                        }
+                    }
+                }
+                parent_inode
+            } else {
+                if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
+                    let dir_key = alias
+                        .clone()
+                        .unwrap_or_else(|| path.to_string_lossy().into_owned());
+                    if let Some(inode) = entries.get(&dir_key) {
+                        *inode
+                    } else {
+                        let inode = wasi_fs
+                            .create_inode(kind, true, path.to_string_lossy().into_owned())
+                            .map_err(|e| {
+                                format!(
+                                    "Failed to create inode for preopened dir: WASI error code: {}",
+                                    e
+                                )
+                            })?;
+                        if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
+                            let existing_entry = entries.insert(dir_key, inode);
+                            // todo handle collisions
+                            assert!(existing_entry.is_none())
+                        }
+                        inode
+                    }
+                } else {
+                    unreachable!("Root not reachable from root inode!");
+                }
+            };
+
             let fd_flags = {
                 let mut fd_flags = 0;
                 if *read {
@@ -396,15 +519,7 @@ impl WasiFs {
             let fd = wasi_fs
                 .create_fd(rights, rights, 0, fd_flags, inode)
                 .map_err(|e| format!("Could not open fd for file {:?}: {}", path, e))?;
-            if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                let existing_entry = if let Some(alias) = &alias {
-                    entries.insert(alias.clone(), inode)
-                } else {
-                    entries.insert(path.to_string_lossy().into_owned(), inode)
-                };
-                // todo handle collisions
-                assert!(existing_entry.is_none())
-            }
+
             wasi_fs.preopen_fds.push(fd);
         }
 
@@ -1077,6 +1192,15 @@ impl WasiFs {
                     fs_rights_inheriting: 0,
                 })
             }
+            VIRTUAL_ROOT_FD => {
+                return Ok(__wasi_fdstat_t {
+                    fs_filetype: __WASI_FILETYPE_DIRECTORY,
+                    fs_flags: 0,
+                    // TODO: fix this
+                    fs_rights_base: ALL_RIGHTS,
+                    fs_rights_inheriting: ALL_RIGHTS,
+                });
+            }
             _ => (),
         }
         let fd = self.get_fd(fd)?;
@@ -1165,15 +1289,8 @@ impl WasiFs {
         is_preopened: bool,
         name: String,
     ) -> Result<Inode, __wasi_errno_t> {
-        let mut stat = self.get_stat_for_kind(&kind).ok_or(__WASI_EIO)?;
-        stat.st_ino = self.get_next_inode_index();
-
-        Ok(self.inodes.insert(InodeVal {
-            stat,
-            is_preopened,
-            name,
-            kind,
-        }))
+        let stat = self.get_stat_for_kind(&kind).ok_or(__WASI_EIO)?;
+        Ok(self.create_inode_with_stat(kind, is_preopened, name, stat))
     }
 
     /// creates an inode and inserts it given a Kind, does not assume the file exists to
@@ -1183,7 +1300,18 @@ impl WasiFs {
         is_preopened: bool,
         name: String,
     ) -> Inode {
-        let mut stat = __wasi_filestat_t::default();
+        let stat = __wasi_filestat_t::default();
+        self.create_inode_with_stat(kind, is_preopened, name, stat)
+    }
+
+    /// creates an inode with the given info. Sets `st_ino` in stat.
+    pub(crate) fn create_inode_with_stat(
+        &mut self,
+        kind: Kind,
+        is_preopened: bool,
+        name: String,
+        mut stat: __wasi_filestat_t,
+    ) -> Inode {
         stat.st_ino = self.get_next_inode_index();
 
         self.inodes.insert(InodeVal {
