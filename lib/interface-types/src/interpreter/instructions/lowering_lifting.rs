@@ -23,11 +23,17 @@ macro_rules! lowering_lifting {
                                 )?))
                         }
 
-                        Some(_) => {
-                            return Err(concat!(
-                                "Instruction `",
-                                $instruction_name,
-                                "` expects a `i32` value on the stack."
+                        Some(wrong_value) => {
+                            return Err(format!(
+                                concat!(
+                                    "Instruction `",
+                                    $instruction_name,
+                                    "` expects a `",
+                                    stringify!($from_variant),
+                                    "` value on the stack, got `{:?}`.",
+                                ),
+                                wrong_value
+
                             )
                             .to_string())
                         },
@@ -90,6 +96,22 @@ mod tests {
             invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::S8(42)],
+    );
+
+    test_executable_instruction!(
+        test_type_mismatch =
+            instructions: [Instruction::ArgumentGet { index: 0}, Instruction::I32ToS8],
+            invocation_inputs: [InterfaceValue::I64(42)],
+            instance: Instance::new(),
+            error: "Instruction `i32-to-s8` expects a `I32` value on the stack, got `I64(42)`."
+    );
+
+    test_executable_instruction!(
+        test_no_value_on_the_stack =
+            instructions: [Instruction::I32ToS8],
+            invocation_inputs: [InterfaceValue::I32(42)],
+            instance: Instance::new(),
+            error: "Instruction `i32-to-s8` needs one value on the stack."
     );
 
     test_executable_instruction!(
