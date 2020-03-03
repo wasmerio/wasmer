@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1217](https://github.com/wasmerio/wasmer/pull/1217) Polymorphic host functions based on dynamic trampoline generation.
 - [#1252](https://github.com/wasmerio/wasmer/pull/1252) Allow `/` in wasi `--mapdir` wasm path.
 - [#1212](https://github.com/wasmerio/wasmer/pull/1212) Add support for GDB JIT debugging:
   - Add `--generate-debug-info` and `-g` flags to `wasmer run` to generate debug information during compilation. The debug info is passed via the GDB JIT interface to a debugger to allow source-level debugging of Wasm files. Currently only available on clif-backend.
