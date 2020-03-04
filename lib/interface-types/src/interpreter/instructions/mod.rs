@@ -1,12 +1,14 @@
 mod argument_get;
 mod call;
 mod call_export;
+mod lowering_lifting;
 mod read_utf8;
 mod write_utf8;
 
 pub(crate) use argument_get::argument_get;
 pub(crate) use call::call;
 pub(crate) use call_export::call_export;
+pub(crate) use lowering_lifting::*;
 pub(crate) use read_utf8::read_utf8;
 pub(crate) use write_utf8::write_utf8;
 

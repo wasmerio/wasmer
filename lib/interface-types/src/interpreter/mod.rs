@@ -206,6 +206,43 @@ where
                     Instruction::WriteUtf8 { allocator_name } => {
                         instructions::write_utf8((*allocator_name).to_owned(), instruction_name)
                     }
+
+                    Instruction::I32ToS8 => instructions::i32_to_s8(),
+                    //Instruction::I32ToS8X
+                    Instruction::I32ToU8 => instructions::i32_to_u8(),
+                    Instruction::I32ToS16 => instructions::i32_to_s16(),
+                    //Instruction::I32ToS16X
+                    Instruction::I32ToU16 => instructions::i32_to_u16(),
+                    Instruction::I32ToS32 => instructions::i32_to_s32(),
+                    Instruction::I32ToU32 => instructions::i32_to_u32(),
+                    Instruction::I32ToS64 => instructions::i32_to_s64(),
+                    Instruction::I32ToU64 => instructions::i32_to_u64(),
+                    Instruction::I64ToS8 => instructions::i64_to_s8(),
+                    //Instruction::I64ToS8X
+                    Instruction::I64ToU8 => instructions::i64_to_u8(),
+                    Instruction::I64ToS16 => instructions::i64_to_s16(),
+                    //Instruction::I64ToS16X
+                    Instruction::I64ToU16 => instructions::i64_to_u16(),
+                    Instruction::I64ToS32 => instructions::i64_to_s32(),
+                    Instruction::I64ToU32 => instructions::i64_to_u32(),
+                    Instruction::I64ToS64 => instructions::i64_to_s64(),
+                    Instruction::I64ToU64 => instructions::i64_to_u64(),
+                    Instruction::S8ToI32 => instructions::s8_to_i32(),
+                    Instruction::U8ToI32 => instructions::u8_to_i32(),
+                    Instruction::S16ToI32 => instructions::s16_to_i32(),
+                    Instruction::U16ToI32 => instructions::u16_to_i32(),
+                    Instruction::S32ToI32 => instructions::s32_to_i32(),
+                    Instruction::U32ToI32 => instructions::u32_to_i32(),
+                    Instruction::S64ToI32 | Instruction::S64ToI32X => instructions::s64_to_i32(),
+                    Instruction::U64ToI32 | Instruction::U64ToI32X => instructions::u64_to_i32(),
+                    Instruction::S8ToI64 => instructions::s8_to_i64(),
+                    Instruction::U8ToI64 => instructions::u8_to_i64(),
+                    Instruction::S16ToI64 => instructions::s16_to_i64(),
+                    Instruction::U16ToI64 => instructions::u16_to_i64(),
+                    Instruction::S32ToI64 => instructions::s32_to_i64(),
+                    Instruction::U32ToI64 => instructions::u32_to_i64(),
+                    Instruction::S64ToI64 => instructions::s64_to_i64(),
+                    Instruction::U64ToI64 => instructions::u64_to_i64(),
                     _ => unimplemented!(),
                 }
             })
