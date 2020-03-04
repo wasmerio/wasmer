@@ -1505,6 +1505,15 @@
 <span id="1505">1505</span>
 <span id="1506">1506</span>
 <span id="1507">1507</span>
+<span id="1508">1508</span>
+<span id="1509">1509</span>
+<span id="1510">1510</span>
+<span id="1511">1511</span>
+<span id="1512">1512</span>
+<span id="1513">1513</span>
+<span id="1514">1514</span>
+<span id="1515">1515</span>
+<span id="1516">1516</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
@@ -2584,6 +2593,15 @@
                     <span class="ident">fs_rights_base</span>: <span class="ident">STDERR_DEFAULT_RIGHTS</span>,
                     <span class="ident">fs_rights_inheriting</span>: <span class="number">0</span>,
                 })
+            }
+            <span class="ident">VIRTUAL_ROOT_FD</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">__wasi_fdstat_t</span> {
+                    <span class="ident">fs_filetype</span>: <span class="ident">__WASI_FILETYPE_DIRECTORY</span>,
+                    <span class="ident">fs_flags</span>: <span class="number">0</span>,
+                    <span class="comment">// TODO: fix this</span>
+                    <span class="ident">fs_rights_base</span>: <span class="ident">ALL_RIGHTS</span>,
+                    <span class="ident">fs_rights_inheriting</span>: <span class="ident">ALL_RIGHTS</span>,
+                });
             }
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> (),
         }
