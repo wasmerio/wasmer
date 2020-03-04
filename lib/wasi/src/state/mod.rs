@@ -1077,6 +1077,15 @@ impl WasiFs {
                     fs_rights_inheriting: 0,
                 })
             }
+            VIRTUAL_ROOT_FD => {
+                return Ok(__wasi_fdstat_t {
+                    fs_filetype: __WASI_FILETYPE_DIRECTORY,
+                    fs_flags: 0,
+                    // TODO: fix this
+                    fs_rights_base: ALL_RIGHTS,
+                    fs_rights_inheriting: ALL_RIGHTS,
+                });
+            }
             _ => (),
         }
         let fd = self.get_fd(fd)?;
