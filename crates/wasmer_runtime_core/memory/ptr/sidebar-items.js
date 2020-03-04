@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["align_pointer",""]],"struct":[["Array","Array."],["Item","Item."],["WasmPtr","A pointer to a Wasm item."]]});
+initSidebarItems({"fn":[["align_pointer",""]],"struct":[["Array","The `Array` marker type. This type can be used like `WasmPtr<T, Array>` to get access to methods"],["Item","The `Item` marker type. This is the default and does not usually need to be specified."],["WasmPtr","A zero-cost type that represents a pointer to something in Wasm linear memory."]]});

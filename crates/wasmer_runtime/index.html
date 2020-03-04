@@ -64,7 +64,8 @@ manipulate and access wasm memory.</p>
 <table><tr class='module-item'><td><a class="macro" href="macro.func.html" title='wasmer_runtime::func macro'>func</a></td><td class='docblock-short'><p>Helper macro to create a new <code>Func</code> object using the provided function pointer.</p>
 </td></tr><tr class='module-item'><td><a class="macro" href="macro.imports.html" title='wasmer_runtime::imports macro'>imports</a></td><td class='docblock-short'><p>Generate an <a href="struct.ImportObject.html"><code>ImportObject</code></a> safely.</p>
 </td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
-<table><tr class='module-item'><td><a class="struct" href="struct.Array.html" title='wasmer_runtime::Array struct'>Array</a></td><td class='docblock-short'><p>Array.</p>
+<table><tr class='module-item'><td><a class="struct" href="struct.Array.html" title='wasmer_runtime::Array struct'>Array</a></td><td class='docblock-short'><p>The <code>Array</code> marker type. This type can be used like <code>WasmPtr&lt;T, Array&gt;</code>
+to get access to methods</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.CodeVersion.html" title='wasmer_runtime::CodeVersion struct'>CodeVersion</a></td><td class='docblock-short'><p>A <code>CodeVersion</code> is a container for a unit of generated code for a module.</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.CompilerConfig.html" title='wasmer_runtime::CompilerConfig struct'>CompilerConfig</a></td><td class='docblock-short'><p>Configuration data for the compiler</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.Ctx.html" title='wasmer_runtime::Ctx struct'>Ctx</a></td><td class='docblock-short'><p>The context of the currently running WebAssembly instance.</p>
@@ -75,14 +76,16 @@ Features usually have a corresponding <a href="https://github.com/WebAssembly/pr
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.Global.html" title='wasmer_runtime::Global struct'>Global</a></td><td class='docblock-short'><p>A handle to a Wasm Global</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.ImportObject.html" title='wasmer_runtime::ImportObject struct'>ImportObject</a></td><td class='docblock-short'><p>All of the import data used when instantiating.</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.Instance.html" title='wasmer_runtime::Instance struct'>Instance</a></td><td class='docblock-short'><p>An instantiated WebAssembly module.</p>
-</td></tr><tr class='module-item'><td><a class="struct" href="struct.Item.html" title='wasmer_runtime::Item struct'>Item</a></td><td class='docblock-short'><p>Item.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Item.html" title='wasmer_runtime::Item struct'>Item</a></td><td class='docblock-short'><p>The <code>Item</code> marker type. This is the default and does not usually need to be
+specified.</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.Memory.html" title='wasmer_runtime::Memory struct'>Memory</a></td><td class='docblock-short'><p>A shared or unshared wasm linear memory.</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.MiddlewareChain.html" title='wasmer_runtime::MiddlewareChain struct'>MiddlewareChain</a></td><td class='docblock-short'><p>A container for a chain of middlewares.</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.Module.html" title='wasmer_runtime::Module struct'>Module</a></td><td class='docblock-short'><p>A compiled WebAssembly module.</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.StreamingCompiler.html" title='wasmer_runtime::StreamingCompiler struct'>StreamingCompiler</a></td><td class='docblock-short'><p>A streaming compiler which is designed to generated code for a module based on a stream
 of wasm parser events.</p>
 </td></tr><tr class='module-item'><td><a class="struct" href="struct.Table.html" title='wasmer_runtime::Table struct'>Table</a></td><td class='docblock-short'><p>Container with a descriptor and a reference to a table storage.</p>
-</td></tr><tr class='module-item'><td><a class="struct" href="struct.WasmPtr.html" title='wasmer_runtime::WasmPtr struct'>WasmPtr</a></td><td class='docblock-short'><p>A pointer to a Wasm item.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.WasmPtr.html" title='wasmer_runtime::WasmPtr struct'>WasmPtr</a></td><td class='docblock-short'><p>A zero-cost type that represents a pointer to something in Wasm linear
+memory.</p>
 </td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
 <table><tr class='module-item'><td><a class="enum" href="enum.Backend.html" title='wasmer_runtime::Backend enum'>Backend</a></td><td class='docblock-short'><p>Enum used to select which compiler should be used to generate code.</p>
 </td></tr><tr class='module-item'><td><a class="enum" href="enum.ExceptionCode.html" title='wasmer_runtime::ExceptionCode enum'>ExceptionCode</a></td><td class='docblock-short'><p>The code of an exception.</p>

@@ -593,6 +593,15 @@
 <span id="593">593</span>
 <span id="594">594</span>
 <span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The runtime types modules represent type used within the wasm runtime and helper functions to</span>
 <span class="doccomment">//! convert to other represenations.</span>
@@ -812,7 +821,16 @@
 <span class="comment">//     fn swap(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;</span>
 <span class="comment">// }</span>
 
-<span class="doccomment">/// Trait for a Value type.</span>
+<span class="doccomment">/// Trait for a Value type. A Value type is a type that is always valid and may</span>
+<span class="doccomment">/// be safely copied.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// That is, for all possible bit patterns a valid Value type can be constructed</span>
+<span class="doccomment">/// from those bits.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Concretely a `u32` is a Value type because every combination of 32 bits is</span>
+<span class="doccomment">/// a valid `u32`. However a `bool` is _not_ a Value type because any bit patterns</span>
+<span class="doccomment">/// other than `0` and `1` are invalid in Rust and may cause undefined behavior if</span>
+<span class="doccomment">/// a `bool` is constructed from those bytes.</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">ValueType</span>: <span class="ident">Copy</span>
 <span class="kw">where</span>
     <span class="self">Self</span>: <span class="ident">Sized</span>,
