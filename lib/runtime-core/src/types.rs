@@ -216,7 +216,16 @@ wasm_extern_type!(f64 => f64);
 //     fn swap(&self, other: Self::Primitive) -> Self::Primitive;
 // }
 
-/// Trait for a Value type.
+/// Trait for a Value type. A Value type is a type that is always valid and may
+/// be safely copied.
+///
+/// That is, for all possible bit patterns a valid Value type can be constructed
+/// from those bits.
+///
+/// Concretely a `u32` is a Value type because every combination of 32 bits is
+/// a valid `u32`. However a `bool` is _not_ a Value type because any bit patterns
+/// other than `0` and `1` are invalid in Rust and may cause undefined behavior if
+/// a `bool` is constructed from those bytes.
 pub unsafe trait ValueType: Copy
 where
     Self: Sized,
