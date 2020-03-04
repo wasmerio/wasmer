@@ -73,7 +73,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
     /// Dereference the `WasmPtr` getting access to a `&Cell<T>` allowing for
     /// reading and mutating of the inner value.
     ///
-    /// This method is unsound to use with unsynchronized shared memory.
+    /// This method is unsound if used with unsynchronized shared memory.
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
@@ -117,7 +117,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// Dereference the `WasmPtr` getting access to a `&[Cell<T>]` allowing for
     /// reading and mutating of the inner values.
     ///
-    /// This method is unsound to use with unsynchronized shared memory.
+    /// This method is unsound if used with unsynchronized shared memory.
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
