@@ -255,3 +255,94 @@ impl<T: Copy, Ty> fmt::Debug for WasmPtr<T, Ty> {
         write!(f, "WasmPtr({:#x})", self.offset)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::memory;
+    use crate::units::Pages;
+
+    /// Ensure that memory accesses work on the edges of memory and that out of
+    /// bounds errors are caught with both `deref` and `deref_mut`.
+    #[test]
+    fn wasm_ptr_memory_bounds_checks_hold() {
+        // create a memory
+        let memory_descriptor =
+            memory::MemoryDescriptor::new(Pages(1), Some(Pages(1)), false).unwrap();
+        let memory = memory::Memory::new(memory_descriptor).unwrap();
+
+        // test that basic access works and that len = 0 is caught correctly
+        let start_wasm_ptr: WasmPtr<u8> = WasmPtr::new(0);
+        let start_wasm_ptr_array: WasmPtr<u8, Array> = WasmPtr::new(0);
+
+        assert!(start_wasm_ptr.deref(&memory).is_some());
+        assert!(unsafe { start_wasm_ptr.deref_mut(&memory).is_some() });
+        assert!(start_wasm_ptr_array.deref(&memory, 0, 0).is_none());
+        assert!(start_wasm_ptr_array.get_utf8_string(&memory, 0).is_none());
+        assert!(unsafe { start_wasm_ptr_array.deref_mut(&memory, 0, 0).is_none() });
+        assert!(start_wasm_ptr_array.deref(&memory, 0, 1).is_some());
+        assert!(unsafe { start_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
+
+        // test that accessing the last valid memory address works correctly and OOB is caught
+        let last_valid_address_for_u8 = (memory.size().bytes().0 - 1) as u32;
+        let end_wasm_ptr: WasmPtr<u8> = WasmPtr::new(last_valid_address_for_u8);
+        assert!(end_wasm_ptr.deref(&memory).is_some());
+        assert!(unsafe { end_wasm_ptr.deref_mut(&memory).is_some() });
+
+        let end_wasm_ptr_array: WasmPtr<u8, Array> = WasmPtr::new(last_valid_address_for_u8);
+
+        assert!(end_wasm_ptr_array.deref(&memory, 0, 1).is_some());
+        assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
+        let invalid_idx_len_combos: [(u32, u32); 3] = [(0, 0), (0, 2), (1, 1)];
+        for &(idx, len) in invalid_idx_len_combos.into_iter() {
+            assert!(end_wasm_ptr_array.deref(&memory, idx, len).is_none());
+            assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, idx, len).is_none() });
+        }
+        assert!(end_wasm_ptr_array.get_utf8_string(&memory, 2).is_none());
+
+        // test that accesing the last valid memory address for a u32 is valid
+        // (same as above test but with more edge cases to assert on)
+        let last_valid_address_for_u32 = (memory.size().bytes().0 - 4) as u32;
+        let end_wasm_ptr: WasmPtr<u32> = WasmPtr::new(last_valid_address_for_u32);
+        assert!(end_wasm_ptr.deref(&memory).is_some());
+        assert!(unsafe { end_wasm_ptr.deref_mut(&memory).is_some() });
+        assert!(end_wasm_ptr.deref(&memory).is_some());
+        assert!(unsafe { end_wasm_ptr.deref_mut(&memory).is_some() });
+
+        let end_wasm_ptr_oob_array: [WasmPtr<u32>; 4] = [
+            WasmPtr::new(last_valid_address_for_u32 + 1),
+            WasmPtr::new(last_valid_address_for_u32 + 2),
+            WasmPtr::new(last_valid_address_for_u32 + 3),
+            WasmPtr::new(last_valid_address_for_u32 + 4),
+        ];
+        for oob_end_ptr in end_wasm_ptr_oob_array.into_iter() {
+            assert!(oob_end_ptr.deref(&memory).is_none());
+            assert!(unsafe { oob_end_ptr.deref_mut(&memory).is_none() });
+        }
+        let end_wasm_ptr_array: WasmPtr<u32, Array> = WasmPtr::new(last_valid_address_for_u32);
+        assert!(end_wasm_ptr_array.deref(&memory, 0, 1).is_some());
+        assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
+
+        let invalid_idx_len_combos: [(u32, u32); 4] = [(0, 0), (1, 0), (0, 2), (1, 1)];
+        for &(idx, len) in invalid_idx_len_combos.into_iter() {
+            assert!(end_wasm_ptr_array.deref(&memory, idx, len).is_none());
+            assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, idx, len).is_none() });
+        }
+
+        let end_wasm_ptr_array_oob_array: [WasmPtr<u32, Array>; 4] = [
+            WasmPtr::new(last_valid_address_for_u32 + 1),
+            WasmPtr::new(last_valid_address_for_u32 + 2),
+            WasmPtr::new(last_valid_address_for_u32 + 3),
+            WasmPtr::new(last_valid_address_for_u32 + 4),
+        ];
+
+        for oob_end_array_ptr in end_wasm_ptr_array_oob_array.into_iter() {
+            assert!(oob_end_array_ptr.deref(&memory, 0, 1).is_none());
+            assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 0, 1).is_none() });
+            assert!(oob_end_array_ptr.deref(&memory, 0, 0).is_none());
+            assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 0, 0).is_none() });
+            assert!(oob_end_array_ptr.deref(&memory, 1, 0).is_none());
+            assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 1, 0).is_none() });
+        }
+    }
+}
