@@ -360,10 +360,14 @@ impl<'a> DynamicFunc<'a> {
             func: Box::new(func),
         });
         let ctx = Box::into_raw(ctx);
+
+        let mut native_param_types = vec![Type::I32]; // vm::Ctx is the first parameter.
+        native_param_types.extend_from_slice(signature.params());
+
         builder.add_callinfo_trampoline(
             enter_host_polymorphic,
             ctx as *const _,
-            (signature.params().len() + 1) as u32, // +vmctx
+            &native_param_types,
         );
         let ptr = builder
             .insert_global()

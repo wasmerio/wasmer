@@ -7,6 +7,8 @@
 //! Variadic functions are not supported because `rax` is used by the trampoline code.
 
 use crate::loader::CodeMemory;
+use crate::state::x64_decl::{X64Register, GPR, XMM};
+use crate::types::Type;
 use crate::vm::Ctx;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -145,6 +147,53 @@ pub struct TrampolineBuffer {
     offsets: Vec<usize>,
 }
 
+#[derive(Default)]
+struct ArgumentRegisterAllocator {
+    n_gprs: usize,
+    n_xmms: usize,
+}
+
+impl ArgumentRegisterAllocator {
+    fn next(&mut self, ty: Type) -> Option<X64Register> {
+        static GPR_SEQ: &'static [GPR] =
+            &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+        static XMM_SEQ: &'static [XMM] = &[
+            XMM::XMM0,
+            XMM::XMM1,
+            XMM::XMM2,
+            XMM::XMM3,
+            XMM::XMM4,
+            XMM::XMM5,
+            XMM::XMM6,
+            XMM::XMM7,
+        ];
+        match ty {
+            Type::I32 | Type::I64 => {
+                if self.n_gprs < GPR_SEQ.len() {
+                    let gpr = GPR_SEQ[self.n_gprs];
+                    self.n_gprs += 1;
+                    Some(X64Register::GPR(gpr))
+                } else {
+                    None
+                }
+            }
+            Type::F32 | Type::F64 => {
+                if self.n_xmms < XMM_SEQ.len() {
+                    let xmm = XMM_SEQ[self.n_xmms];
+                    self.n_xmms += 1;
+                    Some(X64Register::XMM(xmm))
+                } else {
+                    None
+                }
+            }
+            _ => todo!(
+                "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
+                ty
+            ),
+        }
+    }
+}
+
 fn value_to_bytes<T: Copy>(ptr: &T) -> &[u8] {
     unsafe { slice::from_raw_parts(ptr as *const T as *const u8, mem::size_of::<T>()) }
 }
@@ -246,44 +295,49 @@ impl TrampolineBufferBuilder {
         &mut self,
         target: unsafe extern "C" fn(*const CallContext, *const u64) -> u64,
         context: *const CallContext,
-        num_params: u32,
+        params: &[Type],
     ) -> usize {
         let idx = self.offsets.len();
         self.offsets.push(self.code.len());
 
-        let mut stack_offset: u32 = num_params.checked_mul(8).unwrap();
+        let mut stack_offset: u32 = params.len().checked_mul(8).unwrap() as u32;
         if stack_offset % 16 == 0 {
             stack_offset += 8;
         }
 
         self.code.extend_from_slice(&[0x48, 0x81, 0xec]); // sub ?, %rsp
         self.code.extend_from_slice(value_to_bytes(&stack_offset));
-        for i in 0..num_params {
-            match i {
-                0..=5 => {
-                    // mov %?, ?(%rsp)
-                    let prefix: &[u8] = match i {
-                        0 => &[0x48, 0x89, 0xbc, 0x24], // rdi
-                        1 => &[0x48, 0x89, 0xb4, 0x24], // rsi
-                        2 => &[0x48, 0x89, 0x94, 0x24], // rdx
-                        3 => &[0x48, 0x89, 0x8c, 0x24], // rcx
-                        4 => &[0x4c, 0x89, 0x84, 0x24], // r8
-                        5 => &[0x4c, 0x89, 0x8c, 0x24], // r9
-                        _ => unreachable!(),
-                    };
+
+        let mut allocator = ArgumentRegisterAllocator::default();
+
+        let mut source_stack_count: u32 = 0; // # of allocated slots in the source stack.
+
+        for (i, ty) in params.iter().enumerate() {
+            match allocator.next(*ty) {
+                Some(reg) => {
+                    // This argument is allocated to a register.
+
+                    let prefix = reg
+                        .prefix_mov_to_stack()
+                        .expect("cannot get instruction prefix for argument register");
                     self.code.extend_from_slice(prefix);
-                    self.code.extend_from_slice(value_to_bytes(&(i * 8u32)));
+                    self.code
+                        .extend_from_slice(value_to_bytes(&((i as u32) * 8u32)));
                 }
-                _ => {
+                None => {
+                    // This argument is allocated to the stack.
+
                     self.code.extend_from_slice(&[
                         0x48, 0x8b, 0x84, 0x24, // mov ?(%rsp), %rax
                     ]);
                     self.code.extend_from_slice(value_to_bytes(
-                        &((i - 6) * 8u32 + stack_offset + 8/* ret addr */),
+                        &(source_stack_count * 8u32 + stack_offset + 8/* ret addr */),
                     ));
                     // mov %rax, ?(%rsp)
                     self.code.extend_from_slice(&[0x48, 0x89, 0x84, 0x24]);
-                    self.code.extend_from_slice(value_to_bytes(&(i * 8u32)));
+                    self.code
+                        .extend_from_slice(value_to_bytes(&((i as u32) * 8u32)));
+                    source_stack_count += 1;
                 }
             }
         }
@@ -395,8 +449,12 @@ mod tests {
         }
         let mut builder = TrampolineBufferBuilder::new();
         let ctx = TestContext { value: 100 };
-        let idx =
-            builder.add_callinfo_trampoline(do_add, &ctx as *const TestContext as *const _, 8);
+        let param_types: Vec<Type> = (0..8).map(|_| Type::I32).collect();
+        let idx = builder.add_callinfo_trampoline(
+            do_add,
+            &ctx as *const TestContext as *const _,
+            &param_types,
+        );
         let buf = builder.build();
         let t = buf.get_trampoline(idx);
         let ret = unsafe {
@@ -405,6 +463,43 @@ mod tests {
             ) as i32
         };
         assert_eq!(ret, 136);
+    }
+
+    #[test]
+    fn test_trampolines_with_floating_point() {
+        unsafe extern "C" fn inner(n: *const CallContext, args: *const u64) -> u64 {
+            let n = n as usize;
+            let mut result: u64 = 0;
+            for i in 0..n {
+                result += *args.offset(i as _);
+            }
+            result
+        }
+        let buffer = TrampBuffer::new(4096);
+        let mut builder = TrampolineBufferBuilder::new();
+        builder.add_callinfo_trampoline(
+            inner,
+            8 as _,
+            &[
+                Type::I32,
+                Type::I32,
+                Type::I32,
+                Type::F32,
+                Type::I32,
+                Type::I32,
+                Type::I32,
+                Type::I32,
+            ],
+        );
+        let ptr = buffer.insert(builder.code()).unwrap();
+        let ret = unsafe {
+            let f = std::mem::transmute::<
+                _,
+                extern "C" fn(i32, i32, i32, f32, i32, i32, i32, i32) -> i32,
+            >(ptr);
+            f(1, 2, 3, f32::from_bits(4), 5, 6, 7, 8)
+        };
+        assert_eq!(ret, 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8);
     }
 
     #[test]
@@ -427,7 +522,8 @@ mod tests {
         for i in 0..5000usize {
             let mut builder = TrampolineBufferBuilder::new();
             let n = i % 8;
-            builder.add_callinfo_trampoline(inner, n as _, n as _);
+            let param_types: Vec<_> = (0..n).map(|_| Type::I32).collect();
+            builder.add_callinfo_trampoline(inner, n as _, &param_types);
             let ptr = buffer
                 .insert(builder.code())
                 .expect("cannot insert new code into global buffer");
