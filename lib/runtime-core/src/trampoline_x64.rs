@@ -7,7 +7,7 @@
 //! Variadic functions are not supported because `rax` is used by the trampoline code.
 
 use crate::loader::CodeMemory;
-use crate::state::x64_decl::{X64Register, GPR, XMM};
+use crate::state::x64_decl::ArgumentRegisterAllocator;
 use crate::types::Type;
 use crate::vm::Ctx;
 use std::collections::BTreeMap;
@@ -145,53 +145,6 @@ pub struct TrampolineBufferBuilder {
 pub struct TrampolineBuffer {
     code: CodeMemory,
     offsets: Vec<usize>,
-}
-
-#[derive(Default)]
-struct ArgumentRegisterAllocator {
-    n_gprs: usize,
-    n_xmms: usize,
-}
-
-impl ArgumentRegisterAllocator {
-    fn next(&mut self, ty: Type) -> Option<X64Register> {
-        static GPR_SEQ: &'static [GPR] =
-            &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
-        static XMM_SEQ: &'static [XMM] = &[
-            XMM::XMM0,
-            XMM::XMM1,
-            XMM::XMM2,
-            XMM::XMM3,
-            XMM::XMM4,
-            XMM::XMM5,
-            XMM::XMM6,
-            XMM::XMM7,
-        ];
-        match ty {
-            Type::I32 | Type::I64 => {
-                if self.n_gprs < GPR_SEQ.len() {
-                    let gpr = GPR_SEQ[self.n_gprs];
-                    self.n_gprs += 1;
-                    Some(X64Register::GPR(gpr))
-                } else {
-                    None
-                }
-            }
-            Type::F32 | Type::F64 => {
-                if self.n_xmms < XMM_SEQ.len() {
-                    let xmm = XMM_SEQ[self.n_xmms];
-                    self.n_xmms += 1;
-                    Some(X64Register::XMM(xmm))
-                } else {
-                    None
-                }
-            }
-            _ => todo!(
-                "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
-                ty
-            ),
-        }
-    }
 }
 
 fn value_to_bytes<T: Copy>(ptr: &T) -> &[u8] {
