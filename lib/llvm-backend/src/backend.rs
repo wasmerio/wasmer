@@ -50,6 +50,8 @@ extern "C" {
     fn llvm_backend_get_code_size(module: *const LLVMModule) -> usize;
     fn llvm_backend_get_readwrite_ptr(module: *const LLVMModule) -> *const u8;
     fn llvm_backend_get_readwrite_size(module: *const LLVMModule) -> usize;
+    fn llvm_backend_get_read_ptr(module: *const LLVMModule) -> *const u8;
+    fn llvm_backend_get_read_size(module: *const LLVMModule) -> usize;
 
     fn throw_trap(ty: i32) -> !;
     fn throw_breakpoint(ty: i64) -> !;
@@ -466,6 +468,15 @@ impl RunnableModule for LLVMBackend {
             std::slice::from_raw_parts(
                 llvm_backend_get_readwrite_ptr(self.module),
                 llvm_backend_get_readwrite_size(self.module),
+            )
+        })
+    }
+
+    fn get_read_section(&self) -> Option<&[u8]> {
+        Some(unsafe {
+            std::slice::from_raw_parts(
+                llvm_backend_get_read_ptr(self.module),
+                llvm_backend_get_read_size(self.module)
             )
         })
     }
