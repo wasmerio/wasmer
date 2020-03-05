@@ -190,7 +190,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// underlying data can be mutated if the Wasm is allowed to execute or
     /// an aliasing `WasmPtr` is used to mutate memory.
     pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<&str> {
-        if self.offset as usize + str_len as usize > memory.size().bytes().0 {
+        if self.offset as usize + str_len as usize > memory.size().bytes().0 || str_len == 0 {
             return None;
         }
         let ptr = unsafe { memory.view::<u8>().as_ptr().add(self.offset as usize) as *const u8 };
