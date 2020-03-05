@@ -31,9 +31,11 @@ use wasmer_runtime_core::{
     loader::CodeMemory,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
+    parse::wp_type_to_type,
     state::{
-        x64::new_machine_state, x64::X64Register, FunctionStateMap, MachineState, MachineValue,
-        ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
+        x64::new_machine_state, x64::X64Register, x64_decl::ArgumentRegisterAllocator,
+        FunctionStateMap, MachineState, MachineValue, ModuleStateMap, OffsetInfo, SuspendOffset,
+        WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
     typed_func::{Trampoline, Wasm},
@@ -217,7 +219,7 @@ pub struct X64FunctionCode {
     >,
     returns: SmallVec<[WpType; 1]>,
     locals: Vec<Location>,
-    num_params: usize,
+    params: SmallVec<[WpType; 3]>,
     num_locals: usize,
     value_stack: Vec<Location>,
     control_stack: Vec<ControlFrame>,
@@ -725,7 +727,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             breakpoints: Some(breakpoints),
             returns: smallvec![],
             locals: vec![],
-            num_params: 0,
+            params: smallvec![],
             num_locals: 0,
             value_stack: vec![],
             control_stack: vec![],
@@ -1668,7 +1670,7 @@ impl X64FunctionCode {
     /// Emits a System V call sequence.
     ///
     /// This function must not use RAX before `cb` is called.
-    fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Assembler)>(
+    fn emit_call_sysv<I: Iterator<Item = (Location, Type)>, F: FnOnce(&mut Assembler)>(
         a: &mut Assembler,
         m: &mut Machine,
         cb: F,
@@ -1722,15 +1724,25 @@ impl X64FunctionCode {
 
         let mut stack_offset: usize = 0;
 
+        let mut regalloc = ArgumentRegisterAllocator::default();
+        let vmctx_reg = match regalloc.next(Type::I32).unwrap() {
+            X64Register::GPR(x) => x,
+            _ => unreachable!(),
+        };
+
+        let mut stack_count: usize = 0;
+        let mut allocated_param_locations: Vec<Location> = vec![];
+
         // Calculate stack offset.
-        for (i, _param) in params.iter().enumerate() {
-            let loc = Machine::get_param_location(1 + i);
+        for (_, ty) in params.iter() {
+            let loc = Machine::fixup_param_location(regalloc.next(*ty), &mut stack_count);
             match loc {
                 Location::Memory(_, _) => {
                     stack_offset += 8;
                 }
                 _ => {}
             }
+            allocated_param_locations.push(loc);
         }
 
         // Align stack to 16 bytes.
@@ -1742,14 +1754,21 @@ impl X64FunctionCode {
             m.state.stack_values.push(MachineValue::Undefined);
         }
 
-        let mut call_movs: Vec<(Location, GPR)> = vec![];
+        let mut call_movs_gpr: Vec<(Location, GPR)> = vec![];
+        let mut call_movs_xmm: Vec<(Location, XMM)> = vec![];
 
         // Prepare register & stack parameters.
-        for (i, param) in params.iter().enumerate().rev() {
-            let loc = Machine::get_param_location(1 + i);
+        for ((param, _), &loc) in params
+            .iter()
+            .rev()
+            .zip(allocated_param_locations.iter().rev())
+        {
             match loc {
                 Location::GPR(x) => {
-                    call_movs.push((*param, x));
+                    call_movs_gpr.push((*param, x));
+                }
+                Location::XMM(x) => {
+                    call_movs_xmm.push((*param, x));
                 }
                 Location::Memory(_, _) => {
                     match *param {
@@ -1816,12 +1835,34 @@ impl X64FunctionCode {
         }
 
         // Sort register moves so that register are not overwritten before read.
-        sort_call_movs(&mut call_movs);
+        sort_call_movs_gpr(&mut call_movs_gpr);
+        sort_call_movs_xmm(&mut call_movs_xmm);
 
         // Emit register moves.
-        for (loc, gpr) in call_movs {
+        for (loc, gpr) in call_movs_gpr {
             if loc != Location::GPR(gpr) {
                 a.emit_mov(Size::S64, loc, Location::GPR(gpr));
+            }
+        }
+        for (loc, xmm) in call_movs_xmm {
+            if loc != Location::XMM(xmm) {
+                match loc {
+                    Location::Imm32(_) | Location::Imm64(_) => {
+                        a.emit_mov(Size::S64, loc, Location::GPR(GPR::R10));
+                        a.emit_mov(Size::S64, Location::GPR(GPR::R10), Location::XMM(xmm));
+                    }
+                    Location::GPR(_) | Location::XMM(_) | Location::Memory(_, _) => {
+                        a.emit_mov(Size::S64, loc, Location::XMM(xmm));
+                    }
+                    _ => {
+                        return Err(CodegenError {
+                            message: format!(
+                                "unsupported source location for floating point parameter: {:?}",
+                                loc
+                            ),
+                        })
+                    }
+                }
             }
         }
 
@@ -1829,7 +1870,7 @@ impl X64FunctionCode {
         a.emit_mov(
             Size::S64,
             Location::GPR(Machine::get_vmctx_reg()),
-            Machine::get_param_location(0),
+            Location::GPR(vmctx_reg),
         ); // vmctx
 
         if (m.state.stack_values.len() % 2) != 1 {
@@ -1907,7 +1948,7 @@ impl X64FunctionCode {
     }
 
     /// Emits a System V call sequence, specialized for labels as the call target.
-    fn emit_call_sysv_label<I: Iterator<Item = Location>>(
+    fn emit_call_sysv_label<I: Iterator<Item = (Location, Type)>>(
         a: &mut Assembler,
         m: &mut Machine,
         label: DynamicLabel,
@@ -2407,8 +2448,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         Ok(())
     }
 
-    fn feed_param(&mut self, _ty: WpType) -> Result<(), CodegenError> {
-        self.num_params += 1;
+    fn feed_param(&mut self, ty: WpType) -> Result<(), CodegenError> {
+        self.params.push(ty);
         self.num_locals += 1;
         Ok(())
     }
@@ -2449,9 +2490,12 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             );
         }
 
-        self.locals = self
-            .machine
-            .init_locals(a, self.num_locals, self.num_params);
+        let param_types: Vec<_> = self
+            .params
+            .iter()
+            .map(|x| wp_type_to_type(*x).unwrap())
+            .collect();
+        self.locals = self.machine.init_locals(a, self.num_locals, &param_types);
 
         self.machine.state.register_values
             [X64Register::GPR(Machine::get_vmctx_reg()).to_index().0] = MachineValue::Vmctx;
@@ -6244,7 +6288,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     a,
                     &mut self.machine,
                     label,
-                    params.iter().map(|x| *x),
+                    params
+                        .iter()
+                        .map(|x| *x)
+                        .zip(param_types.iter().map(|x| wp_type_to_type(*x).unwrap())),
                     Some((&mut self.fsm, &mut self.control_stack)),
                 )?;
 
@@ -6383,7 +6430,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             ));
                         }
                     },
-                    params.iter().map(|x| *x),
+                    params
+                        .iter()
+                        .map(|x| *x)
+                        .zip(param_types.iter().map(|x| wp_type_to_type(*x).unwrap())),
                     Some((&mut self.fsm, &mut self.control_stack)),
                 )?;
 
@@ -6629,7 +6679,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a.emit_label(after);
                         a.emit_call_label(label);
                     },
-                    iter::once(Location::Imm32(memory_index.index() as u32)),
+                    iter::once((Location::Imm32(memory_index.index() as u32), Type::I32)),
                     None,
                 )?;
                 let ret = self.machine.acquire_locations(
@@ -6674,8 +6724,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         a.emit_label(after);
                         a.emit_call_label(label);
                     },
-                    iter::once(Location::Imm32(memory_index.index() as u32))
-                        .chain(iter::once(param_pages)),
+                    iter::once((Location::Imm32(memory_index.index() as u32), Type::I32))
+                        .chain(iter::once((param_pages, Type::I32))),
                     None,
                 )?;
 
@@ -9841,7 +9891,19 @@ fn get_location_released(a: &mut Assembler, m: &mut Machine, loc: Location) -> L
     loc
 }
 
-fn sort_call_movs(movs: &mut [(Location, GPR)]) {
+fn sort_call_movs_xmm(movs: &mut [(Location, XMM)]) {
+    for i in 0..movs.len() {
+        for j in (i + 1)..movs.len() {
+            if let Location::XMM(src_xmm) = movs[j].0 {
+                if src_xmm == movs[i].1 {
+                    movs.swap(i, j);
+                }
+            }
+        }
+    }
+}
+
+fn sort_call_movs_gpr(movs: &mut [(Location, GPR)]) {
     for i in 0..movs.len() {
         for j in (i + 1)..movs.len() {
             if let Location::GPR(src_gpr) = movs[j].0 {

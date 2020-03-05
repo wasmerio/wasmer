@@ -2,7 +2,8 @@ use crate::emitter_x64::*;
 use smallvec::SmallVec;
 use std::collections::HashSet;
 use wasmer_runtime_core::{
-    state::{x64::X64Register, *},
+    state::{x64::X64Register, x64_decl::ArgumentRegisterAllocator, *},
+    types::Type,
     wasmparser::Type as WpType,
 };
 
@@ -327,7 +328,7 @@ impl Machine {
         &mut self,
         a: &mut E,
         n: usize,
-        n_params: usize,
+        params: &[Type],
     ) -> Vec<Location> {
         // Use callee-saved registers for locals.
         fn get_local_location(idx: usize) -> Location {
@@ -343,16 +344,20 @@ impl Machine {
         let mut locations: Vec<Location> = vec![];
         let mut allocated: usize = 0;
 
+        let mut argalloc = ArgumentRegisterAllocator::default();
+        let vmctx_reg = match argalloc.next(Type::I32).unwrap() {
+            X64Register::GPR(x) => x,
+            _ => unreachable!(),
+        };
+        let mut stack_alloc_index: usize = 0;
+        let mut source_param_locations: Vec<Location> = vec![];
+
         // Determine locations for parameters.
-        for i in 0..n_params {
-            let loc = Self::get_param_location(i + 1);
+        for ty in params {
+            let loc = Self::fixup_param_location(argalloc.next(*ty), &mut stack_alloc_index);
+            source_param_locations.push(loc);
             locations.push(match loc {
-                Location::GPR(_) => {
-                    let old_idx = allocated;
-                    allocated += 1;
-                    get_local_location(old_idx)
-                }
-                Location::Memory(_, _) => {
+                Location::GPR(_) | Location::XMM(_) | Location::Memory(_, _) => {
                     let old_idx = allocated;
                     allocated += 1;
                     get_local_location(old_idx)
@@ -362,7 +367,7 @@ impl Machine {
         }
 
         // Determine locations for normal locals.
-        for _ in n_params..n {
+        for _ in params.len()..n {
             locations.push(get_local_location(allocated));
             allocated += 1;
         }
@@ -371,6 +376,10 @@ impl Machine {
             match *loc {
                 Location::GPR(x) => {
                     self.state.register_values[X64Register::GPR(x).to_index().0] =
+                        MachineValue::WasmLocal(i);
+                }
+                Location::XMM(x) => {
+                    self.state.register_values[X64Register::XMM(x).to_index().0] =
                         MachineValue::WasmLocal(i);
                 }
                 Location::Memory(_, _) => {
@@ -421,8 +430,8 @@ impl Machine {
         self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
 
         // Load in-register parameters into the allocated locations.
-        for i in 0..n_params {
-            let loc = Self::get_param_location(i + 1);
+        for i in 0..params.len() {
+            let loc = source_param_locations[i];
             match loc {
                 Location::GPR(_) => {
                     a.emit_mov(Size::S64, loc, locations[i]);
@@ -442,14 +451,10 @@ impl Machine {
         }
 
         // Load vmctx.
-        a.emit_mov(
-            Size::S64,
-            Self::get_param_location(0),
-            Location::GPR(GPR::R15),
-        );
+        a.emit_mov(Size::S64, Location::GPR(vmctx_reg), Location::GPR(GPR::R15));
 
         // Initialize all normal locals to zero.
-        for i in n_params..n {
+        for i in params.len()..n {
             a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
         }
 
@@ -478,15 +483,20 @@ impl Machine {
         }
     }
 
-    pub fn get_param_location(idx: usize) -> Location {
-        match idx {
-            0 => Location::GPR(GPR::RDI),
-            1 => Location::GPR(GPR::RSI),
-            2 => Location::GPR(GPR::RDX),
-            3 => Location::GPR(GPR::RCX),
-            4 => Location::GPR(GPR::R8),
-            5 => Location::GPR(GPR::R9),
-            _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
+    pub fn fixup_param_location(
+        maybe_reg: Option<X64Register>,
+        stack_index: &mut usize,
+    ) -> Location {
+        match maybe_reg {
+            Some(reg) => match reg {
+                X64Register::GPR(x) => Location::GPR(x),
+                X64Register::XMM(x) => Location::XMM(x),
+            },
+            None => {
+                let index = *stack_index;
+                *stack_index += 1;
+                Location::Memory(GPR::RBP, (16 + index * 8) as i32)
+            }
         }
     }
 }
