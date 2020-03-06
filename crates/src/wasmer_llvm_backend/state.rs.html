@@ -419,20 +419,20 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ControlFrame</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
     <span class="ident">Block</span> {
-        <span class="ident">next</span>: <span class="ident">BasicBlock</span>,
+        <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
         <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
         <span class="ident">stack_size_snapshot</span>: <span class="ident">usize</span>,
     },
     <span class="ident">Loop</span> {
-        <span class="ident">body</span>: <span class="ident">BasicBlock</span>,
-        <span class="ident">next</span>: <span class="ident">BasicBlock</span>,
+        <span class="ident">body</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+        <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
         <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
         <span class="ident">stack_size_snapshot</span>: <span class="ident">usize</span>,
     },
     <span class="ident">IfElse</span> {
-        <span class="ident">if_then</span>: <span class="ident">BasicBlock</span>,
-        <span class="ident">if_else</span>: <span class="ident">BasicBlock</span>,
-        <span class="ident">next</span>: <span class="ident">BasicBlock</span>,
+        <span class="ident">if_then</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+        <span class="ident">if_else</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+        <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
         <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
         <span class="ident">stack_size_snapshot</span>: <span class="ident">usize</span>,
         <span class="ident">if_else_state</span>: <span class="ident">IfElseState</span>,
@@ -446,7 +446,7 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> <span class="ident">ControlFrame</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">code_after</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">BasicBlock</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">code_after</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">ControlFrame</span>::<span class="ident">Block</span> { <span class="kw-2">ref</span> <span class="ident">next</span>, .. }
             <span class="op">|</span> <span class="ident">ControlFrame</span>::<span class="ident">Loop</span> { <span class="kw-2">ref</span> <span class="ident">next</span>, .. }
@@ -454,7 +454,7 @@
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">br_dest</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">BasicBlock</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">br_dest</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">ControlFrame</span>::<span class="ident">Block</span> { <span class="kw-2">ref</span> <span class="ident">next</span>, .. } <span class="op">|</span> <span class="ident">ControlFrame</span>::<span class="ident">IfElse</span> { <span class="kw-2">ref</span> <span class="ident">next</span>, .. } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">next</span>,
             <span class="ident">ControlFrame</span>::<span class="ident">Loop</span> { <span class="kw-2">ref</span> <span class="ident">body</span>, .. } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">body</span>,
@@ -776,7 +776,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_block</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">next</span>: <span class="ident">BasicBlock</span>, <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_block</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>) {
         <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">push</span>(<span class="ident">ControlFrame</span>::<span class="ident">Block</span> {
             <span class="ident">next</span>,
             <span class="ident">phis</span>,
@@ -786,8 +786,8 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_loop</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">body</span>: <span class="ident">BasicBlock</span>,
-        <span class="ident">next</span>: <span class="ident">BasicBlock</span>,
+        <span class="ident">body</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+        <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
         <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
     ) {
         <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">push</span>(<span class="ident">ControlFrame</span>::<span class="ident">Loop</span> {
@@ -800,9 +800,9 @@
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_if</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">if_then</span>: <span class="ident">BasicBlock</span>,
-        <span class="ident">if_else</span>: <span class="ident">BasicBlock</span>,
-        <span class="ident">next</span>: <span class="ident">BasicBlock</span>,
+        <span class="ident">if_then</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+        <span class="ident">if_else</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+        <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
         <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
     ) {
         <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">push</span>(<span class="ident">ControlFrame</span>::<span class="ident">IfElse</span> {

@@ -9409,15 +9409,15 @@
     <span class="kw">let</span> <span class="ident">failure_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;conversion_failure_block&quot;</span>);
     <span class="kw">let</span> <span class="ident">continue_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;conversion_success_block&quot;</span>);
 
-    <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">out_of_bounds</span>, <span class="kw-2">&amp;</span><span class="ident">failure_block</span>, <span class="kw-2">&amp;</span><span class="ident">continue_block</span>);
-    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">failure_block</span>);
+    <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">out_of_bounds</span>, <span class="ident">failure_block</span>, <span class="ident">continue_block</span>);
+    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">failure_block</span>);
     <span class="ident">builder</span>.<span class="ident">build_call</span>(
         <span class="ident">intrinsics</span>.<span class="ident">throw_trap</span>,
         <span class="kw-2">&amp;</span>[<span class="ident">intrinsics</span>.<span class="ident">trap_illegal_arithmetic</span>],
         <span class="string">&quot;throw&quot;</span>,
     );
     <span class="ident">builder</span>.<span class="ident">build_unreachable</span>();
-    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">continue_block</span>);
+    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">continue_block</span>);
 }
 
 <span class="kw">fn</span> <span class="ident">trap_if_zero_or_overflow</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>(
@@ -9473,15 +9473,15 @@
 
     <span class="kw">let</span> <span class="ident">shouldnt_trap_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;shouldnt_trap_block&quot;</span>);
     <span class="kw">let</span> <span class="ident">should_trap_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;should_trap_block&quot;</span>);
-    <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">should_trap</span>, <span class="kw-2">&amp;</span><span class="ident">should_trap_block</span>, <span class="kw-2">&amp;</span><span class="ident">shouldnt_trap_block</span>);
-    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">should_trap_block</span>);
+    <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">should_trap</span>, <span class="ident">should_trap_block</span>, <span class="ident">shouldnt_trap_block</span>);
+    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">should_trap_block</span>);
     <span class="ident">builder</span>.<span class="ident">build_call</span>(
         <span class="ident">intrinsics</span>.<span class="ident">throw_trap</span>,
         <span class="kw-2">&amp;</span>[<span class="ident">intrinsics</span>.<span class="ident">trap_illegal_arithmetic</span>],
         <span class="string">&quot;throw&quot;</span>,
     );
     <span class="ident">builder</span>.<span class="ident">build_unreachable</span>();
-    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">shouldnt_trap_block</span>);
+    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">shouldnt_trap_block</span>);
 }
 
 <span class="kw">fn</span> <span class="ident">trap_if_zero</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>(
@@ -9515,15 +9515,15 @@
 
     <span class="kw">let</span> <span class="ident">shouldnt_trap_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;shouldnt_trap_block&quot;</span>);
     <span class="kw">let</span> <span class="ident">should_trap_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;should_trap_block&quot;</span>);
-    <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">should_trap</span>, <span class="kw-2">&amp;</span><span class="ident">should_trap_block</span>, <span class="kw-2">&amp;</span><span class="ident">shouldnt_trap_block</span>);
-    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">should_trap_block</span>);
+    <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">should_trap</span>, <span class="ident">should_trap_block</span>, <span class="ident">shouldnt_trap_block</span>);
+    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">should_trap_block</span>);
     <span class="ident">builder</span>.<span class="ident">build_call</span>(
         <span class="ident">intrinsics</span>.<span class="ident">throw_trap</span>,
         <span class="kw-2">&amp;</span>[<span class="ident">intrinsics</span>.<span class="ident">trap_illegal_arithmetic</span>],
         <span class="string">&quot;throw&quot;</span>,
     );
     <span class="ident">builder</span>.<span class="ident">build_unreachable</span>();
-    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">shouldnt_trap_block</span>);
+    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">shouldnt_trap_block</span>);
 }
 
 <span class="kw">fn</span> <span class="ident">v128_into_int_vec</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>(
@@ -9829,17 +9829,17 @@
             <span class="kw">let</span> <span class="ident">not_in_bounds_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;not_in_bounds_block&quot;</span>);
             <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(
                 <span class="ident">ptr_in_bounds</span>,
-                <span class="kw-2">&amp;</span><span class="ident">in_bounds_continue_block</span>,
-                <span class="kw-2">&amp;</span><span class="ident">not_in_bounds_block</span>,
+                <span class="ident">in_bounds_continue_block</span>,
+                <span class="ident">not_in_bounds_block</span>,
             );
-            <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">not_in_bounds_block</span>);
+            <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">not_in_bounds_block</span>);
             <span class="ident">builder</span>.<span class="ident">build_call</span>(
                 <span class="ident">intrinsics</span>.<span class="ident">throw_trap</span>,
                 <span class="kw-2">&amp;</span>[<span class="ident">intrinsics</span>.<span class="ident">trap_memory_oob</span>],
                 <span class="string">&quot;throw&quot;</span>,
             );
             <span class="ident">builder</span>.<span class="ident">build_unreachable</span>();
-            <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">in_bounds_continue_block</span>);
+            <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">in_bounds_continue_block</span>);
         }
     }
 
@@ -9973,9 +9973,9 @@
 
     <span class="kw">let</span> <span class="ident">continue_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;aligned_access_continue_block&quot;</span>);
     <span class="kw">let</span> <span class="ident">not_aligned_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;misaligned_trap_block&quot;</span>);
-    <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">aligned</span>, <span class="kw-2">&amp;</span><span class="ident">continue_block</span>, <span class="kw-2">&amp;</span><span class="ident">not_aligned_block</span>);
+    <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">aligned</span>, <span class="ident">continue_block</span>, <span class="ident">not_aligned_block</span>);
 
-    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">not_aligned_block</span>);
+    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">not_aligned_block</span>);
     <span class="ident">builder</span>.<span class="ident">build_call</span>(
         <span class="ident">intrinsics</span>.<span class="ident">throw_trap</span>,
         <span class="kw-2">&amp;</span>[<span class="ident">intrinsics</span>.<span class="ident">trap_misaligned_atomic</span>],
@@ -9983,7 +9983,7 @@
     );
     <span class="ident">builder</span>.<span class="ident">build_unreachable</span>();
 
-    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">continue_block</span>);
+    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">continue_block</span>);
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -10108,11 +10108,11 @@
             .<span class="ident">builder</span>
             .<span class="ident">as_ref</span>()
             .<span class="ident">unwrap</span>()
-            .<span class="ident">build_unconditional_branch</span>(<span class="kw-2">&amp;</span><span class="ident">start_of_code_block</span>);
+            .<span class="ident">build_unconditional_branch</span>(<span class="ident">start_of_code_block</span>);
         <span class="self">self</span>.<span class="ident">builder</span>
             .<span class="ident">as_ref</span>()
             .<span class="ident">unwrap</span>()
-            .<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">start_of_code_block</span>);
+            .<span class="ident">position_at_end</span>(<span class="ident">start_of_code_block</span>);
 
         <span class="kw">let</span> <span class="ident">cache_builder</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">context</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">create_builder</span>();
         <span class="ident">cache_builder</span>.<span class="ident">position_before</span>(<span class="kw-2">&amp;</span><span class="ident">entry_end_inst</span>);
@@ -10265,7 +10265,7 @@
                 })<span class="question-mark">?</span>;
 
                 <span class="kw">let</span> <span class="ident">end_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="ident">function</span>, <span class="string">&quot;end&quot;</span>);
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">end_block</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">end_block</span>);
 
                 <span class="kw">let</span> <span class="ident">phis</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">wasmer_ty</span>) <span class="op">=</span> <span class="ident">blocktype_to_type</span>(<span class="ident">ty</span>) {
                     <span class="kw">let</span> <span class="ident">llvm_ty</span> <span class="op">=</span> <span class="ident">type_to_llvm</span>(<span class="ident">intrinsics</span>, <span class="ident">wasmer_ty</span>);
@@ -10278,15 +10278,15 @@
                 };
 
                 <span class="ident">state</span>.<span class="ident">push_block</span>(<span class="ident">end_block</span>, <span class="ident">phis</span>);
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">current_block</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">current_block</span>);
             }
             <span class="ident">Operator</span>::<span class="ident">Loop</span> { <span class="ident">ty</span> } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">loop_body</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="ident">function</span>, <span class="string">&quot;loop_body&quot;</span>);
                 <span class="kw">let</span> <span class="ident">loop_next</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="ident">function</span>, <span class="string">&quot;loop_outer&quot;</span>);
 
-                <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="kw-2">&amp;</span><span class="ident">loop_body</span>);
+                <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="ident">loop_body</span>);
 
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">loop_next</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">loop_next</span>);
                 <span class="kw">let</span> <span class="ident">phis</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">wasmer_ty</span>) <span class="op">=</span> <span class="ident">blocktype_to_type</span>(<span class="ident">ty</span>) {
                     <span class="kw">let</span> <span class="ident">llvm_ty</span> <span class="op">=</span> <span class="ident">type_to_llvm</span>(<span class="ident">intrinsics</span>, <span class="ident">wasmer_ty</span>);
                     [<span class="ident">llvm_ty</span>]
@@ -10297,7 +10297,7 @@
                     <span class="ident">SmallVec</span>::<span class="ident">new</span>()
                 };
 
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">loop_body</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">loop_body</span>);
 
                 <span class="kw">if</span> <span class="self">self</span>.<span class="ident">track_state</span> {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">offset</span>) <span class="op">=</span> <span class="ident">opcode_offset</span> {
@@ -10354,10 +10354,10 @@
                 <span class="comment">// pop a value off the value stack and load it into</span>
                 <span class="comment">// the corresponding phi.</span>
                 <span class="kw">for</span> (<span class="ident">phi</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">frame</span>.<span class="ident">phis</span>().<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">values</span>) {
-                    <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">value</span>, <span class="kw-2">&amp;</span><span class="ident">current_block</span>)]);
+                    <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">value</span>, <span class="ident">current_block</span>)]);
                 }
 
-                <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="ident">frame</span>.<span class="ident">br_dest</span>());
+                <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="kw-2">*</span><span class="ident">frame</span>.<span class="ident">br_dest</span>());
 
                 <span class="ident">state</span>.<span class="ident">popn</span>(<span class="ident">value_len</span>)<span class="question-mark">?</span>;
                 <span class="ident">state</span>.<span class="ident">reachable</span> <span class="op">=</span> <span class="bool-val">false</span>;
@@ -10382,7 +10382,7 @@
                 });
 
                 <span class="kw">for</span> (<span class="ident">phi</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">frame</span>.<span class="ident">phis</span>().<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">param_stack</span>) {
-                    <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">value</span>, <span class="kw-2">&amp;</span><span class="ident">current_block</span>)]);
+                    <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">value</span>, <span class="ident">current_block</span>)]);
                 }
 
                 <span class="kw">let</span> <span class="ident">else_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="ident">function</span>, <span class="string">&quot;else&quot;</span>);
@@ -10393,8 +10393,8 @@
                     <span class="ident">intrinsics</span>.<span class="ident">i32_zero</span>,
                     <span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">var_name</span>(),
                 );
-                <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">cond_value</span>, <span class="ident">frame</span>.<span class="ident">br_dest</span>(), <span class="kw-2">&amp;</span><span class="ident">else_block</span>);
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">else_block</span>);
+                <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">cond_value</span>, <span class="kw-2">*</span><span class="ident">frame</span>.<span class="ident">br_dest</span>(), <span class="ident">else_block</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">else_block</span>);
             }
             <span class="ident">Operator</span>::<span class="ident">BrTable</span> { <span class="kw-2">ref</span> <span class="ident">table</span> } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">current_block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">get_insert_block</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
@@ -10415,7 +10415,7 @@
                 };
 
                 <span class="kw">for</span> (<span class="ident">phi</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">default_frame</span>.<span class="ident">phis</span>().<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">args</span>.<span class="ident">iter</span>()) {
-                    <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="ident">value</span>, <span class="kw-2">&amp;</span><span class="ident">current_block</span>)]);
+                    <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="ident">value</span>, <span class="ident">current_block</span>)]);
                 }
 
                 <span class="kw">let</span> <span class="ident">cases</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">label_depths</span>
@@ -10432,14 +10432,14 @@
                             <span class="ident">context</span>.<span class="ident">i32_type</span>().<span class="ident">const_int</span>(<span class="ident">case_index</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>);
 
                         <span class="kw">for</span> (<span class="ident">phi</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">frame</span>.<span class="ident">phis</span>().<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">args</span>.<span class="ident">iter</span>()) {
-                            <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="ident">value</span>, <span class="kw-2">&amp;</span><span class="ident">current_block</span>)]);
+                            <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="ident">value</span>, <span class="ident">current_block</span>)]);
                         }
 
-                        <span class="prelude-val">Ok</span>((<span class="ident">case_index_literal</span>, <span class="ident">frame</span>.<span class="ident">br_dest</span>()))
+                        <span class="prelude-val">Ok</span>((<span class="ident">case_index_literal</span>, <span class="kw-2">*</span><span class="ident">frame</span>.<span class="ident">br_dest</span>()))
                     })
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-                <span class="ident">builder</span>.<span class="ident">build_switch</span>(<span class="ident">index</span>.<span class="ident">into_int_value</span>(), <span class="ident">default_frame</span>.<span class="ident">br_dest</span>(), <span class="kw-2">&amp;</span><span class="ident">cases</span>[..]);
+                <span class="ident">builder</span>.<span class="ident">build_switch</span>(<span class="ident">index</span>.<span class="ident">into_int_value</span>(), <span class="kw-2">*</span><span class="ident">default_frame</span>.<span class="ident">br_dest</span>(), <span class="kw-2">&amp;</span><span class="ident">cases</span>[..]);
 
                 <span class="kw">let</span> <span class="ident">args_len</span> <span class="op">=</span> <span class="ident">args</span>.<span class="ident">len</span>();
                 <span class="ident">state</span>.<span class="ident">popn</span>(<span class="ident">args_len</span>)<span class="question-mark">?</span>;
@@ -10454,7 +10454,7 @@
                 <span class="kw">let</span> <span class="ident">end_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="ident">function</span>, <span class="string">&quot;if_end&quot;</span>);
 
                 <span class="kw">let</span> <span class="ident">end_phis</span> <span class="op">=</span> {
-                    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">end_block</span>);
+                    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">end_block</span>);
 
                     <span class="kw">let</span> <span class="ident">phis</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">wasmer_ty</span>) <span class="op">=</span> <span class="ident">blocktype_to_type</span>(<span class="ident">ty</span>) {
                         <span class="kw">let</span> <span class="ident">llvm_ty</span> <span class="op">=</span> <span class="ident">type_to_llvm</span>(<span class="ident">intrinsics</span>, <span class="ident">wasmer_ty</span>);
@@ -10466,7 +10466,7 @@
                         <span class="ident">SmallVec</span>::<span class="ident">new</span>()
                     };
 
-                    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">current_block</span>);
+                    <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">current_block</span>);
                     <span class="ident">phis</span>
                 };
 
@@ -10479,8 +10479,8 @@
                     <span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">var_name</span>(),
                 );
 
-                <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">cond_value</span>, <span class="kw-2">&amp;</span><span class="ident">if_then_block</span>, <span class="kw-2">&amp;</span><span class="ident">if_else_block</span>);
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">if_then_block</span>);
+                <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(<span class="ident">cond_value</span>, <span class="ident">if_then_block</span>, <span class="ident">if_else_block</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">if_then_block</span>);
                 <span class="ident">state</span>.<span class="ident">push_if</span>(<span class="ident">if_then_block</span>, <span class="ident">if_else_block</span>, <span class="ident">end_block</span>, <span class="ident">end_phis</span>);
             }
             <span class="ident">Operator</span>::<span class="ident">Else</span> <span class="op">=</span><span class="op">&gt;</span> {
@@ -10494,10 +10494,10 @@
                         <span class="kw">let</span> (<span class="ident">value</span>, <span class="ident">info</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                         <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span>
                             <span class="ident">apply_pending_canonicalization</span>(<span class="ident">builder</span>, <span class="ident">intrinsics</span>, <span class="ident">value</span>, <span class="ident">info</span>);
-                        <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">value</span>, <span class="kw-2">&amp;</span><span class="ident">current_block</span>)])
+                        <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">value</span>, <span class="ident">current_block</span>)])
                     }
                     <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">frame_at_depth</span>(<span class="number">0</span>)<span class="question-mark">?</span>;
-                    <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="ident">frame</span>.<span class="ident">code_after</span>());
+                    <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="kw-2">*</span><span class="ident">frame</span>.<span class="ident">code_after</span>());
                 }
 
                 <span class="kw">let</span> (<span class="ident">if_else_block</span>, <span class="ident">if_else_state</span>) <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ControlFrame</span>::<span class="ident">IfElse</span> {
@@ -10513,7 +10513,7 @@
 
                 <span class="kw-2">*</span><span class="ident">if_else_state</span> <span class="op">=</span> <span class="ident">IfElseState</span>::<span class="ident">Else</span>;
 
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">if_else_block</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">*</span><span class="ident">if_else_block</span>);
                 <span class="ident">state</span>.<span class="ident">reachable</span> <span class="op">=</span> <span class="bool-val">true</span>;
             }
 
@@ -10528,10 +10528,10 @@
                         <span class="kw">let</span> (<span class="ident">value</span>, <span class="ident">info</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                         <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span>
                             <span class="ident">apply_pending_canonicalization</span>(<span class="ident">builder</span>, <span class="ident">intrinsics</span>, <span class="ident">value</span>, <span class="ident">info</span>);
-                        <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">value</span>, <span class="kw-2">&amp;</span><span class="ident">current_block</span>)]);
+                        <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">value</span>, <span class="ident">current_block</span>)]);
                     }
 
-                    <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="ident">frame</span>.<span class="ident">code_after</span>());
+                    <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="kw-2">*</span><span class="ident">frame</span>.<span class="ident">code_after</span>());
                 }
 
                 <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ControlFrame</span>::<span class="ident">IfElse</span> {
@@ -10542,12 +10542,12 @@
                 } <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">frame</span>
                 {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="ident">IfElseState</span>::<span class="ident">If</span> <span class="op">=</span> <span class="ident">if_else_state</span> {
-                        <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">if_else</span>);
-                        <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="ident">next</span>);
+                        <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">*</span><span class="ident">if_else</span>);
+                        <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="kw-2">*</span><span class="ident">next</span>);
                     }
                 }
 
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">frame</span>.<span class="ident">code_after</span>());
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">*</span><span class="ident">frame</span>.<span class="ident">code_after</span>());
                 <span class="ident">state</span>.<span class="ident">reset_stack</span>(<span class="kw-2">&amp;</span><span class="ident">frame</span>);
 
                 <span class="ident">state</span>.<span class="ident">reachable</span> <span class="op">=</span> <span class="bool-val">true</span>;
@@ -10585,11 +10585,11 @@
                 <span class="kw">for</span> <span class="ident">phi</span> <span class="kw">in</span> <span class="ident">frame</span>.<span class="ident">phis</span>().<span class="ident">to_vec</span>().<span class="ident">iter</span>() {
                     <span class="kw">let</span> (<span class="ident">arg</span>, <span class="ident">info</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                     <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">apply_pending_canonicalization</span>(<span class="ident">builder</span>, <span class="ident">intrinsics</span>, <span class="ident">arg</span>, <span class="ident">info</span>);
-                    <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">arg</span>, <span class="kw-2">&amp;</span><span class="ident">current_block</span>)]);
+                    <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="ident">arg</span>, <span class="ident">current_block</span>)]);
                 }
 
                 <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">outermost_frame</span>()<span class="question-mark">?</span>;
-                <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="ident">frame</span>.<span class="ident">br_dest</span>());
+                <span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="kw-2">*</span><span class="ident">frame</span>.<span class="ident">br_dest</span>());
 
                 <span class="ident">state</span>.<span class="ident">reachable</span> <span class="op">=</span> <span class="bool-val">false</span>;
             }
@@ -11128,17 +11128,17 @@
                     <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="ident">function</span>, <span class="string">&quot;not_in_bounds_block&quot;</span>);
                 <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(
                     <span class="ident">index_in_bounds</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">in_bounds_continue_block</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">not_in_bounds_block</span>,
+                    <span class="ident">in_bounds_continue_block</span>,
+                    <span class="ident">not_in_bounds_block</span>,
                 );
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">not_in_bounds_block</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">not_in_bounds_block</span>);
                 <span class="ident">builder</span>.<span class="ident">build_call</span>(
                     <span class="ident">intrinsics</span>.<span class="ident">throw_trap</span>,
                     <span class="kw-2">&amp;</span>[<span class="ident">intrinsics</span>.<span class="ident">trap_call_indirect_oob</span>],
                     <span class="string">&quot;throw&quot;</span>,
                 );
                 <span class="ident">builder</span>.<span class="ident">build_unreachable</span>();
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">in_bounds_continue_block</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">in_bounds_continue_block</span>);
 
                 <span class="comment">// Next, check if the signature id is correct.</span>
 
@@ -11169,18 +11169,18 @@
                     <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="ident">function</span>, <span class="string">&quot;sigindices_notequal_block&quot;</span>);
                 <span class="ident">builder</span>.<span class="ident">build_conditional_branch</span>(
                     <span class="ident">sigindices_equal</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">continue_block</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">sigindices_notequal_block</span>,
+                    <span class="ident">continue_block</span>,
+                    <span class="ident">sigindices_notequal_block</span>,
                 );
 
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">sigindices_notequal_block</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">sigindices_notequal_block</span>);
                 <span class="ident">builder</span>.<span class="ident">build_call</span>(
                     <span class="ident">intrinsics</span>.<span class="ident">throw_trap</span>,
                     <span class="kw-2">&amp;</span>[<span class="ident">intrinsics</span>.<span class="ident">trap_call_indirect_sig</span>],
                     <span class="string">&quot;throw&quot;</span>,
                 );
                 <span class="ident">builder</span>.<span class="ident">build_unreachable</span>();
-                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">continue_block</span>);
+                <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">continue_block</span>);
 
                 <span class="kw">let</span> <span class="ident">wasmer_fn_sig</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">info</span>.<span class="ident">signatures</span>[<span class="ident">sig_index</span>];
                 <span class="kw">let</span> <span class="ident">fn_ty</span> <span class="op">=</span> <span class="ident">signatures</span>[<span class="ident">sig_index</span>];
@@ -17818,10 +17818,10 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">State</span>::<span class="ident">new</span>();
         <span class="kw">let</span> <span class="ident">entry_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;entry&quot;</span>);
         <span class="kw">let</span> <span class="ident">alloca_builder</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">create_builder</span>();
-        <span class="ident">alloca_builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">entry_block</span>);
+        <span class="ident">alloca_builder</span>.<span class="ident">position_at_end</span>(<span class="ident">entry_block</span>);
 
         <span class="kw">let</span> <span class="ident">return_block</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="kw-2">*</span><span class="ident">function</span>, <span class="string">&quot;return&quot;</span>);
-        <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">return_block</span>);
+        <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">return_block</span>);
 
         <span class="kw">let</span> <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span>; <span class="number">1</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">func_sig</span>
             .<span class="ident">returns</span>()
@@ -17831,7 +17831,7 @@
             .<span class="ident">collect</span>();
 
         <span class="ident">state</span>.<span class="ident">push_block</span>(<span class="ident">return_block</span>, <span class="ident">phis</span>);
-        <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="kw-2">&amp;</span><span class="ident">entry_block</span>);
+        <span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">entry_block</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">locals</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
         <span class="ident">locals</span>.<span class="ident">extend</span>(
