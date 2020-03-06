@@ -23,9 +23,7 @@ Root: HKCU; Subkey: "Environment"; ValueType:string; ValueName: "WASMER_CACHE_DI
 [Files]
 Source: "..\..\target\release\wasmer.exe"; DestDir: "{app}\bin"
 Source: "..\..\wapm-cli\target\release\wapm.exe"; DestDir: "{app}\bin"
-{ The cmd shortcut for wax }
 Source: "wax.cmd"; DestDir: "{app}\bin"
-{ Other ways of doing it: https://superuser.com/questions/193000/running-programs-by-typing-some-alias-in-windows }
 
 [Dirs]
 Name: "{%USERPROFILE}\.wasmer"
