@@ -433,7 +433,7 @@ impl Machine {
         for i in 0..params.len() {
             let loc = source_param_locations[i];
             match loc {
-                Location::GPR(_) => {
+                Location::GPR(_) | Location::XMM(_) => {
                     a.emit_mov(Size::S64, loc, locations[i]);
                 }
                 Location::Memory(_, _) => match locations[i] {
