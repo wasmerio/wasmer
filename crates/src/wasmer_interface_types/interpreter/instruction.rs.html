@@ -141,12 +141,6 @@
 <span id="141">141</span>
 <span id="142">142</span>
 <span id="143">143</span>
-<span id="144">144</span>
-<span id="145">145</span>
-<span id="146">146</span>
-<span id="147">147</span>
-<span id="148">148</span>
-<span id="149">149</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">//use crate::ast::InterfaceType;</span>
 
@@ -159,16 +153,10 @@
         <span class="ident">index</span>: <span class="ident">u32</span>,
     },
 
-    <span class="doccomment">/// The `call` instruction.</span>
-    <span class="ident">Call</span> {
+    <span class="doccomment">/// The `call-core` instruction.</span>
+    <span class="ident">CallCore</span> {
         <span class="doccomment">/// The function index.</span>
         <span class="ident">function_index</span>: <span class="ident">usize</span>,
-    },
-
-    <span class="doccomment">/// The `call-export` instruction.</span>
-    <span class="ident">CallExport</span> {
-        <span class="doccomment">/// The exported function name.</span>
-        <span class="ident">export_name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> <span class="ident">str</span>,
     },
 
     <span class="doccomment">/// The `read-utf8` instruction.</span>

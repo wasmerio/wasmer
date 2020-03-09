@@ -906,15 +906,6 @@
 <span id="906">906</span>
 <span id="907">907</span>
 <span id="908">908</span>
-<span id="909">909</span>
-<span id="910">910</span>
-<span id="911">911</span>
-<span id="912">912</span>
-<span id="913">913</span>
-<span id="914">914</span>
-<span id="915">915</span>
-<span id="916">916</span>
-<span id="917">917</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parse the WIT textual representation into an [AST](crate::ast).</span>
 
@@ -945,8 +936,7 @@
 
     <span class="comment">// Instructions.</span>
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">argument_get</span> <span class="op">=</span> <span class="string">&quot;arg.get&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">call</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">call_export</span> <span class="op">=</span> <span class="string">&quot;call-export&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">call_core</span> <span class="op">=</span> <span class="string">&quot;call-core&quot;</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">read_utf8</span> <span class="op">=</span> <span class="string">&quot;read-utf8&quot;</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">write_utf8</span> <span class="op">=</span> <span class="string">&quot;write-utf8&quot;</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_s8</span> <span class="op">=</span> <span class="string">&quot;i32-to-s8&quot;</span>);
@@ -1067,17 +1057,11 @@
             <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> {
                 <span class="ident">index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
             })
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">call</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">call</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">call_core</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">call_core</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">Call</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">CallCore</span> {
                 <span class="ident">function_index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            })
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">call_export</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">call_export</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">CallExport</span> {
-                <span class="ident">export_name</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
             })
         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">read_utf8</span><span class="op">&gt;</span>() {
             <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">read_utf8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
@@ -1591,8 +1575,7 @@
     <span class="kw">fn</span> <span class="ident">test_instructions</span>() {
         <span class="kw">let</span> <span class="ident">inputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             <span class="string">&quot;arg.get 7&quot;</span>,
-            <span class="string">&quot;call 7&quot;</span>,
-            <span class="string">r#&quot;call-export &quot;foo&quot;&quot;#</span>,
+            <span class="string">&quot;call-core 7&quot;</span>,
             <span class="string">&quot;read-utf8&quot;</span>,
             <span class="string">r#&quot;write-utf8 &quot;foo&quot;&quot;#</span>,
             <span class="string">&quot;i32-to-s8&quot;</span>,
@@ -1637,8 +1620,7 @@
         ];
         <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">7</span> },
-            <span class="ident">Instruction</span>::<span class="ident">Call</span> { <span class="ident">function_index</span>: <span class="number">7</span> },
-            <span class="ident">Instruction</span>::<span class="ident">CallExport</span> { <span class="ident">export_name</span>: <span class="string">&quot;foo&quot;</span> },
+            <span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span>: <span class="number">7</span> },
             <span class="ident">Instruction</span>::<span class="ident">ReadUtf8</span>,
             <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
                 <span class="ident">allocator_name</span>: <span class="string">&quot;foo&quot;</span>,

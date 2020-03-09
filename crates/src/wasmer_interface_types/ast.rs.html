@@ -141,6 +141,10 @@
 <span id="141">141</span>
 <span id="142">142</span>
 <span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Represents the WIT language as a tree. This is the central</span>
 <span class="doccomment">//! representation of the language.</span>
@@ -195,12 +199,16 @@
 }
 
 <span class="doccomment">/// Represents a type signature.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```wasm,ignore</span>
+<span class="doccomment">/// (@interface type (param i32 i32) (result string))</span>
+<span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Type</span> {
-    <span class="doccomment">/// Types for the parameters.</span>
+    <span class="doccomment">/// Types for the parameters (`(param …)`).</span>
     <span class="kw">pub</span> <span class="ident">inputs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">InterfaceType</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// Types for the results.</span>
+    <span class="doccomment">/// Types for the results (`(result …)`).</span>
     <span class="kw">pub</span> <span class="ident">outputs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">InterfaceType</span><span class="op">&gt;</span>,
 }
 

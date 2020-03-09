@@ -643,13 +643,6 @@
 <span id="643">643</span>
 <span id="644">644</span>
 <span id="645">645</span>
-<span id="646">646</span>
-<span id="647">647</span>
-<span id="648">648</span>
-<span id="649">649</span>
-<span id="650">650</span>
-<span id="651">651</span>
-<span id="652">652</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Writes the AST into bytes representing WIT with its binary format.</span>
 
@@ -908,14 +901,9 @@
                 (<span class="kw-2">*</span><span class="ident">index</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Instruction</span>::<span class="ident">Call</span> { <span class="ident">function_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="number">0x01_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
                 (<span class="kw-2">*</span><span class="ident">function_index</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
-
-            <span class="ident">Instruction</span>::<span class="ident">CallExport</span> { <span class="ident">export_name</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x02_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">export_name</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
             }
 
             <span class="ident">Instruction</span>::<span class="ident">ReadUtf8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x03_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
@@ -1207,8 +1195,7 @@
         <span class="macro">assert_to_bytes</span><span class="macro">!</span>(
             <span class="macro">vec</span><span class="macro">!</span>[
                 <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
-                <span class="ident">Instruction</span>::<span class="ident">Call</span> { <span class="ident">function_index</span>: <span class="number">1</span> },
-                <span class="ident">Instruction</span>::<span class="ident">CallExport</span> { <span class="ident">export_name</span>: <span class="string">&quot;abc&quot;</span> },
+                <span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">ReadUtf8</span>,
                 <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
                     <span class="ident">allocator_name</span>: <span class="string">&quot;abc&quot;</span>,
@@ -1254,10 +1241,9 @@
                 <span class="ident">Instruction</span>::<span class="ident">U64ToI64</span>,
             ],
             <span class="kw-2">&amp;</span>[
-                <span class="number">0x2c</span>, <span class="comment">// list of 44 items</span>
+                <span class="number">0x2b</span>, <span class="comment">// list of 43 items</span>
                 <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
-                <span class="number">0x01</span>, <span class="number">0x01</span>, <span class="comment">// Call { function_index: 1 }</span>
-                <span class="number">0x02</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// CallExport { export_name: &quot;abc&quot; }</span>
+                <span class="number">0x01</span>, <span class="number">0x01</span>, <span class="comment">// CallCore { function_index: 1 }</span>
                 <span class="number">0x03</span>, <span class="comment">// ReadUtf8</span>
                 <span class="number">0x04</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// WriteUtf8 { allocator_name: &quot;abc&quot; }</span>
                 <span class="number">0x07</span>, <span class="comment">// I32ToS8</span>
