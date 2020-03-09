@@ -205,6 +205,7 @@ pub struct X64FunctionCode {
 
     signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
+    signature: FuncSig,
     fsm: FunctionStateMap,
     offset: usize,
 
@@ -713,11 +714,22 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         machine.track_state = self.config.as_ref().unwrap().track_state;
 
         assembler.emit_label(begin_label);
+
+        let signatures = self.signatures.as_ref().unwrap();
+        let function_signatures = self.function_signatures.as_ref().unwrap();
+        let sig_index = function_signatures
+            .get(FuncIndex::new(
+                self.functions.len() + self.func_import_count,
+            ))
+            .unwrap()
+            .clone();
+        let sig = signatures.get(sig_index).unwrap().clone();
         let code = X64FunctionCode {
             local_function_id: self.functions.len(),
 
-            signatures: self.signatures.as_ref().unwrap().clone(),
-            function_signatures: self.function_signatures.as_ref().unwrap().clone(),
+            signatures: signatures.clone(),
+            function_signatures: function_signatures.clone(),
+            signature: sig,
             fsm: FunctionStateMap::new(new_machine_state(), self.functions.len(), 32, vec![]), // only a placeholder; this is initialized later in `begin_body`
             offset: begin_offset.0,
 
@@ -6347,7 +6359,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         false,
                     )[0];
                     self.value_stack.push(ret);
-                    a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                    match return_types[0] {
+                        WpType::F32 | WpType::F64 => {
+                            a.emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                        }
+                        _ => {
+                            a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                        }
+                    }
                 }
             }
             Operator::CallIndirect { index, table_index } => {
@@ -6486,7 +6505,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         false,
                     )[0];
                     self.value_stack.push(ret);
-                    a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                    match return_types[0] {
+                        WpType::F32 | WpType::F64 => {
+                            a.emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                        }
+                        _ => {
+                            a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                        }
+                    }
                 }
             }
             Operator::If { ty } => {
@@ -7701,6 +7727,18 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.finalize_locals(a, &self.locals);
                     a.emit_mov(Size::S64, Location::GPR(GPR::RBP), Location::GPR(GPR::RSP));
                     a.emit_pop(Size::S64, Location::GPR(GPR::RBP));
+
+                    // Make a copy of the return value in XMM0, as required by the SysV CC.
+                    match self.signature.returns() {
+                        [x] if *x == Type::F32 || *x == Type::F64 => {
+                            a.emit_mov(
+                                Size::S64,
+                                Location::GPR(GPR::RAX),
+                                Location::XMM(XMM::XMM0),
+                            );
+                        }
+                        _ => {}
+                    }
                     a.emit_ret();
                 } else {
                     let released = &self.value_stack[frame.value_stack_depth..];
