@@ -110,6 +110,13 @@ impl Memory {
         let size = round_up_to_page_size(range_end - range_start, page_size);
         assert!(size <= self.size);
 
+        // Allocating a memory of size 0 raises an error on Windows.
+        if size == 0 {
+            self.protection = Protect::None;
+
+            return Ok(());
+        }
+
         // Commit the virtual memory.
         let ptr = VirtualAlloc(start as _, size, MEM_COMMIT, protect_const);
 
@@ -128,6 +135,7 @@ impl Memory {
     /// Split this memory into multiple memories by the given offset.
     pub fn split_at(mut self, offset: usize) -> (Memory, Memory) {
         let page_size = page_size::get();
+
         if offset % page_size == 0 {
             let second_ptr = unsafe { self.ptr.add(offset) };
             let second_size = self.size - offset;

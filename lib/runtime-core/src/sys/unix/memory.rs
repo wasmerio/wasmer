@@ -160,6 +160,7 @@ impl Memory {
         assert!(size <= self.size);
 
         let success = libc::mprotect(start as _, size, protect as i32);
+
         if success == -1 {
             Err(MemoryProtectionError::ProtectionFailed(
                 start as usize,
