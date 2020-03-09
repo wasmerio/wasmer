@@ -8984,7 +8984,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         Ok(())
     }
 
-    fn feed_import_function(&mut self) -> Result<(), CodegenError> {
+    fn feed_import_function(&mut self, _sigindex: SigIndex) -> Result<(), CodegenError> {
         self.func_import_count += 1;
         Ok(())
     }

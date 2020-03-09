@@ -32,8 +32,9 @@ use wasmer_runtime_core::{
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{
-        x64::new_machine_state, x64::X64Register, FunctionStateMap, MachineState, MachineValue,
-        ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
+        x64::new_machine_state, x64::X64Register, x64_decl::ArgumentRegisterAllocator,
+        FunctionStateMap, MachineState, MachineValue, ModuleStateMap, OffsetInfo, SuspendOffset,
+        WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
     typed_func::{Trampoline, Wasm},
@@ -869,7 +870,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(())
     }
 
-    fn feed_import_function(&mut self) -> Result<(), CodegenError> {
+    fn feed_import_function(&mut self, sigindex: SigIndex) -> Result<(), CodegenError> {
         let labels = self.function_labels.as_mut().unwrap();
         let id = labels.len();
 
@@ -879,6 +880,92 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         let label = a.get_label();
         a.emit_label(label);
         labels.insert(id, (label, Some(offset)));
+
+        // Singlepass internally treats all arguments as integers, but the standard System V calling convention requires
+        // floating point arguments to be passed in XMM registers.
+        //
+        // FIXME: This is only a workaround. We should fix singlepass to use the standard CC.
+        let sig = self
+            .signatures
+            .as_ref()
+            .expect("signatures itself")
+            .get(sigindex)
+            .expect("signatures");
+        // Translation is expensive, so only do it if needed.
+        if sig
+            .params()
+            .iter()
+            .find(|&&x| x == Type::F32 || x == Type::F64)
+            .is_some()
+        {
+            let mut param_locations: Vec<Location> = vec![];
+
+            // Allocate stack space for arguments.
+            let stack_offset: i32 = if sig.params().len() > 5 {
+                5 * 8
+            } else {
+                (sig.params().len() as i32) * 8
+            };
+            if stack_offset > 0 {
+                a.emit_sub(
+                    Size::S64,
+                    Location::Imm32(stack_offset as u32),
+                    Location::GPR(GPR::RSP),
+                );
+            }
+
+            // Store all arguments to the stack to prevent overwrite.
+            for i in 0..sig.params().len() {
+                let loc = match i {
+                    0..=4 => {
+                        static PARAM_REGS: &'static [GPR] =
+                            &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+                        let loc = Location::Memory(GPR::RSP, (i * 8) as i32);
+                        a.emit_mov(Size::S64, Location::GPR(PARAM_REGS[i]), loc);
+                        loc
+                    }
+                    _ => Location::Memory(GPR::RSP, stack_offset + 8 + ((i - 5) * 8) as i32),
+                };
+                param_locations.push(loc);
+            }
+
+            // Copy arguments.
+            let mut argalloc = ArgumentRegisterAllocator::default();
+            argalloc.next(Type::I32).unwrap(); // skip vm::Ctx
+            let mut caller_stack_offset: i32 = 0;
+            for (i, ty) in sig.params().iter().enumerate() {
+                let prev_loc = param_locations[i];
+                let target = match argalloc.next(*ty) {
+                    Some(X64Register::GPR(gpr)) => Location::GPR(gpr),
+                    Some(X64Register::XMM(xmm)) => Location::XMM(xmm),
+                    None => {
+                        // No register can be allocated. Put this argument on the stack.
+                        //
+                        // Since here we never use fewer registers than by the original call, on the caller's frame
+                        // we always have enough space to store the rearranged arguments, and the copy "backward" between different
+                        // slots in the caller argument region will always work.
+                        a.emit_mov(Size::S64, prev_loc, Location::GPR(GPR::RAX));
+                        a.emit_mov(
+                            Size::S64,
+                            Location::GPR(GPR::RAX),
+                            Location::Memory(GPR::RSP, stack_offset + 8 + caller_stack_offset),
+                        );
+                        caller_stack_offset += 8;
+                        continue;
+                    }
+                };
+                a.emit_mov(Size::S64, prev_loc, target);
+            }
+
+            // Restore stack pointer.
+            if stack_offset > 0 {
+                a.emit_add(
+                    Size::S64,
+                    Location::Imm32(stack_offset as u32),
+                    Location::GPR(GPR::RSP),
+                );
+            }
+        }
 
         // Emits a tail call trampoline that loads the address of the target import function
         // from Ctx and jumps to it.

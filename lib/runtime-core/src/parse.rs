@@ -110,11 +110,46 @@ pub fn read_module<
     let mut namespace_builder = Some(StringTableBuilder::new());
     let mut name_builder = Some(StringTableBuilder::new());
     let mut func_count: usize = 0;
+    let mut mcg_signatures_fed = false;
     let mut mcg_info_fed = false;
 
     loop {
         use wasmparser::ParserState;
         let state = parser.read();
+
+        // Feed signature and namespace information as early as possible.
+        match *state {
+            ParserState::BeginFunctionBody { .. }
+            | ParserState::ImportSectionEntry { .. }
+            | ParserState::EndWasm => {
+                if !mcg_signatures_fed {
+                    mcg_signatures_fed = true;
+                    let info_read = info.read().unwrap();
+                    mcg.feed_signatures(info_read.signatures.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                }
+            }
+            _ => {}
+        }
+        match *state {
+            ParserState::BeginFunctionBody { .. } | ParserState::EndWasm => {
+                if !mcg_info_fed {
+                    mcg_info_fed = true;
+                    {
+                        let mut info_write = info.write().unwrap();
+                        info_write.namespace_table = namespace_builder.take().unwrap().finish();
+                        info_write.name_table = name_builder.take().unwrap().finish();
+                    }
+                    let info_read = info.read().unwrap();
+                    mcg.feed_function_signatures(info_read.func_assoc.clone())
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    mcg.check_precondition(&info_read)
+                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                }
+            }
+            _ => {}
+        }
+
         match *state {
             ParserState::Error(ref err) => return Err(err.clone().into()),
             ParserState::TypeSectionEntry(ref ty) => {
@@ -136,7 +171,7 @@ pub fn read_module<
                         let sigindex = SigIndex::new(sigindex as usize);
                         info.write().unwrap().imported_functions.push(import_name);
                         info.write().unwrap().func_assoc.push(sigindex);
-                        mcg.feed_import_function()
+                        mcg.feed_import_function(sigindex)
                             .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                     }
                     ImportSectionEntryType::Table(table_ty) => {
@@ -218,22 +253,6 @@ pub fn read_module<
             }
             ParserState::BeginFunctionBody { range } => {
                 let id = func_count;
-                if !mcg_info_fed {
-                    mcg_info_fed = true;
-                    {
-                        let mut info_write = info.write().unwrap();
-                        info_write.namespace_table = namespace_builder.take().unwrap().finish();
-                        info_write.name_table = name_builder.take().unwrap().finish();
-                    }
-                    let info_read = info.read().unwrap();
-                    mcg.feed_signatures(info_read.signatures.clone())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.feed_function_signatures(info_read.func_assoc.clone())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.check_precondition(&info_read)
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                }
-
                 let fcg = mcg
                     .next_function(
                         Arc::clone(&info),
@@ -432,18 +451,6 @@ pub fn read_module<
                 info.write().unwrap().globals.push(global_init);
             }
             ParserState::EndWasm => {
-                // TODO Consolidate with BeginFunction body if possible
-                if !mcg_info_fed {
-                    info.write().unwrap().namespace_table =
-                        namespace_builder.take().unwrap().finish();
-                    info.write().unwrap().name_table = name_builder.take().unwrap().finish();
-                    mcg.feed_signatures(info.read().unwrap().signatures.clone())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.feed_function_signatures(info.read().unwrap().func_assoc.clone())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.check_precondition(&info.read().unwrap())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                }
                 break;
             }
             _ => {}

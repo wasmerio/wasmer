@@ -143,7 +143,7 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
         Ok(())
     }
     /// Adds an import function.
-    fn feed_import_function(&mut self) -> Result<(), E>;
+    fn feed_import_function(&mut self, _sigindex: SigIndex) -> Result<(), E>;
     /// Sets the signatures.
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), E>;
     /// Sets function signatures.
