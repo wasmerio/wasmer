@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1280](https://github.com/wasmerio/wasmer/pull/1280) A module can now have a memory of size zero on Windows.
 - [#1272](https://github.com/wasmerio/wasmer/pull/1272) Fix off-by-one error bug when accessing memory with a `WasmPtr` that contains the last valid byte of memory. Also changes the behavior of `WasmPtr<T, Array>` with a length of 0 and `WasmPtr<T>` where `std::mem::size_of::<T>()` is 0 to always return `None`
 
 ## 0.15.0 - 2020-03-04
