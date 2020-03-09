@@ -27,8 +27,7 @@ mod keyword {
 
     // Instructions.
     custom_keyword!(argument_get = "arg.get");
-    custom_keyword!(call);
-    custom_keyword!(call_export = "call-export");
+    custom_keyword!(call_core = "call-core");
     custom_keyword!(read_utf8 = "read-utf8");
     custom_keyword!(write_utf8 = "write-utf8");
     custom_keyword!(i32_to_s8 = "i32-to-s8");
@@ -149,17 +148,11 @@ impl<'a> Parse<'a> for Instruction<'a> {
             Ok(Instruction::ArgumentGet {
                 index: parser.parse()?,
             })
-        } else if lookahead.peek::<keyword::call>() {
-            parser.parse::<keyword::call>()?;
+        } else if lookahead.peek::<keyword::call_core>() {
+            parser.parse::<keyword::call_core>()?;
 
-            Ok(Instruction::Call {
+            Ok(Instruction::CallCore {
                 function_index: parser.parse::<u64>()? as usize,
-            })
-        } else if lookahead.peek::<keyword::call_export>() {
-            parser.parse::<keyword::call_export>()?;
-
-            Ok(Instruction::CallExport {
-                export_name: parser.parse()?,
             })
         } else if lookahead.peek::<keyword::read_utf8>() {
             parser.parse::<keyword::read_utf8>()?;
@@ -673,8 +666,7 @@ mod tests {
     fn test_instructions() {
         let inputs = vec![
             "arg.get 7",
-            "call 7",
-            r#"call-export "foo""#,
+            "call-core 7",
             "read-utf8",
             r#"write-utf8 "foo""#,
             "i32-to-s8",
@@ -719,8 +711,7 @@ mod tests {
         ];
         let outputs = vec![
             Instruction::ArgumentGet { index: 7 },
-            Instruction::Call { function_index: 7 },
-            Instruction::CallExport { export_name: "foo" },
+            Instruction::CallCore { function_index: 7 },
             Instruction::ReadUtf8,
             Instruction::WriteUtf8 {
                 allocator_name: "foo",
