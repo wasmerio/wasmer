@@ -51,12 +51,16 @@ pub enum InterfaceType {
 }
 
 /// Represents a type signature.
+///
+/// ```wasm,ignore
+/// (@interface type (param i32 i32) (result string))
+/// ```
 #[derive(PartialEq, Debug)]
 pub struct Type {
-    /// Types for the parameters.
+    /// Types for the parameters (`(param …)`).
     pub inputs: Vec<InterfaceType>,
 
-    /// Types for the results.
+    /// Types for the results (`(result …)`).
     pub outputs: Vec<InterfaceType>,
 }
 
