@@ -86,7 +86,7 @@ impl<'input> ToString for &Instruction<'input> {
             Instruction::ArgumentGet { index } => format!("arg.get {}", index),
             Instruction::Call { function_index } => format!("call {}", function_index),
             Instruction::CallExport { export_name } => format!(r#"call-export "{}""#, export_name),
-            Instruction::ReadUtf8 => "read-utf8".into(),
+            Instruction::MemoryToString => "memory-to-string".into(),
             Instruction::WriteUtf8 { allocator_name } => {
                 format!(r#"write-utf8 "{}""#, allocator_name)
             }
@@ -363,7 +363,7 @@ mod tests {
             (&Instruction::ArgumentGet { index: 7 }).to_string(),
             (&Instruction::Call { function_index: 7 }).to_string(),
             (&Instruction::CallExport { export_name: "foo" }).to_string(),
-            (&Instruction::ReadUtf8).to_string(),
+            (&Instruction::MemoryToString).to_string(),
             (&Instruction::WriteUtf8 {
                 allocator_name: "foo",
             })
@@ -412,7 +412,7 @@ mod tests {
             "arg.get 7",
             "call 7",
             r#"call-export "foo""#,
-            "read-utf8",
+            "memory-to-string",
             r#"write-utf8 "foo""#,
             "i32-to-s8",
             "i32-to-s8x",

@@ -184,7 +184,7 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
             )
         }
 
-        0x03 => (input, Instruction::ReadUtf8),
+        0x03 => (input, Instruction::MemoryToString),
 
         0x04 => {
             consume!((input, argument_0) = string(input)?);
@@ -641,7 +641,7 @@ mod tests {
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, 0x01, // Call { function_index: 1 }
             0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
-            0x03, // ReadUtf8
+            0x03, // MemoryToString
             0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
             0x07, // I32ToS8
             0x08, // I32ToS8X
@@ -690,7 +690,7 @@ mod tests {
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::Call { function_index: 1 },
                 Instruction::CallExport { export_name: "abc" },
-                Instruction::ReadUtf8,
+                Instruction::MemoryToString,
                 Instruction::WriteUtf8 {
                     allocator_name: "abc",
                 },

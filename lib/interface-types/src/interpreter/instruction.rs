@@ -21,8 +21,8 @@ pub enum Instruction<'input> {
         export_name: &'input str,
     },
 
-    /// The `read-utf8` instruction.
-    ReadUtf8,
+    /// The `memory-to-string` instruction.
+    MemoryToString,
 
     /// The `write-utf8` instruction.
     WriteUtf8 {

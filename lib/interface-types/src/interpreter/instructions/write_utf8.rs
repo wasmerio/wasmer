@@ -90,11 +90,11 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_write_utf8__roundtrip_with_read_utf8 =
+        test_write_utf8__roundtrip_with_memory_to_string =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::WriteUtf8 { allocator_name: "alloc" },
-                Instruction::ReadUtf8,
+                Instruction::MemoryToString,
             ],
             invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
             instance: Instance::new(),

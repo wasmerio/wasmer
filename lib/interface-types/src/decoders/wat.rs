@@ -29,7 +29,7 @@ mod keyword {
     custom_keyword!(argument_get = "arg.get");
     custom_keyword!(call);
     custom_keyword!(call_export = "call-export");
-    custom_keyword!(read_utf8 = "read-utf8");
+    custom_keyword!(memory_to_string = "memory-to-string");
     custom_keyword!(write_utf8 = "write-utf8");
     custom_keyword!(i32_to_s8 = "i32-to-s8");
     custom_keyword!(i32_to_s8x = "i32-to-s8x");
@@ -161,10 +161,10 @@ impl<'a> Parse<'a> for Instruction<'a> {
             Ok(Instruction::CallExport {
                 export_name: parser.parse()?,
             })
-        } else if lookahead.peek::<keyword::read_utf8>() {
-            parser.parse::<keyword::read_utf8>()?;
+        } else if lookahead.peek::<keyword::memory_to_string>() {
+            parser.parse::<keyword::memory_to_string>()?;
 
-            Ok(Instruction::ReadUtf8)
+            Ok(Instruction::MemoryToString)
         } else if lookahead.peek::<keyword::write_utf8>() {
             parser.parse::<keyword::write_utf8>()?;
 
@@ -675,7 +675,7 @@ mod tests {
             "arg.get 7",
             "call 7",
             r#"call-export "foo""#,
-            "read-utf8",
+            "memory-to-string",
             r#"write-utf8 "foo""#,
             "i32-to-s8",
             "i32-to-s8x",
@@ -721,7 +721,7 @@ mod tests {
             Instruction::ArgumentGet { index: 7 },
             Instruction::Call { function_index: 7 },
             Instruction::CallExport { export_name: "foo" },
-            Instruction::ReadUtf8,
+            Instruction::MemoryToString,
             Instruction::WriteUtf8 {
                 allocator_name: "foo",
             },

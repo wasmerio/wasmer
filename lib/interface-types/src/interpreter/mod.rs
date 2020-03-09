@@ -202,7 +202,7 @@ where
                     Instruction::CallExport { export_name } => {
                         instructions::call_export((*export_name).to_owned(), instruction_name)
                     }
-                    Instruction::ReadUtf8 => instructions::read_utf8(instruction_name),
+                    Instruction::MemoryToString => instructions::memory_to_string(instruction_name),
                     Instruction::WriteUtf8 { allocator_name } => {
                         instructions::write_utf8((*allocator_name).to_owned(), instruction_name)
                     }
@@ -265,7 +265,7 @@ mod tests {
             Instruction::ArgumentGet { index: 0 },
             Instruction::ArgumentGet { index: 0 },
             Instruction::CallExport { export_name: "foo" },
-            Instruction::ReadUtf8,
+            Instruction::MemoryToString,
             Instruction::Call { function_index: 7 },
         ];
         let interpreter: Interpreter<(), (), (), (), EmptyMemoryView> =
