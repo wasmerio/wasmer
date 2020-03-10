@@ -28,8 +28,8 @@ mod keyword {
     // Instructions.
     custom_keyword!(argument_get = "arg.get");
     custom_keyword!(call_core = "call-core");
-    custom_keyword!(read_utf8 = "read-utf8");
-    custom_keyword!(write_utf8 = "write-utf8");
+    custom_keyword!(memory_to_string = "memory-to-string");
+    custom_keyword!(string_to_memory = "string-to-memory");
     custom_keyword!(i32_to_s8 = "i32-to-s8");
     custom_keyword!(i32_to_s8x = "i32-to-s8x");
     custom_keyword!(i32_to_u8 = "i32-to-u8");
@@ -137,7 +137,7 @@ impl Parse<'_> for InterfaceType {
     }
 }
 
-impl<'a> Parse<'a> for Instruction<'a> {
+impl<'a> Parse<'a> for Instruction {
     #[allow(clippy::cognitive_complexity)]
     fn parse(parser: Parser<'a>) -> Result<Self> {
         let mut lookahead = parser.lookahead1();
@@ -154,15 +154,15 @@ impl<'a> Parse<'a> for Instruction<'a> {
             Ok(Instruction::CallCore {
                 function_index: parser.parse::<u64>()? as usize,
             })
-        } else if lookahead.peek::<keyword::read_utf8>() {
-            parser.parse::<keyword::read_utf8>()?;
+        } else if lookahead.peek::<keyword::memory_to_string>() {
+            parser.parse::<keyword::memory_to_string>()?;
 
-            Ok(Instruction::ReadUtf8)
-        } else if lookahead.peek::<keyword::write_utf8>() {
-            parser.parse::<keyword::write_utf8>()?;
+            Ok(Instruction::MemoryToString)
+        } else if lookahead.peek::<keyword::string_to_memory>() {
+            parser.parse::<keyword::string_to_memory>()?;
 
-            Ok(Instruction::WriteUtf8 {
-                allocator_name: parser.parse()?,
+            Ok(Instruction::StringToMemory {
+                allocator_index: parser.parse()?,
             })
         } else if lookahead.peek::<keyword::i32_to_s8>() {
             parser.parse::<keyword::i32_to_s8>()?;
@@ -392,7 +392,7 @@ impl Parse<'_> for FunctionType {
 enum Interface<'a> {
     Type(Type),
     Import(Import<'a>),
-    Adapter(Adapter<'a>),
+    Adapter(Adapter),
     Export(Export<'a>),
     Implementation(Implementation),
 }
@@ -520,7 +520,7 @@ impl<'a> Parse<'a> for Implementation {
     }
 }
 
-impl<'a> Parse<'a> for Adapter<'a> {
+impl<'a> Parse<'a> for Adapter {
     fn parse(parser: Parser<'a>) -> Result<Self> {
         parser.parse::<keyword::func>()?;
 
@@ -667,8 +667,8 @@ mod tests {
         let inputs = vec![
             "arg.get 7",
             "call-core 7",
-            "read-utf8",
-            r#"write-utf8 "foo""#,
+            "memory-to-string",
+            "string-to-memory 42",
             "i32-to-s8",
             "i32-to-s8x",
             "i32-to-u8",
@@ -712,9 +712,9 @@ mod tests {
         let outputs = vec![
             Instruction::ArgumentGet { index: 7 },
             Instruction::CallCore { function_index: 7 },
-            Instruction::ReadUtf8,
-            Instruction::WriteUtf8 {
-                allocator_name: "foo",
+            Instruction::MemoryToString,
+            Instruction::StringToMemory {
+                allocator_index: 42,
             },
             Instruction::I32ToS8,
             Instruction::I32ToS8X,

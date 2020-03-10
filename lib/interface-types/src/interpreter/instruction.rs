@@ -2,7 +2,7 @@
 
 /// Represents all the possible WIT instructions.
 #[derive(PartialEq, Debug)]
-pub enum Instruction<'input> {
+pub enum Instruction {
     /// The `arg.get` instruction.
     ArgumentGet {
         /// The argument index.
@@ -15,13 +15,13 @@ pub enum Instruction<'input> {
         function_index: usize,
     },
 
-    /// The `read-utf8` instruction.
-    ReadUtf8,
+    /// The `memory-to-string` instruction.
+    MemoryToString,
 
-    /// The `write-utf8` instruction.
-    WriteUtf8 {
-        /// The allocator function name.
-        allocator_name: &'input str,
+    /// The `string-to-memory` instruction.
+    StringToMemory {
+        /// The allocator function index.
+        allocator_index: u32,
     },
 
     /// The `i32-to-s8,` instruction.

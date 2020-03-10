@@ -174,14 +174,14 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
             )
         }
 
-        0x03 => (input, Instruction::ReadUtf8),
+        0x03 => (input, Instruction::MemoryToString),
 
         0x04 => {
-            consume!((input, argument_0) = string(input)?);
+            consume!((input, argument_0) = uleb(input)?);
             (
                 input,
-                Instruction::WriteUtf8 {
-                    allocator_name: argument_0,
+                Instruction::StringToMemory {
+                    allocator_index: argument_0 as u32,
                 },
             )
         }
@@ -630,8 +630,8 @@ mod tests {
             0x2b, // list of 43 items
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, 0x01, // CallCore { function_index: 1 }
-            0x03, // ReadUtf8
-            0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
+            0x03, // MemoryToString
+            0x04, 0x01, // StringToMemory { allocator_index: 1 }
             0x07, // I32ToS8
             0x08, // I32ToS8X
             0x09, // I32ToU8
@@ -678,10 +678,8 @@ mod tests {
             vec![
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 1 },
-                Instruction::ReadUtf8,
-                Instruction::WriteUtf8 {
-                    allocator_name: "abc",
-                },
+                Instruction::MemoryToString,
+                Instruction::StringToMemory { allocator_index: 1 },
                 Instruction::I32ToS8,
                 Instruction::I32ToS8X,
                 Instruction::I32ToU8,

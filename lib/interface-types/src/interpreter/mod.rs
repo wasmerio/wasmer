@@ -174,8 +174,7 @@ where
 }
 
 /// Transforms a `Vec<Instruction>` into an `Interpreter`.
-impl<'binary_input, Instance, Export, LocalImport, Memory, MemoryView>
-    TryFrom<&Vec<Instruction<'binary_input>>>
+impl<Instance, Export, LocalImport, Memory, MemoryView> TryFrom<&Vec<Instruction>>
     for Interpreter<Instance, Export, LocalImport, Memory, MemoryView>
 where
     Export: wasm::structures::Export,
@@ -199,9 +198,9 @@ where
                     Instruction::CallCore { function_index } => {
                         instructions::call_core(*function_index, instruction_name)
                     }
-                    Instruction::ReadUtf8 => instructions::read_utf8(instruction_name),
-                    Instruction::WriteUtf8 { allocator_name } => {
-                        instructions::write_utf8((*allocator_name).to_owned(), instruction_name)
+                    Instruction::MemoryToString => instructions::memory_to_string(instruction_name),
+                    Instruction::StringToMemory { allocator_index } => {
+                        instructions::string_to_memory(*allocator_index, instruction_name)
                     }
 
                     Instruction::I32ToS8 => instructions::i32_to_s8(),
