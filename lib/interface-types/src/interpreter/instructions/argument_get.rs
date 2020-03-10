@@ -1,12 +1,17 @@
+use crate::{
+    errors::{InstructionError, InstructionErrorKind},
+    interpreter::Instruction,
+};
+
 executable_instruction!(
-    argument_get(index: u32, instruction_name: String) -> _ {
+    argument_get(index: u32, instruction: Instruction) -> _ {
         move |runtime| -> _ {
             let invocation_inputs = runtime.invocation_inputs;
 
             if index >= (invocation_inputs.len() as u32) {
-                return Err(format!(
-                    "`{}` cannot access argument #{} because it doesn't exist.",
-                    instruction_name, index
+                return Err(InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::InvocationInputIsMissing { index },
                 ));
             }
 
@@ -49,6 +54,6 @@ mod tests {
             instructions: [Instruction::ArgumentGet { index: 1 }],
             invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
-            error: "`arg.get 1` cannot access argument #1 because it doesn't exist."
+            error: "`arg.get 1` cannot access invocation inputs #1 because it doesn't exist"
     );
 }

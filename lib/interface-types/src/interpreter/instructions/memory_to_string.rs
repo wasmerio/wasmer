@@ -1,52 +1,69 @@
-use crate::interpreter::wasm::values::InterfaceValue;
-use std::{cell::Cell, convert::TryFrom};
+use super::to_native;
+use crate::{
+    errors::{InstructionError, InstructionErrorKind},
+    interpreter::{wasm::values::InterfaceValue, Instruction},
+};
+use std::cell::Cell;
 
 executable_instruction!(
-    memory_to_string(instruction_name: String) -> _ {
+    memory_to_string(instruction: Instruction) -> _ {
         move |runtime| -> _ {
             match runtime.stack.pop(2) {
-                Some(inputs) => match runtime.wasm_instance.memory(0) {
-                    Some(memory) => {
-                        let length = i32::try_from(&inputs[0])? as usize;
-                        let pointer = i32::try_from(&inputs[1])? as usize;
-                        let memory_view = memory.view();
+                Some(inputs) => {
+                    let memory_index: u32 = 0;
 
-                        if memory_view.len() < pointer + length {
-                            return Err(format!(
-                                "`{}` failed because it has to read out of the memory bounds (index {} > memory length {}).",
-                                instruction_name,
-                                pointer + length,
-                                memory_view.len()
-                            ));
-                        }
+                    match runtime.wasm_instance.memory(memory_index as usize) {
+                        Some(memory) => {
+                            let length = to_native::<i32>(&inputs[0], instruction)? as usize;
+                            let pointer = to_native::<i32>(&inputs[1], instruction)? as usize;
+                            let memory_view = memory.view();
 
-                        let data: Vec<u8> = (&memory_view[pointer..pointer + length])
-                            .iter()
-                            .map(Cell::get)
-                            .collect();
-
-                        match String::from_utf8(data) {
-                            Ok(string) => {
-                                runtime.stack.push(InterfaceValue::String(string));
-
-                                Ok(())
+                            if memory_view.len() < pointer + length {
+                                return Err(
+                                    InstructionError::new(
+                                        instruction,
+                                        InstructionErrorKind::MemoryOutOfBoundsAccess {
+                                            index: pointer + length,
+                                            length: memory_view.len(),
+                                        }
+                                    ),
+                                )
                             }
-                            Err(utf8_error) => Err(format!(
-                                "`{}` failed because the read string isn't UTF-8 valid ({}).",
-                                instruction_name,
-                                utf8_error,
-                            ))
+
+                            let data: Vec<u8> = (&memory_view[pointer..pointer + length])
+                                .iter()
+                                .map(Cell::get)
+                                .collect();
+
+                            match String::from_utf8(data) {
+                                Ok(string) => {
+                                    runtime.stack.push(InterfaceValue::String(string));
+
+                                    Ok(())
+                                }
+                                Err(utf8_error) => Err(
+                                    InstructionError::new(
+                                        instruction,
+                                        InstructionErrorKind::String(utf8_error)
+                                    ),
+                                )
+                            }
                         }
+                        None => Err(
+                            InstructionError::new(
+                                instruction,
+                                InstructionErrorKind::MemoryIsMissing { memory_index }
+                            ),
+                        )
                     }
-                    None => Err(format!(
-                        "`{}` failed because there is no memory to read.",
-                        instruction_name
-                    ))
                 }
-                None => Err(format!(
-                    "`{}` failed because there is not enough data on the stack (needs 2).",
-                    instruction_name,
-                ))
+
+                None => Err(
+                    InstructionError::new(
+                        instruction,
+                        InstructionErrorKind::StackIsTooSmall { needed: 2 }
+                    ),
+                )
             }
         }
     }
@@ -91,7 +108,7 @@ mod tests {
                 memory: Memory::new("Hello!".as_bytes().iter().map(|u| Cell::new(*u)).collect()),
                 ..Default::default()
             },
-            error: r#"`memory-to-string` failed because it has to read out of the memory bounds (index 13 > memory length 6)."#,
+            error: r#"`memory-to-string` read out of the memory bounds (index 13 > memory length 6)"#,
     );
 
     test_executable_instruction!(
@@ -111,7 +128,7 @@ mod tests {
                 memory: Memory::new(vec![0, 159, 146, 150].iter().map(|b| Cell::new(*b)).collect::<Vec<Cell<u8>>>()),
                 ..Default::default()
             },
-            error: r#"`memory-to-string` failed because the read string isn't UTF-8 valid (invalid utf-8 sequence of 1 bytes from index 1)."#,
+            error: r#"`memory-to-string` invalid utf-8 sequence of 1 bytes from index 1"#,
     );
 
     test_executable_instruction!(
@@ -126,6 +143,6 @@ mod tests {
                 InterfaceValue::I32(0),
             ],
             instance: Instance::new(),
-            error: r#"`memory-to-string` failed because there is not enough data on the stack (needs 2)."#,
+            error: r#"`memory-to-string` needed to read `2` value(s) from the stack, but it doesn't contain enough data"#,
     );
 }
