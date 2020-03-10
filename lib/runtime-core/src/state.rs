@@ -650,7 +650,7 @@ pub mod x64_decl {
     }
 
     impl ArgumentRegisterAllocator {
-        /// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type..
+        /// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.
         pub fn next(&mut self, ty: Type) -> Option<X64Register> {
             static GPR_SEQ: &'static [GPR] =
                 &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
