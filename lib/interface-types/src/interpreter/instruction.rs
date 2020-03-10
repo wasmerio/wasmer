@@ -2,7 +2,7 @@
 
 /// Represents all the possible WIT instructions.
 #[derive(PartialEq, Debug)]
-pub enum Instruction<'input> {
+pub enum Instruction {
     /// The `arg.get` instruction.
     ArgumentGet {
         /// The argument index.

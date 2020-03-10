@@ -162,7 +162,7 @@ where
 /// Encode an `Adapter` into bytes.
 ///
 /// Decoder is in `decoders::binary::adapters`.
-impl<W> ToBytes<W> for Adapter<'_>
+impl<W> ToBytes<W> for Adapter
 where
     W: Write,
 {
@@ -244,7 +244,7 @@ where
 /// Encode an `Instruction` into bytes.
 ///
 /// Decoder is `decoders::binary::instruction`.
-impl<W> ToBytes<W> for Instruction<'_>
+impl<W> ToBytes<W> for Instruction
 where
     W: Write,
 {

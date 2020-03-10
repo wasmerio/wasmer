@@ -80,7 +80,7 @@ impl ToString for &InterfaceType {
 }
 
 /// Encode an `Instruction` into a string.
-impl<'input> ToString for &Instruction<'input> {
+impl ToString for &Instruction {
     fn to_string(&self) -> String {
         match self {
             Instruction::ArgumentGet { index } => format!("arg.get {}", index),
@@ -194,7 +194,7 @@ impl<'input> ToString for &Import<'input> {
 }
 
 /// Encode an `Adapter` into a string.
-impl<'input> ToString for &Adapter<'input> {
+impl ToString for &Adapter {
     fn to_string(&self) -> String {
         format!(
             r#"(@interface func (type {function_type}){instructions})"#,

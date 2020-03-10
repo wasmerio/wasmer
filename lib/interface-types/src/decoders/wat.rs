@@ -137,7 +137,7 @@ impl Parse<'_> for InterfaceType {
     }
 }
 
-impl<'a> Parse<'a> for Instruction<'a> {
+impl<'a> Parse<'a> for Instruction {
     #[allow(clippy::cognitive_complexity)]
     fn parse(parser: Parser<'a>) -> Result<Self> {
         let mut lookahead = parser.lookahead1();
@@ -392,7 +392,7 @@ impl Parse<'_> for FunctionType {
 enum Interface<'a> {
     Type(Type),
     Import(Import<'a>),
-    Adapter(Adapter<'a>),
+    Adapter(Adapter),
     Export(Export<'a>),
     Implementation(Implementation),
 }
@@ -520,7 +520,7 @@ impl<'a> Parse<'a> for Implementation {
     }
 }
 
-impl<'a> Parse<'a> for Adapter<'a> {
+impl<'a> Parse<'a> for Adapter {
     fn parse(parser: Parser<'a>) -> Result<Self> {
         parser.parse::<keyword::func>()?;
 

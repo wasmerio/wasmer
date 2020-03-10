@@ -174,8 +174,7 @@ where
 }
 
 /// Transforms a `Vec<Instruction>` into an `Interpreter`.
-impl<'binary_input, Instance, Export, LocalImport, Memory, MemoryView>
-    TryFrom<&Vec<Instruction<'binary_input>>>
+impl<Instance, Export, LocalImport, Memory, MemoryView> TryFrom<&Vec<Instruction>>
     for Interpreter<Instance, Export, LocalImport, Memory, MemoryView>
 where
     Export: wasm::structures::Export,
