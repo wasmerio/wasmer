@@ -323,17 +323,12 @@ impl<'a> DynamicFunc<'a> {
                 .iter()
                 .enumerate()
                 .map(|(i, t)| {
-                    let i = i as isize + 1; // skip vmctx
-
+                    let i = i + 1; // skip vmctx
                     match *t {
-                        Type::I32 => Value::I32(*args.offset(i) as i32),
-                        Type::I64 => Value::I64(*args.offset(i) as i64),
-                        Type::F32 => {
-                            eprintln!("{:?}", 3.0f32.to_le_bytes());
-                            eprintln!("{:#064x}", *args.offset(i));
-                            Value::F32(f32::from_bits(*args.offset(i) as u32))
-                        }
-                        Type::F64 => Value::F64(f64::from_bits(*args.offset(i) as u64)),
+                        Type::I32 => Value::I32(*args.offset(i as _) as i32),
+                        Type::I64 => Value::I64(*args.offset(i as _) as i64),
+                        Type::F32 => Value::F32(f32::from_bits(*args.offset(i as _) as u32)),
+                        Type::F64 => Value::F64(f64::from_bits(*args.offset(i as _) as u64)),
                         Type::V128 => {
                             todo!("enter_host_polymorphic: 128-bit types are not supported")
                         }
@@ -341,7 +336,6 @@ impl<'a> DynamicFunc<'a> {
                 })
                 .collect();
             let rets = (ctx.func)(vmctx, &args);
-
             if rets.len() == 0 {
                 0
             } else if rets.len() == 1 {
