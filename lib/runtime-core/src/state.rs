@@ -614,7 +614,7 @@ pub mod x64_decl {
 
         /// Returns the instruction prefix for `movq %this_reg, ?(%rsp)`.
         ///
-        /// To build a instruction, append the memory location as a 32-bit
+        /// To build an instruction, append the memory location as a 32-bit
         /// offset to the stack pointer to this prefix.
         pub fn prefix_mov_to_stack(&self) -> Option<&'static [u8]> {
             Some(match *self {
