@@ -55,7 +55,7 @@ fn generate_trampoline<'ctx>(
     intrinsics: &Intrinsics<'ctx>,
 ) -> Result<(), String> {
     let entry_block = context.append_basic_block(trampoline_func, "entry");
-    builder.position_at_end(&entry_block);
+    builder.position_at_end(entry_block);
 
     let (vmctx_ptr, func_ptr, args_ptr, returns_ptr) = match trampoline_func.get_params().as_slice()
     {

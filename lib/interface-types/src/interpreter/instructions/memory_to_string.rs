@@ -2,7 +2,7 @@ use crate::interpreter::wasm::values::InterfaceValue;
 use std::{cell::Cell, convert::TryFrom};
 
 executable_instruction!(
-    read_utf8(instruction_name: String) -> _ {
+    memory_to_string(instruction_name: String) -> _ {
         move |runtime| -> _ {
             match runtime.stack.pop(2) {
                 Some(inputs) => match runtime.wasm_instance.memory(0) {
@@ -55,11 +55,11 @@ executable_instruction!(
 #[cfg(test)]
 mod tests {
     test_executable_instruction!(
-        test_read_utf8 =
+        test_memory_to_string =
             instructions: [
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::ReadUtf8,
+                Instruction::MemoryToString,
             ],
             invocation_inputs: [
                 InterfaceValue::I32(13),
@@ -75,11 +75,11 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_read_utf8__read_out_of_memory =
+        test_memory_to_string__read_out_of_memory =
             instructions: [
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::ReadUtf8,
+                Instruction::MemoryToString,
             ],
             invocation_inputs: [
                 InterfaceValue::I32(13),
@@ -91,15 +91,15 @@ mod tests {
                 memory: Memory::new("Hello!".as_bytes().iter().map(|u| Cell::new(*u)).collect()),
                 ..Default::default()
             },
-            error: r#"`read-utf8` failed because it has to read out of the memory bounds (index 13 > memory length 6)."#,
+            error: r#"`memory-to-string` failed because it has to read out of the memory bounds (index 13 > memory length 6)."#,
     );
 
     test_executable_instruction!(
-        test_read_utf8__invalid_encoding =
+        test_memory_to_string__invalid_encoding =
             instructions: [
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::ReadUtf8,
+                Instruction::MemoryToString,
             ],
             invocation_inputs: [
                 InterfaceValue::I32(4),
@@ -111,21 +111,21 @@ mod tests {
                 memory: Memory::new(vec![0, 159, 146, 150].iter().map(|b| Cell::new(*b)).collect::<Vec<Cell<u8>>>()),
                 ..Default::default()
             },
-            error: r#"`read-utf8` failed because the read string isn't UTF-8 valid (invalid utf-8 sequence of 1 bytes from index 1)."#,
+            error: r#"`memory-to-string` failed because the read string isn't UTF-8 valid (invalid utf-8 sequence of 1 bytes from index 1)."#,
     );
 
     test_executable_instruction!(
-        test_read_utf8__stack_is_too_small =
+        test_memory_to_string__stack_is_too_small =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::ReadUtf8,
-                //           ^^^^^^^^ `read-utf8` expects 2 values on the stack, only one is present.
+                Instruction::MemoryToString,
+                //           ^^^^^^^^^^^^^^ `memory-to-string` expects 2 values on the stack, only one is present.
             ],
             invocation_inputs: [
                 InterfaceValue::I32(13),
                 InterfaceValue::I32(0),
             ],
             instance: Instance::new(),
-            error: r#"`read-utf8` failed because there is not enough data on the stack (needs 2)."#,
+            error: r#"`memory-to-string` failed because there is not enough data on the stack (needs 2)."#,
     );
 }

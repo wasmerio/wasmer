@@ -80,15 +80,14 @@ impl ToString for &InterfaceType {
 }
 
 /// Encode an `Instruction` into a string.
-impl<'input> ToString for &Instruction<'input> {
+impl ToString for &Instruction {
     fn to_string(&self) -> String {
         match self {
             Instruction::ArgumentGet { index } => format!("arg.get {}", index),
-            Instruction::Call { function_index } => format!("call {}", function_index),
-            Instruction::CallExport { export_name } => format!(r#"call-export "{}""#, export_name),
-            Instruction::ReadUtf8 => "read-utf8".into(),
-            Instruction::WriteUtf8 { allocator_name } => {
-                format!(r#"write-utf8 "{}""#, allocator_name)
+            Instruction::CallCore { function_index } => format!("call-core {}", function_index),
+            Instruction::MemoryToString => "memory-to-string".into(),
+            Instruction::StringToMemory { allocator_index } => {
+                format!(r#"string-to-memory {}"#, allocator_index)
             }
             Instruction::I32ToS8 => "i32-to-s8".into(),
             Instruction::I32ToS8X => "i32-to-s8x".into(),
@@ -195,7 +194,7 @@ impl<'input> ToString for &Import<'input> {
 }
 
 /// Encode an `Adapter` into a string.
-impl<'input> ToString for &Adapter<'input> {
+impl ToString for &Adapter {
     fn to_string(&self) -> String {
         format!(
             r#"(@interface func (type {function_type}){instructions})"#,
@@ -361,11 +360,10 @@ mod tests {
     fn test_instructions() {
         let inputs: Vec<String> = vec![
             (&Instruction::ArgumentGet { index: 7 }).to_string(),
-            (&Instruction::Call { function_index: 7 }).to_string(),
-            (&Instruction::CallExport { export_name: "foo" }).to_string(),
-            (&Instruction::ReadUtf8).to_string(),
-            (&Instruction::WriteUtf8 {
-                allocator_name: "foo",
+            (&Instruction::CallCore { function_index: 7 }).to_string(),
+            (&Instruction::MemoryToString).to_string(),
+            (&Instruction::StringToMemory {
+                allocator_index: 42,
             })
                 .to_string(),
             (&Instruction::I32ToS8).to_string(),
@@ -410,10 +408,9 @@ mod tests {
         ];
         let outputs = vec![
             "arg.get 7",
-            "call 7",
-            r#"call-export "foo""#,
-            "read-utf8",
-            r#"write-utf8 "foo""#,
+            "call-core 7",
+            "memory-to-string",
+            "string-to-memory 42",
             "i32-to-s8",
             "i32-to-s8x",
             "i32-to-u8",
