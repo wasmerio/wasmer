@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["argument_get",""],["call_core",""],["lowering_lifting",""],["read_utf8",""],["write_utf8",""]]});
+initSidebarItems({"mod":[["argument_get",""],["call_core",""],["lowering_lifting",""],["memory_to_string",""],["string_to_memory",""]]});

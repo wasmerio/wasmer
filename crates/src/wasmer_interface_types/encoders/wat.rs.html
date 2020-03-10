@@ -661,14 +661,14 @@
 }
 
 <span class="doccomment">/// Encode an `Instruction` into a string.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Instruction</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
+<span class="kw">impl</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Instruction</span> {
     <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;arg.get {}&quot;</span>, <span class="ident">index</span>),
             <span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;call-core {}&quot;</span>, <span class="ident">function_index</span>),
-            <span class="ident">Instruction</span>::<span class="ident">ReadUtf8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;read-utf8&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> { <span class="ident">allocator_name</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">r#&quot;write-utf8 &quot;{}&quot;&quot;#</span>, <span class="ident">allocator_name</span>)
+            <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;memory-to-string&quot;</span>.<span class="ident">into</span>(),
+            <span class="ident">Instruction</span>::<span class="ident">StringToMemory</span> { <span class="ident">allocator_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">format</span><span class="macro">!</span>(<span class="string">r#&quot;string-to-memory {}&quot;#</span>, <span class="ident">allocator_index</span>)
             }
             <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-s8&quot;</span>.<span class="ident">into</span>(),
             <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i32-to-s8x&quot;</span>.<span class="ident">into</span>(),
@@ -775,7 +775,7 @@
 }
 
 <span class="doccomment">/// Encode an `Adapter` into a string.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Adapter</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
+<span class="kw">impl</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Adapter</span> {
     <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
         <span class="macro">format</span><span class="macro">!</span>(
             <span class="string">r#&quot;(@interface func (type {function_type}){instructions})&quot;#</span>,
@@ -942,9 +942,9 @@
         <span class="kw">let</span> <span class="ident">inputs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">7</span> }).<span class="ident">to_string</span>(),
             (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span>: <span class="number">7</span> }).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">ReadUtf8</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
-                <span class="ident">allocator_name</span>: <span class="string">&quot;foo&quot;</span>,
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>).<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">StringToMemory</span> {
+                <span class="ident">allocator_index</span>: <span class="number">42</span>,
             })
                 .<span class="ident">to_string</span>(),
             (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I32ToS8</span>).<span class="ident">to_string</span>(),
@@ -990,8 +990,8 @@
         <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             <span class="string">&quot;arg.get 7&quot;</span>,
             <span class="string">&quot;call-core 7&quot;</span>,
-            <span class="string">&quot;read-utf8&quot;</span>,
-            <span class="string">r#&quot;write-utf8 &quot;foo&quot;&quot;#</span>,
+            <span class="string">&quot;memory-to-string&quot;</span>,
+            <span class="string">&quot;string-to-memory 42&quot;</span>,
             <span class="string">&quot;i32-to-s8&quot;</span>,
             <span class="string">&quot;i32-to-s8x&quot;</span>,
             <span class="string">&quot;i32-to-u8&quot;</span>,

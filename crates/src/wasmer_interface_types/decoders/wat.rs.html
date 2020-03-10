@@ -937,8 +937,8 @@
     <span class="comment">// Instructions.</span>
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">argument_get</span> <span class="op">=</span> <span class="string">&quot;arg.get&quot;</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">call_core</span> <span class="op">=</span> <span class="string">&quot;call-core&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">read_utf8</span> <span class="op">=</span> <span class="string">&quot;read-utf8&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">write_utf8</span> <span class="op">=</span> <span class="string">&quot;write-utf8&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">memory_to_string</span> <span class="op">=</span> <span class="string">&quot;memory-to-string&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">string_to_memory</span> <span class="op">=</span> <span class="string">&quot;string-to-memory&quot;</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_s8</span> <span class="op">=</span> <span class="string">&quot;i32-to-s8&quot;</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_s8x</span> <span class="op">=</span> <span class="string">&quot;i32-to-s8x&quot;</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_u8</span> <span class="op">=</span> <span class="string">&quot;i32-to-u8&quot;</span>);
@@ -1046,7 +1046,7 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Instruction</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Instruction</span> {
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cognitive_complexity</span>)]</span>
     <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">lookahead</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">lookahead1</span>();
@@ -1063,15 +1063,15 @@
             <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">CallCore</span> {
                 <span class="ident">function_index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>,
             })
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">read_utf8</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">read_utf8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">memory_to_string</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">memory_to_string</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">ReadUtf8</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">write_utf8</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">write_utf8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_to_memory</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_to_memory</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
-                <span class="ident">allocator_name</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">StringToMemory</span> {
+                <span class="ident">allocator_index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
             })
         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s8</span><span class="op">&gt;</span>() {
             <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
@@ -1301,7 +1301,7 @@
 <span class="kw">enum</span> <span class="ident">Interface</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="ident">Type</span>(<span class="ident">Type</span>),
     <span class="ident">Import</span>(<span class="ident">Import</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>),
-    <span class="ident">Adapter</span>(<span class="ident">Adapter</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>),
+    <span class="ident">Adapter</span>(<span class="ident">Adapter</span>),
     <span class="ident">Export</span>(<span class="ident">Export</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>),
     <span class="ident">Implementation</span>(<span class="ident">Implementation</span>),
 }
@@ -1429,7 +1429,7 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Adapter</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Adapter</span> {
     <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">func</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
@@ -1576,8 +1576,8 @@
         <span class="kw">let</span> <span class="ident">inputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             <span class="string">&quot;arg.get 7&quot;</span>,
             <span class="string">&quot;call-core 7&quot;</span>,
-            <span class="string">&quot;read-utf8&quot;</span>,
-            <span class="string">r#&quot;write-utf8 &quot;foo&quot;&quot;#</span>,
+            <span class="string">&quot;memory-to-string&quot;</span>,
+            <span class="string">&quot;string-to-memory 42&quot;</span>,
             <span class="string">&quot;i32-to-s8&quot;</span>,
             <span class="string">&quot;i32-to-s8x&quot;</span>,
             <span class="string">&quot;i32-to-u8&quot;</span>,
@@ -1621,9 +1621,9 @@
         <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">7</span> },
             <span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span>: <span class="number">7</span> },
-            <span class="ident">Instruction</span>::<span class="ident">ReadUtf8</span>,
-            <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
-                <span class="ident">allocator_name</span>: <span class="string">&quot;foo&quot;</span>,
+            <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>,
+            <span class="ident">Instruction</span>::<span class="ident">StringToMemory</span> {
+                <span class="ident">allocator_index</span>: <span class="number">42</span>,
             },
             <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span>,
             <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span>,

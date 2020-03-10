@@ -146,7 +146,7 @@
 
 <span class="doccomment">/// Represents all the possible WIT instructions.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Instruction</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Instruction</span> {
     <span class="doccomment">/// The `arg.get` instruction.</span>
     <span class="ident">ArgumentGet</span> {
         <span class="doccomment">/// The argument index.</span>
@@ -159,13 +159,13 @@
         <span class="ident">function_index</span>: <span class="ident">usize</span>,
     },
 
-    <span class="doccomment">/// The `read-utf8` instruction.</span>
-    <span class="ident">ReadUtf8</span>,
+    <span class="doccomment">/// The `memory-to-string` instruction.</span>
+    <span class="ident">MemoryToString</span>,
 
-    <span class="doccomment">/// The `write-utf8` instruction.</span>
-    <span class="ident">WriteUtf8</span> {
-        <span class="doccomment">/// The allocator function name.</span>
-        <span class="ident">allocator_name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> <span class="ident">str</span>,
+    <span class="doccomment">/// The `string-to-memory` instruction.</span>
+    <span class="ident">StringToMemory</span> {
+        <span class="doccomment">/// The allocator function index.</span>
+        <span class="ident">allocator_index</span>: <span class="ident">u32</span>,
     },
 
     <span class="doccomment">/// The `i32-to-s8,` instruction.</span>

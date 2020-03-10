@@ -186,18 +186,20 @@
 <span id="186">186</span>
 <span id="187">187</span>
 <span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">mod</span> <span class="ident">argument_get</span>;
 <span class="kw">mod</span> <span class="ident">call_core</span>;
 <span class="kw">mod</span> <span class="ident">lowering_lifting</span>;
-<span class="kw">mod</span> <span class="ident">read_utf8</span>;
-<span class="kw">mod</span> <span class="ident">write_utf8</span>;
+<span class="kw">mod</span> <span class="ident">memory_to_string</span>;
+<span class="kw">mod</span> <span class="ident">string_to_memory</span>;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">argument_get</span>::<span class="ident">argument_get</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">call_core</span>::<span class="ident">call_core</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">lowering_lifting</span>::<span class="kw-2">*</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">read_utf8</span>::<span class="ident">read_utf8</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">write_utf8</span>::<span class="ident">write_utf8</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">memory_to_string</span>::<span class="ident">memory_to_string</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">string_to_memory</span>::<span class="ident">string_to_memory</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">tests</span> {
@@ -320,23 +322,12 @@
                             },
                         },
                     );
-                    <span class="ident">hashmap</span>.<span class="ident">insert</span>(
-                        <span class="string">&quot;alloc&quot;</span>.<span class="ident">into</span>(),
-                        <span class="ident">Export</span> {
-                            <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                            <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                            <span class="ident">function</span>: <span class="op">|</span><span class="ident">arguments</span>: <span class="kw-2">&amp;</span>[<span class="ident">InterfaceValue</span>]<span class="op">|</span> {
-                                <span class="kw">let</span> <span class="ident">_size</span>: <span class="ident">i32</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="ident">arguments</span>[<span class="number">0</span>]).<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
-
-                                <span class="prelude-val">Ok</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">0</span>)])
-                            },
-                        },
-                    );
 
                     <span class="ident">hashmap</span>
                 },
                 <span class="ident">locals_or_imports</span>: {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hashmap</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
+                    <span class="comment">// sum</span>
                     <span class="ident">hashmap</span>.<span class="ident">insert</span>(
                         <span class="number">42</span>,
                         <span class="ident">LocalImport</span> {
@@ -347,6 +338,19 @@
                                 <span class="kw">let</span> <span class="ident">b</span>: <span class="ident">i32</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="ident">arguments</span>[<span class="number">1</span>]).<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
 
                                 <span class="prelude-val">Ok</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="ident">a</span> <span class="op">*</span> <span class="ident">b</span>)])
+                            },
+                        },
+                    );
+                    <span class="comment">// string allocator</span>
+                    <span class="ident">hashmap</span>.<span class="ident">insert</span>(
+                        <span class="number">43</span>,
+                        <span class="ident">LocalImport</span> {
+                            <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                            <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                            <span class="ident">function</span>: <span class="op">|</span><span class="ident">arguments</span>: <span class="kw-2">&amp;</span>[<span class="ident">InterfaceValue</span>]<span class="op">|</span> {
+                                <span class="kw">let</span> <span class="ident">_size</span>: <span class="ident">i32</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="ident">arguments</span>[<span class="number">0</span>]).<span class="ident">try_into</span>().<span class="ident">unwrap</span>();
+
+                                <span class="prelude-val">Ok</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">0</span>)])
                             },
                         },
                     );

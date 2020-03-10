@@ -892,8 +892,6 @@
 <span id="892">892</span>
 <span id="893">893</span>
 <span id="894">894</span>
-<span id="895">895</span>
-<span id="896">896</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parse the WIT binary representation into an [AST](crate::ast).</span>
 
@@ -1071,14 +1069,14 @@
             )
         }
 
-        <span class="number">0x03</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">ReadUtf8</span>),
+        <span class="number">0x03</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>),
 
         <span class="number">0x04</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">string</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
+            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
             (
                 <span class="ident">input</span>,
-                <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
-                    <span class="ident">allocator_name</span>: <span class="ident">argument_0</span>,
+                <span class="ident">Instruction</span>::<span class="ident">StringToMemory</span> {
+                    <span class="ident">allocator_index</span>: <span class="ident">argument_0</span> <span class="kw">as</span> <span class="ident">u32</span>,
                 },
             )
         }
@@ -1527,8 +1525,8 @@
             <span class="number">0x2b</span>, <span class="comment">// list of 43 items</span>
             <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
             <span class="number">0x01</span>, <span class="number">0x01</span>, <span class="comment">// CallCore { function_index: 1 }</span>
-            <span class="number">0x03</span>, <span class="comment">// ReadUtf8</span>
-            <span class="number">0x04</span>, <span class="number">0x03</span>, <span class="number">0x61</span>, <span class="number">0x62</span>, <span class="number">0x63</span>, <span class="comment">// WriteUtf8 { allocator_name: &quot;abc&quot; }</span>
+            <span class="number">0x03</span>, <span class="comment">// MemoryToString</span>
+            <span class="number">0x04</span>, <span class="number">0x01</span>, <span class="comment">// StringToMemory { allocator_index: 1 }</span>
             <span class="number">0x07</span>, <span class="comment">// I32ToS8</span>
             <span class="number">0x08</span>, <span class="comment">// I32ToS8X</span>
             <span class="number">0x09</span>, <span class="comment">// I32ToU8</span>
@@ -1575,10 +1573,8 @@
             <span class="macro">vec</span><span class="macro">!</span>[
                 <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span>: <span class="number">1</span> },
-                <span class="ident">Instruction</span>::<span class="ident">ReadUtf8</span>,
-                <span class="ident">Instruction</span>::<span class="ident">WriteUtf8</span> {
-                    <span class="ident">allocator_name</span>: <span class="string">&quot;abc&quot;</span>,
-                },
+                <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>,
+                <span class="ident">Instruction</span>::<span class="ident">StringToMemory</span> { <span class="ident">allocator_index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span>,
                 <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span>,
                 <span class="ident">Instruction</span>::<span class="ident">I32ToU8</span>,

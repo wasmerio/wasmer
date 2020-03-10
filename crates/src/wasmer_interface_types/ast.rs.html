@@ -237,12 +237,12 @@
 
 <span class="doccomment">/// Represents an adapter.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Adapter</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Adapter</span> {
     <span class="doccomment">/// The adapter function type.</span>
     <span class="kw">pub</span> <span class="ident">function_type</span>: <span class="ident">u32</span>,
 
     <span class="doccomment">/// The instructions.</span>
-    <span class="kw">pub</span> <span class="ident">instructions</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Instruction</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">instructions</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Instruction</span><span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// Represents an implementation.</span>
@@ -285,7 +285,7 @@
     <span class="kw">pub</span> <span class="ident">imports</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Import</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// All the adapters.</span>
-    <span class="kw">pub</span> <span class="ident">adapters</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Adapter</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">adapters</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Adapter</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// All the exported functions.</span>
     <span class="kw">pub</span> <span class="ident">exports</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Export</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span><span class="op">&gt;</span>,
