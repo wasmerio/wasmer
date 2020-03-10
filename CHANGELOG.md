@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- [#1286](https://github.com/wasmerio/wasmer/pull/1286) Updated Windows Wasmer icons. Add wax
+
 ## 0.15.0 - 2020-03-04
 
 - [#1263](https://github.com/wasmerio/wasmer/pull/1263) Changed the behavior of some WASI syscalls to now handle preopened directories more properly. Changed default `--debug` logging to only show Wasmer-related messages.
