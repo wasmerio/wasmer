@@ -18,31 +18,30 @@ macro_rules! lowering_lifting {
                                     |_| {
                                         InstructionError::new(
                                             instruction,
-                                            InstructionErrorKind::LoweringLifting { from: InterfaceType::$from_variant, to: InterfaceType::$to_variant },
+                                            InstructionErrorKind::LoweringLifting {
+                                                from: InterfaceType::$from_variant,
+                                                to: InterfaceType::$to_variant
+                                            },
                                         )
                                     },
                                 )?))
                         }
 
                         Some(wrong_value) => {
-                            return Err(
-                                InstructionError::new(
-                                    instruction,
-                                    InstructionErrorKind::InvalidValueOnTheStack {
-                                        expected_type: InterfaceType::$from_variant,
-                                        received_type: (&wrong_value).into(),
-                                    }
-                                )
-                            )
+                            return Err(InstructionError::new(
+                                instruction,
+                                InstructionErrorKind::InvalidValueOnTheStack {
+                                    expected_type: InterfaceType::$from_variant,
+                                    received_type: (&wrong_value).into(),
+                                }
+                            ))
                         },
 
                         None => {
-                            return Err(
-                                InstructionError::new(
-                                    instruction,
-                                    InstructionErrorKind::StackIsTooSmall { needed: 1 },
-                                )
-                            )
+                            return Err(InstructionError::new(
+                                instruction,
+                                InstructionErrorKind::StackIsTooSmall { needed: 1 },
+                            ))
                         }
                     }
 

@@ -8,63 +8,50 @@ use std::cell::Cell;
 executable_instruction!(
     memory_to_string(instruction: Instruction) -> _ {
         move |runtime| -> _ {
-            match runtime.stack.pop(2) {
-                Some(inputs) => {
-                    let memory_index: u32 = 0;
+            let inputs = runtime.stack.pop(2).ok_or_else(|| {
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::StackIsTooSmall { needed: 2 },
+                )
+            })?;
 
-                    match runtime.wasm_instance.memory(memory_index as usize) {
-                        Some(memory) => {
-                            let length = to_native::<i32>(&inputs[0], instruction)? as usize;
-                            let pointer = to_native::<i32>(&inputs[1], instruction)? as usize;
-                            let memory_view = memory.view();
+            let memory_index: u32 = 0;
 
-                            if memory_view.len() < pointer + length {
-                                return Err(
-                                    InstructionError::new(
-                                        instruction,
-                                        InstructionErrorKind::MemoryOutOfBoundsAccess {
-                                            index: pointer + length,
-                                            length: memory_view.len(),
-                                        }
-                                    ),
-                                )
-                            }
-
-                            let data: Vec<u8> = (&memory_view[pointer..pointer + length])
-                                .iter()
-                                .map(Cell::get)
-                                .collect();
-
-                            match String::from_utf8(data) {
-                                Ok(string) => {
-                                    runtime.stack.push(InterfaceValue::String(string));
-
-                                    Ok(())
-                                }
-                                Err(utf8_error) => Err(
-                                    InstructionError::new(
-                                        instruction,
-                                        InstructionErrorKind::String(utf8_error)
-                                    ),
-                                )
-                            }
-                        }
-                        None => Err(
-                            InstructionError::new(
-                                instruction,
-                                InstructionErrorKind::MemoryIsMissing { memory_index }
-                            ),
-                        )
-                    }
-                }
-
-                None => Err(
+            let memory = runtime
+                .wasm_instance
+                .memory(memory_index as usize)
+                .ok_or_else(|| {
                     InstructionError::new(
                         instruction,
-                        InstructionErrorKind::StackIsTooSmall { needed: 2 }
-                    ),
-                )
+                        InstructionErrorKind::MemoryIsMissing { memory_index },
+                    )
+                })?;
+
+            let length = to_native::<i32>(&inputs[0], instruction)? as usize;
+            let pointer = to_native::<i32>(&inputs[1], instruction)? as usize;
+            let memory_view = memory.view();
+
+            if memory_view.len() < pointer + length {
+                return Err(InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::MemoryOutOfBoundsAccess {
+                        index: pointer + length,
+                        length: memory_view.len(),
+                    },
+                ));
             }
+
+            let data: Vec<u8> = (&memory_view[pointer..pointer + length])
+                .iter()
+                .map(Cell::get)
+                .collect();
+
+            let string = String::from_utf8(data)
+                .map_err(|error| InstructionError::new(instruction, InstructionErrorKind::String(error)))?;
+
+            runtime.stack.push(InterfaceValue::String(string));
+
+            Ok(())
         }
     }
 );
