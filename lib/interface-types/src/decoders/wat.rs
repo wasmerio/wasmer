@@ -30,7 +30,7 @@ mod keyword {
     custom_keyword!(call);
     custom_keyword!(call_export = "call-export");
     custom_keyword!(memory_to_string = "memory-to-string");
-    custom_keyword!(write_utf8 = "write-utf8");
+    custom_keyword!(string_to_memory = "string-to-memory");
     custom_keyword!(i32_to_s8 = "i32-to-s8");
     custom_keyword!(i32_to_s8x = "i32-to-s8x");
     custom_keyword!(i32_to_u8 = "i32-to-u8");
@@ -165,11 +165,11 @@ impl<'a> Parse<'a> for Instruction<'a> {
             parser.parse::<keyword::memory_to_string>()?;
 
             Ok(Instruction::MemoryToString)
-        } else if lookahead.peek::<keyword::write_utf8>() {
-            parser.parse::<keyword::write_utf8>()?;
+        } else if lookahead.peek::<keyword::string_to_memory>() {
+            parser.parse::<keyword::string_to_memory>()?;
 
-            Ok(Instruction::WriteUtf8 {
-                allocator_name: parser.parse()?,
+            Ok(Instruction::StringToMemory {
+                allocator_index: parser.parse()?,
             })
         } else if lookahead.peek::<keyword::i32_to_s8>() {
             parser.parse::<keyword::i32_to_s8>()?;
@@ -676,7 +676,7 @@ mod tests {
             "call 7",
             r#"call-export "foo""#,
             "memory-to-string",
-            r#"write-utf8 "foo""#,
+            "string-to-memory 42",
             "i32-to-s8",
             "i32-to-s8x",
             "i32-to-u8",
@@ -722,8 +722,8 @@ mod tests {
             Instruction::Call { function_index: 7 },
             Instruction::CallExport { export_name: "foo" },
             Instruction::MemoryToString,
-            Instruction::WriteUtf8 {
-                allocator_name: "foo",
+            Instruction::StringToMemory {
+                allocator_index: 42,
             },
             Instruction::I32ToS8,
             Instruction::I32ToS8X,

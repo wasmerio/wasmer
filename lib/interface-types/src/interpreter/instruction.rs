@@ -24,10 +24,10 @@ pub enum Instruction<'input> {
     /// The `memory-to-string` instruction.
     MemoryToString,
 
-    /// The `write-utf8` instruction.
-    WriteUtf8 {
-        /// The allocator function name.
-        allocator_name: &'input str,
+    /// The `string-to-memory` instruction.
+    StringToMemory {
+        /// The allocator function index.
+        allocator_index: u32,
     },
 
     /// The `i32-to-s8,` instruction.

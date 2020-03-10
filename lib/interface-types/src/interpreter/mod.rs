@@ -203,8 +203,8 @@ where
                         instructions::call_export((*export_name).to_owned(), instruction_name)
                     }
                     Instruction::MemoryToString => instructions::memory_to_string(instruction_name),
-                    Instruction::WriteUtf8 { allocator_name } => {
-                        instructions::write_utf8((*allocator_name).to_owned(), instruction_name)
+                    Instruction::StringToMemory { allocator_index } => {
+                        instructions::string_to_memory(*allocator_index, instruction_name)
                     }
 
                     Instruction::I32ToS8 => instructions::i32_to_s8(),

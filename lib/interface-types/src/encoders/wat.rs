@@ -87,8 +87,8 @@ impl<'input> ToString for &Instruction<'input> {
             Instruction::Call { function_index } => format!("call {}", function_index),
             Instruction::CallExport { export_name } => format!(r#"call-export "{}""#, export_name),
             Instruction::MemoryToString => "memory-to-string".into(),
-            Instruction::WriteUtf8 { allocator_name } => {
-                format!(r#"write-utf8 "{}""#, allocator_name)
+            Instruction::StringToMemory { allocator_index } => {
+                format!(r#"string-to-memory {}"#, allocator_index)
             }
             Instruction::I32ToS8 => "i32-to-s8".into(),
             Instruction::I32ToS8X => "i32-to-s8x".into(),
@@ -364,8 +364,8 @@ mod tests {
             (&Instruction::Call { function_index: 7 }).to_string(),
             (&Instruction::CallExport { export_name: "foo" }).to_string(),
             (&Instruction::MemoryToString).to_string(),
-            (&Instruction::WriteUtf8 {
-                allocator_name: "foo",
+            (&Instruction::StringToMemory {
+                allocator_index: 42,
             })
                 .to_string(),
             (&Instruction::I32ToS8).to_string(),
@@ -413,7 +413,7 @@ mod tests {
             "call 7",
             r#"call-export "foo""#,
             "memory-to-string",
-            r#"write-utf8 "foo""#,
+            "string-to-memory 42",
             "i32-to-s8",
             "i32-to-s8x",
             "i32-to-u8",
