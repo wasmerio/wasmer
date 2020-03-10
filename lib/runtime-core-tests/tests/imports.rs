@@ -236,10 +236,6 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
                     let j: i64 = (&inputs[1]).try_into().unwrap();
                     let k: f32 = (&inputs[2]).try_into().unwrap();
 
-                    dbg!(i);
-                    dbg!(j);
-                    dbg!(k);
-
                     vec![Value::F32(shift_ as f32 + i as f32 + j as f32 + k)]
                 }
             ),

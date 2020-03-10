@@ -387,7 +387,7 @@ impl<'a> DynamicFunc<'a> {
         });
         let ctx = Box::into_raw(ctx);
 
-        let mut native_param_types = vec![Type::I32]; // vm::Ctx is the first parameter.
+        let mut native_param_types = vec![Type::I64]; // vm::Ctx is the first parameter.
         native_param_types.extend_from_slice(signature.params());
 
         match signature.returns() {
@@ -396,6 +396,7 @@ impl<'a> DynamicFunc<'a> {
                     unsafe { std::mem::transmute(enter_host_polymorphic_f as usize) },
                     ctx as *const _,
                     &native_param_types,
+                    signature.returns(),
                 );
             }
             _ => {
@@ -403,6 +404,7 @@ impl<'a> DynamicFunc<'a> {
                     enter_host_polymorphic_i,
                     ctx as *const _,
                     &native_param_types,
+                    signature.returns(),
                 );
             }
         }

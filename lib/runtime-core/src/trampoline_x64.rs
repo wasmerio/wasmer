@@ -249,6 +249,7 @@ impl TrampolineBufferBuilder {
         target: unsafe extern "C" fn(*const CallContext, *const u64) -> u64,
         context: *const CallContext,
         params: &[Type],
+        _returns: &[Type],
     ) -> usize {
         let idx = self.offsets.len();
         self.offsets.push(self.code.len());
@@ -402,11 +403,12 @@ mod tests {
         }
         let mut builder = TrampolineBufferBuilder::new();
         let ctx = TestContext { value: 100 };
-        let param_types: Vec<Type> = (0..8).map(|_| Type::I32).collect();
+        let param_types: Vec<Type> = vec![Type::I32; 8];
         let idx = builder.add_callinfo_trampoline(
             do_add,
             &ctx as *const TestContext as *const _,
             &param_types,
+            &[Type::I32],
         );
         let buf = builder.build();
         let t = buf.get_trampoline(idx);
@@ -421,6 +423,7 @@ mod tests {
     #[test]
     fn test_trampolines_with_floating_point() {
         unsafe extern "C" fn inner(n: *const CallContext, args: *const u64) -> u64 {
+            // `n` is not really a pointer. It is the length of the argument list, casted into the pointer type.
             let n = n as usize;
             let mut result: u64 = 0;
             for i in 0..n {
@@ -443,6 +446,7 @@ mod tests {
                 Type::I32,
                 Type::I32,
             ],
+            &[Type::I32],
         );
         let ptr = buffer.insert(builder.code()).unwrap();
         let ret = unsafe {
@@ -458,6 +462,7 @@ mod tests {
     #[test]
     fn test_many_global_trampolines() {
         unsafe extern "C" fn inner(n: *const CallContext, args: *const u64) -> u64 {
+            // `n` is not really a pointer. It is the length of the argument list, casted into the pointer type.
             let n = n as usize;
             let mut result: u64 = 0;
             for i in 0..n {
@@ -475,8 +480,8 @@ mod tests {
         for i in 0..5000usize {
             let mut builder = TrampolineBufferBuilder::new();
             let n = i % 8;
-            let param_types: Vec<_> = (0..n).map(|_| Type::I32).collect();
-            builder.add_callinfo_trampoline(inner, n as _, &param_types);
+            let param_types: Vec<_> = (0..n).map(|_| Type::I64).collect();
+            builder.add_callinfo_trampoline(inner, n as _, &param_types, &[Type::I64]);
             let ptr = buffer
                 .insert(builder.code())
                 .expect("cannot insert new code into global buffer");
