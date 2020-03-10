@@ -71,7 +71,7 @@ pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory, Mem
 /// let interpreter: Interpreter<Instance, Export, LocalImport, Memory, MemoryView> = (&vec![
 ///     Instruction::ArgumentGet { index: 1 },
 ///     Instruction::ArgumentGet { index: 0 },
-///     Instruction::CallExport { export_name: "sum" },
+///     Instruction::CallCore { function_index: 42 },
 /// ])
 ///     .try_into()
 ///     .unwrap();
@@ -81,12 +81,12 @@ pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory, Mem
 ///
 /// // 3. Creates a WebAssembly instance.
 /// let mut instance = Instance {
-///     // 3.1. Defines one exported function: `fn sum(a: i32, b: i32) -> i32 { a + b }`.
-///     exports: {
+///     // 3.1. Defines one function: `fn sum(a: i32, b: i32) -> i32 { a + b }`.
+///     locals_or_imports: {
 ///         let mut hashmap = HashMap::new();
 ///         hashmap.insert(
-///             "sum".into(),
-///             Export {
+///             42,
+///             LocalImport {
 ///                 // Defines the argument types of the function.
 ///                 inputs: vec![InterfaceType::I32, InterfaceType::I32],
 ///
@@ -196,11 +196,8 @@ where
                     Instruction::ArgumentGet { index } => {
                         instructions::argument_get(*index, instruction_name)
                     }
-                    Instruction::Call { function_index } => {
-                        instructions::call(*function_index, instruction_name)
-                    }
-                    Instruction::CallExport { export_name } => {
-                        instructions::call_export((*export_name).to_owned(), instruction_name)
+                    Instruction::CallCore { function_index } => {
+                        instructions::call_core(*function_index, instruction_name)
                     }
                     Instruction::MemoryToString => instructions::memory_to_string(instruction_name),
                     Instruction::StringToMemory { allocator_index } => {
@@ -251,26 +248,5 @@ where
         Ok(Interpreter {
             executable_instructions,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{wasm::structures::EmptyMemoryView, Instruction, Interpreter};
-    use std::convert::TryInto;
-
-    #[test]
-    fn test_interpreter_from_instructions() {
-        let instructions = vec![
-            Instruction::ArgumentGet { index: 0 },
-            Instruction::ArgumentGet { index: 0 },
-            Instruction::CallExport { export_name: "foo" },
-            Instruction::MemoryToString,
-            Instruction::Call { function_index: 7 },
-        ];
-        let interpreter: Interpreter<(), (), (), (), EmptyMemoryView> =
-            (&instructions).try_into().unwrap();
-
-        assert_eq!(interpreter.executable_instructions.len(), 5);
     }
 }

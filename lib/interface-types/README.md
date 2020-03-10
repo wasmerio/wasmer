@@ -30,3 +30,68 @@ more](https://github.com/wasmerio/wasmer).
 
 This crate is an implementation of [the living WebAssembly Interface
 Types standard](https://github.com/WebAssembly/interface-types).
+
+## Encoders and decoders
+
+The `wasmer-interface-types` crate comes with an encoder and a decoder
+for the WAT format, and the binary format, for the WebAssembly
+Interface Types. An encoder writes an AST into another format, like
+WAT or binary. A decoder reads an AST from another format, like WAT or
+binary.
+
+## Instructions
+
+Very basically, WebAssembly Interface Types defines a set of
+instructions, used by adapters to transform the data between
+WebAssembly core and the outside world ([learn
+mode](https://github.com/WebAssembly/interface-types/blob/master/proposals/interface-types/Explainer.md)).
+
+Here is the instructions that are implemented:
+
+| Instruction | WAT encoder | Binary encoder | WAT decoder | Binary decoder | Interpreter |
+|-|-|-|-|-|-|
+| `arg.get` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `call-core` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `memory-to-string` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `string-to-memory` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `call-adapter` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `defer-call-core` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `i32-to-s8` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i32-to-s8x` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `i32-to-u8` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i32-to-s16` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i32-to-s16x` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `i32-to-u16` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i32-to-s32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i32-to-u32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i32-to-s64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i32-to-u64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i64-to-s8` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i64-to-s8x` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `i64-to-u8` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i64-to-s16` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i64-to-s16x` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `i64-to-u16` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i64-to-s32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i64-to-s32x` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i64-to-u32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i64-to-s64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `i64-to-u64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `s8-to-i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `u8-to-i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `s16-to-i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `u16-to-i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `s32-to-i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `u32-to-i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `s64-to-i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `s64-to-i32x` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `u64-to-i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `u64-to-i32x` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `s8-to-i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `u8-to-i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `s16-to-i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `u16-to-i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `s32-to-i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `u32-to-i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `s64-to-i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `u64-to-i64` | ✅ | ✅ | ✅ | ✅ | ✅ |

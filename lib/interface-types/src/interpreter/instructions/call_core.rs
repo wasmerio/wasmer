@@ -4,7 +4,7 @@ use crate::interpreter::wasm::{
 };
 
 executable_instruction!(
-    call(function_index: usize, instruction_name: String) -> _ {
+    call_core(function_index: usize, instruction_name: String) -> _ {
         move |runtime| -> _ {
             let instance = &mut runtime.wasm_instance;
             let index = FunctionIndex::new(function_index);
@@ -65,11 +65,11 @@ executable_instruction!(
 #[cfg(test)]
 mod tests {
     test_executable_instruction!(
-        test_call =
+        test_call_core =
             instructions: [
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::Call { function_index: 42 },
+                Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -80,39 +80,39 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_call__invalid_local_import_index =
+        test_call_core__invalid_local_import_index =
             instructions: [
-                Instruction::Call { function_index: 42 },
+                Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
                 InterfaceValue::I32(4),
             ],
             instance: Default::default(),
-            error: r#"`call 42` cannot call the local or imported function `42` because it doesn't exist."#,
+            error: r#"`call-core 42` cannot call the local or imported function `42` because it doesn't exist."#,
     );
 
     test_executable_instruction!(
-        test_call__stack_is_too_small =
+        test_call_core__stack_is_too_small =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::Call { function_index: 42 },
-                //                                  ^^ `42` expects 2 values on the stack, only one is present
+                Instruction::CallCore { function_index: 42 },
+                //                                      ^^ `42` expects 2 values on the stack, only one is present
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
                 InterfaceValue::I32(4),
             ],
             instance: Instance::new(),
-            error: r#"`call 42` cannot call the local or imported function `42` because there is not enough data on the stack for the arguments (needs 2)."#,
+            error: r#"`call-core 42` cannot call the local or imported function `42` because there is not enough data on the stack for the arguments (needs 2)."#,
     );
 
     test_executable_instruction!(
-        test_call__invalid_types_in_the_stack =
+        test_call_core__invalid_types_in_the_stack =
             instructions: [
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::Call { function_index: 42 },
+                Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -120,15 +120,15 @@ mod tests {
                 //              ^^^ mismatch with `42` signature
             ],
             instance: Instance::new(),
-            error: r#"`call 42` cannot call the local or imported function `42` because the value types on the stack mismatch the function signature (expects [I32, I32])."#,
+            error: r#"`call-core 42` cannot call the local or imported function `42` because the value types on the stack mismatch the function signature (expects [I32, I32])."#,
     );
 
     test_executable_instruction!(
-        test_call__failure_when_calling =
+        test_call_core__failure_when_calling =
             instructions: [
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::Call { function_index: 42 },
+                Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),
@@ -151,15 +151,15 @@ mod tests {
                 },
                 ..Default::default()
             },
-            error: r#"`call 42` failed when calling the local or imported function `42`."#,
+            error: r#"`call-core 42` failed when calling the local or imported function `42`."#,
     );
 
     test_executable_instruction!(
-        test_call__void =
+        test_call_core__void =
             instructions: [
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::Call { function_index: 42 },
+                Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
                 InterfaceValue::I32(3),

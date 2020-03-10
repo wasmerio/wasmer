@@ -1,13 +1,11 @@
 mod argument_get;
-mod call;
-mod call_export;
+mod call_core;
 mod lowering_lifting;
 mod memory_to_string;
 mod string_to_memory;
 
 pub(crate) use argument_get::argument_get;
-pub(crate) use call::call;
-pub(crate) use call_export::call_export;
+pub(crate) use call_core::call_core;
 pub(crate) use lowering_lifting::*;
 pub(crate) use memory_to_string::memory_to_string;
 pub(crate) use string_to_memory::string_to_memory;

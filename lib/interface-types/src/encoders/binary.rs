@@ -255,14 +255,9 @@ where
                 (*index as u64).to_bytes(writer)?;
             }
 
-            Instruction::Call { function_index } => {
+            Instruction::CallCore { function_index } => {
                 0x01_u8.to_bytes(writer)?;
                 (*function_index as u64).to_bytes(writer)?;
-            }
-
-            Instruction::CallExport { export_name } => {
-                0x02_u8.to_bytes(writer)?;
-                export_name.to_bytes(writer)?;
             }
 
             Instruction::MemoryToString => 0x03_u8.to_bytes(writer)?,
@@ -554,8 +549,7 @@ mod tests {
         assert_to_bytes!(
             vec![
                 Instruction::ArgumentGet { index: 1 },
-                Instruction::Call { function_index: 1 },
-                Instruction::CallExport { export_name: "abc" },
+                Instruction::CallCore { function_index: 1 },
                 Instruction::MemoryToString,
                 Instruction::StringToMemory { allocator_index: 1 },
                 Instruction::I32ToS8,
@@ -599,10 +593,9 @@ mod tests {
                 Instruction::U64ToI64,
             ],
             &[
-                0x2c, // list of 44 items
+                0x2b, // list of 43 items
                 0x00, 0x01, // ArgumentGet { index: 1 }
-                0x01, 0x01, // Call { function_index: 1 }
-                0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
+                0x01, 0x01, // CallCore { function_index: 1 }
                 0x03, // MemoryToString
                 0x04, 0x01, // StringToMemory { allocator_index: 1 }
                 0x07, // I32ToS8

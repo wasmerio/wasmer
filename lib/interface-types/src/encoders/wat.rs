@@ -84,8 +84,7 @@ impl<'input> ToString for &Instruction<'input> {
     fn to_string(&self) -> String {
         match self {
             Instruction::ArgumentGet { index } => format!("arg.get {}", index),
-            Instruction::Call { function_index } => format!("call {}", function_index),
-            Instruction::CallExport { export_name } => format!(r#"call-export "{}""#, export_name),
+            Instruction::CallCore { function_index } => format!("call-core {}", function_index),
             Instruction::MemoryToString => "memory-to-string".into(),
             Instruction::StringToMemory { allocator_index } => {
                 format!(r#"string-to-memory {}"#, allocator_index)
@@ -361,8 +360,7 @@ mod tests {
     fn test_instructions() {
         let inputs: Vec<String> = vec![
             (&Instruction::ArgumentGet { index: 7 }).to_string(),
-            (&Instruction::Call { function_index: 7 }).to_string(),
-            (&Instruction::CallExport { export_name: "foo" }).to_string(),
+            (&Instruction::CallCore { function_index: 7 }).to_string(),
             (&Instruction::MemoryToString).to_string(),
             (&Instruction::StringToMemory {
                 allocator_index: 42,
@@ -410,8 +408,7 @@ mod tests {
         ];
         let outputs = vec![
             "arg.get 7",
-            "call 7",
-            r#"call-export "foo""#,
+            "call-core 7",
             "memory-to-string",
             "string-to-memory 42",
             "i32-to-s8",

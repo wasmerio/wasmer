@@ -9,16 +9,10 @@ pub enum Instruction<'input> {
         index: u32,
     },
 
-    /// The `call` instruction.
-    Call {
+    /// The `call-core` instruction.
+    CallCore {
         /// The function index.
         function_index: usize,
-    },
-
-    /// The `call-export` instruction.
-    CallExport {
-        /// The exported function name.
-        export_name: &'input str,
     },
 
     /// The `memory-to-string` instruction.
