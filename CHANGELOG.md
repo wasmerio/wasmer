@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- [#1283](https://github.com/wasmerio/wasmer/pull/1283) Workaround for floating point arguments and return values in `DynamicFunc`s.
+
 ## 0.16.0 - 2020-03-11
 
 - [#1286](https://github.com/wasmerio/wasmer/pull/1286) Updated Windows Wasmer icons. Add wax
