@@ -34,7 +34,7 @@ version = "1.0"
 
 [dev-dependencies]
 tempfile = "3.1"
-criterion = "0.2"
+criterion = "0.3"
 wabt = "0.9.1"
 
 [dependencies.wasmer-llvm-backend]
