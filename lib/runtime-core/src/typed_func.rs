@@ -349,6 +349,10 @@ impl<'a> DynamicFunc<'a> {
             }
         }
 
+        if cfg!(not(feature = "dynamicfunc-fat-closures")) && mem::size_of::<F>() != 0 {
+            unimplemented!("DynamicFunc with captured environment is disabled");
+        }
+
         let mut builder = TrampolineBufferBuilder::new();
         let ctx: Box<PolymorphicContext> = Box::new(PolymorphicContext {
             arg_types: signature.params().to_vec(),
