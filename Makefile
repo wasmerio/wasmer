@@ -288,8 +288,8 @@ build-install-package:
 	cp ./wapm-cli/target/release/wapm ./install/bin/
 	cp ./target/release/wasmer ./install/bin/
 	# Create the wax binary as symlink to wapm
-	cd ./install/bin/ && ln -s wapm wax
-	tar -C ./install -zcvf wasmer.tar.gz bin/wapm bin/wasmer
+	cd ./install/bin/ && ln -sf wapm wax && chmod +x wax
+	tar -C ./install -zcvf wasmer.tar.gz bin
 
 UNAME_S := $(shell uname -s)
 
