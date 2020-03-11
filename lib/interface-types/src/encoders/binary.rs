@@ -162,7 +162,7 @@ where
 /// Encode an `Adapter` into bytes.
 ///
 /// Decoder is in `decoders::binary::adapters`.
-impl<W> ToBytes<W> for Adapter<'_>
+impl<W> ToBytes<W> for Adapter
 where
     W: Write,
 {
@@ -244,7 +244,7 @@ where
 /// Encode an `Instruction` into bytes.
 ///
 /// Decoder is `decoders::binary::instruction`.
-impl<W> ToBytes<W> for Instruction<'_>
+impl<W> ToBytes<W> for Instruction
 where
     W: Write,
 {
@@ -255,21 +255,16 @@ where
                 (*index as u64).to_bytes(writer)?;
             }
 
-            Instruction::Call { function_index } => {
+            Instruction::CallCore { function_index } => {
                 0x01_u8.to_bytes(writer)?;
                 (*function_index as u64).to_bytes(writer)?;
             }
 
-            Instruction::CallExport { export_name } => {
-                0x02_u8.to_bytes(writer)?;
-                export_name.to_bytes(writer)?;
-            }
+            Instruction::MemoryToString => 0x03_u8.to_bytes(writer)?,
 
-            Instruction::ReadUtf8 => 0x03_u8.to_bytes(writer)?,
-
-            Instruction::WriteUtf8 { allocator_name } => {
+            Instruction::StringToMemory { allocator_index } => {
                 0x04_u8.to_bytes(writer)?;
-                allocator_name.to_bytes(writer)?;
+                (*allocator_index as u64).to_bytes(writer)?;
             }
 
             Instruction::I32ToS8 => 0x07_u8.to_bytes(writer)?,
@@ -554,12 +549,9 @@ mod tests {
         assert_to_bytes!(
             vec![
                 Instruction::ArgumentGet { index: 1 },
-                Instruction::Call { function_index: 1 },
-                Instruction::CallExport { export_name: "abc" },
-                Instruction::ReadUtf8,
-                Instruction::WriteUtf8 {
-                    allocator_name: "abc",
-                },
+                Instruction::CallCore { function_index: 1 },
+                Instruction::MemoryToString,
+                Instruction::StringToMemory { allocator_index: 1 },
                 Instruction::I32ToS8,
                 Instruction::I32ToS8X,
                 Instruction::I32ToU8,
@@ -601,12 +593,11 @@ mod tests {
                 Instruction::U64ToI64,
             ],
             &[
-                0x2c, // list of 44 items
+                0x2b, // list of 43 items
                 0x00, 0x01, // ArgumentGet { index: 1 }
-                0x01, 0x01, // Call { function_index: 1 }
-                0x02, 0x03, 0x61, 0x62, 0x63, // CallExport { export_name: "abc" }
-                0x03, // ReadUtf8
-                0x04, 0x03, 0x61, 0x62, 0x63, // WriteUtf8 { allocator_name: "abc" }
+                0x01, 0x01, // CallCore { function_index: 1 }
+                0x03, // MemoryToString
+                0x04, 0x01, // StringToMemory { allocator_index: 1 }
                 0x07, // I32ToS8
                 0x08, // I32ToS8X
                 0x09, // I32ToU8

@@ -51,12 +51,16 @@ pub enum InterfaceType {
 }
 
 /// Represents a type signature.
+///
+/// ```wasm,ignore
+/// (@interface type (param i32 i32) (result string))
+/// ```
 #[derive(PartialEq, Debug)]
 pub struct Type {
-    /// Types for the parameters.
+    /// Types for the parameters (`(param …)`).
     pub inputs: Vec<InterfaceType>,
 
-    /// Types for the results.
+    /// Types for the results (`(result …)`).
     pub outputs: Vec<InterfaceType>,
 }
 
@@ -85,12 +89,12 @@ pub struct Export<'input> {
 
 /// Represents an adapter.
 #[derive(PartialEq, Debug)]
-pub struct Adapter<'input> {
+pub struct Adapter {
     /// The adapter function type.
     pub function_type: u32,
 
     /// The instructions.
-    pub instructions: Vec<Instruction<'input>>,
+    pub instructions: Vec<Instruction>,
 }
 
 /// Represents an implementation.
@@ -133,7 +137,7 @@ pub struct Interfaces<'input> {
     pub imports: Vec<Import<'input>>,
 
     /// All the adapters.
-    pub adapters: Vec<Adapter<'input>>,
+    pub adapters: Vec<Adapter>,
 
     /// All the exported functions.
     pub exports: Vec<Export<'input>>,
