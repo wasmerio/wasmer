@@ -2,7 +2,7 @@
 
 ## **[Unreleased]**
 
-## 0.16.0 - 2020-03-11
+## 0.16.1 - 2020-03-11
 
 - [#1291](https://github.com/wasmerio/wasmer/pull/1291) Fix installation packaging script to package the `wax` command.
 
