@@ -130,9 +130,10 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
         let slice_full_len = index as usize + length as usize;
+        let memory_size = memory.size().bytes().0;
 
-        if (self.offset as usize) + (item_size * slice_full_len) > memory.size().bytes().0
-            || length == 0
+        if (self.offset as usize) + (item_size * slice_full_len) > memory_size
+            || self.offset as usize >= memory_size
             || mem::size_of::<T>() == 0
         {
             return None;
@@ -167,9 +168,10 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
         let slice_full_len = index as usize + length as usize;
+        let memory_size = memory.size().bytes().0;
 
         if (self.offset as usize) + (item_size * slice_full_len) > memory.size().bytes().0
-            || length == 0
+            || self.offset as usize >= memory_size
             || mem::size_of::<T>() == 0
         {
             return None;
@@ -190,7 +192,11 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// underlying data can be mutated if the Wasm is allowed to execute or
     /// an aliasing `WasmPtr` is used to mutate memory.
     pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<&str> {
-        if self.offset as usize + str_len as usize > memory.size().bytes().0 || str_len == 0 {
+        let memory_size = memory.size().bytes().0;
+
+        if self.offset as usize + str_len as usize > memory.size().bytes().0
+            || self.offset as usize >= memory_size
+        {
             return None;
         }
         let ptr = unsafe { memory.view::<u8>().as_ptr().add(self.offset as usize) as *const u8 };
@@ -271,15 +277,15 @@ mod test {
             memory::MemoryDescriptor::new(Pages(1), Some(Pages(1)), false).unwrap();
         let memory = memory::Memory::new(memory_descriptor).unwrap();
 
-        // test that basic access works and that len = 0 is caught correctly
+        // test that basic access works and that len = 0 works, but oob does not
         let start_wasm_ptr: WasmPtr<u8> = WasmPtr::new(0);
         let start_wasm_ptr_array: WasmPtr<u8, Array> = WasmPtr::new(0);
 
         assert!(start_wasm_ptr.deref(&memory).is_some());
         assert!(unsafe { start_wasm_ptr.deref_mut(&memory).is_some() });
-        assert!(start_wasm_ptr_array.deref(&memory, 0, 0).is_none());
-        assert!(start_wasm_ptr_array.get_utf8_string(&memory, 0).is_none());
-        assert!(unsafe { start_wasm_ptr_array.deref_mut(&memory, 0, 0).is_none() });
+        assert!(start_wasm_ptr_array.deref(&memory, 0, 0).is_some());
+        assert!(start_wasm_ptr_array.get_utf8_string(&memory, 0).is_some());
+        assert!(unsafe { start_wasm_ptr_array.deref_mut(&memory, 0, 0).is_some() });
         assert!(start_wasm_ptr_array.deref(&memory, 0, 1).is_some());
         assert!(unsafe { start_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
 
@@ -293,7 +299,8 @@ mod test {
 
         assert!(end_wasm_ptr_array.deref(&memory, 0, 1).is_some());
         assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
-        let invalid_idx_len_combos: [(u32, u32); 3] = [(0, 0), (0, 2), (1, 1)];
+        let invalid_idx_len_combos: [(u32, u32); 3] =
+            [(last_valid_address_for_u8 + 1, 0), (0, 2), (1, 1)];
         for &(idx, len) in invalid_idx_len_combos.into_iter() {
             assert!(end_wasm_ptr_array.deref(&memory, idx, len).is_none());
             assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, idx, len).is_none() });
@@ -323,7 +330,8 @@ mod test {
         assert!(end_wasm_ptr_array.deref(&memory, 0, 1).is_some());
         assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
 
-        let invalid_idx_len_combos: [(u32, u32); 4] = [(0, 0), (1, 0), (0, 2), (1, 1)];
+        let invalid_idx_len_combos: [(u32, u32); 3] =
+            [(last_valid_address_for_u32 + 1, 0), (0, 2), (1, 1)];
         for &(idx, len) in invalid_idx_len_combos.into_iter() {
             assert!(end_wasm_ptr_array.deref(&memory, idx, len).is_none());
             assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, idx, len).is_none() });
@@ -339,8 +347,6 @@ mod test {
         for oob_end_array_ptr in end_wasm_ptr_array_oob_array.into_iter() {
             assert!(oob_end_array_ptr.deref(&memory, 0, 1).is_none());
             assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 0, 1).is_none() });
-            assert!(oob_end_array_ptr.deref(&memory, 0, 0).is_none());
-            assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 0, 0).is_none() });
             assert!(oob_end_array_ptr.deref(&memory, 1, 0).is_none());
             assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 1, 0).is_none() });
         }
