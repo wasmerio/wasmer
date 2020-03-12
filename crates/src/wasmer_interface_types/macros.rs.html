@@ -253,7 +253,7 @@
 
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">run</span>.<span class="ident">is_err</span>());
 
-            <span class="kw">let</span> <span class="ident">error</span> <span class="op">=</span> <span class="ident">run</span>.<span class="ident">unwrap_err</span>();
+            <span class="kw">let</span> <span class="ident">error</span> <span class="op">=</span> <span class="ident">run</span>.<span class="ident">unwrap_err</span>().<span class="ident">to_string</span>();
 
             <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">error</span>, <span class="ident">String</span>::<span class="ident">from</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">error</span>));
         }

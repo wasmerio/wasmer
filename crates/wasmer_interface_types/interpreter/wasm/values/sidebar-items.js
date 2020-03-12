@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["InterfaceValue",""]]});
+initSidebarItems({"enum":[["InterfaceValue",""]],"trait":[["NativeType",""]]});

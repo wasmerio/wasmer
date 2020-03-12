@@ -145,7 +145,7 @@
 <span class="comment">//use crate::ast::InterfaceType;</span>
 
 <span class="doccomment">/// Represents all the possible WIT instructions.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Instruction</span> {
     <span class="doccomment">/// The `arg.get` instruction.</span>
     <span class="ident">ArgumentGet</span> {

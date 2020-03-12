@@ -52,16 +52,26 @@
 <span id="52">52</span>
 <span id="53">53</span>
 <span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">errors</span>::{<span class="ident">InstructionError</span>, <span class="ident">InstructionErrorKind</span>},
+    <span class="ident">interpreter</span>::<span class="ident">Instruction</span>,
+};
+
 <span class="macro">executable_instruction</span><span class="macro">!</span>(
-    <span class="ident">argument_get</span>(<span class="ident">index</span>: <span class="ident">u32</span>, <span class="ident">instruction_name</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
+    <span class="ident">argument_get</span>(<span class="ident">index</span>: <span class="ident">u32</span>, <span class="ident">instruction</span>: <span class="ident">Instruction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
         <span class="kw">move</span> <span class="op">|</span><span class="ident">runtime</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
             <span class="kw">let</span> <span class="ident">invocation_inputs</span> <span class="op">=</span> <span class="ident">runtime</span>.<span class="ident">invocation_inputs</span>;
 
             <span class="kw">if</span> <span class="ident">index</span> <span class="op">&gt;</span><span class="op">=</span> (<span class="ident">invocation_inputs</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>) {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format</span><span class="macro">!</span>(
-                    <span class="string">&quot;`{}` cannot access argument #{} because it doesn&#39;t exist.&quot;</span>,
-                    <span class="ident">instruction_name</span>, <span class="ident">index</span>
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">InstructionError</span>::<span class="ident">new</span>(
+                    <span class="ident">instruction</span>,
+                    <span class="ident">InstructionErrorKind</span>::<span class="ident">InvocationInputIsMissing</span> { <span class="ident">index</span> },
                 ));
             }
 
@@ -104,7 +114,7 @@
             <span class="ident">instructions</span>: [<span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> }],
             <span class="ident">invocation_inputs</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">42</span>)],
             <span class="ident">instance</span>: <span class="ident">Instance</span>::<span class="ident">new</span>(),
-            <span class="ident">error</span>: <span class="string">&quot;`arg.get 1` cannot access argument #1 because it doesn&#39;t exist.&quot;</span>
+            <span class="ident">error</span>: <span class="string">&quot;`arg.get 1` cannot access invocation inputs #1 because it doesn&#39;t exist&quot;</span>
     );
 }
 </pre></div>
