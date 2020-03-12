@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core-tests"
-version = "0.16.0"
+version = "0.16.2"
 description = "Tests for the Wasmer runtime core crate"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -9,10 +9,10 @@ publish = false
 
 [dependencies]
 wabt = "0.9.1"
-wasmer-runtime-core = { path = "../runtime-core", version = "0.16.0" }
-wasmer-clif-backend = { path = "../clif-backend", version = "0.16.0", optional = true }
-wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.16.0", optional = true }
-wasmer-llvm-backend = { path = "../llvm-backend", version = "0.16.0", features = ["test"], optional = true }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.16.2" }
+wasmer-clif-backend = { path = "../clif-backend", version = "0.16.2", optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.16.2", optional = true }
+wasmer-llvm-backend = { path = "../llvm-backend", version = "0.16.2", features = ["test"], optional = true }
 
 [features]
 default = ["backend-cranelift"]
