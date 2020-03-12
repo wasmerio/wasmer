@@ -3,6 +3,7 @@
 
 use crate::{ast::InterfaceType, interpreter::Instruction};
 use std::{
+    error::Error,
     fmt::{self, Display, Formatter},
     result::Result,
     string::{self, ToString},
@@ -28,6 +29,14 @@ pub struct WasmValueNativeCastError {
     pub to: InterfaceType,
 }
 
+impl Error for WasmValueNativeCastError {}
+
+impl Display for WasmValueNativeCastError {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        write!(formatter, "{:?}", self)
+    }
+}
+
 /// Structure to represent the errors for instructions.
 #[derive(Debug)]
 pub struct InstructionError {
@@ -46,6 +55,8 @@ impl InstructionError {
         }
     }
 }
+
+impl Error for InstructionError {}
 
 impl Display for InstructionError {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -139,6 +150,8 @@ pub enum InstructionErrorKind {
     /// The string contains invalid UTF-8 encoding.
     String(string::FromUtf8Error),
 }
+
+impl Error for InstructionErrorKind {}
 
 impl Display for InstructionErrorKind {
     fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
