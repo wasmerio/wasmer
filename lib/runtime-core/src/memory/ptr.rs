@@ -132,7 +132,6 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         let slice_full_len = index as usize + length as usize;
 
         if (self.offset as usize) + (item_size * slice_full_len) > memory.size().bytes().0
-            || length == 0
             || mem::size_of::<T>() == 0
         {
             return None;
@@ -169,7 +168,6 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         let slice_full_len = index as usize + length as usize;
 
         if (self.offset as usize) + (item_size * slice_full_len) > memory.size().bytes().0
-            || length == 0
             || mem::size_of::<T>() == 0
         {
             return None;
