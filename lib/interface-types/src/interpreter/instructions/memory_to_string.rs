@@ -31,7 +31,13 @@ executable_instruction!(
             let pointer = to_native::<i32>(&inputs[1], instruction)? as usize;
             let memory_view = memory.view();
 
-            if memory_view.len() < pointer + length {
+            if length == 0 {
+                runtime.stack.push(InterfaceValue::String("".into()));
+
+                return Ok(())
+            }
+
+            if memory_view.len() <= pointer + length - 1 {
                 return Err(InstructionError::new(
                     instruction,
                     InstructionErrorKind::MemoryOutOfBoundsAccess {
@@ -41,7 +47,7 @@ executable_instruction!(
                 ));
             }
 
-            let data: Vec<u8> = (&memory_view[pointer..pointer + length])
+            let data: Vec<u8> = (&memory_view[pointer..=pointer + length - 1])
                 .iter()
                 .map(Cell::get)
                 .collect();
@@ -76,6 +82,24 @@ mod tests {
                 ..Default::default()
             },
             stack: [InterfaceValue::String("Hello, World!".into())],
+    );
+
+    test_executable_instruction!(
+        test_memory_to_string__empty_string =
+            instructions: [
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::MemoryToString,
+            ],
+            invocation_inputs: [
+                InterfaceValue::I32(0),
+                InterfaceValue::I32(0),
+            ],
+            instance: Instance {
+                memory: Memory::new(vec![]),
+                ..Default::default()
+            },
+            stack: [InterfaceValue::String("".into())],
     );
 
     test_executable_instruction!(
