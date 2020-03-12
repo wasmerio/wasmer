@@ -52,8 +52,8 @@ Here is the instructions that are implemented:
 |-|-|-|-|-|-|
 | `arg.get` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `call-core` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `memory-to-string` | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `string-to-memory` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `memory-to-string` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `string-to-memory` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `call-adapter` | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `defer-call-core` | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `i32-to-s8` | ✅ | ✅ | ✅ | ✅ | ✅ |
