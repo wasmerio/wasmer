@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.15.0"
+version = "0.16.2"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -59,3 +59,5 @@ generate-debug-information = ["wasm-debug"]
 # don't export symbols related to the GDB JIT interafce, LLVM or some other native
 # code will be providing them
 generate-debug-information-no-export-symbols = []
+# enable DynamicFunc's for closures with captured environment.
+dynamicfunc-fat-closures = []

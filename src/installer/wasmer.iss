@@ -1,6 +1,6 @@
 [Setup]
 AppName=Wasmer
-AppVersion=0.15.0
+AppVersion=0.16.2
 DefaultDirName={pf}\Wasmer
 DefaultGroupName=Wasmer
 Compression=lzma2
@@ -23,6 +23,7 @@ Root: HKCU; Subkey: "Environment"; ValueType:string; ValueName: "WASMER_CACHE_DI
 [Files]
 Source: "..\..\target\release\wasmer.exe"; DestDir: "{app}\bin"
 Source: "..\..\wapm-cli\target\release\wapm.exe"; DestDir: "{app}\bin"
+Source: "wax.cmd"; DestDir: "{app}\bin"
 
 [Dirs]
 Name: "{%USERPROFILE}\.wasmer"

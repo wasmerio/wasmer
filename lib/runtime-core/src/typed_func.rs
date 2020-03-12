@@ -306,16 +306,15 @@ impl<'a> DynamicFunc<'a> {
     {
         use crate::trampoline_x64::{CallContext, TrampolineBufferBuilder};
         use crate::types::Value;
-        use std::convert::TryFrom;
 
         struct PolymorphicContext {
             arg_types: Vec<Type>,
             func: Box<dyn Fn(&mut vm::Ctx, &[Value]) -> Vec<Value>>,
         }
-        unsafe extern "C" fn enter_host_polymorphic(
+        unsafe fn do_enter_host_polymorphic(
             ctx: *const CallContext,
             args: *const u64,
-        ) -> u64 {
+        ) -> Vec<Value> {
             let ctx = &*(ctx as *const PolymorphicContext);
             let vmctx = &mut *(*args.offset(0) as *mut vm::Ctx);
             let args: Vec<Value> = ctx
@@ -335,13 +334,40 @@ impl<'a> DynamicFunc<'a> {
                     }
                 })
                 .collect();
-            let rets = (ctx.func)(vmctx, &args);
+            (ctx.func)(vmctx, &args)
+        }
+        unsafe extern "C" fn enter_host_polymorphic_i(
+            ctx: *const CallContext,
+            args: *const u64,
+        ) -> u64 {
+            let rets = do_enter_host_polymorphic(ctx, args);
             if rets.len() == 0 {
                 0
             } else if rets.len() == 1 {
-                u64::try_from(rets[0].to_u128()).expect(
-                    "128-bit return value from polymorphic host functions is not yet supported",
-                )
+                match rets[0] {
+                    Value::I32(x) => x as u64,
+                    Value::I64(x) => x as u64,
+                    _ => panic!("enter_host_polymorphic_i: invalid return type"),
+                }
+            } else {
+                panic!(
+                    "multiple return values from polymorphic host functions is not yet supported"
+                );
+            }
+        }
+        unsafe extern "C" fn enter_host_polymorphic_f(
+            ctx: *const CallContext,
+            args: *const u64,
+        ) -> f64 {
+            let rets = do_enter_host_polymorphic(ctx, args);
+            if rets.len() == 0 {
+                0.0
+            } else if rets.len() == 1 {
+                match rets[0] {
+                    Value::F32(x) => f64::from_bits(x.to_bits() as u64),
+                    Value::F64(x) => x,
+                    _ => panic!("enter_host_polymorphic_f: invalid return type"),
+                }
             } else {
                 panic!(
                     "multiple return values from polymorphic host functions is not yet supported"
@@ -349,9 +375,8 @@ impl<'a> DynamicFunc<'a> {
             }
         }
 
-        // Disable "fat" closures for possible future changes.
-        if mem::size_of::<F>() != 0 {
-            unimplemented!("DynamicFunc with captured environment is not yet supported");
+        if cfg!(not(feature = "dynamicfunc-fat-closures")) && mem::size_of::<F>() != 0 {
+            unimplemented!("DynamicFunc with captured environment is disabled");
         }
 
         let mut builder = TrampolineBufferBuilder::new();
@@ -360,11 +385,29 @@ impl<'a> DynamicFunc<'a> {
             func: Box::new(func),
         });
         let ctx = Box::into_raw(ctx);
-        builder.add_callinfo_trampoline(
-            enter_host_polymorphic,
-            ctx as *const _,
-            (signature.params().len() + 1) as u32, // +vmctx
-        );
+
+        let mut native_param_types = vec![Type::I64]; // vm::Ctx is the first parameter.
+        native_param_types.extend_from_slice(signature.params());
+
+        match signature.returns() {
+            [x] if *x == Type::F32 || *x == Type::F64 => {
+                builder.add_callinfo_trampoline(
+                    unsafe { std::mem::transmute(enter_host_polymorphic_f as usize) },
+                    ctx as *const _,
+                    &native_param_types,
+                    signature.returns(),
+                );
+            }
+            _ => {
+                builder.add_callinfo_trampoline(
+                    enter_host_polymorphic_i,
+                    ctx as *const _,
+                    &native_param_types,
+                    signature.returns(),
+                );
+            }
+        }
+
         let ptr = builder
             .insert_global()
             .expect("cannot bump-allocate global trampoline memory");

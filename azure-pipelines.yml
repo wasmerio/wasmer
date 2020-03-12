@@ -300,6 +300,7 @@ jobs:
           isDraft: false
           isPreRelease: false
           assets: '$(Build.ArtifactStagingDirectory)/**'
+          assetUploadMode: 'replace' # Don't delete previously uploaded assets (default)
 
   - job: Publish_Docs
     dependsOn:
