@@ -1,7 +1,7 @@
 //use crate::ast::InterfaceType;
 
 /// Represents all the possible WIT instructions.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Instruction {
     /// The `arg.get` instruction.
     ArgumentGet {

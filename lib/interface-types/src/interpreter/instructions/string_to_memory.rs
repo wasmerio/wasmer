@@ -1,60 +1,66 @@
-use crate::interpreter::wasm::{
-    structures::{FunctionIndex, TypedIndex},
-    values::{InterfaceType, InterfaceValue},
+use super::to_native;
+use crate::{
+    ast::InterfaceType,
+    errors::{InstructionError, InstructionErrorKind},
+    interpreter::{
+        wasm::{
+            structures::{FunctionIndex, TypedIndex},
+            values::InterfaceValue,
+        },
+        Instruction,
+    },
 };
-use std::convert::TryInto;
 
 executable_instruction!(
-    string_to_memory(allocator_index: u32, instruction_name: String) -> _ {
+    string_to_memory(allocator_index: u32, instruction: Instruction) -> _ {
         move |runtime| -> _ {
             let instance = &mut runtime.wasm_instance;
             let index = FunctionIndex::new(allocator_index as usize);
 
             let allocator = instance.local_or_import(index).ok_or_else(|| {
-                format!(
-                    "`{}` failed because the function `{}` (the allocator) doesn't exist.",
-                    instruction_name,
-                    allocator_index
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::LocalOrImportIsMissing { function_index: allocator_index },
                 )
             })?;
 
             if allocator.inputs() != [InterfaceType::I32] || allocator.outputs() != [InterfaceType::I32] {
-                return Err(format!(
-                    "`{}` failed because the allocator `{}` has an invalid signature (expects [I32] -> [I32]).",
-                    instruction_name,
-                    allocator_index,
-                ));
+                return Err(InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::LocalOrImportSignatureMismatch {
+                        function_index: allocator_index,
+                        expected: (vec![InterfaceType::I32], vec![InterfaceType::I32]),
+                        received: (allocator.inputs().to_vec(), allocator.outputs().to_vec())
+                    }
+                ))
             }
 
             let string = runtime.stack.pop1().ok_or_else(|| {
-                format!(
-                    "`{}` cannot call the allocator `{}` because there is not enough data on the stack for the arguments (needs {}).",
-                    instruction_name,
-                    allocator_index,
-                    1
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::StackIsTooSmall { needed: 1 }
                 )
             })?;
 
-            let string: String = (&string).try_into()?;
+            let string: String = to_native(&string, instruction)?;
             let string_bytes = string.as_bytes();
-            let string_length = (string_bytes.len() as i32)
-                .try_into()
-                .map_err(|error| format!("{}", error))?;
+            let string_length = string_bytes.len() as i32;
 
-            let outputs = allocator.call(&[InterfaceValue::I32(string_length)]).map_err(|_| format!(
-                    "`{}` failed when calling the allocator `{}`.",
-                    instruction_name,
-                    allocator_index,
-            ))?;
+            let outputs = allocator.call(&[InterfaceValue::I32(string_length)]).map_err(|_| {
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::LocalOrImportCall { function_index: allocator_index },
+                )
+            })?;
+            let string_pointer: i32 = to_native(&outputs[0], instruction)?;
 
-            let string_pointer: i32 = (&outputs[0]).try_into()?;
-
+            let memory_index: u32 = 0;
             let memory_view = instance
-                .memory(0)
+                .memory(memory_index as usize)
                 .ok_or_else(|| {
-                    format!(
-                        "`{}` failed because there is no memory to write into.",
-                        instruction_name
+                    InstructionError::new(
+                        instruction,
+                        InstructionErrorKind::MemoryIsMissing { memory_index }
                     )
                 })?
                 .view();
@@ -106,7 +112,7 @@ mod tests {
             instructions: [Instruction::StringToMemory { allocator_index: 43 }],
             invocation_inputs: [],
             instance: Instance { ..Default::default() },
-            error: r#"`string-to-memory 43` failed because the function `43` (the allocator) doesn't exist."#,
+            error: r#"`string-to-memory 43` the local or import function `43` doesn't exist"#,
     );
 
     test_executable_instruction!(
@@ -117,7 +123,7 @@ mod tests {
             ],
             invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
             instance: Instance::new(),
-            error: r#"`string-to-memory 43` cannot call the allocator `43` because there is not enough data on the stack for the arguments (needs 1)."#,
+            error: r#"`string-to-memory 43` needed to read `1` value(s) from the stack, but it doesn't contain enough data"#,
     );
 
     test_executable_instruction!(
@@ -141,7 +147,7 @@ mod tests {
 
                 instance
             },
-            error: r#"`string-to-memory 153` failed when calling the allocator `153`."#,
+            error: r#"`string-to-memory 153` failed while calling the local or import function `153`"#,
     );
 
     test_executable_instruction!(
@@ -164,6 +170,6 @@ mod tests {
 
                 instance
             },
-            error: r#"`string-to-memory 153` failed because the allocator `153` has an invalid signature (expects [I32] -> [I32])."#,
+            error: r#"`string-to-memory 153` the local or import function `153` has the signature `[I32] -> [I32]` but it received values of kind `[I32, I32] -> []`"#,
     );
 }

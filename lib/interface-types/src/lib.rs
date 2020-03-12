@@ -55,4 +55,5 @@ pub mod ast;
 mod macros;
 pub mod decoders;
 pub mod encoders;
+pub mod errors;
 pub mod interpreter;

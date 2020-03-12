@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1285](https://github.com/wasmerio/wasmer/pull/1285) Greatly improve errors in `wasmer-interface-types`
 - [#1283](https://github.com/wasmerio/wasmer/pull/1283) Workaround for floating point arguments and return values in `DynamicFunc`s.
 
 ## 0.16.2 - 2020-03-11

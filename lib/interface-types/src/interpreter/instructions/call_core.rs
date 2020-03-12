@@ -1,63 +1,66 @@
-use crate::interpreter::wasm::{
-    structures::{FunctionIndex, TypedIndex},
-    values::InterfaceType,
+use crate::{
+    errors::{InstructionError, InstructionErrorKind},
+    interpreter::wasm::{
+        structures::{FunctionIndex, TypedIndex},
+        values::InterfaceType,
+    },
+    interpreter::Instruction,
 };
 
 executable_instruction!(
-    call_core(function_index: usize, instruction_name: String) -> _ {
+    call_core(function_index: usize, instruction: Instruction) -> _ {
         move |runtime| -> _ {
             let instance = &mut runtime.wasm_instance;
             let index = FunctionIndex::new(function_index);
 
-            match instance.local_or_import(index) {
-                Some(local_or_import) => {
-                    let inputs_cardinality = local_or_import.inputs_cardinality();
+            let local_or_import = instance.local_or_import(index).ok_or_else(|| {
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::LocalOrImportIsMissing {
+                        function_index: function_index as u32,
+                    },
+                )
+            })?;
+            let inputs_cardinality = local_or_import.inputs_cardinality();
 
-                    match runtime.stack.pop(inputs_cardinality) {
-                        Some(inputs) =>  {
-                            let input_types = inputs
-                                .iter()
-                                .map(Into::into)
-                                .collect::<Vec<InterfaceType>>();
+            let inputs = runtime.stack.pop(inputs_cardinality).ok_or_else(|| {
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::StackIsTooSmall {
+                        needed: inputs_cardinality,
+                    },
+                )
+            })?;
+            let input_types = inputs
+                .iter()
+                .map(Into::into)
+                .collect::<Vec<InterfaceType>>();
 
-                            if input_types != local_or_import.inputs() {
-                                return Err(format!(
-                                    "`{}` cannot call the local or imported function `{}` because the value types on the stack mismatch the function signature (expects {:?}).",
-                                    instruction_name,
-                                    function_index,
-                                    local_or_import.inputs(),
-                                ))
-                            }
-
-                            match local_or_import.call(&inputs) {
-                                Ok(outputs) => {
-                                    for output in outputs.iter() {
-                                        runtime.stack.push(output.clone());
-                                    }
-
-                                    Ok(())
-                                }
-                                Err(_) => Err(format!(
-                                    "`{}` failed when calling the local or imported function `{}`.",
-                                    instruction_name,
-                                    function_index
-                                ))
-                            }
-                        }
-                        None => Err(format!(
-                            "`{}` cannot call the local or imported function `{}` because there is not enough data on the stack for the arguments (needs {}).",
-                            instruction_name,
-                            function_index,
-                            inputs_cardinality,
-                        ))
-                    }
-                }
-                None => Err(format!(
-                    "`{}` cannot call the local or imported function `{}` because it doesn't exist.",
-                    instruction_name,
-                    function_index,
-                ))
+            if input_types != local_or_import.inputs() {
+                return Err(InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::LocalOrImportSignatureMismatch {
+                        function_index: function_index as u32,
+                        expected: (local_or_import.inputs().to_vec(), vec![]),
+                        received: (input_types, vec![]),
+                    },
+                ));
             }
+
+            let outputs = local_or_import.call(&inputs).map_err(|_| {
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::LocalOrImportCall {
+                        function_index: function_index as u32,
+                    },
+                )
+            })?;
+
+            for output in outputs.iter() {
+                runtime.stack.push(output.clone());
+            }
+
+            Ok(())
         }
     }
 );
@@ -89,7 +92,7 @@ mod tests {
                 InterfaceValue::I32(4),
             ],
             instance: Default::default(),
-            error: r#"`call-core 42` cannot call the local or imported function `42` because it doesn't exist."#,
+            error: r#"`call-core 42` the local or import function `42` doesn't exist"#,
     );
 
     test_executable_instruction!(
@@ -104,7 +107,7 @@ mod tests {
                 InterfaceValue::I32(4),
             ],
             instance: Instance::new(),
-            error: r#"`call-core 42` cannot call the local or imported function `42` because there is not enough data on the stack for the arguments (needs 2)."#,
+            error: r#"`call-core 42` needed to read `2` value(s) from the stack, but it doesn't contain enough data"#,
     );
 
     test_executable_instruction!(
@@ -120,7 +123,7 @@ mod tests {
                 //              ^^^ mismatch with `42` signature
             ],
             instance: Instance::new(),
-            error: r#"`call-core 42` cannot call the local or imported function `42` because the value types on the stack mismatch the function signature (expects [I32, I32])."#,
+            error: r#"`call-core 42` the local or import function `42` has the signature `[I32, I32] -> []` but it received values of kind `[I32, I64] -> []`"#,
     );
 
     test_executable_instruction!(
@@ -151,7 +154,7 @@ mod tests {
                 },
                 ..Default::default()
             },
-            error: r#"`call-core 42` failed when calling the local or imported function `42`."#,
+            error: r#"`call-core 42` failed while calling the local or import function `42`"#,
     );
 
     test_executable_instruction!(
