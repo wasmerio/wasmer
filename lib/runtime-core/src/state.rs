@@ -480,10 +480,11 @@ impl InstanceImage {
     }
 }
 
-/// Declarations for x86-64 registers.
+/// X64-specific structures and methods that do not depend on an x64 machine to run.
 #[cfg(unix)]
 pub mod x64_decl {
     use super::*;
+    use crate::types::Type;
 
     /// General-purpose registers.
     #[repr(u8)]
@@ -610,9 +611,88 @@ pub mod x64_decl {
                 _ => return None,
             })
         }
+
+        /// Returns the instruction prefix for `movq %this_reg, ?(%rsp)`.
+        ///
+        /// To build an instruction, append the memory location as a 32-bit
+        /// offset to the stack pointer to this prefix.
+        pub fn prefix_mov_to_stack(&self) -> Option<&'static [u8]> {
+            Some(match *self {
+                X64Register::GPR(gpr) => match gpr {
+                    GPR::RDI => &[0x48, 0x89, 0xbc, 0x24],
+                    GPR::RSI => &[0x48, 0x89, 0xb4, 0x24],
+                    GPR::RDX => &[0x48, 0x89, 0x94, 0x24],
+                    GPR::RCX => &[0x48, 0x89, 0x8c, 0x24],
+                    GPR::R8 => &[0x4c, 0x89, 0x84, 0x24],
+                    GPR::R9 => &[0x4c, 0x89, 0x8c, 0x24],
+                    _ => return None,
+                },
+                X64Register::XMM(xmm) => match xmm {
+                    XMM::XMM0 => &[0x66, 0x0f, 0xd6, 0x84, 0x24],
+                    XMM::XMM1 => &[0x66, 0x0f, 0xd6, 0x8c, 0x24],
+                    XMM::XMM2 => &[0x66, 0x0f, 0xd6, 0x94, 0x24],
+                    XMM::XMM3 => &[0x66, 0x0f, 0xd6, 0x9c, 0x24],
+                    XMM::XMM4 => &[0x66, 0x0f, 0xd6, 0xa4, 0x24],
+                    XMM::XMM5 => &[0x66, 0x0f, 0xd6, 0xac, 0x24],
+                    XMM::XMM6 => &[0x66, 0x0f, 0xd6, 0xb4, 0x24],
+                    XMM::XMM7 => &[0x66, 0x0f, 0xd6, 0xbc, 0x24],
+                    _ => return None,
+                },
+            })
+        }
+    }
+
+    /// An allocator that allocates registers for function arguments according to the System V ABI.
+    #[derive(Default)]
+    pub struct ArgumentRegisterAllocator {
+        n_gprs: usize,
+        n_xmms: usize,
+    }
+
+    impl ArgumentRegisterAllocator {
+        /// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.
+        pub fn next(&mut self, ty: Type) -> Option<X64Register> {
+            static GPR_SEQ: &'static [GPR] =
+                &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+            static XMM_SEQ: &'static [XMM] = &[
+                XMM::XMM0,
+                XMM::XMM1,
+                XMM::XMM2,
+                XMM::XMM3,
+                XMM::XMM4,
+                XMM::XMM5,
+                XMM::XMM6,
+                XMM::XMM7,
+            ];
+            match ty {
+                Type::I32 | Type::I64 => {
+                    if self.n_gprs < GPR_SEQ.len() {
+                        let gpr = GPR_SEQ[self.n_gprs];
+                        self.n_gprs += 1;
+                        Some(X64Register::GPR(gpr))
+                    } else {
+                        None
+                    }
+                }
+                Type::F32 | Type::F64 => {
+                    if self.n_xmms < XMM_SEQ.len() {
+                        let xmm = XMM_SEQ[self.n_xmms];
+                        self.n_xmms += 1;
+                        Some(X64Register::XMM(xmm))
+                    } else {
+                        None
+                    }
+                }
+                _ => todo!(
+                    "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
+                    ty
+                ),
+            }
+        }
     }
 }
 
+/// X64-specific structures and methods that only work on an x64 machine.
 #[cfg(unix)]
 pub mod x64 {
     //! The x64 state module contains functions to generate state and code for x64 targets.

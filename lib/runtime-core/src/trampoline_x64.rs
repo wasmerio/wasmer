@@ -7,6 +7,8 @@
 //! Variadic functions are not supported because `rax` is used by the trampoline code.
 
 use crate::loader::CodeMemory;
+use crate::state::x64_decl::ArgumentRegisterAllocator;
+use crate::types::Type;
 use crate::vm::Ctx;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -246,44 +248,50 @@ impl TrampolineBufferBuilder {
         &mut self,
         target: unsafe extern "C" fn(*const CallContext, *const u64) -> u64,
         context: *const CallContext,
-        num_params: u32,
+        params: &[Type],
+        _returns: &[Type],
     ) -> usize {
         let idx = self.offsets.len();
         self.offsets.push(self.code.len());
 
-        let mut stack_offset: u32 = num_params.checked_mul(8).unwrap();
+        let mut stack_offset: u32 = params.len().checked_mul(8).unwrap() as u32;
         if stack_offset % 16 == 0 {
             stack_offset += 8;
         }
 
         self.code.extend_from_slice(&[0x48, 0x81, 0xec]); // sub ?, %rsp
         self.code.extend_from_slice(value_to_bytes(&stack_offset));
-        for i in 0..num_params {
-            match i {
-                0..=5 => {
-                    // mov %?, ?(%rsp)
-                    let prefix: &[u8] = match i {
-                        0 => &[0x48, 0x89, 0xbc, 0x24], // rdi
-                        1 => &[0x48, 0x89, 0xb4, 0x24], // rsi
-                        2 => &[0x48, 0x89, 0x94, 0x24], // rdx
-                        3 => &[0x48, 0x89, 0x8c, 0x24], // rcx
-                        4 => &[0x4c, 0x89, 0x84, 0x24], // r8
-                        5 => &[0x4c, 0x89, 0x8c, 0x24], // r9
-                        _ => unreachable!(),
-                    };
+
+        let mut allocator = ArgumentRegisterAllocator::default();
+
+        let mut source_stack_count: u32 = 0; // # of allocated slots in the source stack.
+
+        for (i, ty) in params.iter().enumerate() {
+            match allocator.next(*ty) {
+                Some(reg) => {
+                    // This argument is allocated to a register.
+
+                    let prefix = reg
+                        .prefix_mov_to_stack()
+                        .expect("cannot get instruction prefix for argument register");
                     self.code.extend_from_slice(prefix);
-                    self.code.extend_from_slice(value_to_bytes(&(i * 8u32)));
+                    self.code
+                        .extend_from_slice(value_to_bytes(&((i as u32) * 8u32)));
                 }
-                _ => {
+                None => {
+                    // This argument is allocated to the stack.
+
                     self.code.extend_from_slice(&[
                         0x48, 0x8b, 0x84, 0x24, // mov ?(%rsp), %rax
                     ]);
                     self.code.extend_from_slice(value_to_bytes(
-                        &((i - 6) * 8u32 + stack_offset + 8/* ret addr */),
+                        &(source_stack_count * 8u32 + stack_offset + 8/* ret addr */),
                     ));
                     // mov %rax, ?(%rsp)
                     self.code.extend_from_slice(&[0x48, 0x89, 0x84, 0x24]);
-                    self.code.extend_from_slice(value_to_bytes(&(i * 8u32)));
+                    self.code
+                        .extend_from_slice(value_to_bytes(&((i as u32) * 8u32)));
+                    source_stack_count += 1;
                 }
             }
         }
@@ -395,8 +403,13 @@ mod tests {
         }
         let mut builder = TrampolineBufferBuilder::new();
         let ctx = TestContext { value: 100 };
-        let idx =
-            builder.add_callinfo_trampoline(do_add, &ctx as *const TestContext as *const _, 8);
+        let param_types: Vec<Type> = vec![Type::I32; 8];
+        let idx = builder.add_callinfo_trampoline(
+            do_add,
+            &ctx as *const TestContext as *const _,
+            &param_types,
+            &[Type::I32],
+        );
         let buf = builder.build();
         let t = buf.get_trampoline(idx);
         let ret = unsafe {
@@ -408,8 +421,48 @@ mod tests {
     }
 
     #[test]
+    fn test_trampolines_with_floating_point() {
+        unsafe extern "C" fn inner(n: *const CallContext, args: *const u64) -> u64 {
+            // `n` is not really a pointer. It is the length of the argument list, casted into the pointer type.
+            let n = n as usize;
+            let mut result: u64 = 0;
+            for i in 0..n {
+                result += *args.offset(i as _);
+            }
+            result
+        }
+        let buffer = TrampBuffer::new(4096);
+        let mut builder = TrampolineBufferBuilder::new();
+        builder.add_callinfo_trampoline(
+            inner,
+            8 as _,
+            &[
+                Type::I32,
+                Type::I32,
+                Type::I32,
+                Type::F32,
+                Type::I32,
+                Type::I32,
+                Type::I32,
+                Type::I32,
+            ],
+            &[Type::I32],
+        );
+        let ptr = buffer.insert(builder.code()).unwrap();
+        let ret = unsafe {
+            let f = std::mem::transmute::<
+                _,
+                extern "C" fn(i32, i32, i32, f32, i32, i32, i32, i32) -> i32,
+            >(ptr);
+            f(1, 2, 3, f32::from_bits(4), 5, 6, 7, 8)
+        };
+        assert_eq!(ret, 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8);
+    }
+
+    #[test]
     fn test_many_global_trampolines() {
         unsafe extern "C" fn inner(n: *const CallContext, args: *const u64) -> u64 {
+            // `n` is not really a pointer. It is the length of the argument list, casted into the pointer type.
             let n = n as usize;
             let mut result: u64 = 0;
             for i in 0..n {
@@ -427,7 +480,8 @@ mod tests {
         for i in 0..5000usize {
             let mut builder = TrampolineBufferBuilder::new();
             let n = i % 8;
-            builder.add_callinfo_trampoline(inner, n as _, n as _);
+            let param_types: Vec<_> = (0..n).map(|_| Type::I64).collect();
+            builder.add_callinfo_trampoline(inner, n as _, &param_types, &[Type::I64]);
             let ptr = buffer
                 .insert(builder.code())
                 .expect("cannot insert new code into global buffer");

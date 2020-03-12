@@ -32,8 +32,9 @@ use wasmer_runtime_core::{
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{
-        x64::new_machine_state, x64::X64Register, FunctionStateMap, MachineState, MachineValue,
-        ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
+        x64::new_machine_state, x64::X64Register, x64_decl::ArgumentRegisterAllocator,
+        FunctionStateMap, MachineState, MachineValue, ModuleStateMap, OffsetInfo, SuspendOffset,
+        WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
     typed_func::{Trampoline, Wasm},
@@ -204,6 +205,7 @@ pub struct X64FunctionCode {
 
     signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
+    signature: FuncSig,
     fsm: FunctionStateMap,
     offset: usize,
 
@@ -712,11 +714,22 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         machine.track_state = self.config.as_ref().unwrap().track_state;
 
         assembler.emit_label(begin_label);
+
+        let signatures = self.signatures.as_ref().unwrap();
+        let function_signatures = self.function_signatures.as_ref().unwrap();
+        let sig_index = function_signatures
+            .get(FuncIndex::new(
+                self.functions.len() + self.func_import_count,
+            ))
+            .unwrap()
+            .clone();
+        let sig = signatures.get(sig_index).unwrap().clone();
         let code = X64FunctionCode {
             local_function_id: self.functions.len(),
 
-            signatures: self.signatures.as_ref().unwrap().clone(),
-            function_signatures: self.function_signatures.as_ref().unwrap().clone(),
+            signatures: signatures.clone(),
+            function_signatures: function_signatures.clone(),
+            signature: sig,
             fsm: FunctionStateMap::new(new_machine_state(), self.functions.len(), 32, vec![]), // only a placeholder; this is initialized later in `begin_body`
             offset: begin_offset.0,
 
@@ -869,7 +882,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(())
     }
 
-    fn feed_import_function(&mut self) -> Result<(), CodegenError> {
+    fn feed_import_function(&mut self, sigindex: SigIndex) -> Result<(), CodegenError> {
         let labels = self.function_labels.as_mut().unwrap();
         let id = labels.len();
 
@@ -879,6 +892,92 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         let label = a.get_label();
         a.emit_label(label);
         labels.insert(id, (label, Some(offset)));
+
+        // Singlepass internally treats all arguments as integers, but the standard System V calling convention requires
+        // floating point arguments to be passed in XMM registers.
+        //
+        // FIXME: This is only a workaround. We should fix singlepass to use the standard CC.
+        let sig = self
+            .signatures
+            .as_ref()
+            .expect("signatures itself")
+            .get(sigindex)
+            .expect("signatures");
+        // Translation is expensive, so only do it if needed.
+        if sig
+            .params()
+            .iter()
+            .find(|&&x| x == Type::F32 || x == Type::F64)
+            .is_some()
+        {
+            let mut param_locations: Vec<Location> = vec![];
+
+            // Allocate stack space for arguments.
+            let stack_offset: i32 = if sig.params().len() > 5 {
+                5 * 8
+            } else {
+                (sig.params().len() as i32) * 8
+            };
+            if stack_offset > 0 {
+                a.emit_sub(
+                    Size::S64,
+                    Location::Imm32(stack_offset as u32),
+                    Location::GPR(GPR::RSP),
+                );
+            }
+
+            // Store all arguments to the stack to prevent overwrite.
+            for i in 0..sig.params().len() {
+                let loc = match i {
+                    0..=4 => {
+                        static PARAM_REGS: &'static [GPR] =
+                            &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+                        let loc = Location::Memory(GPR::RSP, (i * 8) as i32);
+                        a.emit_mov(Size::S64, Location::GPR(PARAM_REGS[i]), loc);
+                        loc
+                    }
+                    _ => Location::Memory(GPR::RSP, stack_offset + 8 + ((i - 5) * 8) as i32),
+                };
+                param_locations.push(loc);
+            }
+
+            // Copy arguments.
+            let mut argalloc = ArgumentRegisterAllocator::default();
+            argalloc.next(Type::I32).unwrap(); // skip vm::Ctx
+            let mut caller_stack_offset: i32 = 0;
+            for (i, ty) in sig.params().iter().enumerate() {
+                let prev_loc = param_locations[i];
+                let target = match argalloc.next(*ty) {
+                    Some(X64Register::GPR(gpr)) => Location::GPR(gpr),
+                    Some(X64Register::XMM(xmm)) => Location::XMM(xmm),
+                    None => {
+                        // No register can be allocated. Put this argument on the stack.
+                        //
+                        // Since here we never use fewer registers than by the original call, on the caller's frame
+                        // we always have enough space to store the rearranged arguments, and the copy "backward" between different
+                        // slots in the caller argument region will always work.
+                        a.emit_mov(Size::S64, prev_loc, Location::GPR(GPR::RAX));
+                        a.emit_mov(
+                            Size::S64,
+                            Location::GPR(GPR::RAX),
+                            Location::Memory(GPR::RSP, stack_offset + 8 + caller_stack_offset),
+                        );
+                        caller_stack_offset += 8;
+                        continue;
+                    }
+                };
+                a.emit_mov(Size::S64, prev_loc, target);
+            }
+
+            // Restore stack pointer.
+            if stack_offset > 0 {
+                a.emit_add(
+                    Size::S64,
+                    Location::Imm32(stack_offset as u32),
+                    Location::GPR(GPR::RSP),
+                );
+            }
+        }
 
         // Emits a tail call trampoline that loads the address of the target import function
         // from Ctx and jumps to it.
@@ -6260,7 +6359,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         false,
                     )[0];
                     self.value_stack.push(ret);
-                    a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                    match return_types[0] {
+                        WpType::F32 | WpType::F64 => {
+                            a.emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                        }
+                        _ => {
+                            a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                        }
+                    }
                 }
             }
             Operator::CallIndirect { index, table_index } => {
@@ -6399,7 +6505,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         false,
                     )[0];
                     self.value_stack.push(ret);
-                    a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                    match return_types[0] {
+                        WpType::F32 | WpType::F64 => {
+                            a.emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                        }
+                        _ => {
+                            a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                        }
+                    }
                 }
             }
             Operator::If { ty } => {
@@ -7614,6 +7727,18 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.finalize_locals(a, &self.locals);
                     a.emit_mov(Size::S64, Location::GPR(GPR::RBP), Location::GPR(GPR::RSP));
                     a.emit_pop(Size::S64, Location::GPR(GPR::RBP));
+
+                    // Make a copy of the return value in XMM0, as required by the SysV CC.
+                    match self.signature.returns() {
+                        [x] if *x == Type::F32 || *x == Type::F64 => {
+                            a.emit_mov(
+                                Size::S64,
+                                Location::GPR(GPR::RAX),
+                                Location::XMM(XMM::XMM0),
+                            );
+                        }
+                        _ => {}
+                    }
                     a.emit_ret();
                 } else {
                     let released = &self.value_stack[frame.value_stack_depth..];
