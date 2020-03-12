@@ -349,9 +349,8 @@ impl<'a> DynamicFunc<'a> {
             }
         }
 
-        // Disable "fat" closures for possible future changes.
-        if mem::size_of::<F>() != 0 {
-            unimplemented!("DynamicFunc with captured environment is not yet supported");
+        if cfg!(not(feature = "dynamicfunc-fat-closures")) && mem::size_of::<F>() != 0 {
+            unimplemented!("DynamicFunc with captured environment is disabled");
         }
 
         let mut builder = TrampolineBufferBuilder::new();

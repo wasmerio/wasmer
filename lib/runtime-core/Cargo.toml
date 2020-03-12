@@ -59,3 +59,5 @@ generate-debug-information = ["wasm-debug"]
 # don't export symbols related to the GDB JIT interafce, LLVM or some other native
 # code will be providing them
 generate-debug-information-no-export-symbols = []
+# enable DynamicFunc's for closures with captured environment.
+dynamicfunc-fat-closures = []
