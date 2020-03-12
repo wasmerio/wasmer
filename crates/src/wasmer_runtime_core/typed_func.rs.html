@@ -977,7 +977,6 @@
 <span id="977">977</span>
 <span id="978">978</span>
 <span id="979">979</span>
-<span id="980">980</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The typed func module implements a way of representing a wasm function</span>
 <span class="doccomment">//! with the correct types from rust. Function calls using a typed func have a low overhead.</span>
@@ -1330,9 +1329,8 @@
             }
         }
 
-        <span class="comment">// Disable &quot;fat&quot; closures for possible future changes.</span>
-        <span class="kw">if</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>() <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;DynamicFunc with captured environment is not yet supported&quot;</span>);
+        <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dynamicfunc-fat-closures&quot;</span>)) <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>() <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+            <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;DynamicFunc with captured environment is disabled&quot;</span>);
         }
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">TrampolineBufferBuilder</span>::<span class="ident">new</span>();
