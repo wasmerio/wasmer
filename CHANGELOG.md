@@ -2,6 +2,10 @@
 
 ## **[Unreleased]**
 
+## 0.16.1 - 2020-03-11
+
+- [#1291](https://github.com/wasmerio/wasmer/pull/1291) Fix installation packaging script to package the `wax` command.
+
 ## 0.16.0 - 2020-03-11
 
 - [#1286](https://github.com/wasmerio/wasmer/pull/1286) Updated Windows Wasmer icons. Add wax
