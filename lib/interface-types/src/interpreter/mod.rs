@@ -166,10 +166,7 @@ where
         };
 
         for executable_instruction in self.iter() {
-            match executable_instruction(&mut runtime) {
-                Ok(_) => continue,
-                Err(error) => return Err(error),
-            }
+            executable_instruction(&mut runtime)?;
         }
 
         Ok(runtime.stack)
