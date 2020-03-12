@@ -1256,6 +1256,86 @@
 <span id="1256">1256</span>
 <span id="1257">1257</span>
 <span id="1258">1258</span>
+<span id="1259">1259</span>
+<span id="1260">1260</span>
+<span id="1261">1261</span>
+<span id="1262">1262</span>
+<span id="1263">1263</span>
+<span id="1264">1264</span>
+<span id="1265">1265</span>
+<span id="1266">1266</span>
+<span id="1267">1267</span>
+<span id="1268">1268</span>
+<span id="1269">1269</span>
+<span id="1270">1270</span>
+<span id="1271">1271</span>
+<span id="1272">1272</span>
+<span id="1273">1273</span>
+<span id="1274">1274</span>
+<span id="1275">1275</span>
+<span id="1276">1276</span>
+<span id="1277">1277</span>
+<span id="1278">1278</span>
+<span id="1279">1279</span>
+<span id="1280">1280</span>
+<span id="1281">1281</span>
+<span id="1282">1282</span>
+<span id="1283">1283</span>
+<span id="1284">1284</span>
+<span id="1285">1285</span>
+<span id="1286">1286</span>
+<span id="1287">1287</span>
+<span id="1288">1288</span>
+<span id="1289">1289</span>
+<span id="1290">1290</span>
+<span id="1291">1291</span>
+<span id="1292">1292</span>
+<span id="1293">1293</span>
+<span id="1294">1294</span>
+<span id="1295">1295</span>
+<span id="1296">1296</span>
+<span id="1297">1297</span>
+<span id="1298">1298</span>
+<span id="1299">1299</span>
+<span id="1300">1300</span>
+<span id="1301">1301</span>
+<span id="1302">1302</span>
+<span id="1303">1303</span>
+<span id="1304">1304</span>
+<span id="1305">1305</span>
+<span id="1306">1306</span>
+<span id="1307">1307</span>
+<span id="1308">1308</span>
+<span id="1309">1309</span>
+<span id="1310">1310</span>
+<span id="1311">1311</span>
+<span id="1312">1312</span>
+<span id="1313">1313</span>
+<span id="1314">1314</span>
+<span id="1315">1315</span>
+<span id="1316">1316</span>
+<span id="1317">1317</span>
+<span id="1318">1318</span>
+<span id="1319">1319</span>
+<span id="1320">1320</span>
+<span id="1321">1321</span>
+<span id="1322">1322</span>
+<span id="1323">1323</span>
+<span id="1324">1324</span>
+<span id="1325">1325</span>
+<span id="1326">1326</span>
+<span id="1327">1327</span>
+<span id="1328">1328</span>
+<span id="1329">1329</span>
+<span id="1330">1330</span>
+<span id="1331">1331</span>
+<span id="1332">1332</span>
+<span id="1333">1333</span>
+<span id="1334">1334</span>
+<span id="1335">1335</span>
+<span id="1336">1336</span>
+<span id="1337">1337</span>
+<span id="1338">1338</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The state module is used to track state of a running web assembly instances so that</span>
 <span class="doccomment">//! state could read or updated at runtime. Use cases include generating stack traces, switching</span>
@@ -1739,10 +1819,11 @@
     }
 }
 
-<span class="doccomment">/// Declarations for x86-64 registers.</span>
+<span class="doccomment">/// X64-specific structures and methods that do not depend on an x64 machine to run.</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">x64_decl</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::<span class="ident">Type</span>;
 
     <span class="doccomment">/// General-purpose registers.</span>
     <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">u8</span>)]</span>
@@ -1869,9 +1950,88 @@
                 <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
             })
         }
+
+        <span class="doccomment">/// Returns the instruction prefix for `movq %this_reg, ?(%rsp)`.</span>
+        <span class="doccomment">///</span>
+        <span class="doccomment">/// To build an instruction, append the memory location as a 32-bit</span>
+        <span class="doccomment">/// offset to the stack pointer to this prefix.</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">prefix_mov_to_stack</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>]<span class="op">&gt;</span> {
+            <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
+                <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">gpr</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">gpr</span> {
+                    <span class="ident">GPR</span>::<span class="ident">RDI</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x48</span>, <span class="number">0x89</span>, <span class="number">0xbc</span>, <span class="number">0x24</span>],
+                    <span class="ident">GPR</span>::<span class="ident">RSI</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x48</span>, <span class="number">0x89</span>, <span class="number">0xb4</span>, <span class="number">0x24</span>],
+                    <span class="ident">GPR</span>::<span class="ident">RDX</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x48</span>, <span class="number">0x89</span>, <span class="number">0x94</span>, <span class="number">0x24</span>],
+                    <span class="ident">GPR</span>::<span class="ident">RCX</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x48</span>, <span class="number">0x89</span>, <span class="number">0x8c</span>, <span class="number">0x24</span>],
+                    <span class="ident">GPR</span>::<span class="ident">R8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x4c</span>, <span class="number">0x89</span>, <span class="number">0x84</span>, <span class="number">0x24</span>],
+                    <span class="ident">GPR</span>::<span class="ident">R9</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x4c</span>, <span class="number">0x89</span>, <span class="number">0x8c</span>, <span class="number">0x24</span>],
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
+                },
+                <span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">xmm</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">xmm</span> {
+                    <span class="ident">XMM</span>::<span class="ident">XMM0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x66</span>, <span class="number">0x0f</span>, <span class="number">0xd6</span>, <span class="number">0x84</span>, <span class="number">0x24</span>],
+                    <span class="ident">XMM</span>::<span class="ident">XMM1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x66</span>, <span class="number">0x0f</span>, <span class="number">0xd6</span>, <span class="number">0x8c</span>, <span class="number">0x24</span>],
+                    <span class="ident">XMM</span>::<span class="ident">XMM2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x66</span>, <span class="number">0x0f</span>, <span class="number">0xd6</span>, <span class="number">0x94</span>, <span class="number">0x24</span>],
+                    <span class="ident">XMM</span>::<span class="ident">XMM3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x66</span>, <span class="number">0x0f</span>, <span class="number">0xd6</span>, <span class="number">0x9c</span>, <span class="number">0x24</span>],
+                    <span class="ident">XMM</span>::<span class="ident">XMM4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x66</span>, <span class="number">0x0f</span>, <span class="number">0xd6</span>, <span class="number">0xa4</span>, <span class="number">0x24</span>],
+                    <span class="ident">XMM</span>::<span class="ident">XMM5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x66</span>, <span class="number">0x0f</span>, <span class="number">0xd6</span>, <span class="number">0xac</span>, <span class="number">0x24</span>],
+                    <span class="ident">XMM</span>::<span class="ident">XMM6</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x66</span>, <span class="number">0x0f</span>, <span class="number">0xd6</span>, <span class="number">0xb4</span>, <span class="number">0x24</span>],
+                    <span class="ident">XMM</span>::<span class="ident">XMM7</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x66</span>, <span class="number">0x0f</span>, <span class="number">0xd6</span>, <span class="number">0xbc</span>, <span class="number">0x24</span>],
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
+                },
+            })
+        }
+    }
+
+    <span class="doccomment">/// An allocator that allocates registers for function arguments according to the System V ABI.</span>
+    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ArgumentRegisterAllocator</span> {
+        <span class="ident">n_gprs</span>: <span class="ident">usize</span>,
+        <span class="ident">n_xmms</span>: <span class="ident">usize</span>,
+    }
+
+    <span class="kw">impl</span> <span class="ident">ArgumentRegisterAllocator</span> {
+        <span class="doccomment">/// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">Type</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">X64Register</span><span class="op">&gt;</span> {
+            <span class="kw">static</span> <span class="ident">GPR_SEQ</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">GPR</span>] <span class="op">=</span>
+                <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>::<span class="ident">RDI</span>, <span class="ident">GPR</span>::<span class="ident">RSI</span>, <span class="ident">GPR</span>::<span class="ident">RDX</span>, <span class="ident">GPR</span>::<span class="ident">RCX</span>, <span class="ident">GPR</span>::<span class="ident">R8</span>, <span class="ident">GPR</span>::<span class="ident">R9</span>];
+            <span class="kw">static</span> <span class="ident">XMM_SEQ</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">XMM</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[
+                <span class="ident">XMM</span>::<span class="ident">XMM0</span>,
+                <span class="ident">XMM</span>::<span class="ident">XMM1</span>,
+                <span class="ident">XMM</span>::<span class="ident">XMM2</span>,
+                <span class="ident">XMM</span>::<span class="ident">XMM3</span>,
+                <span class="ident">XMM</span>::<span class="ident">XMM4</span>,
+                <span class="ident">XMM</span>::<span class="ident">XMM5</span>,
+                <span class="ident">XMM</span>::<span class="ident">XMM6</span>,
+                <span class="ident">XMM</span>::<span class="ident">XMM7</span>,
+            ];
+            <span class="kw">match</span> <span class="ident">ty</span> {
+                <span class="ident">Type</span>::<span class="ident">I32</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">I64</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">if</span> <span class="self">self</span>.<span class="ident">n_gprs</span> <span class="op">&lt;</span> <span class="ident">GPR_SEQ</span>.<span class="ident">len</span>() {
+                        <span class="kw">let</span> <span class="ident">gpr</span> <span class="op">=</span> <span class="ident">GPR_SEQ</span>[<span class="self">self</span>.<span class="ident">n_gprs</span>];
+                        <span class="self">self</span>.<span class="ident">n_gprs</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                        <span class="prelude-val">Some</span>(<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">gpr</span>))
+                    } <span class="kw">else</span> {
+                        <span class="prelude-val">None</span>
+                    }
+                }
+                <span class="ident">Type</span>::<span class="ident">F32</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">if</span> <span class="self">self</span>.<span class="ident">n_xmms</span> <span class="op">&lt;</span> <span class="ident">XMM_SEQ</span>.<span class="ident">len</span>() {
+                        <span class="kw">let</span> <span class="ident">xmm</span> <span class="op">=</span> <span class="ident">XMM_SEQ</span>[<span class="self">self</span>.<span class="ident">n_xmms</span>];
+                        <span class="self">self</span>.<span class="ident">n_xmms</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                        <span class="prelude-val">Some</span>(<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">xmm</span>))
+                    } <span class="kw">else</span> {
+                        <span class="prelude-val">None</span>
+                    }
+                }
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">todo</span><span class="macro">!</span>(
+                    <span class="string">&quot;ArgumentRegisterAllocator::next: Unsupported type: {:?}&quot;</span>,
+                    <span class="ident">ty</span>
+                ),
+            }
+        }
     }
 }
 
+<span class="doccomment">/// X64-specific structures and methods that only work on an x64 machine.</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">x64</span> {
     <span class="doccomment">//! The x64 state module contains functions to generate state and code for x64 targets.</span>
