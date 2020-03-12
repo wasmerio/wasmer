@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-c-api"
-version = "0.16.1"
+version = "0.16.2"
 description = "Wasmer C API library"
 documentation = "https://wasmerio.github.io/wasmer/c/runtime-c-api/"
 license = "MIT"
@@ -20,22 +20,22 @@ libc = "0.2.60"
 [dependencies.wasmer-runtime]
 default-features = false
 path = "../runtime"
-version = "0.16.1"
+version = "0.16.2"
 
 [dependencies.wasmer-runtime-core]
 default-features = false
 path = "../runtime-core"
-version = "0.16.1"
+version = "0.16.2"
 
 [dependencies.wasmer-wasi]
 default-features = false
 path = "../wasi"
-version = "0.16.1"
+version = "0.16.2"
 optional = true
 
 [dependencies.wasmer-emscripten]
 path = "../emscripten"
-version = "0.16.1"
+version = "0.16.2"
 optional = true
 
 [features]

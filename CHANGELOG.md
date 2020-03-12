@@ -2,6 +2,10 @@
 
 ## **[Unreleased]**
 
+## 0.16.2 - 2020-03-11
+
+- [#1294](https://github.com/wasmerio/wasmer/pull/1294) Fix bug related to system calls in WASI that rely on reading from WasmPtrs as arrays of length 0. `WasmPtr` will now succeed on length 0 arrays again.
+
 ## 0.16.1 - 2020-03-11
 
 - [#1291](https://github.com/wasmerio/wasmer/pull/1291) Fix installation packaging script to package the `wax` command.
