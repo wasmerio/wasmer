@@ -1,7 +1,12 @@
 //! The runtime types modules represent type used within the wasm runtime and helper functions to
 //! convert to other represenations.
 
-use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::{Pages, STATIC_MEMORY_BOUND}};
+use crate::{
+    memory::MemoryType,
+    module::ModuleInfo,
+    structures::TypedIndex,
+    units::{Pages, STATIC_MEMORY_BOUND},
+};
 use std::{borrow::Cow, convert::TryFrom};
 
 /// Represents a WebAssembly type.
@@ -337,7 +342,9 @@ impl MemoryDescriptor {
     pub fn detect_memory_type(maximum: Option<Pages>, shared: bool) -> Result<MemoryType, String> {
         Ok(match (shared, maximum) {
             (true, Some(_)) => MemoryType::SharedStatic,
-            (true, None) => return Err("Maximum number of pages is required for shared memory".to_string()),
+            (true, None) => {
+                return Err("Maximum number of pages is required for shared memory".to_string())
+            }
             (false, Some(maximum)) if maximum <= STATIC_MEMORY_BOUND => MemoryType::Static,
             (false, _) => MemoryType::Dynamic,
         })
