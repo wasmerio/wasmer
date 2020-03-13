@@ -345,7 +345,7 @@ impl MemoryDescriptor {
             (true, None) => {
                 return Err("Maximum number of pages is required for shared memory".to_string())
             }
-            (false, Some(max)) if max <= STATIC_MEMORY_BOUND => MemoryType::Static,
+            (false, Some(Pages(max))) if max <= STATIC_MEMORY_BOUND => MemoryType::Static,
             (false, _) => MemoryType::Dynamic,
         })
     }
