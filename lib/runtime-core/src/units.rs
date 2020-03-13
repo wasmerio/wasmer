@@ -6,13 +6,24 @@ use std::{
     ops::{Add, Sub},
 };
 
-/// The page size in bytes of a wasm page.
-pub const WASM_PAGE_SIZE: usize = 65_536;
-/// The max number of wasm pages allowed.
-pub const WASM_MAX_PAGES: usize = 65_536;
+/// The page size in bytes of a wasm page
+pub const WASM_PAGE_SIZE: usize = 0x10000;
+/// The max number of wasm pages allowed before we run
+/// out of index space
+pub const WASM_MAX_PAGES: usize = 0x10000;
 // From emscripten resize_heap implementation
 /// The minimum number of wasm pages allowed.
 pub const WASM_MIN_PAGES: usize = 256;
+
+#[cfg(target_pointer_width = "32")]
+/// The wasm pages of the bound for static memories (32 bits)
+/// That way we can skip bounds check
+pub const STATIC_MEMORY_BOUND: u32 = 0x4000;
+
+#[cfg(target_pointer_width = "64")]
+/// The wasm pages of the bound for static memories (64 bits)
+/// That way we can skip bounds check
+pub const STATIC_MEMORY_BOUND: u32 = 0x10000;
 
 /// Units of WebAssembly pages (as specified to be 65,536 bytes).
 #[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]

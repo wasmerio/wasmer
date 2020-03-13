@@ -1,7 +1,7 @@
 //! The runtime types modules represent type used within the wasm runtime and helper functions to
 //! convert to other represenations.
 
-use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::Pages};
+use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::{Pages, STATIC_MEMORY_BOUND}};
 use std::{borrow::Cow, convert::TryFrom};
 
 /// Represents a WebAssembly type.
@@ -320,20 +320,36 @@ pub struct MemoryDescriptor {
 impl MemoryDescriptor {
     /// Create a new memory descriptor with the given min/max pages and shared flag.
     pub fn new(minimum: Pages, maximum: Option<Pages>, shared: bool) -> Result<Self, String> {
-        let memory_type = match (maximum.is_some(), shared) {
-            (true, true) => MemoryType::SharedStatic,
-            (true, false) => MemoryType::Static,
-            (false, false) => MemoryType::Dynamic,
-            (false, true) => {
-                return Err("Max number of pages is required for shared memory".to_string());
-            }
-        };
+        // In order to speed up compilation (to avoid bounds check)
+        // we set a maximum number of pages by default.
+        let maximum = maximum.or(Some(Pages(STATIC_MEMORY_BOUND)));
+
+        let memory_type = Self::detect_memory_type(maximum, shared)?;
         Ok(MemoryDescriptor {
             minimum,
             maximum,
             shared,
             memory_type,
         })
+    }
+
+    /// Detect the memory type given the Maximum pages and it's shared attribute
+    pub fn detect_memory_type(maximum: Option<Pages>, shared: bool) -> Result<MemoryType, String> {
+        if shared {
+            if maximum.is_none() {
+                return Err("Max number of pages is required for shared memory".to_string());
+            }
+            Ok(MemoryType::SharedStatic)
+        }
+        else {
+            // If the maximum memory is within bounds, we make it static
+            if maximum.is_some() && maximum.unwrap().0 <= STATIC_MEMORY_BOUND {
+                Ok(MemoryType::Static)
+            }
+            else {
+                Ok(MemoryType::Dynamic)
+            }
+        }
     }
 
     /// Returns the `MemoryType` for this descriptor.
