@@ -335,21 +335,12 @@ impl MemoryDescriptor {
 
     /// Detect the memory type given the Maximum pages and it's shared attribute
     pub fn detect_memory_type(maximum: Option<Pages>, shared: bool) -> Result<MemoryType, String> {
-        if shared {
-            if maximum.is_none() {
-                return Err("Max number of pages is required for shared memory".to_string());
-            }
-            Ok(MemoryType::SharedStatic)
-        }
-        else {
-            // If the maximum memory is within bounds, we make it static
-            if maximum.is_some() && maximum.unwrap().0 <= STATIC_MEMORY_BOUND {
-                Ok(MemoryType::Static)
-            }
-            else {
-                Ok(MemoryType::Dynamic)
-            }
-        }
+        Ok(match (shared, maximum) {
+            (true, Some(_)) => MemoryType::SharedStatic,
+            (true, None) => return Err("Maximum number of pages is required for shared memory".to_string()),
+            (false, Some(maximum)) if maximum <= STATIC_MEMORY_BOUND => MemoryType::Static,
+            (false, _) => MemoryType::Dynamic,
+        })
     }
 
     /// Returns the `MemoryType` for this descriptor.
