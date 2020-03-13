@@ -46,6 +46,10 @@ jobs:
         linux:
           imageName: "ubuntu-16.04"
           rust_toolchain: nightly-2019-12-19
+        android:
+          imageName: "ubuntu-16.04"
+          rust_toolchain: nightly-2019-12-19
+          ANDROID: true
         mac:
           imageName: "macos-10.14"
           rust_toolchain: nightly-2019-12-19
@@ -81,10 +85,13 @@ jobs:
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: make test
         displayName: Tests (*nix)
-        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')), not(variables['ANDROID']))
+      - bash: make test-android
+        displayName: Tests (Android)
+        condition: and(succeeded(), variables['ANDROID'])
       - bash: make spectests-cranelift
         displayName: Tests (Windows)
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'), not(variables['ANDROID']))
 
   - job: Check
     pool:
