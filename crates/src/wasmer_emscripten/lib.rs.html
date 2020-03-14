@@ -1066,6 +1066,9 @@
 <span id="1066">1066</span>
 <span id="1067">1067</span>
 <span id="1068">1068</span>
+<span id="1069">1069</span>
+<span id="1070">1070</span>
+<span id="1071">1071</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">deny</span>(
     <span class="ident">dead_code</span>,
@@ -2127,10 +2130,13 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">nullfunc</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_x</span>: <span class="ident">u32</span>) {
     <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">process</span>::<span class="ident">abort_with_message</span>;
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::nullfunc_i {}&quot;</span>, <span class="ident">_x</span>);
-    <span class="ident">abort_with_message</span>(<span class="ident">ctx</span>, <span class="string">&quot;Invalid function pointer. Perhaps this is an invalid value \
+    <span class="ident">abort_with_message</span>(
+        <span class="ident">ctx</span>,
+        <span class="string">&quot;Invalid function pointer. Perhaps this is an invalid value \
     (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an \
     incorrect type, which will fail? (it is worth building your source files with -Werror (\
-    warnings are errors), as warnings can indicate undefined behavior which can cause this)&quot;</span>);
+    warnings are errors), as warnings can indicate undefined behavior which can cause this)&quot;</span>,
+    );
 }
 
 <span class="doccomment">/// The current version of this crate</span>
