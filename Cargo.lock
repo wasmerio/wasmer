@@ -2133,6 +2133,7 @@ name = "wasmer-wasi-tests"
 version = "0.16.2"
 dependencies = [
  "glob 0.3.0",
+ "tempfile",
  "wasmer-clif-backend",
  "wasmer-dev-utils",
  "wasmer-llvm-backend",
