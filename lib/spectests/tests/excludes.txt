@@ -326,12 +326,6 @@ llvm:skip:unwind.wast:*:windows
 llvm:skip:simd.wast:352:unix # Module - caught panic Any
 llvm:skip:simd_binaryen.wast:*:unix # Module - caught panic Any
 
-# NaN canonicalization
-llvm:fail:wasmer.wast:111 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
-llvm:fail:wasmer.wast:114 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
-llvm:fail:wasmer.wast:123 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
-llvm:fail:wasmer.wast:126 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
-
 # Singlepass
 singlepass:skip:simd.wast:*          # SIMD not implemented
 singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
