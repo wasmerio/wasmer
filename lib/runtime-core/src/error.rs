@@ -19,7 +19,7 @@ pub type RuntimeResult<T> = std::result::Result<T, RuntimeError>;
 /// Result of an attempt to call the provided WebAssembly instance.
 /// Aliases the standard `Result` with `CallError` as the default error type.
 pub type CallResult<T> = std::result::Result<T, CallError>;
-/// Result of an attempt to resolve a WebAssembly function by name.
+/// Result of an attempt to resolve a WebAssembly function by name or index.
 /// Aliases the standard `Result` with `ResolveError` as the default error type.
 pub type ResolveResult<T> = std::result::Result<T, ResolveError>;
 /// Result of an attempt to parse bytes into a WebAssembly module.
@@ -211,7 +211,7 @@ impl std::fmt::Debug for RuntimeError {
 impl std::error::Error for RuntimeError {}
 
 /// This error type is produced by resolving a wasm function
-/// given its name.
+/// given its name or its index.
 ///
 /// Comparing two `ResolveError`s always evaluates to false.
 #[derive(Debug, Clone)]
@@ -233,6 +233,11 @@ pub enum ResolveError {
         /// Name.
         name: String,
     },
+    /// Index is invalid.
+    InvalidIndex {
+        /// Index.
+        index: usize,
+    },
 }
 
 impl PartialEq for ResolveError {
@@ -246,6 +251,7 @@ impl std::fmt::Display for ResolveError {
         match self {
             ResolveError::ExportNotFound { name } => write!(f, "Export not found: {}", name),
             ResolveError::ExportWrongType { name } => write!(f, "Export wrong type: {}", name),
+            ResolveError::InvalidIndex { index } => write!(f, "Invalid index: {}", index),
             ResolveError::Signature { expected, found } => {
                 let found = found
                     .as_slice()
