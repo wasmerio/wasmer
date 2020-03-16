@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1306](https://github.com/wasmerio/wasmer/pull/1306) Introduce `Instance::call_function_by_index` to call exported functions by their indexes
 - [#1301](https://github.com/wasmerio/wasmer/pull/1301) Update supported stable Rust version to 1.41.1.
 - [#1285](https://github.com/wasmerio/wasmer/pull/1285) Greatly improve errors in `wasmer-interface-types`
 - [#1283](https://github.com/wasmerio/wasmer/pull/1283) Workaround for floating point arguments and return values in `DynamicFunc`s.
