@@ -266,6 +266,30 @@ clif:fail:data.wast:266:windows # AssertUnlinkable - caught panic Any
 clif:fail:data.wast:186:windows # AssertUnlinkable - caught panic Any
 clif:fail:data.wast:194:windows # AssertUnlinkable - caught panic Any
 
+# NaN canonicalization
+clif:fail:wasmer.wast:105 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:106 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:107 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:108 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:109 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:110 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:111 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:112 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:113 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:114 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:115 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+clif:fail:wasmer.wast:117 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+clif:fail:wasmer.wast:118 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+clif:fail:wasmer.wast:119 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+clif:fail:wasmer.wast:120 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+clif:fail:wasmer.wast:121 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+clif:fail:wasmer.wast:122 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+clif:fail:wasmer.wast:123 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+clif:fail:wasmer.wast:124 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+clif:fail:wasmer.wast:125 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+clif:fail:wasmer.wast:126 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+clif:fail:wasmer.wast:127 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+
 # LLVM
 llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
 
@@ -301,6 +325,12 @@ llvm:skip:unwind.wast:*:windows
 # LLVM Linux after OSR - https://github.com/wasmerio/wasmer/pull/567
 llvm:skip:simd.wast:352:unix # Module - caught panic Any
 llvm:skip:simd_binaryen.wast:*:unix # Module - caught panic Any
+
+# NaN canonicalization
+llvm:fail:wasmer.wast:111 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+llvm:fail:wasmer.wast:114 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+llvm:fail:wasmer.wast:123 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+llvm:fail:wasmer.wast:126 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
 
 # Singlepass
 singlepass:skip:simd.wast:*          # SIMD not implemented
