@@ -2,6 +2,28 @@
 
 ## **[Unreleased]**
 
+- [#1301](https://github.com/wasmerio/wasmer/pull/1301) Update supported stable Rust version to 1.41.1.
+- [#1285](https://github.com/wasmerio/wasmer/pull/1285) Greatly improve errors in `wasmer-interface-types`
+- [#1283](https://github.com/wasmerio/wasmer/pull/1283) Workaround for floating point arguments and return values in `DynamicFunc`s.
+
+## 0.16.2 - 2020-03-11
+
+- [#1294](https://github.com/wasmerio/wasmer/pull/1294) Fix bug related to system calls in WASI that rely on reading from WasmPtrs as arrays of length 0. `WasmPtr` will now succeed on length 0 arrays again.
+
+## 0.16.1 - 2020-03-11
+
+- [#1291](https://github.com/wasmerio/wasmer/pull/1291) Fix installation packaging script to package the `wax` command.
+
+## 0.16.0 - 2020-03-11
+
+- [#1286](https://github.com/wasmerio/wasmer/pull/1286) Updated Windows Wasmer icons. Add wax
+- [#1284](https://github.com/wasmerio/wasmer/pull/1284) Implement string and memory instructions in `wasmer-interface-types`
+- [#1272](https://github.com/wasmerio/wasmer/pull/1272) Fix off-by-one error bug when accessing memory with a `WasmPtr` that contains the last valid byte of memory. Also changes the behavior of `WasmPtr<T, Array>` with a length of 0 and `WasmPtr<T>` where `std::mem::size_of::<T>()` is 0 to always return `None`
+
+## 0.15.0 - 2020-03-04
+
+- [#1263](https://github.com/wasmerio/wasmer/pull/1263) Changed the behavior of some WASI syscalls to now handle preopened directories more properly. Changed default `--debug` logging to only show Wasmer-related messages.
+- [#1217](https://github.com/wasmerio/wasmer/pull/1217) Polymorphic host functions based on dynamic trampoline generation.
 - [#1252](https://github.com/wasmerio/wasmer/pull/1252) Allow `/` in wasi `--mapdir` wasm path.
 - [#1212](https://github.com/wasmerio/wasmer/pull/1212) Add support for GDB JIT debugging:
   - Add `--generate-debug-info` and `-g` flags to `wasmer run` to generate debug information during compilation. The debug info is passed via the GDB JIT interface to a debugger to allow source-level debugging of Wasm files. Currently only available on clif-backend.

@@ -40,18 +40,19 @@ macro_rules! consume {
 /// Check the existing executable instruction to get more examples.
 macro_rules! executable_instruction {
     ($name:ident ( $($argument_name:ident: $argument_type:ty),* ) -> _ $implementation:block ) => {
-        use crate::interpreter::{ExecutableInstruction, wasm, stack::Stackable};
-
         pub(crate) fn $name<Instance, Export, LocalImport, Memory, MemoryView>(
             $($argument_name: $argument_type),*
-        ) -> ExecutableInstruction<Instance, Export, LocalImport, Memory, MemoryView>
+        ) -> crate::interpreter::ExecutableInstruction<Instance, Export, LocalImport, Memory, MemoryView>
         where
-            Export: wasm::structures::Export,
-            LocalImport: wasm::structures::LocalImport,
-            Memory: wasm::structures::Memory<MemoryView>,
-            MemoryView: wasm::structures::MemoryView,
-            Instance: wasm::structures::Instance<Export, LocalImport, Memory, MemoryView>,
+            Export: crate::interpreter::wasm::structures::Export,
+            LocalImport: crate::interpreter::wasm::structures::LocalImport,
+            Memory: crate::interpreter::wasm::structures::Memory<MemoryView>,
+            MemoryView: crate::interpreter::wasm::structures::MemoryView,
+            Instance: crate::interpreter::wasm::structures::Instance<Export, LocalImport, Memory, MemoryView>,
         {
+            #[allow(unused_imports)]
+            use crate::interpreter::{stack::Stackable};
+
             Box::new($implementation)
         }
     };
@@ -121,7 +122,7 @@ macro_rules! test_executable_instruction {
 
             assert!(run.is_err());
 
-            let error = run.unwrap_err();
+            let error = run.unwrap_err().to_string();
 
             assert_eq!(error, String::from($error));
         }

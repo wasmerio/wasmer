@@ -209,7 +209,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         Ok(())
     }
 
-    fn feed_import_function(&mut self) -> Result<(), CodegenError> {
+    fn feed_import_function(&mut self, _sigindex: SigIndex) -> Result<(), CodegenError> {
         Ok(())
     }
 

@@ -46,7 +46,11 @@ pub fn set_up_logging() -> Result<(), String> {
                 })
             };
 
-            base.chain(std::io::stdout())
+            base
+                .filter(|metadata| {
+                    metadata.target().starts_with("wasmer")
+                })
+                .chain(std::io::stdout())
         });
 
     dispatch.apply().map_err(|e| format!("{}", e))?;

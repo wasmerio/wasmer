@@ -10,20 +10,20 @@ use std::ops::{BitAnd, BitOr, BitOrAssign};
 #[derive(Debug)]
 pub enum ControlFrame<'ctx> {
     Block {
-        next: BasicBlock,
+        next: BasicBlock<'ctx>,
         phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
     },
     Loop {
-        body: BasicBlock,
-        next: BasicBlock,
+        body: BasicBlock<'ctx>,
+        next: BasicBlock<'ctx>,
         phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
     },
     IfElse {
-        if_then: BasicBlock,
-        if_else: BasicBlock,
-        next: BasicBlock,
+        if_then: BasicBlock<'ctx>,
+        if_else: BasicBlock<'ctx>,
+        next: BasicBlock<'ctx>,
         phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
         if_else_state: IfElseState,
@@ -37,7 +37,7 @@ pub enum IfElseState {
 }
 
 impl<'ctx> ControlFrame<'ctx> {
-    pub fn code_after(&self) -> &BasicBlock {
+    pub fn code_after(&self) -> &BasicBlock<'ctx> {
         match self {
             ControlFrame::Block { ref next, .. }
             | ControlFrame::Loop { ref next, .. }
@@ -45,7 +45,7 @@ impl<'ctx> ControlFrame<'ctx> {
         }
     }
 
-    pub fn br_dest(&self) -> &BasicBlock {
+    pub fn br_dest(&self) -> &BasicBlock<'ctx> {
         match self {
             ControlFrame::Block { ref next, .. } | ControlFrame::IfElse { ref next, .. } => next,
             ControlFrame::Loop { ref body, .. } => body,
@@ -367,7 +367,7 @@ impl<'ctx> State<'ctx> {
         Ok(())
     }
 
-    pub fn push_block(&mut self, next: BasicBlock, phis: SmallVec<[PhiValue<'ctx>; 1]>) {
+    pub fn push_block(&mut self, next: BasicBlock<'ctx>, phis: SmallVec<[PhiValue<'ctx>; 1]>) {
         self.control_stack.push(ControlFrame::Block {
             next,
             phis,
@@ -377,8 +377,8 @@ impl<'ctx> State<'ctx> {
 
     pub fn push_loop(
         &mut self,
-        body: BasicBlock,
-        next: BasicBlock,
+        body: BasicBlock<'ctx>,
+        next: BasicBlock<'ctx>,
         phis: SmallVec<[PhiValue<'ctx>; 1]>,
     ) {
         self.control_stack.push(ControlFrame::Loop {
@@ -391,9 +391,9 @@ impl<'ctx> State<'ctx> {
 
     pub fn push_if(
         &mut self,
-        if_then: BasicBlock,
-        if_else: BasicBlock,
-        next: BasicBlock,
+        if_then: BasicBlock<'ctx>,
+        if_else: BasicBlock<'ctx>,
+        next: BasicBlock<'ctx>,
         phis: SmallVec<[PhiValue<'ctx>; 1]>,
     ) {
         self.control_stack.push(ControlFrame::IfElse {

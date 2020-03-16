@@ -354,15 +354,15 @@ fn trap_if_not_representable_as_int<'ctx>(
     let failure_block = context.append_basic_block(*function, "conversion_failure_block");
     let continue_block = context.append_basic_block(*function, "conversion_success_block");
 
-    builder.build_conditional_branch(out_of_bounds, &failure_block, &continue_block);
-    builder.position_at_end(&failure_block);
+    builder.build_conditional_branch(out_of_bounds, failure_block, continue_block);
+    builder.position_at_end(failure_block);
     builder.build_call(
         intrinsics.throw_trap,
         &[intrinsics.trap_illegal_arithmetic],
         "throw",
     );
     builder.build_unreachable();
-    builder.position_at_end(&continue_block);
+    builder.position_at_end(continue_block);
 }
 
 fn trap_if_zero_or_overflow<'ctx>(
@@ -418,15 +418,15 @@ fn trap_if_zero_or_overflow<'ctx>(
 
     let shouldnt_trap_block = context.append_basic_block(*function, "shouldnt_trap_block");
     let should_trap_block = context.append_basic_block(*function, "should_trap_block");
-    builder.build_conditional_branch(should_trap, &should_trap_block, &shouldnt_trap_block);
-    builder.position_at_end(&should_trap_block);
+    builder.build_conditional_branch(should_trap, should_trap_block, shouldnt_trap_block);
+    builder.position_at_end(should_trap_block);
     builder.build_call(
         intrinsics.throw_trap,
         &[intrinsics.trap_illegal_arithmetic],
         "throw",
     );
     builder.build_unreachable();
-    builder.position_at_end(&shouldnt_trap_block);
+    builder.position_at_end(shouldnt_trap_block);
 }
 
 fn trap_if_zero<'ctx>(
@@ -460,15 +460,15 @@ fn trap_if_zero<'ctx>(
 
     let shouldnt_trap_block = context.append_basic_block(*function, "shouldnt_trap_block");
     let should_trap_block = context.append_basic_block(*function, "should_trap_block");
-    builder.build_conditional_branch(should_trap, &should_trap_block, &shouldnt_trap_block);
-    builder.position_at_end(&should_trap_block);
+    builder.build_conditional_branch(should_trap, should_trap_block, shouldnt_trap_block);
+    builder.position_at_end(should_trap_block);
     builder.build_call(
         intrinsics.throw_trap,
         &[intrinsics.trap_illegal_arithmetic],
         "throw",
     );
     builder.build_unreachable();
-    builder.position_at_end(&shouldnt_trap_block);
+    builder.position_at_end(shouldnt_trap_block);
 }
 
 fn v128_into_int_vec<'ctx>(
@@ -774,17 +774,17 @@ fn resolve_memory_ptr<'ctx>(
             let not_in_bounds_block = context.append_basic_block(*function, "not_in_bounds_block");
             builder.build_conditional_branch(
                 ptr_in_bounds,
-                &in_bounds_continue_block,
-                &not_in_bounds_block,
+                in_bounds_continue_block,
+                not_in_bounds_block,
             );
-            builder.position_at_end(&not_in_bounds_block);
+            builder.position_at_end(not_in_bounds_block);
             builder.build_call(
                 intrinsics.throw_trap,
                 &[intrinsics.trap_memory_oob],
                 "throw",
             );
             builder.build_unreachable();
-            builder.position_at_end(&in_bounds_continue_block);
+            builder.position_at_end(in_bounds_continue_block);
         }
     }
 
@@ -918,9 +918,9 @@ fn trap_if_misaligned<'ctx>(
 
     let continue_block = context.append_basic_block(*function, "aligned_access_continue_block");
     let not_aligned_block = context.append_basic_block(*function, "misaligned_trap_block");
-    builder.build_conditional_branch(aligned, &continue_block, &not_aligned_block);
+    builder.build_conditional_branch(aligned, continue_block, not_aligned_block);
 
-    builder.position_at_end(&not_aligned_block);
+    builder.position_at_end(not_aligned_block);
     builder.build_call(
         intrinsics.throw_trap,
         &[intrinsics.trap_misaligned_atomic],
@@ -928,7 +928,7 @@ fn trap_if_misaligned<'ctx>(
     );
     builder.build_unreachable();
 
-    builder.position_at_end(&continue_block);
+    builder.position_at_end(continue_block);
 }
 
 #[derive(Debug)]
@@ -1053,11 +1053,11 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
             .builder
             .as_ref()
             .unwrap()
-            .build_unconditional_branch(&start_of_code_block);
+            .build_unconditional_branch(start_of_code_block);
         self.builder
             .as_ref()
             .unwrap()
-            .position_at_end(&start_of_code_block);
+            .position_at_end(start_of_code_block);
 
         let cache_builder = self.context.as_ref().unwrap().create_builder();
         cache_builder.position_before(&entry_end_inst);
@@ -1210,7 +1210,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 })?;
 
                 let end_block = context.append_basic_block(function, "end");
-                builder.position_at_end(&end_block);
+                builder.position_at_end(end_block);
 
                 let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
                     let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
@@ -1223,15 +1223,15 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 };
 
                 state.push_block(end_block, phis);
-                builder.position_at_end(&current_block);
+                builder.position_at_end(current_block);
             }
             Operator::Loop { ty } => {
                 let loop_body = context.append_basic_block(function, "loop_body");
                 let loop_next = context.append_basic_block(function, "loop_outer");
 
-                builder.build_unconditional_branch(&loop_body);
+                builder.build_unconditional_branch(loop_body);
 
-                builder.position_at_end(&loop_next);
+                builder.position_at_end(loop_next);
                 let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
                     let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
                     [llvm_ty]
@@ -1242,7 +1242,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     SmallVec::new()
                 };
 
-                builder.position_at_end(&loop_body);
+                builder.position_at_end(loop_body);
 
                 if self.track_state {
                     if let Some(offset) = opcode_offset {
@@ -1299,10 +1299,10 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 // pop a value off the value stack and load it into
                 // the corresponding phi.
                 for (phi, value) in frame.phis().iter().zip(values) {
-                    phi.add_incoming(&[(&value, &current_block)]);
+                    phi.add_incoming(&[(&value, current_block)]);
                 }
 
-                builder.build_unconditional_branch(frame.br_dest());
+                builder.build_unconditional_branch(*frame.br_dest());
 
                 state.popn(value_len)?;
                 state.reachable = false;
@@ -1327,7 +1327,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 });
 
                 for (phi, value) in frame.phis().iter().zip(param_stack) {
-                    phi.add_incoming(&[(&value, &current_block)]);
+                    phi.add_incoming(&[(&value, current_block)]);
                 }
 
                 let else_block = context.append_basic_block(function, "else");
@@ -1338,8 +1338,8 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     intrinsics.i32_zero,
                     &state.var_name(),
                 );
-                builder.build_conditional_branch(cond_value, frame.br_dest(), &else_block);
-                builder.position_at_end(&else_block);
+                builder.build_conditional_branch(cond_value, *frame.br_dest(), else_block);
+                builder.position_at_end(else_block);
             }
             Operator::BrTable { ref table } => {
                 let current_block = builder.get_insert_block().ok_or(CodegenError {
@@ -1360,7 +1360,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 };
 
                 for (phi, value) in default_frame.phis().iter().zip(args.iter()) {
-                    phi.add_incoming(&[(value, &current_block)]);
+                    phi.add_incoming(&[(value, current_block)]);
                 }
 
                 let cases: Vec<_> = label_depths
@@ -1377,14 +1377,14 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                             context.i32_type().const_int(case_index as u64, false);
 
                         for (phi, value) in frame.phis().iter().zip(args.iter()) {
-                            phi.add_incoming(&[(value, &current_block)]);
+                            phi.add_incoming(&[(value, current_block)]);
                         }
 
-                        Ok((case_index_literal, frame.br_dest()))
+                        Ok((case_index_literal, *frame.br_dest()))
                     })
                     .collect::<Result<_, _>>()?;
 
-                builder.build_switch(index.into_int_value(), default_frame.br_dest(), &cases[..]);
+                builder.build_switch(index.into_int_value(), *default_frame.br_dest(), &cases[..]);
 
                 let args_len = args.len();
                 state.popn(args_len)?;
@@ -1399,7 +1399,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let end_block = context.append_basic_block(function, "if_end");
 
                 let end_phis = {
-                    builder.position_at_end(&end_block);
+                    builder.position_at_end(end_block);
 
                     let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
                         let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
@@ -1411,7 +1411,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                         SmallVec::new()
                     };
 
-                    builder.position_at_end(&current_block);
+                    builder.position_at_end(current_block);
                     phis
                 };
 
@@ -1424,8 +1424,8 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     &state.var_name(),
                 );
 
-                builder.build_conditional_branch(cond_value, &if_then_block, &if_else_block);
-                builder.position_at_end(&if_then_block);
+                builder.build_conditional_branch(cond_value, if_then_block, if_else_block);
+                builder.position_at_end(if_then_block);
                 state.push_if(if_then_block, if_else_block, end_block, end_phis);
             }
             Operator::Else => {
@@ -1439,10 +1439,10 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                         let (value, info) = state.pop1_extra()?;
                         let value =
                             apply_pending_canonicalization(builder, intrinsics, value, info);
-                        phi.add_incoming(&[(&value, &current_block)])
+                        phi.add_incoming(&[(&value, current_block)])
                     }
                     let frame = state.frame_at_depth(0)?;
-                    builder.build_unconditional_branch(frame.code_after());
+                    builder.build_unconditional_branch(*frame.code_after());
                 }
 
                 let (if_else_block, if_else_state) = if let ControlFrame::IfElse {
@@ -1458,7 +1458,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
 
                 *if_else_state = IfElseState::Else;
 
-                builder.position_at_end(if_else_block);
+                builder.position_at_end(*if_else_block);
                 state.reachable = true;
             }
 
@@ -1473,10 +1473,10 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                         let (value, info) = state.pop1_extra()?;
                         let value =
                             apply_pending_canonicalization(builder, intrinsics, value, info);
-                        phi.add_incoming(&[(&value, &current_block)]);
+                        phi.add_incoming(&[(&value, current_block)]);
                     }
 
-                    builder.build_unconditional_branch(frame.code_after());
+                    builder.build_unconditional_branch(*frame.code_after());
                 }
 
                 if let ControlFrame::IfElse {
@@ -1487,12 +1487,12 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 } = &frame
                 {
                     if let IfElseState::If = if_else_state {
-                        builder.position_at_end(if_else);
-                        builder.build_unconditional_branch(next);
+                        builder.position_at_end(*if_else);
+                        builder.build_unconditional_branch(*next);
                     }
                 }
 
-                builder.position_at_end(frame.code_after());
+                builder.position_at_end(*frame.code_after());
                 state.reset_stack(&frame);
 
                 state.reachable = true;
@@ -1530,11 +1530,11 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 for phi in frame.phis().to_vec().iter() {
                     let (arg, info) = state.pop1_extra()?;
                     let arg = apply_pending_canonicalization(builder, intrinsics, arg, info);
-                    phi.add_incoming(&[(&arg, &current_block)]);
+                    phi.add_incoming(&[(&arg, current_block)]);
                 }
 
                 let frame = state.outermost_frame()?;
-                builder.build_unconditional_branch(frame.br_dest());
+                builder.build_unconditional_branch(*frame.br_dest());
 
                 state.reachable = false;
             }
@@ -2073,17 +2073,17 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     context.append_basic_block(function, "not_in_bounds_block");
                 builder.build_conditional_branch(
                     index_in_bounds,
-                    &in_bounds_continue_block,
-                    &not_in_bounds_block,
+                    in_bounds_continue_block,
+                    not_in_bounds_block,
                 );
-                builder.position_at_end(&not_in_bounds_block);
+                builder.position_at_end(not_in_bounds_block);
                 builder.build_call(
                     intrinsics.throw_trap,
                     &[intrinsics.trap_call_indirect_oob],
                     "throw",
                 );
                 builder.build_unreachable();
-                builder.position_at_end(&in_bounds_continue_block);
+                builder.position_at_end(in_bounds_continue_block);
 
                 // Next, check if the signature id is correct.
 
@@ -2114,18 +2114,18 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     context.append_basic_block(function, "sigindices_notequal_block");
                 builder.build_conditional_branch(
                     sigindices_equal,
-                    &continue_block,
-                    &sigindices_notequal_block,
+                    continue_block,
+                    sigindices_notequal_block,
                 );
 
-                builder.position_at_end(&sigindices_notequal_block);
+                builder.position_at_end(sigindices_notequal_block);
                 builder.build_call(
                     intrinsics.throw_trap,
                     &[intrinsics.trap_call_indirect_sig],
                     "throw",
                 );
                 builder.build_unreachable();
-                builder.position_at_end(&continue_block);
+                builder.position_at_end(continue_block);
 
                 let wasmer_fn_sig = &info.signatures[sig_index];
                 let fn_ty = signatures[sig_index];
@@ -8763,10 +8763,10 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         let mut state: State<'ctx> = State::new();
         let entry_block = context.append_basic_block(*function, "entry");
         let alloca_builder = context.create_builder();
-        alloca_builder.position_at_end(&entry_block);
+        alloca_builder.position_at_end(entry_block);
 
         let return_block = context.append_basic_block(*function, "return");
-        builder.position_at_end(&return_block);
+        builder.position_at_end(return_block);
 
         let phis: SmallVec<[PhiValue; 1]> = func_sig
             .returns()
@@ -8776,7 +8776,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             .collect();
 
         state.push_block(return_block, phis);
-        builder.position_at_end(&entry_block);
+        builder.position_at_end(entry_block);
 
         let mut locals = Vec::new();
         locals.extend(
@@ -8984,7 +8984,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         Ok(())
     }
 
-    fn feed_import_function(&mut self) -> Result<(), CodegenError> {
+    fn feed_import_function(&mut self, _sigindex: SigIndex) -> Result<(), CodegenError> {
         self.func_import_count += 1;
         Ok(())
     }
