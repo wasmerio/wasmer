@@ -269,7 +269,7 @@ fn compile(
 fn run_prelude(should_gen_all: bool) -> &'static [WasiVersion] {
     if should_gen_all {
         println!(
-            "Generating WASI tests for all version of WASI. Run with WASI_TEST_GENERATE_ALL=0 to only generate the latest tests."
+            "Generating WASI tests for all versions of WASI. Run with WASI_TEST_GENERATE_ALL=0 to only generate the latest tests."
         );
     } else {
         println!(
