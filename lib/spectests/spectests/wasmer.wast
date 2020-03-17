@@ -3,12 +3,16 @@
 (module
   ;; Auxiliary definitions
   (type $out-i32 (func (result i32)))
+  (type $f32-id (func (param f32) (result f32)))
+  (type $f64-id (func (param f64) (result f64)))
 
   (func $const-i32 (type $out-i32) (i32.const 0x132))
 
   (table funcref
     (elem
       $const-i32
+      $nan-canonicalization-f32-func-call-target
+      $nan-canonicalization-f64-func-call-target
     )
   )
 
@@ -32,7 +36,7 @@
   )
 
   ;; NaN canonicalization tests.
-  ;; Things that are covered by spectests canonicalization (`fabs`, `fneg`, `fcopysign`, `reinterpet`, `const`) won't be duplicated here.
+  ;; Things that are covered by spectests canonicalization (`fabs`, `fneg`, `fcopysign`, `reinterpret`, `const`) won't be duplicated here.
 
   (func (export "nan-canonicalization-f32-add") (param i32) (result i32)
     (i32.reinterpret_f32 (f32.add (f32.reinterpret_i32 (get_local 0)) (f32.const 0)))
@@ -84,6 +88,21 @@
     (local f32)
     (set_local 1 (f32.add (f32.reinterpret_i32 (get_local 0)) (f32.const 0)))
     (i32.reinterpret_f32 (get_local 1))
+  )
+  (func $nan-canonicalization-f32-func-call-target (param f32) (result f32)
+    (get_local 0)
+  )
+  (func (export "nan-canonicalization-f32-func-call") (param i32) (result i32)
+    (i32.reinterpret_f32 (call $nan-canonicalization-f32-func-call-target (f32.reinterpret_i32 (get_local 0))))
+  )
+  (func (export "nan-canonicalization-f32-func-call-cncl") (param i32) (result i32)
+    (i32.reinterpret_f32 (call $nan-canonicalization-f32-func-call-target (f32.add (f32.reinterpret_i32 (get_local 0)) (f32.const 0))))
+  )
+  (func (export "nan-canonicalization-f32-func-call-indirect") (param i32) (result i32)
+    (i32.reinterpret_f32 (call_indirect (type $f32-id) (f32.reinterpret_i32 (get_local 0)) (i32.const 1)))
+  )
+  (func (export "nan-canonicalization-f32-func-call-indirect-cncl") (param i32) (result i32)
+    (i32.reinterpret_f32 (call_indirect (type $f32-id) (f32.add (f32.reinterpret_i32 (get_local 0)) (f32.const 0)) (i32.const 1)))
   )
 
   (func (export "nan-canonicalization-f64-add") (param i64) (result i64)
@@ -137,6 +156,21 @@
     (set_local 1 (f64.add (f64.reinterpret_i64 (get_local 0)) (f64.const 0)))
     (i64.reinterpret_f64 (get_local 1))
   )
+  (func $nan-canonicalization-f64-func-call-target (param f64) (result f64)
+    (get_local 0)
+  )
+  (func (export "nan-canonicalization-f64-func-call") (param i64) (result i64)
+    (i64.reinterpret_f64 (call $nan-canonicalization-f64-func-call-target (f64.reinterpret_i64 (get_local 0))))
+  )
+  (func (export "nan-canonicalization-f64-func-call-cncl") (param i64) (result i64)
+    (i64.reinterpret_f64 (call $nan-canonicalization-f64-func-call-target (f64.add (f64.reinterpret_i64 (get_local 0)) (f64.const 0))))
+  )
+  (func (export "nan-canonicalization-f64-func-call-indirect") (param i64) (result i64)
+    (i64.reinterpret_f64 (call_indirect (type $f64-id) (f64.reinterpret_i64 (get_local 0)) (i32.const 2)))
+  )
+  (func (export "nan-canonicalization-f64-func-call-indirect-cncl") (param i64) (result i64)
+    (i64.reinterpret_f64 (call_indirect (type $f64-id) (f64.add (f64.reinterpret_i64 (get_local 0)) (f64.const 0)) (i32.const 2)))
+  )
 )
 
 (assert_return (invoke "call-indirect-from-spilled-stack") (i32.const 0x132))
@@ -155,6 +189,10 @@
 (assert_return (invoke "nan-canonicalization-f32-mem-cncl" (i32.const 0x7fc00001)) (i32.const 0x7fc00000))
 (assert_return (invoke "nan-canonicalization-f32-local" (i32.const 0x7fc00001)) (i32.const 0x7fc00001))
 (assert_return (invoke "nan-canonicalization-f32-local-cncl" (i32.const 0x7fc00001)) (i32.const 0x7fc00000))
+(assert_return (invoke "nan-canonicalization-f32-func-call" (i32.const 0x7fc00001)) (i32.const 0x7fc00001))
+(assert_return (invoke "nan-canonicalization-f32-func-call-cncl" (i32.const 0x7fc00001)) (i32.const 0x7fc00000))
+(assert_return (invoke "nan-canonicalization-f32-func-call-indirect" (i32.const 0x7fc00001)) (i32.const 0x7fc00001))
+(assert_return (invoke "nan-canonicalization-f32-func-call-indirect-cncl" (i32.const 0x7fc00001)) (i32.const 0x7fc00000))
 
 (assert_return (invoke "nan-canonicalization-f64-add" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000000))
 (assert_return (invoke "nan-canonicalization-f64-sub" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000000))
@@ -171,3 +209,7 @@
 (assert_return (invoke "nan-canonicalization-f64-mem-cncl" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000000))
 (assert_return (invoke "nan-canonicalization-f64-local" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000001))
 (assert_return (invoke "nan-canonicalization-f64-local-cncl" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000000))
+(assert_return (invoke "nan-canonicalization-f64-func-call" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000001))
+(assert_return (invoke "nan-canonicalization-f64-func-call-cncl" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000000))
+(assert_return (invoke "nan-canonicalization-f64-func-call-indirect" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000001))
+(assert_return (invoke "nan-canonicalization-f64-func-call-indirect-cncl" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000000))
