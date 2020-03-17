@@ -238,7 +238,7 @@ pub struct X64FunctionCode {
 /// Metadata about a floating-point value.
 #[derive(Copy, Clone, Debug)]
 struct FloatValue {
-    /// Do we need to canonicalize the value before its bit pattern is observable? If so, how?
+    /// Do we need to canonicalize the value before its bit pattern is next observed? If so, how?
     canonicalization: Option<CanonicalizeType>,
 
     /// Corresponding depth in the main value stack.
