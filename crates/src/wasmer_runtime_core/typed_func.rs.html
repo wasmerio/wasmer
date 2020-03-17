@@ -1021,6 +1021,13 @@
 <span id="1021">1021</span>
 <span id="1022">1022</span>
 <span id="1023">1023</span>
+<span id="1024">1024</span>
+<span id="1025">1025</span>
+<span id="1026">1026</span>
+<span id="1027">1027</span>
+<span id="1028">1028</span>
+<span id="1029">1029</span>
+<span id="1030">1030</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The typed func module implements a way of representing a wasm function</span>
 <span class="doccomment">//! with the correct types from rust. Function calls using a typed func have a low overhead.</span>
@@ -1358,7 +1365,14 @@
                     }
                 })
                 .<span class="ident">collect</span>();
-            (<span class="ident">ctx</span>.<span class="ident">func</span>)(<span class="ident">vmctx</span>, <span class="kw-2">&amp;</span><span class="ident">args</span>)
+            <span class="kw">match</span> <span class="ident">panic</span>::<span class="ident">catch_unwind</span>(<span class="ident">panic</span>::<span class="ident">AssertUnwindSafe</span>(<span class="op">|</span><span class="op">|</span> (<span class="ident">ctx</span>.<span class="ident">func</span>)(<span class="ident">vmctx</span>, <span class="kw-2">&amp;</span><span class="ident">args</span>))) {
+                <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">x</span>,
+                <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="comment">// At this point, there is an error that needs to be trapped.</span>
+                    <span class="ident">drop</span>(<span class="ident">args</span>); <span class="comment">// Release the Vec which will leak otherwise.</span>
+                    (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>.<span class="ident">module</span>).<span class="ident">runnable_module</span>.<span class="ident">do_early_trap</span>(<span class="ident">e</span>)
+                }
+            }
         }
         <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">enter_host_polymorphic_i</span>(
             <span class="ident">ctx</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">CallContext</span>,
