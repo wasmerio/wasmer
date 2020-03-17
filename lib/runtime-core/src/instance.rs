@@ -1,10 +1,12 @@
-//! The instance module contains the implementation data structures and helper functions used to
-//! manipulate and access wasm instances.
+//! This module contains types for manipulating and accessing Wasm instances.
+//!
+//! An "instance", or "instantiated module", is a compiled WebAssembly [`Module`] with its
+//! corresponding imports (via [`ImportObject`]) that is ready to execute.
 use crate::{
     backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
     error::{CallError, CallResult, ResolveError, ResolveResult, Result, RuntimeError},
-    export::{Context, Export, ExportIter, FuncPointer},
+    export::{Context, Export, ExportIter, Exportable, FuncPointer},
     global::Global,
     import::{ImportObject, LikeNamespace},
     loader::Loader,
@@ -19,6 +21,7 @@ use crate::{
 };
 use smallvec::{smallvec, SmallVec};
 use std::{
+    borrow::Borrow,
     mem,
     pin::Pin,
     ptr::{self, NonNull},
@@ -58,6 +61,11 @@ pub struct Instance {
 }
 
 impl Instance {
+    /// Access the new exports API.
+    /// TODO: rename etc.
+    pub fn exports_new(&self) -> Exports {
+        Exports { instance: self }
+    }
     pub(crate) fn new(module: Arc<ModuleInner>, imports: &ImportObject) -> Result<Instance> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
@@ -811,6 +819,89 @@ impl<'a> DynFunc<'a> {
                 self.instance_inner.import_backing.vm_functions[import_func_index].func
             }
         }
+    }
+}
+
+impl<'a> Exportable<'a> for Memory {
+    fn get_self(instance: &'a Instance, name: &str) -> Option<Self> {
+        let export_index = instance.module.info.exports.get(name)?;
+        if let ExportIndex::Memory(idx) = export_index {
+            let module = instance.module.borrow();
+            Some(instance.inner.get_memory_from_index(module, *idx))
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> Exportable<'a> for Table {
+    fn get_self(instance: &'a Instance, name: &str) -> Option<Self> {
+        let export_index = instance.module.info.exports.get(name)?;
+        if let ExportIndex::Table(idx) = export_index {
+            let module = instance.module.borrow();
+            Some(instance.inner.get_table_from_index(module, *idx))
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> Exportable<'a> for Global {
+    fn get_self(instance: &'a Instance, name: &str) -> Option<Self> {
+        let export_index = instance.module.info.exports.get(name)?;
+        if let ExportIndex::Global(idx) = export_index {
+            let module = instance.module.borrow();
+            Some(instance.inner.get_global_from_index(module, *idx))
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> Exportable<'a> for DynFunc<'a> {
+    fn get_self(instance: &'a Instance, name: &str) -> Option<Self> {
+        instance.dyn_func(name).ok()
+    }
+}
+
+impl<'a, Args: WasmTypeList, Rets: WasmTypeList> Exportable<'a> for Func<'a, Args, Rets, Wasm> {
+    fn get_self(instance: &'a Instance, name: &str) -> Option<Self> {
+        instance.func(name).ok()
+    }
+}
+
+/// `Exports` is used to get exports like [`Func`]s, [`DynFunc`]s, [`Memory`]s,
+/// [`Global`]s, and [`Table`]s from an [`Instance`].
+///
+/// Use [`Instance::exports_new`] to get an `Exports` from an [`Instance`].
+pub struct Exports<'a> {
+    instance: &'a Instance,
+}
+
+impl<'a> Exports<'a> {
+    /// Get an export.
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{DynFunc, Func, Instance};
+    /// # use wasmer_runtime_core::global::Global;
+    /// # use wasmer_runtime_core::types::Value;
+    /// # fn example_fn(instance: &Instance) -> Option<()> {
+    /// // We can get a function as a static `Func`
+    /// let func: Func<i32, i32> = instance.exports_new().get("my_func")?;
+    /// let _result = func.call(42);
+    ///
+    /// // Or we can get it as a dynamic `DynFunc`
+    /// let dyn_func: DynFunc = instance.exports_new().get("my_func")?;
+    /// let _result= dyn_func.call(&[Value::I32(42)]);
+    ///
+    /// // We can also get other exports like `Global`s, `Memory`s, and `Table`s
+    /// let _counter: Global = instance.exports_new().get("counter")?;
+    ///
+    /// # Some(())
+    /// # }
+    /// ```
+    pub fn get<T: Exportable<'a>>(&self, name: &str) -> Option<T> {
+        T::get_self(self.instance, name)
     }
 }
 

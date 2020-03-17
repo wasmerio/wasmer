@@ -1,9 +1,14 @@
-//! The export module contains the implementation data structures and helper functions used to
-//! manipulate and access a wasm module's exports including memories, tables, globals, and
-//! functions.
+//! This module contains types to manipulate and access a Wasm module's exports
+//! including memories, tables, globals, and functions.
 use crate::{
-    global::Global, instance::InstanceInner, memory::Memory, module::ExportIndex,
-    module::ModuleInner, table::Table, types::FuncSig, vm,
+    global::Global,
+    instance::{Instance, InstanceInner},
+    memory::Memory,
+    module::ExportIndex,
+    module::ModuleInner,
+    table::Table,
+    types::FuncSig,
+    vm,
 };
 use indexmap::map::Iter as IndexMapIter;
 use std::{ptr::NonNull, sync::Arc};
@@ -91,4 +96,11 @@ impl<'a> Iterator for ExportIter<'a> {
             self.inner.get_export_from_index(&self.module, export_index),
         ))
     }
+}
+
+/// This trait is used to mark types as gettable from an [`Instance`].
+pub trait Exportable<'a>: Sized {
+    /// Implementation of how to get the export corresponding to the implementing type
+    /// from an [`Instance`] by name.
+    fn get_self(instance: &'a Instance, name: &str) -> Option<Self>;
 }
