@@ -317,6 +317,36 @@ impl Instance {
         }
     }
 
+    /// The function is very similar to `dyn_func`, except that it
+    /// looks for an exported function by its index rather than its
+    /// name.
+    pub fn dyn_func_by_index(&self, index: usize) -> ResolveResult<DynFunc> {
+        let func_index = self
+            .module
+            .info
+            .exports
+            .iter()
+            .find_map(|(_name, export_index)| match export_index {
+                ExportIndex::Func(func_index) if func_index.index() == index => Some(func_index),
+                _ => None,
+            })
+            .ok_or_else(|| ResolveError::InvalidIndex { index })?;
+        let sig_index = *self
+            .module
+            .info
+            .func_assoc
+            .get(*func_index)
+            .expect("broken invariant, incorrect func index");
+        let signature = SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
+
+        Ok(DynFunc {
+            signature,
+            module: &self.module,
+            instance_inner: &self.inner,
+            func_index: *func_index,
+        })
+    }
+
     /// Call an exported WebAssembly function given the export name.
     /// Pass arguments by wrapping each one in the [`Value`] enum.
     /// The returned values are also each wrapped in a [`Value`].
@@ -366,39 +396,6 @@ impl Instance {
             &self.inner.import_backing,
             self.inner.vmctx,
             func_index,
-            params,
-            &mut results,
-        )?;
-
-        Ok(results)
-    }
-
-    /// The function is very similar to `call`, except that it calls a
-    /// WebAssembly function given an index. Pass arguments by
-    /// wrapping each one in the [`Value`] enum. The returned values
-    /// are also each wrapped in a [`Value`].
-    ///
-    /// [`Value`]: enum.Value.html
-    pub fn call_function_by_index(&self, index: usize, params: &[Value]) -> CallResult<Vec<Value>> {
-        let export_index = self
-            .module
-            .info
-            .exports
-            .iter()
-            .find_map(|(_name, export_index)| match export_index {
-                ExportIndex::Func(func_index) if func_index.index() == index => Some(func_index),
-                _ => None,
-            })
-            .ok_or_else(|| ResolveError::InvalidIndex { index })?;
-
-        let mut results = Vec::new();
-
-        call_func_with_index(
-            &self.module.info,
-            &**self.module.runnable_module,
-            &self.inner.import_backing,
-            self.inner.vmctx,
-            *export_index,
             params,
             &mut results,
         )?;

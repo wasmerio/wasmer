@@ -1,8 +1,12 @@
-use wasmer_runtime_core::{compile_with, imports, types::Value};
+use wasmer_runtime_core::{
+    compile_with, imports,
+    types::FuncSig,
+    types::{Type, Value},
+};
 use wasmer_runtime_core_tests::{get_compiler, wat2wasm};
 
 #[test]
-fn call_function_by_index() {
+fn dyn_func_by_index() {
     const MODULE: &str = r#"
 (module
   (func (export "foo") (param i32) (result i32)
@@ -16,7 +20,14 @@ fn call_function_by_index() {
     let import_object = imports! {};
     let instance = module.instantiate(&import_object).unwrap();
 
-    let results = instance.call_function_by_index(0, &[Value::I32(1)]);
+    let func = instance.dyn_func_by_index(0).unwrap();
+
+    assert_eq!(
+        *func.signature(),
+        FuncSig::new(vec![Type::I32], vec![Type::I32])
+    );
+
+    let results = func.call(&[Value::I32(1)]);
 
     assert_eq!(results, Ok(vec![Value::I32(2)]));
 }
