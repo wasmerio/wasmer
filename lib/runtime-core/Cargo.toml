@@ -39,7 +39,7 @@ version = "0.11"
 [dependencies.serde-bench]
 version = "0.0.7"
 [dependencies.blake3]
-version = "0.1.0"
+version = "0.2.0"
 [dependencies.digest]
 version = "0.8"
 
@@ -47,7 +47,7 @@ version = "0.8"
 winapi = { version = "0.3", features = ["memoryapi"] }
 
 [build-dependencies]
-blake3 = "0.1.0"
+blake3 = "0.2.0"
 rustc_version = "0.2"
 cc = "1.0"
 

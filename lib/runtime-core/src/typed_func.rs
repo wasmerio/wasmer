@@ -334,7 +334,14 @@ impl<'a> DynamicFunc<'a> {
                     }
                 })
                 .collect();
-            (ctx.func)(vmctx, &args)
+            match panic::catch_unwind(panic::AssertUnwindSafe(|| (ctx.func)(vmctx, &args))) {
+                Ok(x) => x,
+                Err(e) => {
+                    // At this point, there is an error that needs to be trapped.
+                    drop(args); // Release the Vec which will leak otherwise.
+                    (&*vmctx.module).runnable_module.do_early_trap(e)
+                }
+            }
         }
         unsafe extern "C" fn enter_host_polymorphic_i(
             ctx: *const CallContext,
