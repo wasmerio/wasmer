@@ -77,6 +77,7 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
   (import "env" "callback_fn" (func $callback_fn (type $type)))
   (import "env" "callback_closure" (func $callback_closure (type $type)))
   (import "env" "callback_fn_dynamic" (func $callback_fn_dynamic (type $type)))
+  (import "env" "callback_fn_dynamic_panic" (func $callback_fn_dynamic_panic (type $type)))
   (import "env" "callback_closure_dynamic_0" (func $callback_closure_dynamic_0))
   (import "env" "callback_closure_dynamic_1" (func $callback_closure_dynamic_1 (param i32) (result i32)))
   (import "env" "callback_closure_dynamic_2" (func $callback_closure_dynamic_2 (param i32 i64) (result i64)))
@@ -103,6 +104,10 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
   (func (export "function_fn_dynamic") (type $type)
     get_local 0
     call $callback_fn_dynamic)
+
+  (func (export "function_fn_dynamic_panic") (type $type)
+    get_local 0
+    call $callback_fn_dynamic_panic)
 
   (func (export "function_closure_dynamic_0")
     call $callback_closure_dynamic_0)
@@ -189,6 +194,12 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
             "callback_fn_dynamic" => DynamicFunc::new(
                 Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
                 callback_fn_dynamic,
+            ),
+
+            // Polymorphic function that panics.
+            "callback_fn_dynamic_panic" => DynamicFunc::new(
+                Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
+                callback_fn_dynamic_panic,
             ),
 
             // Polymorphic closure “closures”.
@@ -325,6 +336,10 @@ fn callback_fn_dynamic(_: &mut vm::Ctx, inputs: &[Value]) -> Vec<Value> {
     }
 }
 
+fn callback_fn_dynamic_panic(_: &mut vm::Ctx, _: &[Value]) -> Vec<Value> {
+    panic!("test");
+}
+
 fn callback_fn_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, ()> {
     let memory = vmctx.memory(0);
     let shift_: i32 = memory.view()[0].get();
@@ -357,6 +372,7 @@ macro_rules! test {
 test!(test_fn, function_fn(i32) -> i32, (1) == Ok(2));
 test!(test_closure, function_closure(i32) -> i32, (1) == Ok(2));
 test!(test_fn_dynamic, function_fn_dynamic(i32) -> i32, (1) == Ok(2));
+test!(test_fn_dynamic_panic, function_fn_dynamic_panic(i32) -> i32, (1) == Err(RuntimeError(Box::new("test"))));
 test!(
     test_closure_dynamic_0,
     function_closure_dynamic_0(()) -> (),
