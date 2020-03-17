@@ -1149,12 +1149,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             enforce_stack_check: config.enforce_stack_check,
             track_state: config.track_state,
             full_preemption: config.full_preemption,
-
-            // NaN canonicalization is only implemented for x86_64 for now.
-            #[cfg(target_arch = "x86_64")]
             nan_canonicalization: config.nan_canonicalization,
-            #[cfg(not(target_arch = "x86_64"))]
-            nan_canonicalization: false,
         }));
         Ok(())
     }
@@ -4648,6 +4643,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             }
                         }
                     }
+                } else {
+                    a.emit_mov(Size::S32, loc_a, Location::GPR(tmp1));	
+                    a.emit_mov(Size::S32, loc_b, Location::GPR(tmp2));  
                 }
                 a.emit_and(
                     Size::S32,
@@ -5187,6 +5185,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             }
                         }
                     }
+                } else {
+                    a.emit_mov(Size::S64, loc_a, Location::GPR(tmp1));	
+                    a.emit_mov(Size::S64, loc_b, Location::GPR(tmp2));
                 }
 
                 let c = self.machine.acquire_temp_gpr().unwrap();
