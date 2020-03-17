@@ -1,4 +1,4 @@
-.PHONY: spectests emtests clean build install lint precommit docs examples
+.PHONY: spectests emtests clean build install lint precommit docs examples 
 
 # Generate files
 generate-spectests:
@@ -11,14 +11,30 @@ generate-emtests:
 	&& echo "formatting" \
 	&& cargo fmt
 
+# To generate WASI tests you'll need to have the correct versions of the Rust nightly
+# toolchain installed, see `WasiVersion::get_compiler_toolchain` in
+# `lib/wasi-tests/build/wasi_version.rs`
+#
+# or run `make wasitests-setup-toolchain` or `make wasitests-setup-toolchain-all`
 generate-wasitests: wasitests-setup
 	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv \
+	&& echo "formatting" \
+	&& cargo fmt
+
+generate-wasitests-all: wasitests-setup
+	WASI_TEST_GENERATE_ALL=1 WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv \
 	&& echo "formatting" \
 	&& cargo fmt
 
 spectests-generate: generate-spectests
 emtests-generate: generate-emtests
 wasitests-generate: generate-wasitests
+
+wasitests-setup-toolchain: wasitests-setup
+	WASITESTS_SET_UP_TOOLCHAIN=1 cargo build -p wasmer-wasi-tests --release -vv
+
+wasitests-setup-toolchain-all: wasitests-setup
+	WASI_TEST_GENERATE_ALL=1 WASITESTS_SET_UP_TOOLCHAIN=1 cargo build -p wasmer-wasi-tests --release -vv
 
 generate: generate-spectests generate-emtests generate-wasitests
 
@@ -67,6 +83,8 @@ middleware: middleware-singlepass middleware-cranelift middleware-llvm
 
 # Wasitests
 wasitests-setup:
+# force cargo to rerun the build.rs step
+	touch lib/wasi-tests/build/mod.rs
 	rm -rf lib/wasi-tests/wasitests/test_fs/temp
 	mkdir -p lib/wasi-tests/wasitests/test_fs/temp
 

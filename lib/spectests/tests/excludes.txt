@@ -308,6 +308,44 @@ singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
 singlepass:skip:atomic.wast:*:*:aarch64 # Threads not yet supported on singlepass
 
+singlepass:fail:address.wast:194:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:195:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:196:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:197:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:198:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:200:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:481:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:482:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:483:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:484:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:485:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:486:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:487:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:493:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:494:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:541:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:588:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:linking.wast:137:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:139:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:142:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:144:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:147:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:149:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:185:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:187:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:388:freebsd # AssertReturn - Call failed RuntimeError: unknown error
+
 singlepass:fail:address.wast:200:linux:x86_64 # AssertTrap - expected trap, got []
 singlepass:fail:address.wast:201:linux:x86_64 # AssertTrap - expected trap, got []
 singlepass:fail:address.wast:202:linux:x86_64 # AssertTrap - expected trap, got []
