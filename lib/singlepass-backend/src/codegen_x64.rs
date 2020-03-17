@@ -4644,8 +4644,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         }
                     }
                 } else {
-                    a.emit_mov(Size::S32, loc_a, Location::GPR(tmp1));	
-                    a.emit_mov(Size::S32, loc_b, Location::GPR(tmp2));  
+                    a.emit_mov(Size::S32, loc_a, Location::GPR(tmp1));
+                    a.emit_mov(Size::S32, loc_b, Location::GPR(tmp2));
                 }
                 a.emit_and(
                     Size::S32,
@@ -5186,7 +5186,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         }
                     }
                 } else {
-                    a.emit_mov(Size::S64, loc_a, Location::GPR(tmp1));	
+                    a.emit_mov(Size::S64, loc_a, Location::GPR(tmp1));
                     a.emit_mov(Size::S64, loc_b, Location::GPR(tmp2));
                 }
 
