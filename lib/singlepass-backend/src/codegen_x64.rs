@@ -270,7 +270,8 @@ impl FloatValue {
     fn promote(self, depth: usize) -> FloatValue {
         FloatValue {
             canonicalization: match self.canonicalization {
-                Some(_) => Some(CanonicalizeType::F64),
+                Some(CanonicalizeType::F32) => Some(CanonicalizeType::F64),
+                Some(CanonicalizeType::F64) => panic!("cannot promote F64"),
                 None => None,
             },
             depth,
@@ -280,7 +281,8 @@ impl FloatValue {
     fn demote(self, depth: usize) -> FloatValue {
         FloatValue {
             canonicalization: match self.canonicalization {
-                Some(_) => Some(CanonicalizeType::F32),
+                Some(CanonicalizeType::F64) => Some(CanonicalizeType::F32),
+                Some(CanonicalizeType::F32) => panic!("cannot demote F32"),
                 None => None,
             },
             depth,
@@ -288,6 +290,8 @@ impl FloatValue {
     }
 }
 
+/// Type of a pending canonicalization floating point value.
+/// Sometimes we don't have the type information elsewhere and therefore we need to track it here.
 #[derive(Copy, Clone, Debug)]
 enum CanonicalizeType {
     F32,
@@ -2685,9 +2689,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
     }
 
     fn feed_local(&mut self, ty: WpType, n: usize, _loc: u32) -> Result<(), CodegenError> {
-        for _ in 0..n {
-            self.local_types.push(ty);
-        }
+        self.local_types.extend(iter::repeat(ty).take(n));
         Ok(())
     }
 
@@ -6877,8 +6879,21 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 self.machine.release_locations_only_osr_state(params.len());
 
-                while let Some(x) = self.fp_stack.last() {
-                    if x.depth >= self.value_stack.len() {
+                while let Some(fp) = self.fp_stack.last() {
+                    if fp.depth >= self.value_stack.len() {
+                        let index = fp.depth - self.value_stack.len();
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization
+                            && fp.canonicalization.is_some()
+                        {
+                            Self::canonicalize_nan(
+                                a,
+                                &mut self.machine,
+                                fp.canonicalization.unwrap().to_size(),
+                                params[index],
+                                params[index],
+                            );
+                        }
                         self.fp_stack.pop().unwrap();
                     } else {
                         break;
@@ -6935,8 +6950,21 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     .collect();
                 self.machine.release_locations_only_regs(&params);
 
-                while let Some(x) = self.fp_stack.last() {
-                    if x.depth >= self.value_stack.len() {
+                while let Some(fp) = self.fp_stack.last() {
+                    if fp.depth >= self.value_stack.len() {
+                        let index = fp.depth - self.value_stack.len();
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization
+                            && fp.canonicalization.is_some()
+                        {
+                            Self::canonicalize_nan(
+                                a,
+                                &mut self.machine,
+                                fp.canonicalization.unwrap().to_size(),
+                                params[index],
+                                params[index],
+                            );
+                        }
                         self.fp_stack.pop().unwrap();
                     } else {
                         break;
