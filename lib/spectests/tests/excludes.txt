@@ -244,10 +244,6 @@ clif:fail:exports.wast:167:windows # Module - caught panic Any
 clif:fail:exports.wast:168:windows # Module - caught panic Any
 clif:fail:exports.wast:169:windows # Module - caught panic Any
 clif:fail:exports.wast:170:windows # Module - caught panic Any
-clif:fail:f32.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-clif:fail:f32.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-clif:fail:f64.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
-clif:fail:f64.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
 clif:fail:func.wast:289:windows # Module - caught panic Any
 clif:fail:memory.wast:3:windows # Module - caught panic Any
 clif:fail:memory.wast:4:windows # Module - caught panic Any
