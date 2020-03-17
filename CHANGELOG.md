@@ -2,7 +2,7 @@
 
 ## **[Unreleased]**
 
-- [#1306](https://github.com/wasmerio/wasmer/pull/1306) Introduce `Instance::call_function_by_index` to call exported functions by their indexes
+- [#1306](https://github.com/wasmerio/wasmer/pull/1306) Introduce `Instance::dyn_func_by_index` to get a dynamic exported functions by their indexes
 - [#1305](https://github.com/wasmerio/wasmer/pull/1305) Handle panics from DynamicFunc.
 - [#1301](https://github.com/wasmerio/wasmer/pull/1301) Update supported stable Rust version to 1.41.1.
 - [#1300](https://github.com/wasmerio/wasmer/pull/1300) Add support for multiple versions of WASI tests: wasitests now test all versions of WASI.
