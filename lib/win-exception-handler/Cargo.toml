@@ -13,4 +13,4 @@ winapi = { version = "0.3.8", features = ["winbase", "errhandlingapi", "minwinde
 libc = "0.2.60"
 
 [build-dependencies]
-cmake = "0.1"
+cc = "1.0"
