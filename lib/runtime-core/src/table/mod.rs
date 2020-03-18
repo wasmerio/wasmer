@@ -89,6 +89,16 @@ impl Table {
         self.desc
     }
 
+    /// Get the `Element` at the given index in the table
+    pub fn get(&self, index: u32) -> Option<Element> {
+        let storage = self.storage.lock().unwrap();
+        match &*storage {
+            (TableStorage::Anyfunc(ref anyfunc_table), _) => {
+                anyfunc_table.get(index).map(Element::Anyfunc)
+            }
+        }
+    }
+
     /// Set the element at index.
     pub fn set(&self, index: u32, element: Element) -> Result<(), ()> {
         let mut storage = self.storage.lock().unwrap();

@@ -98,6 +98,18 @@ impl AnyfuncTable {
         Some(starting_len)
     }
 
+    /// Get The vm::AnyFunc at the given index.
+    pub fn get<'outer_table>(&self, index: u32) -> Option<Anyfunc<'outer_table>> {
+        let vm_any_func = self.backing.get(index as usize)?;
+        let signature = SigRegistry.lookup_signature(vm_any_func.sig_id.into());
+        Some(Anyfunc {
+            inner: AnyfuncInner::Host {
+                ptr: vm_any_func.func,
+                signature,
+            },
+        })
+    }
+
     pub fn set(&mut self, index: u32, element: Anyfunc) -> Result<(), ()> {
         if let Some(slot) = self.backing.get_mut(index as usize) {
             let anyfunc = match element.inner {

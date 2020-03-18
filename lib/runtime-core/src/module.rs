@@ -168,7 +168,24 @@ impl Module {
 
     /// Iterate over the exports that this module provides.
     ///
-    /// TODO: show example here
+    /// ```
+    /// # use wasmer_runtime_core::module::*;
+    /// # fn example(module: &Module) {
+    /// // We can filter by `ExportKind` to get only certain types of exports.
+    /// // For example, here we get all the names of the functions exported by this module.
+    /// let function_names =
+    ///     module.exports()
+    ///           .filter(|ed| ed.kind == ExportKind::Function)
+    ///           .map(|ed| ed.name)
+    ///           .collect::<Vec<String>>();
+    ///
+    /// // And here we count the number of global variables exported by this module.
+    /// let num_globals =
+    ///     module.exports()
+    ///           .filter(|ed| ed.kind == ExportKind::Global)
+    ///           .count();
+    /// # }
+    /// ```
     pub fn exports(&self) -> impl Iterator<Item = ExportDescriptor> + '_ {
         self.inner
             .info
@@ -254,11 +271,15 @@ impl Module {
         out
     }
 
-    /// Find the custom section(s?) matching the given name.
-    // TODO: JS API returns `Vec<&[u8]>` here
-    pub fn custom_section(&self, key: impl AsRef<str>) -> Option<&[u8]> {
+    /// Get the custom sections matching the given name.
+    pub fn custom_sections(&self, key: impl AsRef<str>) -> Option<Vec<&[u8]>> {
         let key = key.as_ref();
-        self.inner.info.custom_sections.get(key).map(|v| v.as_ref())
+        // TODO: handle multiple better when our system does
+        self.inner
+            .info
+            .custom_sections
+            .get(key)
+            .map(|v| vec![v.as_ref()])
     }
 }
 
