@@ -6885,6 +6885,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 self.machine.release_locations_only_osr_state(params.len());
 
+                // Pop arguments off the FP stack and canonicalize them if needed.
+                //
+                // Canonicalization state will be lost across function calls, so early canonicalization
+                // is necessary here.
                 while let Some(fp) = self.fp_stack.last() {
                     if fp.depth >= self.value_stack.len() {
                         let index = fp.depth - self.value_stack.len();
@@ -6956,6 +6960,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     .collect();
                 self.machine.release_locations_only_regs(&params);
 
+                // Pop arguments off the FP stack and canonicalize them if needed.
+                //
+                // Canonicalization state will be lost across function calls, so early canonicalization
+                // is necessary here.
                 while let Some(fp) = self.fp_stack.last() {
                     if fp.depth >= self.value_stack.len() {
                         let index = fp.depth - self.value_stack.len();
