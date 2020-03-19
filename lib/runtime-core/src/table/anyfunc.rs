@@ -7,9 +7,11 @@ use crate::{
     vm,
 };
 
+use std::convert::TryFrom;
 use std::{ptr, sync::Arc};
 
 enum AnyfuncInner<'a> {
+    // TODO: update this entry and impl Into/TryFrom
     Host {
         ptr: *const vm::Func,
         signature: Arc<FuncSig>,
@@ -41,6 +43,17 @@ impl<'a> From<DynFunc<'a>> for Anyfunc<'a> {
     fn from(function: DynFunc<'a>) -> Self {
         Anyfunc {
             inner: AnyfuncInner::Managed(function),
+        }
+    }
+}
+
+impl<'a> TryFrom<Anyfunc<'a>> for DynFunc<'a> {
+    type Error = ();
+
+    fn try_from(anyfunc: Anyfunc<'a>) -> Result<Self, Self::Error> {
+        match anyfunc.inner {
+            AnyfuncInner::Managed(df) => Ok(df),
+            _ => Err(()),
         }
     }
 }
