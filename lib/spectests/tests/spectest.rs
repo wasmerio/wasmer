@@ -336,6 +336,7 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
                             ..Default::default()
                         };
                         let module = compile_with_config(&module.into_vec(), config)
@@ -774,6 +775,7 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
                             ..Default::default()
                         };
                         compile_with_config(&module.into_vec(), config)
@@ -826,6 +828,7 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
                             ..Default::default()
                         };
                         compile_with_config(&module.into_vec(), config)
@@ -877,6 +880,7 @@ mod tests {
                             simd: true,
                             threads: true,
                         },
+                        nan_canonicalization: true,
                         ..Default::default()
                     };
                     let module = compile_with_config(&module.into_vec(), config)
@@ -972,6 +976,7 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
                             ..Default::default()
                         };
                         let module = compile_with_config(&module.into_vec(), config)

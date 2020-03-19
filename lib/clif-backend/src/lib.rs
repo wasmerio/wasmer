@@ -29,6 +29,7 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use target_lexicon::Triple;
+use wasmer_runtime_core::{backend::CompilerConfig, codegen::SimpleStreamingCompilerGen};
 
 #[macro_use]
 extern crate serde_derive;
@@ -36,7 +37,7 @@ extern crate serde_derive;
 extern crate rayon;
 extern crate serde;
 
-fn get_isa() -> Box<dyn isa::TargetIsa> {
+fn get_isa(config: Option<&CompilerConfig>) -> Box<dyn isa::TargetIsa> {
     let flags = {
         let mut builder = settings::builder();
         builder.set("opt_level", "speed_and_size").unwrap();
@@ -48,6 +49,12 @@ fn get_isa() -> Box<dyn isa::TargetIsa> {
             builder.set("enable_verifier", "false").unwrap();
         }
 
+        if let Some(config) = config {
+            if config.nan_canonicalization {
+                builder.set("enable_nan_canonicalization", "true").unwrap();
+            }
+        }
+
         let flags = settings::Flags::new(builder);
         debug_assert_eq!(flags.opt_level(), settings::OptLevel::SpeedAndSize);
         flags
@@ -57,8 +64,6 @@ fn get_isa() -> Box<dyn isa::TargetIsa> {
 
 /// The current version of this crate
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
 
 /// Streaming compiler implementation for the Cranelift backed. Compiles web assembly binary into
 /// machine code.

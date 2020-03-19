@@ -212,8 +212,7 @@ fn wasm_ty_to_clif(ty: Type) -> ir::types::Type {
 }
 
 fn generate_trampoline_signature() -> ir::Signature {
-    let isa = super::get_isa();
-    let call_convention = isa.default_call_conv();
+    let call_convention = super::get_isa(None).default_call_conv();
     let mut sig = ir::Signature::new(call_convention);
 
     let ptr_param = ir::AbiParam {
@@ -229,8 +228,7 @@ fn generate_trampoline_signature() -> ir::Signature {
 }
 
 fn generate_export_signature(func_sig: &FuncSig) -> ir::Signature {
-    let isa = super::get_isa();
-    let call_convention = isa.default_call_conv();
+    let call_convention = super::get_isa(None).default_call_conv();
     let mut export_clif_sig = ir::Signature::new(call_convention);
 
     let func_sig_iter = func_sig.params().iter().map(|wasm_ty| ir::AbiParam {
