@@ -12756,7 +12756,7 @@
                     .<span class="ident">try_as_basic_value</span>()
                     .<span class="ident">left</span>()
                     .<span class="ident">unwrap</span>();
-                <span class="ident">state</span>.<span class="ident">push1_extra</span>(<span class="ident">res</span>, <span class="ident">i</span>);
+                <span class="ident">state</span>.<span class="ident">push1_extra</span>(<span class="ident">res</span>, <span class="ident">i</span> <span class="op">|</span> <span class="ident">ExtraInfo</span>::<span class="ident">pending_f32_nan</span>());
             }
             <span class="ident">Operator</span>::<span class="ident">F64Trunc</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
@@ -12769,7 +12769,7 @@
                     .<span class="ident">try_as_basic_value</span>()
                     .<span class="ident">left</span>()
                     .<span class="ident">unwrap</span>();
-                <span class="ident">state</span>.<span class="ident">push1_extra</span>(<span class="ident">res</span>, <span class="ident">i</span>);
+                <span class="ident">state</span>.<span class="ident">push1_extra</span>(<span class="ident">res</span>, <span class="ident">i</span> <span class="op">|</span> <span class="ident">ExtraInfo</span>::<span class="ident">pending_f64_nan</span>());
             }
             <span class="ident">Operator</span>::<span class="ident">F32Nearest</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
@@ -12782,7 +12782,7 @@
                     .<span class="ident">try_as_basic_value</span>()
                     .<span class="ident">left</span>()
                     .<span class="ident">unwrap</span>();
-                <span class="ident">state</span>.<span class="ident">push1_extra</span>(<span class="ident">res</span>, <span class="ident">i</span>);
+                <span class="ident">state</span>.<span class="ident">push1_extra</span>(<span class="ident">res</span>, <span class="ident">i</span> <span class="op">|</span> <span class="ident">ExtraInfo</span>::<span class="ident">pending_f32_nan</span>());
             }
             <span class="ident">Operator</span>::<span class="ident">F64Nearest</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
@@ -12795,7 +12795,7 @@
                     .<span class="ident">try_as_basic_value</span>()
                     .<span class="ident">left</span>()
                     .<span class="ident">unwrap</span>();
-                <span class="ident">state</span>.<span class="ident">push1_extra</span>(<span class="ident">res</span>, <span class="ident">i</span>);
+                <span class="ident">state</span>.<span class="ident">push1_extra</span>(<span class="ident">res</span>, <span class="ident">i</span> <span class="op">|</span> <span class="ident">ExtraInfo</span>::<span class="ident">pending_f64_nan</span>());
             }
             <span class="ident">Operator</span>::<span class="ident">F32Abs</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;

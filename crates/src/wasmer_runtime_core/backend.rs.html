@@ -285,6 +285,10 @@
 <span id="285">285</span>
 <span id="286">286</span>
 <span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">error</span>::<span class="ident">CompileResult</span>,
@@ -419,6 +423,10 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// When enabled there can be a small amount of runtime performance overhead.</span>
     <span class="kw">pub</span> <span class="ident">full_preemption</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Always choose a unique bit representation for NaN.</span>
+    <span class="doccomment">/// Enabling this makes execution deterministic but increases runtime overhead.</span>
+    <span class="kw">pub</span> <span class="ident">nan_canonicalization</span>: <span class="ident">bool</span>,
 
     <span class="kw">pub</span> <span class="ident">features</span>: <span class="ident">Features</span>,
 

@@ -265,8 +265,6 @@
 <span id="265">265</span>
 <span id="266">266</span>
 <span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">cache</span>::<span class="ident">TrampolineCache</span>, <span class="ident">resolver</span>::<span class="ident">NoopStackmapSink</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{
@@ -482,8 +480,7 @@
 }
 
 <span class="kw">fn</span> <span class="ident">generate_trampoline_signature</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ir</span>::<span class="ident">Signature</span> {
-    <span class="kw">let</span> <span class="ident">isa</span> <span class="op">=</span> <span class="kw">super</span>::<span class="ident">get_isa</span>();
-    <span class="kw">let</span> <span class="ident">call_convention</span> <span class="op">=</span> <span class="ident">isa</span>.<span class="ident">default_call_conv</span>();
+    <span class="kw">let</span> <span class="ident">call_convention</span> <span class="op">=</span> <span class="kw">super</span>::<span class="ident">get_isa</span>(<span class="prelude-val">None</span>).<span class="ident">default_call_conv</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sig</span> <span class="op">=</span> <span class="ident">ir</span>::<span class="ident">Signature</span>::<span class="ident">new</span>(<span class="ident">call_convention</span>);
 
     <span class="kw">let</span> <span class="ident">ptr_param</span> <span class="op">=</span> <span class="ident">ir</span>::<span class="ident">AbiParam</span> {
@@ -499,8 +496,7 @@
 }
 
 <span class="kw">fn</span> <span class="ident">generate_export_signature</span>(<span class="ident">func_sig</span>: <span class="kw-2">&amp;</span><span class="ident">FuncSig</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ir</span>::<span class="ident">Signature</span> {
-    <span class="kw">let</span> <span class="ident">isa</span> <span class="op">=</span> <span class="kw">super</span>::<span class="ident">get_isa</span>();
-    <span class="kw">let</span> <span class="ident">call_convention</span> <span class="op">=</span> <span class="ident">isa</span>.<span class="ident">default_call_conv</span>();
+    <span class="kw">let</span> <span class="ident">call_convention</span> <span class="op">=</span> <span class="kw">super</span>::<span class="ident">get_isa</span>(<span class="prelude-val">None</span>).<span class="ident">default_call_conv</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">export_clif_sig</span> <span class="op">=</span> <span class="ident">ir</span>::<span class="ident">Signature</span>::<span class="ident">new</span>(<span class="ident">call_convention</span>);
 
     <span class="kw">let</span> <span class="ident">func_sig_iter</span> <span class="op">=</span> <span class="ident">func_sig</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">wasm_ty</span><span class="op">|</span> <span class="ident">ir</span>::<span class="ident">AbiParam</span> {

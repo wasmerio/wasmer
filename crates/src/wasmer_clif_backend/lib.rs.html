@@ -68,6 +68,11 @@
 <span id="68">68</span>
 <span id="69">69</span>
 <span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The Wasmer Cranelift Backend crate is used to compile wasm binary code via parse events from the</span>
 <span class="doccomment">//! Wasmer runtime common parser code into machine code.</span>
@@ -100,6 +105,7 @@
     <span class="ident">settings</span>::{<span class="self">self</span>, <span class="ident">Configurable</span>},
 };
 <span class="kw">use</span> <span class="ident">target_lexicon</span>::<span class="ident">Triple</span>;
+<span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{<span class="ident">backend</span>::<span class="ident">CompilerConfig</span>, <span class="ident">codegen</span>::<span class="ident">SimpleStreamingCompilerGen</span>};
 
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">serde_derive</span>;
@@ -107,7 +113,7 @@
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">rayon</span>;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">serde</span>;
 
-<span class="kw">fn</span> <span class="ident">get_isa</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">isa</span>::<span class="ident">TargetIsa</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">get_isa</span>(<span class="ident">config</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">CompilerConfig</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">isa</span>::<span class="ident">TargetIsa</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">settings</span>::<span class="ident">builder</span>();
         <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;opt_level&quot;</span>, <span class="string">&quot;speed_and_size&quot;</span>).<span class="ident">unwrap</span>();
@@ -119,6 +125,12 @@
             <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;enable_verifier&quot;</span>, <span class="string">&quot;false&quot;</span>).<span class="ident">unwrap</span>();
         }
 
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">config</span>) <span class="op">=</span> <span class="ident">config</span> {
+            <span class="kw">if</span> <span class="ident">config</span>.<span class="ident">nan_canonicalization</span> {
+                <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;enable_nan_canonicalization&quot;</span>, <span class="string">&quot;true&quot;</span>).<span class="ident">unwrap</span>();
+            }
+        }
+
         <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">settings</span>::<span class="ident">Flags</span>::<span class="ident">new</span>(<span class="ident">builder</span>);
         <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">flags</span>.<span class="ident">opt_level</span>(), <span class="ident">settings</span>::<span class="ident">OptLevel</span>::<span class="ident">SpeedAndSize</span>);
         <span class="ident">flags</span>
@@ -128,8 +140,6 @@
 
 <span class="doccomment">/// The current version of this crate</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VERSION</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);
-
-<span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">codegen</span>::<span class="ident">SimpleStreamingCompilerGen</span>;
 
 <span class="doccomment">/// Streaming compiler implementation for the Cranelift backed. Compiles web assembly binary into</span>
 <span class="doccomment">/// machine code.</span>

@@ -1332,6 +1332,18 @@
 <span id="1332">1332</span>
 <span id="1333">1333</span>
 <span id="1334">1334</span>
+<span id="1335">1335</span>
+<span id="1336">1336</span>
+<span id="1337">1337</span>
+<span id="1338">1338</span>
+<span id="1339">1339</span>
+<span id="1340">1340</span>
+<span id="1341">1341</span>
+<span id="1342">1342</span>
+<span id="1343">1343</span>
+<span id="1344">1344</span>
+<span id="1345">1345</span>
+<span id="1346">1346</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Parts of the following code are Copyright 2018 Cranelift Developers</span>
 <span class="comment">// and subject to the license https://github.com/CraneStation/cranelift/blob/c47ca7bafc8fc48358f1baa72360e61fc1f7a0f2/cranelift-wasm/LICENSE</span>
@@ -1354,7 +1366,7 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>};
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">error</span>::<span class="ident">CompileError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{
-    <span class="ident">backend</span>::{<span class="ident">CacheGen</span>, <span class="ident">Token</span>},
+    <span class="ident">backend</span>::{<span class="ident">CacheGen</span>, <span class="ident">CompilerConfig</span>, <span class="ident">Token</span>},
     <span class="ident">cache</span>::{<span class="ident">Artifact</span>, <span class="ident">Error</span> <span class="kw">as</span> <span class="ident">CacheError</span>},
     <span class="ident">codegen</span>::<span class="kw-2">*</span>,
     <span class="ident">memory</span>::<span class="ident">MemoryType</span>,
@@ -1371,7 +1383,7 @@
 <span class="kw">static</span> <span class="ident">BACKEND_ID</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>;
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CraneliftModuleCodeGenerator</span> {
-    <span class="ident">isa</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">isa</span>::<span class="ident">TargetIsa</span><span class="op">&gt;</span>,
+    <span class="ident">isa</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">isa</span>::<span class="ident">TargetIsa</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Map</span><span class="op">&lt;</span><span class="ident">SigIndex</span>, <span class="ident">FuncSig</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">clif_signatures</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">SigIndex</span>, <span class="ident">ir</span>::<span class="ident">Signature</span><span class="op">&gt;</span>,
     <span class="ident">function_signatures</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Map</span><span class="op">&lt;</span><span class="ident">FuncIndex</span>, <span class="ident">SigIndex</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -1382,9 +1394,8 @@
     <span class="kw">for</span> <span class="ident">CraneliftModuleCodeGenerator</span>
 {
     <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">isa</span> <span class="op">=</span> <span class="ident">get_isa</span>();
         <span class="ident">CraneliftModuleCodeGenerator</span> {
-            <span class="ident">isa</span>,
+            <span class="ident">isa</span>: <span class="prelude-val">None</span>,
             <span class="ident">clif_signatures</span>: <span class="ident">Map</span>::<span class="ident">new</span>(),
             <span class="ident">functions</span>: <span class="macro">vec</span><span class="macro">!</span>[],
             <span class="ident">function_signatures</span>: <span class="prelude-val">None</span>,
@@ -1435,7 +1446,7 @@
             <span class="ident">position</span>: <span class="ident">Position</span>::<span class="ident">default</span>(),
             <span class="ident">func_env</span>: <span class="ident">FunctionEnvironment</span> {
                 <span class="ident">module_info</span>: <span class="ident">Arc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">module_info</span>),
-                <span class="ident">target_config</span>: <span class="self">self</span>.<span class="ident">isa</span>.<span class="ident">frontend_config</span>().<span class="ident">clone</span>(),
+                <span class="ident">target_config</span>: <span class="self">self</span>.<span class="ident">isa</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">frontend_config</span>().<span class="ident">clone</span>(),
                 <span class="ident">clif_signatures</span>: <span class="self">self</span>.<span class="ident">clif_signatures</span>.<span class="ident">clone</span>(),
             },
             <span class="ident">loc</span>,
@@ -1497,9 +1508,9 @@
         }
 
         <span class="kw">let</span> (<span class="ident">func_resolver_builder</span>, <span class="ident">debug_metadata</span>, <span class="ident">handler_data</span>) <span class="op">=</span>
-            <span class="ident">FuncResolverBuilder</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">isa</span>, <span class="ident">func_bodies</span>, <span class="ident">module_info</span>)<span class="question-mark">?</span>;
+            <span class="ident">FuncResolverBuilder</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">isa</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(), <span class="ident">func_bodies</span>, <span class="ident">module_info</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">trampolines</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Trampolines</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">isa</span>, <span class="ident">module_info</span>));
+        <span class="kw">let</span> <span class="ident">trampolines</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Trampolines</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">isa</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(), <span class="ident">module_info</span>));
 
         <span class="kw">let</span> <span class="ident">signatures_empty</span> <span class="op">=</span> <span class="ident">Map</span>::<span class="ident">new</span>();
         <span class="kw">let</span> <span class="ident">signatures</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">signatures</span>.<span class="ident">is_some</span>() {
@@ -1526,9 +1537,19 @@
         ))
     }
 
+    <span class="kw">fn</span> <span class="ident">feed_compiler_config</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerConfig</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">isa</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">get_isa</span>(<span class="prelude-val">Some</span>(<span class="ident">config</span>)));
+        <span class="prelude-val">Ok</span>(())
+    }
+
     <span class="kw">fn</span> <span class="ident">feed_signatures</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">signatures</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">SigIndex</span>, <span class="ident">FuncSig</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">signatures</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">signatures</span>));
-        <span class="kw">let</span> <span class="ident">call_conv</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">isa</span>.<span class="ident">frontend_config</span>().<span class="ident">default_call_conv</span>;
+        <span class="kw">let</span> <span class="ident">call_conv</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">isa</span>
+            .<span class="ident">as_ref</span>()
+            .<span class="ident">unwrap</span>()
+            .<span class="ident">frontend_config</span>()
+            .<span class="ident">default_call_conv</span>;
         <span class="kw">for</span> (<span class="ident">_sig_idx</span>, <span class="ident">func_sig</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">signatures</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">iter</span>() {
             <span class="self">self</span>.<span class="ident">clif_signatures</span>
                 .<span class="ident">push</span>(<span class="ident">convert_func_sig</span>(<span class="ident">func_sig</span>, <span class="ident">call_conv</span>));
@@ -2637,7 +2658,10 @@
 }
 
 <span class="kw">fn</span> <span class="ident">pointer_type</span>(<span class="ident">mcg</span>: <span class="kw-2">&amp;</span><span class="ident">CraneliftModuleCodeGenerator</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ir</span>::<span class="ident">Type</span> {
-    <span class="ident">ir</span>::<span class="ident">Type</span>::<span class="ident">int</span>(<span class="ident">u16</span>::<span class="ident">from</span>(<span class="ident">mcg</span>.<span class="ident">isa</span>.<span class="ident">frontend_config</span>().<span class="ident">pointer_bits</span>())).<span class="ident">unwrap</span>()
+    <span class="ident">ir</span>::<span class="ident">Type</span>::<span class="ident">int</span>(<span class="ident">u16</span>::<span class="ident">from</span>(
+        <span class="ident">mcg</span>.<span class="ident">isa</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">frontend_config</span>().<span class="ident">pointer_bits</span>(),
+    ))
+    .<span class="ident">unwrap</span>()
 }
 
 <span class="doccomment">/// Declare local variables for the signature parameters that correspond to WebAssembly locals.</span>
