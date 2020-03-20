@@ -244,10 +244,6 @@ clif:fail:exports.wast:167:windows # Module - caught panic Any
 clif:fail:exports.wast:168:windows # Module - caught panic Any
 clif:fail:exports.wast:169:windows # Module - caught panic Any
 clif:fail:exports.wast:170:windows # Module - caught panic Any
-clif:fail:f32.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-clif:fail:f32.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-clif:fail:f64.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
-clif:fail:f64.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
 clif:fail:func.wast:289:windows # Module - caught panic Any
 clif:fail:memory.wast:3:windows # Module - caught panic Any
 clif:fail:memory.wast:4:windows # Module - caught panic Any
@@ -524,3 +520,35 @@ singlepass:fail:traps.wast:54:*:aarch64 # AssertTrap - expected trap, got []
 singlepass:fail:traps.wast:55:*:aarch64 # AssertTrap - expected trap, got []
 singlepass:fail:traps.wast:56:*:aarch64 # AssertTrap - expected trap, got []
 singlepass:fail:traps.wast:57:*:aarch64 # AssertTrap - expected trap, got []
+
+# NaN canonicalization is not yet implemented for aarch64.
+singlepass:fail:wasmer.wast:177:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:178:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:179:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:180:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:181:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:182:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:183:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:184:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:185:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:186:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:187:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:189:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:191:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:193:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:195:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:197:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:198:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:199:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:200:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:201:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:202:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:203:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:204:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:205:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:206:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:207:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:209:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:211:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:213:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:215:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")

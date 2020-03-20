@@ -2146,7 +2146,7 @@ dependencies = [
 name = "wasmer-win-exception-handler"
 version = "0.16.2"
 dependencies = [
- "cmake",
+ "cc",
  "libc",
  "wasmer-runtime-core",
  "winapi",

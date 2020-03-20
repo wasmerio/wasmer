@@ -3700,7 +3700,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                state.push1_extra(res, i);
+                state.push1_extra(res, i | ExtraInfo::pending_f32_nan());
             }
             Operator::F64Trunc => {
                 let (v, i) = state.pop1_extra()?;
@@ -3713,7 +3713,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                state.push1_extra(res, i);
+                state.push1_extra(res, i | ExtraInfo::pending_f64_nan());
             }
             Operator::F32Nearest => {
                 let (v, i) = state.pop1_extra()?;
@@ -3726,7 +3726,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                state.push1_extra(res, i);
+                state.push1_extra(res, i | ExtraInfo::pending_f32_nan());
             }
             Operator::F64Nearest => {
                 let (v, i) = state.pop1_extra()?;
@@ -3739,7 +3739,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                state.push1_extra(res, i);
+                state.push1_extra(res, i | ExtraInfo::pending_f64_nan());
             }
             Operator::F32Abs => {
                 let (v, i) = state.pop1_extra()?;

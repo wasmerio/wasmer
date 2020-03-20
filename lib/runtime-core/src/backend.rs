@@ -132,6 +132,10 @@ pub struct CompilerConfig {
     /// When enabled there can be a small amount of runtime performance overhead.
     pub full_preemption: bool,
 
+    /// Always choose a unique bit representation for NaN.
+    /// Enabling this makes execution deterministic but increases runtime overhead.
+    pub nan_canonicalization: bool,
+
     pub features: Features,
 
     // Target info. Presently only supported by LLVM.
