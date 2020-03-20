@@ -195,7 +195,7 @@ impl BitAnd for ExtraInfo {
 
 #[derive(Debug)]
 pub struct State<'ctx> {
-    alloca_builder: Builder<'ctx>,
+    alloca_builder: &'ctx Builder<'ctx>,
     // The stack is guaranteed to contain allocas, only.
     pub stack: Vec<(PointerValue<'ctx>, ExtraInfo)>,
 
@@ -206,7 +206,7 @@ pub struct State<'ctx> {
 }
 
 impl<'ctx> State<'ctx> {
-    pub fn new(alloca_builder: Builder<'ctx>) -> Self {
+    pub fn new(alloca_builder: &'ctx Builder<'ctx>) -> Self {
         Self {
             alloca_builder,
             stack: vec![],
@@ -216,6 +216,13 @@ impl<'ctx> State<'ctx> {
         }
     }
 
+/*
+    pub fn set_alloca_builder(&mut self, alloca_builder: Ref<'ctx, Builder<'ctx>>) {
+        assert!(self.alloca_builder.is_none());
+        self.alloca_builder = Some(alloca_builder);
+    }
+     */
+    
     pub fn reset_stack(&mut self, frame: &ControlFrame<'ctx>) {
         let stack_size_snapshot = match frame {
             ControlFrame::Block {

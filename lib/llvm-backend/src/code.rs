@@ -27,6 +27,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     mem::ManuallyDrop,
+    pin::Pin,
     rc::Rc,
     sync::{Arc, RwLock},
 };
@@ -972,7 +973,7 @@ pub struct LLVMModuleCodeGenerator<'ctx> {
 pub struct LLVMFunctionCodeGenerator<'ctx> {
     context: Option<&'ctx Context>,
     builder: Option<Builder<'ctx>>,
-    alloca_builder: Option<Builder<'ctx>>,
+    alloca_builder: Pin<Box<Builder<'ctx>>>,
     intrinsics: Option<Intrinsics<'ctx>>,
     state: State<'ctx>,
     llvm_functions: Rc<RefCell<HashMap<FuncIndex, FunctionValue<'ctx>>>>,
@@ -1016,7 +1017,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
         };
 
         let builder = self.builder.as_ref().unwrap();
-        let alloca_builder = self.alloca_builder.as_ref().unwrap();
+        let alloca_builder = self.alloca_builder;
 
         for local_idx in 0..count {
             let alloca =
@@ -8794,18 +8795,13 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         function.set_personality_function(*self.personality_func);
 
         let entry_block = context.append_basic_block(*function, "entry");
-        let alloca_builder = context.create_builder();
-        alloca_builder.position_at_end(entry_block);
-        let insert_pt = alloca_builder.build_alloca(intrinsics.i8_ty, "insert_pt");
-        alloca_builder.position_before(&insert_pt.as_instruction_value().unwrap());
-        let mut state: State<'ctx> = State::new(alloca_builder);
-
-        let alloca_builder = context.create_builder();
+        let alloca_builder = Box::pin(context.create_builder());
         alloca_builder.position_at_end(entry_block);
 
         let return_block = context.append_basic_block(*function, "return");
         builder.position_at_end(return_block);
 
+        let mut state: State<'ctx> = State::new(&(*alloca_builder));
         let phis: SmallVec<[PhiValue; 1]> = func_sig
             .returns()
             .iter()
@@ -8854,11 +8850,11 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
 
         let local_func_index = self.functions.len();
 
-        let code = LLVMFunctionCodeGenerator {
+        let mut code = LLVMFunctionCodeGenerator {
             state,
             context: Some(context),
             builder: Some(builder),
-            alloca_builder: Some(alloca_builder),
+            alloca_builder: alloca_builder,
             intrinsics: Some(intrinsics),
             llvm_functions: self.llvm_functions.clone(),
             function: *function,
@@ -8874,6 +8870,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             track_state: self.track_state,
             module: (*self.module).clone(),
         };
+        //code.state.set_alloca_builder(code.alloca_builder.borrow());
         self.functions.push(code);
         Ok(self.functions.last_mut().unwrap())
     }
