@@ -40,31 +40,6 @@ pub trait StorableInTable: Sized {
     fn wrap_self(self, storage: &mut TableStorage, index: u32) -> Result<(), TableAccessError>;
 }
 
-/*
-// this specific impelementation should be unnecessary now
-// delete it after tests are written
-
-impl<'a> StorableInTable for Anyfunc<'a> {
-    fn unwrap_self(storage: &TableStorage, index: u32) -> Result<Self, TableAccessError> {
-        match storage {
-            TableStorage::Anyfunc(ref anyfunc_table) => {
-                anyfunc_table.get(index).ok_or(TableAccessError::IndexError)
-            }
-            // TODO: return type error here when we support more than 1 type
-            // _ => Err(TableAccessError::TypeError),
-        }
-    }
-
-    fn wrap_self(self, storage: &mut TableStorage, index: u32) -> Result<(), TableAccessError> {
-        match storage {
-            TableStorage::Anyfunc(ref mut anyfunc_table) => anyfunc_table
-                .set(index, self)
-                .map_err(|_| TableAccessError::IndexError),
-        }
-    }
-}
-*/
-
 impl<'a, F: Into<Anyfunc<'a>> + TryFrom<Anyfunc<'a>>> StorableInTable for F {
     fn unwrap_self(storage: &TableStorage, index: u32) -> Result<Self, TableAccessError> {
         match storage {
@@ -88,25 +63,6 @@ impl<'a, F: Into<Anyfunc<'a>> + TryFrom<Anyfunc<'a>>> StorableInTable for F {
         }
     }
 }
-
-/*
-// this should be unnecessary if the above generic implementation worked
-// TODO: remove this commented out code after writing a test
-// TODO: update `AnyfuncInner` so that `StorableInTable` can be implemented on `Func`, too.
-
-impl<'a, Args: WasmTypeList, Rets: WasmTypeList> StorableInTable for Func<'a, Args, Rets> {
-    fn unwrap_self(storage: &TableStorage, index: u32) -> Result<Self, TableAccessError> {
-        // TODO:
-    }
-
-    fn wrap_self(self, storage: &mut TableStorage, index: u32) -> Result<(), TableAccessError> {
-        let sig = FuncSig::new(self.params(), self.returns());
-        let anyfunc = Anyfunc::new(self.func.as_ptr(), sig);
-
-        anyfunc.wrap_self(storage, index)
-    }
-}
-*/
 
 /// Kind of table element.
 // note to implementors: all types in `Element` should implement `StorableInTable`.
@@ -198,9 +154,12 @@ impl Table {
         self.desc
     }
 
+    // Made `pub(crate)` because this API is incomplete, see `anyfunc::AnyfuncTable::get`
+    // for more information.
+    #[allow(dead_code)]
     /// Get the raw table value at index. A return value of `None` means either that
     /// the index or the type wasn't valid.
-    pub fn get<T: StorableInTable>(&self, index: u32) -> Result<T, TableAccessError> {
+    pub(crate) fn get<T: StorableInTable>(&self, index: u32) -> Result<T, TableAccessError> {
         let guard = self.storage.lock().unwrap();
         let (storage, _) = &*guard;
         T::unwrap_self(storage, index)

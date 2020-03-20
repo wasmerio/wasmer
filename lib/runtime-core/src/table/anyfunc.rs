@@ -11,7 +11,6 @@ use std::convert::TryFrom;
 use std::{ptr, sync::Arc};
 
 enum AnyfuncInner<'a> {
-    // TODO: update this entry and impl Into/TryFrom
     Host {
         ptr: *const vm::Func,
         signature: Arc<FuncSig>,
@@ -57,6 +56,35 @@ impl<'a> TryFrom<Anyfunc<'a>> for DynFunc<'a> {
         }
     }
 }
+
+/*
+// TODO: implement this when `vm::Anyfunc` is updated (aka avoiding the linear scan in `wrap`)
+impl<'a, Args: WasmTypeList, Rets: WasmTypeList> TryFrom<Anyfunc<'a>> for Func<'a, Args, Rets> {
+    type Error = ();
+
+    fn try_from(anyfunc: Anyfunc<'a>) -> Result<Self, Self::Error> {
+        match anyfunc.inner {
+            AnyfuncInner::Host {
+                ptr,
+                ctx,
+                signature,
+            } => {
+                // TODO: return more specific error
+                let ptr = NonNull::new(ptr as _).ok_or(())?;
+                if signature.params() != Args::types() || signature.returns() != Rets::types() {
+                    // TODO: return more specific error
+                    return Err(());
+                }
+                let wasm = todo!("Figure out how to get typed_func::Wasm");
+                // TODO: handle func_env
+                let func_env = None;
+                Ok(unsafe { Func::from_raw_parts(wasm, ptr, func_env, ctx) })
+            }
+            _ => Err(()),
+        }
+    }
+}
+*/
 
 pub struct AnyfuncTable {
     pub(crate) backing: Vec<vm::Anyfunc>,
@@ -111,10 +139,17 @@ impl AnyfuncTable {
         Some(starting_len)
     }
 
+    // hidden and `pub(crate)` due to incomplete implementation (blocked on `wrap` issue)
+    #[doc(hidden)]
     /// Get The vm::AnyFunc at the given index.
-    pub fn get<'outer_table>(&self, index: u32) -> Option<Anyfunc<'outer_table>> {
+    pub(crate) fn get<'outer_table>(&self, index: u32) -> Option<Anyfunc<'outer_table>> {
         let vm_any_func = self.backing.get(index as usize)?;
         let signature = SigRegistry.lookup_signature(vm_any_func.sig_id.into());
+        // TODO: this function should take a generic type param indicating what type of
+        // anyfunc we want `host` or `managed` (or perhaps we should just return DynFunc/Func directly here).
+        //
+        // The issue with the current implementation is that through `StorableInTable`, we'll call
+        // `TryFrom<Anyfuc> for Dynfunc` which will always fail because we always return a `Host` function here.
         Some(Anyfunc {
             inner: AnyfuncInner::Host {
                 ptr: vm_any_func.func,
