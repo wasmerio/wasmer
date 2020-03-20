@@ -1,7 +1,8 @@
 use crate::code::CodegenError;
 use inkwell::{
     basic_block::BasicBlock,
-    values::{BasicValue, BasicValueEnum, PhiValue},
+    builder::Builder,
+    values::{BasicValue, BasicValueEnum, PhiValue, PointerValue},
 };
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -194,7 +195,10 @@ impl BitAnd for ExtraInfo {
 
 #[derive(Debug)]
 pub struct State<'ctx> {
-    pub stack: Vec<(BasicValueEnum<'ctx>, ExtraInfo)>,
+    alloca_builder: Builder<'ctx>,
+    // The stack is guaranteed to contain allocas, only.
+    pub stack: Vec<(PointerValue<'ctx>, ExtraInfo)>,
+
     control_stack: Vec<ControlFrame<'ctx>>,
     value_counter: Cell<usize>,
 
@@ -202,8 +206,9 @@ pub struct State<'ctx> {
 }
 
 impl<'ctx> State<'ctx> {
-    pub fn new() -> Self {
+    pub fn new(alloca_builder: Builder<'ctx>) -> Self {
         Self {
+            alloca_builder,
             stack: vec![],
             control_stack: vec![],
             value_counter: Cell::new(0),
@@ -273,32 +278,53 @@ impl<'ctx> State<'ctx> {
         s
     }
 
-    pub fn push1<T: BasicValue<'ctx>>(&mut self, value: T) {
-        self.push1_extra(value, Default::default());
+    pub fn push1<T: BasicValue<'ctx>>(&mut self, builder: &Builder<'ctx>, value: T) {
+        self.push1_extra(builder, value, Default::default());
     }
 
-    pub fn push1_extra<T: BasicValue<'ctx>>(&mut self, value: T, info: ExtraInfo) {
-        self.stack.push((value.as_basic_value_enum(), info));
+    pub fn push1_extra<T: BasicValue<'ctx>>(
+        &mut self,
+        builder: &Builder<'ctx>,
+        value: T,
+        info: ExtraInfo,
+    ) {
+        let value = value.as_basic_value_enum();
+        let alloca = self.alloca_builder.build_alloca(value.get_type(), "stack");
+        builder.build_store(alloca, value);
+        self.stack.push((alloca, info));
     }
 
-    pub fn pop1(&mut self) -> Result<BasicValueEnum<'ctx>, CodegenError> {
-        Ok(self.pop1_extra()?.0)
+    pub fn pop1(&mut self, builder: &Builder<'ctx>) -> Result<BasicValueEnum<'ctx>, CodegenError> {
+        Ok(self.pop1_extra(builder)?.0)
     }
 
-    pub fn pop1_extra(&mut self) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), CodegenError> {
-        self.stack.pop().ok_or(CodegenError {
-            message: "pop1_extra: invalid value stack".to_string(),
-        })
+    pub fn pop1_extra(
+        &mut self,
+        builder: &Builder<'ctx>,
+    ) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), CodegenError> {
+        match self.stack.pop() {
+            None => Err(CodegenError {
+                message: "pop1_extra: invalid value stack".to_string(),
+            }),
+            Some((alloca, extra_info)) => Ok((
+                builder.build_load(alloca, "").as_basic_value_enum(),
+                extra_info,
+            )),
+        }
     }
 
-    pub fn pop2(&mut self) -> Result<(BasicValueEnum<'ctx>, BasicValueEnum<'ctx>), CodegenError> {
-        let v2 = self.pop1()?;
-        let v1 = self.pop1()?;
+    pub fn pop2(
+        &mut self,
+        builder: &Builder<'ctx>,
+    ) -> Result<(BasicValueEnum<'ctx>, BasicValueEnum<'ctx>), CodegenError> {
+        let v2 = self.pop1(builder)?;
+        let v1 = self.pop1(builder)?;
         Ok((v1, v2))
     }
 
     pub fn pop2_extra(
         &mut self,
+        builder: &Builder<'ctx>,
     ) -> Result<
         (
             (BasicValueEnum<'ctx>, ExtraInfo),
@@ -306,13 +332,14 @@ impl<'ctx> State<'ctx> {
         ),
         CodegenError,
     > {
-        let v2 = self.pop1_extra()?;
-        let v1 = self.pop1_extra()?;
+        let v2 = self.pop1_extra(builder)?;
+        let v1 = self.pop1_extra(builder)?;
         Ok((v1, v2))
     }
 
     pub fn pop3_extra(
         &mut self,
+        builder: &Builder<'ctx>,
     ) -> Result<
         (
             (BasicValueEnum<'ctx>, ExtraInfo),
@@ -321,44 +348,57 @@ impl<'ctx> State<'ctx> {
         ),
         CodegenError,
     > {
-        let v3 = self.pop1_extra()?;
-        let v2 = self.pop1_extra()?;
-        let v1 = self.pop1_extra()?;
+        let v3 = self.pop1_extra(builder)?;
+        let v2 = self.pop1_extra(builder)?;
+        let v1 = self.pop1_extra(builder)?;
         Ok((v1, v2, v3))
     }
 
-    pub fn peek1_extra(&self) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), CodegenError> {
+    pub fn peek1_extra(
+        &self,
+        builder: &Builder<'ctx>,
+    ) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), CodegenError> {
         let index = self.stack.len().checked_sub(1).ok_or(CodegenError {
             message: "peek1_extra: invalid value stack".to_string(),
         })?;
-        Ok(self.stack[index])
+        let ptr = builder.build_load(self.stack[index].0, "");
+        Ok((ptr, self.stack[index].1))
     }
 
-    pub fn peekn(&self, n: usize) -> Result<Vec<BasicValueEnum<'ctx>>, CodegenError> {
-        Ok(self.peekn_extra(n)?.iter().map(|x| x.0).collect())
+    pub fn peekn(
+        &self,
+        builder: &Builder<'ctx>,
+        n: usize,
+    ) -> Result<Vec<BasicValueEnum<'ctx>>, CodegenError> {
+        Ok(self.peekn_extra(builder, n)?.iter().map(|x| x.0).collect())
     }
 
     pub fn peekn_extra(
         &self,
+        builder: &Builder<'ctx>,
         n: usize,
-    ) -> Result<&[(BasicValueEnum<'ctx>, ExtraInfo)], CodegenError> {
+    ) -> Result<Vec<(BasicValueEnum<'ctx>, ExtraInfo)>, CodegenError> {
         let index = self.stack.len().checked_sub(n).ok_or(CodegenError {
             message: "peekn_extra: invalid value stack".to_string(),
         })?;
 
-        Ok(&self.stack[index..])
+        Ok(self.stack[index..]
+            .iter()
+            .map(|(ptr, xi)| (builder.build_load(*ptr, ""), *xi))
+            .collect::<Vec<_>>())
     }
 
     pub fn popn_save_extra(
         &mut self,
+        builder: &Builder<'ctx>,
         n: usize,
     ) -> Result<Vec<(BasicValueEnum<'ctx>, ExtraInfo)>, CodegenError> {
-        let v = self.peekn_extra(n)?.to_vec();
-        self.popn(n)?;
+        let v = self.peekn_extra(builder, n)?.to_vec();
+        self.popn(builder, n)?;
         Ok(v)
     }
 
-    pub fn popn(&mut self, n: usize) -> Result<(), CodegenError> {
+    pub fn popn(&mut self, _builder: &Builder<'ctx>, n: usize) -> Result<(), CodegenError> {
         let index = self.stack.len().checked_sub(n).ok_or(CodegenError {
             message: "popn: invalid value stack".to_string(),
         })?;
