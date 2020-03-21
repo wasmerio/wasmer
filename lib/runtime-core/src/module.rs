@@ -227,7 +227,7 @@ impl Module {
             Import {
                 namespace,
                 name,
-                type_: ImportType::Function,
+                ty: ImportType::Function,
             }
         });
         let imported_memories =
@@ -238,7 +238,7 @@ impl Module {
                     Import {
                         namespace,
                         name,
-                        type_: memory_descriptor.into(),
+                        ty: memory_descriptor.into(),
                     }
                 });
         let imported_tables =
@@ -249,7 +249,7 @@ impl Module {
                     Import {
                         namespace,
                         name,
-                        type_: table_descriptor.into(),
+                        ty: table_descriptor.into(),
                     }
                 });
         let imported_globals =
@@ -260,7 +260,7 @@ impl Module {
                     Import {
                         namespace,
                         name,
-                        type_: global_descriptor.into(),
+                        ty: global_descriptor.into(),
                     }
                 });
 
@@ -342,7 +342,7 @@ pub enum ImportType {
         /// The Wasm type that the global variable holds.
         // TODO: attempt to understand explanation about 128bit globals:
         // https://github.com/WebAssembly/simd/blob/master/proposals/simd/SIMD.md#webassembly-module-instatiation
-        type_: Type,
+        ty: Type,
     },
     /// A Wasm linear memory.
     // TODO: discuss using `Pages` here vs u32
@@ -403,7 +403,7 @@ impl From<GlobalDescriptor> for ImportType {
     fn from(other: GlobalDescriptor) -> Self {
         ImportType::Global {
             mutable: other.mutable,
-            type_: other.ty,
+            ty: other.ty,
         }
     }
 }
@@ -411,7 +411,7 @@ impl From<&GlobalDescriptor> for ImportType {
     fn from(other: &GlobalDescriptor) -> Self {
         ImportType::Global {
             mutable: other.mutable,
-            type_: other.ty,
+            ty: other.ty,
         }
     }
 }
@@ -424,7 +424,7 @@ pub struct Import {
     /// The name of the import.
     pub name: String,
     /// The type of the import.
-    pub type_: ImportType,
+    pub ty: ImportType,
 }
 
 impl ModuleInner {}
