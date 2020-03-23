@@ -334,6 +334,14 @@
 <span id="334">334</span>
 <span id="335">335</span>
 <span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Installing signal handlers allows us to handle traps and out-of-bounds memory</span>
 <span class="doccomment">//! accesses that occur when running WebAssembly.</span>
@@ -566,7 +574,10 @@
     (<span class="ident">si_addr</span>, <span class="ident">rip</span> <span class="kw">as</span> <span class="kw">_</span>)
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>))]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+    <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>),
+    <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>
+))]</span>
 <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_faulting_addr_and_ip</span>(
     <span class="ident">_siginfo</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_void</span>,
     <span class="ident">_ucontext</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_void</span>,
@@ -574,7 +585,10 @@
     (::<span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">null</span>(), ::<span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">null</span>())
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>))]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+    <span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>),
+    <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>
+))]</span>
 <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_faulting_addr_and_ip</span>(
     <span class="ident">siginfo</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_void</span>,
     <span class="ident">ucontext</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_void</span>,
@@ -669,6 +683,8 @@
     <span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>),
     <span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>),
     <span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>),
+    <span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>),
+    <span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>),
 )))]</span>
 <span class="macro">compile_error</span><span class="macro">!</span>(<span class="string">&quot;This crate doesn&#39;t yet support compiling on operating systems other than linux and macos and architectures other than x86_64&quot;</span>);
 </pre></div>
