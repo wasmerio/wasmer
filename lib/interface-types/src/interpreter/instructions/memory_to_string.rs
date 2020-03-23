@@ -27,8 +27,8 @@ executable_instruction!(
                     )
                 })?;
 
-            let length = to_native::<i32>(&inputs[0], instruction)? as usize;
-            let pointer = to_native::<i32>(&inputs[1], instruction)? as usize;
+            let pointer = to_native::<i32>(&inputs[0], instruction)? as usize;
+            let length = to_native::<i32>(&inputs[1], instruction)? as usize;
             let memory_view = memory.view();
 
             if length == 0 {
@@ -67,15 +67,15 @@ mod tests {
     test_executable_instruction!(
         test_memory_to_string =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::MemoryToString,
             ],
             invocation_inputs: [
-                InterfaceValue::I32(13),
-                //              ^^^^^^^ length
                 InterfaceValue::I32(0),
                 //              ^^^^^^ pointer
+                InterfaceValue::I32(13),
+                //              ^^^^^^^ length
             ],
             instance: Instance {
                 memory: Memory::new("Hello, World!".as_bytes().iter().map(|u| Cell::new(*u)).collect()),
@@ -87,8 +87,8 @@ mod tests {
     test_executable_instruction!(
         test_memory_to_string__empty_string =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::MemoryToString,
             ],
             invocation_inputs: [
@@ -105,15 +105,15 @@ mod tests {
     test_executable_instruction!(
         test_memory_to_string__read_out_of_memory =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::MemoryToString,
             ],
             invocation_inputs: [
-                InterfaceValue::I32(13),
-                //              ^^^^^^^ length is too long
                 InterfaceValue::I32(0),
                 //              ^^^^^^ pointer
+                InterfaceValue::I32(13),
+                //              ^^^^^^^ length is too long
             ],
             instance: Instance {
                 memory: Memory::new("Hello!".as_bytes().iter().map(|u| Cell::new(*u)).collect()),
@@ -125,15 +125,15 @@ mod tests {
     test_executable_instruction!(
         test_memory_to_string__invalid_encoding =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::MemoryToString,
             ],
             invocation_inputs: [
-                InterfaceValue::I32(4),
-                //              ^^^^^^ length is too long
                 InterfaceValue::I32(0),
                 //              ^^^^^^ pointer
+                InterfaceValue::I32(4),
+                //              ^^^^^^ length is too long
             ],
             instance: Instance {
                 memory: Memory::new(vec![0, 159, 146, 150].iter().map(|b| Cell::new(*b)).collect::<Vec<Cell<u8>>>()),
@@ -150,8 +150,8 @@ mod tests {
                 //           ^^^^^^^^^^^^^^ `memory-to-string` expects 2 values on the stack, only one is present.
             ],
             invocation_inputs: [
-                InterfaceValue::I32(13),
                 InterfaceValue::I32(0),
+                InterfaceValue::I32(13),
             ],
             instance: Instance::new(),
             error: r#"`memory-to-string` needed to read `2` value(s) from the stack, but it doesn't contain enough data"#,
