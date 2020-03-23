@@ -954,7 +954,6 @@ pub unsafe extern "C" fn callback_trampoline(
 
 pub struct LLVMModuleCodeGenerator<'ctx> {
     context: Option<&'ctx Context>,
-    builder: Option<Builder<'ctx>>,
     intrinsics: Option<Intrinsics<'ctx>>,
     functions: Vec<LLVMFunctionCodeGenerator<'ctx>>,
     signatures: Map<SigIndex, FunctionType<'ctx>>,
@@ -3701,7 +3700,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                state.push1_extra(res, i);
+                state.push1_extra(res, i | ExtraInfo::pending_f32_nan());
             }
             Operator::F64Trunc => {
                 let (v, i) = state.pop1_extra()?;
@@ -3714,7 +3713,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                state.push1_extra(res, i);
+                state.push1_extra(res, i | ExtraInfo::pending_f64_nan());
             }
             Operator::F32Nearest => {
                 let (v, i) = state.pop1_extra()?;
@@ -3727,7 +3726,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                state.push1_extra(res, i);
+                state.push1_extra(res, i | ExtraInfo::pending_f32_nan());
             }
             Operator::F64Nearest => {
                 let (v, i) = state.pop1_extra()?;
@@ -3740,7 +3739,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                state.push1_extra(res, i);
+                state.push1_extra(res, i | ExtraInfo::pending_f64_nan());
             }
             Operator::F32Abs => {
                 let (v, i) = state.pop1_extra()?;
@@ -8619,7 +8618,6 @@ impl From<LoadError> for CodegenError {
 impl Drop for LLVMModuleCodeGenerator<'_> {
     fn drop(&mut self) {
         // Ensure that all members of the context are dropped before we drop the context.
-        drop(self.builder.take());
         drop(self.intrinsics.take());
         self.functions.clear();
         self.signatures.clear();
@@ -8698,8 +8696,6 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         module.set_target(&target);
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
 
-        let builder = context.create_builder();
-
         let intrinsics = Intrinsics::declare(&module, &context);
 
         let personality_func = module.add_function(
@@ -8710,7 +8706,6 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
 
         LLVMModuleCodeGenerator {
             context: Some(context),
-            builder: Some(builder),
             intrinsics: Some(intrinsics),
             module: ManuallyDrop::new(Rc::new(RefCell::new(module))),
             functions: vec![],
@@ -8740,15 +8735,10 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         _loc: WasmSpan,
     ) -> Result<&mut LLVMFunctionCodeGenerator<'ctx>, CodegenError> {
         // Creates a new function and returns the function-scope code generator for it.
-        let (context, builder, intrinsics) = match self.functions.last_mut() {
-            Some(x) => (
-                x.context.take().unwrap(),
-                x.builder.take().unwrap(),
-                x.intrinsics.take().unwrap(),
-            ),
+        let (context, intrinsics) = match self.functions.last_mut() {
+            Some(x) => (x.context.take().unwrap(), x.intrinsics.take().unwrap()),
             None => (
                 self.context.take().unwrap(),
-                self.builder.take().unwrap(),
                 self.intrinsics.take().unwrap(),
             ),
         };
@@ -8766,6 +8756,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         alloca_builder.position_at_end(entry_block);
 
         let return_block = context.append_basic_block(*function, "return");
+        let builder = context.create_builder();
         builder.position_at_end(return_block);
 
         let phis: SmallVec<[PhiValue; 1]> = func_sig
@@ -8851,20 +8842,14 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         ),
         CodegenError,
     > {
-        let (context, builder, intrinsics) = match self.functions.last_mut() {
-            Some(x) => (
-                x.context.take().unwrap(),
-                x.builder.take().unwrap(),
-                x.intrinsics.take().unwrap(),
-            ),
+        let (context, intrinsics) = match self.functions.last_mut() {
+            Some(x) => (x.context.take().unwrap(), x.intrinsics.take().unwrap()),
             None => (
                 self.context.take().unwrap(),
-                self.builder.take().unwrap(),
                 self.intrinsics.take().unwrap(),
             ),
         };
         self.context = Some(context);
-        self.builder = Some(builder);
         self.intrinsics = Some(intrinsics);
 
         generate_trampolines(
@@ -8872,7 +8857,6 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             &self.signatures,
             &self.module.borrow_mut(),
             self.context.as_ref().unwrap(),
-            self.builder.as_ref().unwrap(),
             self.intrinsics.as_ref().unwrap(),
         )
         .map_err(|e| CodegenError {

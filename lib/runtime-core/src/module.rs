@@ -80,7 +80,7 @@ pub struct ModuleInfo {
     pub em_symbol_map: Option<HashMap<u32, String>>,
 
     /// Custom sections.
-    pub custom_sections: HashMap<String, Vec<u8>>,
+    pub custom_sections: HashMap<String, Vec<Vec<u8>>>,
 
     /// Flag controlling whether or not debug information for use in a debugger
     /// will be generated.
@@ -104,7 +104,8 @@ impl ModuleInfo {
                 let bytes = reader.read_bytes(len)?;
                 let data = bytes.to_vec();
                 let name = name.to_string();
-                self.custom_sections.insert(name, data);
+                let entry: &mut Vec<Vec<u8>> = self.custom_sections.entry(name).or_default();
+                entry.push(data);
             }
         }
         Ok(())
