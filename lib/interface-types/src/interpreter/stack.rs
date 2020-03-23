@@ -22,8 +22,8 @@ pub trait Stackable {
 
     /// Removes `n` elements from the end of the stack, `None` if the
     /// stack doesn't contain enough elements.
-    /// Returned items are ordered by FIFO: the last element comes
-    /// first in the list.
+    /// Returned items are in reverse order: the last element comes
+    /// last in the list.
     fn pop(&mut self, n: usize) -> Option<Vec<Self::Item>>;
 }
 
@@ -78,7 +78,6 @@ where
             let items = self
                 .inner
                 .drain(self.inner.len() - n..)
-                .rev()
                 .collect::<Vec<Self::Item>>();
 
             assert!(items.len() == n);
@@ -121,9 +120,9 @@ mod tests {
         stack.push(6);
 
         assert_eq!(stack.pop(1), Some(vec![6]));
-        assert_eq!(stack.pop(2), Some(vec![5, 4]));
+        assert_eq!(stack.pop(2), Some(vec![4, 5]));
         assert_eq!(stack.pop(4), None); // not enough items
-        assert_eq!(stack.pop(3), Some(vec![3, 2, 1]));
+        assert_eq!(stack.pop(3), Some(vec![1, 2, 3]));
         assert_eq!(stack.pop1(), None);
         assert_eq!(stack.is_empty(), true);
     }
