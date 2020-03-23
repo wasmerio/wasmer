@@ -410,7 +410,7 @@ impl MiddlewareChain {
         };
         sink.push(ev);
         for m in &mut self.chain {
-            let prev: SmallVec<[Event; 2]> = sink.buffer.drain().collect();
+            let prev: SmallVec<[Event; 2]> = sink.buffer.drain(..).collect();
             for ev in prev {
                 m.feed_event(ev, module_info, &mut sink, source_loc)?;
             }
