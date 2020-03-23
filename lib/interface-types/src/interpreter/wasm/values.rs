@@ -1,8 +1,8 @@
 #![allow(missing_docs)]
 
-use std::convert::TryFrom;
-
 pub use crate::ast::InterfaceType;
+use crate::errors::WasmValueNativeCastError;
+use std::convert::TryFrom;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum InterfaceValue {
@@ -49,35 +49,46 @@ impl Default for InterfaceValue {
     }
 }
 
-macro_rules! from_x_for_interface_value {
-    ($native_type:ty, $value_variant:ident) => {
+pub trait NativeType {
+    const INTERFACE_TYPE: InterfaceType;
+}
+
+macro_rules! native {
+    ($native_type:ty, $variant:ident) => {
+        impl NativeType for $native_type {
+            const INTERFACE_TYPE: InterfaceType = InterfaceType::$variant;
+        }
+
         impl From<$native_type> for InterfaceValue {
             fn from(n: $native_type) -> Self {
-                Self::$value_variant(n)
+                Self::$variant(n)
             }
         }
 
         impl TryFrom<&InterfaceValue> for $native_type {
-            type Error = &'static str;
+            type Error = WasmValueNativeCastError;
 
             fn try_from(w: &InterfaceValue) -> Result<Self, Self::Error> {
                 match w {
-                    InterfaceValue::$value_variant(n) => Ok(n.clone()),
-                    _ => Err("Invalid cast."),
+                    InterfaceValue::$variant(n) => Ok(n.clone()),
+                    _ => Err(WasmValueNativeCastError {
+                        from: w.into(),
+                        to: <$native_type>::INTERFACE_TYPE,
+                    }),
                 }
             }
         }
     };
 }
 
-from_x_for_interface_value!(i8, S8);
-from_x_for_interface_value!(i16, S16);
-from_x_for_interface_value!(u8, U8);
-from_x_for_interface_value!(u16, U16);
-from_x_for_interface_value!(u32, U32);
-from_x_for_interface_value!(u64, U64);
-from_x_for_interface_value!(f32, F32);
-from_x_for_interface_value!(f64, F64);
-from_x_for_interface_value!(String, String);
-from_x_for_interface_value!(i32, I32);
-from_x_for_interface_value!(i64, I64);
+native!(i8, S8);
+native!(i16, S16);
+native!(u8, U8);
+native!(u16, U16);
+native!(u32, U32);
+native!(u64, U64);
+native!(f32, F32);
+native!(f64, F64);
+native!(String, String);
+native!(i32, I32);
+native!(i64, I64);

@@ -1,16 +1,35 @@
 mod argument_get;
-mod call;
-mod call_export;
+mod call_core;
 mod lowering_lifting;
-mod read_utf8;
-mod write_utf8;
+mod memory_to_string;
+mod string_to_memory;
 
+use crate::{
+    errors::{InstructionError, InstructionErrorKind, InstructionResult, WasmValueNativeCastError},
+    interpreter::{
+        wasm::values::{InterfaceValue, NativeType},
+        Instruction,
+    },
+};
 pub(crate) use argument_get::argument_get;
-pub(crate) use call::call;
-pub(crate) use call_export::call_export;
+pub(crate) use call_core::call_core;
 pub(crate) use lowering_lifting::*;
-pub(crate) use read_utf8::read_utf8;
-pub(crate) use write_utf8::write_utf8;
+pub(crate) use memory_to_string::memory_to_string;
+use std::convert::TryFrom;
+pub(crate) use string_to_memory::string_to_memory;
+
+/// Just a short helper to map the error of a cast from an
+/// `InterfaceValue` to a native value.
+pub(crate) fn to_native<'a, T>(
+    wit_value: &'a InterfaceValue,
+    instruction: Instruction,
+) -> InstructionResult<T>
+where
+    T: NativeType + TryFrom<&'a InterfaceValue, Error = WasmValueNativeCastError>,
+{
+    T::try_from(wit_value)
+        .map_err(|error| InstructionError::new(instruction, InstructionErrorKind::ToNative(error)))
+}
 
 #[cfg(test)]
 pub(crate) mod tests {
@@ -133,23 +152,12 @@ pub(crate) mod tests {
                             },
                         },
                     );
-                    hashmap.insert(
-                        "alloc".into(),
-                        Export {
-                            inputs: vec![InterfaceType::I32],
-                            outputs: vec![InterfaceType::I32],
-                            function: |arguments: &[InterfaceValue]| {
-                                let _size: i32 = (&arguments[0]).try_into().unwrap();
-
-                                Ok(vec![InterfaceValue::I32(0)])
-                            },
-                        },
-                    );
 
                     hashmap
                 },
                 locals_or_imports: {
                     let mut hashmap = HashMap::new();
+                    // sum
                     hashmap.insert(
                         42,
                         LocalImport {
@@ -160,6 +168,19 @@ pub(crate) mod tests {
                                 let b: i32 = (&arguments[1]).try_into().unwrap();
 
                                 Ok(vec![InterfaceValue::I32(a * b)])
+                            },
+                        },
+                    );
+                    // string allocator
+                    hashmap.insert(
+                        43,
+                        LocalImport {
+                            inputs: vec![InterfaceType::I32],
+                            outputs: vec![InterfaceType::I32],
+                            function: |arguments: &[InterfaceValue]| {
+                                let _size: i32 = (&arguments[0]).try_into().unwrap();
+
+                                Ok(vec![InterfaceValue::I32(0)])
                             },
                         },
                     );

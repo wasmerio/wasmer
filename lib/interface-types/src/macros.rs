@@ -122,7 +122,7 @@ macro_rules! test_executable_instruction {
 
             assert!(run.is_err());
 
-            let error = run.unwrap_err();
+            let error = run.unwrap_err().to_string();
 
             assert_eq!(error, String::from($error));
         }

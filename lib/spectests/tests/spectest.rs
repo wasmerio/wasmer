@@ -256,6 +256,16 @@ mod tests {
         Memory, Table,
     };
 
+    fn format_panic(e: &dyn std::any::Any) -> String {
+        if let Some(s) = e.downcast_ref::<&str>() {
+            format!("{}", s)
+        } else if let Some(s) = e.downcast_ref::<String>() {
+            format!("{}", s)
+        } else {
+            "(unknown)".into()
+        }
+    }
+
     fn parse_and_run(
         path: &PathBuf,
         file_excludes: &HashSet<String>,
@@ -326,6 +336,7 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
                             ..Default::default()
                         };
                         let module = compile_with_config(&module.into_vec(), config)
@@ -342,7 +353,7 @@ mod tests {
                                     file: filename.to_string(),
                                     line: line,
                                     kind: format!("{}", "Module"),
-                                    message: format!("caught panic {:?}", e),
+                                    message: format!("caught panic {}", format_panic(&e)),
                                 },
                                 &test_key,
                                 excludes,
@@ -764,6 +775,7 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
                             ..Default::default()
                         };
                         compile_with_config(&module.into_vec(), config)
@@ -798,7 +810,7 @@ mod tests {
                                     file: filename.to_string(),
                                     line: line,
                                     kind: format!("{}", "AssertInvalid"),
-                                    message: format!("caught panic {:?}", p),
+                                    message: format!("caught panic {}", format_panic(&p)),
                                 },
                                 &test_key,
                                 excludes,
@@ -816,6 +828,7 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
                             ..Default::default()
                         };
                         compile_with_config(&module.into_vec(), config)
@@ -851,7 +864,7 @@ mod tests {
                                     file: filename.to_string(),
                                     line: line,
                                     kind: format!("{}", "AssertMalformed"),
-                                    message: format!("caught panic {:?}", p),
+                                    message: format!("caught panic {}", format_panic(&p)),
                                 },
                                 &test_key,
                                 excludes,
@@ -867,6 +880,7 @@ mod tests {
                             simd: true,
                             threads: true,
                         },
+                        nan_canonicalization: true,
                         ..Default::default()
                     };
                     let module = compile_with_config(&module.into_vec(), config)
@@ -962,6 +976,7 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
                             ..Default::default()
                         };
                         let module = compile_with_config(&module.into_vec(), config)
@@ -975,7 +990,7 @@ mod tests {
                                     file: filename.to_string(),
                                     line: line,
                                     kind: format!("{}", "AssertUnlinkable"),
-                                    message: format!("caught panic {:?}", e),
+                                    message: format!("caught panic {}", format_panic(&e)),
                                 },
                                 &test_key,
                                 excludes,

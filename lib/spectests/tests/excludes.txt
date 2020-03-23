@@ -244,10 +244,6 @@ clif:fail:exports.wast:167:windows # Module - caught panic Any
 clif:fail:exports.wast:168:windows # Module - caught panic Any
 clif:fail:exports.wast:169:windows # Module - caught panic Any
 clif:fail:exports.wast:170:windows # Module - caught panic Any
-clif:fail:f32.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-clif:fail:f32.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-clif:fail:f64.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
-clif:fail:f64.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
 clif:fail:func.wast:289:windows # Module - caught panic Any
 clif:fail:memory.wast:3:windows # Module - caught panic Any
 clif:fail:memory.wast:4:windows # Module - caught panic Any
@@ -307,6 +303,44 @@ singlepass:skip:simd.wast:*          # SIMD not implemented
 singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
 singlepass:skip:atomic.wast:*:*:aarch64 # Threads not yet supported on singlepass
+
+singlepass:fail:address.wast:194:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:195:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:196:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:197:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:198:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:200:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:481:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:482:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:483:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:484:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:485:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:486:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:487:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:493:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:494:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:541:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:588:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:linking.wast:137:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:139:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:142:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:144:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:147:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:149:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:185:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:187:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:388:freebsd # AssertReturn - Call failed RuntimeError: unknown error
 
 singlepass:fail:address.wast:200:linux:x86_64 # AssertTrap - expected trap, got []
 singlepass:fail:address.wast:201:linux:x86_64 # AssertTrap - expected trap, got []
@@ -486,3 +520,35 @@ singlepass:fail:traps.wast:54:*:aarch64 # AssertTrap - expected trap, got []
 singlepass:fail:traps.wast:55:*:aarch64 # AssertTrap - expected trap, got []
 singlepass:fail:traps.wast:56:*:aarch64 # AssertTrap - expected trap, got []
 singlepass:fail:traps.wast:57:*:aarch64 # AssertTrap - expected trap, got []
+
+# NaN canonicalization is not yet implemented for aarch64.
+singlepass:fail:wasmer.wast:177:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:178:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:179:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:180:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:181:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:182:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:183:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:184:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:185:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:186:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:187:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:189:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:191:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:193:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:195:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:197:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:198:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:199:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:200:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:201:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:202:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:203:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:204:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:205:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:206:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:207:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:209:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:211:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:213:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:215:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")

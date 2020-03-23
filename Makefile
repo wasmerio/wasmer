@@ -1,4 +1,4 @@
-.PHONY: spectests emtests clean build install lint precommit docs examples
+.PHONY: spectests emtests clean build install lint precommit docs examples 
 
 # Generate files
 generate-spectests:
@@ -11,14 +11,30 @@ generate-emtests:
 	&& echo "formatting" \
 	&& cargo fmt
 
+# To generate WASI tests you'll need to have the correct versions of the Rust nightly
+# toolchain installed, see `WasiVersion::get_compiler_toolchain` in
+# `lib/wasi-tests/build/wasi_version.rs`
+#
+# or run `make wasitests-setup-toolchain` or `make wasitests-setup-toolchain-all`
 generate-wasitests: wasitests-setup
 	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv \
+	&& echo "formatting" \
+	&& cargo fmt
+
+generate-wasitests-all: wasitests-setup
+	WASI_TEST_GENERATE_ALL=1 WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv \
 	&& echo "formatting" \
 	&& cargo fmt
 
 spectests-generate: generate-spectests
 emtests-generate: generate-emtests
 wasitests-generate: generate-wasitests
+
+wasitests-setup-toolchain: wasitests-setup
+	WASITESTS_SET_UP_TOOLCHAIN=1 cargo build -p wasmer-wasi-tests --release -vv
+
+wasitests-setup-toolchain-all: wasitests-setup
+	WASI_TEST_GENERATE_ALL=1 WASITESTS_SET_UP_TOOLCHAIN=1 cargo build -p wasmer-wasi-tests --release -vv
 
 generate: generate-spectests generate-emtests generate-wasitests
 
@@ -67,6 +83,8 @@ middleware: middleware-singlepass middleware-cranelift middleware-llvm
 
 # Wasitests
 wasitests-setup:
+# force cargo to rerun the build.rs step
+	touch lib/wasi-tests/build/mod.rs
 	rm -rf lib/wasi-tests/wasitests/test_fs/temp
 	mkdir -p lib/wasi-tests/wasitests/test_fs/temp
 
@@ -287,7 +305,9 @@ build-install-package:
 	mkdir -p ./install/bin
 	cp ./wapm-cli/target/release/wapm ./install/bin/
 	cp ./target/release/wasmer ./install/bin/
-	tar -C ./install -zcvf wasmer.tar.gz bin/wapm bin/wasmer
+	# Create the wax binary as symlink to wapm
+	cd ./install/bin/ && ln -sf wapm wax && chmod +x wax
+	tar -C ./install -zcvf wasmer.tar.gz bin
 
 UNAME_S := $(shell uname -s)
 
@@ -302,7 +322,7 @@ ifeq ($(OS), Windows_NT)
 else
 ifeq ($(UNAME_S), Darwin)
 	cp target/release/libwasmer_runtime_c_api.dylib ./capi/lib/libwasmer.dylib
-	cp target/release/libwasmer_runtime_c_api.dylib ./capi/lib/libwasmer.a
+	cp target/release/libwasmer_runtime_c_api.a ./capi/lib/libwasmer.a
 	# Fix the rpath for the dylib
 	install_name_tool -id "@rpath/libwasmer.dylib" ./capi/lib/libwasmer.dylib
 else
@@ -315,7 +335,7 @@ endif
 	cp lib/runtime-c-api/doc/index.md ./capi/README.md
 	tar -C ./capi -zcvf wasmer-c-api.tar.gz lib include README.md LICENSE
 
-WAPM_VERSION = 0.4.3
+WAPM_VERSION = v0.5.0
 build-wapm:
 	git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"

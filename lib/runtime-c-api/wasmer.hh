@@ -1146,6 +1146,8 @@ wasmer_result_t wasmer_table_new(wasmer_table_t **table, wasmer_limits_t limits)
 
 #if (!defined(_WIN32) && defined(ARCH_X86_64))
 /// Adds a callinfo trampoline to the builder.
+///
+/// Deprecated. In a future version `DynamicFunc::new` will be exposed to the C API and should be used instead of this function.
 uintptr_t wasmer_trampoline_buffer_builder_add_callinfo_trampoline(wasmer_trampoline_buffer_builder_t *builder,
                                                                    const wasmer_trampoline_callable_t *func,
                                                                    const void *ctx,

@@ -5,6 +5,7 @@ mod instructions;
 pub mod stack;
 pub mod wasm;
 
+use crate::errors::{InstructionResult, InterpreterResult};
 pub use instruction::Instruction;
 use stack::Stack;
 use std::{convert::TryFrom, marker::PhantomData};
@@ -38,7 +39,9 @@ where
 /// Type alias for an executable instruction. It's an implementation
 /// details, but an instruction is a boxed closure instance.
 pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory, MemoryView> = Box<
-    dyn Fn(&mut Runtime<Instance, Export, LocalImport, Memory, MemoryView>) -> Result<(), String>,
+    dyn Fn(
+        &mut Runtime<Instance, Export, LocalImport, Memory, MemoryView>,
+    ) -> InstructionResult<()>,
 >;
 
 /// An interpreter is the central piece of this crate. It is a set of
@@ -71,7 +74,7 @@ pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory, Mem
 /// let interpreter: Interpreter<Instance, Export, LocalImport, Memory, MemoryView> = (&vec![
 ///     Instruction::ArgumentGet { index: 1 },
 ///     Instruction::ArgumentGet { index: 0 },
-///     Instruction::CallExport { export_name: "sum" },
+///     Instruction::CallCore { function_index: 42 },
 /// ])
 ///     .try_into()
 ///     .unwrap();
@@ -81,12 +84,12 @@ pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory, Mem
 ///
 /// // 3. Creates a WebAssembly instance.
 /// let mut instance = Instance {
-///     // 3.1. Defines one exported function: `fn sum(a: i32, b: i32) -> i32 { a + b }`.
-///     exports: {
+///     // 3.1. Defines one function: `fn sum(a: i32, b: i32) -> i32 { a + b }`.
+///     locals_or_imports: {
 ///         let mut hashmap = HashMap::new();
 ///         hashmap.insert(
-///             "sum".into(),
-///             Export {
+///             42,
+///             LocalImport {
 ///                 // Defines the argument types of the function.
 ///                 inputs: vec![InterfaceType::I32, InterfaceType::I32],
 ///
@@ -154,7 +157,7 @@ where
         &self,
         invocation_inputs: &[InterfaceValue],
         wasm_instance: &mut Instance,
-    ) -> Result<Stack<InterfaceValue>, String> {
+    ) -> InterpreterResult<Stack<InterfaceValue>> {
         let mut runtime = Runtime {
             invocation_inputs,
             stack: Stack::new(),
@@ -163,10 +166,7 @@ where
         };
 
         for executable_instruction in self.iter() {
-            match executable_instruction(&mut runtime) {
-                Ok(_) => continue,
-                Err(message) => return Err(message),
-            }
+            executable_instruction(&mut runtime)?;
         }
 
         Ok(runtime.stack)
@@ -174,8 +174,7 @@ where
 }
 
 /// Transforms a `Vec<Instruction>` into an `Interpreter`.
-impl<'binary_input, Instance, Export, LocalImport, Memory, MemoryView>
-    TryFrom<&Vec<Instruction<'binary_input>>>
+impl<Instance, Export, LocalImport, Memory, MemoryView> TryFrom<&Vec<Instruction>>
     for Interpreter<Instance, Export, LocalImport, Memory, MemoryView>
 where
     Export: wasm::structures::Export,
@@ -184,65 +183,64 @@ where
     MemoryView: wasm::structures::MemoryView,
     Instance: wasm::structures::Instance<Export, LocalImport, Memory, MemoryView>,
 {
-    type Error = String;
+    type Error = ();
 
     fn try_from(instructions: &Vec<Instruction>) -> Result<Self, Self::Error> {
         let executable_instructions = instructions
             .iter()
             .map(|instruction| {
-                let instruction_name = instruction.to_string();
-
                 match instruction {
                     Instruction::ArgumentGet { index } => {
-                        instructions::argument_get(*index, instruction_name)
+                        instructions::argument_get(*index, *instruction)
                     }
-                    Instruction::Call { function_index } => {
-                        instructions::call(*function_index, instruction_name)
+                    Instruction::CallCore { function_index } => {
+                        instructions::call_core(*function_index, *instruction)
                     }
-                    Instruction::CallExport { export_name } => {
-                        instructions::call_export((*export_name).to_owned(), instruction_name)
-                    }
-                    Instruction::ReadUtf8 => instructions::read_utf8(instruction_name),
-                    Instruction::WriteUtf8 { allocator_name } => {
-                        instructions::write_utf8((*allocator_name).to_owned(), instruction_name)
+                    Instruction::MemoryToString => instructions::memory_to_string(*instruction),
+                    Instruction::StringToMemory { allocator_index } => {
+                        instructions::string_to_memory(*allocator_index, *instruction)
                     }
 
-                    Instruction::I32ToS8 => instructions::i32_to_s8(),
+                    Instruction::I32ToS8 => instructions::i32_to_s8(*instruction),
                     //Instruction::I32ToS8X
-                    Instruction::I32ToU8 => instructions::i32_to_u8(),
-                    Instruction::I32ToS16 => instructions::i32_to_s16(),
+                    Instruction::I32ToU8 => instructions::i32_to_u8(*instruction),
+                    Instruction::I32ToS16 => instructions::i32_to_s16(*instruction),
                     //Instruction::I32ToS16X
-                    Instruction::I32ToU16 => instructions::i32_to_u16(),
-                    Instruction::I32ToS32 => instructions::i32_to_s32(),
-                    Instruction::I32ToU32 => instructions::i32_to_u32(),
-                    Instruction::I32ToS64 => instructions::i32_to_s64(),
-                    Instruction::I32ToU64 => instructions::i32_to_u64(),
-                    Instruction::I64ToS8 => instructions::i64_to_s8(),
+                    Instruction::I32ToU16 => instructions::i32_to_u16(*instruction),
+                    Instruction::I32ToS32 => instructions::i32_to_s32(*instruction),
+                    Instruction::I32ToU32 => instructions::i32_to_u32(*instruction),
+                    Instruction::I32ToS64 => instructions::i32_to_s64(*instruction),
+                    Instruction::I32ToU64 => instructions::i32_to_u64(*instruction),
+                    Instruction::I64ToS8 => instructions::i64_to_s8(*instruction),
                     //Instruction::I64ToS8X
-                    Instruction::I64ToU8 => instructions::i64_to_u8(),
-                    Instruction::I64ToS16 => instructions::i64_to_s16(),
+                    Instruction::I64ToU8 => instructions::i64_to_u8(*instruction),
+                    Instruction::I64ToS16 => instructions::i64_to_s16(*instruction),
                     //Instruction::I64ToS16X
-                    Instruction::I64ToU16 => instructions::i64_to_u16(),
-                    Instruction::I64ToS32 => instructions::i64_to_s32(),
-                    Instruction::I64ToU32 => instructions::i64_to_u32(),
-                    Instruction::I64ToS64 => instructions::i64_to_s64(),
-                    Instruction::I64ToU64 => instructions::i64_to_u64(),
-                    Instruction::S8ToI32 => instructions::s8_to_i32(),
-                    Instruction::U8ToI32 => instructions::u8_to_i32(),
-                    Instruction::S16ToI32 => instructions::s16_to_i32(),
-                    Instruction::U16ToI32 => instructions::u16_to_i32(),
-                    Instruction::S32ToI32 => instructions::s32_to_i32(),
-                    Instruction::U32ToI32 => instructions::u32_to_i32(),
-                    Instruction::S64ToI32 | Instruction::S64ToI32X => instructions::s64_to_i32(),
-                    Instruction::U64ToI32 | Instruction::U64ToI32X => instructions::u64_to_i32(),
-                    Instruction::S8ToI64 => instructions::s8_to_i64(),
-                    Instruction::U8ToI64 => instructions::u8_to_i64(),
-                    Instruction::S16ToI64 => instructions::s16_to_i64(),
-                    Instruction::U16ToI64 => instructions::u16_to_i64(),
-                    Instruction::S32ToI64 => instructions::s32_to_i64(),
-                    Instruction::U32ToI64 => instructions::u32_to_i64(),
-                    Instruction::S64ToI64 => instructions::s64_to_i64(),
-                    Instruction::U64ToI64 => instructions::u64_to_i64(),
+                    Instruction::I64ToU16 => instructions::i64_to_u16(*instruction),
+                    Instruction::I64ToS32 => instructions::i64_to_s32(*instruction),
+                    Instruction::I64ToU32 => instructions::i64_to_u32(*instruction),
+                    Instruction::I64ToS64 => instructions::i64_to_s64(*instruction),
+                    Instruction::I64ToU64 => instructions::i64_to_u64(*instruction),
+                    Instruction::S8ToI32 => instructions::s8_to_i32(*instruction),
+                    Instruction::U8ToI32 => instructions::u8_to_i32(*instruction),
+                    Instruction::S16ToI32 => instructions::s16_to_i32(*instruction),
+                    Instruction::U16ToI32 => instructions::u16_to_i32(*instruction),
+                    Instruction::S32ToI32 => instructions::s32_to_i32(*instruction),
+                    Instruction::U32ToI32 => instructions::u32_to_i32(*instruction),
+                    Instruction::S64ToI32 | Instruction::S64ToI32X => {
+                        instructions::s64_to_i32(*instruction)
+                    }
+                    Instruction::U64ToI32 | Instruction::U64ToI32X => {
+                        instructions::u64_to_i32(*instruction)
+                    }
+                    Instruction::S8ToI64 => instructions::s8_to_i64(*instruction),
+                    Instruction::U8ToI64 => instructions::u8_to_i64(*instruction),
+                    Instruction::S16ToI64 => instructions::s16_to_i64(*instruction),
+                    Instruction::U16ToI64 => instructions::u16_to_i64(*instruction),
+                    Instruction::S32ToI64 => instructions::s32_to_i64(*instruction),
+                    Instruction::U32ToI64 => instructions::u32_to_i64(*instruction),
+                    Instruction::S64ToI64 => instructions::s64_to_i64(*instruction),
+                    Instruction::U64ToI64 => instructions::u64_to_i64(*instruction),
                     _ => unimplemented!(),
                 }
             })
@@ -251,26 +249,5 @@ where
         Ok(Interpreter {
             executable_instructions,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{wasm::structures::EmptyMemoryView, Instruction, Interpreter};
-    use std::convert::TryInto;
-
-    #[test]
-    fn test_interpreter_from_instructions() {
-        let instructions = vec![
-            Instruction::ArgumentGet { index: 0 },
-            Instruction::ArgumentGet { index: 0 },
-            Instruction::CallExport { export_name: "foo" },
-            Instruction::ReadUtf8,
-            Instruction::Call { function_index: 7 },
-        ];
-        let interpreter: Interpreter<(), (), (), (), EmptyMemoryView> =
-            (&instructions).try_into().unwrap();
-
-        assert_eq!(interpreter.executable_instructions.len(), 5);
     }
 }

@@ -19,7 +19,7 @@ use std::mem;
 use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::error::CompileError;
 use wasmer_runtime_core::{
-    backend::{CacheGen, Token},
+    backend::{CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
@@ -36,7 +36,7 @@ use wasmparser::Type as WpType;
 static BACKEND_ID: &str = "cranelift";
 
 pub struct CraneliftModuleCodeGenerator {
-    isa: Box<dyn isa::TargetIsa>,
+    isa: Option<Box<dyn isa::TargetIsa>>,
     signatures: Option<Arc<Map<SigIndex, FuncSig>>>,
     pub clif_signatures: Map<SigIndex, ir::Signature>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
@@ -47,9 +47,8 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     for CraneliftModuleCodeGenerator
 {
     fn new() -> Self {
-        let isa = get_isa();
         CraneliftModuleCodeGenerator {
-            isa,
+            isa: None,
             clif_signatures: Map::new(),
             functions: vec![],
             function_signatures: None,
@@ -100,7 +99,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             position: Position::default(),
             func_env: FunctionEnvironment {
                 module_info: Arc::clone(&module_info),
-                target_config: self.isa.frontend_config().clone(),
+                target_config: self.isa.as_ref().unwrap().frontend_config().clone(),
                 clif_signatures: self.clif_signatures.clone(),
             },
             loc,
@@ -162,9 +161,9 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         }
 
         let (func_resolver_builder, debug_metadata, handler_data) =
-            FuncResolverBuilder::new(&*self.isa, func_bodies, module_info)?;
+            FuncResolverBuilder::new(&**self.isa.as_ref().unwrap(), func_bodies, module_info)?;
 
-        let trampolines = Arc::new(Trampolines::new(&*self.isa, module_info));
+        let trampolines = Arc::new(Trampolines::new(&**self.isa.as_ref().unwrap(), module_info));
 
         let signatures_empty = Map::new();
         let signatures = if self.signatures.is_some() {
@@ -191,9 +190,19 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         ))
     }
 
+    fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {
+        self.isa = Some(get_isa(Some(config)));
+        Ok(())
+    }
+
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
         self.signatures = Some(Arc::new(signatures));
-        let call_conv = self.isa.frontend_config().default_call_conv;
+        let call_conv = self
+            .isa
+            .as_ref()
+            .unwrap()
+            .frontend_config()
+            .default_call_conv;
         for (_sig_idx, func_sig) in self.signatures.as_ref().unwrap().iter() {
             self.clif_signatures
                 .push(convert_func_sig(func_sig, call_conv));
@@ -209,7 +218,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         Ok(())
     }
 
-    fn feed_import_function(&mut self) -> Result<(), CodegenError> {
+    fn feed_import_function(&mut self, _sigindex: SigIndex) -> Result<(), CodegenError> {
         Ok(())
     }
 
@@ -1302,7 +1311,10 @@ fn generate_signature(
 }
 
 fn pointer_type(mcg: &CraneliftModuleCodeGenerator) -> ir::Type {
-    ir::Type::int(u16::from(mcg.isa.frontend_config().pointer_bits())).unwrap()
+    ir::Type::int(u16::from(
+        mcg.isa.as_ref().unwrap().frontend_config().pointer_bits(),
+    ))
+    .unwrap()
 }
 
 /// Declare local variables for the signature parameters that correspond to WebAssembly locals.

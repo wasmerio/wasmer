@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 use wasmer_runtime_core::{
     compile_with,
     error::RuntimeError,
@@ -12,10 +12,11 @@ use wasmer_runtime_core::{
 use wasmer_runtime_core_tests::{get_compiler, wat2wasm};
 
 macro_rules! call_and_assert {
-    ($instance:ident, $function:ident, $expected_value:expr) => {
-        let $function: Func<i32, i32> = $instance.func(stringify!($function)).unwrap();
+    ($instance:ident, $function:ident( $( $inputs:ty ),* ) -> $output:ty, ( $( $arguments:expr ),* ) == $expected_value:expr) => {
+        #[allow(unused_parens)]
+        let $function: Func<( $( $inputs ),* ), $output> = $instance.func(stringify!($function)).expect(concat!("Failed to get the `", stringify!($function), "` export function."));
 
-        let result = $function.call(1);
+        let result = $function.call( $( $arguments ),* );
 
         match (result, $expected_value) {
             (Ok(value), expected_value) => assert_eq!(
@@ -75,7 +76,13 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
   (import "env" "memory" (memory 1 1))
   (import "env" "callback_fn" (func $callback_fn (type $type)))
   (import "env" "callback_closure" (func $callback_closure (type $type)))
-  (import "env" "callback_closure_dynamic" (func $callback_closure_dynamic (type $type)))
+  (import "env" "callback_fn_dynamic" (func $callback_fn_dynamic (type $type)))
+  (import "env" "callback_fn_dynamic_panic" (func $callback_fn_dynamic_panic (type $type)))
+  (import "env" "callback_closure_dynamic_0" (func $callback_closure_dynamic_0))
+  (import "env" "callback_closure_dynamic_1" (func $callback_closure_dynamic_1 (param i32) (result i32)))
+  (import "env" "callback_closure_dynamic_2" (func $callback_closure_dynamic_2 (param i32 i64) (result i64)))
+  (import "env" "callback_closure_dynamic_3" (func $callback_closure_dynamic_3 (param i32 i64 f32) (result f32)))
+  (import "env" "callback_closure_dynamic_4" (func $callback_closure_dynamic_4 (param i32 i64 f32 f64) (result f64)))
   (import "env" "callback_closure_with_env" (func $callback_closure_with_env (type $type)))
   (import "env" "callback_fn_with_vmctx" (func $callback_fn_with_vmctx (type $type)))
   (import "env" "callback_closure_with_vmctx" (func $callback_closure_with_vmctx (type $type)))
@@ -94,9 +101,38 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
     get_local 0
     call $callback_closure)
 
-  (func (export "function_closure_dynamic") (type $type)
+  (func (export "function_fn_dynamic") (type $type)
     get_local 0
-    call $callback_closure_dynamic)
+    call $callback_fn_dynamic)
+
+  (func (export "function_fn_dynamic_panic") (type $type)
+    get_local 0
+    call $callback_fn_dynamic_panic)
+
+  (func (export "function_closure_dynamic_0")
+    call $callback_closure_dynamic_0)
+
+  (func (export "function_closure_dynamic_1") (param i32) (result i32)
+    get_local 0
+    call $callback_closure_dynamic_1)
+
+  (func (export "function_closure_dynamic_2") (param i32 i64) (result i64)
+    get_local 0
+    get_local 1
+    call $callback_closure_dynamic_2)
+
+  (func (export "function_closure_dynamic_3") (param i32 i64 f32) (result f32)
+    get_local 0
+    get_local 1
+    get_local 2
+    call $callback_closure_dynamic_3)
+
+  (func (export "function_closure_dynamic_4") (param i32 i64 f32 f64) (result f64)
+    get_local 0
+    get_local 1
+    get_local 2
+    get_local 3
+    call $callback_closure_dynamic_4)
 
   (func (export "function_closure_with_env") (type $type)
     get_local 0
@@ -154,13 +190,79 @@ fn imported_functions_forms(test: &dyn Fn(&Instance)) {
                 Ok(n + 1)
             }),
 
-            "callback_closure_dynamic" => DynamicFunc::new(
+            // Regular polymorphic function.
+            "callback_fn_dynamic" => DynamicFunc::new(
                 Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
-                |_, params| -> Vec<Value> {
-                    match params[0] {
-                        Value::I32(x) => vec![Value::I32(x + 1)],
-                        _ => unreachable!()
-                    }
+                callback_fn_dynamic,
+            ),
+
+            // Polymorphic function that panics.
+            "callback_fn_dynamic_panic" => DynamicFunc::new(
+                Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
+                callback_fn_dynamic_panic,
+            ),
+
+            // Polymorphic closure “closures”.
+            "callback_closure_dynamic_0" => DynamicFunc::new(
+                Arc::new(FuncSig::new(vec![], vec![])),
+                |_, inputs: &[Value]| -> Vec<Value> {
+                    assert!(inputs.is_empty());
+
+                    vec![]
+                }
+            ),
+            "callback_closure_dynamic_1" => DynamicFunc::new(
+                Arc::new(FuncSig::new(vec![Type::I32], vec![Type::I32])),
+                move |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Vec<Value> {
+                    assert_eq!(inputs.len(), 1);
+
+                    let memory = vmctx.memory(0);
+                    let shift_ = shift + memory.view::<i32>()[0].get();
+                    let n: i32 = (&inputs[0]).try_into().unwrap();
+
+                    vec![Value::I32(shift_ + n)]
+                }
+            ),
+            "callback_closure_dynamic_2" => DynamicFunc::new(
+                Arc::new(FuncSig::new(vec![Type::I32, Type::I64], vec![Type::I64])),
+                move |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Vec<Value> {
+                    assert_eq!(inputs.len(), 2);
+
+                    let memory = vmctx.memory(0);
+                    let shift_ = shift + memory.view::<i32>()[0].get();
+                    let i: i32 = (&inputs[0]).try_into().unwrap();
+                    let j: i64 = (&inputs[1]).try_into().unwrap();
+
+                    vec![Value::I64(shift_ as i64 + i as i64 + j)]
+                }
+            ),
+            "callback_closure_dynamic_3" => DynamicFunc::new(
+                Arc::new(FuncSig::new(vec![Type::I32, Type::I64, Type::F32], vec![Type::F32])),
+                move |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Vec<Value> {
+                    assert_eq!(inputs.len(), 3);
+
+                    let memory = vmctx.memory(0);
+                    let shift_ = shift + memory.view::<i32>()[0].get();
+                    let i: i32 = (&inputs[0]).try_into().unwrap();
+                    let j: i64 = (&inputs[1]).try_into().unwrap();
+                    let k: f32 = (&inputs[2]).try_into().unwrap();
+
+                    vec![Value::F32(shift_ as f32 + i as f32 + j as f32 + k)]
+                }
+            ),
+            "callback_closure_dynamic_4" => DynamicFunc::new(
+                Arc::new(FuncSig::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![Type::F64])),
+                move |vmctx: &mut vm::Ctx, inputs: &[Value]| -> Vec<Value> {
+                    assert_eq!(inputs.len(), 4);
+
+                    let memory = vmctx.memory(0);
+                    let shift_ = shift + memory.view::<i32>()[0].get();
+                    let i: i32 = (&inputs[0]).try_into().unwrap();
+                    let j: i64 = (&inputs[1]).try_into().unwrap();
+                    let k: f32 = (&inputs[2]).try_into().unwrap();
+                    let l: f64 = (&inputs[3]).try_into().unwrap();
+
+                    vec![Value::F64(shift_ as f64 + i as f64 + j as f64 + k as f64 + l)]
                 }
             ),
 
@@ -227,6 +329,17 @@ fn callback_fn(n: i32) -> Result<i32, ()> {
     Ok(n + 1)
 }
 
+fn callback_fn_dynamic(_: &mut vm::Ctx, inputs: &[Value]) -> Vec<Value> {
+    match inputs[0] {
+        Value::I32(x) => vec![Value::I32(x + 1)],
+        _ => unreachable!(),
+    }
+}
+
+fn callback_fn_dynamic_panic(_: &mut vm::Ctx, _: &[Value]) -> Vec<Value> {
+    panic!("test");
+}
+
 fn callback_fn_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, ()> {
     let memory = vmctx.memory(0);
     let shift_: i32 = memory.view()[0].get();
@@ -246,57 +359,83 @@ fn callback_fn_trap_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, Strin
 }
 
 macro_rules! test {
-    ($test_name:ident, $function:ident, $expected_value:expr) => {
+    ($test_name:ident, $function:ident( $( $inputs:ty ),* ) -> $output:ty, ( $( $arguments:expr ),* ) == $expected_value:expr) => {
         #[test]
         fn $test_name() {
             imported_functions_forms(&|instance| {
-                call_and_assert!(instance, $function, $expected_value);
+                call_and_assert!(instance, $function( $( $inputs ),* ) -> $output, ( $( $arguments ),* ) == $expected_value);
             });
         }
     };
 }
 
-test!(test_fn, function_fn, Ok(2));
-test!(test_closure, function_closure, Ok(2));
-test!(test_closure_dynamic, function_closure_dynamic, Ok(2));
+test!(test_fn, function_fn(i32) -> i32, (1) == Ok(2));
+test!(test_closure, function_closure(i32) -> i32, (1) == Ok(2));
+test!(test_fn_dynamic, function_fn_dynamic(i32) -> i32, (1) == Ok(2));
+test!(test_fn_dynamic_panic, function_fn_dynamic_panic(i32) -> i32, (1) == Err(RuntimeError(Box::new("test"))));
+test!(
+    test_closure_dynamic_0,
+    function_closure_dynamic_0(()) -> (),
+    () == Ok(())
+);
+test!(
+    test_closure_dynamic_1,
+    function_closure_dynamic_1(i32) -> i32,
+    (1) == Ok(1 + shift + SHIFT)
+);
+test!(
+    test_closure_dynamic_2,
+    function_closure_dynamic_2(i32, i64) -> i64,
+    (1, 2) == Ok(1 + 2 + shift as i64 + SHIFT as i64)
+);
+test!(
+    test_closure_dynamic_3,
+    function_closure_dynamic_3(i32, i64, f32) -> f32,
+    (1, 2, 3.) == Ok(1. + 2. + 3. + shift as f32 + SHIFT as f32)
+);
+test!(
+    test_closure_dynamic_4,
+    function_closure_dynamic_4(i32, i64, f32, f64) -> f64,
+    (1, 2, 3., 4.) == Ok(1. + 2. + 3. + 4. + shift as f64 + SHIFT as f64)
+);
 test!(
     test_closure_with_env,
-    function_closure_with_env,
-    Ok(2 + shift + SHIFT)
+    function_closure_with_env(i32) -> i32,
+    (1) == Ok(2 + shift + SHIFT)
 );
-test!(test_fn_with_vmctx, function_fn_with_vmctx, Ok(2 + SHIFT));
+test!(test_fn_with_vmctx, function_fn_with_vmctx(i32) -> i32, (1) == Ok(2 + SHIFT));
 test!(
     test_closure_with_vmctx,
-    function_closure_with_vmctx,
-    Ok(2 + SHIFT)
+    function_closure_with_vmctx(i32) -> i32,
+    (1) == Ok(2 + SHIFT)
 );
 test!(
     test_closure_with_vmctx_and_env,
-    function_closure_with_vmctx_and_env,
-    Ok(2 + shift + SHIFT)
+    function_closure_with_vmctx_and_env(i32) -> i32,
+    (1) == Ok(2 + shift + SHIFT)
 );
 test!(
     test_fn_trap,
-    function_fn_trap,
-    Err(RuntimeError(Box::new(format!("foo {}", 2))))
+    function_fn_trap(i32) -> i32,
+    (1) == Err(RuntimeError(Box::new(format!("foo {}", 2))))
 );
 test!(
     test_closure_trap,
-    function_closure_trap,
-    Err(RuntimeError(Box::new(format!("bar {}", 2))))
+    function_closure_trap(i32) -> i32,
+    (1) == Err(RuntimeError(Box::new(format!("bar {}", 2))))
 );
 test!(
     test_fn_trap_with_vmctx,
-    function_fn_trap_with_vmctx,
-    Err(RuntimeError(Box::new(format!("baz {}", 2 + SHIFT))))
+    function_fn_trap_with_vmctx(i32) -> i32,
+    (1) == Err(RuntimeError(Box::new(format!("baz {}", 2 + SHIFT))))
 );
 test!(
     test_closure_trap_with_vmctx,
-    function_closure_trap_with_vmctx,
-    Err(RuntimeError(Box::new(format!("qux {}", 2 + SHIFT))))
+    function_closure_trap_with_vmctx(i32) -> i32,
+    (1) == Err(RuntimeError(Box::new(format!("qux {}", 2 + SHIFT))))
 );
 test!(
     test_closure_trap_with_vmctx_and_env,
-    function_closure_trap_with_vmctx_and_env,
-    Err(RuntimeError(Box::new(format!("! {}", 2 + shift + SHIFT))))
+    function_closure_trap_with_vmctx_and_env(i32) -> i32,
+    (1) == Err(RuntimeError(Box::new(format!("! {}", 2 + shift + SHIFT))))
 );

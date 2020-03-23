@@ -1,10 +1,14 @@
-use crate::interpreter::wasm::values::InterfaceValue;
+use crate::{
+    ast::InterfaceType,
+    errors::{InstructionError, InstructionErrorKind},
+    interpreter::{wasm::values::InterfaceValue, Instruction},
+};
 use std::convert::TryInto;
 
 macro_rules! lowering_lifting {
     ($instruction_function_name:ident, $instruction_name:expr, $from_variant:ident, $to_variant:ident) => {
         executable_instruction!(
-            $instruction_function_name() -> _ {
+            $instruction_function_name(instruction: Instruction) -> _ {
                 move |runtime| -> _ {
                     match runtime.stack.pop1() {
                         Some(InterfaceValue::$from_variant(value)) => {
@@ -12,39 +16,32 @@ macro_rules! lowering_lifting {
                                 .stack
                                 .push(InterfaceValue::$to_variant(value.try_into().map_err(
                                     |_| {
-                                        concat!(
-                                            "Failed to cast `",
-                                            stringify!($from_variant),
-                                            "` to `",
-                                            stringify!($to_variant),
-                                            "`."
-                                        ).to_string()
+                                        InstructionError::new(
+                                            instruction,
+                                            InstructionErrorKind::LoweringLifting {
+                                                from: InterfaceType::$from_variant,
+                                                to: InterfaceType::$to_variant
+                                            },
+                                        )
                                     },
                                 )?))
                         }
 
                         Some(wrong_value) => {
-                            return Err(format!(
-                                concat!(
-                                    "Instruction `",
-                                    $instruction_name,
-                                    "` expects a `",
-                                    stringify!($from_variant),
-                                    "` value on the stack, got `{:?}`.",
-                                ),
-                                wrong_value
-
-                            )
-                            .to_string())
+                            return Err(InstructionError::new(
+                                instruction,
+                                InstructionErrorKind::InvalidValueOnTheStack {
+                                    expected_type: InterfaceType::$from_variant,
+                                    received_type: (&wrong_value).into(),
+                                }
+                            ))
                         },
 
                         None => {
-                            return Err(concat!(
-                                "Instruction `",
-                                $instruction_name,
-                                "` needs one value on the stack."
-                            )
-                            .to_string())
+                            return Err(InstructionError::new(
+                                instruction,
+                                InstructionErrorKind::StackIsTooSmall { needed: 1 },
+                            ))
                         }
                     }
 
@@ -103,7 +100,7 @@ mod tests {
             instructions: [Instruction::ArgumentGet { index: 0}, Instruction::I32ToS8],
             invocation_inputs: [InterfaceValue::I32(128)],
             instance: Instance::new(),
-            error: "Failed to cast `I32` to `S8`."
+            error: "`i32-to-s8` failed to cast `I32` to `S8`"
     );
 
     test_executable_instruction!(
@@ -111,7 +108,7 @@ mod tests {
             instructions: [Instruction::ArgumentGet { index: 0}, Instruction::I32ToS8],
             invocation_inputs: [InterfaceValue::I64(42)],
             instance: Instance::new(),
-            error: "Instruction `i32-to-s8` expects a `I32` value on the stack, got `I64(42)`."
+            error: "`i32-to-s8` read a value of type `I64` from the stack, but the type `I32` was expected"
     );
 
     test_executable_instruction!(
@@ -119,7 +116,7 @@ mod tests {
             instructions: [Instruction::I32ToS8],
             invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
-            error: "Instruction `i32-to-s8` needs one value on the stack."
+            error: "`i32-to-s8` needed to read `1` value(s) from the stack, but it doesn't contain enough data"
     );
 
     test_executable_instruction!(

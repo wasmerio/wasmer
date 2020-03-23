@@ -32,14 +32,15 @@ use wasmer_runtime_core::{
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{
-        x64::new_machine_state, x64::X64Register, FunctionStateMap, MachineState, MachineValue,
-        ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
+        x64::new_machine_state, x64::X64Register, x64_decl::ArgumentRegisterAllocator,
+        FunctionStateMap, MachineState, MachineValue, ModuleStateMap, OffsetInfo, SuspendOffset,
+        WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
     typed_func::{Trampoline, Wasm},
     types::{
-        FuncIndex, FuncSig, GlobalIndex, LocalFuncIndex, LocalOrImport, MemoryIndex, SigIndex,
-        TableIndex, Type,
+        FuncIndex, FuncSig, GlobalIndex, ImportedGlobalIndex, LocalFuncIndex, LocalGlobalIndex,
+        LocalOrImport, MemoryIndex, SigIndex, TableIndex, Type,
     },
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
     wasmparser::{MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType},
@@ -204,6 +205,7 @@ pub struct X64FunctionCode {
 
     signatures: Arc<Map<SigIndex, FuncSig>>,
     function_signatures: Arc<Map<FuncIndex, SigIndex>>,
+    signature: FuncSig,
     fsm: FunctionStateMap,
     offset: usize,
 
@@ -218,8 +220,12 @@ pub struct X64FunctionCode {
     returns: SmallVec<[WpType; 1]>,
     locals: Vec<Location>,
     num_params: usize,
-    num_locals: usize,
+    local_types: Vec<WpType>,
     value_stack: Vec<Location>,
+
+    /// Metadata about floating point values on the stack.
+    fp_stack: Vec<FloatValue>,
+
     control_stack: Vec<ControlFrame>,
     machine: Machine,
     unreachable_depth: usize,
@@ -227,6 +233,127 @@ pub struct X64FunctionCode {
     config: Arc<CodegenConfig>,
 
     exception_table: Option<ExceptionTable>,
+}
+
+/// Metadata about a floating-point value.
+#[derive(Copy, Clone, Debug)]
+struct FloatValue {
+    /// Do we need to canonicalize the value before its bit pattern is next observed? If so, how?
+    canonicalization: Option<CanonicalizeType>,
+
+    /// Corresponding depth in the main value stack.
+    depth: usize,
+}
+
+impl FloatValue {
+    fn new(depth: usize) -> Self {
+        FloatValue {
+            canonicalization: None,
+            depth,
+        }
+    }
+
+    fn cncl_f32(depth: usize) -> Self {
+        FloatValue {
+            canonicalization: Some(CanonicalizeType::F32),
+            depth,
+        }
+    }
+
+    fn cncl_f64(depth: usize) -> Self {
+        FloatValue {
+            canonicalization: Some(CanonicalizeType::F64),
+            depth,
+        }
+    }
+
+    fn promote(self, depth: usize) -> FloatValue {
+        FloatValue {
+            canonicalization: match self.canonicalization {
+                Some(CanonicalizeType::F32) => Some(CanonicalizeType::F64),
+                Some(CanonicalizeType::F64) => panic!("cannot promote F64"),
+                None => None,
+            },
+            depth,
+        }
+    }
+
+    fn demote(self, depth: usize) -> FloatValue {
+        FloatValue {
+            canonicalization: match self.canonicalization {
+                Some(CanonicalizeType::F64) => Some(CanonicalizeType::F32),
+                Some(CanonicalizeType::F32) => panic!("cannot demote F32"),
+                None => None,
+            },
+            depth,
+        }
+    }
+}
+
+/// Type of a pending canonicalization floating point value.
+/// Sometimes we don't have the type information elsewhere and therefore we need to track it here.
+#[derive(Copy, Clone, Debug)]
+enum CanonicalizeType {
+    F32,
+    F64,
+}
+
+impl CanonicalizeType {
+    fn to_size(&self) -> Size {
+        match self {
+            CanonicalizeType::F32 => Size::S32,
+            CanonicalizeType::F64 => Size::S64,
+        }
+    }
+}
+
+trait PopMany<T> {
+    fn peek1(&self) -> Result<&T, CodegenError>;
+    fn pop1(&mut self) -> Result<T, CodegenError>;
+    fn pop2(&mut self) -> Result<(T, T), CodegenError>;
+}
+
+impl<T> PopMany<T> for Vec<T> {
+    fn peek1(&self) -> Result<&T, CodegenError> {
+        match self.last() {
+            Some(x) => Ok(x),
+            None => Err(CodegenError {
+                message: "peek1() expects at least 1 element".into(),
+            }),
+        }
+    }
+    fn pop1(&mut self) -> Result<T, CodegenError> {
+        match self.pop() {
+            Some(x) => Ok(x),
+            None => Err(CodegenError {
+                message: "pop1() expects at least 1 element".into(),
+            }),
+        }
+    }
+    fn pop2(&mut self) -> Result<(T, T), CodegenError> {
+        if self.len() < 2 {
+            return Err(CodegenError {
+                message: "pop2() expects at least 2 elements".into(),
+            });
+        }
+
+        let right = self.pop().unwrap();
+        let left = self.pop().unwrap();
+        Ok((left, right))
+    }
+}
+
+trait WpTypeExt {
+    fn is_float(&self) -> bool;
+}
+
+impl WpTypeExt for WpType {
+    fn is_float(&self) -> bool {
+        match self {
+            WpType::F32 | WpType::F64 => true,
+            _ => false,
+        }
+    }
 }
 
 enum FuncPtrInner {}
@@ -280,6 +407,7 @@ pub struct ControlFrame {
     pub if_else: IfElseState,
     pub returns: SmallVec<[WpType; 1]>,
     pub value_stack_depth: usize,
+    pub fp_stack_depth: usize,
     pub state: MachineState,
     pub state_diff_id: usize,
 }
@@ -643,6 +771,7 @@ struct CodegenConfig {
     enforce_stack_check: bool,
     track_state: bool,
     full_preemption: bool,
+    nan_canonicalization: bool,
 }
 
 impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
@@ -712,11 +841,22 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         machine.track_state = self.config.as_ref().unwrap().track_state;
 
         assembler.emit_label(begin_label);
+
+        let signatures = self.signatures.as_ref().unwrap();
+        let function_signatures = self.function_signatures.as_ref().unwrap();
+        let sig_index = function_signatures
+            .get(FuncIndex::new(
+                self.functions.len() + self.func_import_count,
+            ))
+            .unwrap()
+            .clone();
+        let sig = signatures.get(sig_index).unwrap().clone();
         let code = X64FunctionCode {
             local_function_id: self.functions.len(),
 
-            signatures: self.signatures.as_ref().unwrap().clone(),
-            function_signatures: self.function_signatures.as_ref().unwrap().clone(),
+            signatures: signatures.clone(),
+            function_signatures: function_signatures.clone(),
+            signature: sig,
             fsm: FunctionStateMap::new(new_machine_state(), self.functions.len(), 32, vec![]), // only a placeholder; this is initialized later in `begin_body`
             offset: begin_offset.0,
 
@@ -725,9 +865,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             breakpoints: Some(breakpoints),
             returns: smallvec![],
             locals: vec![],
+            local_types: vec![],
             num_params: 0,
-            num_locals: 0,
             value_stack: vec![],
+            fp_stack: vec![],
             control_stack: vec![],
             machine,
             unreachable_depth: 0,
@@ -869,7 +1010,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         Ok(())
     }
 
-    fn feed_import_function(&mut self) -> Result<(), CodegenError> {
+    fn feed_import_function(&mut self, sigindex: SigIndex) -> Result<(), CodegenError> {
         let labels = self.function_labels.as_mut().unwrap();
         let id = labels.len();
 
@@ -879,6 +1020,92 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         let label = a.get_label();
         a.emit_label(label);
         labels.insert(id, (label, Some(offset)));
+
+        // Singlepass internally treats all arguments as integers, but the standard System V calling convention requires
+        // floating point arguments to be passed in XMM registers.
+        //
+        // FIXME: This is only a workaround. We should fix singlepass to use the standard CC.
+        let sig = self
+            .signatures
+            .as_ref()
+            .expect("signatures itself")
+            .get(sigindex)
+            .expect("signatures");
+        // Translation is expensive, so only do it if needed.
+        if sig
+            .params()
+            .iter()
+            .find(|&&x| x == Type::F32 || x == Type::F64)
+            .is_some()
+        {
+            let mut param_locations: Vec<Location> = vec![];
+
+            // Allocate stack space for arguments.
+            let stack_offset: i32 = if sig.params().len() > 5 {
+                5 * 8
+            } else {
+                (sig.params().len() as i32) * 8
+            };
+            if stack_offset > 0 {
+                a.emit_sub(
+                    Size::S64,
+                    Location::Imm32(stack_offset as u32),
+                    Location::GPR(GPR::RSP),
+                );
+            }
+
+            // Store all arguments to the stack to prevent overwrite.
+            for i in 0..sig.params().len() {
+                let loc = match i {
+                    0..=4 => {
+                        static PARAM_REGS: &'static [GPR] =
+                            &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+                        let loc = Location::Memory(GPR::RSP, (i * 8) as i32);
+                        a.emit_mov(Size::S64, Location::GPR(PARAM_REGS[i]), loc);
+                        loc
+                    }
+                    _ => Location::Memory(GPR::RSP, stack_offset + 8 + ((i - 5) * 8) as i32),
+                };
+                param_locations.push(loc);
+            }
+
+            // Copy arguments.
+            let mut argalloc = ArgumentRegisterAllocator::default();
+            argalloc.next(Type::I32).unwrap(); // skip vm::Ctx
+            let mut caller_stack_offset: i32 = 0;
+            for (i, ty) in sig.params().iter().enumerate() {
+                let prev_loc = param_locations[i];
+                let target = match argalloc.next(*ty) {
+                    Some(X64Register::GPR(gpr)) => Location::GPR(gpr),
+                    Some(X64Register::XMM(xmm)) => Location::XMM(xmm),
+                    None => {
+                        // No register can be allocated. Put this argument on the stack.
+                        //
+                        // Since here we never use fewer registers than by the original call, on the caller's frame
+                        // we always have enough space to store the rearranged arguments, and the copy "backward" between different
+                        // slots in the caller argument region will always work.
+                        a.emit_mov(Size::S64, prev_loc, Location::GPR(GPR::RAX));
+                        a.emit_mov(
+                            Size::S64,
+                            Location::GPR(GPR::RAX),
+                            Location::Memory(GPR::RSP, stack_offset + 8 + caller_stack_offset),
+                        );
+                        caller_stack_offset += 8;
+                        continue;
+                    }
+                };
+                a.emit_mov(Size::S64, prev_loc, target);
+            }
+
+            // Restore stack pointer.
+            if stack_offset > 0 {
+                a.emit_add(
+                    Size::S64,
+                    Location::Imm32(stack_offset as u32),
+                    Location::GPR(GPR::RSP),
+                );
+            }
+        }
 
         // Emits a tail call trampoline that loads the address of the target import function
         // from Ctx and jumps to it.
@@ -922,6 +1149,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
             enforce_stack_check: config.enforce_stack_check,
             track_state: config.track_state,
             full_preemption: config.full_preemption,
+            nan_canonicalization: config.nan_canonicalization,
         }));
         Ok(())
     }
@@ -1002,6 +1230,53 @@ impl X64FunctionCode {
             etable.offset_to_code.insert(i, code);
         }
         ret
+    }
+
+    /// Canonicalizes the floating point value at `input` into `output`.
+    fn canonicalize_nan(
+        a: &mut Assembler,
+        m: &mut Machine,
+        sz: Size,
+        input: Location,
+        output: Location,
+    ) {
+        let tmp1 = m.acquire_temp_xmm().unwrap();
+        let tmp2 = m.acquire_temp_xmm().unwrap();
+        let tmp3 = m.acquire_temp_xmm().unwrap();
+        let tmpg1 = m.acquire_temp_gpr().unwrap();
+
+        Self::emit_relaxed_binop(a, m, Assembler::emit_mov, sz, input, Location::XMM(tmp1));
+
+        match sz {
+            Size::S32 => {
+                a.emit_vcmpunordss(tmp1, XMMOrMemory::XMM(tmp1), tmp2);
+                a.emit_mov(
+                    Size::S32,
+                    Location::Imm32(0x7FC0_0000), // Canonical NaN
+                    Location::GPR(tmpg1),
+                );
+                a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp3));
+                a.emit_vblendvps(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1);
+            }
+            Size::S64 => {
+                a.emit_vcmpunordsd(tmp1, XMMOrMemory::XMM(tmp1), tmp2);
+                a.emit_mov(
+                    Size::S64,
+                    Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
+                    Location::GPR(tmpg1),
+                );
+                a.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp3));
+                a.emit_vblendvpd(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1);
+            }
+            _ => unreachable!(),
+        }
+
+        Self::emit_relaxed_binop(a, m, Assembler::emit_mov, sz, Location::XMM(tmp1), output);
+
+        m.release_temp_gpr(tmpg1);
+        m.release_temp_xmm(tmp3);
+        m.release_temp_xmm(tmp2);
+        m.release_temp_xmm(tmp1);
     }
 
     /// Moves `loc` to a valid location for `div`/`idiv`.
@@ -2407,14 +2682,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         Ok(())
     }
 
-    fn feed_param(&mut self, _ty: WpType) -> Result<(), CodegenError> {
+    fn feed_param(&mut self, ty: WpType) -> Result<(), CodegenError> {
         self.num_params += 1;
-        self.num_locals += 1;
+        self.local_types.push(ty);
         Ok(())
     }
 
-    fn feed_local(&mut self, _ty: WpType, n: usize, _loc: u32) -> Result<(), CodegenError> {
-        self.num_locals += n;
+    fn feed_local(&mut self, ty: WpType, n: usize, _loc: u32) -> Result<(), CodegenError> {
+        self.local_types.extend(iter::repeat(ty).take(n));
         Ok(())
     }
 
@@ -2451,7 +2726,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
         self.locals = self
             .machine
-            .init_locals(a, self.num_locals, self.num_params);
+            .init_locals(a, self.local_types.len(), self.num_params);
 
         self.machine.state.register_values
             [X64Register::GPR(Machine::get_vmctx_reg()).to_index().0] = MachineValue::Vmctx;
@@ -2479,6 +2754,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             if_else: IfElseState::None,
             returns: self.returns.clone(),
             value_stack_depth: 0,
+            fp_stack_depth: 0,
             state: self.machine.state.clone(),
             state_diff_id,
         });
@@ -2532,6 +2808,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
         module_info: &ModuleInfo,
         _source_loc: u32,
     ) -> Result<(), CodegenError> {
+        assert!(self.fp_stack.len() <= self.value_stack.len());
+
         let a = self.assembler.as_mut().unwrap();
 
         match ev {
@@ -2698,12 +2976,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(tmp, (local_index.index() as i32) * 8),
                             Location::GPR(tmp),
                         );
+                        let ty = type_to_wp_type(module_info.globals[local_index].desc.ty);
+                        if ty.is_float() {
+                            self.fp_stack
+                                .push(FloatValue::new(self.value_stack.len() - 1));
+                        }
                         self.machine.acquire_locations(
                             a,
-                            &[(
-                                type_to_wp_type(module_info.globals[local_index].desc.ty),
-                                MachineValue::WasmStack(self.value_stack.len()),
-                            )],
+                            &[(ty, MachineValue::WasmStack(self.value_stack.len()))],
                             false,
                         )[0]
                     }
@@ -2721,12 +3001,14 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             Location::Memory(tmp, (import_index.index() as i32) * 8),
                             Location::GPR(tmp),
                         );
+                        let ty = type_to_wp_type(module_info.imported_globals[import_index].1.ty);
+                        if ty.is_float() {
+                            self.fp_stack
+                                .push(FloatValue::new(self.value_stack.len() - 1));
+                        }
                         self.machine.acquire_locations(
                             a,
-                            &[(
-                                type_to_wp_type(module_info.imported_globals[import_index].1.ty),
-                                MachineValue::WasmStack(self.value_stack.len()),
-                            )],
+                            &[(ty, MachineValue::WasmStack(self.value_stack.len()))],
                             false,
                         )[0]
                     }
@@ -2751,7 +3033,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
 
-                if global_index < module_info.imported_globals.len() {
+                let ty = if global_index < module_info.imported_globals.len() {
                     a.emit_mov(
                         Size::S64,
                         Location::Memory(
@@ -2760,6 +3042,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         ),
                         Location::GPR(tmp),
                     );
+                    type_to_wp_type(
+                        module_info.imported_globals[ImportedGlobalIndex::new(global_index)]
+                            .1
+                            .ty,
+                    )
                 } else {
                     global_index -= module_info.imported_globals.len();
                     if global_index >= module_info.globals.len() {
@@ -2775,21 +3062,54 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         ),
                         Location::GPR(tmp),
                     );
-                }
+                    type_to_wp_type(
+                        module_info.globals[LocalGlobalIndex::new(global_index)]
+                            .desc
+                            .ty,
+                    )
+                };
                 a.emit_mov(
                     Size::S64,
                     Location::Memory(tmp, (global_index as i32) * 8),
                     Location::GPR(tmp),
                 );
-                Self::emit_relaxed_binop(
-                    a,
-                    &mut self.machine,
-                    Assembler::emit_mov,
-                    Size::S64,
-                    loc,
-                    Location::Memory(tmp, LocalGlobal::offset_data() as i32),
-                );
-
+                if ty.is_float() {
+                    let fp = self.fp_stack.pop1()?;
+                    if a.arch_supports_canonicalize_nan()
+                        && self.config.nan_canonicalization
+                        && fp.canonicalization.is_some()
+                    {
+                        Self::canonicalize_nan(
+                            a,
+                            &mut self.machine,
+                            match ty {
+                                WpType::F32 => Size::S32,
+                                WpType::F64 => Size::S64,
+                                _ => unreachable!(),
+                            },
+                            loc,
+                            Location::Memory(tmp, LocalGlobal::offset_data() as i32),
+                        );
+                    } else {
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            loc,
+                            Location::Memory(tmp, LocalGlobal::offset_data() as i32),
+                        );
+                    }
+                } else {
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        Location::Memory(tmp, LocalGlobal::offset_data() as i32),
+                    );
+                }
                 self.machine.release_temp_gpr(tmp);
             }
             Operator::LocalGet { local_index } => {
@@ -2808,33 +3128,95 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     ret,
                 );
                 self.value_stack.push(ret);
+                if self.local_types[local_index].is_float() {
+                    self.fp_stack
+                        .push(FloatValue::new(self.value_stack.len() - 1));
+                }
             }
             Operator::LocalSet { local_index } => {
                 let local_index = local_index as usize;
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
 
-                Self::emit_relaxed_binop(
-                    a,
-                    &mut self.machine,
-                    Assembler::emit_mov,
-                    Size::S64,
-                    loc,
-                    self.locals[local_index],
-                );
+                if self.local_types[local_index].is_float() {
+                    let fp = self.fp_stack.pop1()?;
+                    if a.arch_supports_canonicalize_nan()
+                        && self.config.nan_canonicalization
+                        && fp.canonicalization.is_some()
+                    {
+                        Self::canonicalize_nan(
+                            a,
+                            &mut self.machine,
+                            match self.local_types[local_index] {
+                                WpType::F32 => Size::S32,
+                                WpType::F64 => Size::S64,
+                                _ => unreachable!(),
+                            },
+                            loc,
+                            self.locals[local_index],
+                        );
+                    } else {
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            loc,
+                            self.locals[local_index],
+                        );
+                    }
+                } else {
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        self.locals[local_index],
+                    );
+                }
             }
             Operator::LocalTee { local_index } => {
                 let local_index = local_index as usize;
                 let loc = *self.value_stack.last().unwrap();
 
-                Self::emit_relaxed_binop(
-                    a,
-                    &mut self.machine,
-                    Assembler::emit_mov,
-                    Size::S64,
-                    loc,
-                    self.locals[local_index],
-                );
+                if self.local_types[local_index].is_float() {
+                    let fp = self.fp_stack.peek1()?;
+                    if a.arch_supports_canonicalize_nan()
+                        && self.config.nan_canonicalization
+                        && fp.canonicalization.is_some()
+                    {
+                        Self::canonicalize_nan(
+                            a,
+                            &mut self.machine,
+                            match self.local_types[local_index] {
+                                WpType::F32 => Size::S32,
+                                WpType::F64 => Size::S64,
+                                _ => unreachable!(),
+                            },
+                            loc,
+                            self.locals[local_index],
+                        );
+                    } else {
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            loc,
+                            self.locals[local_index],
+                        );
+                    }
+                } else {
+                    Self::emit_relaxed_binop(
+                        a,
+                        &mut self.machine,
+                        Assembler::emit_mov,
+                        Size::S64,
+                        loc,
+                        self.locals[local_index],
+                    );
+                }
             }
             Operator::I32Const { value } => {
                 self.value_stack.push(Location::Imm32(value as u32));
@@ -3806,36 +4188,61 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
             Operator::F32Const { value } => {
                 self.value_stack.push(Location::Imm32(value.bits()));
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1));
                 self.machine
                     .state
                     .wasm_stack
                     .push(WasmAbstractValue::Const(value.bits() as u64));
             }
-            Operator::F32Add => Self::emit_fp_binop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vaddss,
-            )?,
-            Operator::F32Sub => Self::emit_fp_binop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vsubss,
-            )?,
-            Operator::F32Mul => Self::emit_fp_binop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vmulss,
-            )?,
-            Operator::F32Div => Self::emit_fp_binop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vdivss,
-            )?,
+            Operator::F32Add => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
+                Self::emit_fp_binop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vaddss,
+                )?;
+            }
+            Operator::F32Sub => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
+                Self::emit_fp_binop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vsubss,
+                )?
+            }
+            Operator::F32Mul => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
+                Self::emit_fp_binop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vmulss,
+                )?
+            }
+            Operator::F32Div => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
+                Self::emit_fp_binop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vdivss,
+                )?
+            }
             Operator::F32Max => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 2));
                 if !a.arch_supports_canonicalize_nan() {
                     Self::emit_fp_binop_avx(
                         a,
@@ -3959,6 +4366,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
             Operator::F32Min => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 2));
                 if !a.arch_supports_canonicalize_nan() {
                     Self::emit_fp_binop_avx(
                         a,
@@ -4087,72 +4497,115 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.release_temp_xmm(tmp1);
                 }
             }
-            Operator::F32Eq => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpeqss,
-            )?,
-            Operator::F32Ne => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpneqss,
-            )?,
-            Operator::F32Lt => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpltss,
-            )?,
-            Operator::F32Le => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpless,
-            )?,
-            Operator::F32Gt => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpgtss,
-            )?,
-            Operator::F32Ge => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpgess,
-            )?,
-            Operator::F32Nearest => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vroundss_nearest,
-            )?,
-            Operator::F32Floor => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vroundss_floor,
-            )?,
-            Operator::F32Ceil => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vroundss_ceil,
-            )?,
-            Operator::F32Trunc => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vroundss_trunc,
-            )?,
-            Operator::F32Sqrt => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vsqrtss,
-            )?,
+            Operator::F32Eq => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpeqss,
+                )?
+            }
+            Operator::F32Ne => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpneqss,
+                )?
+            }
+            Operator::F32Lt => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpltss,
+                )?
+            }
+            Operator::F32Le => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpless,
+                )?
+            }
+            Operator::F32Gt => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpgtss,
+                )?
+            }
+            Operator::F32Ge => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpgess,
+                )?
+            }
+            Operator::F32Nearest => {
+                self.fp_stack.pop1()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vroundss_nearest,
+                )?
+            }
+            Operator::F32Floor => {
+                self.fp_stack.pop1()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vroundss_floor,
+                )?
+            }
+            Operator::F32Ceil => {
+                self.fp_stack.pop1()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vroundss_ceil,
+                )?
+            }
+            Operator::F32Trunc => {
+                self.fp_stack.pop1()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vroundss_trunc,
+                )?
+            }
+            Operator::F32Sqrt => {
+                self.fp_stack.pop1()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vsqrtss,
+                )?
+            }
 
             Operator::F32Copysign => {
                 let loc_b =
@@ -4166,10 +4619,34 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
+                let (fp_src1, fp_src2) = self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1));
+
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
-                a.emit_mov(Size::S32, loc_a, Location::GPR(tmp1));
-                a.emit_mov(Size::S32, loc_b, Location::GPR(tmp2));
+
+                if a.arch_supports_canonicalize_nan() && self.config.nan_canonicalization {
+                    for (fp, loc, tmp) in [(fp_src1, loc_a, tmp1), (fp_src2, loc_b, tmp2)].iter() {
+                        match fp.canonicalization {
+                            Some(_) => {
+                                Self::canonicalize_nan(
+                                    a,
+                                    &mut self.machine,
+                                    Size::S32,
+                                    *loc,
+                                    Location::GPR(*tmp),
+                                );
+                            }
+                            None => {
+                                a.emit_mov(Size::S32, *loc, Location::GPR(*tmp));
+                            }
+                        }
+                    }
+                } else {
+                    a.emit_mov(Size::S32, loc_a, Location::GPR(tmp1));
+                    a.emit_mov(Size::S32, loc_b, Location::GPR(tmp2));
+                }
                 a.emit_and(
                     Size::S32,
                     Location::Imm32(0x7fffffffu32),
@@ -4187,6 +4664,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
 
             Operator::F32Abs => {
+                // Preserve canonicalization state.
+
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4207,6 +4686,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
 
             Operator::F32Neg => {
+                // Preserve canonicalization state.
+
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4247,36 +4728,62 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
             Operator::F64Const { value } => {
                 self.value_stack.push(Location::Imm64(value.bits()));
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1));
                 self.machine
                     .state
                     .wasm_stack
                     .push(WasmAbstractValue::Const(value.bits()));
             }
-            Operator::F64Add => Self::emit_fp_binop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vaddsd,
-            )?,
-            Operator::F64Sub => Self::emit_fp_binop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vsubsd,
-            )?,
-            Operator::F64Mul => Self::emit_fp_binop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vmulsd,
-            )?,
-            Operator::F64Div => Self::emit_fp_binop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vdivsd,
-            )?,
+            Operator::F64Add => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
+                Self::emit_fp_binop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vaddsd,
+                )?
+            }
+            Operator::F64Sub => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
+                Self::emit_fp_binop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vsubsd,
+                )?
+            }
+            Operator::F64Mul => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
+                Self::emit_fp_binop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vmulsd,
+                )?
+            }
+            Operator::F64Div => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
+                Self::emit_fp_binop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vdivsd,
+                )?
+            }
             Operator::F64Max => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 2));
+
                 if !a.arch_supports_canonicalize_nan() {
                     Self::emit_fp_binop_avx(
                         a,
@@ -4400,6 +4907,10 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
             Operator::F64Min => {
+                self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 2));
+
                 if !a.arch_supports_canonicalize_nan() {
                     Self::emit_fp_binop_avx(
                         a,
@@ -4528,72 +5039,115 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.release_temp_xmm(tmp1);
                 }
             }
-            Operator::F64Eq => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpeqsd,
-            )?,
-            Operator::F64Ne => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpneqsd,
-            )?,
-            Operator::F64Lt => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpltsd,
-            )?,
-            Operator::F64Le => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmplesd,
-            )?,
-            Operator::F64Gt => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpgtsd,
-            )?,
-            Operator::F64Ge => Self::emit_fp_cmpop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcmpgesd,
-            )?,
-            Operator::F64Nearest => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vroundsd_nearest,
-            )?,
-            Operator::F64Floor => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vroundsd_floor,
-            )?,
-            Operator::F64Ceil => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vroundsd_ceil,
-            )?,
-            Operator::F64Trunc => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vroundsd_trunc,
-            )?,
-            Operator::F64Sqrt => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vsqrtsd,
-            )?,
+            Operator::F64Eq => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpeqsd,
+                )?
+            }
+            Operator::F64Ne => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpneqsd,
+                )?
+            }
+            Operator::F64Lt => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpltsd,
+                )?
+            }
+            Operator::F64Le => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmplesd,
+                )?
+            }
+            Operator::F64Gt => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpgtsd,
+                )?
+            }
+            Operator::F64Ge => {
+                self.fp_stack.pop2()?;
+                Self::emit_fp_cmpop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcmpgesd,
+                )?
+            }
+            Operator::F64Nearest => {
+                self.fp_stack.pop1()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vroundsd_nearest,
+                )?
+            }
+            Operator::F64Floor => {
+                self.fp_stack.pop1()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vroundsd_floor,
+                )?
+            }
+            Operator::F64Ceil => {
+                self.fp_stack.pop1()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vroundsd_ceil,
+                )?
+            }
+            Operator::F64Trunc => {
+                self.fp_stack.pop1()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vroundsd_trunc,
+                )?
+            }
+            Operator::F64Sqrt => {
+                self.fp_stack.pop1()?;
+                self.fp_stack
+                    .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vsqrtsd,
+                )?
+            }
 
             Operator::F64Copysign => {
                 let loc_b =
@@ -4607,12 +5161,36 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 )[0];
                 self.value_stack.push(ret);
 
+                let (fp_src1, fp_src2) = self.fp_stack.pop2()?;
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1));
+
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
-                let c = self.machine.acquire_temp_gpr().unwrap();
 
-                a.emit_mov(Size::S64, loc_a, Location::GPR(tmp1));
-                a.emit_mov(Size::S64, loc_b, Location::GPR(tmp2));
+                if a.arch_supports_canonicalize_nan() && self.config.nan_canonicalization {
+                    for (fp, loc, tmp) in [(fp_src1, loc_a, tmp1), (fp_src2, loc_b, tmp2)].iter() {
+                        match fp.canonicalization {
+                            Some(_) => {
+                                Self::canonicalize_nan(
+                                    a,
+                                    &mut self.machine,
+                                    Size::S64,
+                                    *loc,
+                                    Location::GPR(*tmp),
+                                );
+                            }
+                            None => {
+                                a.emit_mov(Size::S64, *loc, Location::GPR(*tmp));
+                            }
+                        }
+                    }
+                } else {
+                    a.emit_mov(Size::S64, loc_a, Location::GPR(tmp1));
+                    a.emit_mov(Size::S64, loc_b, Location::GPR(tmp2));
+                }
+
+                let c = self.machine.acquire_temp_gpr().unwrap();
 
                 a.emit_mov(
                     Size::S64,
@@ -4637,6 +5215,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
 
             Operator::F64Abs => {
+                // Preserve canonicalization state.
+
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4663,6 +5243,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
 
             Operator::F64Neg => {
+                // Preserve canonicalization state.
+
                 let loc =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let ret = self.machine.acquire_locations(
@@ -4700,18 +5282,26 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                 }
             }
 
-            Operator::F64PromoteF32 => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcvtss2sd,
-            )?,
-            Operator::F32DemoteF64 => Self::emit_fp_unop_avx(
-                a,
-                &mut self.machine,
-                &mut self.value_stack,
-                Assembler::emit_vcvtsd2ss,
-            )?,
+            Operator::F64PromoteF32 => {
+                let fp = self.fp_stack.pop1()?;
+                self.fp_stack.push(fp.promote(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcvtss2sd,
+                )?
+            }
+            Operator::F32DemoteF64 => {
+                let fp = self.fp_stack.pop1()?;
+                self.fp_stack.push(fp.demote(self.value_stack.len() - 1));
+                Self::emit_fp_unop_avx(
+                    a,
+                    &mut self.machine,
+                    &mut self.value_stack,
+                    Assembler::emit_vcvtsd2ss,
+                )?
+            }
 
             Operator::I32ReinterpretF32 => {
                 let loc =
@@ -4722,16 +5312,24 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                let fp = self.fp_stack.pop1()?;
 
-                if loc != ret {
-                    Self::emit_relaxed_binop(
-                        a,
-                        &mut self.machine,
-                        Assembler::emit_mov,
-                        Size::S32,
-                        loc,
-                        ret,
-                    );
+                if !a.arch_supports_canonicalize_nan()
+                    || !self.config.nan_canonicalization
+                    || fp.canonicalization.is_none()
+                {
+                    if loc != ret {
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S32,
+                            loc,
+                            ret,
+                        );
+                    }
+                } else {
+                    Self::canonicalize_nan(a, &mut self.machine, Size::S32, loc, ret);
                 }
             }
             Operator::F32ReinterpretI32 => {
@@ -4743,6 +5341,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1));
 
                 if loc != ret {
                     Self::emit_relaxed_binop(
@@ -4765,16 +5365,24 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                let fp = self.fp_stack.pop1()?;
 
-                if loc != ret {
-                    Self::emit_relaxed_binop(
-                        a,
-                        &mut self.machine,
-                        Assembler::emit_mov,
-                        Size::S64,
-                        loc,
-                        ret,
-                    );
+                if !a.arch_supports_canonicalize_nan()
+                    || !self.config.nan_canonicalization
+                    || fp.canonicalization.is_none()
+                {
+                    if loc != ret {
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            loc,
+                            ret,
+                        );
+                    }
+                } else {
+                    Self::canonicalize_nan(a, &mut self.machine, Size::S64, loc, ret);
                 }
             }
             Operator::F64ReinterpretI64 => {
@@ -4786,6 +5394,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1));
 
                 if loc != ret {
                     Self::emit_relaxed_binop(
@@ -4808,6 +5418,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 if a.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
@@ -4868,6 +5479,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
@@ -4919,6 +5531,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 if a.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
@@ -4979,6 +5592,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
@@ -5037,6 +5651,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 if a.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
@@ -5097,6 +5712,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
@@ -5155,6 +5771,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 if a.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
@@ -5239,6 +5856,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
@@ -5316,6 +5934,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 if a.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
@@ -5377,6 +5996,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
@@ -5429,6 +6049,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 if a.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
@@ -5495,6 +6116,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
@@ -5558,6 +6180,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 if a.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
@@ -5619,6 +6242,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
@@ -5677,6 +6301,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 if a.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
@@ -5762,6 +6387,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack.pop1()?;
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
@@ -5839,6 +6465,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i32 to f32 never results in NaN.
 
                 if a.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
@@ -5883,6 +6511,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i32 to f32 never results in NaN.
+
                 if a.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
@@ -5926,6 +6557,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i64 to f32 never results in NaN.
+
                 if a.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
@@ -5969,6 +6603,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i64 to f32 never results in NaN.
+
                 if a.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
@@ -6029,6 +6666,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i32 to f64 never results in NaN.
 
                 if a.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
@@ -6073,6 +6712,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i32 to f64 never results in NaN.
 
                 if a.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
@@ -6117,6 +6758,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i64 to f64 never results in NaN.
 
                 if a.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
@@ -6161,6 +6804,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i64 to f64 never results in NaN.
 
                 if a.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
@@ -6240,6 +6885,31 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 self.machine.release_locations_only_osr_state(params.len());
 
+                // Pop arguments off the FP stack and canonicalize them if needed.
+                //
+                // Canonicalization state will be lost across function calls, so early canonicalization
+                // is necessary here.
+                while let Some(fp) = self.fp_stack.last() {
+                    if fp.depth >= self.value_stack.len() {
+                        let index = fp.depth - self.value_stack.len();
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization
+                            && fp.canonicalization.is_some()
+                        {
+                            Self::canonicalize_nan(
+                                a,
+                                &mut self.machine,
+                                fp.canonicalization.unwrap().to_size(),
+                                params[index],
+                                params[index],
+                            );
+                        }
+                        self.fp_stack.pop().unwrap();
+                    } else {
+                        break;
+                    }
+                }
+
                 Self::emit_call_sysv_label(
                     a,
                     &mut self.machine,
@@ -6260,7 +6930,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         false,
                     )[0];
                     self.value_stack.push(ret);
-                    a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                    if return_types[0].is_float() {
+                        a.emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                        self.fp_stack
+                            .push(FloatValue::new(self.value_stack.len() - 1));
+                    } else {
+                        a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                    }
                 }
             }
             Operator::CallIndirect { index, table_index } => {
@@ -6283,6 +6959,31 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     .drain(self.value_stack.len() - param_types.len()..)
                     .collect();
                 self.machine.release_locations_only_regs(&params);
+
+                // Pop arguments off the FP stack and canonicalize them if needed.
+                //
+                // Canonicalization state will be lost across function calls, so early canonicalization
+                // is necessary here.
+                while let Some(fp) = self.fp_stack.last() {
+                    if fp.depth >= self.value_stack.len() {
+                        let index = fp.depth - self.value_stack.len();
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization
+                            && fp.canonicalization.is_some()
+                        {
+                            Self::canonicalize_nan(
+                                a,
+                                &mut self.machine,
+                                fp.canonicalization.unwrap().to_size(),
+                                params[index],
+                                params[index],
+                            );
+                        }
+                        self.fp_stack.pop().unwrap();
+                    } else {
+                        break;
+                    }
+                }
 
                 let table_base = self.machine.acquire_temp_gpr().unwrap();
                 let table_count = self.machine.acquire_temp_gpr().unwrap();
@@ -6399,7 +7100,13 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         false,
                     )[0];
                     self.value_stack.push(ret);
-                    a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                    if return_types[0].is_float() {
+                        a.emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                        self.fp_stack
+                            .push(FloatValue::new(self.value_stack.len() - 1));
+                    } else {
+                        a.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                    }
                 }
             }
             Operator::If { ty } => {
@@ -6423,6 +7130,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
+                    fp_stack_depth: self.fp_stack.len(),
                     state: self.machine.state.clone(),
                     state_diff_id: Self::get_state_diff(
                         &self.machine,
@@ -6446,19 +7154,49 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
 
                 if !was_unreachable && frame.returns.len() > 0 {
                     let loc = *self.value_stack.last().unwrap();
-                    Self::emit_relaxed_binop(
-                        a,
-                        &mut self.machine,
-                        Assembler::emit_mov,
-                        Size::S64,
-                        loc,
-                        Location::GPR(GPR::RAX),
-                    );
+                    if frame.returns[0].is_float() {
+                        let fp = self.fp_stack.peek1()?;
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization
+                            && fp.canonicalization.is_some()
+                        {
+                            Self::canonicalize_nan(
+                                a,
+                                &mut self.machine,
+                                match frame.returns[0] {
+                                    WpType::F32 => Size::S32,
+                                    WpType::F64 => Size::S64,
+                                    _ => unreachable!(),
+                                },
+                                loc,
+                                Location::GPR(GPR::RAX),
+                            );
+                        } else {
+                            Self::emit_relaxed_binop(
+                                a,
+                                &mut self.machine,
+                                Assembler::emit_mov,
+                                Size::S64,
+                                loc,
+                                Location::GPR(GPR::RAX),
+                            );
+                        }
+                    } else {
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            loc,
+                            Location::GPR(GPR::RAX),
+                        );
+                    }
                 }
 
                 let released: &[Location] = &self.value_stack[frame.value_stack_depth..];
                 self.machine.release_locations(a, released);
                 self.value_stack.truncate(frame.value_stack_depth);
+                self.fp_stack.truncate(frame.fp_stack_depth);
 
                 match frame.if_else {
                     IfElseState::If(label) => {
@@ -6480,6 +7218,18 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let v_a =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let cncl: Option<(Option<CanonicalizeType>, Option<CanonicalizeType>)> =
+                    if self.fp_stack.len() >= 2
+                        && self.fp_stack[self.fp_stack.len() - 2].depth == self.value_stack.len()
+                        && self.fp_stack[self.fp_stack.len() - 1].depth
+                            == self.value_stack.len() + 1
+                    {
+                        let (left, right) = self.fp_stack.pop2()?;
+                        self.fp_stack.push(FloatValue::new(self.value_stack.len()));
+                        Some((left.canonicalization, right.canonicalization))
+                    } else {
+                        None
+                    };
                 let ret = self.machine.acquire_locations(
                     a,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6499,27 +7249,47 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     cond,
                 );
                 a.emit_jmp(Condition::Equal, zero_label);
-                if v_a != ret {
-                    Self::emit_relaxed_binop(
-                        a,
-                        &mut self.machine,
-                        Assembler::emit_mov,
-                        Size::S64,
-                        v_a,
-                        ret,
-                    );
+                match cncl {
+                    Some((Some(fp), _))
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization =>
+                    {
+                        Self::canonicalize_nan(a, &mut self.machine, fp.to_size(), v_a, ret);
+                    }
+                    _ => {
+                        if v_a != ret {
+                            Self::emit_relaxed_binop(
+                                a,
+                                &mut self.machine,
+                                Assembler::emit_mov,
+                                Size::S64,
+                                v_a,
+                                ret,
+                            );
+                        }
+                    }
                 }
                 a.emit_jmp(Condition::None, end_label);
                 a.emit_label(zero_label);
-                if v_b != ret {
-                    Self::emit_relaxed_binop(
-                        a,
-                        &mut self.machine,
-                        Assembler::emit_mov,
-                        Size::S64,
-                        v_b,
-                        ret,
-                    );
+                match cncl {
+                    Some((_, Some(fp)))
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization =>
+                    {
+                        Self::canonicalize_nan(a, &mut self.machine, fp.to_size(), v_b, ret);
+                    }
+                    _ => {
+                        if v_b != ret {
+                            Self::emit_relaxed_binop(
+                                a,
+                                &mut self.machine,
+                                Assembler::emit_mov,
+                                Size::S64,
+                                v_b,
+                                ret,
+                            );
+                        }
+                    }
                 }
                 a.emit_label(end_label);
             }
@@ -6538,6 +7308,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
+                    fp_stack_depth: self.fp_stack.len(),
                     state: self.machine.state.clone(),
                     state_diff_id: Self::get_state_diff(
                         &self.machine,
@@ -6567,6 +7338,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
+                    fp_stack_depth: self.fp_stack.len(),
                     state: self.machine.state.clone(),
                     state_diff_id,
                 });
@@ -6731,6 +7503,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1));
 
                 Self::emit_memory_op(
                     module_info,
@@ -6925,6 +7699,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let fp = self.fp_stack.pop1()?;
+                let config_nan_canonicalization = self.config.nan_canonicalization;
 
                 Self::emit_memory_op(
                     module_info,
@@ -6937,14 +7713,28 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                     4,
                     |a, m, addr| {
-                        Self::emit_relaxed_binop(
-                            a,
-                            m,
-                            Assembler::emit_mov,
-                            Size::S32,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
+                        if !a.arch_supports_canonicalize_nan()
+                            || !config_nan_canonicalization
+                            || fp.canonicalization.is_none()
+                        {
+                            Self::emit_relaxed_binop(
+                                a,
+                                m,
+                                Assembler::emit_mov,
+                                Size::S32,
+                                target_value,
+                                Location::Memory(addr, 0),
+                            );
+                        } else {
+                            Self::canonicalize_nan(
+                                a,
+                                m,
+                                Size::S32,
+                                target_value,
+                                Location::Memory(addr, 0),
+                            );
+                        }
+
                         Ok(())
                     },
                 )?;
@@ -7049,6 +7839,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                 )[0];
                 self.value_stack.push(ret);
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1));
 
                 Self::emit_memory_op(
                     module_info,
@@ -7325,6 +8117,8 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
                 let target_addr =
                     get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                let fp = self.fp_stack.pop1()?;
+                let config_nan_canonicalization = self.config.nan_canonicalization;
 
                 Self::emit_memory_op(
                     module_info,
@@ -7337,14 +8131,27 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     false,
                     8,
                     |a, m, addr| {
-                        Self::emit_relaxed_binop(
-                            a,
-                            m,
-                            Assembler::emit_mov,
-                            Size::S64,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
+                        if !a.arch_supports_canonicalize_nan()
+                            || !config_nan_canonicalization
+                            || fp.canonicalization.is_none()
+                        {
+                            Self::emit_relaxed_binop(
+                                a,
+                                m,
+                                Assembler::emit_mov,
+                                Size::S64,
+                                target_value,
+                                Location::Memory(addr, 0),
+                            );
+                        } else {
+                            Self::canonicalize_nan(
+                                a,
+                                m,
+                                Size::S64,
+                                target_value,
+                                Location::Memory(addr, 0),
+                            );
+                        }
                         Ok(())
                     },
                 )?;
@@ -7455,14 +8262,43 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         });
                     }
                     let loc = *self.value_stack.last().unwrap();
-                    Self::emit_relaxed_binop(
-                        a,
-                        &mut self.machine,
-                        Assembler::emit_mov,
-                        Size::S64,
-                        loc,
-                        Location::GPR(GPR::RAX),
-                    );
+                    if frame.returns[0].is_float() {
+                        let fp = self.fp_stack.peek1()?;
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization
+                            && fp.canonicalization.is_some()
+                        {
+                            Self::canonicalize_nan(
+                                a,
+                                &mut self.machine,
+                                match frame.returns[0] {
+                                    WpType::F32 => Size::S32,
+                                    WpType::F64 => Size::S64,
+                                    _ => unreachable!(),
+                                },
+                                loc,
+                                Location::GPR(GPR::RAX),
+                            );
+                        } else {
+                            Self::emit_relaxed_binop(
+                                a,
+                                &mut self.machine,
+                                Assembler::emit_mov,
+                                Size::S64,
+                                loc,
+                                Location::GPR(GPR::RAX),
+                            );
+                        }
+                    } else {
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            loc,
+                            Location::GPR(GPR::RAX),
+                        );
+                    }
                 }
                 let released = &self.value_stack[frame.value_stack_depth..];
                 self.machine.release_locations_keep_state(a, released);
@@ -7479,8 +8315,39 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         });
                     }
                     let loc = *self.value_stack.last().unwrap();
-                    a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+
+                    if frame.returns[0].is_float() {
+                        let fp = self.fp_stack.peek1()?;
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization
+                            && fp.canonicalization.is_some()
+                        {
+                            Self::canonicalize_nan(
+                                a,
+                                &mut self.machine,
+                                match frame.returns[0] {
+                                    WpType::F32 => Size::S32,
+                                    WpType::F64 => Size::S64,
+                                    _ => unreachable!(),
+                                },
+                                loc,
+                                Location::GPR(GPR::RAX),
+                            );
+                        } else {
+                            Self::emit_relaxed_binop(
+                                a,
+                                &mut self.machine,
+                                Assembler::emit_mov,
+                                Size::S64,
+                                loc,
+                                Location::GPR(GPR::RAX),
+                            );
+                        }
+                    } else {
+                        a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                    }
                 }
+
                 let released = &self.value_stack[frame.value_stack_depth..];
                 self.machine.release_locations_keep_state(a, released);
                 a.emit_jmp(Condition::None, frame.label);
@@ -7509,7 +8376,36 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         });
                     }
                     let loc = *self.value_stack.last().unwrap();
-                    a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                    if frame.returns[0].is_float() {
+                        let fp = self.fp_stack.peek1()?;
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization
+                            && fp.canonicalization.is_some()
+                        {
+                            Self::canonicalize_nan(
+                                a,
+                                &mut self.machine,
+                                match frame.returns[0] {
+                                    WpType::F32 => Size::S32,
+                                    WpType::F64 => Size::S64,
+                                    _ => unreachable!(),
+                                },
+                                loc,
+                                Location::GPR(GPR::RAX),
+                            );
+                        } else {
+                            Self::emit_relaxed_binop(
+                                a,
+                                &mut self.machine,
+                                Assembler::emit_mov,
+                                Size::S64,
+                                loc,
+                                Location::GPR(GPR::RAX),
+                            );
+                        }
+                    } else {
+                        a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                    }
                 }
                 let released = &self.value_stack[frame.value_stack_depth..];
                 self.machine.release_locations_keep_state(a, released);
@@ -7560,7 +8456,36 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             });
                         }
                         let loc = *self.value_stack.last().unwrap();
-                        a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                        if frame.returns[0].is_float() {
+                            let fp = self.fp_stack.peek1()?;
+                            if a.arch_supports_canonicalize_nan()
+                                && self.config.nan_canonicalization
+                                && fp.canonicalization.is_some()
+                            {
+                                Self::canonicalize_nan(
+                                    a,
+                                    &mut self.machine,
+                                    match frame.returns[0] {
+                                        WpType::F32 => Size::S32,
+                                        WpType::F64 => Size::S64,
+                                        _ => unreachable!(),
+                                    },
+                                    loc,
+                                    Location::GPR(GPR::RAX),
+                                );
+                            } else {
+                                Self::emit_relaxed_binop(
+                                    a,
+                                    &mut self.machine,
+                                    Assembler::emit_mov,
+                                    Size::S64,
+                                    loc,
+                                    Location::GPR(GPR::RAX),
+                                );
+                            }
+                        } else {
+                            a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                        }
                     }
                     let released = &self.value_stack[frame.value_stack_depth..];
                     self.machine.release_locations_keep_state(a, released);
@@ -7578,7 +8503,36 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                             });
                         }
                         let loc = *self.value_stack.last().unwrap();
-                        a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                        if frame.returns[0].is_float() {
+                            let fp = self.fp_stack.peek1()?;
+                            if a.arch_supports_canonicalize_nan()
+                                && self.config.nan_canonicalization
+                                && fp.canonicalization.is_some()
+                            {
+                                Self::canonicalize_nan(
+                                    a,
+                                    &mut self.machine,
+                                    match frame.returns[0] {
+                                        WpType::F32 => Size::S32,
+                                        WpType::F64 => Size::S64,
+                                        _ => unreachable!(),
+                                    },
+                                    loc,
+                                    Location::GPR(GPR::RAX),
+                                );
+                            } else {
+                                Self::emit_relaxed_binop(
+                                    a,
+                                    &mut self.machine,
+                                    Assembler::emit_mov,
+                                    Size::S64,
+                                    loc,
+                                    Location::GPR(GPR::RAX),
+                                );
+                            }
+                        } else {
+                            a.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                        }
                     }
                     let released = &self.value_stack[frame.value_stack_depth..];
                     self.machine.release_locations_keep_state(a, released);
@@ -7593,20 +8547,54 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
             }
             Operator::Drop => {
                 get_location_released(a, &mut self.machine, self.value_stack.pop().unwrap());
+                if let Some(x) = self.fp_stack.last() {
+                    if x.depth == self.value_stack.len() {
+                        self.fp_stack.pop1()?;
+                    }
+                }
             }
             Operator::End => {
                 let frame = self.control_stack.pop().unwrap();
 
                 if !was_unreachable && frame.returns.len() > 0 {
                     let loc = *self.value_stack.last().unwrap();
-                    Self::emit_relaxed_binop(
-                        a,
-                        &mut self.machine,
-                        Assembler::emit_mov,
-                        Size::S64,
-                        loc,
-                        Location::GPR(GPR::RAX),
-                    );
+                    if frame.returns[0].is_float() {
+                        let fp = self.fp_stack.peek1()?;
+                        if a.arch_supports_canonicalize_nan()
+                            && self.config.nan_canonicalization
+                            && fp.canonicalization.is_some()
+                        {
+                            Self::canonicalize_nan(
+                                a,
+                                &mut self.machine,
+                                match frame.returns[0] {
+                                    WpType::F32 => Size::S32,
+                                    WpType::F64 => Size::S64,
+                                    _ => unreachable!(),
+                                },
+                                loc,
+                                Location::GPR(GPR::RAX),
+                            );
+                        } else {
+                            Self::emit_relaxed_binop(
+                                a,
+                                &mut self.machine,
+                                Assembler::emit_mov,
+                                Size::S64,
+                                loc,
+                                Location::GPR(GPR::RAX),
+                            );
+                        }
+                    } else {
+                        Self::emit_relaxed_binop(
+                            a,
+                            &mut self.machine,
+                            Assembler::emit_mov,
+                            Size::S64,
+                            loc,
+                            Location::GPR(GPR::RAX),
+                        );
+                    }
                 }
 
                 if self.control_stack.len() == 0 {
@@ -7614,11 +8602,24 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     self.machine.finalize_locals(a, &self.locals);
                     a.emit_mov(Size::S64, Location::GPR(GPR::RBP), Location::GPR(GPR::RSP));
                     a.emit_pop(Size::S64, Location::GPR(GPR::RBP));
+
+                    // Make a copy of the return value in XMM0, as required by the SysV CC.
+                    match self.signature.returns() {
+                        [x] if *x == Type::F32 || *x == Type::F64 => {
+                            a.emit_mov(
+                                Size::S64,
+                                Location::GPR(GPR::RAX),
+                                Location::XMM(XMM::XMM0),
+                            );
+                        }
+                        _ => {}
+                    }
                     a.emit_ret();
                 } else {
                     let released = &self.value_stack[frame.value_stack_depth..];
                     self.machine.release_locations(a, released);
                     self.value_stack.truncate(frame.value_stack_depth);
+                    self.fp_stack.truncate(frame.fp_stack_depth);
 
                     if !frame.loop_like {
                         a.emit_label(frame.label);
@@ -7644,6 +8645,11 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         )[0];
                         a.emit_mov(Size::S64, Location::GPR(GPR::RAX), loc);
                         self.value_stack.push(loc);
+                        if frame.returns[0].is_float() {
+                            self.fp_stack
+                                .push(FloatValue::new(self.value_stack.len() - 1));
+                            // we already canonicalized at the `Br*` instruction or here previously.
+                        }
                     }
                 }
             }
