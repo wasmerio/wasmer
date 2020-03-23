@@ -897,7 +897,7 @@
         };
         <span class="ident">sink</span>.<span class="ident">push</span>(<span class="ident">ev</span>);
         <span class="kw">for</span> <span class="ident">m</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">chain</span> {
-            <span class="kw">let</span> <span class="ident">prev</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">Event</span>; <span class="number">2</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">sink</span>.<span class="ident">buffer</span>.<span class="ident">drain</span>().<span class="ident">collect</span>();
+            <span class="kw">let</span> <span class="ident">prev</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">Event</span>; <span class="number">2</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">sink</span>.<span class="ident">buffer</span>.<span class="ident">drain</span>(..).<span class="ident">collect</span>();
             <span class="kw">for</span> <span class="ident">ev</span> <span class="kw">in</span> <span class="ident">prev</span> {
                 <span class="ident">m</span>.<span class="ident">feed_event</span>(<span class="ident">ev</span>, <span class="ident">module_info</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">sink</span>, <span class="ident">source_loc</span>)<span class="question-mark">?</span>;
             }
