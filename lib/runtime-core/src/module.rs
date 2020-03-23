@@ -273,14 +273,9 @@ impl Module {
     }
 
     /// Get the custom sections matching the given name.
-    pub fn custom_sections(&self, key: impl AsRef<str>) -> Option<Vec<&[u8]>> {
+    pub fn custom_sections(&self, key: impl AsRef<str>) -> Option<&[Vec<u8>]> {
         let key = key.as_ref();
-        // TODO: handle multiple better when our system does
-        self.inner
-            .info
-            .custom_sections
-            .get(key)
-            .map(|v| vec![v.as_ref()])
+        self.inner.info.custom_sections.get(key).map(|v| v.as_ref())
     }
 }
 
