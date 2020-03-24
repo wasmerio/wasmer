@@ -49,43 +49,43 @@ mode](https://github.com/WebAssembly/interface-types/blob/master/proposals/inter
 
 Here is the instructions that are implemented by this crate:
 
-| Instruction | WAT encoder | Binary encoder | WAT decoder | Binary decoder | Interpreter |
-|-|-|-|-|-|-|
-| `arg.get` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `call-core` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `s8.from_i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `s8.from_i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `s16.from_i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `s16.from_i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `s32.from_i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `s32.from_i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `s64.from_i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `s64.from_i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i32.from_s8` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i32.from_s16` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i32.from_s32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i32.from_s64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i64.from_s8` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i64.from_s16` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i64.from_s32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i64.from_s64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `u8.from_i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `u8.from_i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `u16.from_i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `u16.from_i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `u32.from_i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `u32.from_i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `u64.from_i32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `u64.from_i64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i32.from_u8` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i32.from_u16` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i32.from_u32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i32.from_u64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i64.from_u8` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i64.from_u16` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i64.from_u32` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `i64.from_u64` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `memory-to-string` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `string-to-memory` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `call-adapter` | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `defer-call-core` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Instruction | WAT encoder/decoder | Binary encoder/decoder | Interpreter | Comment |
+|-|-|-|-|-|
+| `arg.get` | ✅ | ✅ | ✅ | |
+| `call-core` | ✅ | ✅ | ✅ | |
+| `s8.from_i32` | ✅ | ✅ | ✅ | |
+| `s8.from_i64` | ✅ | ✅ | ✅ | |
+| `s16.from_i32` | ✅ | ✅ | ✅ | |
+| `s16.from_i64` | ✅ | ✅ | ✅ | |
+| `s32.from_i32` | ✅ | ✅ | ✅ | |
+| `s32.from_i64` | ✅ | ✅ | ✅ | |
+| `s64.from_i32` | ✅ | ✅ | ✅ | |
+| `s64.from_i64` | ✅ | ✅ | ✅ | |
+| `i32.from_s8` | ✅ | ✅ | ✅ | |
+| `i32.from_s16` | ✅ | ✅ | ✅ | |
+| `i32.from_s32` | ✅ | ✅ | ✅ | |
+| `i32.from_s64` | ✅ | ✅ | ✅ | |
+| `i64.from_s8` | ✅ | ✅ | ✅ | |
+| `i64.from_s16` | ✅ | ✅ | ✅ | |
+| `i64.from_s32` | ✅ | ✅ | ✅ | |
+| `i64.from_s64` | ✅ | ✅ | ✅ | |
+| `u8.from_i32` | ✅ | ✅ | ✅ | |
+| `u8.from_i64` | ✅ | ✅ | ✅ | |
+| `u16.from_i32` | ✅ | ✅ | ✅ | |
+| `u16.from_i64` | ✅ | ✅ | ✅ | |
+| `u32.from_i32` | ✅ | ✅ | ✅ | |
+| `u32.from_i64` | ✅ | ✅ | ✅ | |
+| `u64.from_i32` | ✅ | ✅ | ✅ | |
+| `u64.from_i64` | ✅ | ✅ | ✅ | |
+| `i32.from_u8` | ✅ | ✅ | ✅ | |
+| `i32.from_u16` | ✅ | ✅ | ✅ | |
+| `i32.from_u32` | ✅ | ✅ | ✅ | |
+| `i32.from_u64` | ✅ | ✅ | ✅ | |
+| `i64.from_u8` | ✅ | ✅ | ✅ | |
+| `i64.from_u16` | ✅ | ✅ | ✅ | |
+| `i64.from_u32` | ✅ | ✅ | ✅ | |
+| `i64.from_u64` | ✅ | ✅ | ✅ | |
+| `string.lift_memory` | ✅ | ✅ | ✅ | `#memidx` is not supported; `#encoding` is not supported but UTF-8 is assumed |
+| `string.lower_memory` | ✅ | ✅ | ✅ | `#memidx` is not supported; `#encoding` is not supported but UTF-8 is assumed |
+| `call-adapter` | ❌ | ❌ | ❌ | |
+| `defer-call-core` | ❌ | ❌ | ❌ | |
