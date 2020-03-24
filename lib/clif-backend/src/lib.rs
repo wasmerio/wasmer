@@ -57,11 +57,12 @@ fn get_isa(config: Option<&CompilerConfig>) -> Box<dyn isa::TargetIsa> {
             enable_verifier = cfg!(test) || cfg!(debug_assertions);
         }
 
-        if enable_verifier {
-            builder.set("enable_verifier", "true").unwrap();
-        } else {
-            builder.set("enable_verifier", "false").unwrap();
-        }
+        builder
+            .set(
+                "enable_verifier",
+                if enable_verifier { "true" } else { "false" },
+            )
+            .unwrap();
 
         let flags = settings::Flags::new(builder);
         debug_assert_eq!(flags.opt_level(), settings::OptLevel::SpeedAndSize);
