@@ -41,12 +41,13 @@ binary.
 
 ## Instructions
 
-Very basically, WebAssembly Interface Types defines a set of
-instructions, used by adapters to transform the data between
-WebAssembly core and the outside world ([learn
+Very basically, WebAssembly Interface Types defines a [set of
+instructions](https://github.com/WebAssembly/interface-types/blob/master/proposals/interface-types/working-notes/Instructions.md),
+used by adapters to transform the data between WebAssembly core and
+the outside world ([learn
 mode](https://github.com/WebAssembly/interface-types/blob/master/proposals/interface-types/Explainer.md)).
 
-Here is the instructions that are implemented:
+Here is the instructions that are implemented by this crate:
 
 | Instruction | WAT encoder | Binary encoder | WAT decoder | Binary decoder | Interpreter |
 |-|-|-|-|-|-|
