@@ -112,6 +112,19 @@ where
     }
 }
 
+/// Encode a `TypeKind` into bytes.
+impl<W> ToBytes<W> for TypeKind
+where
+    W: Write,
+{
+    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            TypeKind::Function => 0x00_u8.to_bytes(writer),
+            TypeKind::Record => 0x01_u8.to_bytes(writer),
+        }
+    }
+}
+
 /// Encode an `InterfaceKind` into bytes.
 impl<W> ToBytes<W> for InterfaceKind
 where
@@ -136,8 +149,18 @@ where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.inputs.to_bytes(writer)?;
-        self.outputs.to_bytes(writer)?;
+        match self {
+            Type::Function { inputs, outputs } => {
+                TypeKind::Function.to_bytes(writer)?;
+                inputs.to_bytes(writer)?;
+                outputs.to_bytes(writer)?;
+            }
+
+            Type::Record { fields } => {
+                TypeKind::Record.to_bytes(writer)?;
+                fields.to_bytes(writer)?;
+            }
+        }
 
         Ok(())
     }

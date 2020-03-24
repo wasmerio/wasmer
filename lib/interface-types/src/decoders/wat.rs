@@ -13,6 +13,7 @@ mod keyword {
     // New keywords.
     custom_keyword!(implement);
     custom_keyword!(r#type = "type");
+    custom_keyword!(record);
 
     // New types.
     custom_keyword!(s8);
@@ -401,25 +402,48 @@ impl<'a> Parse<'a> for Type {
     fn parse(parser: Parser<'a>) -> Result<Self> {
         parser.parse::<keyword::r#type>()?;
 
-        let (inputs, outputs) = parser.parens(|parser| {
-            parser.parse::<keyword::func>()?;
+        let ty = parser.parens(|parser| {
+            let mut lookahead = parser.lookahead1();
 
-            let mut input_types = vec![];
-            let mut output_types = vec![];
+            if lookahead.peek::<keyword::func>() {
+                parser.parse::<keyword::func>()?;
 
-            while !parser.is_empty() {
-                let function_type = parser.parse::<FunctionType>()?;
+                let mut input_types = vec![];
+                let mut output_types = vec![];
 
-                match function_type {
-                    FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
-                    FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
+                while !parser.is_empty() {
+                    let function_type = parser.parse::<FunctionType>()?;
+
+                    match function_type {
+                        FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
+                        FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
+                    }
                 }
-            }
 
-            Ok((input_types, output_types))
+                Ok(Type::Function {
+                    inputs: input_types,
+                    outputs: output_types,
+                })
+            } else if lookahead.peek::<keyword::record>() {
+                parser.parse::<keyword::record>()?;
+
+                let fields = parser.parens(|parser| {
+                    let mut fields = vec![];
+
+                    while !parser.is_empty() {
+                        fields.push(parser.parse()?);
+                    }
+
+                    Ok(fields)
+                })?;
+
+                Ok(Type::Record { fields })
+            } else {
+                Err(lookahead.error())
+            }
         })?;
 
-        Ok(Type { inputs, outputs })
+        Ok(ty)
     }
 }
 

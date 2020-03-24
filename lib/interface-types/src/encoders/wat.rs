@@ -167,11 +167,24 @@ fn output_types_to_result(output_types: &[InterfaceType]) -> String {
 /// Encode a `Type` into a string.
 impl<'input> ToString for &Type {
     fn to_string(&self) -> String {
-        format!(
-            r#"(@interface type (func{inputs}{outputs}))"#,
-            inputs = input_types_to_param(&self.inputs),
-            outputs = output_types_to_result(&self.outputs),
-        )
+        match self {
+            Type::Function { inputs, outputs } => format!(
+                r#"(@interface type (func{inputs}{outputs}))"#,
+                inputs = input_types_to_param(&inputs),
+                outputs = output_types_to_result(&outputs),
+            ),
+
+            Type::Record { fields } => format!(
+                r#"(@interface type (record {fields}))"#,
+                fields = fields
+                    .iter()
+                    .fold(String::new(), |mut accumulator, interface_type| {
+                        accumulator.push(' ');
+                        accumulator.push_str(&interface_type.to_string());
+                        accumulator
+                    }),
+            ),
+        }
     }
 }
 

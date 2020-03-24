@@ -32,6 +32,19 @@ impl TryFrom<u8> for InterfaceType {
     }
 }
 
+/// Parse a type kind.
+impl TryFrom<u8> for TypeKind {
+    type Error = &'static str;
+
+    fn try_from(code: u8) -> Result<Self, Self::Error> {
+        Ok(match code {
+            0x00 => Self::Function,
+            0x01 => Self::Record,
+            _ => return Err("Unknown type kind code."),
+        })
+    }
+}
+
 /// Parse an interface kind.
 impl TryFrom<u8> for InterfaceKind {
     type Error = &'static str;
@@ -234,10 +247,25 @@ fn types<'input, E: ParseError<&'input [u8]>>(
     let mut types = Vec::with_capacity(number_of_types as usize);
 
     for _ in 0..number_of_types {
-        consume!((input, inputs) = list(input, ty)?);
-        consume!((input, outputs) = list(input, ty)?);
+        consume!((input, type_kind) = byte(input)?);
 
-        types.push(Type { inputs, outputs });
+        let type_kind = TypeKind::try_from(type_kind)
+            .map_err(|_| Err::Error(make_error(input, ErrorKind::ParseTo)))?;
+
+        match type_kind {
+            TypeKind::Function => {
+                consume!((input, inputs) = list(input, ty)?);
+                consume!((input, outputs) = list(input, ty)?);
+
+                types.push(Type::Function { inputs, outputs });
+            }
+
+            TypeKind::Record => {
+                consume!((input, fields) = list(input, ty)?);
+
+                types.push(Type::Record { fields });
+            }
+        }
     }
 
     Ok((input, types))

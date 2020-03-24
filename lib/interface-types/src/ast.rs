@@ -50,18 +50,41 @@ pub enum InterfaceType {
     I64,
 }
 
-/// Represents a type signature.
-///
-/// ```wasm,ignore
-/// (@interface type (param i32 i32) (result string))
-/// ```
+/// Represents the kind of type.
 #[derive(PartialEq, Debug)]
-pub struct Type {
-    /// Types for the parameters (`(param …)`).
-    pub inputs: Vec<InterfaceType>,
+pub enum TypeKind {
+    /// A function type.
+    Function,
 
-    /// Types for the results (`(result …)`).
-    pub outputs: Vec<InterfaceType>,
+    /// A record type.
+    Record,
+}
+
+/// Represents a type.
+#[derive(PartialEq, Debug)]
+pub enum Type {
+    /// A function type, like:
+    ///
+    /// ```wasm,ignore
+    /// (@interface type (func (param i32 i32) (result string)))
+    /// ```
+    Function {
+        /// Types for the parameters (`(param …)`).
+        inputs: Vec<InterfaceType>,
+
+        /// Types for the results (`(result …)`).
+        outputs: Vec<InterfaceType>,
+    },
+
+    /// A record type, like:
+    ///
+    /// ```wasm,ignore
+    /// (@interface type (record string i32))
+    /// ```
+    Record {
+        /// Types representing the fields.
+        fields: Vec<InterfaceType>,
+    },
 }
 
 /// Represents an imported function.
