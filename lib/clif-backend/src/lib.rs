@@ -49,13 +49,15 @@ fn get_isa(config: Option<&CompilerConfig>) -> Box<dyn isa::TargetIsa> {
             if config.nan_canonicalization {
                 builder.set("enable_nan_canonicalization", "true").unwrap();
             }
-            enable_verifier = !config.disable_debug_mode_verification;
+            enable_verifier = config.enable_verification;
         } else {
             // Set defaults if no config found.
-            enable_verifier = true;
+            // NOTE: cfg(test) probably does nothing when not running `cargo test`
+            //       on this crate
+            enable_verifier = cfg!(test) || cfg!(debug_assertions);
         }
 
-        if (cfg!(test) || cfg!(debug_assertions)) && enable_verifier {
+        if enable_verifier {
             builder.set("enable_verifier", "true").unwrap();
         } else {
             builder.set("enable_verifier", "false").unwrap();
