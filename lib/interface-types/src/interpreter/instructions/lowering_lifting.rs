@@ -6,7 +6,7 @@ use crate::{
 use std::convert::TryInto;
 
 macro_rules! lowering_lifting {
-    ($instruction_function_name:ident, $instruction_name:expr, $from_variant:ident, $to_variant:ident) => {
+    ($instruction_function_name:ident, $instruction_name:expr, $to_variant:ident, $from_variant:ident) => {
         executable_instruction!(
             $instruction_function_name(instruction: Instruction) -> _ {
                 move |runtime| -> _ {
@@ -52,316 +52,316 @@ macro_rules! lowering_lifting {
     };
 }
 
-lowering_lifting!(i32_to_s8, "i32-to-s8", I32, S8);
-lowering_lifting!(i32_to_u8, "i32-to-u8", I32, U8);
-lowering_lifting!(i32_to_s16, "i32-to-s16", I32, S16);
-lowering_lifting!(i32_to_u16, "i32-to-u16", I32, U16);
-lowering_lifting!(i32_to_s32, "i32-to-s32", I32, S32);
-lowering_lifting!(i32_to_u32, "i32-to-u32", I32, U32);
-lowering_lifting!(i32_to_s64, "i32-to-s64", I32, S64);
-lowering_lifting!(i32_to_u64, "i32-to-u64", I32, U64);
-lowering_lifting!(i64_to_s8, "i64-to-s8", I64, S8);
-lowering_lifting!(i64_to_u8, "i64-to-u8", I64, U8);
-lowering_lifting!(i64_to_s16, "i64-to-s16", I64, S16);
-lowering_lifting!(i64_to_u16, "i64-to-u16", I64, U16);
-lowering_lifting!(i64_to_s32, "i64-to-s32", I64, S32);
-lowering_lifting!(i64_to_u32, "i64-to-u32", I64, U32);
-lowering_lifting!(i64_to_s64, "i64-to-s64", I64, S64);
-lowering_lifting!(i64_to_u64, "i64-to-u64", I64, U64);
-lowering_lifting!(s8_to_i32, "s8-to-i32", S8, I32);
-lowering_lifting!(u8_to_i32, "u8-to-i32", U8, I32);
-lowering_lifting!(s16_to_i32, "s16-to-i32", S16, I32);
-lowering_lifting!(u16_to_i32, "u16-to-i32", U16, I32);
-lowering_lifting!(s32_to_i32, "s32-to-i32", S32, I32);
-lowering_lifting!(u32_to_i32, "u32-to-i32", U32, I32);
-lowering_lifting!(s64_to_i32, "s64-to-i32", S64, I32);
-lowering_lifting!(u64_to_i32, "u64-to-i32", U64, I32);
-lowering_lifting!(s8_to_i64, "s8-to-i64", S8, I64);
-lowering_lifting!(u8_to_i64, "u8-to-i64", U8, I64);
-lowering_lifting!(s16_to_i64, "s16-to-i64", S16, I64);
-lowering_lifting!(u16_to_i64, "u16-to-i64", U16, I64);
-lowering_lifting!(s32_to_i64, "s32-to-i64", S32, I64);
-lowering_lifting!(u32_to_i64, "u32-to-i64", U32, I64);
-lowering_lifting!(s64_to_i64, "s64-to-i64", S64, I64);
-lowering_lifting!(u64_to_i64, "u64-to-i64", U64, I64);
+lowering_lifting!(s8_from_i32, "s8.from_i32", S8, I32);
+lowering_lifting!(s8_from_i64, "s8.from_i64", S8, I64);
+lowering_lifting!(s16_from_i32, "s16.from_i32", S16, I32);
+lowering_lifting!(s16_from_i64, "s16.from_i64", S16, I64);
+lowering_lifting!(s32_from_i32, "s32.from_i32", S32, I32);
+lowering_lifting!(s32_from_i64, "s32.from_i64", S32, I64);
+lowering_lifting!(s64_from_i32, "s64.from_i32", S64, I32);
+lowering_lifting!(s64_from_i64, "s64.from_i64", S64, I64);
+lowering_lifting!(i32_from_s8, "i32.from_s8", I32, S8);
+lowering_lifting!(i32_from_s16, "i32.from_s16", I32, S16);
+lowering_lifting!(i32_from_s32, "i32.from_s32", I32, S32);
+lowering_lifting!(i32_from_s64, "i32.from_s64", I32, S64);
+lowering_lifting!(i64_from_s8, "i64.from_s8", I64, S8);
+lowering_lifting!(i64_from_s16, "i64.from_s16", I64, S16);
+lowering_lifting!(i64_from_s32, "i64.from_s32", I64, S32);
+lowering_lifting!(i64_from_s64, "i64.from_s64", I64, S64);
+lowering_lifting!(u8_from_i32, "u8.from_i32", U8, I32);
+lowering_lifting!(u8_from_i64, "u8.from_i64", U8, I64);
+lowering_lifting!(u16_from_i32, "u16.from_i32", U16, I32);
+lowering_lifting!(u16_from_i64, "u16.from_i64", U16, I64);
+lowering_lifting!(u32_from_i32, "u32.from_i32", U32, I32);
+lowering_lifting!(u32_from_i64, "u32.from_i64", U32, I64);
+lowering_lifting!(u64_from_i32, "u64.from_i32", U64, I32);
+lowering_lifting!(u64_from_i64, "u64.from_i64", U64, I64);
+lowering_lifting!(i32_from_u8, "i32.from_u8", I32, U8);
+lowering_lifting!(i32_from_u16, "i32.from_u16", I32, U16);
+lowering_lifting!(i32_from_u32, "i32.from_u32", I32, U32);
+lowering_lifting!(i32_from_u64, "i32.from_u64", I32, U64);
+lowering_lifting!(i64_from_u8, "i64.from_u8", I64, U8);
+lowering_lifting!(i64_from_u16, "i64.from_u16", I64, U16);
+lowering_lifting!(i64_from_u32, "i64.from_u32", I64, U32);
+lowering_lifting!(i64_from_u64, "i64.from_u64", I64, U64);
 
 #[cfg(test)]
 mod tests {
     test_executable_instruction!(
-        test_i32_to_s8 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32ToS8],
-            invocation_inputs: [InterfaceValue::I32(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::S8(42)],
-    );
-
-    test_executable_instruction!(
         test_convert_fails =
-            instructions: [Instruction::ArgumentGet { index: 0}, Instruction::I32ToS8],
+            instructions: [Instruction::ArgumentGet { index: 0}, Instruction::S8FromI32],
             invocation_inputs: [InterfaceValue::I32(128)],
             instance: Instance::new(),
-            error: "`i32-to-s8` failed to cast `I32` to `S8`"
+            error: "`s8.from_i32` failed to cast `I32` to `S8`"
     );
 
     test_executable_instruction!(
         test_type_mismatch =
-            instructions: [Instruction::ArgumentGet { index: 0}, Instruction::I32ToS8],
+            instructions: [Instruction::ArgumentGet { index: 0}, Instruction::S8FromI32],
             invocation_inputs: [InterfaceValue::I64(42)],
             instance: Instance::new(),
-            error: "`i32-to-s8` read a value of type `I64` from the stack, but the type `I32` was expected"
+            error: "`s8.from_i32` read a value of type `I64` from the stack, but the type `I32` was expected"
     );
 
     test_executable_instruction!(
         test_no_value_on_the_stack =
-            instructions: [Instruction::I32ToS8],
+            instructions: [Instruction::S8FromI32],
             invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
-            error: "`i32-to-s8` needed to read `1` value(s) from the stack, but it doesn't contain enough data"
+            error: "`s8.from_i32` needed to read `1` value(s) from the stack, but it doesn't contain enough data"
     );
 
     test_executable_instruction!(
-        test_i32_to_u8 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32ToU8],
+        test_s8_from_i32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S8FromI32],
             invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
-            stack: [InterfaceValue::U8(42)],
+            stack: [InterfaceValue::S8(42)],
     );
 
     test_executable_instruction!(
-        test_i32_to_s16 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32ToS16],
-            invocation_inputs: [InterfaceValue::I32(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::S16(42)],
-    );
-
-    test_executable_instruction!(
-        test_i32_to_u16 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32ToU16],
-            invocation_inputs: [InterfaceValue::I32(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::U16(42)],
-    );
-
-    test_executable_instruction!(
-        test_i32_to_s32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32ToS32],
-            invocation_inputs: [InterfaceValue::I32(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::S32(42)],
-    );
-
-    test_executable_instruction!(
-        test_i32_to_u32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32ToU32],
-            invocation_inputs: [InterfaceValue::I32(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::U32(42)],
-    );
-
-    test_executable_instruction!(
-        test_i32_to_s64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32ToS64],
-            invocation_inputs: [InterfaceValue::I32(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::S64(42)],
-    );
-
-    test_executable_instruction!(
-        test_i32_to_u64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32ToU64],
-            invocation_inputs: [InterfaceValue::I32(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::U64(42)],
-    );
-
-    test_executable_instruction!(
-        test_i64_to_s8 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64ToS8],
+        test_s8_from_i64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S8FromI64],
             invocation_inputs: [InterfaceValue::I64(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::S8(42)],
     );
 
     test_executable_instruction!(
-        test_i64_to_u8 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64ToU8],
-            invocation_inputs: [InterfaceValue::I64(42)],
+        test_s16_from_i32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S16FromI32],
+            invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
-            stack: [InterfaceValue::U8(42)],
+            stack: [InterfaceValue::S16(42)],
     );
 
     test_executable_instruction!(
-        test_i64_to_s16 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64ToS16],
+        test_s16_from_i64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S16FromI64],
             invocation_inputs: [InterfaceValue::I64(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::S16(42)],
     );
 
     test_executable_instruction!(
-        test_i64_to_u16 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64ToU16],
-            invocation_inputs: [InterfaceValue::I64(42)],
+        test_s32_from_i32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S32FromI32],
+            invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
-            stack: [InterfaceValue::U16(42)],
+            stack: [InterfaceValue::S32(42)],
     );
 
     test_executable_instruction!(
-        test_i64_to_s32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64ToS32],
+        test_s32_from_i64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S32FromI64],
             invocation_inputs: [InterfaceValue::I64(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::S32(42)],
     );
 
     test_executable_instruction!(
-        test_i64_to_u32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64ToU32],
-            invocation_inputs: [InterfaceValue::I64(42)],
+        test_s64_from_i32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S64FromI32],
+            invocation_inputs: [InterfaceValue::I32(42)],
             instance: Instance::new(),
-            stack: [InterfaceValue::U32(42)],
+            stack: [InterfaceValue::S64(42)],
     );
 
     test_executable_instruction!(
-        test_i64_to_s64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64ToS64],
+        test_s64_from_i64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S64FromI64],
             invocation_inputs: [InterfaceValue::I64(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::S64(42)],
     );
 
     test_executable_instruction!(
-        test_i64_to_u64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64ToU64],
-            invocation_inputs: [InterfaceValue::I64(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::U64(42)],
-    );
-
-    test_executable_instruction!(
-        test_s8_to_i32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S8ToI32],
+        test_i32_from_s8 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32FromS8],
             invocation_inputs: [InterfaceValue::S8(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::I32(42)],
     );
 
     test_executable_instruction!(
-        test_u8_to_i32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U8ToI32],
-            invocation_inputs: [InterfaceValue::U8(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::I32(42)],
-    );
-
-    test_executable_instruction!(
-        test_s16_to_i32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S16ToI32],
+        test_i32_from_s16 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32FromS16],
             invocation_inputs: [InterfaceValue::S16(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::I32(42)],
     );
 
     test_executable_instruction!(
-        test_u16_to_i32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U16ToI32],
-            invocation_inputs: [InterfaceValue::U16(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::I32(42)],
-    );
-
-    test_executable_instruction!(
-        test_s32_to_i32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S32ToI32],
+        test_i32_from_s32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32FromS32],
             invocation_inputs: [InterfaceValue::S32(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::I32(42)],
     );
 
     test_executable_instruction!(
-        test_u32_to_i32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U32ToI32],
-            invocation_inputs: [InterfaceValue::U32(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::I32(42)],
-    );
-
-    test_executable_instruction!(
-        test_s64_to_i32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S64ToI32],
+        test_i32_from_s64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32FromS64],
             invocation_inputs: [InterfaceValue::S64(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::I32(42)],
     );
 
     test_executable_instruction!(
-        test_u64_to_i32 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U64ToI32],
+        test_i64_from_s8 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64FromS8],
+            invocation_inputs: [InterfaceValue::S8(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::I64(42)],
+    );
+
+    test_executable_instruction!(
+        test_i64_from_s16 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64FromS16],
+            invocation_inputs: [InterfaceValue::S16(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::I64(42)],
+    );
+
+    test_executable_instruction!(
+        test_i64_from_s32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64FromS32],
+            invocation_inputs: [InterfaceValue::S32(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::I64(42)],
+    );
+
+    test_executable_instruction!(
+        test_i64_from_s64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64FromS64],
+            invocation_inputs: [InterfaceValue::S64(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::I64(42)],
+    );
+
+    test_executable_instruction!(
+        test_u8_from_i32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U8FromI32],
+            invocation_inputs: [InterfaceValue::I32(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::U8(42)],
+    );
+
+    test_executable_instruction!(
+        test_u8_from_i64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U8FromI64],
+            invocation_inputs: [InterfaceValue::I64(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::U8(42)],
+    );
+
+    test_executable_instruction!(
+        test_u16_from_i32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U16FromI32],
+            invocation_inputs: [InterfaceValue::I32(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::U16(42)],
+    );
+
+    test_executable_instruction!(
+        test_u16_from_i64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U16FromI64],
+            invocation_inputs: [InterfaceValue::I64(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::U16(42)],
+    );
+
+    test_executable_instruction!(
+        test_u32_from_i32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U32FromI32],
+            invocation_inputs: [InterfaceValue::I32(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::U32(42)],
+    );
+
+    test_executable_instruction!(
+        test_u32_from_i64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U32FromI64],
+            invocation_inputs: [InterfaceValue::I64(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::U32(42)],
+    );
+
+    test_executable_instruction!(
+        test_u64_from_i32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U64FromI32],
+            invocation_inputs: [InterfaceValue::I32(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::U64(42)],
+    );
+
+    test_executable_instruction!(
+        test_u64_from_i64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U64FromI64],
+            invocation_inputs: [InterfaceValue::I64(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::U64(42)],
+    );
+
+    test_executable_instruction!(
+        test_i32_from_u8 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32FromU8],
+            invocation_inputs: [InterfaceValue::U8(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::I32(42)],
+    );
+
+    test_executable_instruction!(
+        test_i32_from_u16 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32FromU16],
+            invocation_inputs: [InterfaceValue::U16(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::I32(42)],
+    );
+
+    test_executable_instruction!(
+        test_i32_from_u32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32FromU32],
+            invocation_inputs: [InterfaceValue::U32(42)],
+            instance: Instance::new(),
+            stack: [InterfaceValue::I32(42)],
+    );
+
+    test_executable_instruction!(
+        test_i32_from_u64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I32FromU64],
             invocation_inputs: [InterfaceValue::U64(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::I32(42)],
     );
 
     test_executable_instruction!(
-        test_s8_to_i64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S8ToI64],
-            invocation_inputs: [InterfaceValue::S8(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::I64(42)],
-    );
-
-    test_executable_instruction!(
-        test_u8_to_i64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U8ToI64],
+        test_i64_from_u8 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64FromU8],
             invocation_inputs: [InterfaceValue::U8(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::I64(42)],
     );
 
     test_executable_instruction!(
-        test_s16_to_i64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S16ToI64],
-            invocation_inputs: [InterfaceValue::S16(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::I64(42)],
-    );
-
-    test_executable_instruction!(
-        test_u16_to_i64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U16ToI64],
+        test_i64_from_u16 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64FromU16],
             invocation_inputs: [InterfaceValue::U16(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::I64(42)],
     );
 
     test_executable_instruction!(
-        test_s32_to_i64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S32ToI64],
-            invocation_inputs: [InterfaceValue::S32(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::I64(42)],
-    );
-
-    test_executable_instruction!(
-        test_u32_to_i64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U32ToI64],
+        test_i64_from_u32 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64FromU32],
             invocation_inputs: [InterfaceValue::U32(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::I64(42)],
     );
 
     test_executable_instruction!(
-        test_s64_to_i64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::S64ToI64],
-            invocation_inputs: [InterfaceValue::S64(42)],
-            instance: Instance::new(),
-            stack: [InterfaceValue::I64(42)],
-    );
-
-    test_executable_instruction!(
-        test_u64_to_i64 =
-            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::U64ToI64],
+        test_i64_from_u64 =
+            instructions: [Instruction::ArgumentGet { index: 0 }, Instruction::I64FromU64],
             invocation_inputs: [InterfaceValue::U64(42)],
             instance: Instance::new(),
             stack: [InterfaceValue::I64(42)],
