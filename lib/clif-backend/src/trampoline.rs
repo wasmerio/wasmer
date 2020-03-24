@@ -86,7 +86,7 @@ impl Trampolines {
             let sig_index = module.func_assoc[*exported_func_index];
             let func_sig = &module.signatures[sig_index];
 
-            let trampoline_func = generate_func(&func_sig);
+            let trampoline_func = generate_func(isa, &func_sig);
 
             ctx.func = trampoline_func;
 
@@ -150,13 +150,13 @@ impl Trampolines {
 
 /// This function generates a trampoline for the specific signature
 /// passed into it.
-fn generate_func(func_sig: &FuncSig) -> ir::Function {
-    let trampoline_sig = generate_trampoline_signature();
+fn generate_func(isa: &dyn isa::TargetIsa, func_sig: &FuncSig) -> ir::Function {
+    let trampoline_sig = generate_trampoline_signature(isa);
 
     let mut func =
         ir::Function::with_name_signature(ir::ExternalName::testcase("trampln"), trampoline_sig);
 
-    let export_sig_ref = func.import_signature(generate_export_signature(func_sig));
+    let export_sig_ref = func.import_signature(generate_export_signature(isa, func_sig));
 
     let entry_ebb = func.dfg.make_block();
     let vmctx_ptr = func.dfg.append_block_param(entry_ebb, ir::types::I64);
@@ -211,8 +211,8 @@ fn wasm_ty_to_clif(ty: Type) -> ir::types::Type {
     }
 }
 
-fn generate_trampoline_signature() -> ir::Signature {
-    let call_convention = super::get_isa(None).default_call_conv();
+fn generate_trampoline_signature(isa: &dyn isa::TargetIsa) -> ir::Signature {
+    let call_convention = isa.default_call_conv();
     let mut sig = ir::Signature::new(call_convention);
 
     let ptr_param = ir::AbiParam {
@@ -227,8 +227,8 @@ fn generate_trampoline_signature() -> ir::Signature {
     sig
 }
 
-fn generate_export_signature(func_sig: &FuncSig) -> ir::Signature {
-    let call_convention = super::get_isa(None).default_call_conv();
+fn generate_export_signature(isa: &dyn isa::TargetIsa, func_sig: &FuncSig) -> ir::Signature {
+    let call_convention = isa.default_call_conv();
     let mut export_clif_sig = ir::Signature::new(call_convention);
 
     let func_sig_iter = func_sig.params().iter().map(|wasm_ty| ir::AbiParam {

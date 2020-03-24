@@ -136,6 +136,12 @@ pub struct CompilerConfig {
     /// Enabling this makes execution deterministic but increases runtime overhead.
     pub nan_canonicalization: bool,
 
+    /// Turns off verification that is done by default when `debug_assertions` are enabled
+    /// (for example in 'debug' builds). Enabling this flag will make compilation faster at the
+    /// cost of not detecting bugs in the compiler. The verification steps that this flag
+    /// disables are disabled by default in 'release' builds.
+    pub disable_debug_mode_verification: bool,
+
     pub features: Features,
 
     // Target info. Presently only supported by LLVM.
