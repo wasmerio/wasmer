@@ -22,7 +22,7 @@ use std::str::FromStr;
 
 use structopt::{clap, StructOpt};
 
-use wasmer::*;
+use wasmer_bin::*;
 #[cfg(feature = "backend-cranelift")]
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]

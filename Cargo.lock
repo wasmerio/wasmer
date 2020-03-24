@@ -1843,6 +1843,13 @@ dependencies = [
 name = "wasmer"
 version = "0.16.2"
 dependencies = [
+ "wasmer-runtime-core",
+]
+
+[[package]]
+name = "wasmer-bin"
+version = "0.16.2"
+dependencies = [
  "atty",
  "byteorder",
  "errno",
@@ -1854,6 +1861,7 @@ dependencies = [
  "structopt",
  "typetag",
  "wabt",
+ "wasmer",
  "wasmer-clif-backend",
  "wasmer-dev-utils",
  "wasmer-emscripten",
