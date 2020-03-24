@@ -2,10 +2,12 @@ use crate::code::CodegenError;
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
+    types::BasicTypeEnum,
     values::{BasicValue, BasicValueEnum, PhiValue, PointerValue},
 };
 use smallvec::SmallVec;
 use std::cell::Cell;
+use std::fmt::Debug;
 use std::ops::{BitAnd, BitOr, BitOrAssign};
 
 #[derive(Debug)]
@@ -193,11 +195,65 @@ impl BitAnd for ExtraInfo {
     }
 }
 
+// A custom datatype that exposes a map-like interface implemented using a
+// vector under the hood, limited to only five elements, the five wasm value
+// types.
+#[derive(Debug)]
+struct ScanMap5<K: Eq + Debug, V: Sized + Debug> {
+    items: [Option<(K, V)>; 5],
+    idx: u8,
+}
+impl<K: Eq + Debug, V: Sized + Debug> ScanMap5<K, V> {
+    fn new() -> Self {
+        Self {
+            items: [None, None, None, None, None],
+            idx: 0,
+        }
+    }
+
+    fn get(&self, key: K) -> Option<&V> {
+        self.items
+            .iter()
+            .filter_map(|v| v.as_ref())
+            .find(|(item, _)| &key == item)
+            .map(|(_, v)| v)
+    }
+
+    fn set(&mut self, key: K, value: V) -> Option<()> {
+        let idx = self.idx as usize;
+        if idx >= 5 {
+            return None;
+        }
+        if self.items[..idx]
+            .iter()
+            .filter_map(|v| v.as_ref())
+            .find(|(item, _)| &key == item)
+            .is_some()
+        {
+            return None;
+        }
+        self.items[idx] = Some((key, value));
+        self.idx += 1;
+        Some(())
+    }
+}
+
 #[derive(Debug)]
 pub struct State<'ctx> {
-    alloca_builder: &'ctx Builder<'ctx>,
+    pub alloca_builder: Builder<'ctx>,
     // The stack is guaranteed to contain allocas, only.
     pub stack: Vec<(PointerValue<'ctx>, ExtraInfo)>,
+
+    // This is all the allocas that we've created, per type, per stack depth.
+    // Reusing an alloca at a stack depth isn't optional. Two sides of a branch
+    // write to the same alloca so that after the branch, we can load the value
+    // from that one alloca and get the value written on either side.
+    //
+    // They're split by type since an alloca can only have one type and has to
+    // match the type of the data being stored in it. This is safe since the
+    // wasm verifier ensures that the stack has the same types whenever two
+    // edges of the control flow graph join.
+    allocas: Vec<ScanMap5<BasicTypeEnum<'ctx>, PointerValue<'ctx>>>,
 
     control_stack: Vec<ControlFrame<'ctx>>,
     value_counter: Cell<usize>,
@@ -206,23 +262,36 @@ pub struct State<'ctx> {
 }
 
 impl<'ctx> State<'ctx> {
-    pub fn new(alloca_builder: &'ctx Builder<'ctx>) -> Self {
+    pub fn new(alloca_builder: Builder<'ctx>) -> Self {
         Self {
             alloca_builder,
             stack: vec![],
+            allocas: vec![],
             control_stack: vec![],
             value_counter: Cell::new(0),
             reachable: true,
         }
     }
 
-/*
-    pub fn set_alloca_builder(&mut self, alloca_builder: Ref<'ctx, Builder<'ctx>>) {
-        assert!(self.alloca_builder.is_none());
-        self.alloca_builder = Some(alloca_builder);
+    fn get_alloca(&mut self, depth: usize, ty: BasicTypeEnum<'ctx>) -> PointerValue<'ctx> {
+        let build_alloca = || self.alloca_builder.build_alloca(ty, "stack");
+        if depth < self.allocas.len() {
+            let allocas_by_type = &self.allocas[depth];
+            return match allocas_by_type.get(ty) {
+                Some(alloca) => *alloca,
+                None => build_alloca(),
+            };
+        }
+        // No excuse for looking up allocas into the future. Push one at a time.
+        assert!(depth == self.allocas.len());
+
+        let mut map = ScanMap5::new();
+        let alloca = build_alloca();
+        map.set(ty, alloca.clone());
+        self.allocas.push(map);
+        alloca
     }
-     */
-    
+
     pub fn reset_stack(&mut self, frame: &ControlFrame<'ctx>) {
         let stack_size_snapshot = match frame {
             ControlFrame::Block {
@@ -296,7 +365,8 @@ impl<'ctx> State<'ctx> {
         info: ExtraInfo,
     ) {
         let value = value.as_basic_value_enum();
-        let alloca = self.alloca_builder.build_alloca(value.get_type(), "stack");
+
+        let alloca = self.get_alloca(self.stack.len(), value.get_type());
         builder.build_store(alloca, value);
         self.stack.push((alloca, info));
     }
