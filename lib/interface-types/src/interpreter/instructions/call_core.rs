@@ -70,8 +70,8 @@ mod tests {
     test_executable_instruction!(
         test_call_core =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
@@ -113,8 +113,8 @@ mod tests {
     test_executable_instruction!(
         test_call_core__invalid_types_in_the_stack =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
@@ -129,8 +129,8 @@ mod tests {
     test_executable_instruction!(
         test_call_core__failure_when_calling =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
@@ -160,8 +160,8 @@ mod tests {
     test_executable_instruction!(
         test_call_core__void =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
