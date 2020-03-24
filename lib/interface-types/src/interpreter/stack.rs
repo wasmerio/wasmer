@@ -25,6 +25,10 @@ pub trait Stackable {
     /// Returned items are in reverse order: the last element comes
     /// last in the list.
     fn pop(&mut self, n: usize) -> Option<Vec<Self::Item>>;
+
+    /// Peek the last item of the stack and returns a reference to it,
+    /// `None` if the stack is empty.
+    fn peek1(&self) -> Option<&Self::Item>;
 }
 
 /// A stack implementation of the `Stackable` trait, based on a vector.
@@ -85,6 +89,14 @@ where
             Some(items)
         }
     }
+
+    fn peek1(&self) -> Option<&Self::Item> {
+        if self.inner.is_empty() {
+            None
+        } else {
+            Some(&self.inner[self.inner.len() - 1])
+        }
+    }
 }
 
 #[cfg(test)]
@@ -125,5 +137,14 @@ mod tests {
         assert_eq!(stack.pop(3), Some(vec![1, 2, 3]));
         assert_eq!(stack.pop1(), None);
         assert_eq!(stack.is_empty(), true);
+    }
+
+    #[test]
+    fn test_peek1() {
+        let mut stack = Stack::new();
+        stack.push(1);
+        stack.push(2);
+
+        assert_eq!(stack.peek1(), Some(&2));
     }
 }
