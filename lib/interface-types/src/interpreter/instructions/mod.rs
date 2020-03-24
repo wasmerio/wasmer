@@ -1,7 +1,7 @@
 mod argument_get;
 mod call_core;
-mod lowering_lifting;
 mod memory_to_string;
+mod numbers;
 mod string_to_memory;
 
 use crate::{
@@ -13,8 +13,8 @@ use crate::{
 };
 pub(crate) use argument_get::argument_get;
 pub(crate) use call_core::call_core;
-pub(crate) use lowering_lifting::*;
 pub(crate) use memory_to_string::memory_to_string;
+pub(crate) use numbers::*;
 use std::convert::TryFrom;
 pub(crate) use string_to_memory::string_to_memory;
 
