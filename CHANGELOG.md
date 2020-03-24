@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1329](https://github.com/wasmerio/wasmer/pull/1329) New numbers and strings instructions for WIT
 - [#1320](https://github.com/wasmerio/wasmer/pull/1320) Change `custom_sections` field in `ModuleInfo` to be more standards compliant by allowing multiple custom sections with the same name. To get the old behavior with the new API, you can add `.last().unwrap()` to accesses. For example, `module_info.custom_sections["custom_section_name"].last().unwrap()`.
 - [#1303](https://github.com/wasmerio/wasmer/pull/1303) NaN canonicalization for singlepass backend.
 - [#1305](https://github.com/wasmerio/wasmer/pull/1305) Handle panics from DynamicFunc.
