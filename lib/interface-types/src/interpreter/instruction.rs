@@ -119,4 +119,7 @@ pub enum Instruction {
         /// The allocator function index.
         allocator_index: u32,
     },
+
+    /// The `string.size` instruction.
+    StringSize,
 }

@@ -234,6 +234,7 @@ where
                 Instruction::StringLowerMemory { allocator_index } => {
                     instructions::string_lower_memory(*allocator_index, *instruction)
                 }
+                Instruction::StringSize => instructions::string_size(*instruction),
             })
             .collect();
 

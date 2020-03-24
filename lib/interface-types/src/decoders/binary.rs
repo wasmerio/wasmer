@@ -219,6 +219,8 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
             )
         }
 
+        0x24 => (input, Instruction::StringSize),
+
         _ => return Err(Err::Error(make_error(input, ErrorKind::ParseTo))),
     })
 }
@@ -620,7 +622,7 @@ mod tests {
     #[test]
     fn test_instructions() {
         let input = &[
-            0x24, // list of 36 items
+            0x25, // list of 37 items
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, 0x01, // CallCore { function_index: 1 }
             0x02, // S8FromI32
@@ -657,6 +659,7 @@ mod tests {
             0x21, // I64FromU64
             0x22, // StringLiftMemory
             0x23, 0x01, // StringLowerMemory { allocator_index: 1 }
+            0x24, // StringSize
             0x0a,
         ];
         let output = Ok((
@@ -698,6 +701,7 @@ mod tests {
                 Instruction::I64FromU64,
                 Instruction::StringLiftMemory,
                 Instruction::StringLowerMemory { allocator_index: 1 },
+                Instruction::StringSize,
             ],
         ));
 

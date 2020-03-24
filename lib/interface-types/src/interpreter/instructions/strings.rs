@@ -135,6 +135,34 @@ executable_instruction!(
     }
 );
 
+executable_instruction!(
+    string_size(instruction: Instruction) -> _ {
+        move |runtime| -> _ {
+            let value = runtime.stack.peek1().ok_or_else(|| {
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::StackIsTooSmall { needed: 1 },
+                )
+            })?;
+
+            if let InterfaceValue::String(string) = value {
+                let length = string.len() as i32;
+                runtime.stack.push(InterfaceValue::I32(length));
+
+                Ok(())
+            } else {
+                Err(InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::InvalidValueOnTheStack {
+                        expected_type: InterfaceType::String,
+                        received_type: value.into(),
+                    }
+                ))
+            }
+        }
+    }
+);
+
 #[cfg(test)]
 mod tests {
     test_executable_instruction!(
@@ -322,5 +350,37 @@ mod tests {
                 instance
             },
             error: r#"`string.lower_memory 153` the local or import function `153` has the signature `[I32] -> [I32]` but it received values of kind `[I32, I32] -> []`"#,
+    );
+
+    test_executable_instruction!(
+        test_string_size =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::StringSize,
+            ],
+            invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
+            instance: Instance::new(),
+            stack: [InterfaceValue::String("Hello, World!".into()), InterfaceValue::I32(13)],
+    );
+
+    test_executable_instruction!(
+        test_string_size__stack_is_too_small =
+            instructions: [
+                Instruction::StringSize,
+            ],
+            invocation_inputs: [],
+            instance: Instance::new(),
+            error: r#"`string.size` needed to read `1` value(s) from the stack, but it doesn't contain enough data"#,
+    );
+
+    test_executable_instruction!(
+        test_string_size__invalid_value_on_the_stack =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::StringSize,
+            ],
+            invocation_inputs: [InterfaceValue::I32(42)],
+            instance: Instance::new(),
+            error: r#"`string.size` read a value of type `I32` from the stack, but the type `String` was expected"#,
     );
 }

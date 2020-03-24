@@ -121,6 +121,7 @@ impl ToString for &Instruction {
             Instruction::StringLowerMemory { allocator_index } => {
                 format!(r#"string.lower_memory {}"#, allocator_index)
             }
+            Instruction::StringSize => "string.size".into(),
         }
     }
 }
@@ -391,6 +392,7 @@ mod tests {
                 allocator_index: 42,
             })
                 .to_string(),
+            (&Instruction::StringSize).to_string(),
         ];
         let outputs = vec![
             "arg.get 7",
@@ -429,6 +431,7 @@ mod tests {
             "i64.from_u64",
             "string.lift_memory",
             "string.lower_memory 42",
+            "string.size",
         ];
 
         assert_eq!(inputs, outputs);

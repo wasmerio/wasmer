@@ -62,6 +62,7 @@ mod keyword {
     custom_keyword!(i64_from_u64 = "i64.from_u64");
     custom_keyword!(string_lift_memory = "string.lift_memory");
     custom_keyword!(string_lower_memory = "string.lower_memory");
+    custom_keyword!(string_size = "string.size");
 }
 
 impl Parse<'_> for InterfaceType {
@@ -285,6 +286,10 @@ impl<'a> Parse<'a> for Instruction {
             Ok(Instruction::StringLowerMemory {
                 allocator_index: parser.parse()?,
             })
+        } else if lookahead.peek::<keyword::string_size>() {
+            parser.parse::<keyword::string_size>()?;
+
+            Ok(Instruction::StringSize)
         } else {
             Err(lookahead.error())
         }
@@ -666,6 +671,7 @@ mod tests {
             "i64.from_u64",
             "string.lift_memory",
             "string.lower_memory 42",
+            "string.size",
         ];
         let outputs = vec![
             Instruction::ArgumentGet { index: 7 },
@@ -706,6 +712,7 @@ mod tests {
             Instruction::StringLowerMemory {
                 allocator_index: 42,
             },
+            Instruction::StringSize,
         ];
 
         assert_eq!(inputs.len(), outputs.len());
