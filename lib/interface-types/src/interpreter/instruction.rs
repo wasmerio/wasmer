@@ -15,15 +15,6 @@ pub enum Instruction {
         function_index: usize,
     },
 
-    /// The `memory-to-string` instruction.
-    MemoryToString,
-
-    /// The `string-to-memory` instruction.
-    StringToMemory {
-        /// The allocator function index.
-        allocator_index: u32,
-    },
-
     /// The `s8.from_i32` instruction.
     S8FromI32,
 
@@ -119,4 +110,13 @@ pub enum Instruction {
 
     /// The `i64.from_u64` instruction.
     I64FromU64,
+
+    /// The `string.lift_memory` instruction.
+    StringLiftMemory,
+
+    /// The `string.lower_memory` instruction.
+    StringLowerMemory {
+        /// The allocator function index.
+        allocator_index: u32,
+    },
 }

@@ -207,13 +207,13 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
         0x20 => (input, Instruction::I64FromU32),
         0x21 => (input, Instruction::I64FromU64),
 
-        0x22 => (input, Instruction::MemoryToString),
+        0x22 => (input, Instruction::StringLiftMemory),
 
         0x23 => {
             consume!((input, argument_0) = uleb(input)?);
             (
                 input,
-                Instruction::StringToMemory {
+                Instruction::StringLowerMemory {
                     allocator_index: argument_0 as u32,
                 },
             )
@@ -655,8 +655,8 @@ mod tests {
             0x1f, // I64FromU16
             0x20, // I64FromU32
             0x21, // I64FromU64
-            0x22, // MemoryToString
-            0x23, 0x01, // StringToMemory { allocator_index: 1 }
+            0x22, // StringLiftMemory
+            0x23, 0x01, // StringLowerMemory { allocator_index: 1 }
             0x0a,
         ];
         let output = Ok((
@@ -696,8 +696,8 @@ mod tests {
                 Instruction::I64FromU16,
                 Instruction::I64FromU32,
                 Instruction::I64FromU64,
-                Instruction::MemoryToString,
-                Instruction::StringToMemory { allocator_index: 1 },
+                Instruction::StringLiftMemory,
+                Instruction::StringLowerMemory { allocator_index: 1 },
             ],
         ));
 

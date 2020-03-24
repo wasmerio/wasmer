@@ -60,8 +60,8 @@ mod keyword {
     custom_keyword!(i64_from_u16 = "i64.from_u16");
     custom_keyword!(i64_from_u32 = "i64.from_u32");
     custom_keyword!(i64_from_u64 = "i64.from_u64");
-    custom_keyword!(memory_to_string = "memory-to-string");
-    custom_keyword!(string_to_memory = "string-to-memory");
+    custom_keyword!(string_lift_memory = "string.lift_memory");
+    custom_keyword!(string_lower_memory = "string.lower_memory");
 }
 
 impl Parse<'_> for InterfaceType {
@@ -275,14 +275,14 @@ impl<'a> Parse<'a> for Instruction {
             parser.parse::<keyword::i64_from_u64>()?;
 
             Ok(Instruction::I64FromU64)
-        } else if lookahead.peek::<keyword::memory_to_string>() {
-            parser.parse::<keyword::memory_to_string>()?;
+        } else if lookahead.peek::<keyword::string_lift_memory>() {
+            parser.parse::<keyword::string_lift_memory>()?;
 
-            Ok(Instruction::MemoryToString)
-        } else if lookahead.peek::<keyword::string_to_memory>() {
-            parser.parse::<keyword::string_to_memory>()?;
+            Ok(Instruction::StringLiftMemory)
+        } else if lookahead.peek::<keyword::string_lower_memory>() {
+            parser.parse::<keyword::string_lower_memory>()?;
 
-            Ok(Instruction::StringToMemory {
+            Ok(Instruction::StringLowerMemory {
                 allocator_index: parser.parse()?,
             })
         } else {
@@ -664,8 +664,8 @@ mod tests {
             "i64.from_u16",
             "i64.from_u32",
             "i64.from_u64",
-            "memory-to-string",
-            "string-to-memory 42",
+            "string.lift_memory",
+            "string.lower_memory 42",
         ];
         let outputs = vec![
             Instruction::ArgumentGet { index: 7 },
@@ -702,8 +702,8 @@ mod tests {
             Instruction::I64FromU16,
             Instruction::I64FromU32,
             Instruction::I64FromU64,
-            Instruction::MemoryToString,
-            Instruction::StringToMemory {
+            Instruction::StringLiftMemory,
+            Instruction::StringLowerMemory {
                 allocator_index: 42,
             },
         ];

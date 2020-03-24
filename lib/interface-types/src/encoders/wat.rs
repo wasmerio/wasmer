@@ -117,9 +117,9 @@ impl ToString for &Instruction {
             Instruction::I64FromU16 => "i64.from_u16".into(),
             Instruction::I64FromU32 => "i64.from_u32".into(),
             Instruction::I64FromU64 => "i64.from_u64".into(),
-            Instruction::MemoryToString => "memory-to-string".into(),
-            Instruction::StringToMemory { allocator_index } => {
-                format!(r#"string-to-memory {}"#, allocator_index)
+            Instruction::StringLiftMemory => "string.lift_memory".into(),
+            Instruction::StringLowerMemory { allocator_index } => {
+                format!(r#"string.lower_memory {}"#, allocator_index)
             }
         }
     }
@@ -386,8 +386,8 @@ mod tests {
             (&Instruction::I64FromU16).to_string(),
             (&Instruction::I64FromU32).to_string(),
             (&Instruction::I64FromU64).to_string(),
-            (&Instruction::MemoryToString).to_string(),
-            (&Instruction::StringToMemory {
+            (&Instruction::StringLiftMemory).to_string(),
+            (&Instruction::StringLowerMemory {
                 allocator_index: 42,
             })
                 .to_string(),
@@ -427,8 +427,8 @@ mod tests {
             "i64.from_u16",
             "i64.from_u32",
             "i64.from_u64",
-            "memory-to-string",
-            "string-to-memory 42",
+            "string.lift_memory",
+            "string.lower_memory 42",
         ];
 
         assert_eq!(inputs, outputs);

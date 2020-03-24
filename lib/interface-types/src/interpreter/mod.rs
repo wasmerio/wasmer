@@ -230,9 +230,9 @@ where
                 Instruction::I64FromU32 => instructions::i64_from_u32(*instruction),
                 Instruction::I64FromU64 => instructions::i64_from_u64(*instruction),
 
-                Instruction::MemoryToString => instructions::memory_to_string(*instruction),
-                Instruction::StringToMemory { allocator_index } => {
-                    instructions::string_to_memory(*allocator_index, *instruction)
+                Instruction::StringLiftMemory => instructions::string_lift_memory(*instruction),
+                Instruction::StringLowerMemory { allocator_index } => {
+                    instructions::string_lower_memory(*allocator_index, *instruction)
                 }
             })
             .collect();

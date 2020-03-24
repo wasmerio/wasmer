@@ -293,9 +293,9 @@ where
             Instruction::I64FromU32 => 0x20_u8.to_bytes(writer)?,
             Instruction::I64FromU64 => 0x21_u8.to_bytes(writer)?,
 
-            Instruction::MemoryToString => 0x22_u8.to_bytes(writer)?,
+            Instruction::StringLiftMemory => 0x22_u8.to_bytes(writer)?,
 
-            Instruction::StringToMemory { allocator_index } => {
+            Instruction::StringLowerMemory { allocator_index } => {
                 0x23_u8.to_bytes(writer)?;
                 (*allocator_index as u64).to_bytes(writer)?;
             }
@@ -575,8 +575,8 @@ mod tests {
                 Instruction::I64FromU16,
                 Instruction::I64FromU32,
                 Instruction::I64FromU64,
-                Instruction::MemoryToString,
-                Instruction::StringToMemory { allocator_index: 1 },
+                Instruction::StringLiftMemory,
+                Instruction::StringLowerMemory { allocator_index: 1 },
             ],
             &[
                 0x24, // list of 36 items
@@ -614,8 +614,8 @@ mod tests {
                 0x1f, // I64FromU16
                 0x20, // I64FromU32
                 0x21, // I64FromU64
-                0x22, // MemoryToString
-                0x23, 0x01, // StringToMemory { allocator_index: 1 }
+                0x22, // StringLiftMemory
+                0x23, 0x01, // StringLowerMemory { allocator_index: 1 }
             ]
         );
     }
