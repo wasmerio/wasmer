@@ -127,7 +127,6 @@
 <span id="127">127</span>
 <span id="128">128</span>
 <span id="129">129</span>
-<span id="130">130</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A very light and generic stack implementation, exposing only the</span>
 <span class="doccomment">//! operations required by the interpreter.</span>
@@ -153,8 +152,8 @@
 
     <span class="doccomment">/// Removes `n` elements from the end of the stack, `None` if the</span>
     <span class="doccomment">/// stack doesn&#39;t contain enough elements.</span>
-    <span class="doccomment">/// Returned items are ordered by FIFO: the last element comes</span>
-    <span class="doccomment">/// first in the list.</span>
+    <span class="doccomment">/// Returned items are in reverse order: the last element comes</span>
+    <span class="doccomment">/// last in the list.</span>
     <span class="kw">fn</span> <span class="ident">pop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Item</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 }
 
@@ -209,7 +208,6 @@
             <span class="kw">let</span> <span class="ident">items</span> <span class="op">=</span> <span class="self">self</span>
                 .<span class="ident">inner</span>
                 .<span class="ident">drain</span>(<span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">n</span>..)
-                .<span class="ident">rev</span>()
                 .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Item</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">items</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">n</span>);
@@ -252,9 +250,9 @@
         <span class="ident">stack</span>.<span class="ident">push</span>(<span class="number">6</span>);
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">stack</span>.<span class="ident">pop</span>(<span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="number">6</span>]));
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">stack</span>.<span class="ident">pop</span>(<span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="number">5</span>, <span class="number">4</span>]));
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">stack</span>.<span class="ident">pop</span>(<span class="number">2</span>), <span class="prelude-val">Some</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="number">4</span>, <span class="number">5</span>]));
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">stack</span>.<span class="ident">pop</span>(<span class="number">4</span>), <span class="prelude-val">None</span>); <span class="comment">// not enough items</span>
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">stack</span>.<span class="ident">pop</span>(<span class="number">3</span>), <span class="prelude-val">Some</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>]));
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">stack</span>.<span class="ident">pop</span>(<span class="number">3</span>), <span class="prelude-val">Some</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]));
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">stack</span>.<span class="ident">pop1</span>(), <span class="prelude-val">None</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">stack</span>.<span class="ident">is_empty</span>(), <span class="bool-val">true</span>);
     }

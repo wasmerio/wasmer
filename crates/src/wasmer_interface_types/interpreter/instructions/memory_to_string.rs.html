@@ -187,8 +187,8 @@
                     )
                 })<span class="question-mark">?</span>;
 
-            <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">inputs</span>[<span class="number">0</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>;
-            <span class="kw">let</span> <span class="ident">pointer</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">inputs</span>[<span class="number">1</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>;
+            <span class="kw">let</span> <span class="ident">pointer</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">inputs</span>[<span class="number">0</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>;
+            <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">inputs</span>[<span class="number">1</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>;
             <span class="kw">let</span> <span class="ident">memory_view</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">view</span>();
 
             <span class="kw">if</span> <span class="ident">length</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
@@ -227,15 +227,15 @@
     <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
         <span class="ident">test_memory_to_string</span> <span class="op">=</span>
             <span class="ident">instructions</span>: [
-                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>,
             ],
             <span class="ident">invocation_inputs</span>: [
-                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">13</span>),
-                <span class="comment">//              ^^^^^^^ length</span>
                 <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">0</span>),
                 <span class="comment">//              ^^^^^^ pointer</span>
+                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">13</span>),
+                <span class="comment">//              ^^^^^^^ length</span>
             ],
             <span class="ident">instance</span>: <span class="ident">Instance</span> {
                 <span class="ident">memory</span>: <span class="ident">Memory</span>::<span class="ident">new</span>(<span class="string">&quot;Hello, World!&quot;</span>.<span class="ident">as_bytes</span>().<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">u</span><span class="op">|</span> <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="kw-2">*</span><span class="ident">u</span>)).<span class="ident">collect</span>()),
@@ -247,8 +247,8 @@
     <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
         <span class="ident">test_memory_to_string__empty_string</span> <span class="op">=</span>
             <span class="ident">instructions</span>: [
-                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>,
             ],
             <span class="ident">invocation_inputs</span>: [
@@ -265,15 +265,15 @@
     <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
         <span class="ident">test_memory_to_string__read_out_of_memory</span> <span class="op">=</span>
             <span class="ident">instructions</span>: [
-                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>,
             ],
             <span class="ident">invocation_inputs</span>: [
-                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">13</span>),
-                <span class="comment">//              ^^^^^^^ length is too long</span>
                 <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">0</span>),
                 <span class="comment">//              ^^^^^^ pointer</span>
+                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">13</span>),
+                <span class="comment">//              ^^^^^^^ length is too long</span>
             ],
             <span class="ident">instance</span>: <span class="ident">Instance</span> {
                 <span class="ident">memory</span>: <span class="ident">Memory</span>::<span class="ident">new</span>(<span class="string">&quot;Hello!&quot;</span>.<span class="ident">as_bytes</span>().<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">u</span><span class="op">|</span> <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="kw-2">*</span><span class="ident">u</span>)).<span class="ident">collect</span>()),
@@ -285,15 +285,15 @@
     <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
         <span class="ident">test_memory_to_string__invalid_encoding</span> <span class="op">=</span>
             <span class="ident">instructions</span>: [
-                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>,
             ],
             <span class="ident">invocation_inputs</span>: [
-                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">4</span>),
-                <span class="comment">//              ^^^^^^ length is too long</span>
                 <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">0</span>),
                 <span class="comment">//              ^^^^^^ pointer</span>
+                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">4</span>),
+                <span class="comment">//              ^^^^^^ length is too long</span>
             ],
             <span class="ident">instance</span>: <span class="ident">Instance</span> {
                 <span class="ident">memory</span>: <span class="ident">Memory</span>::<span class="ident">new</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="number">0</span>, <span class="number">159</span>, <span class="number">146</span>, <span class="number">150</span>].<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">b</span><span class="op">|</span> <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="kw-2">*</span><span class="ident">b</span>)).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>()),
@@ -310,8 +310,8 @@
                 <span class="comment">//           ^^^^^^^^^^^^^^ `memory-to-string` expects 2 values on the stack, only one is present.</span>
             ],
             <span class="ident">invocation_inputs</span>: [
-                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">13</span>),
                 <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">0</span>),
+                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">13</span>),
             ],
             <span class="ident">instance</span>: <span class="ident">Instance</span>::<span class="ident">new</span>(),
             <span class="ident">error</span>: <span class="string">r#&quot;`memory-to-string` needed to read `2` value(s) from the stack, but it doesn&#39;t contain enough data&quot;#</span>,
