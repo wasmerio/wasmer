@@ -73,6 +73,15 @@
 <span id="73">73</span>
 <span id="74">74</span>
 <span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The Wasmer Cranelift Backend crate is used to compile wasm binary code via parse events from the</span>
 <span class="doccomment">//! Wasmer runtime common parser code into machine code.</span>
@@ -119,17 +128,26 @@
         <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;opt_level&quot;</span>, <span class="string">&quot;speed_and_size&quot;</span>).<span class="ident">unwrap</span>();
         <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;enable_jump_tables&quot;</span>, <span class="string">&quot;false&quot;</span>).<span class="ident">unwrap</span>();
 
-        <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">test</span>) <span class="op">|</span><span class="op">|</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">debug_assertions</span>) {
-            <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;enable_verifier&quot;</span>, <span class="string">&quot;true&quot;</span>).<span class="ident">unwrap</span>();
-        } <span class="kw">else</span> {
-            <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;enable_verifier&quot;</span>, <span class="string">&quot;false&quot;</span>).<span class="ident">unwrap</span>();
-        }
+        <span class="kw">let</span> <span class="ident">enable_verifier</span>: <span class="ident">bool</span>;
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">config</span>) <span class="op">=</span> <span class="ident">config</span> {
             <span class="kw">if</span> <span class="ident">config</span>.<span class="ident">nan_canonicalization</span> {
                 <span class="ident">builder</span>.<span class="ident">set</span>(<span class="string">&quot;enable_nan_canonicalization&quot;</span>, <span class="string">&quot;true&quot;</span>).<span class="ident">unwrap</span>();
             }
+            <span class="ident">enable_verifier</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">enable_verification</span>;
+        } <span class="kw">else</span> {
+            <span class="comment">// Set defaults if no config found.</span>
+            <span class="comment">// NOTE: cfg(test) probably does nothing when not running `cargo test`</span>
+            <span class="comment">//       on this crate</span>
+            <span class="ident">enable_verifier</span> <span class="op">=</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">test</span>) <span class="op">|</span><span class="op">|</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">debug_assertions</span>);
         }
+
+        <span class="ident">builder</span>
+            .<span class="ident">set</span>(
+                <span class="string">&quot;enable_verifier&quot;</span>,
+                <span class="kw">if</span> <span class="ident">enable_verifier</span> { <span class="string">&quot;true&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;false&quot;</span> },
+            )
+            .<span class="ident">unwrap</span>();
 
         <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">settings</span>::<span class="ident">Flags</span>::<span class="ident">new</span>(<span class="ident">builder</span>);
         <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">flags</span>.<span class="ident">opt_level</span>(), <span class="ident">settings</span>::<span class="ident">OptLevel</span>::<span class="ident">SpeedAndSize</span>);

@@ -289,6 +289,37 @@
 <span id="289">289</span>
 <span id="290">290</span>
 <span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">error</span>::<span class="ident">CompileResult</span>,
@@ -398,7 +429,7 @@
 }
 
 <span class="doccomment">/// Configuration data for the compiler</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompilerConfig</span> {
     <span class="doccomment">/// Symbol information generated from emscripten; used for more detailed debug messages</span>
     <span class="kw">pub</span> <span class="ident">symbol_map</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -428,6 +459,13 @@
     <span class="doccomment">/// Enabling this makes execution deterministic but increases runtime overhead.</span>
     <span class="kw">pub</span> <span class="ident">nan_canonicalization</span>: <span class="ident">bool</span>,
 
+    <span class="doccomment">/// Turns on verification that is done by default when `debug_assertions` are enabled</span>
+    <span class="doccomment">/// (for example in &#39;debug&#39; builds). Disabling this flag will make compilation faster</span>
+    <span class="doccomment">/// in debug mode at the cost of not detecting bugs in the compiler.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// These verifications are disabled by default in &#39;release&#39; builds.</span>
+    <span class="kw">pub</span> <span class="ident">enable_verification</span>: <span class="ident">bool</span>,
+
     <span class="kw">pub</span> <span class="ident">features</span>: <span class="ident">Features</span>,
 
     <span class="comment">// Target info. Presently only supported by LLVM.</span>
@@ -438,6 +476,30 @@
     <span class="kw">pub</span> <span class="ident">backend_specific_config</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BackendCompilerConfig</span><span class="op">&gt;</span>,
 
     <span class="kw">pub</span> <span class="ident">generate_debug_info</span>: <span class="ident">bool</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">CompilerConfig</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">symbol_map</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">memory_bound_check_mode</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">enforce_stack_check</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">track_state</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">full_preemption</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">nan_canonicalization</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">features</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">triple</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">cpu_name</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">cpu_features</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">backend_specific_config</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">generate_debug_info</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+
+            <span class="comment">// Default verification to &#39;on&#39; when testing or running in debug mode.</span>
+            <span class="comment">// NOTE: cfg(test) probably does nothing when not running `cargo test`</span>
+            <span class="comment">//       on this crate</span>
+            <span class="ident">enable_verification</span>: <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">test</span>) <span class="op">|</span><span class="op">|</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">debug_assertions</span>),
+        }
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">CompilerConfig</span> {
