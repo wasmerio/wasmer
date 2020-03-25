@@ -25,6 +25,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7825f6833612eb2414095684fcf6c635becf3ce97fe48cf6421321e93bfbd53c"
 
 [[package]]
+name = "api-tests"
+version = "0.16.2"
+dependencies = [
+ "wabt",
+ "wasmer",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1843,7 +1851,10 @@ dependencies = [
 name = "wasmer"
 version = "0.16.2"
 dependencies = [
+ "wasmer-clif-backend",
+ "wasmer-llvm-backend",
  "wasmer-runtime-core",
+ "wasmer-singlepass-backend",
 ]
 
 [[package]]

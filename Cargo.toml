@@ -46,6 +46,7 @@ wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices
 [workspace]
 members = [
     "lib/api",
+    "lib/api-tests",
     "lib/clif-backend",
     "lib/singlepass-backend",
     "lib/runtime",
