@@ -254,7 +254,7 @@ impl Module {
                     }
                 });
         let imported_globals =
-            info.imported_tables
+            info.imported_globals
                 .values()
                 .map(|(import_name, global_descriptor)| {
                     let (namespace, name) = get_import_name(info, import_name);
