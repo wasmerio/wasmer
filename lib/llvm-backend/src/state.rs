@@ -3,9 +3,8 @@ use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
     types::BasicTypeEnum,
-    values::{BasicValue, BasicValueEnum, PhiValue, PointerValue},
+    values::{BasicValue, BasicValueEnum, PointerValue},
 };
-use smallvec::SmallVec;
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::ops::{BitAnd, BitOr, BitOrAssign};
@@ -14,22 +13,22 @@ use std::ops::{BitAnd, BitOr, BitOrAssign};
 pub enum ControlFrame<'ctx> {
     Block {
         next: BasicBlock<'ctx>,
-        phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
+        values: usize,
     },
     Loop {
         body: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
-        phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
+        values: usize,
     },
     IfElse {
         if_then: BasicBlock<'ctx>,
         if_else: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
-        phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
         if_else_state: IfElseState,
+        values: usize,
     },
 }
 
@@ -55,18 +54,18 @@ impl<'ctx> ControlFrame<'ctx> {
         }
     }
 
-    pub fn phis(&self) -> &[PhiValue<'ctx>] {
-        match self {
-            ControlFrame::Block { ref phis, .. }
-            | ControlFrame::Loop { ref phis, .. }
-            | ControlFrame::IfElse { ref phis, .. } => phis.as_slice(),
-        }
-    }
-
     pub fn is_loop(&self) -> bool {
         match self {
             ControlFrame::Loop { .. } => true,
             _ => false,
+        }
+    }
+
+    pub fn values(&self) -> usize {
+        match self {
+            ControlFrame::Block { values, .. }
+            | ControlFrame::IfElse { values, .. }
+            | ControlFrame::Loop { values, .. } => *values,
         }
     }
 }
@@ -484,11 +483,11 @@ impl<'ctx> State<'ctx> {
         Ok(())
     }
 
-    pub fn push_block(&mut self, next: BasicBlock<'ctx>, phis: SmallVec<[PhiValue<'ctx>; 1]>) {
+    pub fn push_block(&mut self, next: BasicBlock<'ctx>, values: usize) {
         self.control_stack.push(ControlFrame::Block {
             next,
-            phis,
             stack_size_snapshot: self.stack.len(),
+            values,
         });
     }
 
@@ -496,13 +495,13 @@ impl<'ctx> State<'ctx> {
         &mut self,
         body: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
-        phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        values: usize,
     ) {
         self.control_stack.push(ControlFrame::Loop {
             body,
             next,
-            phis,
             stack_size_snapshot: self.stack.len(),
+            values,
         });
     }
 
@@ -511,15 +510,15 @@ impl<'ctx> State<'ctx> {
         if_then: BasicBlock<'ctx>,
         if_else: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
-        phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        values: usize,
     ) {
         self.control_stack.push(ControlFrame::IfElse {
             if_then,
             if_else,
             next,
-            phis,
             stack_size_snapshot: self.stack.len(),
             if_else_state: IfElseState::If,
+            values,
         });
     }
 }
