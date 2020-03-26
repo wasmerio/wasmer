@@ -149,6 +149,12 @@ pub enum InstructionErrorKind {
 
     /// The string contains invalid UTF-8 encoding.
     String(string::FromUtf8Error),
+
+    /// A negative value isn't allowed (like a negative pointer value).
+    NegativeValue {
+        /// The variable name that triggered the error.
+        subject: &'static str,
+    },
 }
 
 impl Error for InstructionErrorKind {}
@@ -226,6 +232,12 @@ impl Display for InstructionErrorKind {
                 formatter,
                 "{}",
                 error
+            ),
+
+            Self::NegativeValue { subject } => write!(
+                formatter,
+                "read the value of `{}` which must be positive",
+                subject
             ),
         }
     }
