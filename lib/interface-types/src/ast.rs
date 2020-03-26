@@ -48,6 +48,16 @@ pub enum InterfaceType {
 
     /// A 64-bits integer (as defiend in WebAssembly core).
     I64,
+
+    /// A record.
+    Record(RecordType),
+}
+
+/// Representing a record type.
+#[derive(PartialEq, Debug, Clone)]
+pub struct RecordType {
+    /// Types representing the fields.
+    pub fields: Vec<InterfaceType>,
 }
 
 /// Represents the kind of type.
@@ -81,10 +91,7 @@ pub enum Type {
     /// ```wasm,ignore
     /// (@interface type (record string i32))
     /// ```
-    Record {
-        /// Types representing the fields.
-        fields: Vec<InterfaceType>,
-    },
+    Record(RecordType),
 }
 
 /// Represents an imported function.

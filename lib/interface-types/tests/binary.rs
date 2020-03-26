@@ -15,9 +15,9 @@ fn test_binary_encoding_decoding_roundtrip() {
                 inputs: vec![InterfaceType::I32, InterfaceType::I32],
                 outputs: vec![InterfaceType::S32],
             },
-            Type::Record {
+            Type::Record(RecordType {
                 fields: vec![InterfaceType::String, InterfaceType::I32],
-            },
+            }),
         ],
         imports: vec![Import {
             namespace: "a",

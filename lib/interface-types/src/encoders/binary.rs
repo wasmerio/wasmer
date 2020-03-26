@@ -108,7 +108,21 @@ where
             InterfaceType::Anyref => 0x0b_u8.to_bytes(writer),
             InterfaceType::I32 => 0x0c_u8.to_bytes(writer),
             InterfaceType::I64 => 0x0d_u8.to_bytes(writer),
+            InterfaceType::Record(record_type) => {
+                0x0e_u8.to_bytes(writer)?;
+                record_type.to_bytes(writer)
+            }
         }
+    }
+}
+
+/// Encode a `RecordType` into bytes.
+impl<W> ToBytes<W> for RecordType
+where
+    W: Write,
+{
+    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
+        self.fields.to_bytes(writer)
     }
 }
 
@@ -156,7 +170,7 @@ where
                 outputs.to_bytes(writer)?;
             }
 
-            Type::Record { fields } => {
+            Type::Record(RecordType { fields }) => {
                 TypeKind::Record.to_bytes(writer)?;
                 fields.to_bytes(writer)?;
             }
@@ -422,6 +436,55 @@ mod tests {
         assert_to_bytes!(InterfaceType::Anyref, &[0x0b]);
         assert_to_bytes!(InterfaceType::I32, &[0x0c]);
         assert_to_bytes!(InterfaceType::I64, &[0x0d]);
+        assert_to_bytes!(
+            InterfaceType::Record(RecordType {
+                fields: vec![InterfaceType::String]
+            }),
+            &[0x0e, 0x01, 0x0a]
+        );
+    }
+
+    #[test]
+    fn test_record_type() {
+        assert_to_bytes!(
+            RecordType {
+                fields: vec![InterfaceType::String]
+            },
+            &[
+                0x01, // 1 field
+                0x0a, // String
+            ]
+        );
+        assert_to_bytes!(
+            RecordType {
+                fields: vec![InterfaceType::String, InterfaceType::I32]
+            },
+            &[
+                0x02, // 2 fields
+                0x0a, // String
+                0x0c, // I32
+            ]
+        );
+        assert_to_bytes!(
+            RecordType {
+                fields: vec![
+                    InterfaceType::String,
+                    InterfaceType::Record(RecordType {
+                        fields: vec![InterfaceType::I32, InterfaceType::I32],
+                    }),
+                    InterfaceType::F64,
+                ],
+            },
+            &[
+                0x03, // 3 fields
+                0x0a, // String
+                0x0e, // Record
+                0x02, // 2 fields
+                0x0c, // I32
+                0x0c, // I32
+                0x09, // F64
+            ]
+        );
     }
 
     #[test]
@@ -471,9 +534,9 @@ mod tests {
     #[test]
     fn test_type_record() {
         assert_to_bytes!(
-            Type::Record {
+            Type::Record(RecordType {
                 fields: vec![InterfaceType::I32, InterfaceType::I64],
-            },
+            }),
             &[
                 0x01, // record type
                 0x02, // list of 2 items

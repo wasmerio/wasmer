@@ -14,6 +14,7 @@ mod keyword {
     custom_keyword!(implement);
     custom_keyword!(r#type = "type");
     custom_keyword!(record);
+    custom_keyword!(field);
 
     // New types.
     custom_keyword!(s8);
@@ -126,9 +127,29 @@ impl Parse<'_> for InterfaceType {
             parser.parse::<keyword::i64>()?;
 
             Ok(InterfaceType::I64)
+        } else if lookahead.peek::<keyword::record>() {
+            Ok(InterfaceType::Record(parser.parse()?))
         } else {
             Err(lookahead.error())
         }
+    }
+}
+
+impl Parse<'_> for RecordType {
+    fn parse(parser: Parser<'_>) -> Result<Self> {
+        parser.parse::<keyword::record>()?;
+
+        let mut fields = vec![];
+
+        while !parser.is_empty() {
+            fields.push(parser.parens(|parser| {
+                parser.parse::<keyword::field>()?;
+
+                parser.parse()
+            })?);
+        }
+
+        Ok(RecordType { fields })
     }
 }
 
@@ -425,15 +446,7 @@ impl<'a> Parse<'a> for Type {
                     outputs: output_types,
                 })
             } else if lookahead.peek::<keyword::record>() {
-                parser.parse::<keyword::record>()?;
-
-                let mut fields = vec![];
-
-                while !parser.is_empty() {
-                    fields.push(parser.parse()?);
-                }
-
-                Ok(Type::Record { fields })
+                Ok(Type::Record(parser.parse()?))
             } else {
                 Err(lookahead.error())
             }
@@ -622,8 +635,21 @@ mod tests {
     #[test]
     fn test_interface_type() {
         let inputs = vec![
-            "s8", "s16", "s32", "s64", "u8", "u16", "u32", "u64", "f32", "f64", "string", "anyref",
-            "i32", "i64",
+            "s8",
+            "s16",
+            "s32",
+            "s64",
+            "u8",
+            "u16",
+            "u32",
+            "u64",
+            "f32",
+            "f64",
+            "string",
+            "anyref",
+            "i32",
+            "i64",
+            "record (field string)",
         ];
         let outputs = vec![
             InterfaceType::S8,
@@ -640,6 +666,9 @@ mod tests {
             InterfaceType::Anyref,
             InterfaceType::I32,
             InterfaceType::I64,
+            InterfaceType::Record(RecordType {
+                fields: vec![InterfaceType::String],
+            }),
         ];
 
         assert_eq!(inputs.len(), outputs.len());
@@ -647,6 +676,41 @@ mod tests {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             assert_eq!(
                 &parser::parse::<InterfaceType>(&buffer(input)).unwrap(),
+                output
+            );
+        }
+    }
+
+    #[test]
+    fn test_record_type() {
+        let inputs = vec![
+            "record (field string)",
+            "record (field string) (field i32)",
+            "record (field string) (field record (field i32) (field i32)) (field f64)",
+        ];
+        let outputs = vec![
+            RecordType {
+                fields: vec![InterfaceType::String],
+            },
+            RecordType {
+                fields: vec![InterfaceType::String, InterfaceType::I32],
+            },
+            RecordType {
+                fields: vec![
+                    InterfaceType::String,
+                    InterfaceType::Record(RecordType {
+                        fields: vec![InterfaceType::I32, InterfaceType::I32],
+                    }),
+                    InterfaceType::F64,
+                ],
+            },
+        ];
+
+        assert_eq!(inputs.len(), outputs.len());
+
+        for (input, output) in inputs.iter().zip(outputs.iter()) {
+            assert_eq!(
+                &parser::parse::<RecordType>(&buffer(input)).unwrap(),
                 output
             );
         }
@@ -790,10 +854,10 @@ mod tests {
 
     #[test]
     fn test_type_record() {
-        let input = buffer(r#"(@interface type (record string i32))"#);
-        let output = Interface::Type(Type::Record {
+        let input = buffer(r#"(@interface type (record (field string) (field i32)))"#);
+        let output = Interface::Type(Type::Record(RecordType {
             fields: vec![InterfaceType::String, InterfaceType::I32],
-        });
+        }));
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }

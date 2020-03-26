@@ -61,21 +61,38 @@ use std::string::ToString;
 impl ToString for &InterfaceType {
     fn to_string(&self) -> String {
         match self {
-            InterfaceType::S8 => "s8".into(),
-            InterfaceType::S16 => "s16".into(),
-            InterfaceType::S32 => "s32".into(),
-            InterfaceType::S64 => "s64".into(),
-            InterfaceType::U8 => "u8".into(),
-            InterfaceType::U16 => "u16".into(),
-            InterfaceType::U32 => "u32".into(),
-            InterfaceType::U64 => "u64".into(),
-            InterfaceType::F32 => "f32".into(),
-            InterfaceType::F64 => "f64".into(),
-            InterfaceType::String => "string".into(),
-            InterfaceType::Anyref => "anyref".into(),
-            InterfaceType::I32 => "i32".into(),
-            InterfaceType::I64 => "i64".into(),
+            InterfaceType::S8 => "s8".to_string(),
+            InterfaceType::S16 => "s16".to_string(),
+            InterfaceType::S32 => "s32".to_string(),
+            InterfaceType::S64 => "s64".to_string(),
+            InterfaceType::U8 => "u8".to_string(),
+            InterfaceType::U16 => "u16".to_string(),
+            InterfaceType::U32 => "u32".to_string(),
+            InterfaceType::U64 => "u64".to_string(),
+            InterfaceType::F32 => "f32".to_string(),
+            InterfaceType::F64 => "f64".to_string(),
+            InterfaceType::String => "string".to_string(),
+            InterfaceType::Anyref => "anyref".to_string(),
+            InterfaceType::I32 => "i32".to_string(),
+            InterfaceType::I64 => "i64".to_string(),
+            InterfaceType::Record(record_type) => record_type.to_string(),
         }
+    }
+}
+
+impl ToString for &RecordType {
+    fn to_string(&self) -> String {
+        format!(
+            "record{fields}",
+            fields = self
+                .fields
+                .iter()
+                .fold(String::new(), |mut accumulator, interface_type| {
+                    accumulator.push(' ');
+                    accumulator.push_str(&format!("(field {})", &interface_type.to_string()));
+                    accumulator
+                }),
+        )
     }
 }
 
@@ -174,15 +191,9 @@ impl<'input> ToString for &Type {
                 outputs = output_types_to_result(&outputs),
             ),
 
-            Type::Record { fields } => format!(
-                r#"(@interface type (record{fields}))"#,
-                fields = fields
-                    .iter()
-                    .fold(String::new(), |mut accumulator, interface_type| {
-                        accumulator.push(' ');
-                        accumulator.push_str(&interface_type.to_string());
-                        accumulator
-                    }),
+            Type::Record(record_type) => format!(
+                r#"(@interface type ({record_type}))"#,
+                record_type = record_type.to_string(),
             ),
         }
     }
@@ -354,10 +365,58 @@ mod tests {
             (&InterfaceType::Anyref).to_string(),
             (&InterfaceType::I32).to_string(),
             (&InterfaceType::I64).to_string(),
+            (&InterfaceType::Record(RecordType {
+                fields: vec![InterfaceType::String],
+            }))
+                .to_string(),
         ];
         let outputs = vec![
-            "s8", "s16", "s32", "s64", "u8", "u16", "u32", "u64", "f32", "f64", "string", "anyref",
-            "i32", "i64",
+            "s8",
+            "s16",
+            "s32",
+            "s64",
+            "u8",
+            "u16",
+            "u32",
+            "u64",
+            "f32",
+            "f64",
+            "string",
+            "anyref",
+            "i32",
+            "i64",
+            "record (field string)",
+        ];
+
+        assert_eq!(inputs, outputs);
+    }
+
+    #[test]
+    fn test_record_type() {
+        let inputs = vec![
+            (&RecordType {
+                fields: vec![InterfaceType::String],
+            })
+                .to_string(),
+            (&RecordType {
+                fields: vec![InterfaceType::String, InterfaceType::I32],
+            })
+                .to_string(),
+            (&RecordType {
+                fields: vec![
+                    InterfaceType::String,
+                    InterfaceType::Record(RecordType {
+                        fields: vec![InterfaceType::I32, InterfaceType::I32],
+                    }),
+                    InterfaceType::F64,
+                ],
+            })
+                .to_string(),
+        ];
+        let outputs = vec![
+            "record (field string)",
+            "record (field string) (field i32)",
+            "record (field string) (field record (field i32) (field i32)) (field f64)",
         ];
 
         assert_eq!(inputs, outputs);
@@ -473,9 +532,9 @@ mod tests {
                 outputs: vec![],
             })
                 .to_string(),
-            (&Type::Record {
+            (&Type::Record(RecordType {
                 fields: vec![InterfaceType::String, InterfaceType::I32],
-            })
+            }))
                 .to_string(),
         ];
         let outputs = vec![
@@ -487,7 +546,7 @@ mod tests {
             r#"(@interface type (func
   (result i32)))"#,
             r#"(@interface type (func))"#,
-            r#"(@interface type (record string i32))"#,
+            r#"(@interface type (record (field string) (field i32)))"#,
         ];
 
         assert_eq!(inputs, outputs);
