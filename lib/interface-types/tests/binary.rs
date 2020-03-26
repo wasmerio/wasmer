@@ -7,13 +7,16 @@ use wasmer_interface_types::{
 fn test_binary_encoding_decoding_roundtrip() {
     let original_ast = Interfaces {
         types: vec![
-            Type {
+            Type::Function {
                 inputs: vec![],
                 outputs: vec![],
             },
-            Type {
+            Type::Function {
                 inputs: vec![InterfaceType::I32, InterfaceType::I32],
                 outputs: vec![InterfaceType::S32],
+            },
+            Type::Record {
+                fields: vec![InterfaceType::String, InterfaceType::I32],
             },
         ],
         imports: vec![Import {

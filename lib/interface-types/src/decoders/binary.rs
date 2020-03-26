@@ -431,6 +431,7 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 /// let input = &[
 ///     0x00, // type section
 ///     0x01, // 1 type
+///     0x00, // function type
 ///     0x01, // list of 1 item
 ///     0x00, // S8
 ///     0x01, // list of 1 item
@@ -464,7 +465,7 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 /// let output = Ok((
 ///     &[] as &[u8],
 ///     Interfaces {
-///         types: vec![Type {
+///         types: vec![Type::Function {
 ///             inputs: vec![InterfaceType::S8],
 ///             outputs: vec![InterfaceType::S16],
 ///         }],
@@ -767,19 +768,29 @@ mod tests {
     #[test]
     fn test_types() {
         let input = &[
-            0x01, // 1 type
+            0x02, // 2 type
+            0x00, // function type
             0x02, // list of 2 items
             0x02, // S32
             0x02, // S32
             0x01, // list of 2 items
             0x02, // S32
+            0x01, // record type
+            0x02, // list of 2 items
+            0x02, // S32
+            0x02, // S32
         ];
         let output = Ok((
             &[] as &[u8],
-            vec![Type {
-                inputs: vec![InterfaceType::S32, InterfaceType::S32],
-                outputs: vec![InterfaceType::S32],
-            }],
+            vec![
+                Type::Function {
+                    inputs: vec![InterfaceType::S32, InterfaceType::S32],
+                    outputs: vec![InterfaceType::S32],
+                },
+                Type::Record {
+                    fields: vec![InterfaceType::S32, InterfaceType::S32],
+                },
+            ],
         ));
 
         assert_eq!(types::<()>(input), output);
@@ -843,6 +854,7 @@ mod tests {
         let input = &[
             0x00, // type section
             0x01, // 1 type
+            0x00, // function type
             0x01, // list of 1 item
             0x00, // S8
             0x01, // list of 1 item
@@ -876,7 +888,7 @@ mod tests {
         let output = Ok((
             &[] as &[u8],
             Interfaces {
-                types: vec![Type {
+                types: vec![Type::Function {
                     inputs: vec![InterfaceType::S8],
                     outputs: vec![InterfaceType::S16],
                 }],

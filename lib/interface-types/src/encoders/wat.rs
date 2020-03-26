@@ -10,7 +10,7 @@
 //! };
 //!
 //! let input: String = (&Interfaces {
-//!     types: vec![Type {
+//!     types: vec![Type::Function {
 //!         inputs: vec![InterfaceType::I32],
 //!         outputs: vec![InterfaceType::S8],
 //!     }],
@@ -175,7 +175,7 @@ impl<'input> ToString for &Type {
             ),
 
             Type::Record { fields } => format!(
-                r#"(@interface type (record {fields}))"#,
+                r#"(@interface type (record{fields}))"#,
                 fields = fields
                     .iter()
                     .fold(String::new(), |mut accumulator, interface_type| {
@@ -453,24 +453,28 @@ mod tests {
     #[test]
     fn test_types() {
         let inputs: Vec<String> = vec![
-            (&Type {
+            (&Type::Function {
                 inputs: vec![InterfaceType::I32, InterfaceType::F32],
                 outputs: vec![InterfaceType::I32],
             })
                 .to_string(),
-            (&Type {
+            (&Type::Function {
                 inputs: vec![InterfaceType::I32],
                 outputs: vec![],
             })
                 .to_string(),
-            (&Type {
+            (&Type::Function {
                 inputs: vec![],
                 outputs: vec![InterfaceType::I32],
             })
                 .to_string(),
-            (&Type {
+            (&Type::Function {
                 inputs: vec![],
                 outputs: vec![],
+            })
+                .to_string(),
+            (&Type::Record {
+                fields: vec![InterfaceType::String, InterfaceType::I32],
             })
                 .to_string(),
         ];
@@ -483,6 +487,7 @@ mod tests {
             r#"(@interface type (func
   (result i32)))"#,
             r#"(@interface type (func))"#,
+            r#"(@interface type (record string i32))"#,
         ];
 
         assert_eq!(inputs, outputs);
@@ -529,7 +534,7 @@ mod tests {
     #[test]
     fn test_interfaces() {
         let input: String = (&Interfaces {
-            types: vec![Type {
+            types: vec![Type::Function {
                 inputs: vec![InterfaceType::I32],
                 outputs: vec![InterfaceType::S8],
             }],

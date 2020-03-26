@@ -451,18 +451,34 @@ mod tests {
     }
 
     #[test]
-    fn test_type() {
+    fn test_type_function() {
         assert_to_bytes!(
-            Type {
+            Type::Function {
                 inputs: vec![InterfaceType::I32, InterfaceType::I64],
                 outputs: vec![InterfaceType::S32],
             },
             &[
+                0x00, // function type
                 0x02, // list of 2 items
                 0x0c, // I32
                 0x0d, // I64
                 0x01, // list of 1 items
                 0x02, // I64
+            ]
+        );
+    }
+
+    #[test]
+    fn test_type_record() {
+        assert_to_bytes!(
+            Type::Record {
+                fields: vec![InterfaceType::I32, InterfaceType::I64],
+            },
+            &[
+                0x01, // record type
+                0x02, // list of 2 items
+                0x0c, // I32
+                0x0d, // I64
             ]
         );
     }
@@ -504,7 +520,7 @@ mod tests {
     fn test_interfaces() {
         assert_to_bytes!(
             Interfaces {
-                types: vec![Type {
+                types: vec![Type::Function {
                     inputs: vec![InterfaceType::S8],
                     outputs: vec![InterfaceType::S16],
                 }],
@@ -529,6 +545,7 @@ mod tests {
             &[
                 0x00, // type section
                 0x01, // 1 type
+                0x00, // function type
                 0x01, // list of 1 item
                 0x00, // S8
                 0x01, // list of 1 item

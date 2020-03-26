@@ -427,15 +427,11 @@ impl<'a> Parse<'a> for Type {
             } else if lookahead.peek::<keyword::record>() {
                 parser.parse::<keyword::record>()?;
 
-                let fields = parser.parens(|parser| {
-                    let mut fields = vec![];
+                let mut fields = vec![];
 
-                    while !parser.is_empty() {
-                        fields.push(parser.parse()?);
-                    }
-
-                    Ok(fields)
-                })?;
+                while !parser.is_empty() {
+                    fields.push(parser.parse()?);
+                }
 
                 Ok(Type::Record { fields })
             } else {
@@ -585,7 +581,7 @@ impl<'a> Parse<'a> for Interfaces<'a> {
 /// )
 /// .unwrap();
 /// let output = Interfaces {
-///     types: vec![Type {
+///     types: vec![Type::Function {
 ///         inputs: vec![InterfaceType::I32],
 ///         outputs: vec![InterfaceType::S8],
 ///     }],
@@ -782,11 +778,21 @@ mod tests {
     }
 
     #[test]
-    fn test_type() {
+    fn test_type_function() {
         let input = buffer(r#"(@interface type (func (param i32 i32) (result i32)))"#);
-        let output = Interface::Type(Type {
+        let output = Interface::Type(Type::Function {
             inputs: vec![InterfaceType::I32, InterfaceType::I32],
             outputs: vec![InterfaceType::I32],
+        });
+
+        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
+    }
+
+    #[test]
+    fn test_type_record() {
+        let input = buffer(r#"(@interface type (record string i32))"#);
+        let output = Interface::Type(Type::Record {
+            fields: vec![InterfaceType::String, InterfaceType::I32],
         });
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
@@ -862,7 +868,7 @@ mod tests {
 (@interface implement (func 0) (func 1))"#,
         );
         let output = Interfaces {
-            types: vec![Type {
+            types: vec![Type::Function {
                 inputs: vec![InterfaceType::I32],
                 outputs: vec![InterfaceType::S8],
             }],
