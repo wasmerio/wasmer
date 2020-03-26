@@ -624,23 +624,6 @@
 <span id="624">624</span>
 <span id="625">625</span>
 <span id="626">626</span>
-<span id="627">627</span>
-<span id="628">628</span>
-<span id="629">629</span>
-<span id="630">630</span>
-<span id="631">631</span>
-<span id="632">632</span>
-<span id="633">633</span>
-<span id="634">634</span>
-<span id="635">635</span>
-<span id="636">636</span>
-<span id="637">637</span>
-<span id="638">638</span>
-<span id="639">639</span>
-<span id="640">640</span>
-<span id="641">641</span>
-<span id="642">642</span>
-<span id="643">643</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Writes the AST into bytes representing WIT with its binary format.</span>
 
@@ -904,52 +887,47 @@
                 (<span class="kw-2">*</span><span class="ident">function_index</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x03_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S8FromI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x02_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S8FromI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x03_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S16FromI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x04_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S16FromI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x05_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S32FromI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x06_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S32FromI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x07_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S64FromI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x08_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S64FromI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x09_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromS8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0a_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromS16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0b_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromS32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0c_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromS64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0d_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromS8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0e_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromS16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0f_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromS32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x10_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromS64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x11_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U8FromI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x12_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U8FromI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x13_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U16FromI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x14_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U16FromI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x15_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U32FromI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x16_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U32FromI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x17_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U64FromI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x18_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U64FromI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x19_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromU8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1a_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromU16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1b_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromU32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1c_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1d_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromU8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1e_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromU16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1f_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromU32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x20_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x21_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
 
-            <span class="ident">Instruction</span>::<span class="ident">StringToMemory</span> { <span class="ident">allocator_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x04_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+            <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x22_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+
+            <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="number">0x23_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
                 (<span class="kw-2">*</span><span class="ident">allocator_index</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x07_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x08_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToU8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x09_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0a_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS16X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0b_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToU16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0c_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0d_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToU32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0e_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x0f_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x10_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x11_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS8X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x12_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToU8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x13_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x14_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS16X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x15_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToU16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x16_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x17_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS32X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x18_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToU32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x19_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1a_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1b_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S8ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1c_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U8ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1d_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S16ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1e_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U16ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x1f_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S32ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x20_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U32ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x21_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S64ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x22_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S64ToI32X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x23_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U64ToI32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x24_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U64ToI32X</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x25_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S8ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x26_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U8ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x27_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S16ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x28_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U16ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x29_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S32ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x2a_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U32ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x2b_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S64ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x2c_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U64ToI64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x2d_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
+            <span class="ident">Instruction</span>::<span class="ident">StringSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x24_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
         }
 
         <span class="prelude-val">Ok</span>(())
@@ -1194,93 +1172,81 @@
             <span class="macro">vec</span><span class="macro">!</span>[
                 <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span>: <span class="number">1</span> },
-                <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>,
-                <span class="ident">Instruction</span>::<span class="ident">StringToMemory</span> { <span class="ident">allocator_index</span>: <span class="number">1</span> },
-                <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I32ToU8</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I32ToS16</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I32ToS16X</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I32ToU16</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I32ToS32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I32ToU32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I32ToS64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I32ToU64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToS8</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToS8X</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToU8</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToS16</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToS16X</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToU16</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToS32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToS32X</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToU32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToS64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">I64ToU64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">S8ToI32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">U8ToI32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">S16ToI32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">U16ToI32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">S32ToI32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">U32ToI32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">S64ToI32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">S64ToI32X</span>,
-                <span class="ident">Instruction</span>::<span class="ident">U64ToI32</span>,
-                <span class="ident">Instruction</span>::<span class="ident">U64ToI32X</span>,
-                <span class="ident">Instruction</span>::<span class="ident">S8ToI64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">U8ToI64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">S16ToI64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">U16ToI64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">S32ToI64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">U32ToI64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">S64ToI64</span>,
-                <span class="ident">Instruction</span>::<span class="ident">U64ToI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S8FromI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S8FromI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S16FromI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S16FromI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S32FromI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S32FromI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S64FromI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">S64FromI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32FromS8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32FromS16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32FromS32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32FromS64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64FromS8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64FromS16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64FromS32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64FromS64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U8FromI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U8FromI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U16FromI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U16FromI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U32FromI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U32FromI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U64FromI32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">U64FromI64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32FromU8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32FromU16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32FromU32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I32FromU64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64FromU8</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64FromU16</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64FromU32</span>,
+                <span class="ident">Instruction</span>::<span class="ident">I64FromU64</span>,
+                <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>,
+                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span>: <span class="number">1</span> },
+                <span class="ident">Instruction</span>::<span class="ident">StringSize</span>,
             ],
             <span class="kw-2">&amp;</span>[
-                <span class="number">0x2b</span>, <span class="comment">// list of 43 items</span>
+                <span class="number">0x25</span>, <span class="comment">// list of 37 items</span>
                 <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="comment">// ArgumentGet { index: 1 }</span>
                 <span class="number">0x01</span>, <span class="number">0x01</span>, <span class="comment">// CallCore { function_index: 1 }</span>
-                <span class="number">0x03</span>, <span class="comment">// MemoryToString</span>
-                <span class="number">0x04</span>, <span class="number">0x01</span>, <span class="comment">// StringToMemory { allocator_index: 1 }</span>
-                <span class="number">0x07</span>, <span class="comment">// I32ToS8</span>
-                <span class="number">0x08</span>, <span class="comment">// I32ToS8X</span>
-                <span class="number">0x09</span>, <span class="comment">// I32ToU8</span>
-                <span class="number">0x0a</span>, <span class="comment">// I32ToS16</span>
-                <span class="number">0x0b</span>, <span class="comment">// I32ToS16X</span>
-                <span class="number">0x0c</span>, <span class="comment">// I32ToU16</span>
-                <span class="number">0x0d</span>, <span class="comment">// I32ToS32</span>
-                <span class="number">0x0e</span>, <span class="comment">// I32ToU32</span>
-                <span class="number">0x0f</span>, <span class="comment">// I32ToS64</span>
-                <span class="number">0x10</span>, <span class="comment">// I32ToU64</span>
-                <span class="number">0x11</span>, <span class="comment">// I64ToS8</span>
-                <span class="number">0x12</span>, <span class="comment">// I64ToS8X</span>
-                <span class="number">0x13</span>, <span class="comment">// I64ToU8</span>
-                <span class="number">0x14</span>, <span class="comment">// I64ToS16</span>
-                <span class="number">0x15</span>, <span class="comment">// I64ToS16X</span>
-                <span class="number">0x16</span>, <span class="comment">// I64ToU16</span>
-                <span class="number">0x17</span>, <span class="comment">// I64ToS32</span>
-                <span class="number">0x18</span>, <span class="comment">// I64ToS32X</span>
-                <span class="number">0x19</span>, <span class="comment">// I64ToU32</span>
-                <span class="number">0x1a</span>, <span class="comment">// I64ToS64</span>
-                <span class="number">0x1b</span>, <span class="comment">// I64ToU64</span>
-                <span class="number">0x1c</span>, <span class="comment">// S8ToI32</span>
-                <span class="number">0x1d</span>, <span class="comment">// U8ToI32</span>
-                <span class="number">0x1e</span>, <span class="comment">// S16ToI32</span>
-                <span class="number">0x1f</span>, <span class="comment">// U16ToI32</span>
-                <span class="number">0x20</span>, <span class="comment">// S32ToI32</span>
-                <span class="number">0x21</span>, <span class="comment">// U32ToI32</span>
-                <span class="number">0x22</span>, <span class="comment">// S64ToI32</span>
-                <span class="number">0x23</span>, <span class="comment">// S64ToI32X</span>
-                <span class="number">0x24</span>, <span class="comment">// U64ToI32</span>
-                <span class="number">0x25</span>, <span class="comment">// U64ToI32X</span>
-                <span class="number">0x26</span>, <span class="comment">// S8ToI64</span>
-                <span class="number">0x27</span>, <span class="comment">// U8ToI64</span>
-                <span class="number">0x28</span>, <span class="comment">// S16ToI64</span>
-                <span class="number">0x29</span>, <span class="comment">// U16ToI64</span>
-                <span class="number">0x2a</span>, <span class="comment">// S32ToI64</span>
-                <span class="number">0x2b</span>, <span class="comment">// U32ToI64</span>
-                <span class="number">0x2c</span>, <span class="comment">// S64ToI64</span>
-                <span class="number">0x2d</span>, <span class="comment">// U64ToI64</span>
+                <span class="number">0x02</span>, <span class="comment">// S8FromI32</span>
+                <span class="number">0x03</span>, <span class="comment">// S8FromI64</span>
+                <span class="number">0x04</span>, <span class="comment">// S16FromI32</span>
+                <span class="number">0x05</span>, <span class="comment">// S16FromI64</span>
+                <span class="number">0x06</span>, <span class="comment">// S32FromI32</span>
+                <span class="number">0x07</span>, <span class="comment">// S32FromI64</span>
+                <span class="number">0x08</span>, <span class="comment">// S64FromI32</span>
+                <span class="number">0x09</span>, <span class="comment">// S64FromI64</span>
+                <span class="number">0x0a</span>, <span class="comment">// I32FromS8</span>
+                <span class="number">0x0b</span>, <span class="comment">// I32FromS16</span>
+                <span class="number">0x0c</span>, <span class="comment">// I32FromS32</span>
+                <span class="number">0x0d</span>, <span class="comment">// I32FromS64</span>
+                <span class="number">0x0e</span>, <span class="comment">// I64FromS8</span>
+                <span class="number">0x0f</span>, <span class="comment">// I64FromS16</span>
+                <span class="number">0x10</span>, <span class="comment">// I64FromS32</span>
+                <span class="number">0x11</span>, <span class="comment">// I64FromS64</span>
+                <span class="number">0x12</span>, <span class="comment">// U8FromI32</span>
+                <span class="number">0x13</span>, <span class="comment">// U8FromI64</span>
+                <span class="number">0x14</span>, <span class="comment">// U16FromI32</span>
+                <span class="number">0x15</span>, <span class="comment">// U16FromI64</span>
+                <span class="number">0x16</span>, <span class="comment">// U32FromI32</span>
+                <span class="number">0x17</span>, <span class="comment">// U32FromI64</span>
+                <span class="number">0x18</span>, <span class="comment">// U64FromI32</span>
+                <span class="number">0x19</span>, <span class="comment">// U64FromI64</span>
+                <span class="number">0x1a</span>, <span class="comment">// I32FromU8</span>
+                <span class="number">0x1b</span>, <span class="comment">// I32FromU16</span>
+                <span class="number">0x1c</span>, <span class="comment">// I32FromU32</span>
+                <span class="number">0x1d</span>, <span class="comment">// I32FromU64</span>
+                <span class="number">0x1e</span>, <span class="comment">// I64FromU8</span>
+                <span class="number">0x1f</span>, <span class="comment">// I64FromU16</span>
+                <span class="number">0x20</span>, <span class="comment">// I64FromU32</span>
+                <span class="number">0x21</span>, <span class="comment">// I64FromU64</span>
+                <span class="number">0x22</span>, <span class="comment">// StringLiftMemory</span>
+                <span class="number">0x23</span>, <span class="number">0x01</span>, <span class="comment">// StringLowerMemory { allocator_index: 1 }</span>
+                <span class="number">0x24</span>, <span class="comment">// StringSize</span>
             ]
         );
     }

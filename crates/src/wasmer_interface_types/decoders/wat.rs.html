@@ -864,48 +864,6 @@
 <span id="864">864</span>
 <span id="865">865</span>
 <span id="866">866</span>
-<span id="867">867</span>
-<span id="868">868</span>
-<span id="869">869</span>
-<span id="870">870</span>
-<span id="871">871</span>
-<span id="872">872</span>
-<span id="873">873</span>
-<span id="874">874</span>
-<span id="875">875</span>
-<span id="876">876</span>
-<span id="877">877</span>
-<span id="878">878</span>
-<span id="879">879</span>
-<span id="880">880</span>
-<span id="881">881</span>
-<span id="882">882</span>
-<span id="883">883</span>
-<span id="884">884</span>
-<span id="885">885</span>
-<span id="886">886</span>
-<span id="887">887</span>
-<span id="888">888</span>
-<span id="889">889</span>
-<span id="890">890</span>
-<span id="891">891</span>
-<span id="892">892</span>
-<span id="893">893</span>
-<span id="894">894</span>
-<span id="895">895</span>
-<span id="896">896</span>
-<span id="897">897</span>
-<span id="898">898</span>
-<span id="899">899</span>
-<span id="900">900</span>
-<span id="901">901</span>
-<span id="902">902</span>
-<span id="903">903</span>
-<span id="904">904</span>
-<span id="905">905</span>
-<span id="906">906</span>
-<span id="907">907</span>
-<span id="908">908</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parse the WIT textual representation into an [AST](crate::ast).</span>
 
@@ -937,47 +895,41 @@
     <span class="comment">// Instructions.</span>
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">argument_get</span> <span class="op">=</span> <span class="string">&quot;arg.get&quot;</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">call_core</span> <span class="op">=</span> <span class="string">&quot;call-core&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">memory_to_string</span> <span class="op">=</span> <span class="string">&quot;memory-to-string&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">string_to_memory</span> <span class="op">=</span> <span class="string">&quot;string-to-memory&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_s8</span> <span class="op">=</span> <span class="string">&quot;i32-to-s8&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_s8x</span> <span class="op">=</span> <span class="string">&quot;i32-to-s8x&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_u8</span> <span class="op">=</span> <span class="string">&quot;i32-to-u8&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_s16</span> <span class="op">=</span> <span class="string">&quot;i32-to-s16&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_s16x</span> <span class="op">=</span> <span class="string">&quot;i32-to-s16x&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_u16</span> <span class="op">=</span> <span class="string">&quot;i32-to-u16&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_s32</span> <span class="op">=</span> <span class="string">&quot;i32-to-s32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_u32</span> <span class="op">=</span> <span class="string">&quot;i32-to-u32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_s64</span> <span class="op">=</span> <span class="string">&quot;i32-to-s64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_to_u64</span> <span class="op">=</span> <span class="string">&quot;i32-to-u64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_s8</span> <span class="op">=</span> <span class="string">&quot;i64-to-s8&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_s8x</span> <span class="op">=</span> <span class="string">&quot;i64-to-s8x&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_u8</span> <span class="op">=</span> <span class="string">&quot;i64-to-u8&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_s16</span> <span class="op">=</span> <span class="string">&quot;i64-to-s16&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_s16x</span> <span class="op">=</span> <span class="string">&quot;i64-to-s16x&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_u16</span> <span class="op">=</span> <span class="string">&quot;i64-to-u16&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_s32</span> <span class="op">=</span> <span class="string">&quot;i64-to-s32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_s32x</span> <span class="op">=</span> <span class="string">&quot;i64-to-s32x&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_u32</span> <span class="op">=</span> <span class="string">&quot;i64-to-u32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_s64</span> <span class="op">=</span> <span class="string">&quot;i64-to-s64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_to_u64</span> <span class="op">=</span> <span class="string">&quot;i64-to-u64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s8_to_i32</span> <span class="op">=</span> <span class="string">&quot;s8-to-i32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u8_to_i32</span> <span class="op">=</span> <span class="string">&quot;u8-to-i32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s16_to_i32</span> <span class="op">=</span> <span class="string">&quot;s16-to-i32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u16_to_i32</span> <span class="op">=</span> <span class="string">&quot;u16-to-i32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s32_to_i32</span> <span class="op">=</span> <span class="string">&quot;s32-to-i32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u32_to_i32</span> <span class="op">=</span> <span class="string">&quot;u32-to-i32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s64_to_i32</span> <span class="op">=</span> <span class="string">&quot;s64-to-i32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s64_to_i32x</span> <span class="op">=</span> <span class="string">&quot;s64-to-i32x&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u64_to_i32</span> <span class="op">=</span> <span class="string">&quot;u64-to-i32&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u64_to_i32x</span> <span class="op">=</span> <span class="string">&quot;u64-to-i32x&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s8_to_i64</span> <span class="op">=</span> <span class="string">&quot;s8-to-i64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u8_to_i64</span> <span class="op">=</span> <span class="string">&quot;u8-to-i64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s16_to_i64</span> <span class="op">=</span> <span class="string">&quot;s16-to-i64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u16_to_i64</span> <span class="op">=</span> <span class="string">&quot;u16-to-i64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s32_to_i64</span> <span class="op">=</span> <span class="string">&quot;s32-to-i64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u32_to_i64</span> <span class="op">=</span> <span class="string">&quot;u32-to-i64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s64_to_i64</span> <span class="op">=</span> <span class="string">&quot;s64-to-i64&quot;</span>);
-    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u64_to_i64</span> <span class="op">=</span> <span class="string">&quot;u64-to-i64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s8_from_i32</span> <span class="op">=</span> <span class="string">&quot;s8.from_i32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s8_from_i64</span> <span class="op">=</span> <span class="string">&quot;s8.from_i64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s16_from_i32</span> <span class="op">=</span> <span class="string">&quot;s16.from_i32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s16_from_i64</span> <span class="op">=</span> <span class="string">&quot;s16.from_i64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s32_from_i32</span> <span class="op">=</span> <span class="string">&quot;s32.from_i32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s32_from_i64</span> <span class="op">=</span> <span class="string">&quot;s32.from_i64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s64_from_i32</span> <span class="op">=</span> <span class="string">&quot;s64.from_i32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s64_from_i64</span> <span class="op">=</span> <span class="string">&quot;s64.from_i64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_from_s8</span> <span class="op">=</span> <span class="string">&quot;i32.from_s8&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_from_s16</span> <span class="op">=</span> <span class="string">&quot;i32.from_s16&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_from_s32</span> <span class="op">=</span> <span class="string">&quot;i32.from_s32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_from_s64</span> <span class="op">=</span> <span class="string">&quot;i32.from_s64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_from_s8</span> <span class="op">=</span> <span class="string">&quot;i64.from_s8&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_from_s16</span> <span class="op">=</span> <span class="string">&quot;i64.from_s16&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_from_s32</span> <span class="op">=</span> <span class="string">&quot;i64.from_s32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_from_s64</span> <span class="op">=</span> <span class="string">&quot;i64.from_s64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u8_from_i32</span> <span class="op">=</span> <span class="string">&quot;u8.from_i32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u8_from_i64</span> <span class="op">=</span> <span class="string">&quot;u8.from_i64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u16_from_i32</span> <span class="op">=</span> <span class="string">&quot;u16.from_i32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u16_from_i64</span> <span class="op">=</span> <span class="string">&quot;u16.from_i64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u32_from_i32</span> <span class="op">=</span> <span class="string">&quot;u32.from_i32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u32_from_i64</span> <span class="op">=</span> <span class="string">&quot;u32.from_i64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u64_from_i32</span> <span class="op">=</span> <span class="string">&quot;u64.from_i32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">u64_from_i64</span> <span class="op">=</span> <span class="string">&quot;u64.from_i64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_from_u8</span> <span class="op">=</span> <span class="string">&quot;i32.from_u8&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_from_u16</span> <span class="op">=</span> <span class="string">&quot;i32.from_u16&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_from_u32</span> <span class="op">=</span> <span class="string">&quot;i32.from_u32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i32_from_u64</span> <span class="op">=</span> <span class="string">&quot;i32.from_u64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_from_u8</span> <span class="op">=</span> <span class="string">&quot;i64.from_u8&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_from_u16</span> <span class="op">=</span> <span class="string">&quot;i64.from_u16&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_from_u32</span> <span class="op">=</span> <span class="string">&quot;i64.from_u32&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">i64_from_u64</span> <span class="op">=</span> <span class="string">&quot;i64.from_u64&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">string_lift_memory</span> <span class="op">=</span> <span class="string">&quot;string.lift_memory&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">string_lower_memory</span> <span class="op">=</span> <span class="string">&quot;string.lower_memory&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">string_size</span> <span class="op">=</span> <span class="string">&quot;string.size&quot;</span>);
 }
 
 <span class="kw">impl</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InterfaceType</span> {
@@ -1063,172 +1015,148 @@
             <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">CallCore</span> {
                 <span class="ident">function_index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>,
             })
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">memory_to_string</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">memory_to_string</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s8_from_i32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s8_from_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_to_memory</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_to_memory</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S8FromI32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s8_from_i64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s8_from_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">StringToMemory</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S8FromI64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s16_from_i32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s16_from_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S16FromI32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s16_from_i64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s16_from_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S16FromI64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s32_from_i32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s32_from_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S32FromI32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s32_from_i64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s32_from_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S32FromI64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s64_from_i32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s64_from_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S64FromI32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s64_from_i64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s64_from_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S64FromI64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_s8</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_s8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32FromS8</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_s16</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_s16</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32FromS16</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_s32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_s32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32FromS32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_s64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_s64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32FromS64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_s8</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_s8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64FromS8</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_s16</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_s16</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64FromS16</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_s32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_s32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64FromS32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_s64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_s64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64FromS64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u8_from_i32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u8_from_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U8FromI32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u8_from_i64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u8_from_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U8FromI64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u16_from_i32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u16_from_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U16FromI32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u16_from_i64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u16_from_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U16FromI64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u32_from_i32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u32_from_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U32FromI32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u32_from_i64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u32_from_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U32FromI64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u64_from_i32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u64_from_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U64FromI32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u64_from_i64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u64_from_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U64FromI64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_u8</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_u8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32FromU8</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_u16</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_u16</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32FromU16</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_u32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_u32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32FromU32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_u64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_from_u64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32FromU64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_u8</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_u8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64FromU8</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_u16</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_u16</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64FromU16</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_u32</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_u32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64FromU32</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_u64</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_from_u64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64FromU64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_lift_memory</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_lift_memory</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_lower_memory</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_lower_memory</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> {
                 <span class="ident">allocator_index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
             })
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s8</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_size</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_size</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32ToS8</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s8x</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s8x</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_u8</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_u8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32ToU8</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s16</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s16</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32ToS16</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s16x</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s16x</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32ToS16X</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_u16</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_u16</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32ToU16</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32ToS32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_u32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_u32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32ToU32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_s64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32ToS64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_u64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i32_to_u64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I32ToU64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s8</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToS8</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s8x</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s8x</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToS8X</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_u8</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_u8</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToU8</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s16</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s16</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToS16</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s16x</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s16x</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToS16X</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_u16</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_u16</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToU16</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToS32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s32x</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s32x</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToS32X</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_u32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_u32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToU32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_s64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToS64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_u64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64_to_u64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">I64ToU64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s8_to_i32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s8_to_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S8ToI32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u8_to_i32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u8_to_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U8ToI32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s16_to_i32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s16_to_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S16ToI32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u16_to_i32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u16_to_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U16ToI32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s32_to_i32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s32_to_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S32ToI32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u32_to_i32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u32_to_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U32ToI32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s64_to_i32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s64_to_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S64ToI32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s64_to_i32x</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s64_to_i32x</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S64ToI32X</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u64_to_i32</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u64_to_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U64ToI32</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u64_to_i32x</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u64_to_i32x</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U64ToI32X</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s8_to_i64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s8_to_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S8ToI64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u8_to_i64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u8_to_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U8ToI64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s16_to_i64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s16_to_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S16ToI64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u16_to_i64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u16_to_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U16ToI64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s32_to_i64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s32_to_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S32ToI64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u32_to_i64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u32_to_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U32ToI64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s64_to_i64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s64_to_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">S64ToI64</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u64_to_i64</span><span class="op">&gt;</span>() {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">u64_to_i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">U64ToI64</span>)
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">StringSize</span>)
         } <span class="kw">else</span> {
             <span class="prelude-val">Err</span>(<span class="ident">lookahead</span>.<span class="ident">error</span>())
         }
@@ -1576,94 +1504,82 @@
         <span class="kw">let</span> <span class="ident">inputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             <span class="string">&quot;arg.get 7&quot;</span>,
             <span class="string">&quot;call-core 7&quot;</span>,
-            <span class="string">&quot;memory-to-string&quot;</span>,
-            <span class="string">&quot;string-to-memory 42&quot;</span>,
-            <span class="string">&quot;i32-to-s8&quot;</span>,
-            <span class="string">&quot;i32-to-s8x&quot;</span>,
-            <span class="string">&quot;i32-to-u8&quot;</span>,
-            <span class="string">&quot;i32-to-s16&quot;</span>,
-            <span class="string">&quot;i32-to-s16x&quot;</span>,
-            <span class="string">&quot;i32-to-u16&quot;</span>,
-            <span class="string">&quot;i32-to-s32&quot;</span>,
-            <span class="string">&quot;i32-to-u32&quot;</span>,
-            <span class="string">&quot;i32-to-s64&quot;</span>,
-            <span class="string">&quot;i32-to-u64&quot;</span>,
-            <span class="string">&quot;i64-to-s8&quot;</span>,
-            <span class="string">&quot;i64-to-s8x&quot;</span>,
-            <span class="string">&quot;i64-to-u8&quot;</span>,
-            <span class="string">&quot;i64-to-s16&quot;</span>,
-            <span class="string">&quot;i64-to-s16x&quot;</span>,
-            <span class="string">&quot;i64-to-u16&quot;</span>,
-            <span class="string">&quot;i64-to-s32&quot;</span>,
-            <span class="string">&quot;i64-to-s32x&quot;</span>,
-            <span class="string">&quot;i64-to-u32&quot;</span>,
-            <span class="string">&quot;i64-to-s64&quot;</span>,
-            <span class="string">&quot;i64-to-u64&quot;</span>,
-            <span class="string">&quot;s8-to-i32&quot;</span>,
-            <span class="string">&quot;u8-to-i32&quot;</span>,
-            <span class="string">&quot;s16-to-i32&quot;</span>,
-            <span class="string">&quot;u16-to-i32&quot;</span>,
-            <span class="string">&quot;s32-to-i32&quot;</span>,
-            <span class="string">&quot;u32-to-i32&quot;</span>,
-            <span class="string">&quot;s64-to-i32&quot;</span>,
-            <span class="string">&quot;s64-to-i32x&quot;</span>,
-            <span class="string">&quot;u64-to-i32&quot;</span>,
-            <span class="string">&quot;u64-to-i32x&quot;</span>,
-            <span class="string">&quot;s8-to-i64&quot;</span>,
-            <span class="string">&quot;u8-to-i64&quot;</span>,
-            <span class="string">&quot;s16-to-i64&quot;</span>,
-            <span class="string">&quot;u16-to-i64&quot;</span>,
-            <span class="string">&quot;s32-to-i64&quot;</span>,
-            <span class="string">&quot;u32-to-i64&quot;</span>,
-            <span class="string">&quot;s64-to-i64&quot;</span>,
-            <span class="string">&quot;u64-to-i64&quot;</span>,
+            <span class="string">&quot;s8.from_i32&quot;</span>,
+            <span class="string">&quot;s8.from_i64&quot;</span>,
+            <span class="string">&quot;s16.from_i32&quot;</span>,
+            <span class="string">&quot;s16.from_i64&quot;</span>,
+            <span class="string">&quot;s32.from_i32&quot;</span>,
+            <span class="string">&quot;s32.from_i64&quot;</span>,
+            <span class="string">&quot;s64.from_i32&quot;</span>,
+            <span class="string">&quot;s64.from_i64&quot;</span>,
+            <span class="string">&quot;i32.from_s8&quot;</span>,
+            <span class="string">&quot;i32.from_s16&quot;</span>,
+            <span class="string">&quot;i32.from_s32&quot;</span>,
+            <span class="string">&quot;i32.from_s64&quot;</span>,
+            <span class="string">&quot;i64.from_s8&quot;</span>,
+            <span class="string">&quot;i64.from_s16&quot;</span>,
+            <span class="string">&quot;i64.from_s32&quot;</span>,
+            <span class="string">&quot;i64.from_s64&quot;</span>,
+            <span class="string">&quot;u8.from_i32&quot;</span>,
+            <span class="string">&quot;u8.from_i64&quot;</span>,
+            <span class="string">&quot;u16.from_i32&quot;</span>,
+            <span class="string">&quot;u16.from_i64&quot;</span>,
+            <span class="string">&quot;u32.from_i32&quot;</span>,
+            <span class="string">&quot;u32.from_i64&quot;</span>,
+            <span class="string">&quot;u64.from_i32&quot;</span>,
+            <span class="string">&quot;u64.from_i64&quot;</span>,
+            <span class="string">&quot;i32.from_u8&quot;</span>,
+            <span class="string">&quot;i32.from_u16&quot;</span>,
+            <span class="string">&quot;i32.from_u32&quot;</span>,
+            <span class="string">&quot;i32.from_u64&quot;</span>,
+            <span class="string">&quot;i64.from_u8&quot;</span>,
+            <span class="string">&quot;i64.from_u16&quot;</span>,
+            <span class="string">&quot;i64.from_u32&quot;</span>,
+            <span class="string">&quot;i64.from_u64&quot;</span>,
+            <span class="string">&quot;string.lift_memory&quot;</span>,
+            <span class="string">&quot;string.lower_memory 42&quot;</span>,
+            <span class="string">&quot;string.size&quot;</span>,
         ];
         <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">7</span> },
             <span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span>: <span class="number">7</span> },
-            <span class="ident">Instruction</span>::<span class="ident">MemoryToString</span>,
-            <span class="ident">Instruction</span>::<span class="ident">StringToMemory</span> {
+            <span class="ident">Instruction</span>::<span class="ident">S8FromI32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S8FromI64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S16FromI32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S16FromI64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S32FromI32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S32FromI64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S64FromI32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">S64FromI64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromS8</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromS16</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromS32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromS64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromS8</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromS16</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromS32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromS64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U8FromI32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U8FromI64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U16FromI32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U16FromI64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U32FromI32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U32FromI64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U64FromI32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">U64FromI64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromU8</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromU16</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromU32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I32FromU64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromU8</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromU16</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromU32</span>,
+            <span class="ident">Instruction</span>::<span class="ident">I64FromU64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>,
+            <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> {
                 <span class="ident">allocator_index</span>: <span class="number">42</span>,
             },
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS8</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS8X</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToU8</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS16</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS16X</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToU16</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToU32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToS64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I32ToU64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS8</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS8X</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToU8</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS16</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS16X</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToU16</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS32X</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToU32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToS64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">I64ToU64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S8ToI32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U8ToI32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S16ToI32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U16ToI32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S32ToI32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U32ToI32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S64ToI32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S64ToI32X</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U64ToI32</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U64ToI32X</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S8ToI64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U8ToI64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S16ToI64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U16ToI64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S32ToI64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U32ToI64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">S64ToI64</span>,
-            <span class="ident">Instruction</span>::<span class="ident">U64ToI64</span>,
+            <span class="ident">Instruction</span>::<span class="ident">StringSize</span>,
         ];
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inputs</span>.<span class="ident">len</span>(), <span class="ident">outputs</span>.<span class="ident">len</span>());

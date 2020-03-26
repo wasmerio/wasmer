@@ -207,14 +207,11 @@
 <span id="207">207</span>
 <span id="208">208</span>
 <span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">mod</span> <span class="ident">argument_get</span>;
 <span class="kw">mod</span> <span class="ident">call_core</span>;
-<span class="kw">mod</span> <span class="ident">lowering_lifting</span>;
-<span class="kw">mod</span> <span class="ident">memory_to_string</span>;
-<span class="kw">mod</span> <span class="ident">string_to_memory</span>;
+<span class="kw">mod</span> <span class="ident">numbers</span>;
+<span class="kw">mod</span> <span class="ident">strings</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">errors</span>::{<span class="ident">InstructionError</span>, <span class="ident">InstructionErrorKind</span>, <span class="ident">InstructionResult</span>, <span class="ident">WasmValueNativeCastError</span>},
@@ -225,10 +222,9 @@
 };
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">argument_get</span>::<span class="ident">argument_get</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">call_core</span>::<span class="ident">call_core</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">lowering_lifting</span>::<span class="kw-2">*</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">memory_to_string</span>::<span class="ident">memory_to_string</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">numbers</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryFrom</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">string_to_memory</span>::<span class="ident">string_to_memory</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">strings</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Just a short helper to map the error of a cast from an</span>
 <span class="doccomment">/// `InterfaceValue` to a native value.</span>
