@@ -223,6 +223,42 @@ mod tests {
     );
 
     test_executable_instruction!(
+        test_string_lift_memory__negative_pointer =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::StringLiftMemory,
+            ],
+            invocation_inputs: [
+                InterfaceValue::I32(-42),
+                InterfaceValue::I32(13),
+            ],
+            instance: Instance {
+                memory: Memory::new("Hello!".as_bytes().iter().map(|u| Cell::new(*u)).collect()),
+                ..Default::default()
+            },
+            error: r#"`string.lift_memory` read the value of `pointer` which must be positive"#,
+    );
+
+    test_executable_instruction!(
+        test_string_lift_memory__negative_length =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::StringLiftMemory,
+            ],
+            invocation_inputs: [
+                InterfaceValue::I32(0),
+                InterfaceValue::I32(-1),
+            ],
+            instance: Instance {
+                memory: Memory::new("Hello!".as_bytes().iter().map(|u| Cell::new(*u)).collect()),
+                ..Default::default()
+            },
+            error: r#"`string.lift_memory` read the value of `length` which must be positive"#,
+    );
+
+    test_executable_instruction!(
         test_string_lift_memory__read_out_of_memory =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
