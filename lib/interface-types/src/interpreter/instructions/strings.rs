@@ -33,18 +33,14 @@ executable_instruction!(
                     )
                 })?;
 
-            let pointer: usize = to_native::<i32>(&inputs[0], instruction)?.try_into().map_err(|_| {
-                InstructionError::new(
-                    instruction,
-                    InstructionErrorKind::NegativeValue { subject: "pointer" },
-                )
-            })?;
-            let length: usize = to_native::<i32>(&inputs[1], instruction)?.try_into().map_err(|_| {
-                InstructionError::new(
-                    instruction,
-                    InstructionErrorKind::NegativeValue { subject: "length" },
-                )
-            })?;
+            let pointer: usize = to_native::<i32>(&inputs[0], instruction)?
+                .try_into()
+                .map_err(|e| (e, "pointer").into())
+                .map_err(|k| InstructionError::new(instruction, k))?;
+            let length: usize = to_native::<i32>(&inputs[1], instruction)?
+                .try_into()
+                .map_err(|e| (e, "length").into())
+                .map_err(|k| InstructionError::new(instruction, k))?;
             let memory_view = memory.view();
 
             if length == 0 {
@@ -237,7 +233,7 @@ mod tests {
                 memory: Memory::new("Hello!".as_bytes().iter().map(|u| Cell::new(*u)).collect()),
                 ..Default::default()
             },
-            error: r#"`string.lift_memory` read the value of `pointer` which must be positive"#,
+            error: r#"`string.lift_memory` attempted to convert `pointer` but it appears to be a negative value"#,
     );
 
     test_executable_instruction!(
@@ -255,7 +251,7 @@ mod tests {
                 memory: Memory::new("Hello!".as_bytes().iter().map(|u| Cell::new(*u)).collect()),
                 ..Default::default()
             },
-            error: r#"`string.lift_memory` read the value of `length` which must be positive"#,
+            error: r#"`string.lift_memory` attempted to convert `length` but it appears to be a negative value"#,
     );
 
     test_executable_instruction!(
