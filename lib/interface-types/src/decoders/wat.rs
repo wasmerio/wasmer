@@ -146,7 +146,7 @@ impl<'a> Parse<'a> for Instruction {
             parser.parse::<keyword::call_core>()?;
 
             Ok(Instruction::CallCore {
-                function_index: parser.parse::<u64>()? as usize,
+                function_index: parser.parse::<u32>()?,
             })
         } else if lookahead.peek::<keyword::s8_from_i32>() {
             parser.parse::<keyword::s8_from_i32>()?;
