@@ -128,19 +128,19 @@ fn it_works() {
     };
     let instance = module.instantiate(&import_object).unwrap();
 
-    let ret_2: Func<(), i32> = instance.exports_new().get("ret_2").unwrap();
-    let ret_4: Func<(), i32> = instance.exports_new().get("ret_4").unwrap();
-    let set_test_global: Func<i32> = instance.exports_new().get("set_test_global").unwrap();
-    let update_outside_global: Func = instance.exports_new().get("update_outside_global").unwrap();
+    let ret_2: Func<(), i32> = instance.exports.get("ret_2").unwrap();
+    let ret_4: Func<(), i32> = instance.exports.get("ret_4").unwrap();
+    let set_test_global: Func<i32> = instance.exports.get("set_test_global").unwrap();
+    let update_outside_global: Func = instance.exports.get("update_outside_global").unwrap();
 
     assert_eq!(ret_2.call(), Ok(2));
     assert_eq!(ret_4.call(), Ok(4));
 
-    let _test_table: Table = instance.exports_new().get("test-table").unwrap();
+    let _test_table: Table = instance.exports.get("test-table").unwrap();
     // TODO: when table get is stablized test this
 
-    let test_global: Global = instance.exports_new().get("test-global").unwrap();
-    // TODO: do we want to make global.get act like exports_new().get()?
+    let test_global: Global = instance.exports.get("test-global").unwrap();
+    // TODO: do we want to make global.get act like exports.get()?
     assert_eq!(test_global.get(), Value::I32(3));
     set_test_global.call(17).unwrap();
     assert_eq!(test_global.get(), Value::I32(17));

@@ -56,16 +56,13 @@ pub struct Instance {
     /// Reference to the module used to instantiate this instance.
     pub module: Arc<ModuleInner>,
     inner: Pin<Box<InstanceInner>>,
+    /// The exports of this instance. TODO: document this
+    pub exports: Exports,
     #[allow(dead_code)]
     import_object: ImportObject,
 }
 
 impl Instance {
-    /// Access the new exports API.
-    /// TODO: rename etc.
-    pub fn exports_new(&self) -> Exports {
-        Exports { instance: self }
-    }
     pub(crate) fn new(module: Arc<ModuleInner>, imports: &ImportObject) -> Result<Instance> {
         // We need the backing and import_backing to create a vm::Ctx, but we need
         // a vm::Ctx to create a backing and an import_backing. The solution is to create an
@@ -97,9 +94,15 @@ impl Instance {
         };
         Box::leak(vmctx);
 
+        let exports = Exports {
+            module: module.clone(),
+            instance_inner: &*inner as *const InstanceInner,
+        };
+
         let instance = Instance {
             module,
             inner,
+            exports,
             import_object: imports.clone_ref(),
         };
 
@@ -183,77 +186,7 @@ impl Instance {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
-
-        if let ExportIndex::Func(func_index) = export_index {
-            let sig_index = *self
-                .module
-                .info
-                .func_assoc
-                .get(*func_index)
-                .expect("broken invariant, incorrect func index");
-            let signature =
-                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
-
-            if signature.params() != Args::types() || signature.returns() != Rets::types() {
-                Err(ResolveError::Signature {
-                    expected: (*signature).clone(),
-                    found: Args::types().to_vec(),
-                })?;
-            }
-
-            let ctx = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(_) => self.inner.vmctx,
-                LocalOrImport::Import(imported_func_index) => unsafe {
-                    self.inner.import_backing.vm_functions[imported_func_index]
-                        .func_ctx
-                        .as_ref()
-                }
-                .vmctx
-                .as_ptr(),
-            };
-
-            let func_wasm_inner = self
-                .module
-                .runnable_module
-                .get_trampoline(&self.module.info, sig_index)
-                .unwrap();
-
-            let (func_ptr, func_env) = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(local_func_index) => (
-                    self.module
-                        .runnable_module
-                        .get_func(&self.module.info, local_func_index)
-                        .unwrap(),
-                    None,
-                ),
-                LocalOrImport::Import(import_func_index) => {
-                    let imported_func = &self.inner.import_backing.vm_functions[import_func_index];
-
-                    (
-                        NonNull::new(imported_func.func as *mut _).unwrap(),
-                        unsafe { imported_func.func_ctx.as_ref() }.func_env,
-                    )
-                }
-            };
-
-            let typed_func: Func<Args, Rets, Wasm> =
-                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, func_env, ctx) };
-
-            Ok(typed_func)
-        } else {
-            Err(ResolveError::ExportWrongType {
-                name: name.to_string(),
-            }
-            .into())
-        }
+        func(&*self.module, &self.inner, name)
     }
 
     /// Resolve a function by name.
@@ -292,37 +225,7 @@ impl Instance {
     /// # }
     /// ```
     pub fn dyn_func(&self, name: &str) -> ResolveResult<DynFunc> {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
-
-        if let ExportIndex::Func(func_index) = export_index {
-            let sig_index = *self
-                .module
-                .info
-                .func_assoc
-                .get(*func_index)
-                .expect("broken invariant, incorrect func index");
-            let signature =
-                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
-
-            Ok(DynFunc {
-                signature,
-                module: &self.module,
-                instance_inner: &self.inner,
-                func_index: *func_index,
-            })
-        } else {
-            Err(ResolveError::ExportWrongType {
-                name: name.to_string(),
-            }
-            .into())
-        }
+        dyn_func(&*self.module, &self.inner, name)
     }
 
     /// Call an exported WebAssembly function given the export name.
@@ -416,6 +319,124 @@ impl Instance {
     /// Set the value of an internal field.
     pub fn set_internal(&mut self, field: &InternalField, value: u64) {
         self.inner.backing.internals.0[field.index()] = value;
+    }
+}
+
+/// Private function implementing the inner logic of `Instance::func`
+// TODO: reevaluate this lifetime
+fn func<'a, Args, Rets>(
+    module: &'a ModuleInner,
+    inst_inner: &'a InstanceInner,
+    name: &str,
+) -> ResolveResult<Func<'a, Args, Rets, Wasm>>
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
+    let export_index =
+        module
+            .info
+            .exports
+            .get(name)
+            .ok_or_else(|| ResolveError::ExportNotFound {
+                name: name.to_string(),
+            })?;
+
+    if let ExportIndex::Func(func_index) = export_index {
+        let sig_index = *module
+            .info
+            .func_assoc
+            .get(*func_index)
+            .expect("broken invariant, incorrect func index");
+        let signature = SigRegistry.lookup_signature_ref(&module.info.signatures[sig_index]);
+
+        if signature.params() != Args::types() || signature.returns() != Rets::types() {
+            Err(ResolveError::Signature {
+                expected: (*signature).clone(),
+                found: Args::types().to_vec(),
+            })?;
+        }
+
+        let ctx = match func_index.local_or_import(&module.info) {
+            LocalOrImport::Local(_) => inst_inner.vmctx,
+            LocalOrImport::Import(imported_func_index) => unsafe {
+                inst_inner.import_backing.vm_functions[imported_func_index]
+                    .func_ctx
+                    .as_ref()
+            }
+            .vmctx
+            .as_ptr(),
+        };
+
+        let func_wasm_inner = module
+            .runnable_module
+            .get_trampoline(&module.info, sig_index)
+            .unwrap();
+
+        let (func_ptr, func_env) = match func_index.local_or_import(&module.info) {
+            LocalOrImport::Local(local_func_index) => (
+                module
+                    .runnable_module
+                    .get_func(&module.info, local_func_index)
+                    .unwrap(),
+                None,
+            ),
+            LocalOrImport::Import(import_func_index) => {
+                let imported_func = &inst_inner.import_backing.vm_functions[import_func_index];
+
+                (
+                    NonNull::new(imported_func.func as *mut _).unwrap(),
+                    unsafe { imported_func.func_ctx.as_ref() }.func_env,
+                )
+            }
+        };
+
+        let typed_func: Func<Args, Rets, Wasm> =
+            unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, func_env, ctx) };
+
+        Ok(typed_func)
+    } else {
+        Err(ResolveError::ExportWrongType {
+            name: name.to_string(),
+        }
+        .into())
+    }
+}
+
+/// Private function implementing the inner logic of `Instance::dyn_func`
+fn dyn_func<'a>(
+    module: &'a ModuleInner,
+    inst_inner: &'a InstanceInner,
+    name: &str,
+) -> ResolveResult<DynFunc<'a>> {
+    let export_index =
+        module
+            .info
+            .exports
+            .get(name)
+            .ok_or_else(|| ResolveError::ExportNotFound {
+                name: name.to_string(),
+            })?;
+
+    if let ExportIndex::Func(func_index) = export_index {
+        let sig_index = *module
+            .info
+            .func_assoc
+            .get(*func_index)
+            .expect("broken invariant, incorrect func index");
+        let signature = SigRegistry.lookup_signature_ref(&module.info.signatures[sig_index]);
+
+        Ok(DynFunc {
+            signature,
+            module: &module,
+            instance_inner: &inst_inner,
+            func_index: *func_index,
+        })
+    } else {
+        Err(ResolveError::ExportWrongType {
+            name: name.to_string(),
+        }
+        .into())
     }
 }
 
@@ -823,11 +844,11 @@ impl<'a> DynFunc<'a> {
 }
 
 impl<'a> Exportable<'a> for Memory {
-    fn get_self(instance: &'a Instance, name: &str) -> Option<Self> {
-        let export_index = instance.module.info.exports.get(name)?;
+    fn get_self(exports: &'a Exports, name: &str) -> Option<Self> {
+        let (inst_inner, module) = exports.get_inner();
+        let export_index = module.info.exports.get(name)?;
         if let ExportIndex::Memory(idx) = export_index {
-            let module = instance.module.borrow();
-            Some(instance.inner.get_memory_from_index(module, *idx))
+            Some(inst_inner.get_memory_from_index(module, *idx))
         } else {
             None
         }
@@ -835,11 +856,11 @@ impl<'a> Exportable<'a> for Memory {
 }
 
 impl<'a> Exportable<'a> for Table {
-    fn get_self(instance: &'a Instance, name: &str) -> Option<Self> {
-        let export_index = instance.module.info.exports.get(name)?;
+    fn get_self(exports: &'a Exports, name: &str) -> Option<Self> {
+        let (inst_inner, module) = exports.get_inner();
+        let export_index = module.info.exports.get(name)?;
         if let ExportIndex::Table(idx) = export_index {
-            let module = instance.module.borrow();
-            Some(instance.inner.get_table_from_index(module, *idx))
+            Some(inst_inner.get_table_from_index(module, *idx))
         } else {
             None
         }
@@ -847,11 +868,11 @@ impl<'a> Exportable<'a> for Table {
 }
 
 impl<'a> Exportable<'a> for Global {
-    fn get_self(instance: &'a Instance, name: &str) -> Option<Self> {
-        let export_index = instance.module.info.exports.get(name)?;
+    fn get_self(exports: &'a Exports, name: &str) -> Option<Self> {
+        let (inst_inner, module) = exports.get_inner();
+        let export_index = module.info.exports.get(name)?;
         if let ExportIndex::Global(idx) = export_index {
-            let module = instance.module.borrow();
-            Some(instance.inner.get_global_from_index(module, *idx))
+            Some(inst_inner.get_global_from_index(module, *idx))
         } else {
             None
         }
@@ -859,26 +880,33 @@ impl<'a> Exportable<'a> for Global {
 }
 
 impl<'a> Exportable<'a> for DynFunc<'a> {
-    fn get_self(instance: &'a Instance, name: &str) -> Option<Self> {
-        instance.dyn_func(name).ok()
+    fn get_self(exports: &'a Exports, name: &str) -> Option<Self> {
+        let (inst_inner, module) = exports.get_inner();
+        dyn_func(module, inst_inner, name).ok()
     }
 }
 
 impl<'a, Args: WasmTypeList, Rets: WasmTypeList> Exportable<'a> for Func<'a, Args, Rets, Wasm> {
-    fn get_self(instance: &'a Instance, name: &str) -> Option<Self> {
-        instance.func(name).ok()
+    fn get_self(exports: &'a Exports, name: &str) -> Option<Self> {
+        let (inst_inner, module) = exports.get_inner();
+        func(module, inst_inner, name).ok()
     }
 }
 
 /// `Exports` is used to get exports like [`Func`]s, [`DynFunc`]s, [`Memory`]s,
 /// [`Global`]s, and [`Table`]s from an [`Instance`].
 ///
-/// Use [`Instance::exports_new`] to get an `Exports` from an [`Instance`].
-pub struct Exports<'a> {
-    instance: &'a Instance,
+/// Use `Instance.exports` to get an `Exports` from an [`Instance`].
+pub struct Exports {
+    // We want to avoid the borrow checker here.
+    // This is safe because
+    // 1. `Exports` can't be constructed or copied (so can't safely outlive `Instance`)
+    // 2. `InstanceInner` is `Pin<Box<>>`, thus we know that it will not move.
+    instance_inner: *const InstanceInner,
+    module: Arc<ModuleInner>,
 }
 
-impl<'a> Exports<'a> {
+impl Exports {
     /// Get an export.
     ///
     /// ```
@@ -887,21 +915,28 @@ impl<'a> Exports<'a> {
     /// # use wasmer_runtime_core::types::Value;
     /// # fn example_fn(instance: &Instance) -> Option<()> {
     /// // We can get a function as a static `Func`
-    /// let func: Func<i32, i32> = instance.exports_new().get("my_func")?;
+    /// let func: Func<i32, i32> = instance.exports.get("my_func")?;
     /// let _result = func.call(42);
     ///
     /// // Or we can get it as a dynamic `DynFunc`
-    /// let dyn_func: DynFunc = instance.exports_new().get("my_func")?;
+    /// let dyn_func: DynFunc = instance.exports.get("my_func")?;
     /// let _result= dyn_func.call(&[Value::I32(42)]);
     ///
     /// // We can also get other exports like `Global`s, `Memory`s, and `Table`s
-    /// let _counter: Global = instance.exports_new().get("counter")?;
+    /// let _counter: Global = instance.exports.get("counter")?;
     ///
     /// # Some(())
     /// # }
     /// ```
-    pub fn get<T: Exportable<'a>>(&self, name: &str) -> Option<T> {
-        T::get_self(self.instance, name)
+    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Option<T> {
+        T::get_self(self, name)
+    }
+
+    /// This method must remain private.
+    fn get_inner(&self) -> (&InstanceInner, &ModuleInner) {
+        let inst_inner = unsafe { &*self.instance_inner };
+        let module = self.module.borrow();
+        (inst_inner, module)
     }
 }
 

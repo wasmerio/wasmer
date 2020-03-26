@@ -6,7 +6,7 @@
 - [#1313](https://github.com/wasmerio/wasmer/pull/1313) Add new high-level public API through `wasmer` crate. Includes many updates including:
   - Minor improvement: `imports!` macro now handles no trailing comma as well as a trailing comma in namespaces and between namespaces.
   - New methods on `Module`: `exports`, `imports`, and `custom_sections`.
-  - TODO: update this when the method name changes. New way to get exports from an instance with `let func_name: Func<i32, i64> = instance.exports_new().get("func_name");`.
+  - New way to get exports from an instance with `let func_name: Func<i32, i64> = instance.exports.get("func_name");`.
   - Improved `Table` APIs including `set` which now allows setting functions directly.  TODO: update this more if `Table::get` gets made public in this PR
   - TODO: finish the list of changes here
 - [#1303](https://github.com/wasmerio/wasmer/pull/1303) NaN canonicalization for singlepass backend.

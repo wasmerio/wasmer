@@ -2,7 +2,7 @@
 //! including memories, tables, globals, and functions.
 use crate::{
     global::Global,
-    instance::{Instance, InstanceInner},
+    instance::{Exports, InstanceInner},
     memory::Memory,
     module::ExportIndex,
     module::ModuleInner,
@@ -102,5 +102,5 @@ impl<'a> Iterator for ExportIter<'a> {
 pub trait Exportable<'a>: Sized {
     /// Implementation of how to get the export corresponding to the implementing type
     /// from an [`Instance`] by name.
-    fn get_self(instance: &'a Instance, name: &str) -> Option<Self>;
+    fn get_self(exports: &'a Exports, name: &str) -> Option<Self>;
 }

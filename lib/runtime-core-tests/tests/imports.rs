@@ -30,13 +30,13 @@ fn new_api_works() {
     let import_object = imports! {};
     let instance = module.instantiate(&import_object).unwrap();
 
-    let my_global: Global = instance.exports_new().get("my_global").unwrap();
+    let my_global: Global = instance.exports.get("my_global").unwrap();
     assert_eq!(my_global.get(), Value::I32(45));
-    let double: Func<i32, i32> = instance.exports_new().get("double").unwrap();
+    let double: Func<i32, i32> = instance.exports.get("double").unwrap();
     assert_eq!(double.call(5).unwrap(), 10);
-    let add_one: DynFunc = instance.exports_new().get("add_one").unwrap();
+    let add_one: DynFunc = instance.exports.get("add_one").unwrap();
     assert_eq!(add_one.call(&[Value::I32(5)]).unwrap(), &[Value::I32(6)]);
-    let add_one_memory: Option<DynFunc> = instance.exports_new().get("my_global");
+    let add_one_memory: Option<DynFunc> = instance.exports.get("my_global");
     assert!(add_one_memory.is_none());
 }
 
