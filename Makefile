@@ -172,6 +172,9 @@ test-rest:
 
 test: spectests emtests middleware wasitests test-rest examples
 
+test-android:
+	ci/run-docker.sh x86_64-linux-android --manifest-path=lib/singlepass-backend/Cargo.toml
+	ci/run-docker.sh x86_64-linux-android --manifest-path=lib/runtime-core-tests/Cargo.toml
 
 # Integration tests
 integration-tests: release-clif examples

@@ -21,7 +21,7 @@ singlepass = ["wasmer-singlepass-backend"]
 
 [dev-dependencies]
 wabt = "0.9.1"
-criterion = "0.2"
+criterion = "0.3"
 
 [[bench]]
 name = "metering_benchmark"
