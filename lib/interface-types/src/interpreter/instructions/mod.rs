@@ -1,8 +1,7 @@
 mod argument_get;
 mod call_core;
-mod lowering_lifting;
-mod memory_to_string;
-mod string_to_memory;
+mod numbers;
+mod strings;
 
 use crate::{
     errors::{InstructionError, InstructionErrorKind, InstructionResult, WasmValueNativeCastError},
@@ -13,10 +12,9 @@ use crate::{
 };
 pub(crate) use argument_get::argument_get;
 pub(crate) use call_core::call_core;
-pub(crate) use lowering_lifting::*;
-pub(crate) use memory_to_string::memory_to_string;
+pub(crate) use numbers::*;
 use std::convert::TryFrom;
-pub(crate) use string_to_memory::string_to_memory;
+pub(crate) use strings::*;
 
 /// Just a short helper to map the error of a cast from an
 /// `InterfaceValue` to a native value.
