@@ -17,8 +17,7 @@ use inkwell::{
         BasicType, BasicTypeEnum, FloatMathType, FunctionType, IntType, PointerType, VectorType,
     },
     values::{
-        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue,
-        VectorValue,
+        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, VectorValue,
     },
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate, OptimizationLevel,
 };
@@ -1196,19 +1195,21 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#control-flow-instructions
              ***************************/
             Operator::Block { ty } => {
+                /*
                 let current_block = builder.get_insert_block().ok_or(CodegenError {
                     message: "not currently in a block".to_string(),
                 })?;
+                */
 
-                let count = if let Ok(_) = blocktype_to_type(ty) {
-                    1
+                let llvm_ty = if let Ok(ty) = blocktype_to_type(ty) {
+                    vec![type_to_llvm(intrinsics, ty)]
                 } else {
-                    0
+                    vec![]
                 };
 
                 let end_block = context.append_basic_block(function, "end");
-                state.push_block(end_block, count);
-                builder.position_at_end(current_block);
+                state.push_block(end_block, llvm_ty.as_slice());
+                //builder.position_at_end(current_block);
             }
             Operator::Loop { ty } => {
                 let loop_body = context.append_basic_block(function, "loop_body");
@@ -1216,10 +1217,10 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
 
                 builder.build_unconditional_branch(loop_body);
 
-                let count = if let Ok(_) = blocktype_to_type(ty) {
-                    1
+                let llvm_ty = if let Ok(ty) = blocktype_to_type(ty) {
+                    vec![type_to_llvm(intrinsics, ty)]
                 } else {
-                    0
+                    vec![]
                 };
 
                 builder.position_at_end(loop_body);
@@ -1255,7 +1256,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     }
                 }
 
-                state.push_loop(loop_body, loop_next, count);
+                state.push_loop(loop_body, loop_next, llvm_ty.as_slice());
             }
             Operator::Br { relative_depth } => {
                 let frame = state.frame_at_depth(relative_depth)?;
@@ -1266,7 +1267,11 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 })?;
                 */
 
-                let value_len = frame.values();
+                let value_len = if frame.is_loop() {
+                    0
+                } else {
+                    frame.values().len()
+                };
                 let values = state.peekn_extra(&builder, value_len)?;
                 let values = values.iter().map(|(v, info)| {
                     apply_pending_canonicalization(builder, intrinsics, *v, *info)
@@ -1304,7 +1309,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let value_len = if frame.is_loop() {
                     0
                 } else {
-                    frame.values()
+                    frame.values().len()
                 };
 
                 let param_stack = state.peekn_extra(&builder, value_len)?;
@@ -1339,7 +1344,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let args = if default_frame.is_loop() {
                     Vec::new()
                 } else {
-                    let res_len = default_frame.values();
+                    let res_len = default_frame.values().len();
                     state.peekn(&builder, res_len)?
                 };
 
@@ -1374,10 +1379,10 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 let if_else_block = context.append_basic_block(function, "if_else");
                 let end_block = context.append_basic_block(function, "if_end");
 
-                let count = if let Ok(_) = blocktype_to_type(ty) {
-                    1
+                let llvm_ty = if let Ok(ty) = blocktype_to_type(ty) {
+                    vec![type_to_llvm(intrinsics, ty)]
                 } else {
-                    0
+                    vec![]
                 };
                 builder.position_at_end(current_block);
 
@@ -1392,7 +1397,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
 
                 builder.build_conditional_branch(cond_value, if_then_block, if_else_block);
                 builder.position_at_end(if_then_block);
-                state.push_if(if_then_block, if_else_block, end_block, count);
+                state.push_if(if_then_block, if_else_block, end_block, llvm_ty.as_slice());
             }
             Operator::Else => {
                 if state.reachable {
@@ -1404,7 +1409,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     */
 
                     let mut values = Vec::new();
-                    for _ in 0..frame.values() {
+                    for _ in 0..frame.values().len() {
                         let (arg, info) = state.pop1_extra(&builder)?;
                         let arg = apply_pending_canonicalization(builder, intrinsics, arg, info);
                         values.push(arg);
@@ -1412,7 +1417,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     for value in values.iter().rev() {
                         state.push1(&builder, value.as_basic_value_enum());
                     }
-                    state.popn(&builder, values.len());
+                    state.popn(&builder, values.len()).unwrap();
                     let frame = state.frame_at_depth(0)?;
                     builder.build_unconditional_branch(*frame.code_after());
                 }
@@ -1436,14 +1441,23 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
 
             Operator::End => {
                 let frame = state.pop_frame()?;
-                /*
-                let current_block = builder.get_insert_block().ok_or(CodegenError {
-                    message: "not currently in a block".to_string(),
-                })?;
-                 */
 
+                let mut values = Vec::new();
                 if state.reachable {
+                    for _ in 0..frame.values().len() {
+                        let (value, info) = state.pop1_extra(&builder)?;
+                        let value =
+                            apply_pending_canonicalization(builder, intrinsics, value, info);
+                        values.push(value);
+                    }
+                    state.reset_stack(&frame);
+                    for value in values {
+                        state.push1(&builder, value);
+                    }
                     builder.build_unconditional_branch(*frame.code_after());
+                } else {
+                    state.reset_stack(&frame);
+                    state.grow_stack(frame.values());
                 }
 
                 if let ControlFrame::IfElse {
@@ -1460,8 +1474,6 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 }
 
                 builder.position_at_end(*frame.code_after());
-                state.reset_stack(&frame);
-
                 state.reachable = true;
             }
             Operator::Return => {
@@ -1473,7 +1485,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
 
                 let frame = state.outermost_frame()?;
                 let mut values = Vec::new();
-                for _ in 0..frame.values() {
+                for _ in 0..frame.values().len() {
                     let (arg, info) = state.pop1_extra(&builder)?;
                     let arg = apply_pending_canonicalization(builder, intrinsics, arg, info);
                     values.push(arg);
@@ -1481,7 +1493,7 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 for value in values.iter().rev() {
                     state.push1(&builder, value.as_basic_value_enum());
                 }
-                state.popn(&builder, values.len());
+                state.popn(&builder, values.len()).unwrap();
 
                 let frame = state.outermost_frame()?;
                 builder.build_unconditional_branch(*frame.br_dest());
@@ -8551,9 +8563,29 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
 
     fn finalize(&mut self) -> Result<(), CodegenError> {
         let builder = self.builder.as_ref().unwrap();
-        let results = self
-            .state
-            .popn_save_extra(&builder, self.func_sig.returns().len())?;
+        let results = if self.state.reachable {
+            self.state
+                .popn_save_extra(&builder, self.func_sig.returns().len())?
+        } else {
+            self.func_sig
+                .returns()
+                .iter()
+                .map(|&ty| {
+                    let ty = type_to_llvm(self.intrinsics.as_ref().unwrap(), ty);
+                    if ty.is_int_type() {
+                        (
+                            ty.into_int_type().get_undef().as_basic_value_enum(),
+                            ExtraInfo::default(),
+                        )
+                    } else {
+                        (
+                            ty.into_float_type().get_undef().as_basic_value_enum(),
+                            ExtraInfo::default(),
+                        )
+                    }
+                })
+                .collect()
+        };
 
         match results.as_slice() {
             [] => {
@@ -8755,7 +8787,15 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         builder.position_at_end(return_block);
 
         let mut state: State<'ctx> = State::new(alloca_builder);
-        state.push_block(return_block, func_sig.returns().len());
+        state.push_first_block(
+            return_block,
+            func_sig
+                .returns()
+                .iter()
+                .map(|ty| type_to_llvm(&intrinsics, *ty))
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
         builder.position_at_end(start_of_code_block);
 
         let mut locals = Vec::new();

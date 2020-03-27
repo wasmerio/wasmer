@@ -14,13 +14,14 @@ pub enum ControlFrame<'ctx> {
     Block {
         next: BasicBlock<'ctx>,
         stack_size_snapshot: usize,
-        values: usize,
+        values: Vec<BasicTypeEnum<'ctx>>,
+        outermost_block: bool,
     },
     Loop {
         body: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
         stack_size_snapshot: usize,
-        values: usize,
+        values: Vec<BasicTypeEnum<'ctx>>,
     },
     IfElse {
         if_then: BasicBlock<'ctx>,
@@ -28,7 +29,7 @@ pub enum ControlFrame<'ctx> {
         next: BasicBlock<'ctx>,
         stack_size_snapshot: usize,
         if_else_state: IfElseState,
-        values: usize,
+        values: Vec<BasicTypeEnum<'ctx>>,
     },
 }
 
@@ -61,11 +62,11 @@ impl<'ctx> ControlFrame<'ctx> {
         }
     }
 
-    pub fn values(&self) -> usize {
+    pub fn values(&self) -> &[BasicTypeEnum<'ctx>] {
         match self {
-            ControlFrame::Block { values, .. }
-            | ControlFrame::IfElse { values, .. }
-            | ControlFrame::Loop { values, .. } => *values,
+            ControlFrame::Block { ref values, .. }
+            | ControlFrame::IfElse { ref values, .. }
+            | ControlFrame::Loop { ref values, .. } => values,
         }
     }
 }
@@ -353,6 +354,13 @@ impl<'ctx> State<'ctx> {
         s
     }
 
+    pub fn grow_stack(&mut self, types: &[BasicTypeEnum<'ctx>]) {
+        for ty in types {
+            let alloca = self.get_alloca(self.stack.len(), *ty);
+            self.stack.push((alloca, Default::default()));
+        }
+    }
+
     pub fn push1<T: BasicValue<'ctx>>(&mut self, builder: &Builder<'ctx>, value: T) {
         self.push1_extra(builder, value, Default::default());
     }
@@ -383,7 +391,9 @@ impl<'ctx> State<'ctx> {
                 message: "pop1_extra: invalid value stack".to_string(),
             }),
             Some((alloca, extra_info)) => Ok((
-                builder.build_load(alloca, "").as_basic_value_enum(),
+                builder
+                    .build_load(alloca, "pop1_extra")
+                    .as_basic_value_enum(),
                 extra_info,
             )),
         }
@@ -437,7 +447,7 @@ impl<'ctx> State<'ctx> {
         let index = self.stack.len().checked_sub(1).ok_or(CodegenError {
             message: "peek1_extra: invalid value stack".to_string(),
         })?;
-        let ptr = builder.build_load(self.stack[index].0, "");
+        let ptr = builder.build_load(self.stack[index].0, "peek1_extra");
         Ok((ptr, self.stack[index].1))
     }
 
@@ -454,13 +464,14 @@ impl<'ctx> State<'ctx> {
         builder: &Builder<'ctx>,
         n: usize,
     ) -> Result<Vec<(BasicValueEnum<'ctx>, ExtraInfo)>, CodegenError> {
+        let _index = self.stack.len().checked_sub(n).unwrap();
         let index = self.stack.len().checked_sub(n).ok_or(CodegenError {
             message: "peekn_extra: invalid value stack".to_string(),
         })?;
 
         Ok(self.stack[index..]
             .iter()
-            .map(|(ptr, xi)| (builder.build_load(*ptr, ""), *xi))
+            .map(|(ptr, xi)| (builder.build_load(*ptr, "peekn_extra"), *xi))
             .collect::<Vec<_>>())
     }
 
@@ -483,11 +494,21 @@ impl<'ctx> State<'ctx> {
         Ok(())
     }
 
-    pub fn push_block(&mut self, next: BasicBlock<'ctx>, values: usize) {
+    pub fn push_first_block(&mut self, next: BasicBlock<'ctx>, values: &[BasicTypeEnum<'ctx>]) {
         self.control_stack.push(ControlFrame::Block {
             next,
             stack_size_snapshot: self.stack.len(),
-            values,
+            values: values.to_vec(),
+            outermost_block: true,
+        });
+    }
+
+    pub fn push_block(&mut self, next: BasicBlock<'ctx>, values: &[BasicTypeEnum<'ctx>]) {
+        self.control_stack.push(ControlFrame::Block {
+            next,
+            stack_size_snapshot: self.stack.len(),
+            values: values.to_vec(),
+            outermost_block: true,
         });
     }
 
@@ -495,13 +516,13 @@ impl<'ctx> State<'ctx> {
         &mut self,
         body: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
-        values: usize,
+        values: &[BasicTypeEnum<'ctx>],
     ) {
         self.control_stack.push(ControlFrame::Loop {
             body,
             next,
             stack_size_snapshot: self.stack.len(),
-            values,
+            values: values.to_vec(),
         });
     }
 
@@ -510,7 +531,7 @@ impl<'ctx> State<'ctx> {
         if_then: BasicBlock<'ctx>,
         if_else: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
-        values: usize,
+        values: &[BasicTypeEnum<'ctx>],
     ) {
         self.control_stack.push(ControlFrame::IfElse {
             if_then,
@@ -518,7 +539,7 @@ impl<'ctx> State<'ctx> {
             next,
             stack_size_snapshot: self.stack.len(),
             if_else_state: IfElseState::If,
-            values,
+            values: values.to_vec(),
         });
     }
 }
