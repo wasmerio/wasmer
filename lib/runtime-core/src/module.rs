@@ -54,6 +54,10 @@ pub struct ModuleInfo {
     pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDescriptor)>,
 
     /// Map of string to export index.
+    // Implementation note: this should maintain the order that the exports appear in the
+    // Wasm module.  Be careful not to use APIs that may break the order!
+    // Side note, because this is public we can't actually guarantee that it will remain
+    // in order.
     pub exports: IndexMap<String, ExportIndex>,
 
     /// Vector of data initializers.
@@ -193,7 +197,7 @@ impl Module {
             .exports
             .iter()
             .map(|(name, &ei)| ExportDescriptor {
-                name: name.clone(),
+                name,
                 kind: ei.into(),
             })
     }
@@ -282,9 +286,9 @@ impl Module {
 // TODO: review this vs `ExportIndex`
 /// Type describing an export that the [`Module`] provides.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ExportDescriptor {
+pub struct ExportDescriptor<'a> {
     /// The name identifying the export.
-    pub name: String,
+    pub name: &'a str,
     /// The type of the export.
     pub kind: ExportKind,
 }

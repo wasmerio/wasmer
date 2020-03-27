@@ -31,7 +31,7 @@ use wasmer_llvm_backend::{
 };
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
-    Backend, DynFunc, Func, Value, VERSION,
+    Backend, DynFunc, Value, VERSION,
 };
 #[cfg(feature = "managed")]
 use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
@@ -437,7 +437,7 @@ fn execute_wasi(
         .instantiate(&import_object)
         .map_err(|e| format!("Can't instantiate WASI module: {:?}", e))?;
 
-    let start: Func<(), ()> = instance
+    let start: wasmer_runtime::Func<(), ()> = instance
         .exports
         .get("_start")
         .map_err(|e| format!("{:?}", e))?;

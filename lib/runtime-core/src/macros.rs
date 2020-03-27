@@ -137,11 +137,12 @@ macro_rules! namespace {
 
 #[cfg(test)]
 mod test {
+    fn func(arg: i32) -> i32 {
+        arg + 1
+    }
+
     #[test]
     fn imports_macro_allows_trailing_comma_and_none() {
-        fn func(arg: i32) -> i32 {
-            arg + 1
-        }
         let _ = imports! {
             "env" => {
                 "func" => func!(func),
@@ -182,7 +183,12 @@ mod test {
                 "func2" => func!(func),
             }
         };
+    }
+
+    #[test]
+    fn imports_macro_allows_trailing_comma_and_none_with_state() {
         use std::{ffi, ptr};
+
         fn dtor(_arg: *mut ffi::c_void) {}
         fn state_creator() -> (*mut ffi::c_void, fn(*mut ffi::c_void)) {
             (ptr::null_mut() as *mut ffi::c_void, dtor)

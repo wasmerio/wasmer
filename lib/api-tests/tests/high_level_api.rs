@@ -19,17 +19,16 @@ static TEST_WAT: &str = r#"
 "#;
 
 fn append_custom_section(
-    wasm: &[u8],
+    wasm: &mut Vec<u8>,
     custom_section_name: &str,
     custom_section_contents: &[u8],
-) -> Vec<u8> {
-    let mut out = Vec::with_capacity(
+) {
+    wasm.reserve(
         // 1 for custom section id, 5 for max length of custom section, 5 for max length of name
-        wasm.len() + custom_section_name.len() + custom_section_contents.len() + 1 + 5 + 5,
+        custom_section_name.len() + custom_section_contents.len() + 1 + 5 + 5,
     );
 
-    out.extend(wasm);
-    out.push(0);
+    wasm.push(0);
 
     let name_length = custom_section_name.as_bytes().len() as u32;
     let mut name_length_as_leb128 = vec![];
@@ -42,82 +41,117 @@ fn append_custom_section(
     let mut custom_section_length_as_leb128 = vec![];
     write_u32_leb128(&mut custom_section_length_as_leb128, custom_section_length);
 
-    out.extend(&custom_section_length_as_leb128);
-    out.extend(&name_length_as_leb128);
-    out.extend(custom_section_name.as_bytes());
-    out.extend(custom_section_contents);
-
-    out
+    wasm.extend(&custom_section_length_as_leb128);
+    wasm.extend(&name_length_as_leb128);
+    wasm.extend(custom_section_name.as_bytes());
+    wasm.extend(custom_section_contents);
 }
 
 #[test]
-fn it_works() {
-    use wasmer::wasm::{Global, Value};
-    use wasmer::{export, func, imports, CompiledModule, Func, Module, Table};
-    let wasm_no_custom_section = wabt::wat2wasm(TEST_WAT).unwrap();
-    let wasm = append_custom_section(
-        &wasm_no_custom_section,
-        "test_custom_section",
-        b"hello, world!",
-    );
-    let wasm = append_custom_section(&wasm, "test_custom_section", b"goodbye, world!");
-    // TODO: review error messages when `CompiledModule` is not in scope. My hypothesis is that they'll be
-    // misleading, if so we may want to do something about it.
+fn custom_section_parsing_works() {
+    use wasmer::{CompiledModule, Module};
+    let wasm = {
+        let mut wasm = wabt::wat2wasm(TEST_WAT).unwrap();
+        append_custom_section(&mut wasm, "test_custom_section", b"hello, world!");
+        append_custom_section(&mut wasm, "test_custom_section", b"goodbye, world!");
+        append_custom_section(&mut wasm, "different_name", b"different value");
+        wasm
+    };
+
     let module = Module::new(wasm).unwrap();
-    let imports = module.imports();
-    assert_eq!(imports.len(), 2);
-    let num_exports = module.exports().count();
-    assert_eq!(num_exports, 6);
-    let (
-        mut test_table_seen,
-        mut test_global_seen,
-        mut test_ret_2_seen,
-        mut test_ret_4_seen,
-        mut set_test_global_seen,
-        mut update_outside_global_seen,
-    ) = (false, false, false, false, false, false);
-    for export in module.exports() {
-        match (export.name.as_ref(), export.kind) {
-            ("test-table", export::ExportKind::Table) => {
-                assert!(!test_table_seen);
-                test_table_seen = true;
-            }
-            ("test-global", export::ExportKind::Global) => {
-                assert!(!test_global_seen);
-                test_global_seen = true;
-            }
-            ("ret_2", export::ExportKind::Function) => {
-                assert!(!test_ret_2_seen);
-                test_ret_2_seen = true;
-            }
-            ("ret_4", export::ExportKind::Function) => {
-                assert!(!test_ret_4_seen);
-                test_ret_4_seen = true;
-            }
-            ("set_test_global", export::ExportKind::Function) => {
-                assert!(!set_test_global_seen);
-                set_test_global_seen = true;
-            }
-            ("update_outside_global", export::ExportKind::Function) => {
-                assert!(!update_outside_global_seen);
-                update_outside_global_seen = true;
-            }
-            _ => {
-                assert!(false, "Unknown export found!");
-            }
-        }
-    }
-    assert!(test_table_seen);
-    assert!(test_global_seen);
-    assert!(test_ret_2_seen);
-    assert!(test_ret_4_seen);
-    assert!(set_test_global_seen);
-    assert!(update_outside_global_seen);
 
     assert_eq!(
         module.custom_sections("test_custom_section"),
         Some(&[b"hello, world!".to_vec(), b"goodbye, world!".to_vec()][..])
     );
+}
+
+#[test]
+fn module_exports_are_ordered() {
+    use wasmer::{export, CompiledModule, Module};
+
+    let wasm = wabt::wat2wasm(TEST_WAT).unwrap();
+    // TODO: review error messages when `CompiledModule` is not in scope. My hypothesis is that they'll be
+    // misleading, if so we may want to do something about it.
+    let module = Module::new(wasm).unwrap();
+    let exports = module.exports().collect::<Vec<_>>();
+    assert_eq!(
+        exports,
+        vec![
+            export::ExportDescriptor {
+                name: "test-table",
+                kind: export::ExportKind::Table,
+            },
+            export::ExportDescriptor {
+                name: "test-global",
+                kind: export::ExportKind::Global,
+            },
+            export::ExportDescriptor {
+                name: "ret_2",
+                kind: export::ExportKind::Function,
+            },
+            export::ExportDescriptor {
+                name: "ret_4",
+                kind: export::ExportKind::Function,
+            },
+            export::ExportDescriptor {
+                name: "set_test_global",
+                kind: export::ExportKind::Function,
+            },
+            export::ExportDescriptor {
+                name: "update_outside_global",
+                kind: export::ExportKind::Function,
+            },
+        ]
+    );
+}
+
+#[test]
+fn module_imports_are_correct() {
+    use wasmer::{CompiledModule, Module};
+
+    let wasm = wabt::wat2wasm(TEST_WAT).unwrap();
+    // TODO: review error messages when `CompiledModule` is not in scope. My hypothesis is that they'll be
+    // misleading, if so we may want to do something about it.
+    let module = Module::new(wasm).unwrap();
+
+    // TODO: test this more later
+    let imports = module.imports();
+    assert_eq!(imports.len(), 2);
+}
+
+#[test]
+fn module_can_be_instantiated() {
+    use wasmer::wasm::{Global, Value};
+    use wasmer::{func, imports, CompiledModule, Module};
+
+    let wasm = wabt::wat2wasm(TEST_WAT).unwrap();
+    // TODO: review error messages when `CompiledModule` is not in scope. My hypothesis is that they'll be
+    // misleading, if so we may want to do something about it.
+    let module = Module::new(wasm).unwrap();
+
+    let outside_global = Global::new_mutable(Value::I32(15));
+    let import_object = imports! {
+        "env" => {
+            "update-func" => func!(|x: i32| x * 2),
+            "outside-global" => outside_global.clone(),
+        }
+    };
+    let instance = module.instantiate(&import_object);
+
+    assert!(instance.is_ok());
+}
+
+#[test]
+fn exports_work() {
+    use wasmer::wasm::{Global, Value};
+    use wasmer::{func, imports, CompiledModule, Func, Module, Table};
+
+    let wasm = wabt::wat2wasm(TEST_WAT).unwrap();
+    // TODO: review error messages when `CompiledModule` is not in scope. My hypothesis is that they'll be
+    // misleading, if so we may want to do something about it.
+    let module = Module::new(wasm).unwrap();
+
     let outside_global = Global::new_mutable(Value::I32(15));
 
     let import_object = imports! {
