@@ -907,7 +907,8 @@ impl Exports {
     /// # use wasmer_runtime_core::{DynFunc, Func, Instance};
     /// # use wasmer_runtime_core::global::Global;
     /// # use wasmer_runtime_core::types::Value;
-    /// # fn example_fn(instance: &Instance) -> Option<()> {
+    /// # use wasmer_runtime_core::error::ResolveResult;
+    /// # fn example_fn(instance: &Instance) -> ResolveResult<()> {
     /// // We can get a function as a static `Func`
     /// let func: Func<i32, i32> = instance.exports.get("my_func")?;
     /// let _result = func.call(42);
@@ -919,7 +920,7 @@ impl Exports {
     /// // We can also get other exports like `Global`s, `Memory`s, and `Table`s
     /// let _counter: Global = instance.exports.get("counter")?;
     ///
-    /// # Some(())
+    /// # Ok(())
     /// # }
     /// ```
     pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> ResolveResult<T> {

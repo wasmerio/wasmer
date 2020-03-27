@@ -254,7 +254,7 @@ pub enum ElementType {
 
 /// Describes the properties of a table including the element types, minimum and optional maximum,
 /// number of elements in the table.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TableDescriptor {
     /// Type of data stored in this table.
     pub element: ElementType,

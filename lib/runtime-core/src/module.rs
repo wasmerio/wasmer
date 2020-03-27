@@ -9,10 +9,10 @@ use crate::{
     import::ImportObject,
     structures::{Map, TypedIndex},
     types::{
-        ElementType, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit,
-        ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex,
-        Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor,
-        MemoryIndex, SigIndex, TableDescriptor, TableIndex, Type,
+        FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
+        ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
+        LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor, MemoryIndex,
+        SigIndex, TableDescriptor, TableIndex,
     },
     Instance,
 };
@@ -181,7 +181,7 @@ impl Module {
     /// let function_names =
     ///     module.exports()
     ///           .filter(|ed| ed.kind == ExportKind::Function)
-    ///           .map(|ed| ed.name)
+    ///           .map(|ed| ed.name.to_string())
     ///           .collect::<Vec<String>>();
     ///
     /// // And here we count the number of global variables exported by this module.
@@ -336,83 +336,42 @@ pub enum ImportType {
     // TODO: why does function have no data?
     Function,
     /// The import is a global variable.
-    Global {
-        /// Whether or not the variable can be mutated.
-        mutable: bool,
-        /// The Wasm type that the global variable holds.
-        // TODO: attempt to understand explanation about 128bit globals:
-        // https://github.com/WebAssembly/simd/blob/master/proposals/simd/SIMD.md#webassembly-module-instatiation
-        ty: Type,
-    },
+    Global(GlobalDescriptor),
     /// A Wasm linear memory.
-    // TODO: discuss using `Pages` here vs u32
-    Memory {
-        /// The minimum number of pages this memory must have.
-        minimum_pages: u32,
-        /// The maximum number of pages this memory can have.
-        maximum_pages: Option<u32>,
-        // TODO: missing fields, `shared`, `memory_type`
-    },
+    Memory(MemoryDescriptor),
     /// A Wasm table.
-    Table {
-        /// The minimum number of elements this table must have.
-        minimum_elements: u32,
-        /// The maximum number of elements this table can have.
-        maximum_elements: Option<u32>,
-        /// The type that this table contains
-        element_type: ElementType,
-    },
+    Table(TableDescriptor),
 }
 
 impl From<MemoryDescriptor> for ImportType {
     fn from(other: MemoryDescriptor) -> Self {
-        ImportType::Memory {
-            minimum_pages: other.minimum.0,
-            maximum_pages: other.maximum.map(|inner| inner.0),
-        }
+        ImportType::Memory(other)
     }
 }
 impl From<&MemoryDescriptor> for ImportType {
     fn from(other: &MemoryDescriptor) -> Self {
-        ImportType::Memory {
-            minimum_pages: other.minimum.0,
-            maximum_pages: other.maximum.map(|inner| inner.0),
-        }
+        ImportType::Memory(*other)
     }
 }
 
 impl From<TableDescriptor> for ImportType {
     fn from(other: TableDescriptor) -> Self {
-        ImportType::Table {
-            minimum_elements: other.minimum,
-            maximum_elements: other.maximum,
-            element_type: other.element,
-        }
+        ImportType::Table(other)
     }
 }
 impl From<&TableDescriptor> for ImportType {
     fn from(other: &TableDescriptor) -> Self {
-        ImportType::Table {
-            minimum_elements: other.minimum,
-            maximum_elements: other.maximum,
-            element_type: other.element,
-        }
+        ImportType::Table(*other)
     }
 }
 impl From<GlobalDescriptor> for ImportType {
     fn from(other: GlobalDescriptor) -> Self {
-        ImportType::Global {
-            mutable: other.mutable,
-            ty: other.ty,
-        }
+        ImportType::Global(other)
     }
 }
 impl From<&GlobalDescriptor> for ImportType {
     fn from(other: &GlobalDescriptor) -> Self {
-        ImportType::Global {
-            mutable: other.mutable,
-            ty: other.ty,
-        }
+        ImportType::Global(*other)
     }
 }
 
