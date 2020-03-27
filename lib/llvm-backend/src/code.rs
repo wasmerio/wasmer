@@ -12,7 +12,7 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
-    targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine},
+    targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
     types::{
         BasicType, BasicTypeEnum, FloatMathType, FunctionType, IntType, PointerType, VectorType,
     },
@@ -8655,7 +8655,13 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
         let context = unsafe { &*context_ptr };
         let module = context.create_module("module");
 
-        let triple = triple.unwrap_or(TargetMachine::get_default_triple().to_string());
+        let triple = triple.unwrap_or(
+            TargetMachine::get_default_triple()
+                .as_str()
+                .to_str()
+                .unwrap()
+                .to_string(),
+        );
 
         match triple {
             #[cfg(target_arch = "x86_64")]
@@ -8681,10 +8687,11 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             _ => unimplemented!("target {} not supported", triple),
         }
 
-        let target = Target::from_triple(&triple).unwrap();
+        let target_triple = TargetTriple::create(&triple);
+        let target = Target::from_triple(&target_triple).unwrap();
         let target_machine = target
             .create_target_machine(
-                &triple,
+                &target_triple,
                 &cpu_name.unwrap_or(TargetMachine::get_host_cpu_name().to_string()),
                 &cpu_features.unwrap_or(TargetMachine::get_host_cpu_features().to_string()),
                 OptimizationLevel::Aggressive,
@@ -8693,7 +8700,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Cod
             )
             .unwrap();
 
-        module.set_target(&target);
+        module.set_triple(&target_triple);
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
 
         let intrinsics = Intrinsics::declare(&module, &context);
