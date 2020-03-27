@@ -181,12 +181,13 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
+    #[deprecated(since = "0.17.0", note = "Please use `instance.exports.get()` instead")]
     pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Wasm>>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        func(&*self.module, &self.inner, name)
+        self.exports.get(name)
     }
 
     /// Resolve a function by name.
@@ -224,8 +225,9 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
+    #[deprecated(since = "0.17.0", note = "Please use `instance.exports.get()` instead")]
     pub fn dyn_func(&self, name: &str) -> ResolveResult<DynFunc> {
-        dyn_func(&*self.module, &self.inner, name)
+        self.exports.get(name)
     }
 
     /// Call an exported WebAssembly function given the export name.
@@ -323,7 +325,6 @@ impl Instance {
 }
 
 /// Private function implementing the inner logic of `Instance::func`
-// TODO: reevaluate this lifetime
 fn func<'a, Args, Rets>(
     module: &'a ModuleInner,
     inst_inner: &'a InstanceInner,
@@ -844,52 +845,79 @@ impl<'a> DynFunc<'a> {
 }
 
 impl<'a> Exportable<'a> for Memory {
-    fn get_self(exports: &'a Exports, name: &str) -> Option<Self> {
+    fn get_self(exports: &'a Exports, name: &str) -> ResolveResult<Self> {
         let (inst_inner, module) = exports.get_inner();
-        let export_index = module.info.exports.get(name)?;
+        let export_index =
+            module
+                .info
+                .exports
+                .get(name)
+                .ok_or_else(|| ResolveError::ExportNotFound {
+                    name: name.to_string(),
+                })?;
         if let ExportIndex::Memory(idx) = export_index {
-            Some(inst_inner.get_memory_from_index(module, *idx))
+            Ok(inst_inner.get_memory_from_index(module, *idx))
         } else {
-            None
+            Err(ResolveError::ExportWrongType {
+                name: name.to_string(),
+            })
         }
     }
 }
 
 impl<'a> Exportable<'a> for Table {
-    fn get_self(exports: &'a Exports, name: &str) -> Option<Self> {
+    fn get_self(exports: &'a Exports, name: &str) -> ResolveResult<Self> {
         let (inst_inner, module) = exports.get_inner();
-        let export_index = module.info.exports.get(name)?;
+        let export_index =
+            module
+                .info
+                .exports
+                .get(name)
+                .ok_or_else(|| ResolveError::ExportNotFound {
+                    name: name.to_string(),
+                })?;
         if let ExportIndex::Table(idx) = export_index {
-            Some(inst_inner.get_table_from_index(module, *idx))
+            Ok(inst_inner.get_table_from_index(module, *idx))
         } else {
-            None
+            Err(ResolveError::ExportWrongType {
+                name: name.to_string(),
+            })
         }
     }
 }
 
 impl<'a> Exportable<'a> for Global {
-    fn get_self(exports: &'a Exports, name: &str) -> Option<Self> {
+    fn get_self(exports: &'a Exports, name: &str) -> ResolveResult<Self> {
         let (inst_inner, module) = exports.get_inner();
-        let export_index = module.info.exports.get(name)?;
+        let export_index =
+            module
+                .info
+                .exports
+                .get(name)
+                .ok_or_else(|| ResolveError::ExportNotFound {
+                    name: name.to_string(),
+                })?;
         if let ExportIndex::Global(idx) = export_index {
-            Some(inst_inner.get_global_from_index(module, *idx))
+            Ok(inst_inner.get_global_from_index(module, *idx))
         } else {
-            None
+            Err(ResolveError::ExportWrongType {
+                name: name.to_string(),
+            })
         }
     }
 }
 
 impl<'a> Exportable<'a> for DynFunc<'a> {
-    fn get_self(exports: &'a Exports, name: &str) -> Option<Self> {
+    fn get_self(exports: &'a Exports, name: &str) -> ResolveResult<Self> {
         let (inst_inner, module) = exports.get_inner();
-        dyn_func(module, inst_inner, name).ok()
+        dyn_func(module, inst_inner, name)
     }
 }
 
 impl<'a, Args: WasmTypeList, Rets: WasmTypeList> Exportable<'a> for Func<'a, Args, Rets, Wasm> {
-    fn get_self(exports: &'a Exports, name: &str) -> Option<Self> {
+    fn get_self(exports: &'a Exports, name: &str) -> ResolveResult<Self> {
         let (inst_inner, module) = exports.get_inner();
-        func(module, inst_inner, name).ok()
+        func(module, inst_inner, name)
     }
 }
 
@@ -928,7 +956,7 @@ impl Exports {
     /// # Some(())
     /// # }
     /// ```
-    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Option<T> {
+    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> ResolveResult<T> {
         T::get_self(self, name)
     }
 

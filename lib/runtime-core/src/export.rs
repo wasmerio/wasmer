@@ -1,6 +1,7 @@
 //! This module contains types to manipulate and access a Wasm module's exports
 //! including memories, tables, globals, and functions.
 use crate::{
+    error,
     global::Global,
     instance::{Exports, InstanceInner},
     memory::Memory,
@@ -102,5 +103,5 @@ impl<'a> Iterator for ExportIter<'a> {
 pub trait Exportable<'a>: Sized {
     /// Implementation of how to get the export corresponding to the implementing type
     /// from an [`Instance`] by name.
-    fn get_self(exports: &'a Exports, name: &str) -> Option<Self>;
+    fn get_self(exports: &'a Exports, name: &str) -> error::ResolveResult<Self>;
 }
