@@ -187,7 +187,7 @@ mod tests {
 
         let import_object = imports! {};
         let instance = cached_module.instantiate(&import_object).unwrap();
-        let add_one: Func<i32, i32> = instance.func("add_one").unwrap();
+        let add_one: Func<i32, i32> = instance.exports.get("add_one").unwrap();
 
         let value = add_one.call(42).unwrap();
 

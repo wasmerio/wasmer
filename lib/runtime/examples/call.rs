@@ -64,7 +64,7 @@ fn main() -> Result<(), error::Error> {
       },
     })?;
 
-    let foo: Func<(), i32> = instance.func("dbz")?;
+    let foo: Func<(), i32> = instance.exports.get("dbz")?;
 
     let result = foo.call();
 

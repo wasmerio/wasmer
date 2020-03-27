@@ -36,14 +36,14 @@ fn new_api_works() {
     assert_eq!(double.call(5).unwrap(), 10);
     let add_one: DynFunc = instance.exports.get("add_one").unwrap();
     assert_eq!(add_one.call(&[Value::I32(5)]).unwrap(), &[Value::I32(6)]);
-    let add_one_memory: Option<DynFunc> = instance.exports.get("my_global");
-    assert!(add_one_memory.is_none());
+    let add_one_memory: Result<DynFunc, _> = instance.exports.get("my_global");
+    assert!(add_one_memory.is_err());
 }
 
 macro_rules! call_and_assert {
     ($instance:ident, $function:ident( $( $inputs:ty ),* ) -> $output:ty, ( $( $arguments:expr ),* ) == $expected_value:expr) => {
         #[allow(unused_parens)]
-        let $function: Func<( $( $inputs ),* ), $output> = $instance.func(stringify!($function)).expect(concat!("Failed to get the `", stringify!($function), "` export function."));
+        let $function: Func<( $( $inputs ),* ), $output> = $instance.exports.get(stringify!($function)).expect(concat!("Failed to get the `", stringify!($function), "` export function."));
 
         let result = $function.call( $( $arguments ),* );
 

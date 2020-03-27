@@ -934,6 +934,10 @@ pub struct Exports {
     module: Arc<ModuleInner>,
 }
 
+// this is safe because the lifetime of `Exports` is tied to `Instance` and
+// `*const InstanceInner` comes from a `Pin<Box<InstanceInner>>`
+unsafe impl Send for Exports {}
+
 impl Exports {
     /// Get an export.
     ///
