@@ -169,7 +169,7 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
             (
                 input,
                 Instruction::CallCore {
-                    function_index: argument_0 as usize,
+                    function_index: argument_0 as u32,
                 },
             )
         }

@@ -8,16 +8,16 @@ use crate::{
 };
 
 executable_instruction!(
-    call_core(function_index: usize, instruction: Instruction) -> _ {
+    call_core(function_index: u32, instruction: Instruction) -> _ {
         move |runtime| -> _ {
             let instance = &mut runtime.wasm_instance;
-            let index = FunctionIndex::new(function_index);
+            let index = FunctionIndex::new(function_index as usize);
 
             let local_or_import = instance.local_or_import(index).ok_or_else(|| {
                 InstructionError::new(
                     instruction,
                     InstructionErrorKind::LocalOrImportIsMissing {
-                        function_index: function_index as u32,
+                        function_index: function_index,
                     },
                 )
             })?;
@@ -40,7 +40,7 @@ executable_instruction!(
                 return Err(InstructionError::new(
                     instruction,
                     InstructionErrorKind::LocalOrImportSignatureMismatch {
-                        function_index: function_index as u32,
+                        function_index: function_index,
                         expected: (local_or_import.inputs().to_vec(), vec![]),
                         received: (input_types, vec![]),
                     },
@@ -51,7 +51,7 @@ executable_instruction!(
                 InstructionError::new(
                     instruction,
                     InstructionErrorKind::LocalOrImportCall {
-                        function_index: function_index as u32,
+                        function_index: function_index,
                     },
                 )
             })?;
