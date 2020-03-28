@@ -12,7 +12,7 @@ pub enum Instruction {
     /// The `call-core` instruction.
     CallCore {
         /// The function index.
-        function_index: usize,
+        function_index: u32,
     },
 
     /// The `s8.from_i32` instruction.
