@@ -1013,7 +1013,7 @@
             <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">call_core</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">CallCore</span> {
-                <span class="ident">function_index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>()<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>,
+                <span class="ident">function_index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>,
             })
         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s8_from_i32</span><span class="op">&gt;</span>() {
             <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">s8_from_i32</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;

@@ -384,6 +384,57 @@
 <span id="384">384</span>
 <span id="385">385</span>
 <span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">to_native</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -397,7 +448,7 @@
         <span class="ident">Instruction</span>,
     },
 };
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">Cell</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">convert</span>::<span class="ident">TryInto</span>};
 
 <span class="macro">executable_instruction</span><span class="macro">!</span>(
     <span class="ident">string_lift_memory</span>(<span class="ident">instruction</span>: <span class="ident">Instruction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
@@ -410,7 +461,6 @@
             })<span class="question-mark">?</span>;
 
             <span class="kw">let</span> <span class="ident">memory_index</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0</span>;
-
             <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">runtime</span>
                 .<span class="ident">wasm_instance</span>
                 .<span class="ident">memory</span>(<span class="ident">memory_index</span> <span class="kw">as</span> <span class="ident">usize</span>)
@@ -421,8 +471,14 @@
                     )
                 })<span class="question-mark">?</span>;
 
-            <span class="kw">let</span> <span class="ident">pointer</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">inputs</span>[<span class="number">0</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>;
-            <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">inputs</span>[<span class="number">1</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>;
+            <span class="kw">let</span> <span class="ident">pointer</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">inputs</span>[<span class="number">0</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span>
+                .<span class="ident">try_into</span>()
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> (<span class="ident">e</span>, <span class="string">&quot;pointer&quot;</span>).<span class="ident">into</span>())
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">k</span><span class="op">|</span> <span class="ident">InstructionError</span>::<span class="ident">new</span>(<span class="ident">instruction</span>, <span class="ident">k</span>))<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">length</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">inputs</span>[<span class="number">1</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span>
+                .<span class="ident">try_into</span>()
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> (<span class="ident">e</span>, <span class="string">&quot;length&quot;</span>).<span class="ident">into</span>())
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">k</span><span class="op">|</span> <span class="ident">InstructionError</span>::<span class="ident">new</span>(<span class="ident">instruction</span>, <span class="ident">k</span>))<span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="ident">memory_view</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">view</span>();
 
             <span class="kw">if</span> <span class="ident">length</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
@@ -489,7 +545,12 @@
 
             <span class="kw">let</span> <span class="ident">string</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">to_native</span>(<span class="kw-2">&amp;</span><span class="ident">string</span>, <span class="ident">instruction</span>)<span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="ident">string_bytes</span> <span class="op">=</span> <span class="ident">string</span>.<span class="ident">as_bytes</span>();
-            <span class="kw">let</span> <span class="ident">string_length</span> <span class="op">=</span> <span class="ident">string_bytes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>;
+            <span class="kw">let</span> <span class="ident">string_length</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">string_bytes</span>.<span class="ident">len</span>().<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
+                <span class="ident">InstructionError</span>::<span class="ident">new</span>(
+                    <span class="ident">instruction</span>,
+                    <span class="ident">InstructionErrorKind</span>::<span class="ident">NegativeValue</span> { <span class="ident">subject</span>: <span class="string">&quot;string_length&quot;</span> },
+                )
+            })<span class="question-mark">?</span>;
 
             <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="ident">allocator</span>.<span class="ident">call</span>(<span class="kw-2">&amp;</span>[<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="ident">string_length</span>)]).<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
                 <span class="ident">InstructionError</span>::<span class="ident">new</span>(
@@ -497,7 +558,12 @@
                     <span class="ident">InstructionErrorKind</span>::<span class="ident">LocalOrImportCall</span> { <span class="ident">function_index</span>: <span class="ident">allocator_index</span> },
                 )
             })<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">string_pointer</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">to_native</span>(<span class="kw-2">&amp;</span><span class="ident">outputs</span>[<span class="number">0</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">string_pointer</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">outputs</span>[<span class="number">0</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
+                <span class="ident">InstructionError</span>::<span class="ident">new</span>(
+                    <span class="ident">instruction</span>,
+                    <span class="ident">InstructionErrorKind</span>::<span class="ident">NegativeValue</span> { <span class="ident">subject</span>: <span class="string">&quot;string_pointer&quot;</span> },
+                )
+            })<span class="question-mark">?</span>;
 
             <span class="kw">let</span> <span class="ident">memory_index</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0</span>;
             <span class="kw">let</span> <span class="ident">memory_view</span> <span class="op">=</span> <span class="ident">instance</span>
@@ -514,7 +580,7 @@
                 <span class="ident">memory_view</span>[<span class="ident">string_pointer</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="ident">nth</span>].<span class="ident">set</span>(<span class="kw-2">*</span><span class="ident">byte</span>);
             }
 
-            <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">push</span>(<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="ident">string_pointer</span>));
+            <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">push</span>(<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="ident">string_pointer</span> <span class="kw">as</span> <span class="ident">i32</span>));
             <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">push</span>(<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="ident">string_length</span>));
 
             <span class="prelude-val">Ok</span>(())
@@ -588,6 +654,42 @@
                 ..<span class="ident">Default</span>::<span class="ident">default</span>()
             },
             <span class="ident">stack</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;&quot;</span>.<span class="ident">into</span>())],
+    );
+
+    <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
+        <span class="ident">test_string_lift_memory__negative_pointer</span> <span class="op">=</span>
+            <span class="ident">instructions</span>: [
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
+                <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>,
+            ],
+            <span class="ident">invocation_inputs</span>: [
+                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="op">-</span><span class="number">42</span>),
+                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">13</span>),
+            ],
+            <span class="ident">instance</span>: <span class="ident">Instance</span> {
+                <span class="ident">memory</span>: <span class="ident">Memory</span>::<span class="ident">new</span>(<span class="string">&quot;Hello!&quot;</span>.<span class="ident">as_bytes</span>().<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">u</span><span class="op">|</span> <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="kw-2">*</span><span class="ident">u</span>)).<span class="ident">collect</span>()),
+                ..<span class="ident">Default</span>::<span class="ident">default</span>()
+            },
+            <span class="ident">error</span>: <span class="string">r#&quot;`string.lift_memory` attempted to convert `pointer` but it appears to be a negative value&quot;#</span>,
+    );
+
+    <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
+        <span class="ident">test_string_lift_memory__negative_length</span> <span class="op">=</span>
+            <span class="ident">instructions</span>: [
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">1</span> },
+                <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>,
+            ],
+            <span class="ident">invocation_inputs</span>: [
+                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">0</span>),
+                <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="op">-</span><span class="number">1</span>),
+            ],
+            <span class="ident">instance</span>: <span class="ident">Instance</span> {
+                <span class="ident">memory</span>: <span class="ident">Memory</span>::<span class="ident">new</span>(<span class="string">&quot;Hello!&quot;</span>.<span class="ident">as_bytes</span>().<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">u</span><span class="op">|</span> <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="kw-2">*</span><span class="ident">u</span>)).<span class="ident">collect</span>()),
+                ..<span class="ident">Default</span>::<span class="ident">default</span>()
+            },
+            <span class="ident">error</span>: <span class="string">r#&quot;`string.lift_memory` attempted to convert `length` but it appears to be a negative value&quot;#</span>,
     );
 
     <span class="macro">test_executable_instruction</span><span class="macro">!</span>(

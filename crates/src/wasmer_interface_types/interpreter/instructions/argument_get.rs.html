@@ -68,7 +68,7 @@
         <span class="kw">move</span> <span class="op">|</span><span class="ident">runtime</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
             <span class="kw">let</span> <span class="ident">invocation_inputs</span> <span class="op">=</span> <span class="ident">runtime</span>.<span class="ident">invocation_inputs</span>;
 
-            <span class="kw">if</span> <span class="ident">index</span> <span class="op">&gt;</span><span class="op">=</span> (<span class="ident">invocation_inputs</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>) {
+            <span class="kw">if</span> (<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">&gt;</span><span class="op">=</span> <span class="ident">invocation_inputs</span>.<span class="ident">len</span>() {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">InstructionError</span>::<span class="ident">new</span>(
                     <span class="ident">instruction</span>,
                     <span class="ident">InstructionErrorKind</span>::<span class="ident">InvocationInputIsMissing</span> { <span class="ident">index</span> },

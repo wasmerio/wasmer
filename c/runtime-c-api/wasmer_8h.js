@@ -112,7 +112,7 @@ var wasmer_8h =
     [ "wasmer_last_error_length", "wasmer_8h.html#adda8d66f7a0077cd710264b1e081429d", null ],
     [ "wasmer_last_error_message", "wasmer_8h.html#a9ad3fc8ec83a49297323dfd856b19005", null ],
     [ "wasmer_memory_data", "wasmer_8h.html#af2a54ac64842fe82ac1a13b4bc74e43b", null ],
-    [ "wasmer_memory_data_length", "wasmer_8h.html#a35dec296a610ed67254da228e0c23d1f", null ],
+    [ "wasmer_memory_data_length", "wasmer_8h.html#ace0c47f13fab173a280a6039cafec5e4", null ],
     [ "wasmer_memory_destroy", "wasmer_8h.html#a8682ebd2a91fe92c3d2f24099ff465e8", null ],
     [ "wasmer_memory_grow", "wasmer_8h.html#a8eb929f69cecfb4d25c8bdd19d2838fd", null ],
     [ "wasmer_memory_length", "wasmer_8h.html#a6da39a7c842dc46d327b0a59494ba063", null ],

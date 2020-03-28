@@ -199,16 +199,16 @@
 };
 
 <span class="macro">executable_instruction</span><span class="macro">!</span>(
-    <span class="ident">call_core</span>(<span class="ident">function_index</span>: <span class="ident">usize</span>, <span class="ident">instruction</span>: <span class="ident">Instruction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
+    <span class="ident">call_core</span>(<span class="ident">function_index</span>: <span class="ident">u32</span>, <span class="ident">instruction</span>: <span class="ident">Instruction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
         <span class="kw">move</span> <span class="op">|</span><span class="ident">runtime</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
             <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">runtime</span>.<span class="ident">wasm_instance</span>;
-            <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">FunctionIndex</span>::<span class="ident">new</span>(<span class="ident">function_index</span>);
+            <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">FunctionIndex</span>::<span class="ident">new</span>(<span class="ident">function_index</span> <span class="kw">as</span> <span class="ident">usize</span>);
 
             <span class="kw">let</span> <span class="ident">local_or_import</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">local_or_import</span>(<span class="ident">index</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
                 <span class="ident">InstructionError</span>::<span class="ident">new</span>(
                     <span class="ident">instruction</span>,
                     <span class="ident">InstructionErrorKind</span>::<span class="ident">LocalOrImportIsMissing</span> {
-                        <span class="ident">function_index</span>: <span class="ident">function_index</span> <span class="kw">as</span> <span class="ident">u32</span>,
+                        <span class="ident">function_index</span>: <span class="ident">function_index</span>,
                     },
                 )
             })<span class="question-mark">?</span>;
@@ -231,7 +231,7 @@
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">InstructionError</span>::<span class="ident">new</span>(
                     <span class="ident">instruction</span>,
                     <span class="ident">InstructionErrorKind</span>::<span class="ident">LocalOrImportSignatureMismatch</span> {
-                        <span class="ident">function_index</span>: <span class="ident">function_index</span> <span class="kw">as</span> <span class="ident">u32</span>,
+                        <span class="ident">function_index</span>: <span class="ident">function_index</span>,
                         <span class="ident">expected</span>: (<span class="ident">local_or_import</span>.<span class="ident">inputs</span>().<span class="ident">to_vec</span>(), <span class="macro">vec</span><span class="macro">!</span>[]),
                         <span class="ident">received</span>: (<span class="ident">input_types</span>, <span class="macro">vec</span><span class="macro">!</span>[]),
                     },
@@ -242,7 +242,7 @@
                 <span class="ident">InstructionError</span>::<span class="ident">new</span>(
                     <span class="ident">instruction</span>,
                     <span class="ident">InstructionErrorKind</span>::<span class="ident">LocalOrImportCall</span> {
-                        <span class="ident">function_index</span>: <span class="ident">function_index</span> <span class="kw">as</span> <span class="ident">u32</span>,
+                        <span class="ident">function_index</span>: <span class="ident">function_index</span>,
                     },
                 )
             })<span class="question-mark">?</span>;

@@ -434,7 +434,7 @@
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_memory_data_length</span>(<span class="ident">memory</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasmer_memory_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_memory_data_length</span>(<span class="ident">memory</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">wasmer_memory_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="kw">if</span> <span class="ident">memory</span>.<span class="ident">is_null</span>() {
         <span class="kw">return</span> <span class="number">0</span>;
     }
