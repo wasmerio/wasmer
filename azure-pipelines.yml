@@ -48,6 +48,7 @@ jobs:
           imageName: "ubuntu-16.04"
           rust_toolchain: nightly-2019-12-19
         android:
+          poolName: "Azure Pipelines"
           imageName: "ubuntu-16.04"
           rust_toolchain: nightly-2019-12-19
           ANDROID: true
