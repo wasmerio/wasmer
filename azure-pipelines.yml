@@ -197,7 +197,7 @@ jobs:
             eq(variables['Agent.OS'], 'Windows_NT')
           )
       - publish: $(System.DefaultWorkingDirectory)/artifacts
-        artifact: cli-$(Agent.OS)
+        artifact: cli-$(Agent.OS)-$(Agent.OSArchitecture)
 
   - job: Build_Library
     strategy:
@@ -255,7 +255,7 @@ jobs:
             eq(variables['Agent.OS'], 'Windows_NT')
           )
       - publish: $(System.DefaultWorkingDirectory)/artifacts
-        artifact: library-$(Agent.OS)
+        artifact: library-$(Agent.OS)-$(Agent.OSArchitecture)
 
   - job: Build_Docs
     pool:
