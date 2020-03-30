@@ -964,7 +964,7 @@ uint8_t *wasmer_memory_data(const wasmer_memory_t *memory);
 /// ```c
 /// uint32_t memory_data_length = wasmer_memory_data_length(memory);
 /// ```
-uint32_t wasmer_memory_data_length(wasmer_memory_t *memory);
+uint32_t wasmer_memory_data_length(const wasmer_memory_t *memory);
 
 /// Frees memory for the given `wasmer_memory_t`.
 ///

@@ -198,7 +198,7 @@ pub extern "C" fn wasmer_memory_data(memory: *const wasmer_memory_t) -> *mut u8 
 /// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_memory_data_length(memory: *mut wasmer_memory_t) -> u32 {
+pub extern "C" fn wasmer_memory_data_length(memory: *const wasmer_memory_t) -> u32 {
     if memory.is_null() {
         return 0;
     }

@@ -172,6 +172,9 @@ test-rest:
 
 test: spectests emtests middleware wasitests test-rest examples
 
+test-android:
+	ci/run-docker.sh x86_64-linux-android --manifest-path=lib/singlepass-backend/Cargo.toml
+	ci/run-docker.sh x86_64-linux-android --manifest-path=lib/runtime-core-tests/Cargo.toml
 
 # Integration tests
 integration-tests: release-clif examples
@@ -322,7 +325,7 @@ ifeq ($(OS), Windows_NT)
 else
 ifeq ($(UNAME_S), Darwin)
 	cp target/release/libwasmer_runtime_c_api.dylib ./capi/lib/libwasmer.dylib
-	cp target/release/libwasmer_runtime_c_api.dylib ./capi/lib/libwasmer.a
+	cp target/release/libwasmer_runtime_c_api.a ./capi/lib/libwasmer.a
 	# Fix the rpath for the dylib
 	install_name_tool -id "@rpath/libwasmer.dylib" ./capi/lib/libwasmer.dylib
 else

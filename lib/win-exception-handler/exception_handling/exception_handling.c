@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <setjmp.h>
+#include <intrin.h>
 #include "exception_handling.h"
 
 #define CALL_FIRST 1

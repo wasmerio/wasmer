@@ -106,7 +106,7 @@ impl BackendCompilerConfig {
 }
 
 /// Configuration data for the compiler
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct CompilerConfig {
     /// Symbol information generated from emscripten; used for more detailed debug messages
     pub symbol_map: Option<HashMap<u32, String>>,
@@ -132,6 +132,17 @@ pub struct CompilerConfig {
     /// When enabled there can be a small amount of runtime performance overhead.
     pub full_preemption: bool,
 
+    /// Always choose a unique bit representation for NaN.
+    /// Enabling this makes execution deterministic but increases runtime overhead.
+    pub nan_canonicalization: bool,
+
+    /// Turns on verification that is done by default when `debug_assertions` are enabled
+    /// (for example in 'debug' builds). Disabling this flag will make compilation faster
+    /// in debug mode at the cost of not detecting bugs in the compiler.
+    ///
+    /// These verifications are disabled by default in 'release' builds.
+    pub enable_verification: bool,
+
     pub features: Features,
 
     // Target info. Presently only supported by LLVM.
@@ -142,6 +153,30 @@ pub struct CompilerConfig {
     pub backend_specific_config: Option<BackendCompilerConfig>,
 
     pub generate_debug_info: bool,
+}
+
+impl Default for CompilerConfig {
+    fn default() -> Self {
+        Self {
+            symbol_map: Default::default(),
+            memory_bound_check_mode: Default::default(),
+            enforce_stack_check: Default::default(),
+            track_state: Default::default(),
+            full_preemption: Default::default(),
+            nan_canonicalization: Default::default(),
+            features: Default::default(),
+            triple: Default::default(),
+            cpu_name: Default::default(),
+            cpu_features: Default::default(),
+            backend_specific_config: Default::default(),
+            generate_debug_info: Default::default(),
+
+            // Default verification to 'on' when testing or running in debug mode.
+            // NOTE: cfg(test) probably does nothing when not running `cargo test`
+            //       on this crate
+            enable_verification: cfg!(test) || cfg!(debug_assertions),
+        }
+    }
 }
 
 impl CompilerConfig {
