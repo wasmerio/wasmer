@@ -81,7 +81,10 @@ jobs:
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: make test
         displayName: Tests (*nix)
-        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+        condition: and(succeeded(), eq(variables['Agent.OSArchitecture'], 'X64'), not(eq(variables['Agent.OS'], 'Windows_NT')))
+      - bash: make spectests-singlepass
+        displayName: Tests (Linux ARM)
+        condition: and(succeeded(), eq(variables['Agent.OSArchitecture'], 'ARM64'))
       - bash: make spectests-cranelift
         displayName: Tests (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
@@ -134,11 +137,14 @@ jobs:
           mkdir -p artifacts
         displayName: Create Artifacts Dir
       - bash: make release
-        displayName: Build (*nix)
-        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+        displayName: Build (*nix X64)
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')), eq(variables['Agent.OSArchitecture'], 'X64'))
       - bash: sudo apt-get install musl-tools && make release-musl
         displayName: Build (Linux, x86_64-unknown-linux-musl)
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+        condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'), eq(variables['Agent.OSArchitecture'], 'X64'))
+      - bash: make release-singlepass
+        displayName: Build (ARM)
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')), eq(variables['Agent.OSArchitecture'], 'ARM64'))
       - bash: make release-llvm
         displayName: Build (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
@@ -204,7 +210,7 @@ jobs:
       - bash: |
           make test-capi
         displayName: Test c-api
-        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+        condition: and(succeeded(), eq(variables['Agent.OSArchitecture'], 'X64'), not(eq(variables['Agent.OS'], 'Windows_NT')))
       - bash: |
           make capi
         displayName: Build c-api
