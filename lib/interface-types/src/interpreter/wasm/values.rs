@@ -2,6 +2,7 @@
 
 pub use crate::ast::{InterfaceType, RecordType};
 use crate::errors::WasmValueNativeCastError;
+pub use crate::interpreter::wasm::specific_values::*;
 use std::convert::TryFrom;
 
 /// A WIT value.
