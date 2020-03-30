@@ -18,14 +18,12 @@ libc = "0.2.60"
 byteorder = "1"
 
 [target.'cfg(target_arch = "x86_64")'.dependencies.inkwell]
-git = "https://github.com/TheDan64/inkwell"
-rev = "af4cf4efbb27cdea8a54175ffc18ffd91964618c"
+version = "0.1.0-llvm8sample"
 default-features = false
 features = ["llvm8-0", "target-x86"]
 
 [target.'cfg(target_arch = "aarch64")'.dependencies.inkwell]
-git = "https://github.com/TheDan64/inkwell"
-rev = "af4cf4efbb27cdea8a54175ffc18ffd91964618c"
+version = "0.1.0-llvm8sample"
 default-features = false
 features = ["llvm8-0", "target-aarch64"]
 
