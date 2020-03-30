@@ -140,6 +140,7 @@ jobs:
           rust_toolchain: '1.41.1'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
+      name: $(poolName)
       vmImage: $(imageName)
     condition: |
       or(
