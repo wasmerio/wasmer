@@ -44,6 +44,7 @@ jobs:
     strategy:
       matrix:
         linux:
+          poolName: "Azure Pipelines"
           imageName: "ubuntu-16.04"
           rust_toolchain: nightly-2019-12-19
         android:
@@ -51,16 +52,22 @@ jobs:
           rust_toolchain: nightly-2019-12-19
           ANDROID: true
         mac:
+          poolName: "Azure Pipelines"
           imageName: "macos-10.14"
           rust_toolchain: nightly-2019-12-19
           # By default schannel checks revocation of certificates unlike some other SSL
           # backends, but we've historically had problems on CI where a revocation
           # server goes down presumably. See #43333 for more info
           CARGO_HTTP_CHECK_REVOKE: false
+        arm:
+          poolName: "Packet"
+          rust_toolchain: nightly-2019-12-19
         windows:
+          poolName: "Azure Pipelines"
           imageName: "vs2017-win2016"
           rust_toolchain: '1.41.1'
     pool:
+      name: $(poolName)
       vmImage: $(imageName)
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
@@ -116,13 +123,19 @@ jobs:
     strategy:
       matrix:
         linux:
+          poolName: "Azure Pipelines"
           imageName: "ubuntu-16.04"
           rust_toolchain: nightly-2019-12-19
         mac:
+          poolName: "Azure Pipelines"
           imageName: "macos-10.14"
           rust_toolchain: nightly-2019-12-19
           MACOSX_DEPLOYMENT_TARGET: 10.10
+        arm:
+          poolName: "Packet"
+          rust_toolchain: nightly-2019-12-19
         windows:
+          poolName: "Azure Pipelines"
           imageName: "vs2017-win2016"
           rust_toolchain: '1.41.1'
           # RUSTFLAGS: -Ctarget-feature=+crt-static
@@ -283,30 +296,14 @@ jobs:
       - script: VERSION_TAG=`git describe --tags` && echo "##vso[task.setvariable variable=VERSION_TAG]$VERSION_TAG"
         displayName: Set the tag name as an environment variable
       - task: GithubRelease@0
-        displayName: "Create GitHub Release"
+        displayName: "Create GitHub Release with artifacts"
         condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
-        continueOnError: true
         inputs:
           gitHubConnection: 'wasmer'
           repositoryName: 'wasmerio/wasmer'
           action: 'create'
           target: '$(Build.SourceVersion)'
           title: '$(VERSION_TAG)'
-          addChangeLog: false
-          tagSource: 'auto'
-          # TODO: automate it all by getting the release notes from somewhere else and using the `releaseNotesFile` key
-          isDraft: false
-          isPreRelease: false
-      - task: GithubRelease@0
-        displayName: "Update GitHub Release with assets"
-        condition: and(succeededOrFailed(), startsWith(variables['Build.SourceBranch'], 'refs/tags'))
-        inputs:
-          gitHubConnection: 'wasmer'
-          repositoryName: 'wasmerio/wasmer'
-          action: 'edit'
-          target: '$(Build.SourceVersion)'
-          title: '$(VERSION_TAG)'
-          tag: $(VERSION_TAG)
           addChangeLog: false
           tagSource: 'auto'
           # TODO: automate it all by getting the release notes from somewhere else and using the `releaseNotesFile` key
