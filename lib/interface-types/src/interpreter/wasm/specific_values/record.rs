@@ -65,7 +65,7 @@ struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
-    pub fn from_values(input: &'de [InterfaceValue]) -> Deserializer<'de> {
+    pub fn new(input: &'de [InterfaceValue]) -> Deserializer<'de> {
         Deserializer {
             iterator: InterfaceValueIterator::new(input).peekable(),
         }
@@ -126,17 +126,16 @@ impl<'de> Deserializer<'de> {
     next!(next_i64, I64, i64);
 }
 
-pub fn from_values<'a, T>(s: &'a [InterfaceValue]) -> Result<T, Error>
+pub fn from_values<'a, T>(values: &'a [InterfaceValue]) -> Result<T, Error>
 where
     T: Deserialize<'a>,
 {
-    let mut deserializer = Deserializer::from_values(s);
-    let t = T::deserialize(&mut deserializer)?;
+    let mut deserializer = Deserializer::new(values);
+    let result = T::deserialize(&mut deserializer)?;
 
-    if deserializer.iterator.peek().is_none() {
-        Ok(t)
-    } else {
-        Err(Error::InputNotEmpty)
+    match deserializer.iterator.peek() {
+        None => Ok(result),
+        _ => Err(Error::InputNotEmpty),
     }
 }
 
@@ -458,23 +457,23 @@ impl<'de, 'a> SeqAccess<'de> for Sequence<'a, 'de> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryInto;
+    use std::convert::{TryFrom, TryInto};
 
     macro_rules! try_into {
         ($ty:ty) => {
-            impl TryInto<$ty> for Vec<InterfaceValue> {
+            impl TryFrom<Vec<InterfaceValue>> for $ty {
                 type Error = Error;
 
-                fn try_into(self) -> Result<$ty, Self::Error> {
-                    from_values(&self)
+                fn try_from(value: Vec<InterfaceValue>) -> Result<Self, Self::Error> {
+                    from_values(&value)
                 }
             }
 
-            impl TryInto<$ty> for &Vec<InterfaceValue> {
+            impl TryFrom<&Vec<InterfaceValue>> for $ty {
                 type Error = Error;
 
-                fn try_into(self) -> Result<$ty, Self::Error> {
-                    from_values(self)
+                fn try_from(value: &Vec<InterfaceValue>) -> Result<Self, Self::Error> {
+                    from_values(value)
                 }
             }
         };
@@ -651,15 +650,22 @@ mod tests {
 
         #[derive(Deserialize, Debug, PartialEq)]
         struct T {
+            a: String,
             s: S,
+            b: f32,
         };
 
-        let v = vec![InterfaceValue::Record(vec![
-            InterfaceValue::I32(1),
-            InterfaceValue::I64(2),
-        ])];
-        let input: T = from_values(&v).unwrap();
+        try_into!(T);
+
+        let input: T = vec![
+            InterfaceValue::String("abc".to_string()),
+            InterfaceValue::Record(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]),
+            InterfaceValue::F32(3.),
+        ]
+        .try_into()
+        .unwrap();
         let output = T {
+            a: "abc".to_string(),
             s: S { x: 1, y: 2 },
             b: 3.,
         };
@@ -674,6 +680,15 @@ mod tests {
             x: i32,
             y: i64,
         };
+
+        try_into!(S);
+
+        let input: Result<S, Error> =
+            vec![InterfaceValue::I32(1), InterfaceValue::I32(2)].try_into();
+        let output = Err(Error::TypeMismatch {
+            expected_type: InterfaceType::I64,
+            received_type: InterfaceType::I32,
+        });
 
         assert_eq!(input, output);
     }
