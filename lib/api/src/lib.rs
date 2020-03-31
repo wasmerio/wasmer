@@ -99,7 +99,7 @@ pub mod types {
 
 pub mod error {
     //! Various error types returned by Wasmer APIs.
-    pub use wasmer_runtime_core::error::*;
+    pub use wasmer_runtime_core::error::{CompileError, CompileResult};
 }
 
 pub use prelude::*;

@@ -9,10 +9,10 @@ use crate::{
     import::ImportObject,
     structures::{Map, TypedIndex},
     types::{
-        FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
-        ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
-        LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor, MemoryIndex,
-        SigIndex, TableDescriptor, TableIndex,
+        FuncDescriptor, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit,
+        ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex,
+        Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor,
+        MemoryIndex, SigIndex, TableDescriptor, TableIndex,
     },
     Instance,
 };
@@ -227,12 +227,16 @@ impl Module {
 
         let info = &self.inner.info;
 
-        let imported_functions = info.imported_functions.values().map(|import_name| {
+        let imported_functions = info.imported_functions.iter().map(|(idx, import_name)| {
             let (namespace, name) = get_import_name(info, import_name);
+            let sig = info
+                .signatures
+                .get(*info.func_assoc.get(FuncIndex::new(idx.index())).unwrap())
+                .unwrap();
             Import {
                 namespace,
                 name,
-                ty: ImportType::Function,
+                ty: sig.into(),
             }
         });
         let imported_memories =
@@ -333,8 +337,7 @@ impl Clone for Module {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImportType {
     /// The import is a function.
-    // TODO: why does function have no data?
-    Function,
+    Function(FuncDescriptor),
     /// The import is a global variable.
     Global(GlobalDescriptor),
     /// A Wasm linear memory.
@@ -343,6 +346,16 @@ pub enum ImportType {
     Table(TableDescriptor),
 }
 
+impl From<FuncDescriptor> for ImportType {
+    fn from(other: FuncDescriptor) -> Self {
+        ImportType::Function(other)
+    }
+}
+impl From<&FuncDescriptor> for ImportType {
+    fn from(other: &FuncDescriptor) -> Self {
+        ImportType::Function(other.clone())
+    }
+}
 impl From<MemoryDescriptor> for ImportType {
     fn from(other: MemoryDescriptor) -> Self {
         ImportType::Memory(other)

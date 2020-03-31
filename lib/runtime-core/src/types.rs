@@ -359,6 +359,9 @@ pub struct FuncSig {
     returns: Cow<'static, [Type]>,
 }
 
+/// Information about a function.
+pub type FuncDescriptor = FuncSig;
+
 impl FuncSig {
     /// Creates a new function signatures with the given parameter and return types.
     pub fn new<Params, Returns>(params: Params, returns: Returns) -> Self

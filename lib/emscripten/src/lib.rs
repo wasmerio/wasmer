@@ -349,15 +349,15 @@ impl<'a> EmscriptenData<'a> {
 pub fn set_up_emscripten(instance: &mut Instance) -> CallResult<()> {
     // ATINIT
     // (used by C++)
-    if let Ok(_func) = instance.exports.get::<DynFunc>("globalCtors") {
-        instance.call("globalCtors", &[])?;
+    if let Ok(func) = instance.exports.get::<DynFunc>("globalCtors") {
+        func.call(&[])?;
     }
 
-    if let Ok(_func) = instance
+    if let Ok(func) = instance
         .exports
         .get::<DynFunc>("___emscripten_environ_constructor")
     {
-        instance.call("___emscripten_environ_constructor", &[])?;
+        func.call(&[])?;
     }
     Ok(())
 }
@@ -380,13 +380,12 @@ pub fn emscripten_call_main(instance: &mut Instance, path: &str, args: &[&str]) 
             let mut new_args = vec![path];
             new_args.extend(args);
             let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
-            instance.call(
-                func_name,
-                &[Value::I32(argc as i32), Value::I32(argv as i32)],
-            )?;
+            let func: DynFunc = instance.exports.get(func_name)?;
+            func.call(&[Value::I32(argc as i32), Value::I32(argv as i32)])?;
         }
         0 => {
-            instance.call(func_name, &[])?;
+            let func: DynFunc = instance.exports.get(func_name)?;
+            func.call(&[])?;
         }
         _ => {
             return Err(CallError::Resolve(ResolveError::ExportWrongType {
@@ -420,7 +419,8 @@ pub fn run_emscripten_instance(
         debug!("Running entry point: {}", &ep);
         let arg = unsafe { allocate_cstr_on_stack(instance.context_mut(), args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
-        instance.call(&ep, &[Value::I32(arg as i32)])?;
+        let func: DynFunc = instance.exports.get(&ep)?;
+        func.call(&[Value::I32(arg as i32)])?;
     } else {
         emscripten_call_main(instance, path, &args)?;
     }

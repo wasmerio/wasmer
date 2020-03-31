@@ -242,6 +242,10 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
+    #[deprecated(
+        since = "0.17.0",
+        note = "Please use `let f: DynFunc = instance.exports.get(name)?; f.call(params)?;` instead"
+    )]
     pub fn call(&self, name: &str, params: &[Value]) -> CallResult<Vec<Value>> {
         let export_index =
             self.module
@@ -932,6 +936,21 @@ impl Exports {
         let inst_inner = unsafe { &*self.instance_inner };
         let module = self.module.borrow();
         (inst_inner, module)
+    }
+
+    /// Iterate the exports.
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::instance::Instance;
+    /// # fn iterate_exports_example(instance: &Instance) {
+    /// for (export_name, export_value) in instance.exports.into_iter() {
+    ///    println!("Found export `{}` with value `{:?}`", export_name, export_value);
+    /// }
+    /// # }
+    /// ```
+    pub fn into_iter(&self) -> ExportIter {
+        let (inst_inner, module) = self.get_inner();
+        ExportIter::new(&module, &inst_inner)
     }
 }
 
