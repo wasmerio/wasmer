@@ -8,7 +8,7 @@ executable_instruction!(
         move |runtime| -> _ {
             let invocation_inputs = runtime.invocation_inputs;
 
-            if index >= (invocation_inputs.len() as u32) {
+            if (index as usize) >= invocation_inputs.len() {
                 return Err(InstructionError::new(
                     instruction,
                     InstructionErrorKind::InvocationInputIsMissing { index },

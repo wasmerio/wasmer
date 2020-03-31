@@ -37,7 +37,7 @@ fn main() {
                 .file("image-loading-freebsd-x86-64.s")
                 .compile("image-loading");
         }
-        ("linux", "x86_64") => {
+        ("linux", "x86_64") | ("android", "x86_64") => {
             cc::Build::new()
                 .file("image-loading-linux-x86-64.s")
                 .compile("image-loading");

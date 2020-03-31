@@ -229,7 +229,10 @@ unsafe fn get_faulting_addr_and_ip(
     (si_addr, rip as _)
 }
 
-#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+#[cfg(all(
+    any(target_os = "linux", target_os = "android"),
+    target_arch = "aarch64"
+))]
 unsafe fn get_faulting_addr_and_ip(
     _siginfo: *const c_void,
     _ucontext: *const c_void,
@@ -237,7 +240,10 @@ unsafe fn get_faulting_addr_and_ip(
     (::std::ptr::null(), ::std::ptr::null())
 }
 
-#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[cfg(all(
+    any(target_os = "linux", target_os = "android"),
+    target_arch = "x86_64"
+))]
 unsafe fn get_faulting_addr_and_ip(
     siginfo: *const c_void,
     ucontext: *const c_void,
@@ -332,5 +338,7 @@ unsafe fn get_faulting_addr_and_ip(
     all(target_os = "macos", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "aarch64"),
+    all(target_os = "android", target_arch = "x86_64"),
+    all(target_os = "android", target_arch = "aarch64"),
 )))]
 compile_error!("This crate doesn't yet support compiling on operating systems other than linux and macos and architectures other than x86_64");

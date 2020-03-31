@@ -28,47 +28,41 @@ mod keyword {
     // Instructions.
     custom_keyword!(argument_get = "arg.get");
     custom_keyword!(call_core = "call-core");
-    custom_keyword!(memory_to_string = "memory-to-string");
-    custom_keyword!(string_to_memory = "string-to-memory");
-    custom_keyword!(i32_to_s8 = "i32-to-s8");
-    custom_keyword!(i32_to_s8x = "i32-to-s8x");
-    custom_keyword!(i32_to_u8 = "i32-to-u8");
-    custom_keyword!(i32_to_s16 = "i32-to-s16");
-    custom_keyword!(i32_to_s16x = "i32-to-s16x");
-    custom_keyword!(i32_to_u16 = "i32-to-u16");
-    custom_keyword!(i32_to_s32 = "i32-to-s32");
-    custom_keyword!(i32_to_u32 = "i32-to-u32");
-    custom_keyword!(i32_to_s64 = "i32-to-s64");
-    custom_keyword!(i32_to_u64 = "i32-to-u64");
-    custom_keyword!(i64_to_s8 = "i64-to-s8");
-    custom_keyword!(i64_to_s8x = "i64-to-s8x");
-    custom_keyword!(i64_to_u8 = "i64-to-u8");
-    custom_keyword!(i64_to_s16 = "i64-to-s16");
-    custom_keyword!(i64_to_s16x = "i64-to-s16x");
-    custom_keyword!(i64_to_u16 = "i64-to-u16");
-    custom_keyword!(i64_to_s32 = "i64-to-s32");
-    custom_keyword!(i64_to_s32x = "i64-to-s32x");
-    custom_keyword!(i64_to_u32 = "i64-to-u32");
-    custom_keyword!(i64_to_s64 = "i64-to-s64");
-    custom_keyword!(i64_to_u64 = "i64-to-u64");
-    custom_keyword!(s8_to_i32 = "s8-to-i32");
-    custom_keyword!(u8_to_i32 = "u8-to-i32");
-    custom_keyword!(s16_to_i32 = "s16-to-i32");
-    custom_keyword!(u16_to_i32 = "u16-to-i32");
-    custom_keyword!(s32_to_i32 = "s32-to-i32");
-    custom_keyword!(u32_to_i32 = "u32-to-i32");
-    custom_keyword!(s64_to_i32 = "s64-to-i32");
-    custom_keyword!(s64_to_i32x = "s64-to-i32x");
-    custom_keyword!(u64_to_i32 = "u64-to-i32");
-    custom_keyword!(u64_to_i32x = "u64-to-i32x");
-    custom_keyword!(s8_to_i64 = "s8-to-i64");
-    custom_keyword!(u8_to_i64 = "u8-to-i64");
-    custom_keyword!(s16_to_i64 = "s16-to-i64");
-    custom_keyword!(u16_to_i64 = "u16-to-i64");
-    custom_keyword!(s32_to_i64 = "s32-to-i64");
-    custom_keyword!(u32_to_i64 = "u32-to-i64");
-    custom_keyword!(s64_to_i64 = "s64-to-i64");
-    custom_keyword!(u64_to_i64 = "u64-to-i64");
+    custom_keyword!(s8_from_i32 = "s8.from_i32");
+    custom_keyword!(s8_from_i64 = "s8.from_i64");
+    custom_keyword!(s16_from_i32 = "s16.from_i32");
+    custom_keyword!(s16_from_i64 = "s16.from_i64");
+    custom_keyword!(s32_from_i32 = "s32.from_i32");
+    custom_keyword!(s32_from_i64 = "s32.from_i64");
+    custom_keyword!(s64_from_i32 = "s64.from_i32");
+    custom_keyword!(s64_from_i64 = "s64.from_i64");
+    custom_keyword!(i32_from_s8 = "i32.from_s8");
+    custom_keyword!(i32_from_s16 = "i32.from_s16");
+    custom_keyword!(i32_from_s32 = "i32.from_s32");
+    custom_keyword!(i32_from_s64 = "i32.from_s64");
+    custom_keyword!(i64_from_s8 = "i64.from_s8");
+    custom_keyword!(i64_from_s16 = "i64.from_s16");
+    custom_keyword!(i64_from_s32 = "i64.from_s32");
+    custom_keyword!(i64_from_s64 = "i64.from_s64");
+    custom_keyword!(u8_from_i32 = "u8.from_i32");
+    custom_keyword!(u8_from_i64 = "u8.from_i64");
+    custom_keyword!(u16_from_i32 = "u16.from_i32");
+    custom_keyword!(u16_from_i64 = "u16.from_i64");
+    custom_keyword!(u32_from_i32 = "u32.from_i32");
+    custom_keyword!(u32_from_i64 = "u32.from_i64");
+    custom_keyword!(u64_from_i32 = "u64.from_i32");
+    custom_keyword!(u64_from_i64 = "u64.from_i64");
+    custom_keyword!(i32_from_u8 = "i32.from_u8");
+    custom_keyword!(i32_from_u16 = "i32.from_u16");
+    custom_keyword!(i32_from_u32 = "i32.from_u32");
+    custom_keyword!(i32_from_u64 = "i32.from_u64");
+    custom_keyword!(i64_from_u8 = "i64.from_u8");
+    custom_keyword!(i64_from_u16 = "i64.from_u16");
+    custom_keyword!(i64_from_u32 = "i64.from_u32");
+    custom_keyword!(i64_from_u64 = "i64.from_u64");
+    custom_keyword!(string_lift_memory = "string.lift_memory");
+    custom_keyword!(string_lower_memory = "string.lower_memory");
+    custom_keyword!(string_size = "string.size");
 }
 
 impl Parse<'_> for InterfaceType {
@@ -152,174 +146,150 @@ impl<'a> Parse<'a> for Instruction {
             parser.parse::<keyword::call_core>()?;
 
             Ok(Instruction::CallCore {
-                function_index: parser.parse::<u64>()? as usize,
+                function_index: parser.parse::<u32>()?,
             })
-        } else if lookahead.peek::<keyword::memory_to_string>() {
-            parser.parse::<keyword::memory_to_string>()?;
+        } else if lookahead.peek::<keyword::s8_from_i32>() {
+            parser.parse::<keyword::s8_from_i32>()?;
 
-            Ok(Instruction::MemoryToString)
-        } else if lookahead.peek::<keyword::string_to_memory>() {
-            parser.parse::<keyword::string_to_memory>()?;
+            Ok(Instruction::S8FromI32)
+        } else if lookahead.peek::<keyword::s8_from_i64>() {
+            parser.parse::<keyword::s8_from_i64>()?;
 
-            Ok(Instruction::StringToMemory {
+            Ok(Instruction::S8FromI64)
+        } else if lookahead.peek::<keyword::s16_from_i32>() {
+            parser.parse::<keyword::s16_from_i32>()?;
+
+            Ok(Instruction::S16FromI32)
+        } else if lookahead.peek::<keyword::s16_from_i64>() {
+            parser.parse::<keyword::s16_from_i64>()?;
+
+            Ok(Instruction::S16FromI64)
+        } else if lookahead.peek::<keyword::s32_from_i32>() {
+            parser.parse::<keyword::s32_from_i32>()?;
+
+            Ok(Instruction::S32FromI32)
+        } else if lookahead.peek::<keyword::s32_from_i64>() {
+            parser.parse::<keyword::s32_from_i64>()?;
+
+            Ok(Instruction::S32FromI64)
+        } else if lookahead.peek::<keyword::s64_from_i32>() {
+            parser.parse::<keyword::s64_from_i32>()?;
+
+            Ok(Instruction::S64FromI32)
+        } else if lookahead.peek::<keyword::s64_from_i64>() {
+            parser.parse::<keyword::s64_from_i64>()?;
+
+            Ok(Instruction::S64FromI64)
+        } else if lookahead.peek::<keyword::i32_from_s8>() {
+            parser.parse::<keyword::i32_from_s8>()?;
+
+            Ok(Instruction::I32FromS8)
+        } else if lookahead.peek::<keyword::i32_from_s16>() {
+            parser.parse::<keyword::i32_from_s16>()?;
+
+            Ok(Instruction::I32FromS16)
+        } else if lookahead.peek::<keyword::i32_from_s32>() {
+            parser.parse::<keyword::i32_from_s32>()?;
+
+            Ok(Instruction::I32FromS32)
+        } else if lookahead.peek::<keyword::i32_from_s64>() {
+            parser.parse::<keyword::i32_from_s64>()?;
+
+            Ok(Instruction::I32FromS64)
+        } else if lookahead.peek::<keyword::i64_from_s8>() {
+            parser.parse::<keyword::i64_from_s8>()?;
+
+            Ok(Instruction::I64FromS8)
+        } else if lookahead.peek::<keyword::i64_from_s16>() {
+            parser.parse::<keyword::i64_from_s16>()?;
+
+            Ok(Instruction::I64FromS16)
+        } else if lookahead.peek::<keyword::i64_from_s32>() {
+            parser.parse::<keyword::i64_from_s32>()?;
+
+            Ok(Instruction::I64FromS32)
+        } else if lookahead.peek::<keyword::i64_from_s64>() {
+            parser.parse::<keyword::i64_from_s64>()?;
+
+            Ok(Instruction::I64FromS64)
+        } else if lookahead.peek::<keyword::u8_from_i32>() {
+            parser.parse::<keyword::u8_from_i32>()?;
+
+            Ok(Instruction::U8FromI32)
+        } else if lookahead.peek::<keyword::u8_from_i64>() {
+            parser.parse::<keyword::u8_from_i64>()?;
+
+            Ok(Instruction::U8FromI64)
+        } else if lookahead.peek::<keyword::u16_from_i32>() {
+            parser.parse::<keyword::u16_from_i32>()?;
+
+            Ok(Instruction::U16FromI32)
+        } else if lookahead.peek::<keyword::u16_from_i64>() {
+            parser.parse::<keyword::u16_from_i64>()?;
+
+            Ok(Instruction::U16FromI64)
+        } else if lookahead.peek::<keyword::u32_from_i32>() {
+            parser.parse::<keyword::u32_from_i32>()?;
+
+            Ok(Instruction::U32FromI32)
+        } else if lookahead.peek::<keyword::u32_from_i64>() {
+            parser.parse::<keyword::u32_from_i64>()?;
+
+            Ok(Instruction::U32FromI64)
+        } else if lookahead.peek::<keyword::u64_from_i32>() {
+            parser.parse::<keyword::u64_from_i32>()?;
+
+            Ok(Instruction::U64FromI32)
+        } else if lookahead.peek::<keyword::u64_from_i64>() {
+            parser.parse::<keyword::u64_from_i64>()?;
+
+            Ok(Instruction::U64FromI64)
+        } else if lookahead.peek::<keyword::i32_from_u8>() {
+            parser.parse::<keyword::i32_from_u8>()?;
+
+            Ok(Instruction::I32FromU8)
+        } else if lookahead.peek::<keyword::i32_from_u16>() {
+            parser.parse::<keyword::i32_from_u16>()?;
+
+            Ok(Instruction::I32FromU16)
+        } else if lookahead.peek::<keyword::i32_from_u32>() {
+            parser.parse::<keyword::i32_from_u32>()?;
+
+            Ok(Instruction::I32FromU32)
+        } else if lookahead.peek::<keyword::i32_from_u64>() {
+            parser.parse::<keyword::i32_from_u64>()?;
+
+            Ok(Instruction::I32FromU64)
+        } else if lookahead.peek::<keyword::i64_from_u8>() {
+            parser.parse::<keyword::i64_from_u8>()?;
+
+            Ok(Instruction::I64FromU8)
+        } else if lookahead.peek::<keyword::i64_from_u16>() {
+            parser.parse::<keyword::i64_from_u16>()?;
+
+            Ok(Instruction::I64FromU16)
+        } else if lookahead.peek::<keyword::i64_from_u32>() {
+            parser.parse::<keyword::i64_from_u32>()?;
+
+            Ok(Instruction::I64FromU32)
+        } else if lookahead.peek::<keyword::i64_from_u64>() {
+            parser.parse::<keyword::i64_from_u64>()?;
+
+            Ok(Instruction::I64FromU64)
+        } else if lookahead.peek::<keyword::string_lift_memory>() {
+            parser.parse::<keyword::string_lift_memory>()?;
+
+            Ok(Instruction::StringLiftMemory)
+        } else if lookahead.peek::<keyword::string_lower_memory>() {
+            parser.parse::<keyword::string_lower_memory>()?;
+
+            Ok(Instruction::StringLowerMemory {
                 allocator_index: parser.parse()?,
             })
-        } else if lookahead.peek::<keyword::i32_to_s8>() {
-            parser.parse::<keyword::i32_to_s8>()?;
+        } else if lookahead.peek::<keyword::string_size>() {
+            parser.parse::<keyword::string_size>()?;
 
-            Ok(Instruction::I32ToS8)
-        } else if lookahead.peek::<keyword::i32_to_s8x>() {
-            parser.parse::<keyword::i32_to_s8x>()?;
-
-            Ok(Instruction::I32ToS8X)
-        } else if lookahead.peek::<keyword::i32_to_u8>() {
-            parser.parse::<keyword::i32_to_u8>()?;
-
-            Ok(Instruction::I32ToU8)
-        } else if lookahead.peek::<keyword::i32_to_s16>() {
-            parser.parse::<keyword::i32_to_s16>()?;
-
-            Ok(Instruction::I32ToS16)
-        } else if lookahead.peek::<keyword::i32_to_s16x>() {
-            parser.parse::<keyword::i32_to_s16x>()?;
-
-            Ok(Instruction::I32ToS16X)
-        } else if lookahead.peek::<keyword::i32_to_u16>() {
-            parser.parse::<keyword::i32_to_u16>()?;
-
-            Ok(Instruction::I32ToU16)
-        } else if lookahead.peek::<keyword::i32_to_s32>() {
-            parser.parse::<keyword::i32_to_s32>()?;
-
-            Ok(Instruction::I32ToS32)
-        } else if lookahead.peek::<keyword::i32_to_u32>() {
-            parser.parse::<keyword::i32_to_u32>()?;
-
-            Ok(Instruction::I32ToU32)
-        } else if lookahead.peek::<keyword::i32_to_s64>() {
-            parser.parse::<keyword::i32_to_s64>()?;
-
-            Ok(Instruction::I32ToS64)
-        } else if lookahead.peek::<keyword::i32_to_u64>() {
-            parser.parse::<keyword::i32_to_u64>()?;
-
-            Ok(Instruction::I32ToU64)
-        } else if lookahead.peek::<keyword::i64_to_s8>() {
-            parser.parse::<keyword::i64_to_s8>()?;
-
-            Ok(Instruction::I64ToS8)
-        } else if lookahead.peek::<keyword::i64_to_s8x>() {
-            parser.parse::<keyword::i64_to_s8x>()?;
-
-            Ok(Instruction::I64ToS8X)
-        } else if lookahead.peek::<keyword::i64_to_u8>() {
-            parser.parse::<keyword::i64_to_u8>()?;
-
-            Ok(Instruction::I64ToU8)
-        } else if lookahead.peek::<keyword::i64_to_s16>() {
-            parser.parse::<keyword::i64_to_s16>()?;
-
-            Ok(Instruction::I64ToS16)
-        } else if lookahead.peek::<keyword::i64_to_s16x>() {
-            parser.parse::<keyword::i64_to_s16x>()?;
-
-            Ok(Instruction::I64ToS16X)
-        } else if lookahead.peek::<keyword::i64_to_u16>() {
-            parser.parse::<keyword::i64_to_u16>()?;
-
-            Ok(Instruction::I64ToU16)
-        } else if lookahead.peek::<keyword::i64_to_s32>() {
-            parser.parse::<keyword::i64_to_s32>()?;
-
-            Ok(Instruction::I64ToS32)
-        } else if lookahead.peek::<keyword::i64_to_s32x>() {
-            parser.parse::<keyword::i64_to_s32x>()?;
-
-            Ok(Instruction::I64ToS32X)
-        } else if lookahead.peek::<keyword::i64_to_u32>() {
-            parser.parse::<keyword::i64_to_u32>()?;
-
-            Ok(Instruction::I64ToU32)
-        } else if lookahead.peek::<keyword::i64_to_s64>() {
-            parser.parse::<keyword::i64_to_s64>()?;
-
-            Ok(Instruction::I64ToS64)
-        } else if lookahead.peek::<keyword::i64_to_u64>() {
-            parser.parse::<keyword::i64_to_u64>()?;
-
-            Ok(Instruction::I64ToU64)
-        } else if lookahead.peek::<keyword::s8_to_i32>() {
-            parser.parse::<keyword::s8_to_i32>()?;
-
-            Ok(Instruction::S8ToI32)
-        } else if lookahead.peek::<keyword::u8_to_i32>() {
-            parser.parse::<keyword::u8_to_i32>()?;
-
-            Ok(Instruction::U8ToI32)
-        } else if lookahead.peek::<keyword::s16_to_i32>() {
-            parser.parse::<keyword::s16_to_i32>()?;
-
-            Ok(Instruction::S16ToI32)
-        } else if lookahead.peek::<keyword::u16_to_i32>() {
-            parser.parse::<keyword::u16_to_i32>()?;
-
-            Ok(Instruction::U16ToI32)
-        } else if lookahead.peek::<keyword::s32_to_i32>() {
-            parser.parse::<keyword::s32_to_i32>()?;
-
-            Ok(Instruction::S32ToI32)
-        } else if lookahead.peek::<keyword::u32_to_i32>() {
-            parser.parse::<keyword::u32_to_i32>()?;
-
-            Ok(Instruction::U32ToI32)
-        } else if lookahead.peek::<keyword::s64_to_i32>() {
-            parser.parse::<keyword::s64_to_i32>()?;
-
-            Ok(Instruction::S64ToI32)
-        } else if lookahead.peek::<keyword::s64_to_i32x>() {
-            parser.parse::<keyword::s64_to_i32x>()?;
-
-            Ok(Instruction::S64ToI32X)
-        } else if lookahead.peek::<keyword::u64_to_i32>() {
-            parser.parse::<keyword::u64_to_i32>()?;
-
-            Ok(Instruction::U64ToI32)
-        } else if lookahead.peek::<keyword::u64_to_i32x>() {
-            parser.parse::<keyword::u64_to_i32x>()?;
-
-            Ok(Instruction::U64ToI32X)
-        } else if lookahead.peek::<keyword::s8_to_i64>() {
-            parser.parse::<keyword::s8_to_i64>()?;
-
-            Ok(Instruction::S8ToI64)
-        } else if lookahead.peek::<keyword::u8_to_i64>() {
-            parser.parse::<keyword::u8_to_i64>()?;
-
-            Ok(Instruction::U8ToI64)
-        } else if lookahead.peek::<keyword::s16_to_i64>() {
-            parser.parse::<keyword::s16_to_i64>()?;
-
-            Ok(Instruction::S16ToI64)
-        } else if lookahead.peek::<keyword::u16_to_i64>() {
-            parser.parse::<keyword::u16_to_i64>()?;
-
-            Ok(Instruction::U16ToI64)
-        } else if lookahead.peek::<keyword::s32_to_i64>() {
-            parser.parse::<keyword::s32_to_i64>()?;
-
-            Ok(Instruction::S32ToI64)
-        } else if lookahead.peek::<keyword::u32_to_i64>() {
-            parser.parse::<keyword::u32_to_i64>()?;
-
-            Ok(Instruction::U32ToI64)
-        } else if lookahead.peek::<keyword::s64_to_i64>() {
-            parser.parse::<keyword::s64_to_i64>()?;
-
-            Ok(Instruction::S64ToI64)
-        } else if lookahead.peek::<keyword::u64_to_i64>() {
-            parser.parse::<keyword::u64_to_i64>()?;
-
-            Ok(Instruction::U64ToI64)
+            Ok(Instruction::StringSize)
         } else {
             Err(lookahead.error())
         }
@@ -667,94 +637,82 @@ mod tests {
         let inputs = vec![
             "arg.get 7",
             "call-core 7",
-            "memory-to-string",
-            "string-to-memory 42",
-            "i32-to-s8",
-            "i32-to-s8x",
-            "i32-to-u8",
-            "i32-to-s16",
-            "i32-to-s16x",
-            "i32-to-u16",
-            "i32-to-s32",
-            "i32-to-u32",
-            "i32-to-s64",
-            "i32-to-u64",
-            "i64-to-s8",
-            "i64-to-s8x",
-            "i64-to-u8",
-            "i64-to-s16",
-            "i64-to-s16x",
-            "i64-to-u16",
-            "i64-to-s32",
-            "i64-to-s32x",
-            "i64-to-u32",
-            "i64-to-s64",
-            "i64-to-u64",
-            "s8-to-i32",
-            "u8-to-i32",
-            "s16-to-i32",
-            "u16-to-i32",
-            "s32-to-i32",
-            "u32-to-i32",
-            "s64-to-i32",
-            "s64-to-i32x",
-            "u64-to-i32",
-            "u64-to-i32x",
-            "s8-to-i64",
-            "u8-to-i64",
-            "s16-to-i64",
-            "u16-to-i64",
-            "s32-to-i64",
-            "u32-to-i64",
-            "s64-to-i64",
-            "u64-to-i64",
+            "s8.from_i32",
+            "s8.from_i64",
+            "s16.from_i32",
+            "s16.from_i64",
+            "s32.from_i32",
+            "s32.from_i64",
+            "s64.from_i32",
+            "s64.from_i64",
+            "i32.from_s8",
+            "i32.from_s16",
+            "i32.from_s32",
+            "i32.from_s64",
+            "i64.from_s8",
+            "i64.from_s16",
+            "i64.from_s32",
+            "i64.from_s64",
+            "u8.from_i32",
+            "u8.from_i64",
+            "u16.from_i32",
+            "u16.from_i64",
+            "u32.from_i32",
+            "u32.from_i64",
+            "u64.from_i32",
+            "u64.from_i64",
+            "i32.from_u8",
+            "i32.from_u16",
+            "i32.from_u32",
+            "i32.from_u64",
+            "i64.from_u8",
+            "i64.from_u16",
+            "i64.from_u32",
+            "i64.from_u64",
+            "string.lift_memory",
+            "string.lower_memory 42",
+            "string.size",
         ];
         let outputs = vec![
             Instruction::ArgumentGet { index: 7 },
             Instruction::CallCore { function_index: 7 },
-            Instruction::MemoryToString,
-            Instruction::StringToMemory {
+            Instruction::S8FromI32,
+            Instruction::S8FromI64,
+            Instruction::S16FromI32,
+            Instruction::S16FromI64,
+            Instruction::S32FromI32,
+            Instruction::S32FromI64,
+            Instruction::S64FromI32,
+            Instruction::S64FromI64,
+            Instruction::I32FromS8,
+            Instruction::I32FromS16,
+            Instruction::I32FromS32,
+            Instruction::I32FromS64,
+            Instruction::I64FromS8,
+            Instruction::I64FromS16,
+            Instruction::I64FromS32,
+            Instruction::I64FromS64,
+            Instruction::U8FromI32,
+            Instruction::U8FromI64,
+            Instruction::U16FromI32,
+            Instruction::U16FromI64,
+            Instruction::U32FromI32,
+            Instruction::U32FromI64,
+            Instruction::U64FromI32,
+            Instruction::U64FromI64,
+            Instruction::I32FromU8,
+            Instruction::I32FromU16,
+            Instruction::I32FromU32,
+            Instruction::I32FromU64,
+            Instruction::I64FromU8,
+            Instruction::I64FromU16,
+            Instruction::I64FromU32,
+            Instruction::I64FromU64,
+            Instruction::StringLiftMemory,
+            Instruction::StringLowerMemory {
                 allocator_index: 42,
             },
-            Instruction::I32ToS8,
-            Instruction::I32ToS8X,
-            Instruction::I32ToU8,
-            Instruction::I32ToS16,
-            Instruction::I32ToS16X,
-            Instruction::I32ToU16,
-            Instruction::I32ToS32,
-            Instruction::I32ToU32,
-            Instruction::I32ToS64,
-            Instruction::I32ToU64,
-            Instruction::I64ToS8,
-            Instruction::I64ToS8X,
-            Instruction::I64ToU8,
-            Instruction::I64ToS16,
-            Instruction::I64ToS16X,
-            Instruction::I64ToU16,
-            Instruction::I64ToS32,
-            Instruction::I64ToS32X,
-            Instruction::I64ToU32,
-            Instruction::I64ToS64,
-            Instruction::I64ToU64,
-            Instruction::S8ToI32,
-            Instruction::U8ToI32,
-            Instruction::S16ToI32,
-            Instruction::U16ToI32,
-            Instruction::S32ToI32,
-            Instruction::U32ToI32,
-            Instruction::S64ToI32,
-            Instruction::S64ToI32X,
-            Instruction::U64ToI32,
-            Instruction::U64ToI32X,
-            Instruction::S8ToI64,
-            Instruction::U8ToI64,
-            Instruction::S16ToI64,
-            Instruction::U16ToI64,
-            Instruction::S32ToI64,
-            Instruction::U32ToI64,
-            Instruction::S64ToI64,
-            Instruction::U64ToI64,
+            Instruction::StringSize,
         ];
 
         assert_eq!(inputs.len(), outputs.len());

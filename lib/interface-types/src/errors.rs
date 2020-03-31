@@ -5,6 +5,7 @@ use crate::{ast::InterfaceType, interpreter::Instruction};
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},
+    num::TryFromIntError,
     result::Result,
     string::{self, ToString},
 };
@@ -149,6 +150,12 @@ pub enum InstructionErrorKind {
 
     /// The string contains invalid UTF-8 encoding.
     String(string::FromUtf8Error),
+
+    /// Out of range integral type conversion attempted.
+    NegativeValue {
+        /// The variable name that triggered the error.
+        subject: &'static str,
+    },
 }
 
 impl Error for InstructionErrorKind {}
@@ -227,6 +234,18 @@ impl Display for InstructionErrorKind {
                 "{}",
                 error
             ),
+
+            Self::NegativeValue { subject } => write!(
+                formatter,
+                "attempted to convert `{}` but it appears to be a negative value",
+                subject
+            ),
         }
+    }
+}
+
+impl From<(TryFromIntError, &'static str)> for InstructionErrorKind {
+    fn from((_, subject): (TryFromIntError, &'static str)) -> Self {
+        InstructionErrorKind::NegativeValue { subject }
     }
 }

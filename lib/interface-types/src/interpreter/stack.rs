@@ -22,9 +22,13 @@ pub trait Stackable {
 
     /// Removes `n` elements from the end of the stack, `None` if the
     /// stack doesn't contain enough elements.
-    /// Returned items are ordered by FIFO: the last element comes
-    /// first in the list.
+    /// Returned items are in reverse order: the last element comes
+    /// last in the list.
     fn pop(&mut self, n: usize) -> Option<Vec<Self::Item>>;
+
+    /// Peek the last item of the stack and returns a reference to it,
+    /// `None` if the stack is empty.
+    fn peek1(&self) -> Option<&Self::Item>;
 }
 
 /// A stack implementation of the `Stackable` trait, based on a vector.
@@ -78,12 +82,19 @@ where
             let items = self
                 .inner
                 .drain(self.inner.len() - n..)
-                .rev()
                 .collect::<Vec<Self::Item>>();
 
             assert!(items.len() == n);
 
             Some(items)
+        }
+    }
+
+    fn peek1(&self) -> Option<&Self::Item> {
+        if self.inner.is_empty() {
+            None
+        } else {
+            Some(&self.inner[self.inner.len() - 1])
         }
     }
 }
@@ -121,10 +132,19 @@ mod tests {
         stack.push(6);
 
         assert_eq!(stack.pop(1), Some(vec![6]));
-        assert_eq!(stack.pop(2), Some(vec![5, 4]));
+        assert_eq!(stack.pop(2), Some(vec![4, 5]));
         assert_eq!(stack.pop(4), None); // not enough items
-        assert_eq!(stack.pop(3), Some(vec![3, 2, 1]));
+        assert_eq!(stack.pop(3), Some(vec![1, 2, 3]));
         assert_eq!(stack.pop1(), None);
         assert_eq!(stack.is_empty(), true);
+    }
+
+    #[test]
+    fn test_peek1() {
+        let mut stack = Stack::new();
+        stack.push(1);
+        stack.push(2);
+
+        assert_eq!(stack.peek1(), Some(&2));
     }
 }
