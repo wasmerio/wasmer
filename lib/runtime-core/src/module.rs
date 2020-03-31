@@ -176,18 +176,18 @@ impl Module {
     /// ```
     /// # use wasmer_runtime_core::module::*;
     /// # fn example(module: &Module) {
-    /// // We can filter by `ExportKind` to get only certain types of exports.
+    /// // We can filter by `ExportType` to get only certain types of exports.
     /// // For example, here we get all the names of the functions exported by this module.
     /// let function_names =
     ///     module.exports()
-    ///           .filter(|ed| ed.kind == ExportKind::Function)
+    ///           .filter(|ed| ed.kind == ExportType::Function)
     ///           .map(|ed| ed.name.to_string())
     ///           .collect::<Vec<String>>();
     ///
     /// // And here we count the number of global variables exported by this module.
     /// let num_globals =
     ///     module.exports()
-    ///           .filter(|ed| ed.kind == ExportKind::Global)
+    ///           .filter(|ed| ed.kind == ExportType::Global)
     ///           .count();
     /// # }
     /// ```
@@ -198,7 +198,7 @@ impl Module {
             .iter()
             .map(|(name, &ei)| ExportDescriptor {
                 name,
-                kind: ei.into(),
+                ty: ei.into(),
             })
     }
 
@@ -236,7 +236,7 @@ impl Module {
             Import {
                 namespace,
                 name,
-                ty: sig.into(),
+                descriptor: sig.into(),
             }
         });
         let imported_memories =
@@ -247,7 +247,7 @@ impl Module {
                     Import {
                         namespace,
                         name,
-                        ty: memory_descriptor.into(),
+                        descriptor: memory_descriptor.into(),
                     }
                 });
         let imported_tables =
@@ -258,7 +258,7 @@ impl Module {
                     Import {
                         namespace,
                         name,
-                        ty: table_descriptor.into(),
+                        descriptor: table_descriptor.into(),
                     }
                 });
         let imported_globals =
@@ -269,7 +269,7 @@ impl Module {
                     Import {
                         namespace,
                         name,
-                        ty: global_descriptor.into(),
+                        descriptor: global_descriptor.into(),
                     }
                 });
 
@@ -287,20 +287,18 @@ impl Module {
     }
 }
 
-// TODO: review this vs `ExportIndex`
 /// Type describing an export that the [`Module`] provides.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ExportDescriptor<'a> {
     /// The name identifying the export.
     pub name: &'a str,
     /// The type of the export.
-    pub kind: ExportKind,
+    pub ty: ExportType,
 }
 
-// TODO: kind vs type
 /// Tag indicating the type of the export.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ExportKind {
+pub enum ExportType {
     /// The export is a function.
     Function,
     /// The export is a global variable.
@@ -311,7 +309,7 @@ pub enum ExportKind {
     Table,
 }
 
-impl From<ExportIndex> for ExportKind {
+impl From<ExportIndex> for ExportType {
     fn from(other: ExportIndex) -> Self {
         match other {
             ExportIndex::Func(_) => Self::Function,
@@ -330,12 +328,9 @@ impl Clone for Module {
     }
 }
 
-/// The type of import. This indicates whether the import is a function, global, memory, or table.
-// TODO: discuss and research Kind vs Type;
-// `Kind` has meaning to me from Haskell as an incomplete type like
-// `List` which is of kind `* -> *`.
+/// Information about an import such as its type and metadata about the import.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ImportType {
+pub enum ImportDescriptor {
     /// The import is a function.
     Function(FuncDescriptor),
     /// The import is a global variable.
@@ -346,45 +341,45 @@ pub enum ImportType {
     Table(TableDescriptor),
 }
 
-impl From<FuncDescriptor> for ImportType {
+impl From<FuncDescriptor> for ImportDescriptor {
     fn from(other: FuncDescriptor) -> Self {
-        ImportType::Function(other)
+        ImportDescriptor::Function(other)
     }
 }
-impl From<&FuncDescriptor> for ImportType {
+impl From<&FuncDescriptor> for ImportDescriptor {
     fn from(other: &FuncDescriptor) -> Self {
-        ImportType::Function(other.clone())
+        ImportDescriptor::Function(other.clone())
     }
 }
-impl From<MemoryDescriptor> for ImportType {
+impl From<MemoryDescriptor> for ImportDescriptor {
     fn from(other: MemoryDescriptor) -> Self {
-        ImportType::Memory(other)
+        ImportDescriptor::Memory(other)
     }
 }
-impl From<&MemoryDescriptor> for ImportType {
+impl From<&MemoryDescriptor> for ImportDescriptor {
     fn from(other: &MemoryDescriptor) -> Self {
-        ImportType::Memory(*other)
+        ImportDescriptor::Memory(*other)
     }
 }
 
-impl From<TableDescriptor> for ImportType {
+impl From<TableDescriptor> for ImportDescriptor {
     fn from(other: TableDescriptor) -> Self {
-        ImportType::Table(other)
+        ImportDescriptor::Table(other)
     }
 }
-impl From<&TableDescriptor> for ImportType {
+impl From<&TableDescriptor> for ImportDescriptor {
     fn from(other: &TableDescriptor) -> Self {
-        ImportType::Table(*other)
+        ImportDescriptor::Table(*other)
     }
 }
-impl From<GlobalDescriptor> for ImportType {
+impl From<GlobalDescriptor> for ImportDescriptor {
     fn from(other: GlobalDescriptor) -> Self {
-        ImportType::Global(other)
+        ImportDescriptor::Global(other)
     }
 }
-impl From<&GlobalDescriptor> for ImportType {
+impl From<&GlobalDescriptor> for ImportDescriptor {
     fn from(other: &GlobalDescriptor) -> Self {
-        ImportType::Global(*other)
+        ImportDescriptor::Global(*other)
     }
 }
 
@@ -396,7 +391,7 @@ pub struct Import {
     /// The name of the import.
     pub name: String,
     /// The type of the import.
-    pub ty: ImportType,
+    pub descriptor: ImportDescriptor,
 }
 
 impl ModuleInner {}

@@ -80,27 +80,27 @@ fn module_exports_are_ordered() {
         vec![
             export::ExportDescriptor {
                 name: "test-table",
-                kind: export::ExportKind::Table,
+                ty: export::ExportType::Table,
             },
             export::ExportDescriptor {
                 name: "test-global",
-                kind: export::ExportKind::Global,
+                ty: export::ExportType::Global,
             },
             export::ExportDescriptor {
                 name: "ret_2",
-                kind: export::ExportKind::Function,
+                ty: export::ExportType::Function,
             },
             export::ExportDescriptor {
                 name: "ret_4",
-                kind: export::ExportKind::Function,
+                ty: export::ExportType::Function,
             },
             export::ExportDescriptor {
                 name: "set_test_global",
-                kind: export::ExportKind::Function,
+                ty: export::ExportType::Function,
             },
             export::ExportDescriptor {
                 name: "update_outside_global",
-                kind: export::ExportKind::Function,
+                ty: export::ExportType::Function,
             },
         ]
     );

@@ -56,7 +56,7 @@ pub struct Instance {
     /// Reference to the module used to instantiate this instance.
     pub module: Arc<ModuleInner>,
     inner: Pin<Box<InstanceInner>>,
-    /// The exports of this instance. TODO: document this
+    /// The exports of this instance.
     pub exports: Exports,
     #[allow(dead_code)]
     import_object: ImportObject,
@@ -894,7 +894,8 @@ impl<'a, Args: WasmTypeList, Rets: WasmTypeList> Exportable<'a> for Func<'a, Arg
 pub struct Exports {
     // We want to avoid the borrow checker here.
     // This is safe because
-    // 1. `Exports` can't be constructed or copied (so can't safely outlive `Instance`)
+    // 1. `Exports` can't be constructed, its fields inspected (directly or via methods),
+    //    or copied outside of this module/in Instance, so it can't safely outlive `Instance`.
     // 2. `InstanceInner` is `Pin<Box<>>`, thus we know that it will not move.
     instance_inner: *const InstanceInner,
     module: Arc<ModuleInner>,
@@ -931,7 +932,7 @@ impl Exports {
         T::get_self(self, name)
     }
 
-    /// This method must remain private.
+    /// This method must remain private for `Exports` to be sound.
     fn get_inner(&self) -> (&InstanceInner, &ModuleInner) {
         let inst_inner = unsafe { &*self.instance_inner };
         let module = self.module.borrow();

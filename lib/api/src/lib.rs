@@ -22,15 +22,12 @@
 //!
 //! more info, what to do if you run into problems
 
-/// Commonly used types and functions.
-pub mod prelude {
-    pub use crate::module::*;
-    pub use wasmer_runtime_core::instance::{DynFunc, Instance};
-    pub use wasmer_runtime_core::memory::Memory;
-    pub use wasmer_runtime_core::table::Table;
-    pub use wasmer_runtime_core::Func;
-    pub use wasmer_runtime_core::{func, imports};
-}
+pub use crate::module::*;
+pub use wasmer_runtime_core::instance::{DynFunc, Instance};
+pub use wasmer_runtime_core::memory::Memory;
+pub use wasmer_runtime_core::table::Table;
+pub use wasmer_runtime_core::Func;
+pub use wasmer_runtime_core::{func, imports};
 
 pub mod module {
     //! Types and functions for WebAssembly modules.
@@ -51,7 +48,7 @@ pub mod module {
     // TODO: verify that this is the type we want to export, with extra methods on it
     pub use wasmer_runtime_core::module::Module;
     // should this be in here?
-    pub use wasmer_runtime_core::module::{ExportDescriptor, ExportKind, Import, ImportType};
+    pub use wasmer_runtime_core::module::{ExportDescriptor, ExportType, Import, ImportDescriptor};
     // TODO: implement abstract module API
 }
 
@@ -69,7 +66,7 @@ pub mod wasm {
     //!
     //! # Tables
     pub use wasmer_runtime_core::global::Global;
-    pub use wasmer_runtime_core::module::{ExportDescriptor, ExportKind, Import, ImportType};
+    pub use wasmer_runtime_core::module::{ExportDescriptor, ExportType, Import, ImportDescriptor};
     pub use wasmer_runtime_core::table::Table;
     pub use wasmer_runtime_core::types::{
         FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value,
@@ -78,13 +75,13 @@ pub mod wasm {
 
 pub mod import {
     //! Types and functions for Wasm imports.
-    pub use wasmer_runtime_core::module::{Import, ImportType};
+    pub use wasmer_runtime_core::module::{Import, ImportDescriptor};
     pub use wasmer_runtime_core::{func, imports};
 }
 
 pub mod export {
     //! Types and functions for Wasm exports.
-    pub use wasmer_runtime_core::module::{ExportDescriptor, ExportKind};
+    pub use wasmer_runtime_core::module::{ExportDescriptor, ExportType};
 }
 
 pub mod units {
@@ -100,16 +97,49 @@ pub mod types {
 pub mod error {
     //! Various error types returned by Wasmer APIs.
     pub use wasmer_runtime_core::error::{CompileError, CompileResult};
-}
 
-pub use prelude::*;
+    #[derive(Debug)]
+    pub enum CompileFromFileError {
+        CompileError(CompileError),
+        IoError(std::io::Error),
+    }
+
+    impl std::fmt::Display for CompileFromFileError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                CompileFromFileError::CompileError(ce) => write!(f, "{}", ce),
+                CompileFromFileError::IoError(ie) => write!(f, "{}", ie),
+            }
+        }
+    }
+
+    impl std::error::Error for CompileFromFileError {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            match self {
+                CompileFromFileError::CompileError(ce) => Some(ce),
+                CompileFromFileError::IoError(ie) => Some(ie),
+            }
+        }
+    }
+
+    impl From<CompileError> for CompileFromFileError {
+        fn from(other: CompileError) -> Self {
+            CompileFromFileError::CompileError(other)
+        }
+    }
+    impl From<std::io::Error> for CompileFromFileError {
+        fn from(other: std::io::Error) -> Self {
+            CompileFromFileError::IoError(other)
+        }
+    }
+}
 
 /// Idea for generic trait; consider rename; it will need to be moved somewhere else
 pub trait CompiledModule {
     fn new(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module>;
     fn from_binary(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module>;
     fn from_binary_unchecked(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module>;
-    fn from_file(file: impl AsRef<std::path::Path>) -> error::CompileResult<Module>;
+    fn from_file(file: impl AsRef<std::path::Path>) -> Result<Module, error::CompileFromFileError>;
 
     fn validate(bytes: impl AsRef<[u8]>) -> error::CompileResult<()>;
 }
@@ -156,30 +186,31 @@ impl CompiledModule for Module {
         wasmer_runtime_core::compile_with(bytes, &default_compiler())
     }
 
-    fn from_binary(_bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {
-        todo!("from_binary: how is this different from `new`?")
+    fn from_binary(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {
+        let bytes = bytes.as_ref();
+        wasmer_runtime_core::compile_with(bytes, &default_compiler())
     }
-    fn from_binary_unchecked(_bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {
-        todo!("from_binary_unchecked")
+
+    fn from_binary_unchecked(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {
+        // TODO: optimize this
+        Self::from_binary(bytes)
     }
-    fn from_file(_file: impl AsRef<std::path::Path>) -> error::CompileResult<Module> {
-        todo!("from_file");
-        /*
+
+    fn from_file(file: impl AsRef<std::path::Path>) -> Result<Module, error::CompileFromFileError> {
         use std::fs;
         use std::io::Read;
         let path = file.as_ref();
-        let mut f =
-            fs::File::open(path).map_err(|_| todo!("Current error enum can't handle this case"))?;
+        let mut f = fs::File::open(path)?;
         // TODO: ideally we can support a streaming compilation API and not have to read in the entire file
         let mut bytes = vec![];
-        f.read_to_end(&mut bytes)
-            .map_err(|_| todo!("Current error enum can't handle this case"))?;
+        f.read_to_end(&mut bytes)?;
 
-        Module::from_binary(bytes.as_slice())
-        */
+        Ok(Module::from_binary(bytes.as_slice())?)
     }
 
-    fn validate(_bytes: impl AsRef<[u8]>) -> error::CompileResult<()> {
-        todo!("validate")
+    fn validate(bytes: impl AsRef<[u8]>) -> error::CompileResult<()> {
+        // TODO: optimize this
+        let _ = Self::from_binary(bytes)?;
+        Ok(())
     }
 }
