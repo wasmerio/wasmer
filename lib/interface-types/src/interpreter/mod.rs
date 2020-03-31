@@ -234,6 +234,8 @@ where
                     instructions::string_lower_memory(*allocator_index, *instruction)
                 }
                 Instruction::StringSize => instructions::string_size(*instruction),
+
+                Instruction::RecordLift { type_index: _ } => todo!(),
             })
             .collect();
 

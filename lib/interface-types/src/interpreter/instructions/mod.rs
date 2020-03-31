@@ -135,6 +135,12 @@ pub enum Instruction {
 
     /// The `string.size` instruction.
     StringSize,
+
+    /// The `record.lift` instruction.
+    RecordLift {
+        /// The type index of the record.
+        type_index: u32,
+    },
 }
 
 /// Just a short helper to map the error of a cast from an

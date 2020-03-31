@@ -136,9 +136,10 @@ impl ToString for &Instruction {
             Instruction::I64FromU64 => "i64.from_u64".into(),
             Instruction::StringLiftMemory => "string.lift_memory".into(),
             Instruction::StringLowerMemory { allocator_index } => {
-                format!(r#"string.lower_memory {}"#, allocator_index)
+                format!("string.lower_memory {}", allocator_index)
             }
             Instruction::StringSize => "string.size".into(),
+            Instruction::RecordLift { type_index } => format!("record.lift {}", type_index),
         }
     }
 }
@@ -465,6 +466,7 @@ mod tests {
             })
                 .to_string(),
             (&Instruction::StringSize).to_string(),
+            (&Instruction::RecordLift { type_index: 42 }).to_string(),
         ];
         let outputs = vec![
             "arg.get 7",
@@ -504,6 +506,7 @@ mod tests {
             "string.lift_memory",
             "string.lower_memory 42",
             "string.size",
+            "record.lift 42",
         ];
 
         assert_eq!(inputs, outputs);

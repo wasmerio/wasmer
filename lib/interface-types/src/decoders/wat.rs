@@ -65,6 +65,7 @@ mod keyword {
     custom_keyword!(string_lift_memory = "string.lift_memory");
     custom_keyword!(string_lower_memory = "string.lower_memory");
     custom_keyword!(string_size = "string.size");
+    custom_keyword!(record_lift = "record.lift");
 }
 
 impl Parse<'_> for InterfaceType {
@@ -312,6 +313,12 @@ impl<'a> Parse<'a> for Instruction {
             parser.parse::<keyword::string_size>()?;
 
             Ok(Instruction::StringSize)
+        } else if lookahead.peek::<keyword::record_lift>() {
+            parser.parse::<keyword::record_lift>()?;
+
+            Ok(Instruction::RecordLift {
+                type_index: parser.parse()?,
+            })
         } else {
             Err(lookahead.error())
         }
@@ -756,6 +763,7 @@ mod tests {
             "string.lift_memory",
             "string.lower_memory 42",
             "string.size",
+            "record.lift 42",
         ];
         let outputs = vec![
             Instruction::ArgumentGet { index: 7 },
@@ -797,6 +805,7 @@ mod tests {
                 allocator_index: 42,
             },
             Instruction::StringSize,
+            Instruction::RecordLift { type_index: 42 },
         ];
 
         assert_eq!(inputs.len(), outputs.len());
