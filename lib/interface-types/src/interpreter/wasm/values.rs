@@ -70,10 +70,7 @@ impl From<&InterfaceValue> for InterfaceType {
             InterfaceValue::I32(_) => Self::I32,
             InterfaceValue::I64(_) => Self::I64,
             InterfaceValue::Record(values) => Self::Record(RecordType {
-                fields: values
-                    .iter()
-                    .map(Into::into)
-                    .collect::<Vec<InterfaceType>>(),
+                fields: values.iter().map(Into::into).collect(),
             }),
         }
     }

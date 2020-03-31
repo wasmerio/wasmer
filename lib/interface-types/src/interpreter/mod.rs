@@ -235,7 +235,9 @@ where
                 }
                 Instruction::StringSize => instructions::string_size(*instruction),
 
-                Instruction::RecordLift { type_index: _ } => todo!(),
+                Instruction::RecordLift { type_index } => {
+                    instructions::record_lift(*type_index, *instruction)
+                }
             })
             .collect();
 

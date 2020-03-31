@@ -1,7 +1,10 @@
 //! The error module contains all the data structures that represent
 //! an error.
 
-use crate::{ast::InterfaceType, interpreter::Instruction};
+use crate::{
+    ast::{InterfaceType, TypeKind},
+    interpreter::Instruction,
+};
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},
@@ -149,6 +152,21 @@ pub enum InstructionErrorKind {
 
     /// The string contains invalid UTF-8 encoding.
     String(string::FromUtf8Error),
+
+    /// The type doesn't exist.
+    TypeIsMissing {
+        /// The type index.
+        type_index: u32,
+    },
+
+    /// Read a type that has an unexpected type.
+    InvalidTypeKind {
+        /// The expected kind.
+        expected_kind: TypeKind,
+
+        /// The received kind.
+        received_kind: TypeKind,
+    },
 }
 
 impl Error for InstructionErrorKind {}
@@ -196,11 +214,7 @@ impl Display for InstructionErrorKind {
             Self::LocalOrImportSignatureMismatch { function_index, expected, received } => write!(
                 formatter,
                 "the local or import function `{}` has the signature `{:?} -> {:?}` but it received values of kind `{:?} -> {:?}`",
-                function_index,
-                expected.0,
-                expected.1,
-                received.0,
-                received.1,
+                function_index, expected.0, expected.1, received.0, received.1,
             ),
 
             Self::LocalOrImportCall  { function_index } => write!(
@@ -218,14 +232,21 @@ impl Display for InstructionErrorKind {
             Self::MemoryOutOfBoundsAccess { index, length } => write!(
                 formatter,
                 "read out of the memory bounds (index {} > memory length {})",
-                index,
-                length,
+                index, length,
             ),
 
-            Self::String(error) => write!(
+            Self::String(error) => write!(formatter, "{}", error),
+
+            Self::TypeIsMissing { type_index } => write!(
                 formatter,
-                "{}",
-                error
+                "the type `{}` doesn't exist",
+                type_index
+            ),
+
+            Self::InvalidTypeKind { expected_kind, received_kind } => write!(
+                formatter,
+                "read a type of kind `{:?}`, but the kind `{:?}` was expected",
+                received_kind, expected_kind
             ),
         }
     }
