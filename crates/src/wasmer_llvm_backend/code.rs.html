@@ -9036,6 +9036,13 @@
 <span id="9036">9036</span>
 <span id="9037">9037</span>
 <span id="9038">9038</span>
+<span id="9039">9039</span>
+<span id="9040">9040</span>
+<span id="9041">9041</span>
+<span id="9042">9042</span>
+<span id="9043">9043</span>
+<span id="9044">9044</span>
+<span id="9045">9045</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">backend</span>::<span class="ident">LLVMBackend</span>,
@@ -9051,7 +9058,7 @@
     <span class="ident">context</span>::<span class="ident">Context</span>,
     <span class="ident">module</span>::{<span class="ident">Linkage</span>, <span class="ident">Module</span>},
     <span class="ident">passes</span>::<span class="ident">PassManager</span>,
-    <span class="ident">targets</span>::{<span class="ident">CodeModel</span>, <span class="ident">InitializationConfig</span>, <span class="ident">RelocMode</span>, <span class="ident">Target</span>, <span class="ident">TargetMachine</span>},
+    <span class="ident">targets</span>::{<span class="ident">CodeModel</span>, <span class="ident">InitializationConfig</span>, <span class="ident">RelocMode</span>, <span class="ident">Target</span>, <span class="ident">TargetMachine</span>, <span class="ident">TargetTriple</span>},
     <span class="ident">types</span>::{
         <span class="ident">BasicType</span>, <span class="ident">BasicTypeEnum</span>, <span class="ident">FloatMathType</span>, <span class="ident">FunctionType</span>, <span class="ident">IntType</span>, <span class="ident">PointerType</span>, <span class="ident">VectorType</span>,
     },
@@ -17694,7 +17701,13 @@
         <span class="kw">let</span> <span class="ident">context</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">context_ptr</span> };
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">create_module</span>(<span class="string">&quot;module&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="ident">triple</span>.<span class="ident">unwrap_or</span>(<span class="ident">TargetMachine</span>::<span class="ident">get_default_triple</span>().<span class="ident">to_string</span>());
+        <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="ident">triple</span>.<span class="ident">unwrap_or</span>(
+            <span class="ident">TargetMachine</span>::<span class="ident">get_default_triple</span>()
+                .<span class="ident">as_str</span>()
+                .<span class="ident">to_str</span>()
+                .<span class="ident">unwrap</span>()
+                .<span class="ident">to_string</span>(),
+        );
 
         <span class="kw">match</span> <span class="ident">triple</span> {
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>)]</span>
@@ -17720,10 +17733,11 @@
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;target {} not supported&quot;</span>, <span class="ident">triple</span>),
         }
 
-        <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">Target</span>::<span class="ident">from_triple</span>(<span class="kw-2">&amp;</span><span class="ident">triple</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">target_triple</span> <span class="op">=</span> <span class="ident">TargetTriple</span>::<span class="ident">create</span>(<span class="kw-2">&amp;</span><span class="ident">triple</span>);
+        <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">Target</span>::<span class="ident">from_triple</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>).<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">target_machine</span> <span class="op">=</span> <span class="ident">target</span>
             .<span class="ident">create_target_machine</span>(
-                <span class="kw-2">&amp;</span><span class="ident">triple</span>,
+                <span class="kw-2">&amp;</span><span class="ident">target_triple</span>,
                 <span class="kw-2">&amp;</span><span class="ident">cpu_name</span>.<span class="ident">unwrap_or</span>(<span class="ident">TargetMachine</span>::<span class="ident">get_host_cpu_name</span>().<span class="ident">to_string</span>()),
                 <span class="kw-2">&amp;</span><span class="ident">cpu_features</span>.<span class="ident">unwrap_or</span>(<span class="ident">TargetMachine</span>::<span class="ident">get_host_cpu_features</span>().<span class="ident">to_string</span>()),
                 <span class="ident">OptimizationLevel</span>::<span class="ident">Aggressive</span>,
@@ -17732,7 +17746,7 @@
             )
             .<span class="ident">unwrap</span>();
 
-        <span class="ident">module</span>.<span class="ident">set_target</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>);
+        <span class="ident">module</span>.<span class="ident">set_triple</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>);
         <span class="ident">module</span>.<span class="ident">set_data_layout</span>(<span class="kw-2">&amp;</span><span class="ident">target_machine</span>.<span class="ident">get_target_data</span>().<span class="ident">get_data_layout</span>());
 
         <span class="kw">let</span> <span class="ident">intrinsics</span> <span class="op">=</span> <span class="ident">Intrinsics</span>::<span class="ident">declare</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>);
