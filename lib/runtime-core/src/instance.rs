@@ -5,7 +5,7 @@
 use crate::{
     backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
-    error::{CallError, CallResult, ResolveError, ResolveResult, Result, RuntimeError},
+    error::{CallResult, ResolveError, ResolveResult, Result, RuntimeError},
     export::{Context, Export, ExportIter, Exportable, FuncPointer},
     global::Global,
     import::{ImportObject, LikeNamespace},
@@ -247,37 +247,8 @@ impl Instance {
         note = "Please use `let f: DynFunc = instance.exports.get(name)?; f.call(params)?;` instead"
     )]
     pub fn call(&self, name: &str, params: &[Value]) -> CallResult<Vec<Value>> {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
-
-        let func_index = if let ExportIndex::Func(func_index) = export_index {
-            *func_index
-        } else {
-            return Err(CallError::Resolve(ResolveError::ExportWrongType {
-                name: name.to_string(),
-            })
-            .into());
-        };
-
-        let mut results = Vec::new();
-
-        call_func_with_index(
-            &self.module.info,
-            &**self.module.runnable_module,
-            &self.inner.import_backing,
-            self.inner.vmctx,
-            func_index,
-            params,
-            &mut results,
-        )?;
-
-        Ok(results)
+        let func: DynFunc = self.exports.get(name)?;
+        func.call(params)
     }
 
     /// Returns an immutable reference to the
