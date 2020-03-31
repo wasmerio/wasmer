@@ -68,39 +68,47 @@ fn custom_section_parsing_works() {
 
 #[test]
 fn module_exports_are_ordered() {
+    use wasmer::types::{ElementType, FuncSig, GlobalDescriptor, TableDescriptor, Type};
     use wasmer::{export, CompiledModule, Module};
 
     let wasm = wabt::wat2wasm(TEST_WAT).unwrap();
     // TODO: review error messages when `CompiledModule` is not in scope. My hypothesis is that they'll be
     // misleading, if so we may want to do something about it.
     let module = Module::new(wasm).unwrap();
-    let exports = module.exports().collect::<Vec<_>>();
+    let exports = module.exports();
     assert_eq!(
         exports,
         vec![
             export::ExportDescriptor {
                 name: "test-table",
-                ty: export::ExportType::Table,
+                ty: export::ExternDescriptor::Table(TableDescriptor {
+                    element: ElementType::Anyfunc,
+                    minimum: 2,
+                    maximum: None,
+                }),
             },
             export::ExportDescriptor {
                 name: "test-global",
-                ty: export::ExportType::Global,
+                ty: export::ExternDescriptor::Global(GlobalDescriptor {
+                    mutable: true,
+                    ty: Type::I32,
+                }),
             },
             export::ExportDescriptor {
                 name: "ret_2",
-                ty: export::ExportType::Function,
+                ty: export::ExternDescriptor::Function(FuncSig::new(vec![], vec![Type::I32])),
             },
             export::ExportDescriptor {
                 name: "ret_4",
-                ty: export::ExportType::Function,
+                ty: export::ExternDescriptor::Function(FuncSig::new(vec![], vec![Type::I32])),
             },
             export::ExportDescriptor {
                 name: "set_test_global",
-                ty: export::ExportType::Function,
+                ty: export::ExternDescriptor::Function(FuncSig::new(vec![Type::I32], vec![])),
             },
             export::ExportDescriptor {
                 name: "update_outside_global",
-                ty: export::ExportType::Function,
+                ty: export::ExternDescriptor::Function(FuncSig::new(vec![], vec![])),
             },
         ]
     );

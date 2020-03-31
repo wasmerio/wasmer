@@ -48,7 +48,7 @@ pub mod module {
     // TODO: verify that this is the type we want to export, with extra methods on it
     pub use wasmer_runtime_core::module::Module;
     // should this be in here?
-    pub use wasmer_runtime_core::module::{ExportDescriptor, ExportType, Import, ImportDescriptor};
+    pub use wasmer_runtime_core::types::{ExportDescriptor, ExternDescriptor, ImportDescriptor};
     // TODO: implement abstract module API
 }
 
@@ -66,8 +66,8 @@ pub mod wasm {
     //!
     //! # Tables
     pub use wasmer_runtime_core::global::Global;
-    pub use wasmer_runtime_core::module::{ExportDescriptor, ExportType, Import, ImportDescriptor};
     pub use wasmer_runtime_core::table::Table;
+    pub use wasmer_runtime_core::types::{ExportDescriptor, ExternDescriptor, ImportDescriptor};
     pub use wasmer_runtime_core::types::{
         FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value,
     };
@@ -75,13 +75,13 @@ pub mod wasm {
 
 pub mod import {
     //! Types and functions for Wasm imports.
-    pub use wasmer_runtime_core::module::{Import, ImportDescriptor};
+    pub use wasmer_runtime_core::types::{ExternDescriptor, ImportDescriptor};
     pub use wasmer_runtime_core::{func, imports};
 }
 
 pub mod export {
     //! Types and functions for Wasm exports.
-    pub use wasmer_runtime_core::module::{ExportDescriptor, ExportType};
+    pub use wasmer_runtime_core::types::{ExportDescriptor, ExternDescriptor};
 }
 
 pub mod units {
@@ -91,7 +91,10 @@ pub mod units {
 
 pub mod types {
     //! Types used in the Wasm runtime and conversion functions.
-    pub use wasmer_runtime_core::types::*;
+    pub use wasmer_runtime_core::types::{
+        ElementType, FuncDescriptor, FuncSig, GlobalDescriptor, GlobalInit, MemoryDescriptor,
+        TableDescriptor, Type, Value, ValueType,
+    };
 }
 
 pub mod error {

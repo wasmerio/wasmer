@@ -552,6 +552,81 @@ where
     }
 }
 
+/// Information about an import such as its type and metadata.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExternDescriptor {
+    /// The import is a function.
+    Function(FuncDescriptor),
+    /// The import is a global variable.
+    Global(GlobalDescriptor),
+    /// The import is a Wasm linear memory.
+    Memory(MemoryDescriptor),
+    /// The import is a Wasm table.
+    Table(TableDescriptor),
+}
+
+impl From<FuncDescriptor> for ExternDescriptor {
+    fn from(other: FuncDescriptor) -> Self {
+        ExternDescriptor::Function(other)
+    }
+}
+impl From<&FuncDescriptor> for ExternDescriptor {
+    fn from(other: &FuncDescriptor) -> Self {
+        ExternDescriptor::Function(other.clone())
+    }
+}
+impl From<MemoryDescriptor> for ExternDescriptor {
+    fn from(other: MemoryDescriptor) -> Self {
+        ExternDescriptor::Memory(other)
+    }
+}
+impl From<&MemoryDescriptor> for ExternDescriptor {
+    fn from(other: &MemoryDescriptor) -> Self {
+        ExternDescriptor::Memory(*other)
+    }
+}
+
+impl From<TableDescriptor> for ExternDescriptor {
+    fn from(other: TableDescriptor) -> Self {
+        ExternDescriptor::Table(other)
+    }
+}
+impl From<&TableDescriptor> for ExternDescriptor {
+    fn from(other: &TableDescriptor) -> Self {
+        ExternDescriptor::Table(*other)
+    }
+}
+impl From<GlobalDescriptor> for ExternDescriptor {
+    fn from(other: GlobalDescriptor) -> Self {
+        ExternDescriptor::Global(other)
+    }
+}
+impl From<&GlobalDescriptor> for ExternDescriptor {
+    fn from(other: &GlobalDescriptor) -> Self {
+        ExternDescriptor::Global(*other)
+    }
+}
+
+/// A type describing an import that a [`Module`] needs to be instantiated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportDescriptor {
+    /// The namespace that this import is in.
+    pub namespace: String,
+    /// The name of the import.
+    pub name: String,
+    /// The type of the import and information about the import.
+    pub ty: ExternDescriptor,
+}
+
+/// Type describing an export that the [`Module`] provides.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportDescriptor<'a> {
+    /// The name identifying the export.
+    pub name: &'a str,
+    /// The type of the export.
+    pub ty: ExternDescriptor,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::types::NativeWasmType;

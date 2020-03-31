@@ -9,10 +9,10 @@ use crate::{
     import::ImportObject,
     structures::{Map, TypedIndex},
     types::{
-        FuncDescriptor, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit,
-        ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex,
-        Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor,
-        MemoryIndex, SigIndex, TableDescriptor, TableIndex,
+        ExportDescriptor, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit,
+        ImportDescriptor, ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex,
+        ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
+        MemoryDescriptor, MemoryIndex, SigIndex, TableDescriptor, TableIndex,
     },
     Instance,
 };
@@ -171,39 +171,48 @@ impl Module {
         &self.inner.info
     }
 
-    /// Iterate over the exports that this module provides.
-    ///
-    /// ```
-    /// # use wasmer_runtime_core::module::*;
-    /// # fn example(module: &Module) {
-    /// // We can filter by `ExportType` to get only certain types of exports.
-    /// // For example, here we get all the names of the functions exported by this module.
-    /// let function_names =
-    ///     module.exports()
-    ///           .filter(|ed| ed.ty == ExportType::Function)
-    ///           .map(|ed| ed.name.to_string())
-    ///           .collect::<Vec<String>>();
-    ///
-    /// // And here we count the number of global variables exported by this module.
-    /// let num_globals =
-    ///     module.exports()
-    ///           .filter(|ed| ed.ty == ExportType::Global)
-    ///           .count();
-    /// # }
-    /// ```
-    pub fn exports(&self) -> impl Iterator<Item = ExportDescriptor> + '_ {
-        self.inner
-            .info
+    /// Iterate over the [`ExportDescriptor`]s of the exports that this module provides.
+    pub(crate) fn exports_iter(&self) -> impl Iterator<Item = ExportDescriptor> + '_ {
+        self.info()
             .exports
             .iter()
-            .map(|(name, &ei)| ExportDescriptor {
+            .map(move |(name, &ei)| ExportDescriptor {
                 name,
-                ty: ei.into(),
+                ty: match ei {
+                    ExportIndex::Func(f_idx) => {
+                        let sig_idx = self.info().func_assoc[f_idx].into();
+                        self.info().signatures[sig_idx].clone().into()
+                    }
+                    ExportIndex::Global(g_idx) => {
+                        let info = self.info();
+                        let local_global_idx =
+                            LocalGlobalIndex::new(g_idx.index() - info.imported_globals.len());
+                        info.globals[local_global_idx].desc.into()
+                    }
+                    ExportIndex::Memory(m_idx) => {
+                        let info = self.info();
+                        let local_memory_idx =
+                            LocalMemoryIndex::new(m_idx.index() - info.imported_memories.len());
+                        info.memories[local_memory_idx].into()
+                    }
+                    ExportIndex::Table(t_idx) => {
+                        let info = self.info();
+                        let local_table_idx =
+                            LocalTableIndex::new(t_idx.index() - info.imported_tables.len());
+                        info.tables[local_table_idx].into()
+                    }
+                },
             })
     }
 
-    /// Get the [`Import`]s this [`Module`] requires to be instantiated.
-    pub fn imports(&self) -> Vec<Import> {
+    /// Get the [`ExportDescriptor`]s of the exports this [`Module`] provides.
+    pub fn exports(&self) -> Vec<ExportDescriptor> {
+        self.exports_iter().collect()
+    }
+
+    /// Get the [`ImportDescriptor`]s describing the imports this [`Module`]
+    /// requires to be instantiated.
+    pub fn imports(&self) -> Vec<ImportDescriptor> {
         let mut out = Vec::with_capacity(
             self.inner.info.imported_functions.len()
                 + self.inner.info.imported_memories.len()
@@ -233,10 +242,10 @@ impl Module {
                 .signatures
                 .get(*info.func_assoc.get(FuncIndex::new(idx.index())).unwrap())
                 .unwrap();
-            Import {
+            ImportDescriptor {
                 namespace,
                 name,
-                descriptor: sig.into(),
+                ty: sig.into(),
             }
         });
         let imported_memories =
@@ -244,10 +253,10 @@ impl Module {
                 .values()
                 .map(|(import_name, memory_descriptor)| {
                     let (namespace, name) = get_import_name(info, import_name);
-                    Import {
+                    ImportDescriptor {
                         namespace,
                         name,
-                        descriptor: memory_descriptor.into(),
+                        ty: memory_descriptor.into(),
                     }
                 });
         let imported_tables =
@@ -255,10 +264,10 @@ impl Module {
                 .values()
                 .map(|(import_name, table_descriptor)| {
                     let (namespace, name) = get_import_name(info, import_name);
-                    Import {
+                    ImportDescriptor {
                         namespace,
                         name,
-                        descriptor: table_descriptor.into(),
+                        ty: table_descriptor.into(),
                     }
                 });
         let imported_globals =
@@ -266,10 +275,10 @@ impl Module {
                 .values()
                 .map(|(import_name, global_descriptor)| {
                     let (namespace, name) = get_import_name(info, import_name);
-                    Import {
+                    ImportDescriptor {
                         namespace,
                         name,
-                        descriptor: global_descriptor.into(),
+                        ty: global_descriptor.into(),
                     }
                 });
 
@@ -287,111 +296,12 @@ impl Module {
     }
 }
 
-/// Type describing an export that the [`Module`] provides.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ExportDescriptor<'a> {
-    /// The name identifying the export.
-    pub name: &'a str,
-    /// The type of the export.
-    pub ty: ExportType,
-}
-
-/// Tag indicating the type of the export.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ExportType {
-    /// The export is a function.
-    Function,
-    /// The export is a global variable.
-    Global,
-    /// The export is a linear memory.
-    Memory,
-    /// The export is a table.
-    Table,
-}
-
-impl From<ExportIndex> for ExportType {
-    fn from(other: ExportIndex) -> Self {
-        match other {
-            ExportIndex::Func(_) => Self::Function,
-            ExportIndex::Global(_) => Self::Global,
-            ExportIndex::Memory(_) => Self::Memory,
-            ExportIndex::Table(_) => Self::Table,
-        }
-    }
-}
-
 impl Clone for Module {
     fn clone(&self) -> Self {
         Self {
             inner: Arc::clone(&self.inner),
         }
     }
-}
-
-/// Information about an import such as its type and metadata about the import.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ImportDescriptor {
-    /// The import is a function.
-    Function(FuncDescriptor),
-    /// The import is a global variable.
-    Global(GlobalDescriptor),
-    /// A Wasm linear memory.
-    Memory(MemoryDescriptor),
-    /// A Wasm table.
-    Table(TableDescriptor),
-}
-
-impl From<FuncDescriptor> for ImportDescriptor {
-    fn from(other: FuncDescriptor) -> Self {
-        ImportDescriptor::Function(other)
-    }
-}
-impl From<&FuncDescriptor> for ImportDescriptor {
-    fn from(other: &FuncDescriptor) -> Self {
-        ImportDescriptor::Function(other.clone())
-    }
-}
-impl From<MemoryDescriptor> for ImportDescriptor {
-    fn from(other: MemoryDescriptor) -> Self {
-        ImportDescriptor::Memory(other)
-    }
-}
-impl From<&MemoryDescriptor> for ImportDescriptor {
-    fn from(other: &MemoryDescriptor) -> Self {
-        ImportDescriptor::Memory(*other)
-    }
-}
-
-impl From<TableDescriptor> for ImportDescriptor {
-    fn from(other: TableDescriptor) -> Self {
-        ImportDescriptor::Table(other)
-    }
-}
-impl From<&TableDescriptor> for ImportDescriptor {
-    fn from(other: &TableDescriptor) -> Self {
-        ImportDescriptor::Table(*other)
-    }
-}
-impl From<GlobalDescriptor> for ImportDescriptor {
-    fn from(other: GlobalDescriptor) -> Self {
-        ImportDescriptor::Global(other)
-    }
-}
-impl From<&GlobalDescriptor> for ImportDescriptor {
-    fn from(other: &GlobalDescriptor) -> Self {
-        ImportDescriptor::Global(*other)
-    }
-}
-
-/// A type describing an import that a [`Module`] needs to be instantiated.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Import {
-    /// The namespace that this import is in.
-    pub namespace: String,
-    /// The name of the import.
-    pub name: String,
-    /// The type of the import.
-    pub descriptor: ImportDescriptor,
 }
 
 impl ModuleInner {}
