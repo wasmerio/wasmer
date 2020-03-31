@@ -2,7 +2,7 @@
 
 #![allow(missing_docs)]
 
-use crate::interpreter::wasm::values::InterfaceValue;
+use crate::{ast::InterfaceType, interpreter::wasm::values::InterfaceValue};
 use serde::{
     de::{self, DeserializeSeed, SeqAccess, Visitor},
     Deserialize,
@@ -76,13 +76,16 @@ macro_rules! next {
     ($method_name:ident, $variant:ident, $type:ty) => {
         fn $method_name(&mut self) -> Result<$type, Error> {
             match self.iterator.peek() {
-                Some(InterfaceValue::$variant(v)) => {
+                Some(InterfaceValue::$variant(value)) => {
                     self.iterator.next();
 
-                    Ok(*v)
+                    Ok(*value)
                 }
 
-                Some(_) => Err(Error::TypeMismatch),
+                Some(wrong_value) => Err(Error::TypeMismatch {
+                    expected_type: InterfaceType::$variant,
+                    received_type: (*wrong_value).into(),
+                }),
 
                 None => Err(Error::InputEmpty),
             }
@@ -110,7 +113,10 @@ impl<'de> Deserializer<'de> {
                 Ok(v)
             }
 
-            Some(_) => Err(Error::TypeMismatch),
+            Some(wrong_value) => Err(Error::TypeMismatch {
+                expected_type: InterfaceType::String,
+                received_type: (*wrong_value).into(),
+            }),
 
             None => Err(Error::InputEmpty),
         }
@@ -138,7 +144,10 @@ where
 pub enum Error {
     InputNotEmpty,
     InputEmpty,
-    TypeMismatch,
+    TypeMismatch {
+        expected_type: InterfaceType,
+        received_type: InterfaceType,
+    },
     Message(String),
 }
 
@@ -150,20 +159,23 @@ impl de::Error for Error {
 
 impl Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str(std::error::Error::description(self))
-    }
-}
-
-impl std::error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::InputNotEmpty => "unexpected input remaining",
-            Error::Message(ref msg) => msg,
-            Error::InputEmpty => "unexpected end of input",
-            Error::TypeMismatch => "type mismatch detected",
+        match self {
+            Error::InputNotEmpty => write!(formatter, "Unexpected input remaining"),
+            Error::Message(ref msg) => write!(formatter, "{}", msg),
+            Error::InputEmpty => write!(formatter, "Unexpected end of input"),
+            Error::TypeMismatch {
+                ref expected_type,
+                ref received_type,
+            } => write!(
+                formatter,
+                "Type mismatch detected, expected `{:?}` but received `{:?}`",
+                expected_type, received_type
+            ),
         }
     }
 }
+
+impl std::error::Error for Error {}
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
@@ -649,6 +661,18 @@ mod tests {
         let input: T = from_values(&v).unwrap();
         let output = T {
             s: S { x: 1, y: 2 },
+            b: 3.,
+        };
+
+        assert_eq!(input, output);
+    }
+
+    #[test]
+    fn test_deserialize_error_type_mismatch() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S {
+            x: i32,
+            y: i64,
         };
 
         assert_eq!(input, output);
