@@ -1,6 +1,6 @@
-//! Specific operations on records.
-
-#![allow(missing_docs)]
+//! Serde is not necessary to use WIT. It only provides a nicer API
+//! for the end-user to rebuild its complex types from WIT values,
+//! like `record`.
 
 use crate::{ast::InterfaceType, interpreter::wasm::values::InterfaceValue};
 use serde::{
@@ -12,6 +12,61 @@ use std::{
     iter::Peekable,
     slice::Iter,
 };
+
+/// Deserialize a set of `InterfaceValue`s to a type `T` that
+/// implements `Deserialize`.
+///
+/// This is not a requirement to use WIT, but Serde provides an even
+/// nicer API to the user to rebuild its complex types from WIT
+/// values.
+///
+/// # Example
+///
+/// ```rust
+/// use wasmer_interface_types::interpreter::wasm::values::{
+///     InterfaceValue,
+///     from_values,
+/// };
+/// use serde::Deserialize;
+///
+/// #[derive(Deserialize, Debug, PartialEq)]
+/// struct S(i32, i64);
+///
+/// #[derive(Deserialize, Debug, PartialEq)]
+/// struct T<'a> {
+///     x: &'a str,
+///     s: S,
+///     y: f32,
+/// };
+///
+/// let values = vec![
+///     InterfaceValue::String("abc".to_string()),
+///     InterfaceValue::Record(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]),
+///     InterfaceValue::F32(3.),
+/// ];
+/// let t: T = from_values(&values).unwrap();
+///
+/// assert_eq!(
+///     t,
+///     T {
+///         x: "abc",
+///         s: S(1, 2),
+///         y: 3.,
+///     }
+/// );
+/// ```
+pub fn from_values<'a, T>(values: &'a [InterfaceValue]) -> Result<T, Error>
+where
+    T: Deserialize<'a>,
+{
+    let mut deserializer = Deserializer::new(values);
+    let result = T::deserialize(&mut deserializer)?;
+
+    match deserializer.iterator.peek() {
+        None => Ok(result),
+        _ => Err(Error::InputNotEmpty),
+    }
+}
 
 /// Iterates over a vector of `InterfaceValues` but flatten all the
 /// values for Serde. It means that the ideal representation for Serde
@@ -60,6 +115,8 @@ impl<'a> Iterator for InterfaceValueIterator<'a> {
     }
 }
 
+/// The deserializer. The iterator iterates over `InterfaceValue`s,
+/// all flatten, see `InterfaceValueIterator`.
 struct Deserializer<'de> {
     iterator: Peekable<InterfaceValueIterator<'de>>,
 }
@@ -126,27 +183,25 @@ impl<'de> Deserializer<'de> {
     next!(next_i64, I64, i64);
 }
 
-pub fn from_values<'a, T>(values: &'a [InterfaceValue]) -> Result<T, Error>
-where
-    T: Deserialize<'a>,
-{
-    let mut deserializer = Deserializer::new(values);
-    let result = T::deserialize(&mut deserializer)?;
-
-    match deserializer.iterator.peek() {
-        None => Ok(result),
-        _ => Err(Error::InputNotEmpty),
-    }
-}
-
+/// Represents an error while deserializing.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
+    /// The input isn't empty, i.e. some values aren't deserialized.
     InputNotEmpty,
+
+    /// The input is too short!
     InputEmpty,
+
+    /// The current value hasn't the expected type.
     TypeMismatch {
+        /// The expected type.
         expected_type: InterfaceType,
+
+        /// The received type.
         received_type: InterfaceType,
     },
+
+    /// Arbitrary message.
     Message(String),
 }
 
@@ -643,16 +698,13 @@ mod tests {
     #[allow(non_snake_case)]
     fn test_deserialize_value__record() {
         #[derive(Deserialize, Debug, PartialEq)]
-        struct S {
-            x: i32,
-            y: i64,
-        };
+        struct S(i32, i64);
 
         #[derive(Deserialize, Debug, PartialEq)]
         struct T {
-            a: String,
+            x: String,
             s: S,
-            b: f32,
+            y: f32,
         };
 
         try_into!(T);
@@ -665,9 +717,9 @@ mod tests {
         .try_into()
         .unwrap();
         let output = T {
-            a: "abc".to_string(),
-            s: S { x: 1, y: 2 },
-            b: 3.,
+            x: "abc".to_string(),
+            s: S(1, 2),
+            y: 3.,
         };
 
         assert_eq!(input, output);
