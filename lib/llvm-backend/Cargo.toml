@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-llvm-backend"
-version = "0.12.0"
+version = "0.16.2"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -10,22 +10,20 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.12.0" }
-wasmparser = "0.45.0"
-smallvec = "0.6"
-goblin = "0.0.24"
+wasmer-runtime-core = { path = "../runtime-core", version = "0.16.2", features = ["generate-debug-information-no-export-symbols"] }
+wasmparser = "0.51.3"
+smallvec = "1"
+goblin = "0.1"
 libc = "0.2.60"
 byteorder = "1"
 
 [target.'cfg(target_arch = "x86_64")'.dependencies.inkwell]
-git = "https://github.com/TheDan64/inkwell"
-rev = "0a864ebf68b33d4d514b67796264b03898aa0944"
+version = "0.1.0-llvm8sample"
 default-features = false
 features = ["llvm8-0", "target-x86"]
 
 [target.'cfg(target_arch = "aarch64")'.dependencies.inkwell]
-git = "https://github.com/TheDan64/inkwell"
-rev = "0a864ebf68b33d4d514b67796264b03898aa0944"
+version = "0.1.0-llvm8sample"
 default-features = false
 features = ["llvm8-0", "target-aarch64"]
 
@@ -46,5 +44,4 @@ rustc_version = "0.2"
 wabt = "0.9.1"
 
 [features]
-debug = ["wasmer-runtime-core/debug"]
 test = []

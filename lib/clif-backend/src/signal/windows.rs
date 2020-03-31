@@ -8,7 +8,8 @@ use std::{
     ptr::{self, NonNull},
 };
 use wasmer_runtime_core::{
-    typed_func::{Trampoline, WasmTrapInfo},
+    backend::ExceptionCode,
+    typed_func::Trampoline,
     vm::{Ctx, Func},
 };
 use wasmer_win_exception_handler::CallProtectedData;
@@ -62,22 +63,26 @@ pub fn call_protected(
         srcloc: _,
     }) = handler_data.lookup(instruction_pointer as _)
     {
-        Err(CallProtError::Trap(match code as DWORD {
-            EXCEPTION_ACCESS_VIOLATION => WasmTrapInfo::MemoryOutOfBounds,
+        Err(CallProtError(Box::new(match code as DWORD {
+            EXCEPTION_ACCESS_VIOLATION => ExceptionCode::MemoryOutOfBounds,
             EXCEPTION_ILLEGAL_INSTRUCTION => match trapcode {
-                TrapCode::BadSignature => WasmTrapInfo::IncorrectCallIndirectSignature,
-                TrapCode::IndirectCallToNull => WasmTrapInfo::CallIndirectOOB,
-                TrapCode::HeapOutOfBounds => WasmTrapInfo::MemoryOutOfBounds,
-                TrapCode::TableOutOfBounds => WasmTrapInfo::CallIndirectOOB,
-                TrapCode::UnreachableCodeReached => WasmTrapInfo::Unreachable,
-                _ => WasmTrapInfo::Unknown,
+                TrapCode::BadSignature => ExceptionCode::IncorrectCallIndirectSignature,
+                TrapCode::IndirectCallToNull => ExceptionCode::CallIndirectOOB,
+                TrapCode::HeapOutOfBounds => ExceptionCode::MemoryOutOfBounds,
+                TrapCode::TableOutOfBounds => ExceptionCode::CallIndirectOOB,
+                TrapCode::UnreachableCodeReached => ExceptionCode::Unreachable,
+                _ => return Err(CallProtError(Box::new("unknown trap code".to_string()))),
             },
-            EXCEPTION_STACK_OVERFLOW => WasmTrapInfo::Unknown,
+            EXCEPTION_STACK_OVERFLOW => ExceptionCode::MemoryOutOfBounds,
             EXCEPTION_INT_DIVIDE_BY_ZERO | EXCEPTION_INT_OVERFLOW => {
-                WasmTrapInfo::IllegalArithmetic
+                ExceptionCode::IllegalArithmetic
             }
-            _ => WasmTrapInfo::Unknown,
-        }))
+            _ => {
+                return Err(CallProtError(Box::new(
+                    "unknown exception code".to_string(),
+                )))
+            }
+        })))
     } else {
         let signal = match code as DWORD {
             EXCEPTION_FLT_DENORMAL_OPERAND
@@ -110,7 +115,7 @@ pub fn call_protected(
             exception_address, code, signal,
         );
 
-        Err(CallProtError::Error(Box::new(s)))
+        Err(CallProtError(Box::new(s)))
     }
 }
 

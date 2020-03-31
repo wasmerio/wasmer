@@ -1,7 +1,9 @@
 //! The loader module functions are used to load an instance.
 use crate::{backend::RunnableModule, module::ModuleInfo, types::Type, types::Value, vm::Ctx};
 #[cfg(unix)]
-use libc::{mmap, mprotect, munmap, MAP_ANON, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE};
+use libc::{
+    mmap, mprotect, munmap, MAP_ANON, MAP_NORESERVE, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE,
+};
 use std::{
     fmt::Debug,
     ops::{Deref, DerefMut},
@@ -88,7 +90,7 @@ impl Instance for LocalInstance {
             }
         }
         let offset = self.offsets[id];
-        let addr: *const u8 = unsafe { self.code.as_ptr().offset(offset as isize) };
+        let addr: *const u8 = unsafe { self.code.as_ptr().add(offset) };
         use std::mem::transmute;
         Ok(unsafe {
             match args_u64.len() {
@@ -138,12 +140,12 @@ impl CodeMemory {
         unimplemented!("CodeMemory::new");
     }
 
-    /// Makes this code memory executable.
+    /// Makes this code memory executable and not writable.
     pub fn make_executable(&self) {
         unimplemented!("CodeMemory::make_executable");
     }
 
-    /// Makes this code memory writable.
+    /// Makes this code memory writable and not executable.
     pub fn make_writable(&self) {
         unimplemented!("CodeMemory::make_writable");
     }
@@ -169,7 +171,7 @@ impl CodeMemory {
                 std::ptr::null_mut(),
                 size,
                 PROT_READ | PROT_WRITE,
-                MAP_PRIVATE | MAP_ANON,
+                MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,
                 -1,
                 0,
             )
@@ -183,18 +185,32 @@ impl CodeMemory {
         }
     }
 
-    /// Makes this code memory executable.
+    /// Makes this code memory executable and not writable.
     pub fn make_executable(&self) {
         if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_EXEC) } != 0 {
             panic!("cannot set code memory to executable");
         }
     }
 
-    /// Makes this code memory writable.
+    /// Makes this code memory writable and not executable.
     pub fn make_writable(&self) {
         if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_WRITE) } != 0 {
             panic!("cannot set code memory to writable");
         }
+    }
+
+    /// Makes this code memory both writable and executable.
+    ///
+    /// Avoid using this if a combination `make_executable` and `make_writable` can be used.
+    pub fn make_writable_executable(&self) {
+        if unsafe { mprotect(self.ptr as _, self.size, PROT_READ | PROT_WRITE | PROT_EXEC) } != 0 {
+            panic!("cannot set code memory to writable and executable");
+        }
+    }
+
+    /// Returns the backing pointer of this code memory.
+    pub fn get_backing_ptr(&self) -> *mut u8 {
+        self.ptr
     }
 }
 

@@ -7,12 +7,13 @@
 int main()
 {
     wasmer_memory_t *memory = NULL;
-    wasmer_limits_t descriptor;
-    descriptor.min = 10;
-    wasmer_limit_option_t max;
-    max.has_some = true;
-    max.some = 15;
-    descriptor.max = max;
+    wasmer_limits_t descriptor = {
+        .min = 10,
+        .max = {
+            .has_some = true,
+            .some = 15,
+        },
+    };
     wasmer_result_t memory_result = wasmer_memory_new(&memory, descriptor);
     printf("Memory result:  %d\n", memory_result);
     assert(memory_result == WASMER_OK);

@@ -1,6 +1,11 @@
-#![allow(unused)]
+#![allow(unused, clippy::too_many_arguments)]
 pub mod types;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(
+    target_os = "freebsd",
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos"
+))]
 pub mod unix;
 #[cfg(any(target_os = "windows"))]
 pub mod windows;
@@ -21,9 +26,14 @@ use std::borrow::Borrow;
 use std::cell::Cell;
 use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
-use wasmer_runtime_core::{debug, memory::Memory, vm::Ctx};
+use wasmer_runtime_core::{memory::Memory, vm::Ctx};
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(
+    target_os = "freebsd",
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos"
+))]
 pub use unix::*;
 
 #[cfg(any(target_os = "windows"))]
@@ -331,7 +341,7 @@ pub fn fd_allocate(
 ) -> __wasi_errno_t {
     debug!("wasi::fd_allocate");
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let inode = fd_entry.inode;
 
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_ALLOCATE) {
@@ -370,11 +380,10 @@ pub fn fd_allocate(
 /// - `__WASI_EBADF`
 ///     If `fd` is invalid or not open
 pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
-    debug!("wasi::fd_close");
-    debug!("=> fd={}", fd);
+    debug!("wasi::fd_close: fd={}", fd);
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
 
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
 
     wasi_try!(state.fs.close_fd(fd));
 
@@ -389,7 +398,7 @@ pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
 pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_datasync");
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_DATASYNC) {
         return __WASI_EACCES;
     }
@@ -420,7 +429,7 @@ pub fn fd_fdstat_get(
         buf_ptr.offset()
     );
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
 
     let stat = wasi_try!(state.fs.fdstat(fd));
     let buf = wasi_try!(buf_ptr.deref(memory));
@@ -528,7 +537,7 @@ pub fn fd_filestat_set_size(
 ) -> __wasi_errno_t {
     debug!("wasi::fd_filestat_set_size");
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let inode = fd_entry.inode;
 
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FILESTAT_SET_SIZE) {
@@ -649,7 +658,7 @@ pub fn fd_pread(
     offset: __wasi_filesize_t,
     nread: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_pread");
+    debug!("wasi::fd_pread: fd={}, offset={}", fd, offset);
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
 
     let iov_cells = wasi_try!(iovs.deref(memory, 0, iovs_len));
@@ -674,6 +683,10 @@ pub fn fd_pread(
             if !(has_rights(fd_entry.rights, __WASI_RIGHT_FD_READ)
                 && has_rights(fd_entry.rights, __WASI_RIGHT_FD_SEEK))
             {
+                debug!(
+                    "Invalid rights on {:X}: expected READ and SEEK",
+                    fd_entry.rights
+                );
                 return __WASI_EACCES;
             }
             match &mut state.fs.inodes[inode].kind {
@@ -699,6 +712,7 @@ pub fn fd_pread(
     };
 
     nread_cell.set(bytes_read);
+    debug!("Success: {} bytes read", bytes_read);
     __WASI_ESUCCESS
 }
 
@@ -971,24 +985,38 @@ pub fn fd_readdir(
     let mut cur_cookie = cookie;
     let mut buf_idx = 0;
 
-    let entries = match &state.fs.inodes[working_dir.inode].kind {
-        Kind::Dir { path, .. } => {
+    let entries: Vec<(String, u8, u64)> = match &state.fs.inodes[working_dir.inode].kind {
+        Kind::Dir { path, entries, .. } => {
             // TODO: refactor this code
             // we need to support multiple calls,
             // simple and obviously correct implementation for now:
             // maintain consistent order via lexacographic sorting
-            let mut entries = wasi_try!(wasi_try!(std::fs::read_dir(path).map_err(|_| __WASI_EIO))
-                .collect::<Result<Vec<std::fs::DirEntry>, _>>()
+            let fs_info = wasi_try!(wasi_try!(std::fs::read_dir(path).map_err(|_| __WASI_EIO))
+                .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| __WASI_EIO));
-            entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-            wasi_try!(entries
+            let mut entry_vec = wasi_try!(fs_info
                 .into_iter()
                 .map(|entry| Ok((
                     entry.file_name().to_string_lossy().to_string(),
                     host_file_type_to_wasi_file_type(entry.file_type().map_err(|_| __WASI_EIO)?),
                     0, // TODO: inode
                 )))
-                .collect::<Result<Vec<(String, u8, u64)>, __wasi_errno_t>>())
+                .collect::<Result<Vec<(String, u8, u64)>, _>>());
+            entry_vec.extend(
+                entries
+                    .iter()
+                    .filter(|(_, inode)| state.fs.inodes[**inode].is_preopened)
+                    .map(|(name, inode)| {
+                        let entry = &state.fs.inodes[*inode];
+                        (
+                            format!("{}", entry.name),
+                            entry.stat.st_filetype,
+                            entry.stat.st_ino,
+                        )
+                    }),
+            );
+            entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
+            entry_vec
         }
         Kind::Root { entries } => {
             let sorted_entries = {
@@ -1221,7 +1249,14 @@ pub fn fd_write(
     iovs_len: u32,
     nwritten: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_write: fd={}", fd);
+    // If we are writing to stdout or stderr
+    // we skip debug to not pollute the stdout/err
+    // and do debugging happily after :)
+    if fd != __WASI_STDOUT_FILENO && fd != __WASI_STDERR_FILENO {
+        debug!("wasi::fd_write: fd={}", fd);
+    } else {
+        trace!("wasi::fd_write: fd={}", fd);
+    }
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nwritten_cell = wasi_try!(nwritten.deref(memory));
@@ -1309,7 +1344,7 @@ pub fn path_create_directory(
     debug!("wasi::path_create_directory");
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
 
-    let working_dir = wasi_try!(state.fs.get_fd(fd)).clone();
+    let working_dir = wasi_try!(state.fs.get_fd(fd));
     if let Kind::Root { .. } = &state.fs.inodes[working_dir.inode].kind {
         return __WASI_EACCES;
     }
@@ -1428,10 +1463,14 @@ pub fn path_filestat_get(
         path_string,
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     ));
-    let stat = wasi_try!(state
-        .fs
-        .get_stat_for_kind(&state.fs.inodes[file_inode].kind)
-        .ok_or(__WASI_EIO));
+    let stat = if state.fs.inodes[file_inode].is_preopened {
+        state.fs.inodes[file_inode].stat.clone()
+    } else {
+        wasi_try!(state
+            .fs
+            .get_stat_for_kind(&state.fs.inodes[file_inode].kind)
+            .ok_or(__WASI_EIO))
+    };
 
     let buf_cell = wasi_try!(buf.deref(memory));
     buf_cell.set(stat);
@@ -1468,7 +1507,7 @@ pub fn path_filestat_set_times(
 ) -> __wasi_errno_t {
     debug!("wasi::path_filestat_set_times");
     let (memory, state) = get_memory_and_wasi_state(ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd)).clone();
+    let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let fd_inode = fd_entry.inode;
     if !has_rights(fd_entry.rights, __WASI_RIGHT_PATH_FILESTAT_SET_TIMES) {
         return __WASI_EACCES;

@@ -2,13 +2,8 @@
 //! serializing compiled wasm code to a binary format.  The binary format can be persisted,
 //! and loaded to allow skipping compilation and fast startup.
 
-use crate::{
-    backend::Backend,
-    module::{Module, ModuleInfo},
-    sys::Memory,
-};
-use blake2b_simd::blake2bp;
-use std::{fmt, io, mem, slice};
+use crate::{module::ModuleInfo, sys::Memory};
+use std::{io, mem, slice};
 
 /// Indicates the invalid type of invalid cache file
 #[derive(Debug)]
@@ -35,7 +30,7 @@ pub enum Error {
     /// The cached binary has been invalidated.
     InvalidatedCache,
     /// The current backend does not support caching.
-    UnsupportedBackend(Backend),
+    UnsupportedBackend(String),
 }
 
 impl From<io::Error> for Error {
@@ -50,10 +45,8 @@ impl From<io::Error> for Error {
 ///
 /// [`Cache`]: trait.Cache.html
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-// WasmHash is made up of two 32 byte arrays instead of a 64 byte array
-// because derive only works on fixed sized arrays size 32 or below
-// TODO: fix this when this gets fixed by improved const generics
-pub struct WasmHash([u8; 32], [u8; 32]);
+// WasmHash is made up of a 32 byte array
+pub struct WasmHash([u8; 32]);
 
 impl WasmHash {
     /// Hash a wasm module.
@@ -62,18 +55,8 @@ impl WasmHash {
     /// This does no verification that the supplied data
     /// is, in fact, a wasm module.
     pub fn generate(wasm: &[u8]) -> Self {
-        let mut first_part = [0u8; 32];
-        let mut second_part = [0u8; 32];
-
-        let mut state = blake2bp::State::new();
-        state.update(wasm);
-
-        let hasher = state.finalize();
-        let generic_array = hasher.as_bytes();
-
-        first_part.copy_from_slice(&generic_array[0..32]);
-        second_part.copy_from_slice(&generic_array[32..64]);
-        WasmHash(first_part, second_part)
+        let hash = blake3::hash(wasm);
+        WasmHash(hash.into())
     }
 
     /// Create the hexadecimal representation of the
@@ -90,26 +73,20 @@ impl WasmHash {
                 e
             ))
         })?;
-        if bytes.len() != 64 {
+        if bytes.len() != 32 {
             return Err(Error::DeserializeError(
-                "Prehashed keys must deserialze into exactly 64 bytes".to_string(),
+                "Prehashed keys must deserialze into exactly 32 bytes".to_string(),
             ));
         }
         use std::convert::TryInto;
-        Ok(WasmHash(
-            bytes[0..32].try_into().map_err(|e| {
-                Error::DeserializeError(format!("Could not get first 32 bytes: {}", e))
-            })?,
-            bytes[32..64].try_into().map_err(|e| {
-                Error::DeserializeError(format!("Could not get last 32 bytes: {}", e))
-            })?,
-        ))
+        Ok(WasmHash(bytes[0..32].try_into().map_err(|e| {
+            Error::DeserializeError(format!("Could not get first 32 bytes: {}", e))
+        })?))
     }
 
-    pub(crate) fn into_array(self) -> [u8; 64] {
-        let mut total = [0u8; 64];
+    pub(crate) fn into_array(self) -> [u8; 32] {
+        let mut total = [0u8; 32];
         total[0..32].copy_from_slice(&self.0);
-        total[32..64].copy_from_slice(&self.1);
         total
     }
 }
@@ -244,24 +221,6 @@ impl Artifact {
 
         Ok(buffer)
     }
-}
-
-/// A generic cache for storing and loading compiled wasm modules.
-///
-/// The `wasmer-runtime` supplies a naive `FileSystemCache` api.
-pub trait Cache {
-    /// Error type to return when load error occurs
-    type LoadError: fmt::Debug;
-    /// Error type to return when store error occurs
-    type StoreError: fmt::Debug;
-
-    /// loads a module using the default `Backend`
-    fn load(&self, key: WasmHash) -> Result<Module, Self::LoadError>;
-    /// loads a cached module using a specific `Backend`
-    fn load_with_backend(&self, key: WasmHash, backend: Backend)
-        -> Result<Module, Self::LoadError>;
-    /// Store a module into the cache with the given key
-    fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::StoreError>;
 }
 
 /// A unique ID generated from the version of Wasmer for use with cache versioning

@@ -1,5 +1,6 @@
 use crate::error::MemoryCreationError;
 use crate::error::MemoryProtectionError;
+use crate::sys::{round_down_to_page_size, round_up_to_page_size};
 use errno;
 use nix::libc;
 use page_size;
@@ -312,16 +313,4 @@ impl Drop for RawFd {
             errno::errno()
         );
     }
-}
-
-/// Round `size` up to the nearest multiple of `page_size`.
-fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
-    assert!(page_size.is_power_of_two());
-    (size + (page_size - 1)) & !(page_size - 1)
-}
-
-/// Round `size` down to the nearest multiple of `page_size`.
-fn round_down_to_page_size(size: usize, page_size: usize) -> usize {
-    assert!(page_size.is_power_of_two());
-    size & !(page_size - 1)
 }

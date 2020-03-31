@@ -1,7 +1,7 @@
 //! The module module contains the implementation data structures and helper functions used to
 //! manipulate and access wasm modules.
 use crate::{
-    backend::{Backend, RunnableModule},
+    backend::RunnableModule,
     cache::{Artifact, Error as CacheError},
     error,
     import::ImportObject,
@@ -16,6 +16,8 @@ use crate::{
 };
 
 use crate::backend::CacheGen;
+#[cfg(feature = "generate-debug-information")]
+use crate::jit_debug;
 use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -65,7 +67,7 @@ pub struct ModuleInfo {
     /// Map signature index to function signature.
     pub signatures: Map<SigIndex, FuncSig>,
     /// Backend.
-    pub backend: Backend,
+    pub backend: String,
 
     /// Table of namespace indexes.
     pub namespace_table: StringTable<NamespaceIndex>,
@@ -76,7 +78,16 @@ pub struct ModuleInfo {
     pub em_symbol_map: Option<HashMap<u32, String>>,
 
     /// Custom sections.
-    pub custom_sections: HashMap<String, Vec<u8>>,
+    pub custom_sections: HashMap<String, Vec<Vec<u8>>>,
+
+    /// Flag controlling whether or not debug information for use in a debugger
+    /// will be generated.
+    pub generate_debug_info: bool,
+
+    #[cfg(feature = "generate-debug-information")]
+    #[serde(skip)]
+    /// Resource manager of debug information being used by a debugger.
+    pub(crate) debug_info_manager: jit_debug::JitCodeDebugInfoManager,
 }
 
 impl ModuleInfo {
@@ -91,7 +102,8 @@ impl ModuleInfo {
                 let bytes = reader.read_bytes(len)?;
                 let data = bytes.to_vec();
                 let name = name.to_string();
-                self.custom_sections.insert(name, data);
+                let entry: &mut Vec<Vec<u8>> = self.custom_sections.entry(name).or_default();
+                entry.push(data);
             }
         }
         Ok(())

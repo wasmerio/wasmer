@@ -1,15 +1,15 @@
 //! Wasmer Runtime Core Library
 //!
-//! The runtime core library provides common data structures which are shared by compiler backends
-//! to implement a Web Assembly runtime.
+//! This crate provides common data structures which are shared by compiler backends
+//! to implement a WebAssembly runtime.
 //!
-//! The runtime core also provides an API for users who use wasmer as an embedded wasm runtime which
+//! This crate also provides an API for users who use wasmer as an embedded wasm runtime which
 //! allows operations like compiling, instantiating, providing imports, access exports, memories,
 //! and tables for example.
 //!
-//! The runtime core library is recommended to be used by only power users who wish to customize the
-//! wasmer runtime.  Most wasmer users should prefer the API which is re-exported by the wasmer
-//! runtime library which provides common defaults and a friendly API.
+//! Most wasmer users should prefer the API which is re-exported by the `wasmer-runtime`
+//! library by default. This crate provides additional APIs which may be useful to users
+//! that wish to customize the wasmer runtime.
 //!
 
 #![deny(
@@ -66,6 +66,8 @@ pub mod vmcalls;
 pub use trampoline_x64 as trampoline;
 #[cfg(unix)]
 pub mod fault;
+#[cfg(feature = "generate-debug-information")]
+pub mod jit_debug;
 pub mod state;
 #[cfg(feature = "managed")]
 pub mod tiering;
@@ -167,13 +169,13 @@ pub fn validate_and_report_errors_with_features(
         let state = parser.read();
         match *state {
             wasmparser::ParserState::EndWasm => break Ok(()),
-            wasmparser::ParserState::Error(e) => break Err(format!("{}", e)),
+            wasmparser::ParserState::Error(ref e) => break Err(format!("{}", e)),
             _ => {}
         }
     }
 }
 
-/// Creates a new module from the given cache `Artifact` for the specified compiler backend
+/// Creates a new module from the given cache [`Artifact`] for the specified compiler backend
 pub unsafe fn load_cache_with(
     cache: Artifact,
     compiler: &dyn backend::Compiler,

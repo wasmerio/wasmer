@@ -15,6 +15,7 @@ test-exported-memory
 test-exports
 test-globals
 test-import-function
+test-import-trap
 test-import-object
 test-imports
 test-instantiate

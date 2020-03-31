@@ -26,6 +26,7 @@ impl FunctionMiddleware for CallTrace {
         op: Event<'a, 'b>,
         _module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
+        _source_loc: u32,
     ) -> Result<(), Self::Error> {
         let counter = self.counter.clone();
 

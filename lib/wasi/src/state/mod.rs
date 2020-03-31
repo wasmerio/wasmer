@@ -31,12 +31,12 @@ use std::{
     path::{Path, PathBuf},
     time::SystemTime,
 };
-use wasmer_runtime_core::{debug, vm::Ctx};
+use wasmer_runtime_core::vm::Ctx;
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;
 /// all the rights enabled
-pub const ALL_RIGHTS: __wasi_rights_t = 0x1FFFFFFF;
+pub const ALL_RIGHTS: __wasi_rights_t = 0x1FFF_FFFF;
 const STDIN_DEFAULT_RIGHTS: __wasi_rights_t = __WASI_RIGHT_FD_DATASYNC
     | __WASI_RIGHT_FD_READ
     | __WASI_RIGHT_FD_SYNC
@@ -52,7 +52,10 @@ const STDOUT_DEFAULT_RIGHTS: __wasi_rights_t = __WASI_RIGHT_FD_DATASYNC
 const STDERR_DEFAULT_RIGHTS: __wasi_rights_t = STDOUT_DEFAULT_RIGHTS;
 
 /// Get WasiState from a Ctx
-/// This function is unsafe because it must be called on a WASI Ctx
+///
+/// # Safety
+/// - This function must be called on a `Ctx` that was created with `WasiState`
+///   in the data field
 pub unsafe fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
     &mut *(ctx.data as *mut WasiState)
 }
@@ -170,58 +173,23 @@ pub struct WasiFs {
 }
 
 impl WasiFs {
+    /// Internal function for constructing a [`WasiFs`].  Please use
+    /// [`WasiState::new`].
+    #[deprecated(
+        since = "0.14.0",
+        note = "This method will change or be made private in the future.  Please use `WasiState::new` and the builder API instead."
+    )]
     pub fn new(
         preopened_dirs: &[PathBuf],
         mapped_dirs: &[(String, PathBuf)],
     ) -> Result<Self, String> {
-        debug!("wasi::fs::inodes");
-        let inodes = Arena::new();
-        let mut wasi_fs = Self {
-            preopen_fds: vec![],
-            name_map: HashMap::new(),
-            inodes,
-            fd_map: HashMap::new(),
-            next_fd: Cell::new(3),
-            inode_counter: Cell::new(1024),
-            orphan_fds: HashMap::new(),
-        };
-        wasi_fs.create_stdin();
-        wasi_fs.create_stdout();
-        wasi_fs.create_stderr();
-
-        // create virtual root
-        let root_inode = {
-            let all_rights = 0x1FFFFFFF;
-            // TODO: make this a list of positive rigths instead of negative ones
-            // root gets all right for now
-            let root_rights = all_rights
-                /*& (!__WASI_RIGHT_FD_WRITE)
-                & (!__WASI_RIGHT_FD_ALLOCATE)
-                & (!__WASI_RIGHT_PATH_CREATE_DIRECTORY)
-                & (!__WASI_RIGHT_PATH_CREATE_FILE)
-                & (!__WASI_RIGHT_PATH_LINK_SOURCE)
-                & (!__WASI_RIGHT_PATH_RENAME_SOURCE)
-                & (!__WASI_RIGHT_PATH_RENAME_TARGET)
-                & (!__WASI_RIGHT_PATH_FILESTAT_SET_SIZE)
-                & (!__WASI_RIGHT_PATH_FILESTAT_SET_TIMES)
-                & (!__WASI_RIGHT_FD_FILESTAT_SET_SIZE)
-                & (!__WASI_RIGHT_FD_FILESTAT_SET_TIMES)
-                & (!__WASI_RIGHT_PATH_SYMLINK)
-                & (!__WASI_RIGHT_PATH_UNLINK_FILE)
-                & (!__WASI_RIGHT_PATH_REMOVE_DIRECTORY)*/;
-            let inode = wasi_fs.create_virtual_root();
-            let fd = wasi_fs
-                .create_fd(root_rights, root_rights, 0, Fd::READ, inode)
-                .map_err(|e| format!("Could not create root fd: {}", e))?;
-            wasi_fs.preopen_fds.push(fd);
-            inode
-        };
+        let (mut wasi_fs, root_inode) = Self::new_init()?;
 
         debug!("wasi::fs::preopen_dirs");
         for dir in preopened_dirs {
             debug!("Attempting to preopen {}", &dir.to_string_lossy());
             // TODO: think about this
-            let default_rights = 0x1FFFFFFF; // all rights
+            let default_rights = ALL_RIGHTS;
             let cur_dir_metadata = dir.metadata().map_err(|e| {
                 format!(
                     "Could not get metadata for file {:?}: {}",
@@ -271,7 +239,7 @@ impl WasiFs {
         for (alias, real_dir) in mapped_dirs {
             debug!("Attempting to open {:?} at {}", real_dir, alias);
             // TODO: think about this
-            let default_rights = 0x1FFFFFFF; // all rights
+            let default_rights = ALL_RIGHTS;
             let cur_dir_metadata = real_dir.metadata().map_err(|e| {
                 format!(
                     "Could not get metadata for file {:?}: {}",
@@ -318,6 +286,178 @@ impl WasiFs {
 
         debug!("wasi::fs::end");
         Ok(wasi_fs)
+    }
+
+    /// Created for the builder API. like `new` but with more information
+    pub(crate) fn new_with_preopen(preopens: &[PreopenedDir]) -> Result<Self, String> {
+        let (mut wasi_fs, root_inode) = Self::new_init()?;
+
+        for PreopenedDir {
+            path,
+            alias,
+            read,
+            write,
+            create,
+        } in preopens
+        {
+            debug!(
+                "Attempting to preopen {} with alias {:?}",
+                &path.to_string_lossy(),
+                &alias
+            );
+            let cur_dir_metadata = path.metadata().map_err(|e| {
+                format!(
+                    "Could not get metadata for file {:?}: {}",
+                    path,
+                    e.to_string()
+                )
+            })?;
+
+            let kind = if cur_dir_metadata.is_dir() {
+                Kind::Dir {
+                    parent: Some(root_inode),
+                    path: path.clone(),
+                    entries: Default::default(),
+                }
+            } else {
+                return Err(format!(
+                    "WASI only supports pre-opened directories right now; found \"{}\"",
+                    &path.to_string_lossy()
+                ));
+            };
+
+            let rights = {
+                // TODO: review tell' and fd_readwrite
+                let mut rights =
+                    __WASI_RIGHT_FD_ADVISE | __WASI_RIGHT_FD_TELL | __WASI_RIGHT_FD_SEEK;
+                if *read {
+                    rights |= __WASI_RIGHT_FD_READ
+                        | __WASI_RIGHT_PATH_OPEN
+                        | __WASI_RIGHT_FD_READDIR
+                        | __WASI_RIGHT_PATH_READLINK
+                        | __WASI_RIGHT_PATH_FILESTAT_GET
+                        | __WASI_RIGHT_FD_FILESTAT_GET
+                        | __WASI_RIGHT_PATH_LINK_SOURCE
+                        | __WASI_RIGHT_PATH_RENAME_SOURCE
+                        | __WASI_RIGHT_POLL_FD_READWRITE
+                        | __WASI_RIGHT_SOCK_SHUTDOWN;
+                }
+                if *write {
+                    rights |= __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
+                        | __WASI_RIGHT_FD_WRITE
+                        | __WASI_RIGHT_FD_SYNC
+                        | __WASI_RIGHT_FD_ALLOCATE
+                        | __WASI_RIGHT_PATH_OPEN
+                        | __WASI_RIGHT_PATH_RENAME_TARGET
+                        | __WASI_RIGHT_PATH_FILESTAT_SET_SIZE
+                        | __WASI_RIGHT_PATH_FILESTAT_SET_TIMES
+                        | __WASI_RIGHT_FD_FILESTAT_SET_SIZE
+                        | __WASI_RIGHT_FD_FILESTAT_SET_TIMES
+                        | __WASI_RIGHT_PATH_REMOVE_DIRECTORY
+                        | __WASI_RIGHT_PATH_UNLINK_FILE
+                        | __WASI_RIGHT_POLL_FD_READWRITE
+                        | __WASI_RIGHT_SOCK_SHUTDOWN;
+                }
+                if *create {
+                    rights |= __WASI_RIGHT_PATH_CREATE_DIRECTORY
+                        | __WASI_RIGHT_PATH_CREATE_FILE
+                        | __WASI_RIGHT_PATH_LINK_TARGET
+                        | __WASI_RIGHT_PATH_OPEN
+                        | __WASI_RIGHT_PATH_RENAME_TARGET;
+                }
+
+                rights
+            };
+            let inode = if let Some(alias) = &alias {
+                wasi_fs.create_inode(kind, true, alias.clone())
+            } else {
+                wasi_fs.create_inode(kind, true, path.to_string_lossy().into_owned())
+            }
+            .map_err(|e| {
+                format!(
+                    "Failed to create inode for preopened dir: WASI error code: {}",
+                    e
+                )
+            })?;
+            let fd_flags = {
+                let mut fd_flags = 0;
+                if *read {
+                    fd_flags |= Fd::READ;
+                }
+                if *write {
+                    // TODO: introduce API for finer grained control
+                    fd_flags |= Fd::WRITE | Fd::APPEND | Fd::TRUNCATE;
+                }
+                if *create {
+                    fd_flags |= Fd::CREATE;
+                }
+                fd_flags
+            };
+            let fd = wasi_fs
+                .create_fd(rights, rights, 0, fd_flags, inode)
+                .map_err(|e| format!("Could not open fd for file {:?}: {}", path, e))?;
+            if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
+                let existing_entry = if let Some(alias) = &alias {
+                    entries.insert(alias.clone(), inode)
+                } else {
+                    entries.insert(path.to_string_lossy().into_owned(), inode)
+                };
+                // todo handle collisions
+                assert!(existing_entry.is_none())
+            }
+            wasi_fs.preopen_fds.push(fd);
+        }
+
+        Ok(wasi_fs)
+    }
+
+    /// Private helper function to init the filesystem, called in `new` and
+    /// `new_with_preopen`
+    fn new_init() -> Result<(Self, Inode), String> {
+        debug!("Initializing WASI filesystem");
+        let inodes = Arena::new();
+        let mut wasi_fs = Self {
+            preopen_fds: vec![],
+            name_map: HashMap::new(),
+            inodes,
+            fd_map: HashMap::new(),
+            next_fd: Cell::new(3),
+            inode_counter: Cell::new(1024),
+            orphan_fds: HashMap::new(),
+        };
+        wasi_fs.create_stdin();
+        wasi_fs.create_stdout();
+        wasi_fs.create_stderr();
+
+        // create virtual root
+        let root_inode = {
+            let all_rights = ALL_RIGHTS;
+            // TODO: make this a list of positive rigths instead of negative ones
+            // root gets all right for now
+            let root_rights = all_rights
+                /*& (!__WASI_RIGHT_FD_WRITE)
+                & (!__WASI_RIGHT_FD_ALLOCATE)
+                & (!__WASI_RIGHT_PATH_CREATE_DIRECTORY)
+                & (!__WASI_RIGHT_PATH_CREATE_FILE)
+                & (!__WASI_RIGHT_PATH_LINK_SOURCE)
+                & (!__WASI_RIGHT_PATH_RENAME_SOURCE)
+                & (!__WASI_RIGHT_PATH_RENAME_TARGET)
+                & (!__WASI_RIGHT_PATH_FILESTAT_SET_SIZE)
+                & (!__WASI_RIGHT_PATH_FILESTAT_SET_TIMES)
+                & (!__WASI_RIGHT_FD_FILESTAT_SET_SIZE)
+                & (!__WASI_RIGHT_FD_FILESTAT_SET_TIMES)
+                & (!__WASI_RIGHT_PATH_SYMLINK)
+                & (!__WASI_RIGHT_PATH_UNLINK_FILE)
+                & (!__WASI_RIGHT_PATH_REMOVE_DIRECTORY)*/;
+            let inode = wasi_fs.create_virtual_root();
+            let fd = wasi_fs
+                .create_fd(root_rights, root_rights, 0, Fd::READ, inode)
+                .map_err(|e| format!("Could not create root fd: {}", e))?;
+            wasi_fs.preopen_fds.push(fd);
+            inode
+        };
+
+        Ok((wasi_fs, root_inode))
     }
 
     /// Get the `WasiFile` object at stdout
@@ -388,10 +528,15 @@ impl WasiFs {
         next
     }
 
-    /// like create dir all, but it also opens it
+    /// This function is like create dir all, but it also opens it.
     /// Function is unsafe because it may break invariants and hasn't been tested.
     /// This is an experimental function and may be removed
-    // dead code because this is an API for external use
+    ///
+    /// # Safety
+    /// - Virtual directories created with this function must not conflict with
+    ///   the standard operation of the WASI filesystem.  This is vague and
+    ///   unlikely in pratice.  Join the discussion at https://github.com/wasmerio/wasmer/issues/1219
+    ///   for what the newer, safer WASI FS APIs should look like.
     #[allow(dead_code)]
     pub unsafe fn open_dir_all(
         &mut self,
@@ -908,13 +1053,38 @@ impl WasiFs {
 
     pub fn fdstat(&self, fd: __wasi_fd_t) -> Result<__wasi_fdstat_t, __wasi_errno_t> {
         match fd {
-            __WASI_STDOUT_FILENO => {
+            __WASI_STDIN_FILENO => {
                 return Ok(__wasi_fdstat_t {
                     fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
                     fs_flags: 0,
+                    fs_rights_base: STDIN_DEFAULT_RIGHTS,
+                    fs_rights_inheriting: 0,
+                })
+            }
+            __WASI_STDOUT_FILENO => {
+                return Ok(__wasi_fdstat_t {
+                    fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+                    fs_flags: __WASI_FDFLAG_APPEND,
+                    fs_rights_base: STDOUT_DEFAULT_RIGHTS,
+                    fs_rights_inheriting: 0,
+                })
+            }
+            __WASI_STDERR_FILENO => {
+                return Ok(__wasi_fdstat_t {
+                    fs_filetype: __WASI_FILETYPE_CHARACTER_DEVICE,
+                    fs_flags: __WASI_FDFLAG_APPEND,
+                    fs_rights_base: STDERR_DEFAULT_RIGHTS,
+                    fs_rights_inheriting: 0,
+                })
+            }
+            VIRTUAL_ROOT_FD => {
+                return Ok(__wasi_fdstat_t {
+                    fs_filetype: __WASI_FILETYPE_DIRECTORY,
+                    fs_flags: 0,
+                    // TODO: fix this
                     fs_rights_base: ALL_RIGHTS,
                     fs_rights_inheriting: ALL_RIGHTS,
-                })
+                });
             }
             _ => (),
         }
@@ -1008,7 +1178,7 @@ impl WasiFs {
         stat.st_ino = self.get_next_inode_index();
 
         Ok(self.inodes.insert(InodeVal {
-            stat: stat,
+            stat,
             is_preopened,
             name,
             kind,
@@ -1057,10 +1227,14 @@ impl WasiFs {
         Ok(idx)
     }
 
-    /// This function is unsafe because it's the caller's responsibility to ensure that
-    /// all refences to the given inode have been removed from the filesystem
+    /// Low level function to remove an inode, that is it deletes the WASI FS's
+    /// knowledge of a file.
     ///
-    /// returns the inode if it existed and was removed
+    /// This function returns the inode if it existed and was removed.
+    ///
+    /// # Safety
+    /// - The caller must ensure that all references to the specified inode have
+    ///   been removed from the filesystem.
     pub unsafe fn remove_inode(&mut self, inode: Inode) -> Option<InodeVal> {
         self.inodes.remove(inode)
     }
@@ -1281,6 +1455,28 @@ impl WasiFs {
 /// * The contents of files are not stored and may be modified by
 /// other, concurrently running programs.  Data such as the contents
 /// of directories are lazily loaded.
+///
+/// Usage:
+///
+/// ```no_run
+/// # use wasmer_wasi::state::{WasiState, WasiStateCreationError};
+/// # fn main() -> Result<(), WasiStateCreationError> {
+/// WasiState::new("program_name")
+///    .env(b"HOME", "/home/home".to_string())
+///    .arg("--help")
+///    .envs({
+///        let mut hm = std::collections::HashMap::new();
+///        hm.insert("COLOR_OUTPUT", "TRUE");
+///        hm.insert("PATH", "/usr/bin");
+///        hm
+///    })
+///    .args(&["--verbose", "list"])
+///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
+///    .preopen(|p| p.directory(".").alias("dot").read(true))?
+///    .build()?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WasiState {
     pub fs: WasiFs,
@@ -1291,25 +1487,6 @@ pub struct WasiState {
 impl WasiState {
     /// Create a [`WasiStateBuilder`] to construct a validated instance of
     /// [`WasiState`].
-    ///
-    /// Usage:
-    ///
-    /// ```
-    /// # use wasmer_wasi::state::WasiState;
-    /// WasiState::new("program_name")
-    ///    .env(b"HOME", "/home/home".to_string())
-    ///    .arg("--help")
-    ///    .envs({ let mut hm = std::collections::HashMap::new();
-    ///            hm.insert("COLOR_OUTPUT", "TRUE");
-    ///            hm.insert("PATH", "/usr/bin");
-    ///            hm
-    ///          })
-    ///    .args(&["--verbose", "list"])
-    ///    .preopen_dir("src")
-    ///    .map_dir("dot", ".")
-    ///    .build()
-    ///    .unwrap();
-    /// ```
     pub fn new(program_name: &str) -> WasiStateBuilder {
         create_wasi_state(program_name)
     }

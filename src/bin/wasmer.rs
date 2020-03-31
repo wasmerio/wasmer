@@ -8,10 +8,12 @@
     unreachable_patterns
 )]
 extern crate structopt;
+#[macro_use]
+extern crate log;
 
 use std::collections::HashMap;
 use std::env;
-use std::fs::{metadata, read_to_string, File};
+use std::fs::{read_to_string, File};
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
@@ -29,16 +31,20 @@ use wasmer_llvm_backend::{
 };
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
-    Value, VERSION,
+    Backend, Value, VERSION,
 };
 #[cfg(feature = "managed")]
 use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
 use wasmer_runtime_core::{
     self,
-    backend::{Backend, Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
-    debug,
+    backend::{Compiler, CompilerConfig, Features, MemoryBoundCheckMode},
     loader::{Instance as LoadedInstance, LocalLoader},
     Module,
+};
+#[cfg(unix)]
+use wasmer_runtime_core::{
+    fault::{pop_code_version, push_code_version},
+    state::CodeVersion,
 };
 #[cfg(feature = "wasi")]
 use wasmer_wasi;
@@ -93,6 +99,7 @@ struct PrestandardFeatures {
 
 impl PrestandardFeatures {
     /// Generate [`wabt::Features`] struct from CLI options
+    #[cfg(feature = "wabt")]
     pub fn into_wabt_features(&self) -> wabt::Features {
         let mut features = wabt::Features::new();
         if self.simd || self.all {
@@ -142,7 +149,7 @@ struct Run {
     #[structopt(parse(from_os_str))]
     path: PathBuf,
 
-    /// Name of the backend to use. (x86_64)
+    /// Name of the backend to use (x86_64)
     #[cfg(target_arch = "x86_64")]
     #[structopt(
         long = "backend",
@@ -152,7 +159,7 @@ struct Run {
     )]
     backend: Backend,
 
-    /// Name of the backend to use. (aarch64)
+    /// Name of the backend to use (aarch64)
     #[cfg(target_arch = "aarch64")]
     #[structopt(
         long = "backend",
@@ -243,8 +250,17 @@ struct Run {
 
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
-    #[structopt(long = "enable-experimental-io-devices", hidden = true)]
+    #[structopt(long = "enable-experimental-io-devices")]
     enable_experimental_io_devices: bool,
+
+    /// Enable debug output
+    #[cfg(feature = "debug")]
+    #[structopt(long = "debug", short = "d")]
+    debug: bool,
+
+    /// Generate debug information for use in a debugger
+    #[structopt(long = "generate-debug-info", short = "g")]
+    generate_debug_info: bool,
 
     /// Application arguments
     #[structopt(name = "--", multiple = true)]
@@ -402,14 +418,14 @@ fn execute_wasi(
         .args(args)
         .envs(env_vars)
         .preopen_dirs(preopened_files)
-        .map_dirs(mapped_dirs);
+        .map_err(|e| format!("Failed to preopen directories: {:?}", e))?
+        .map_dirs(mapped_dirs)
+        .map_err(|e| format!("Failed to preopen mapped directories: {:?}", e))?;
 
     #[cfg(feature = "experimental-io-devices")]
     {
         if options.enable_experimental_io_devices {
-            wasi_state_builder.setup_fs(std::rc::Rc::new(
-                wasmer_wasi_experimental_io_devices::initialize,
-            ));
+            wasi_state_builder.setup_fs(Box::new(wasmer_wasi_experimental_io_devices::initialize));
         }
     }
     let wasi_state = wasi_state_builder.build().map_err(|e| format!("{:?}", e))?;
@@ -447,7 +463,7 @@ fn execute_wasi(
                 &import_object,
                 start_raw,
                 &mut instance,
-                options.backend,
+                options.backend.to_string(),
                 options
                     .optimized_backends
                     .iter()
@@ -455,7 +471,7 @@ fn execute_wasi(
                         |&backend| -> (Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>) {
                             let options = options.clone();
                             (
-                                backend,
+                                backend.to_string(),
                                 Box::new(move || {
                                     get_compiler_by_backend(backend, &options).unwrap()
                                 }),
@@ -470,13 +486,6 @@ fn execute_wasi(
 
     #[cfg(not(feature = "managed"))]
     {
-        use wasmer_runtime::error::RuntimeError;
-        #[cfg(unix)]
-        use wasmer_runtime_core::{
-            fault::{pop_code_version, push_code_version},
-            state::CodeVersion,
-        };
-
         let result;
 
         #[cfg(unix)]
@@ -485,7 +494,7 @@ fn execute_wasi(
                 baseline: true,
                 msm: msm,
                 base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
-                backend: options.backend,
+                backend: options.backend.to_string(),
                 runnable_module: instance.module.runnable_module.clone(),
             });
             true
@@ -515,13 +524,8 @@ fn execute_wasi(
         }
 
         if let Err(ref err) = result {
-            match err {
-                RuntimeError::Trap { msg } => return Err(format!("wasm trap occured: {}", msg)),
-                RuntimeError::Error { data } => {
-                    if let Some(error_code) = data.downcast_ref::<wasmer_wasi::ExitCode>() {
-                        std::process::exit(error_code.code as i32)
-                    }
-                }
+            if let Some(error_code) = err.0.downcast_ref::<wasmer_wasi::ExitCode>() {
+                std::process::exit(error_code.code as i32)
             }
             return Err(format!("error: {:?}", err));
         }
@@ -557,6 +561,10 @@ impl LLVMCallbacks for LLVMCLIOptions {
 
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
+    if options.generate_debug_info && options.backend != Backend::Cranelift {
+        return Err("Generating debug information is currently only available with the `cranelift` backend.".to_owned());
+    }
+
     let disable_cache = options.disable_cache;
 
     let mapped_dirs = get_mapped_dirs(&options.mapped_dirs[..])?;
@@ -564,6 +572,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     let env_vars = get_env_var_args(&options.env_vars[..])?;
     let wasm_path = &options.path;
 
+    #[allow(unused_mut)]
     let mut wasm_binary: Vec<u8> = read_file_contents(wasm_path).map_err(|err| {
         format!(
             "Can't read the file {}: {}",
@@ -617,14 +626,45 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     };
 
     // Don't error on --enable-all for other backends.
-    if options.features.simd && options.backend != Backend::LLVM {
-        return Err("SIMD is only supported in the LLVM backend for now".to_string());
+    if options.features.simd {
+        #[cfg(feature = "backend-llvm")]
+        {
+            if options.backend != Backend::LLVM {
+                return Err("SIMD is only supported in the LLVM backend for now".to_string());
+            }
+        }
+        #[cfg(not(feature = "backend-llvm"))]
+        return Err("SIMD is not supported in this backend".to_string());
     }
 
     if !utils::is_wasm_binary(&wasm_binary) {
-        let features = options.features.into_wabt_features();
-        wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features)
-            .map_err(|e| format!("Can't convert from wast to wasm: {:?}", e))?;
+        #[cfg(feature = "wabt")]
+        {
+            let features = options.features.into_wabt_features();
+            wasm_binary = wabt::wat2wasm_with_features(wasm_binary, features).map_err(|e| {
+                format!(
+                    "Can't convert from wast to wasm because \"{}\"{}",
+                    e,
+                    match e.kind() {
+                        wabt::ErrorKind::Deserialize(s)
+                        | wabt::ErrorKind::Parse(s)
+                        | wabt::ErrorKind::ResolveNames(s)
+                        | wabt::ErrorKind::Validate(s) => format!(":\n\n{}", s),
+                        wabt::ErrorKind::Nul
+                        | wabt::ErrorKind::WriteText
+                        | wabt::ErrorKind::NonUtf8Result
+                        | wabt::ErrorKind::WriteBinary => "".to_string(),
+                    }
+                )
+            })?;
+        }
+
+        #[cfg(not(feature = "wabt"))]
+        {
+            return Err(
+                "Input is not a wasm binary and the `wabt` feature is not enabled".to_string(),
+            );
+        }
     }
 
     let compiler: Box<dyn Compiler> = get_compiler_by_backend(options.backend, options)
@@ -665,6 +705,10 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 symbol_map: em_symbol_map.clone(),
                 memory_bound_check_mode: MemoryBoundCheckMode::Disable,
                 enforce_stack_check: true,
+
+                // Kernel loader does not support explicit preemption checkpoints.
+                full_preemption: false,
+
                 track_state,
                 features: options.features.into_backend_features(),
                 backend_specific_config,
@@ -679,8 +723,14 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             CompilerConfig {
                 symbol_map: em_symbol_map.clone(),
                 track_state,
+
+                // Enable full preemption if state tracking is enabled.
+                // Preemption only makes sense with state information.
+                full_preemption: track_state,
+
                 features: options.features.into_backend_features(),
                 backend_specific_config,
+                generate_debug_info: options.generate_debug_info,
                 ..Default::default()
             },
             &*compiler,
@@ -775,7 +825,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             LoaderName::Kernel => Box::new(
                 instance
                     .load(::wasmer_kernel_loader::KernelLoader)
-                    .map_err(|e| format!("Can't use the local loader: {:?}", e))?,
+                    .map_err(|e| format!("Can't use the kernel loader: {:?}", e))?,
             ),
         };
         println!("{:?}", ins.call(index, &args));
@@ -834,11 +884,33 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
             };
             let args = options.parse_args(&module, invoke_fn)?;
 
+            #[cfg(unix)]
+            let cv_pushed =
+                if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+                    push_code_version(CodeVersion {
+                        baseline: true,
+                        msm: msm,
+                        base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                        backend: options.backend.to_string(),
+                        runnable_module: instance.module.runnable_module.clone(),
+                    });
+                    true
+                } else {
+                    false
+                };
+
             let result = instance
                 .dyn_func(&invoke_fn)
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;
+
+            #[cfg(unix)]
+            {
+                if cv_pushed {
+                    pop_code_version().unwrap();
+                }
+            }
             println!("{}({:?}) returned {:?}", invoke_fn, args, result);
         }
     }
@@ -919,29 +991,50 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
     }
 }
 
-fn update_backend(options: &mut Run) {
-    let binary_size = match metadata(&options.path) {
-        Ok(wasm_binary) => wasm_binary.len(),
-        Err(_e) => 0,
-    };
-
+#[allow(unused_variables, unreachable_code)]
+fn get_backend(backend: Backend, path: &PathBuf) -> Backend {
     // Update backend when a backend flag is `auto`.
     // Use the Singlepass backend if it's enabled and the file provided is larger
     // than 10MiB (10485760 bytes), or it's enabled and the target architecture
     // is AArch64. Otherwise, use the Cranelift backend.
-    if options.backend == Backend::Auto {
-        if Backend::variants().contains(&Backend::Singlepass.to_string())
-            && (binary_size > 10485760 || cfg!(target_arch = "aarch64"))
-        {
-            options.backend = Backend::Singlepass;
-        } else {
-            options.backend = Backend::Cranelift;
+    match backend {
+        Backend::Auto => {
+            #[cfg(feature = "backend-singlepass")]
+            {
+                let binary_size = match &path.metadata() {
+                    Ok(wasm_binary) => wasm_binary.len(),
+                    Err(_e) => 0,
+                };
+                if binary_size > 10485760 || cfg!(target_arch = "aarch64") {
+                    return Backend::Singlepass;
+                }
+            }
+
+            #[cfg(feature = "backend-cranelift")]
+            {
+                return Backend::Cranelift;
+            }
+
+            #[cfg(feature = "backend-llvm")]
+            {
+                return Backend::LLVM;
+            }
+
+            panic!("Can't find any backend");
         }
+        backend => backend,
     }
 }
 
 fn run(options: &mut Run) {
-    update_backend(options);
+    options.backend = get_backend(options.backend, &options.path);
+
+    #[cfg(any(feature = "debug", feature = "trace"))]
+    {
+        if options.debug {
+            logging::set_up_logging().expect("failed to set up logging");
+        }
+    }
     match execute_wasm(options) {
         Ok(()) => {}
         Err(message) => {
@@ -1016,17 +1109,11 @@ fn get_compiler_by_backend(backend: Backend, _opts: &Run) -> Option<Box<dyn Comp
                 StreamingCompiler::new(middlewares_gen);
             Box::new(c)
         }
-        #[cfg(not(feature = "backend-singlepass"))]
-        Backend::Singlepass => return None,
         #[cfg(feature = "backend-cranelift")]
         Backend::Cranelift => Box::new(CraneliftCompiler::new()),
-        #[cfg(not(feature = "backend-cranelift"))]
-        Backend::Cranelift => return None,
         #[cfg(feature = "backend-llvm")]
         Backend::LLVM => Box::new(LLVMCompiler::new()),
-        #[cfg(not(feature = "backend-llvm"))]
-        Backend::LLVM => return None,
-        Backend::Auto => return None,
+        _ => return None,
     })
 }
 

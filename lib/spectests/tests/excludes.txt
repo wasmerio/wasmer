@@ -244,10 +244,6 @@ clif:fail:exports.wast:167:windows # Module - caught panic Any
 clif:fail:exports.wast:168:windows # Module - caught panic Any
 clif:fail:exports.wast:169:windows # Module - caught panic Any
 clif:fail:exports.wast:170:windows # Module - caught panic Any
-clif:fail:f32.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-clif:fail:f32.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F32(NaN)
-clif:fail:f64.wast:2496:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
-clif:fail:f64.wast:2498:windows # "AssertReturnArithmeticNan" - value is not arithmetic nan F64(NaN)
 clif:fail:func.wast:289:windows # Module - caught panic Any
 clif:fail:memory.wast:3:windows # Module - caught panic Any
 clif:fail:memory.wast:4:windows # Module - caught panic Any
@@ -267,10 +263,6 @@ clif:fail:data.wast:186:windows # AssertUnlinkable - caught panic Any
 clif:fail:data.wast:194:windows # AssertUnlinkable - caught panic Any
 
 # LLVM
-llvm:fail:f32.wast:1621 # AssertReturn - result F32(0) ("0x0") does not match expected F32(2147483648) ("0x80000000")
-llvm:fail:f32.wast:2020 # AssertReturn - result F32(2147483648) ("0x80000000") does not match expected F32(0) ("0x0")
-llvm:fail:f64.wast:1621 # AssertReturn - result F64(0) ("0x0") does not match expected F64(9223372036854775808) ("0x8000000000000000")
-llvm:fail:f64.wast:2020 # AssertReturn - result F64(9223372036854775808) ("0x8000000000000000") does not match expected F64(0) ("0x0")
 llvm:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: WebAssembly trap occurred during runtime: incorrect `call_indirect` signature
 
 # LLVM AArch64
@@ -312,512 +304,251 @@ singlepass:skip:simd_binaryen.wast:* # SIMD not implemented
 
 singlepass:skip:atomic.wast:*:*:aarch64 # Threads not yet supported on singlepass
 
-singlepass:fail:address.wast:192 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:address.wast:194 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:195 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:196 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:197 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:198 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:200 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:201 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:202 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:203 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:204 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:479 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:address.wast:481 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:482 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:483 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:484 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:485 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:486 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:487 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:489 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:490 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:491 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:492 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:493 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:494 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:495 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:539 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:address.wast:541 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:542 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:586 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:address.wast:588 # AssertTrap - expected trap, got []
-singlepass:fail:address.wast:589 # AssertTrap - expected trap, got []
-singlepass:fail:align.wast:864 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:380 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:381 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:382 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:383 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:384 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:385 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:386 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:387 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:388 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:389 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:390 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:391 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:392 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:393 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:394 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:395 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:396 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:397 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:398 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:399 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:400 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:401 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:402 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:403 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:404 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:405 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:406 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:407 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:408 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:409 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:410 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:411 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:412 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:413 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:414 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:415 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:416 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:417 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:418 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:419 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:420 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:421 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:422 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:423 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:atomic.wast:424 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call.wast:289 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:469 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:470 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:471 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:472 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:473 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:479 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:480 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:486 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:487 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:493 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:494 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:500 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:call_indirect.wast:501 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:83 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:84 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:85 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:86 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:87 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:88 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:89 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:90 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:105 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:106 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:107 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:108 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:109 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:110 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:111 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:112 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:128 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:129 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:130 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:131 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:132 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:133 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:134 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:135 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:151 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:152 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:153 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:154 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:155 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:156 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:157 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:158 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:159 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:160 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:161 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:179 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:180 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:181 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:182 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:183 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:184 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:185 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:186 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:199 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:200 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:201 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:202 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:203 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:204 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:205 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:206 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:224 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:225 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:226 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:227 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:228 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:229 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:230 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:231 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:249 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:250 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:251 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:252 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:253 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:254 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:conversions.wast:255 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:elem.wast:353 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:func_ptrs.wast:78 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:func_ptrs.wast:79 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:func_ptrs.wast:80 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:func_ptrs.wast:89 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:func_ptrs.wast:90 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:func_ptrs.wast:91 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:globals.wast:221 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:globals.wast:243 # AssertInvalid - Should be invalid
-singlepass:fail:i32.wast:62 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i32.wast:63 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i32.wast:64 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i32.wast:82 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i32.wast:83 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i32.wast:99 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i32.wast:100 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i32.wast:120 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i32.wast:121 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i64.wast:62 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i64.wast:63 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i64.wast:64 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i64.wast:82 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i64.wast:83 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i64.wast:99 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i64.wast:100 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i64.wast:120 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:i64.wast:121 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:if.wast:440 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:283 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:286 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:287 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:302 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:305 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:306 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:391 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:imports.wast:402 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:113 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:114 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:115 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:116 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:132 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:133 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:134 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:135 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:196 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:197 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:198 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:199 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:349 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:int_exprs.wast:350 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:134 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:136 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:137 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:139 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:141 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:142 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:144 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:146 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:147 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:148 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:149 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:152 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:169 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:175 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:181 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:linking.wast:184 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:185 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:187 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:188 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:190 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:225 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:236 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:linking.wast:388 # AssertReturn - Call failed RuntimeError: unknown error
-singlepass:fail:memory_grow.wast:15 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_grow.wast:16 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_grow.wast:17 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_grow.wast:18 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_grow.wast:24 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_grow.wast:25 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_grow.wast:286 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:23 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:24 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:25 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:26 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:27 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:28 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:29 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:30 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:31 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:32 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:111 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:112 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:113 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:114 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:115 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:116 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:117 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:118 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:119 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:120 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:121 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:122 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:123 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:124 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:125 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:126 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:127 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:128 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:129 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:130 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:131 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:132 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:133 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:134 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:135 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:136 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:137 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:138 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:139 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:140 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:141 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:142 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:143 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:144 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:145 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:146 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:147 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:148 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:149 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:150 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:151 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:152 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:153 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:154 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:155 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:156 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:157 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:158 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:159 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:160 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:161 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:162 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:163 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:164 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:165 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:166 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:167 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:168 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:169 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:170 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:171 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:172 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:173 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:174 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:175 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:176 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:177 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:178 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:179 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:180 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:181 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:182 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:183 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:184 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:185 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:186 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:187 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:188 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:189 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:190 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:191 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:192 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:193 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:194 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:195 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:196 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:197 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:198 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:199 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:200 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:201 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:202 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:203 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:204 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:205 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:206 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:207 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:208 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:209 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:210 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:211 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:212 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:213 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:214 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:215 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:216 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:217 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:218 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:219 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:220 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:221 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:222 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:223 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:224 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:225 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:226 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:227 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:228 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:229 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:230 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:231 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:232 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:233 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:234 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:235 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:236 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:237 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:238 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:239 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:240 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:241 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:242 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:243 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:244 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:245 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:246 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:247 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:249 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:250 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:251 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:252 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:253 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:254 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:255 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:256 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:257 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:258 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:259 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:260 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:261 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:262 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:263 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:264 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:265 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:memory_trap.wast:266 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:select.wast:208 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:select.wast:209 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:select.wast:210 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:select.wast:211 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:select.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:select.wast:249 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:16 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:17 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:18 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:19 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:20 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:21 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:34 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:35 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:36 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:37 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:50 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:51 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:52 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:53 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:54 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:55 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:56 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:57 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:78 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:79 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:80 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:81 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:82 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:83 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:84 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:85 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:86 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:87 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:88 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:89 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:90 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:traps.wast:91 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:218 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:219 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:220 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:221 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:223 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:224 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:225 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:226 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:228 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:229 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:230 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:231 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:234 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:235 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:236 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:239 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:241 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:242 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:243 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:245 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:246 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:247 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:248 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:249 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:251 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:253 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:254 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:256 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:259 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:260 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:261 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:262 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:263 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:265 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:266 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:267 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:269 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:270 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:271 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:272 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:274 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:275 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:276 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:278 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:279 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:281 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:282 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:283 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:284 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:286 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:288 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:289 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:291 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:293 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:294 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:296 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unreachable.wast:298 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unwind.wast:212 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unwind.wast:221 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unwind.wast:230 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unwind.wast:239 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unwind.wast:245 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unwind.wast:251 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unwind.wast:257 # AssertTrap - expected trap, got Runtime:Error unknown error
-singlepass:fail:unwind.wast:263 # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:address.wast:194:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:195:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:196:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:197:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:198:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:200:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:481:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:482:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:483:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:484:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:485:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:486:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:487:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:493:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:494:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:541:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:588:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589:freebsd # AssertTrap - expected trap, got []
+singlepass:fail:linking.wast:137:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:139:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:142:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:144:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:147:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:149:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:185:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:187:freebsd # AssertTrap - expected trap, got RuntimeError
+singlepass:fail:linking.wast:388:freebsd # AssertReturn - Call failed RuntimeError: unknown error
+
+singlepass:fail:address.wast:200:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589:linux:x86_64 # AssertTrap - expected trap, got []
+singlepass:fail:linking.wast:137:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:139:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:142:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:144:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:147:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:149:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:185:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:187:linux # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:388:linux # AssertReturn - Call failed RuntimeError: unknown error
+
+singlepass:fail:address.wast:194:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:195:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:196:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:197:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:198:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:200:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:201:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:202:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:203:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:204:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:481:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:482:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:483:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:484:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:485:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:486:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:487:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:489:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:490:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:491:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:492:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:493:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:494:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:495:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:541:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:542:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:588:macos # AssertTrap - expected trap, got []
+singlepass:fail:address.wast:589:macos # AssertTrap - expected trap, got []
+singlepass:fail:linking.wast:137:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:139:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:142:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:144:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:147:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:149:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:185:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:187:macos # AssertTrap - expected trap, got Runtime:Error unknown error
+singlepass:fail:linking.wast:388:macos # AssertReturn - Call failed RuntimeError: unknown error
+
+# These failures only happen on AArch64 and not on x86-64. 
+singlepass:fail:conversions.wast:83:*:aarch64 # AssertTrap - expected trap, got [I32(2147483647)]
+singlepass:fail:conversions.wast:84:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:conversions.wast:85:*:aarch64 # AssertTrap - expected trap, got [I32(2147483647)]
+singlepass:fail:conversions.wast:86:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:conversions.wast:87:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:88:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:89:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:90:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:105:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:106:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:107:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:108:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:109:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:110:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:111:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:112:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:128:*:aarch64 # AssertTrap - expected trap, got [I32(2147483647)]
+singlepass:fail:conversions.wast:129:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:conversions.wast:130:*:aarch64 # AssertTrap - expected trap, got [I32(2147483647)]
+singlepass:fail:conversions.wast:131:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:conversions.wast:132:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:133:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:134:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:135:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:151:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:152:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:153:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:154:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:155:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:156:*:aarch64 # AssertTrap - expected trap, got [I32(-1)]
+singlepass:fail:conversions.wast:157:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:158:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:159:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:160:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:161:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:conversions.wast:179:*:aarch64 # AssertTrap - expected trap, got [I64(9223372036854775807)]
+singlepass:fail:conversions.wast:180:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:conversions.wast:181:*:aarch64 # AssertTrap - expected trap, got [I64(9223372036854775807)]
+singlepass:fail:conversions.wast:182:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:conversions.wast:183:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:184:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:185:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:186:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:199:*:aarch64 # AssertTrap - expected trap, got [I64(-1)]
+singlepass:fail:conversions.wast:200:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:201:*:aarch64 # AssertTrap - expected trap, got [I64(-1)]
+singlepass:fail:conversions.wast:202:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:203:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:204:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:205:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:206:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:224:*:aarch64 # AssertTrap - expected trap, got [I64(9223372036854775807)]
+singlepass:fail:conversions.wast:225:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:conversions.wast:226:*:aarch64 # AssertTrap - expected trap, got [I64(9223372036854775807)]
+singlepass:fail:conversions.wast:227:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:conversions.wast:228:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:229:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:230:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:231:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:248:*:aarch64 # AssertTrap - expected trap, got [I64(-1)]
+singlepass:fail:conversions.wast:249:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:250:*:aarch64 # AssertTrap - expected trap, got [I64(-1)]
+singlepass:fail:conversions.wast:251:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:252:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:253:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:254:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:conversions.wast:255:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i32.wast:62:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i32.wast:63:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i32.wast:64:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:i32.wast:82:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i32.wast:83:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i32.wast:99:*:aarch64 # AssertTrap - expected trap, got [I32(1)]
+singlepass:fail:i32.wast:100:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i32.wast:120:*:aarch64 # AssertTrap - expected trap, got [I32(1)]
+singlepass:fail:i32.wast:121:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:i64.wast:62:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i64.wast:63:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i64.wast:64:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:i64.wast:82:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i64.wast:83:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i64.wast:99:*:aarch64 # AssertTrap - expected trap, got [I64(1)]
+singlepass:fail:i64.wast:100:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:i64.wast:120:*:aarch64 # AssertTrap - expected trap, got [I64(1)]
+singlepass:fail:i64.wast:121:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:113:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:114:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:115:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:116:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:132:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:133:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:134:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:135:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:196:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:197:*:aarch64 # AssertTrap - expected trap, got [I32(0)]
+singlepass:fail:int_exprs.wast:198:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:199:*:aarch64 # AssertTrap - expected trap, got [I64(0)]
+singlepass:fail:int_exprs.wast:349:*:aarch64 # AssertTrap - expected trap, got [I32(-2147483648)]
+singlepass:fail:int_exprs.wast:350:*:aarch64 # AssertTrap - expected trap, got [I64(-9223372036854775808)]
+singlepass:fail:traps.wast:16:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:17:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:18:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:19:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:20:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:21:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:34:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:35:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:36:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:37:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:50:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:51:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:52:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:53:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:54:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:55:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:56:*:aarch64 # AssertTrap - expected trap, got []
+singlepass:fail:traps.wast:57:*:aarch64 # AssertTrap - expected trap, got []
+
+# NaN canonicalization is not yet implemented for aarch64.
+singlepass:fail:wasmer.wast:177:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:178:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:179:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:180:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:181:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:182:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:183:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:184:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:185:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:186:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:187:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:189:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:191:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:193:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:195:*:aarch64 # AssertReturn - result I32(2143289345) ("0x7fc00001") does not match expected I32(2143289344) ("0x7fc00000")
+singlepass:fail:wasmer.wast:197:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:198:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:199:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:200:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:201:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:202:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:203:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:204:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:205:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:206:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:207:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:209:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:211:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:213:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")
+singlepass:fail:wasmer.wast:215:*:aarch64 # AssertReturn - result I64(9221120237041090561) ("0x7ff8000000000001") does not match expected I64(9221120237041090560) ("0x7ff8000000000000")

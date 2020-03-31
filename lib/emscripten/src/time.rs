@@ -31,6 +31,11 @@ use wasmer_runtime_core::vm::Ctx;
 #[cfg(target_os = "linux")]
 use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};
 
+#[cfg(target_os = "freebsd")]
+use libc::{CLOCK_MONOTONIC, CLOCK_REALTIME};
+#[cfg(target_os = "freebsd")]
+const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
+
 #[cfg(target_os = "macos")]
 use libc::CLOCK_REALTIME;
 #[cfg(target_os = "macos")]

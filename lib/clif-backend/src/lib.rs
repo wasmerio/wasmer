@@ -29,6 +29,7 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use target_lexicon::Triple;
+use wasmer_runtime_core::{backend::CompilerConfig, codegen::SimpleStreamingCompilerGen};
 
 #[macro_use]
 extern crate serde_derive;
@@ -36,15 +37,32 @@ extern crate serde_derive;
 extern crate rayon;
 extern crate serde;
 
-fn get_isa() -> Box<dyn isa::TargetIsa> {
+fn get_isa(config: Option<&CompilerConfig>) -> Box<dyn isa::TargetIsa> {
     let flags = {
         let mut builder = settings::builder();
         builder.set("opt_level", "speed_and_size").unwrap();
-        builder.set("jump_tables_enabled", "false").unwrap();
+        builder.set("enable_jump_tables", "false").unwrap();
 
-        if cfg!(not(test)) {
-            builder.set("enable_verifier", "false").unwrap();
+        let enable_verifier: bool;
+
+        if let Some(config) = config {
+            if config.nan_canonicalization {
+                builder.set("enable_nan_canonicalization", "true").unwrap();
+            }
+            enable_verifier = config.enable_verification;
+        } else {
+            // Set defaults if no config found.
+            // NOTE: cfg(test) probably does nothing when not running `cargo test`
+            //       on this crate
+            enable_verifier = cfg!(test) || cfg!(debug_assertions);
         }
+
+        builder
+            .set(
+                "enable_verifier",
+                if enable_verifier { "true" } else { "false" },
+            )
+            .unwrap();
 
         let flags = settings::Flags::new(builder);
         debug_assert_eq!(flags.opt_level(), settings::OptLevel::SpeedAndSize);
@@ -55,8 +73,6 @@ fn get_isa() -> Box<dyn isa::TargetIsa> {
 
 /// The current version of this crate
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-use wasmer_runtime_core::codegen::SimpleStreamingCompilerGen;
 
 /// Streaming compiler implementation for the Cranelift backed. Compiles web assembly binary into
 /// machine code.

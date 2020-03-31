@@ -11,7 +11,7 @@ use crate::{
 use byteorder::{ByteOrder, LittleEndian};
 use cranelift_codegen::{
     binemit::{Stackmap, StackmapSink},
-    ir, isa, Context,
+    ir, isa, CodegenError, Context, ValueLabelsRanges,
 };
 use rayon::prelude::*;
 use std::{
@@ -26,6 +26,7 @@ use wasmer_runtime_core::{
         SigRegistry,
     },
     cache::Error as CacheError,
+    codegen::WasmSpan,
     error::{CompileError, CompileResult},
     module::ModuleInfo,
     structures::{Map, SliceMap, TypedIndex},
@@ -96,54 +97,183 @@ impl FuncResolverBuilder {
 
     pub fn new(
         isa: &dyn isa::TargetIsa,
-        function_bodies: Map<LocalFuncIndex, ir::Function>,
+        function_bodies: Map<LocalFuncIndex, (ir::Function, WasmSpan)>,
         info: &ModuleInfo,
-    ) -> CompileResult<(Self, HandlerData)> {
+    ) -> CompileResult<(
+        Self,
+        Option<wasmer_runtime_core::codegen::DebugMetadata>,
+        HandlerData,
+    )> {
         let num_func_bodies = function_bodies.len();
         let mut local_relocs = Map::with_capacity(num_func_bodies);
         let mut external_relocs = Map::with_capacity(num_func_bodies);
 
         let mut trap_sink = TrapSink::new();
 
-        let compiled_functions: Result<Vec<(Vec<u8>, (RelocSink, LocalTrapSink))>, CompileError> =
-            function_bodies
-                .into_vec()
-                .par_iter()
-                .map_init(
-                    || Context::new(),
-                    |ctx, func| {
-                        let mut code_buf = Vec::new();
-                        ctx.func = func.to_owned();
-                        let mut reloc_sink = RelocSink::new();
-                        let mut local_trap_sink = LocalTrapSink::new();
-                        let mut stackmap_sink = NoopStackmapSink {};
-                        ctx.compile_and_emit(
-                            isa,
-                            &mut code_buf,
-                            &mut reloc_sink,
-                            &mut local_trap_sink,
-                            &mut stackmap_sink,
-                        )
-                        .map_err(|e| CompileError::InternalError { msg: e.to_string() })?;
-                        ctx.clear();
-                        Ok((code_buf, (reloc_sink, local_trap_sink)))
-                    },
-                )
-                .collect();
+        let generate_debug_info = info.generate_debug_info;
+        let fb = function_bodies.iter().collect::<Vec<(_, _)>>();
 
-        let compiled_functions = compiled_functions?;
+        #[cfg(feature = "generate-debug-information")]
+        use wasm_debug::types::CompiledFunctionData;
+
+        #[cfg(not(feature = "generate-debug-information"))]
+        type CompiledFunctionData = ();
+
+        /// Data about the the compiled machine code.
+        type CompileMetadata = (
+            LocalFuncIndex,
+            Option<(CompiledFunctionData, ValueLabelsRanges, Vec<Option<i32>>)>,
+            RelocSink,
+            LocalTrapSink,
+        );
+
+        /// Compiled machine code and information about it
+        type CompileData = (Vec<u8>, CompileMetadata);
+
+        let compiled_functions: Result<Vec<CompileData>, CompileError> = fb
+            .par_iter()
+            .map_init(
+                || Context::new(),
+                |ctx, (lfi, (func, _loc))| {
+                    let mut code_buf = Vec::new();
+                    ctx.func = func.to_owned();
+                    let mut reloc_sink = RelocSink::new();
+                    let mut local_trap_sink = LocalTrapSink::new();
+                    let mut stackmap_sink = NoopStackmapSink {};
+
+                    ctx.compile_and_emit(
+                        isa,
+                        &mut code_buf,
+                        &mut reloc_sink,
+                        &mut local_trap_sink,
+                        &mut stackmap_sink,
+                    )
+                    .map_err(|e| match e {
+                        CodegenError::Verifier(v) => CompileError::InternalError {
+                            msg: format!("Verifier error: {}", v),
+                        },
+                        _ => CompileError::InternalError { msg: e.to_string() },
+                    })?;
+
+                    #[cfg(feature = "generate-debug-information")]
+                    let debug_entry = if generate_debug_info {
+                        let func = &ctx.func;
+                        let encinfo = isa.encoding_info();
+                        let mut blocks = func.layout.blocks().collect::<Vec<_>>();
+                        blocks.sort_by_key(|block| func.offsets[*block]);
+                        let instructions = blocks
+                            .into_iter()
+                            .flat_map(|block| {
+                                func.inst_offsets(block, &encinfo)
+                                    .map(|(offset, inst, length)| {
+                                        let srcloc = func.srclocs[inst];
+                                        let val = srcloc.bits();
+                                        wasm_debug::types::CompiledInstructionData {
+                                            srcloc: wasm_debug::types::SourceLoc::new(val),
+                                            code_offset: offset as usize,
+                                            code_len: length as usize,
+                                        }
+                                    })
+                            })
+                            .collect::<Vec<_>>();
+
+                        let stack_slots = ctx
+                            .func
+                            .stack_slots
+                            .iter()
+                            .map(|(_, ssd)| ssd.offset)
+                            .collect::<Vec<Option<i32>>>();
+                        let labels_ranges = ctx.build_value_labels_ranges(isa).unwrap_or_default();
+
+                        let entry = CompiledFunctionData {
+                            instructions,
+                            start_srcloc: wasm_debug::types::SourceLoc::new(_loc.start()),
+                            end_srcloc: wasm_debug::types::SourceLoc::new(_loc.end()),
+                            // this not being 0 breaks inst-level debugging
+                            body_offset: 0,
+                            body_len: code_buf.len(),
+                        };
+                        Some((entry, labels_ranges, stack_slots))
+                    } else {
+                        None
+                    };
+
+                    #[cfg(not(feature = "generate-debug-information"))]
+                    let debug_entry = None;
+
+                    ctx.clear();
+                    Ok((code_buf, (*lfi, debug_entry, reloc_sink, local_trap_sink)))
+                },
+            )
+            .collect();
+
+        let mut debug_metadata = if generate_debug_info {
+            Some(wasmer_runtime_core::codegen::DebugMetadata {
+                func_info: Map::new(),
+                inst_info: Map::new(),
+                pointers: vec![],
+                stack_slot_offsets: Map::new(),
+            })
+        } else {
+            None
+        };
+
+        let mut compiled_functions = compiled_functions?;
+        compiled_functions.sort_by(|a, b| (a.1).0.cmp(&(b.1).0));
+        let compiled_functions = compiled_functions;
         let mut total_size = 0;
         // We separate into two iterators, one iterable and one into iterable
-        let (code_bufs, sinks): (Vec<Vec<u8>>, Vec<(RelocSink, LocalTrapSink)>) =
+        let (code_bufs, sinks): (Vec<Vec<u8>>, Vec<CompileMetadata>) =
             compiled_functions.into_iter().unzip();
-        for (code_buf, (reloc_sink, mut local_trap_sink)) in code_bufs.iter().zip(sinks.into_iter())
+        for (code_buf, (_, _debug_info, reloc_sink, mut local_trap_sink)) in
+            code_bufs.iter().zip(sinks.into_iter())
         {
+            let rounded_size = round_up(code_buf.len(), mem::size_of::<usize>());
+            #[cfg(feature = "generate-debug-information")]
+            {
+                if let Some(ref mut dbg_metadata) = debug_metadata {
+                    let (entry, vlr, stackslots) = _debug_info.unwrap();
+                    dbg_metadata.func_info.push(entry);
+                    let new_vlr = vlr
+                        .into_iter()
+                        .map(|(k, v)| {
+                            (
+                                wasm_debug::types::ValueLabel::from_u32(k.as_u32()),
+                                v.into_iter()
+                                    .map(|item| wasm_debug::types::ValueLocRange {
+                                        start: item.start,
+                                        end: item.end,
+                                        loc: match item.loc {
+                                            cranelift_codegen::ir::ValueLoc::Unassigned => {
+                                                wasm_debug::types::ValueLoc::Unassigned
+                                            }
+                                            cranelift_codegen::ir::ValueLoc::Reg(ru) => {
+                                                wasm_debug::types::ValueLoc::Reg(ru)
+                                            }
+                                            cranelift_codegen::ir::ValueLoc::Stack(st) => {
+                                                wasm_debug::types::ValueLoc::Stack(
+                                                    wasm_debug::types::StackSlot::from_u32(
+                                                        st.as_u32(),
+                                                    ),
+                                                )
+                                            }
+                                        },
+                                    })
+                                    .collect::<Vec<wasm_debug::types::ValueLocRange>>(),
+                            )
+                        })
+                        .collect::<wasm_debug::types::ValueLabelsRangesInner>();
+                    dbg_metadata.inst_info.push(new_vlr);
+                    dbg_metadata.stack_slot_offsets.push(stackslots);
+                }
+            }
+
             // Clear the local trap sink and consolidate all trap info
             // into a single location.
             trap_sink.drain_local(total_size, &mut local_trap_sink);
 
             // Round up each function's size to pointer alignment.
-            total_size += round_up(code_buf.len(), mem::size_of::<usize>());
+            total_size += rounded_size;
 
             local_relocs.push(reloc_sink.local_relocs.into_boxed_slice());
             external_relocs.push(reloc_sink.external_relocs.into_boxed_slice());
@@ -175,7 +305,14 @@ impl FuncResolverBuilder {
 
         let mut previous_end = 0;
         for compiled in code_bufs.iter() {
-            let new_end = previous_end + round_up(compiled.len(), mem::size_of::<usize>());
+            let length = round_up(compiled.len(), mem::size_of::<usize>());
+            if let Some(ref mut dbg_metadata) = debug_metadata {
+                dbg_metadata.pointers.push((
+                    (memory.as_ptr() as usize + previous_end) as *const u8,
+                    length,
+                ));
+            }
+            let new_end = previous_end + length;
             unsafe {
                 memory.as_slice_mut()[previous_end..previous_end + compiled.len()]
                     .copy_from_slice(&compiled[..]);
@@ -197,7 +334,7 @@ impl FuncResolverBuilder {
 
         func_resolver_builder.relocate_locals();
 
-        Ok((func_resolver_builder, handler_data))
+        Ok((func_resolver_builder, debug_metadata, handler_data))
     }
 
     fn relocate_locals(&mut self) {

@@ -5,7 +5,8 @@
     unused_mut,
     unused_variables,
     unused_unsafe,
-    unreachable_patterns
+    unreachable_patterns,
+    clippy::missing_safety_doc
 )]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
@@ -22,6 +23,8 @@
 
 #[cfg(target = "windows")]
 extern crate winapi;
+#[macro_use]
+extern crate log;
 
 #[macro_use]
 mod macros;
@@ -41,7 +44,7 @@ pub use self::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 
 use wasmer_runtime_core::{func, import::ImportObject, imports};
 
-/// This is returned in the Box<dyn Any> RuntimeError::Error variant.
+/// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
 pub struct ExitCode {
     pub code: syscalls::types::__wasi_exitcode_t,
@@ -65,6 +68,8 @@ pub fn generate_import_object(
         let preopened_files = preopened_files.clone();
         let mapped_dirs = mapped_dirs.clone();
 
+        // this deprecation warning only applies to external callers
+        #[allow(deprecated)]
         let state = Box::new(WasiState {
             fs: WasiFs::new(&preopened_files, &mapped_dirs).expect("Could not create WASI FS"),
             args: args.clone(),
@@ -148,6 +153,8 @@ fn generate_import_object_snapshot0(
         let mapped_dirs = mapped_dirs.clone();
         //let wasi_builder = create_wasi_instance();
 
+        // this deprecation warning only applies to external callers
+        #[allow(deprecated)]
         let state = Box::new(WasiState {
             fs: WasiFs::new(&preopened_files, &mapped_dirs).expect("Could not create WASI FS"),
             args: args.clone(),

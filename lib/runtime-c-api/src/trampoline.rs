@@ -34,6 +34,8 @@ pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_add_context_trampoline
 }
 
 /// Adds a callinfo trampoline to the builder.
+///
+/// Deprecated. In a future version `DynamicFunc::new` will be exposed to the C API and should be used instead of this function.
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_add_callinfo_trampoline(
@@ -42,8 +44,14 @@ pub unsafe extern "C" fn wasmer_trampoline_buffer_builder_add_callinfo_trampolin
     ctx: *const c_void,
     num_params: u32,
 ) -> usize {
+    use wasmer_runtime_core::types::Type;
     let builder = &mut *(builder as *mut TrampolineBufferBuilder);
-    builder.add_callinfo_trampoline(mem::transmute(func), ctx as *const CallContext, num_params)
+    builder.add_callinfo_trampoline(
+        mem::transmute(func),
+        ctx as *const CallContext,
+        &vec![Type::I64; num_params as usize],
+        &[Type::I64],
+    )
 }
 
 /// Finalizes the trampoline builder into an executable buffer.

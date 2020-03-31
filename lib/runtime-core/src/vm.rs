@@ -54,11 +54,14 @@ pub struct Ctx {
     /// This is intended to be user-supplied, per-instance
     /// contextual data. There are currently some issue with it,
     /// notably that it cannot be set before running the `start`
-    /// function in a WebAssembly module.
+    /// function in a WebAssembly module. Additionally, the `data`
+    /// field may be taken by another ABI implementation that the user
+    /// wishes to use in addition to their own, such as WASI.  This issue is
+    /// being discussed at [#1111](https://github.com/wasmerio/wasmer/pull/1111).
     ///
-    /// [#219](https://github.com/wasmerio/wasmer/pull/219) fixes that
-    /// issue, as well as allowing the user to have *per-function*
-    /// context, instead of just per-instance.
+    /// Alternatively, per-function data can be used if the function in the
+    /// [`ImportObject`] is a closure.  This cannot duplicate data though,
+    /// so if data may be shared if the [`ImportObject`] is reused.
     pub data: *mut c_void,
 
     /// If there's a function set in this field, it gets called
@@ -228,8 +231,8 @@ pub static INTRINSICS_IMPORTED_DYNAMIC_MEMORY: Intrinsics = Intrinsics {
 };
 
 fn get_intrinsics_for_module(m: &ModuleInfo) -> *const Intrinsics {
-    if m.memories.len() == 0 && m.imported_memories.len() == 0 {
-        ::std::ptr::null()
+    if m.memories.is_empty() && m.imported_memories.is_empty() {
+        ptr::null()
     } else {
         match MemoryIndex::new(0).local_or_import(m) {
             LocalOrImport::Local(local_mem_index) => {
@@ -271,7 +274,7 @@ impl Ctx {
         module: &ModuleInner,
     ) -> Self {
         let (mem_base, mem_bound): (*mut u8, usize) =
-            if module.info.memories.len() == 0 && module.info.imported_memories.len() == 0 {
+            if module.info.memories.is_empty() && module.info.imported_memories.is_empty() {
                 (::std::ptr::null_mut(), 0)
             } else {
                 let mem = match MemoryIndex::new(0).local_or_import(&module.info) {
@@ -324,7 +327,7 @@ impl Ctx {
         data_finalizer: fn(*mut c_void),
     ) -> Self {
         let (mem_base, mem_bound): (*mut u8, usize) =
-            if module.info.memories.len() == 0 && module.info.imported_memories.len() == 0 {
+            if module.info.memories.is_empty() && module.info.imported_memories.is_empty() {
                 (::std::ptr::null_mut(), 0)
             } else {
                 let mem = match MemoryIndex::new(0).local_or_import(&module.info) {
@@ -348,7 +351,7 @@ impl Ctx {
 
                 intrinsics: get_intrinsics_for_module(&module.info),
 
-                stack_lower_bound: ::std::ptr::null_mut(),
+                stack_lower_bound: ptr::null_mut(),
 
                 memory_base: mem_base,
                 memory_bound: mem_bound,
@@ -542,13 +545,13 @@ impl Ctx {
 /// `typed_func` module within the `wrap` functions, to wrap imported
 /// functions.
 #[repr(transparent)]
-pub struct Func(pub(self) *mut c_void);
+pub struct Func(*mut c_void);
 
 /// Represents a function environment pointer, like a captured
 /// environment of a closure. It is mostly used in the `typed_func`
 /// module within the `wrap` functions, to wrap imported functions.
 #[repr(transparent)]
-pub struct FuncEnv(pub(self) *mut c_void);
+pub struct FuncEnv(*mut c_void);
 
 /// Represents a function context. It is used by imported functions
 /// only.
@@ -567,6 +570,7 @@ pub struct FuncCtx {
 
 impl FuncCtx {
     /// Offset to the `vmctx` field.
+    #[allow(clippy::erasing_op)]
     pub const fn offset_vmctx() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
@@ -1064,7 +1068,7 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{sys::Memory, Backend, CacheGen, RunnableModule};
+        use crate::backend::{sys::Memory, CacheGen, RunnableModule};
         use crate::cache::Error as CacheError;
         use crate::typed_func::Wasm;
         use crate::types::{LocalFuncIndex, SigIndex};
@@ -1118,7 +1122,7 @@ mod vm_ctx_tests {
 
                 func_assoc: Map::new(),
                 signatures: Map::new(),
-                backend: Backend::Cranelift,
+                backend: Default::default(),
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
@@ -1126,6 +1130,10 @@ mod vm_ctx_tests {
                 em_symbol_map: None,
 
                 custom_sections: HashMap::new(),
+
+                generate_debug_info: false,
+                #[cfg(feature = "generate-debug-information")]
+                debug_info_manager: crate::jit_debug::JitCodeDebugInfoManager::new(),
             },
         }
     }

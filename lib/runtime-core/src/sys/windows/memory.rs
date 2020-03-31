@@ -1,5 +1,6 @@
 use crate::error::MemoryCreationError;
 use crate::error::MemoryProtectionError;
+use crate::sys::{round_down_to_page_size, round_up_to_page_size};
 use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{ptr, slice};
@@ -241,16 +242,6 @@ impl Protect {
             _ => false,
         }
     }
-}
-
-/// Round `size` up to the nearest multiple of `page_size`.
-fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
-    (size + (page_size - 1)) & !(page_size - 1)
-}
-
-/// Round `size` down to the nearest multiple of `page_size`.
-fn round_down_to_page_size(size: usize, page_size: usize) -> usize {
-    size & !(page_size - 1)
 }
 
 #[cfg(test)]

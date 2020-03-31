@@ -1,6 +1,5 @@
 use crate::intrinsics::Intrinsics;
 use inkwell::{
-    builder::Builder,
     context::Context,
     module::{Linkage, Module},
     types::{BasicType, FunctionType},
@@ -18,7 +17,6 @@ pub fn generate_trampolines<'ctx>(
     signatures: &SliceMap<SigIndex, FunctionType<'ctx>>,
     module: &Module<'ctx>,
     context: &'ctx Context,
-    builder: &Builder<'ctx>,
     intrinsics: &Intrinsics<'ctx>,
 ) -> Result<(), String> {
     for (sig_index, sig) in info.signatures.iter() {
@@ -42,7 +40,7 @@ pub fn generate_trampolines<'ctx>(
             Some(Linkage::External),
         );
 
-        generate_trampoline(trampoline_func, sig, context, builder, intrinsics)?;
+        generate_trampoline(trampoline_func, sig, context, intrinsics)?;
     }
     Ok(())
 }
@@ -51,11 +49,11 @@ fn generate_trampoline<'ctx>(
     trampoline_func: FunctionValue,
     func_sig: &FuncSig,
     context: &'ctx Context,
-    builder: &Builder<'ctx>,
     intrinsics: &Intrinsics<'ctx>,
 ) -> Result<(), String> {
     let entry_block = context.append_basic_block(trampoline_func, "entry");
-    builder.position_at_end(&entry_block);
+    let builder = context.create_builder();
+    builder.position_at_end(entry_block);
 
     let (vmctx_ptr, func_ptr, args_ptr, returns_ptr) = match trampoline_func.get_params().as_slice()
     {

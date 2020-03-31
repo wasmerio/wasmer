@@ -15,7 +15,7 @@ fn serializing_works() {
         b"PATH=/bin".into_iter().cloned().collect(),
         b"GOROOT=$HOME/.cargo/bin".into_iter().cloned().collect(),
     ];
-    let wasm_binary = include_bytes!("../wasitests/fd_read.wasm");
+    let wasm_binary = include_bytes!("../wasitests/unstable/fd_read.wasm");
     let module = compile(&wasm_binary[..])
         .map_err(|e| format!("Can't compile module: {:?}", e))
         .unwrap();

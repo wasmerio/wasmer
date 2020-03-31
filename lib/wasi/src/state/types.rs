@@ -9,7 +9,6 @@ use std::{
     path::PathBuf,
     time::SystemTime,
 };
-use wasmer_runtime_core::debug;
 
 /// Error type for external users
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -124,7 +123,7 @@ impl WasiFsError {
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 #[typetag::serde(tag = "type")]
-pub trait WasiFile: std::fmt::Debug + Write + Read + Seek {
+pub trait WasiFile: std::fmt::Debug + Send + Write + Read + Seek {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> __wasi_timestamp_t;
 
@@ -435,7 +434,7 @@ impl<'de> Deserialize<'de> for HostFile {
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["host_path", "flags"];
+        const FIELDS: &[&str] = &["host_path", "flags"];
         deserializer.deserialize_struct("HostFile", FIELDS, HostFileVisitor)
     }
 }
