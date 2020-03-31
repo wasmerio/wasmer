@@ -180,14 +180,14 @@ impl Module {
     /// // For example, here we get all the names of the functions exported by this module.
     /// let function_names =
     ///     module.exports()
-    ///           .filter(|ed| ed.kind == ExportType::Function)
+    ///           .filter(|ed| ed.ty == ExportType::Function)
     ///           .map(|ed| ed.name.to_string())
     ///           .collect::<Vec<String>>();
     ///
     /// // And here we count the number of global variables exported by this module.
     /// let num_globals =
     ///     module.exports()
-    ///           .filter(|ed| ed.kind == ExportType::Global)
+    ///           .filter(|ed| ed.ty == ExportType::Global)
     ///           .count();
     /// # }
     /// ```

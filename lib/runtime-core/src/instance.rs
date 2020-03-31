@@ -230,6 +230,23 @@ impl Instance {
     /// This returns `CallResult<Vec<Value>>` in order to support
     /// the future multi-value returns WebAssembly feature.
     ///
+    /// Consider using the more explicit [`Exports::get`]` with [`DynFunc::call`]
+    /// instead. For example:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::types::Value;
+    /// # use wasmer_runtime_core::error::Result;
+    /// # use wasmer_runtime_core::Instance;
+    /// # use wasmer_runtime_core::DynFunc;
+    /// # fn call_foo(instance: &mut Instance) -> Result<()> {
+    /// // ...
+    /// let foo: DynFunc = instance.exports.get("foo")?;
+    /// let results = foo.call(&[Value::I32(42)])?;
+    /// // ...
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
     /// # Usage:
     /// ```
     /// # use wasmer_runtime_core::types::Value;
@@ -242,10 +259,6 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
-    #[deprecated(
-        since = "0.17.0",
-        note = "Please use `let f: DynFunc = instance.exports.get(name)?; f.call(params)?;` instead"
-    )]
     pub fn call(&self, name: &str, params: &[Value]) -> CallResult<Vec<Value>> {
         let func: DynFunc = self.exports.get(name)?;
         func.call(params)
