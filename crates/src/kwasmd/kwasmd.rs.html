@@ -232,7 +232,7 @@
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_binary</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">binary_size</span> <span class="kw">as</span> <span class="ident">usize</span>);
     <span class="kw">unsafe</span> { <span class="ident">wasm_binary</span>.<span class="ident">set_len</span>(<span class="ident">binary_size</span> <span class="kw">as</span> <span class="ident">usize</span>) };
     <span class="ident">stream</span>.<span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasm_binary</span>).<span class="ident">unwrap</span>();
-    <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">webassembly</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_bin</span>::<span class="ident">webassembly</span>;
     <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{
         <span class="ident">backend</span>::{<span class="ident">CompilerConfig</span>, <span class="ident">MemoryBoundCheckMode</span>},
         <span class="ident">loader</span>::<span class="ident">Instance</span>,

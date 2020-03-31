@@ -1,10 +1,12 @@
 var N = null;var sourcesIndex = {};
+sourcesIndex["api_tests"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["kernel_net"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["kwasmd"] = {"name":"","files":["kwasmd.rs"]};
 sourcesIndex["parallel"] = {"name":"","files":["main.rs"]};
 sourcesIndex["parallel_guest"] = {"name":"","files":["main.rs"]};
 sourcesIndex["plugin_for_example"] = {"name":"","files":["main.rs"]};
-sourcesIndex["wasmer"] = {"name":"","files":["lib.rs","update.rs","utils.rs","webassembly.rs"]};
+sourcesIndex["wasmer"] = {"name":"","files":["wasmer.rs"]};
+sourcesIndex["wasmer_bin"] = {"name":"","files":["lib.rs","update.rs","utils.rs","webassembly.rs"]};
 sourcesIndex["wasmer_clif_backend"] = {"name":"","dirs":[{"name":"signal","files":["mod.rs","unix.rs"]}],"files":["cache.rs","code.rs","lib.rs","libcalls.rs","module.rs","relocation.rs","resolver.rs","trampoline.rs"]};
 sourcesIndex["wasmer_dev_utils"] = {"name":"","files":["file_descriptor.rs","lib.rs","stdio.rs"]};
 sourcesIndex["wasmer_emscripten"] = {"name":"","dirs":[{"name":"env","dirs":[{"name":"unix","files":["mod.rs"]}],"files":["mod.rs"]},{"name":"io","files":["mod.rs","unix.rs"]},{"name":"syscalls","files":["mod.rs","unix.rs"]}],"files":["bitwise.rs","emscripten_target.rs","errno.rs","exception.rs","exec.rs","exit.rs","inet.rs","jmp.rs","lib.rs","libc.rs","linking.rs","lock.rs","macros.rs","math.rs","memory.rs","process.rs","pthread.rs","ptr.rs","signal.rs","storage.rs","time.rs","ucontext.rs","unistd.rs","utils.rs","varargs.rs"]};

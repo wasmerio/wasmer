@@ -1028,6 +1028,7 @@
 <span id="1028">1028</span>
 <span id="1029">1029</span>
 <span id="1030">1030</span>
+<span id="1031">1031</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The typed func module implements a way of representing a wasm function</span>
 <span class="doccomment">//! with the correct types from rust. Function calls using a typed func have a low overhead.</span>
@@ -1288,6 +1289,7 @@
     <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
     <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
 {
+    <span class="comment">// TODO: document the invariants `unsafe` requires here</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw_parts</span>(
         <span class="ident">inner</span>: <span class="ident">Wasm</span>,
         <span class="ident">func</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,

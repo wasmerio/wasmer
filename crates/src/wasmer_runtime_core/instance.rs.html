@@ -825,14 +825,141 @@
 <span id="825">825</span>
 <span id="826">826</span>
 <span id="827">827</span>
+<span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
+<span id="831">831</span>
+<span id="832">832</span>
+<span id="833">833</span>
+<span id="834">834</span>
+<span id="835">835</span>
+<span id="836">836</span>
+<span id="837">837</span>
+<span id="838">838</span>
+<span id="839">839</span>
+<span id="840">840</span>
+<span id="841">841</span>
+<span id="842">842</span>
+<span id="843">843</span>
+<span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
+<span id="881">881</span>
+<span id="882">882</span>
+<span id="883">883</span>
+<span id="884">884</span>
+<span id="885">885</span>
+<span id="886">886</span>
+<span id="887">887</span>
+<span id="888">888</span>
+<span id="889">889</span>
+<span id="890">890</span>
+<span id="891">891</span>
+<span id="892">892</span>
+<span id="893">893</span>
+<span id="894">894</span>
+<span id="895">895</span>
+<span id="896">896</span>
+<span id="897">897</span>
+<span id="898">898</span>
+<span id="899">899</span>
+<span id="900">900</span>
+<span id="901">901</span>
+<span id="902">902</span>
+<span id="903">903</span>
+<span id="904">904</span>
+<span id="905">905</span>
+<span id="906">906</span>
+<span id="907">907</span>
+<span id="908">908</span>
+<span id="909">909</span>
+<span id="910">910</span>
+<span id="911">911</span>
+<span id="912">912</span>
+<span id="913">913</span>
+<span id="914">914</span>
+<span id="915">915</span>
+<span id="916">916</span>
+<span id="917">917</span>
+<span id="918">918</span>
+<span id="919">919</span>
+<span id="920">920</span>
+<span id="921">921</span>
+<span id="922">922</span>
+<span id="923">923</span>
+<span id="924">924</span>
+<span id="925">925</span>
+<span id="926">926</span>
+<span id="927">927</span>
+<span id="928">928</span>
+<span id="929">929</span>
+<span id="930">930</span>
+<span id="931">931</span>
+<span id="932">932</span>
+<span id="933">933</span>
+<span id="934">934</span>
+<span id="935">935</span>
+<span id="936">936</span>
+<span id="937">937</span>
+<span id="938">938</span>
+<span id="939">939</span>
+<span id="940">940</span>
+<span id="941">941</span>
+<span id="942">942</span>
+<span id="943">943</span>
+<span id="944">944</span>
+<span id="945">945</span>
+<span id="946">946</span>
+<span id="947">947</span>
+<span id="948">948</span>
+<span id="949">949</span>
+<span id="950">950</span>
+<span id="951">951</span>
+<span id="952">952</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="doccomment">//! The instance module contains the implementation data structures and helper functions used to</span>
-<span class="doccomment">//! manipulate and access wasm instances.</span>
+<span class="doccomment">//! This module contains types for manipulating and accessing Wasm instances.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! An &quot;instance&quot;, or &quot;instantiated module&quot;, is a compiled WebAssembly [`Module`] with its</span>
+<span class="doccomment">//! corresponding imports (via [`ImportObject`]) that is ready to execute.</span>
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">backend</span>::<span class="ident">RunnableModule</span>,
     <span class="ident">backing</span>::{<span class="ident">ImportBacking</span>, <span class="ident">LocalBacking</span>},
-    <span class="ident">error</span>::{<span class="ident">CallError</span>, <span class="ident">CallResult</span>, <span class="ident">ResolveError</span>, <span class="ident">ResolveResult</span>, <span class="prelude-ty">Result</span>, <span class="ident">RuntimeError</span>},
-    <span class="ident">export</span>::{<span class="ident">Context</span>, <span class="ident">Export</span>, <span class="ident">ExportIter</span>, <span class="ident">FuncPointer</span>},
+    <span class="ident">error</span>::{<span class="ident">CallResult</span>, <span class="ident">ResolveError</span>, <span class="ident">ResolveResult</span>, <span class="prelude-ty">Result</span>, <span class="ident">RuntimeError</span>},
+    <span class="ident">export</span>::{<span class="ident">Context</span>, <span class="ident">Export</span>, <span class="ident">ExportIter</span>, <span class="ident">Exportable</span>, <span class="ident">FuncPointer</span>},
     <span class="ident">global</span>::<span class="ident">Global</span>,
     <span class="ident">import</span>::{<span class="ident">ImportObject</span>, <span class="ident">LikeNamespace</span>},
     <span class="ident">loader</span>::<span class="ident">Loader</span>,
@@ -847,6 +974,7 @@
 };
 <span class="kw">use</span> <span class="ident">smallvec</span>::{<span class="ident">smallvec</span>, <span class="ident">SmallVec</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">borrow</span>::<span class="ident">Borrow</span>,
     <span class="ident">mem</span>,
     <span class="ident">pin</span>::<span class="ident">Pin</span>,
     <span class="ident">ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>},
@@ -881,6 +1009,8 @@
     <span class="doccomment">/// Reference to the module used to instantiate this instance.</span>
     <span class="kw">pub</span> <span class="ident">module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInner</span><span class="op">&gt;</span>,
     <span class="ident">inner</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">InstanceInner</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The exports of this instance.</span>
+    <span class="kw">pub</span> <span class="ident">exports</span>: <span class="ident">Exports</span>,
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
     <span class="ident">import_object</span>: <span class="ident">ImportObject</span>,
 }
@@ -917,9 +1047,15 @@
         };
         <span class="ident">Box</span>::<span class="ident">leak</span>(<span class="ident">vmctx</span>);
 
+        <span class="kw">let</span> <span class="ident">exports</span> <span class="op">=</span> <span class="ident">Exports</span> {
+            <span class="ident">module</span>: <span class="ident">module</span>.<span class="ident">clone</span>(),
+            <span class="ident">instance_inner</span>: <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">inner</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">InstanceInner</span>,
+        };
+
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span> {
             <span class="ident">module</span>,
             <span class="ident">inner</span>,
+            <span class="ident">exports</span>,
             <span class="ident">import_object</span>: <span class="ident">imports</span>.<span class="ident">clone_ref</span>(),
         };
 
@@ -998,103 +1134,21 @@
     <span class="doccomment">/// # Ok(())</span>
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
+    <span class="attribute">#[<span class="ident">deprecated</span>(
+        <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;0.17.0&quot;</span>,
+        <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use `instance.exports.get(name)` instead&quot;</span>
+    )]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">func</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ResolveResult</span><span class="op">&lt;</span><span class="ident">Func</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">Wasm</span><span class="op">&gt;</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
         <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
     {
-        <span class="kw">let</span> <span class="ident">export_index</span> <span class="op">=</span>
-            <span class="self">self</span>.<span class="ident">module</span>
-                .<span class="ident">info</span>
-                .<span class="ident">exports</span>
-                .<span class="ident">get</span>(<span class="ident">name</span>)
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ResolveError</span>::<span class="ident">ExportNotFound</span> {
-                    <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-                })<span class="question-mark">?</span>;
-
-        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExportIndex</span>::<span class="ident">Func</span>(<span class="ident">func_index</span>) <span class="op">=</span> <span class="ident">export_index</span> {
-            <span class="kw">let</span> <span class="ident">sig_index</span> <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span>
-                .<span class="ident">module</span>
-                .<span class="ident">info</span>
-                .<span class="ident">func_assoc</span>
-                .<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">func_index</span>)
-                .<span class="ident">expect</span>(<span class="string">&quot;broken invariant, incorrect func index&quot;</span>);
-            <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span>
-                <span class="ident">SigRegistry</span>.<span class="ident">lookup_signature_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">signatures</span>[<span class="ident">sig_index</span>]);
-
-            <span class="kw">if</span> <span class="ident">signature</span>.<span class="ident">params</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">Args</span>::<span class="ident">types</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">signature</span>.<span class="ident">returns</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">Rets</span>::<span class="ident">types</span>() {
-                <span class="prelude-val">Err</span>(<span class="ident">ResolveError</span>::<span class="ident">Signature</span> {
-                    <span class="ident">expected</span>: (<span class="kw-2">*</span><span class="ident">signature</span>).<span class="ident">clone</span>(),
-                    <span class="ident">found</span>: <span class="ident">Args</span>::<span class="ident">types</span>().<span class="ident">to_vec</span>(),
-                })<span class="question-mark">?</span>;
-            }
-
-            <span class="kw">let</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">func_index</span>.<span class="ident">local_or_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>.<span class="ident">info</span>) {
-                <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">vmctx</span>,
-                <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">imported_func_index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> {
-                    <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">import_backing</span>.<span class="ident">vm_functions</span>[<span class="ident">imported_func_index</span>]
-                        .<span class="ident">func_ctx</span>
-                        .<span class="ident">as_ref</span>()
-                }
-                .<span class="ident">vmctx</span>
-                .<span class="ident">as_ptr</span>(),
-            };
-
-            <span class="kw">let</span> <span class="ident">func_wasm_inner</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">module</span>
-                .<span class="ident">runnable_module</span>
-                .<span class="ident">get_trampoline</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>.<span class="ident">info</span>, <span class="ident">sig_index</span>)
-                .<span class="ident">unwrap</span>();
-
-            <span class="kw">let</span> (<span class="ident">func_ptr</span>, <span class="ident">func_env</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">func_index</span>.<span class="ident">local_or_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>.<span class="ident">info</span>) {
-                <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">local_func_index</span>) <span class="op">=</span><span class="op">&gt;</span> (
-                    <span class="self">self</span>.<span class="ident">module</span>
-                        .<span class="ident">runnable_module</span>
-                        .<span class="ident">get_func</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>.<span class="ident">info</span>, <span class="ident">local_func_index</span>)
-                        .<span class="ident">unwrap</span>(),
-                    <span class="prelude-val">None</span>,
-                ),
-                <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">import_func_index</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="kw">let</span> <span class="ident">imported_func</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">import_backing</span>.<span class="ident">vm_functions</span>[<span class="ident">import_func_index</span>];
-
-                    (
-                        <span class="ident">NonNull</span>::<span class="ident">new</span>(<span class="ident">imported_func</span>.<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span>).<span class="ident">unwrap</span>(),
-                        <span class="kw">unsafe</span> { <span class="ident">imported_func</span>.<span class="ident">func_ctx</span>.<span class="ident">as_ref</span>() }.<span class="ident">func_env</span>,
-                    )
-                }
-            };
-
-            <span class="kw">let</span> <span class="ident">typed_func</span>: <span class="ident">Func</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">Wasm</span><span class="op">&gt;</span> <span class="op">=</span>
-                <span class="kw">unsafe</span> { <span class="ident">Func</span>::<span class="ident">from_raw_parts</span>(<span class="ident">func_wasm_inner</span>, <span class="ident">func_ptr</span>, <span class="ident">func_env</span>, <span class="ident">ctx</span>) };
-
-            <span class="prelude-val">Ok</span>(<span class="ident">typed_func</span>)
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">ResolveError</span>::<span class="ident">ExportWrongType</span> {
-                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-            }
-            .<span class="ident">into</span>())
-        }
+        <span class="self">self</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="ident">name</span>)
     }
 
     <span class="doccomment">/// Resolve a function by name.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">resolve_func</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ResolveResult</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">export_index</span> <span class="op">=</span>
-            <span class="self">self</span>.<span class="ident">module</span>
-                .<span class="ident">info</span>
-                .<span class="ident">exports</span>
-                .<span class="ident">get</span>(<span class="ident">name</span>)
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ResolveError</span>::<span class="ident">ExportNotFound</span> {
-                    <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-                })<span class="question-mark">?</span>;
-
-        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExportIndex</span>::<span class="ident">Func</span>(<span class="ident">func_index</span>) <span class="op">=</span> <span class="ident">export_index</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">func_index</span>.<span class="ident">index</span>())
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">ResolveError</span>::<span class="ident">ExportWrongType</span> {
-                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-            }
-            .<span class="ident">into</span>())
-        }
+        <span class="ident">resolve_func_index</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">module</span>, <span class="ident">name</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">fi</span><span class="op">|</span> <span class="ident">fi</span>.<span class="ident">index</span>())
     }
 
     <span class="doccomment">/// This returns the representation of a function that can be called</span>
@@ -1111,38 +1165,12 @@
     <span class="doccomment">/// # Ok(())</span>
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
+    <span class="attribute">#[<span class="ident">deprecated</span>(
+        <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;0.17.0&quot;</span>,
+        <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use `instance.exports.get(name)` instead&quot;</span>
+    )]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">dyn_func</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ResolveResult</span><span class="op">&lt;</span><span class="ident">DynFunc</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">export_index</span> <span class="op">=</span>
-            <span class="self">self</span>.<span class="ident">module</span>
-                .<span class="ident">info</span>
-                .<span class="ident">exports</span>
-                .<span class="ident">get</span>(<span class="ident">name</span>)
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ResolveError</span>::<span class="ident">ExportNotFound</span> {
-                    <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-                })<span class="question-mark">?</span>;
-
-        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExportIndex</span>::<span class="ident">Func</span>(<span class="ident">func_index</span>) <span class="op">=</span> <span class="ident">export_index</span> {
-            <span class="kw">let</span> <span class="ident">sig_index</span> <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span>
-                .<span class="ident">module</span>
-                .<span class="ident">info</span>
-                .<span class="ident">func_assoc</span>
-                .<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">func_index</span>)
-                .<span class="ident">expect</span>(<span class="string">&quot;broken invariant, incorrect func index&quot;</span>);
-            <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span>
-                <span class="ident">SigRegistry</span>.<span class="ident">lookup_signature_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">signatures</span>[<span class="ident">sig_index</span>]);
-
-            <span class="prelude-val">Ok</span>(<span class="ident">DynFunc</span> {
-                <span class="ident">signature</span>,
-                <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>,
-                <span class="ident">instance_inner</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>,
-                <span class="ident">func_index</span>: <span class="kw-2">*</span><span class="ident">func_index</span>,
-            })
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">ResolveError</span>::<span class="ident">ExportWrongType</span> {
-                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-            }
-            .<span class="ident">into</span>())
-        }
+        <span class="self">self</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="ident">name</span>)
     }
 
     <span class="doccomment">/// Call an exported WebAssembly function given the export name.</span>
@@ -1154,6 +1182,23 @@
     <span class="doccomment">/// # Note:</span>
     <span class="doccomment">/// This returns `CallResult&lt;Vec&lt;Value&gt;&gt;` in order to support</span>
     <span class="doccomment">/// the future multi-value returns WebAssembly feature.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Consider using the more explicit [`Exports::get`]` with [`DynFunc::call`]</span>
+    <span class="doccomment">/// instead. For example:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// # use wasmer_runtime_core::types::Value;</span>
+    <span class="doccomment">/// # use wasmer_runtime_core::error::Result;</span>
+    <span class="doccomment">/// # use wasmer_runtime_core::Instance;</span>
+    <span class="doccomment">/// # use wasmer_runtime_core::DynFunc;</span>
+    <span class="doccomment">/// # fn call_foo(instance: &amp;mut Instance) -&gt; Result&lt;()&gt; {</span>
+    <span class="doccomment">/// // ...</span>
+    <span class="doccomment">/// let foo: DynFunc = instance.exports.get(&quot;foo&quot;)?;</span>
+    <span class="doccomment">/// let results = foo.call(&amp;[Value::I32(42)])?;</span>
+    <span class="doccomment">/// // ...</span>
+    <span class="doccomment">/// # Ok(())</span>
+    <span class="doccomment">/// # }</span>
+    <span class="doccomment">/// ```</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Usage:</span>
     <span class="doccomment">/// ```</span>
@@ -1168,37 +1213,8 @@
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CallResult</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">export_index</span> <span class="op">=</span>
-            <span class="self">self</span>.<span class="ident">module</span>
-                .<span class="ident">info</span>
-                .<span class="ident">exports</span>
-                .<span class="ident">get</span>(<span class="ident">name</span>)
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ResolveError</span>::<span class="ident">ExportNotFound</span> {
-                    <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-                })<span class="question-mark">?</span>;
-
-        <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExportIndex</span>::<span class="ident">Func</span>(<span class="ident">func_index</span>) <span class="op">=</span> <span class="ident">export_index</span> {
-            <span class="kw-2">*</span><span class="ident">func_index</span>
-        } <span class="kw">else</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CallError</span>::<span class="ident">Resolve</span>(<span class="ident">ResolveError</span>::<span class="ident">ExportWrongType</span> {
-                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-            })
-            .<span class="ident">into</span>());
-        };
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
-
-        <span class="ident">call_func_with_index</span>(
-            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>.<span class="ident">info</span>,
-            <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">module</span>.<span class="ident">runnable_module</span>,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">import_backing</span>,
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">vmctx</span>,
-            <span class="ident">func_index</span>,
-            <span class="ident">params</span>,
-            <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">results</span>,
-        )<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(<span class="ident">results</span>)
+        <span class="kw">let</span> <span class="ident">func</span>: <span class="ident">DynFunc</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="ident">name</span>)<span class="question-mark">?</span>;
+        <span class="ident">func</span>.<span class="ident">call</span>(<span class="ident">params</span>)
     }
 
     <span class="doccomment">/// Returns an immutable reference to the</span>
@@ -1236,6 +1252,27 @@
     <span class="doccomment">/// Set the value of an internal field.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_internal</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">InternalField</span>, <span class="ident">value</span>: <span class="ident">u64</span>) {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">backing</span>.<span class="ident">internals</span>.<span class="number">0</span>[<span class="ident">field</span>.<span class="ident">index</span>()] <span class="op">=</span> <span class="ident">value</span>;
+    }
+}
+
+<span class="doccomment">/// Private function used to find the [`FuncIndex`] of a given export.</span>
+<span class="kw">fn</span> <span class="ident">resolve_func_index</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInner</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ResolveResult</span><span class="op">&lt;</span><span class="ident">FuncIndex</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">export_index</span> <span class="op">=</span>
+        <span class="ident">module</span>
+            .<span class="ident">info</span>
+            .<span class="ident">exports</span>
+            .<span class="ident">get</span>(<span class="ident">name</span>)
+            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ResolveError</span>::<span class="ident">ExportNotFound</span> {
+                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
+            })<span class="question-mark">?</span>;
+
+    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExportIndex</span>::<span class="ident">Func</span>(<span class="ident">func_index</span>) <span class="op">=</span> <span class="ident">export_index</span> {
+        <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="ident">func_index</span>)
+    } <span class="kw">else</span> {
+        <span class="prelude-val">Err</span>(<span class="ident">ResolveError</span>::<span class="ident">ExportWrongType</span> {
+            <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
+        }
+        .<span class="ident">into</span>())
     }
 }
 
@@ -1639,6 +1676,219 @@
                 <span class="self">self</span>.<span class="ident">instance_inner</span>.<span class="ident">import_backing</span>.<span class="ident">vm_functions</span>[<span class="ident">import_func_index</span>].<span class="ident">func</span>
             }
         }
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Memory</span> {
+    <span class="kw">fn</span> <span class="ident">get_self</span>(<span class="ident">exports</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Exports</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ResolveResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">inst_inner</span>, <span class="ident">module</span>) <span class="op">=</span> <span class="ident">exports</span>.<span class="ident">get_inner</span>();
+        <span class="kw">let</span> <span class="ident">export_index</span> <span class="op">=</span>
+            <span class="ident">module</span>
+                .<span class="ident">info</span>
+                .<span class="ident">exports</span>
+                .<span class="ident">get</span>(<span class="ident">name</span>)
+                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ResolveError</span>::<span class="ident">ExportNotFound</span> {
+                    <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
+                })<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExportIndex</span>::<span class="ident">Memory</span>(<span class="ident">idx</span>) <span class="op">=</span> <span class="ident">export_index</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">inst_inner</span>.<span class="ident">get_memory_from_index</span>(<span class="ident">module</span>, <span class="kw-2">*</span><span class="ident">idx</span>))
+        } <span class="kw">else</span> {
+            <span class="prelude-val">Err</span>(<span class="ident">ResolveError</span>::<span class="ident">ExportWrongType</span> {
+                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
+            })
+        }
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Table</span> {
+    <span class="kw">fn</span> <span class="ident">get_self</span>(<span class="ident">exports</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Exports</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ResolveResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">inst_inner</span>, <span class="ident">module</span>) <span class="op">=</span> <span class="ident">exports</span>.<span class="ident">get_inner</span>();
+        <span class="kw">let</span> <span class="ident">export_index</span> <span class="op">=</span>
+            <span class="ident">module</span>
+                .<span class="ident">info</span>
+                .<span class="ident">exports</span>
+                .<span class="ident">get</span>(<span class="ident">name</span>)
+                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ResolveError</span>::<span class="ident">ExportNotFound</span> {
+                    <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
+                })<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExportIndex</span>::<span class="ident">Table</span>(<span class="ident">idx</span>) <span class="op">=</span> <span class="ident">export_index</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">inst_inner</span>.<span class="ident">get_table_from_index</span>(<span class="ident">module</span>, <span class="kw-2">*</span><span class="ident">idx</span>))
+        } <span class="kw">else</span> {
+            <span class="prelude-val">Err</span>(<span class="ident">ResolveError</span>::<span class="ident">ExportWrongType</span> {
+                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
+            })
+        }
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Global</span> {
+    <span class="kw">fn</span> <span class="ident">get_self</span>(<span class="ident">exports</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Exports</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ResolveResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">inst_inner</span>, <span class="ident">module</span>) <span class="op">=</span> <span class="ident">exports</span>.<span class="ident">get_inner</span>();
+        <span class="kw">let</span> <span class="ident">export_index</span> <span class="op">=</span>
+            <span class="ident">module</span>
+                .<span class="ident">info</span>
+                .<span class="ident">exports</span>
+                .<span class="ident">get</span>(<span class="ident">name</span>)
+                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ResolveError</span>::<span class="ident">ExportNotFound</span> {
+                    <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
+                })<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExportIndex</span>::<span class="ident">Global</span>(<span class="ident">idx</span>) <span class="op">=</span> <span class="ident">export_index</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">inst_inner</span>.<span class="ident">get_global_from_index</span>(<span class="ident">module</span>, <span class="kw-2">*</span><span class="ident">idx</span>))
+        } <span class="kw">else</span> {
+            <span class="prelude-val">Err</span>(<span class="ident">ResolveError</span>::<span class="ident">ExportWrongType</span> {
+                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
+            })
+        }
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">DynFunc</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_self</span>(<span class="ident">exports</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Exports</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ResolveResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">inst_inner</span>, <span class="ident">module</span>) <span class="op">=</span> <span class="ident">exports</span>.<span class="ident">get_inner</span>();
+        <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">resolve_func_index</span>(<span class="ident">module</span>, <span class="ident">name</span>)<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="ident">sig_index</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">module</span>
+            .<span class="ident">info</span>
+            .<span class="ident">func_assoc</span>
+            .<span class="ident">get</span>(<span class="ident">func_index</span>)
+            .<span class="ident">expect</span>(<span class="string">&quot;broken invariant, incorrect func index&quot;</span>);
+        <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">SigRegistry</span>.<span class="ident">lookup_signature_ref</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">signatures</span>[<span class="ident">sig_index</span>]);
+
+        <span class="prelude-val">Ok</span>(<span class="ident">DynFunc</span> {
+            <span class="ident">signature</span>,
+            <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">module</span>,
+            <span class="ident">instance_inner</span>: <span class="kw-2">&amp;</span><span class="ident">inst_inner</span>,
+            <span class="ident">func_index</span>: <span class="ident">func_index</span>,
+        })
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>, <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span><span class="op">&gt;</span> <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Func</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">Wasm</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_self</span>(<span class="ident">exports</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Exports</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ResolveResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">inst_inner</span>, <span class="ident">module</span>) <span class="op">=</span> <span class="ident">exports</span>.<span class="ident">get_inner</span>();
+
+        <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">resolve_func_index</span>(<span class="ident">module</span>, <span class="ident">name</span>)<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="ident">sig_index</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">module</span>
+            .<span class="ident">info</span>
+            .<span class="ident">func_assoc</span>
+            .<span class="ident">get</span>(<span class="ident">func_index</span>)
+            .<span class="ident">expect</span>(<span class="string">&quot;broken invariant, incorrect func index&quot;</span>);
+        <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">SigRegistry</span>.<span class="ident">lookup_signature_ref</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">info</span>.<span class="ident">signatures</span>[<span class="ident">sig_index</span>]);
+
+        <span class="kw">if</span> <span class="ident">signature</span>.<span class="ident">params</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">Args</span>::<span class="ident">types</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">signature</span>.<span class="ident">returns</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">Rets</span>::<span class="ident">types</span>() {
+            <span class="prelude-val">Err</span>(<span class="ident">ResolveError</span>::<span class="ident">Signature</span> {
+                <span class="ident">expected</span>: (<span class="kw-2">*</span><span class="ident">signature</span>).<span class="ident">clone</span>(),
+                <span class="ident">found</span>: <span class="ident">Args</span>::<span class="ident">types</span>().<span class="ident">to_vec</span>(),
+            })<span class="question-mark">?</span>;
+        }
+
+        <span class="kw">let</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">func_index</span>.<span class="ident">local_or_import</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">info</span>) {
+            <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">inst_inner</span>.<span class="ident">vmctx</span>,
+            <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">imported_func_index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> {
+                <span class="ident">inst_inner</span>.<span class="ident">import_backing</span>.<span class="ident">vm_functions</span>[<span class="ident">imported_func_index</span>]
+                    .<span class="ident">func_ctx</span>
+                    .<span class="ident">as_ref</span>()
+            }
+            .<span class="ident">vmctx</span>
+            .<span class="ident">as_ptr</span>(),
+        };
+
+        <span class="kw">let</span> <span class="ident">func_wasm_inner</span> <span class="op">=</span> <span class="ident">module</span>
+            .<span class="ident">runnable_module</span>
+            .<span class="ident">get_trampoline</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">info</span>, <span class="ident">sig_index</span>)
+            .<span class="ident">unwrap</span>();
+
+        <span class="kw">let</span> (<span class="ident">func_ptr</span>, <span class="ident">func_env</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">func_index</span>.<span class="ident">local_or_import</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">info</span>) {
+            <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="ident">local_func_index</span>) <span class="op">=</span><span class="op">&gt;</span> (
+                <span class="ident">module</span>
+                    .<span class="ident">runnable_module</span>
+                    .<span class="ident">get_func</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">info</span>, <span class="ident">local_func_index</span>)
+                    .<span class="ident">unwrap</span>(),
+                <span class="prelude-val">None</span>,
+            ),
+            <span class="ident">LocalOrImport</span>::<span class="ident">Import</span>(<span class="ident">import_func_index</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">imported_func</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">inst_inner</span>.<span class="ident">import_backing</span>.<span class="ident">vm_functions</span>[<span class="ident">import_func_index</span>];
+
+                (
+                    <span class="ident">NonNull</span>::<span class="ident">new</span>(<span class="ident">imported_func</span>.<span class="ident">func</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span>).<span class="ident">unwrap</span>(),
+                    <span class="kw">unsafe</span> { <span class="ident">imported_func</span>.<span class="ident">func_ctx</span>.<span class="ident">as_ref</span>() }.<span class="ident">func_env</span>,
+                )
+            }
+        };
+
+        <span class="kw">let</span> <span class="ident">typed_func</span>: <span class="ident">Func</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">Wasm</span><span class="op">&gt;</span> <span class="op">=</span>
+            <span class="kw">unsafe</span> { <span class="ident">Func</span>::<span class="ident">from_raw_parts</span>(<span class="ident">func_wasm_inner</span>, <span class="ident">func_ptr</span>, <span class="ident">func_env</span>, <span class="ident">ctx</span>) };
+
+        <span class="prelude-val">Ok</span>(<span class="ident">typed_func</span>)
+    }
+}
+
+<span class="doccomment">/// `Exports` is used to get exports like [`Func`]s, [`DynFunc`]s, [`Memory`]s,</span>
+<span class="doccomment">/// [`Global`]s, and [`Table`]s from an [`Instance`].</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Use `Instance.exports` to get an `Exports` from an [`Instance`].</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Exports</span> {
+    <span class="comment">// We want to avoid the borrow checker here.</span>
+    <span class="comment">// This is safe because</span>
+    <span class="comment">// 1. `Exports` can&#39;t be constructed, its fields inspected (directly or via methods),</span>
+    <span class="comment">//    or copied outside of this module/in Instance, so it can&#39;t safely outlive `Instance`.</span>
+    <span class="comment">// 2. `InstanceInner` is `Pin&lt;Box&lt;&gt;&gt;`, thus we know that it will not move.</span>
+    <span class="ident">instance_inner</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">InstanceInner</span>,
+    <span class="ident">module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInner</span><span class="op">&gt;</span>,
+}
+
+<span class="comment">// this is safe because the lifetime of `Exports` is tied to `Instance` and</span>
+<span class="comment">// `*const InstanceInner` comes from a `Pin&lt;Box&lt;InstanceInner&gt;&gt;`</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">Exports</span> {}
+
+<span class="kw">impl</span> <span class="ident">Exports</span> {
+    <span class="doccomment">/// Get an export.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// # use wasmer_runtime_core::{DynFunc, Func, Instance};</span>
+    <span class="doccomment">/// # use wasmer_runtime_core::global::Global;</span>
+    <span class="doccomment">/// # use wasmer_runtime_core::types::Value;</span>
+    <span class="doccomment">/// # use wasmer_runtime_core::error::ResolveResult;</span>
+    <span class="doccomment">/// # fn example_fn(instance: &amp;Instance) -&gt; ResolveResult&lt;()&gt; {</span>
+    <span class="doccomment">/// // We can get a function as a static `Func`</span>
+    <span class="doccomment">/// let func: Func&lt;i32, i32&gt; = instance.exports.get(&quot;my_func&quot;)?;</span>
+    <span class="doccomment">/// let _result = func.call(42);</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// // Or we can get it as a dynamic `DynFunc`</span>
+    <span class="doccomment">/// let dyn_func: DynFunc = instance.exports.get(&quot;my_func&quot;)?;</span>
+    <span class="doccomment">/// let _result= dyn_func.call(&amp;[Value::I32(42)]);</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// // We can also get other exports like `Global`s, `Memory`s, and `Table`s</span>
+    <span class="doccomment">/// let _counter: Global = instance.exports.get(&quot;counter&quot;)?;</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Ok(())</span>
+    <span class="doccomment">/// # }</span>
+    <span class="doccomment">/// ```</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>: <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ResolveResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+        <span class="ident">T</span>::<span class="ident">get_self</span>(<span class="self">self</span>, <span class="ident">name</span>)
+    }
+
+    <span class="doccomment">/// This method must remain private for `Exports` to be sound.</span>
+    <span class="kw">fn</span> <span class="ident">get_inner</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> (<span class="kw-2">&amp;</span><span class="ident">InstanceInner</span>, <span class="kw-2">&amp;</span><span class="ident">ModuleInner</span>) {
+        <span class="kw">let</span> <span class="ident">inst_inner</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">instance_inner</span> };
+        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">borrow</span>();
+        (<span class="ident">inst_inner</span>, <span class="ident">module</span>)
+    }
+
+    <span class="doccomment">/// Iterate the exports.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// # use wasmer_runtime_core::instance::Instance;</span>
+    <span class="doccomment">/// # fn iterate_exports_example(instance: &amp;Instance) {</span>
+    <span class="doccomment">/// for (export_name, export_value) in instance.exports.into_iter() {</span>
+    <span class="doccomment">///    println!(&quot;Found export `{}` with value `{:?}`&quot;, export_name, export_value);</span>
+    <span class="doccomment">/// }</span>
+    <span class="doccomment">/// # }</span>
+    <span class="doccomment">/// ```</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_iter</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ExportIter</span> {
+        <span class="kw">let</span> (<span class="ident">inst_inner</span>, <span class="ident">module</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_inner</span>();
+        <span class="ident">ExportIter</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">inst_inner</span>)
     }
 }
 

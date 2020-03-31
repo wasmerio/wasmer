@@ -602,6 +602,84 @@
 <span id="602">602</span>
 <span id="603">603</span>
 <span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
+<span id="657">657</span>
+<span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
+<span id="661">661</span>
+<span id="662">662</span>
+<span id="663">663</span>
+<span id="664">664</span>
+<span id="665">665</span>
+<span id="666">666</span>
+<span id="667">667</span>
+<span id="668">668</span>
+<span id="669">669</span>
+<span id="670">670</span>
+<span id="671">671</span>
+<span id="672">672</span>
+<span id="673">673</span>
+<span id="674">674</span>
+<span id="675">675</span>
+<span id="676">676</span>
+<span id="677">677</span>
+<span id="678">678</span>
+<span id="679">679</span>
+<span id="680">680</span>
+<span id="681">681</span>
+<span id="682">682</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The runtime types modules represent type used within the wasm runtime and helper functions to</span>
 <span class="doccomment">//! convert to other represenations.</span>
@@ -859,7 +937,7 @@
 
 <span class="doccomment">/// Describes the properties of a table including the element types, minimum and optional maximum,</span>
 <span class="doccomment">/// number of elements in the table.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TableDescriptor</span> {
     <span class="doccomment">/// Type of data stored in this table.</span>
     <span class="kw">pub</span> <span class="ident">element</span>: <span class="ident">ElementType</span>,
@@ -963,6 +1041,9 @@
     <span class="ident">params</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">Type</span>]<span class="op">&gt;</span>,
     <span class="ident">returns</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">Type</span>]<span class="op">&gt;</span>,
 }
+
+<span class="doccomment">/// Information about a function.</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">FuncDescriptor</span> <span class="op">=</span> <span class="ident">FuncSig</span>;
 
 <span class="kw">impl</span> <span class="ident">FuncSig</span> {
     <span class="doccomment">/// Creates a new function signatures with the given parameter and return types.</span>
@@ -1152,6 +1233,81 @@
             <span class="ident">LocalOrImport</span>::<span class="ident">Local</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
         }
     }
+}
+
+<span class="doccomment">/// Information about an import such as its type and metadata.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ExternDescriptor</span> {
+    <span class="doccomment">/// The import is a function.</span>
+    <span class="ident">Function</span>(<span class="ident">FuncDescriptor</span>),
+    <span class="doccomment">/// The import is a global variable.</span>
+    <span class="ident">Global</span>(<span class="ident">GlobalDescriptor</span>),
+    <span class="doccomment">/// The import is a Wasm linear memory.</span>
+    <span class="ident">Memory</span>(<span class="ident">MemoryDescriptor</span>),
+    <span class="doccomment">/// The import is a Wasm table.</span>
+    <span class="ident">Table</span>(<span class="ident">TableDescriptor</span>),
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">FuncDescriptor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExternDescriptor</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">FuncDescriptor</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">ExternDescriptor</span>::<span class="ident">Function</span>(<span class="ident">other</span>)
+    }
+}
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">FuncDescriptor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExternDescriptor</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">FuncDescriptor</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">ExternDescriptor</span>::<span class="ident">Function</span>(<span class="ident">other</span>.<span class="ident">clone</span>())
+    }
+}
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">MemoryDescriptor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExternDescriptor</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">MemoryDescriptor</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">ExternDescriptor</span>::<span class="ident">Memory</span>(<span class="ident">other</span>)
+    }
+}
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">MemoryDescriptor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExternDescriptor</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryDescriptor</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">ExternDescriptor</span>::<span class="ident">Memory</span>(<span class="kw-2">*</span><span class="ident">other</span>)
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">TableDescriptor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExternDescriptor</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">TableDescriptor</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">ExternDescriptor</span>::<span class="ident">Table</span>(<span class="ident">other</span>)
+    }
+}
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">TableDescriptor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExternDescriptor</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">TableDescriptor</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">ExternDescriptor</span>::<span class="ident">Table</span>(<span class="kw-2">*</span><span class="ident">other</span>)
+    }
+}
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">GlobalDescriptor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExternDescriptor</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">GlobalDescriptor</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">ExternDescriptor</span>::<span class="ident">Global</span>(<span class="ident">other</span>)
+    }
+}
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">GlobalDescriptor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExternDescriptor</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">GlobalDescriptor</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">ExternDescriptor</span>::<span class="ident">Global</span>(<span class="kw-2">*</span><span class="ident">other</span>)
+    }
+}
+
+<span class="doccomment">/// A type describing an import that a [`Module`] needs to be instantiated.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ImportDescriptor</span> {
+    <span class="doccomment">/// The namespace that this import is in.</span>
+    <span class="kw">pub</span> <span class="ident">namespace</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// The name of the import.</span>
+    <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// The type of the import and information about the import.</span>
+    <span class="kw">pub</span> <span class="ident">ty</span>: <span class="ident">ExternDescriptor</span>,
+}
+
+<span class="doccomment">/// Type describing an export that the [`Module`] provides.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExportDescriptor</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// The name identifying the export.</span>
+    <span class="kw">pub</span> <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>,
+    <span class="doccomment">/// The type of the export.</span>
+    <span class="kw">pub</span> <span class="ident">ty</span>: <span class="ident">ExternDescriptor</span>,
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>

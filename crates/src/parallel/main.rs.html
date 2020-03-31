@@ -135,9 +135,14 @@
 <span id="135">135</span>
 <span id="136">136</span>
 <span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">rayon</span>::<span class="ident">prelude</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">wasmer_runtime</span>::{<span class="ident">compile_with</span>, <span class="ident">compiler_for_backend</span>, <span class="ident">func</span>, <span class="ident">imports</span>, <span class="ident">instantiate</span>, <span class="ident">Backend</span>};
+<span class="kw">use</span> <span class="ident">wasmer_runtime</span>::{
+    <span class="ident">compile_with</span>, <span class="ident">compiler_for_backend</span>, <span class="ident">func</span>, <span class="ident">imports</span>, <span class="ident">instantiate</span>, <span class="ident">Backend</span>, <span class="ident">Func</span>,
+};
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{
     <span class="ident">memory</span>::<span class="ident">ptr</span>::{<span class="ident">Array</span>, <span class="ident">WasmPtr</span>},
     <span class="ident">vm</span>::<span class="ident">Ctx</span>,
@@ -199,7 +204,8 @@
                     .<span class="ident">clone</span>()
                     .<span class="ident">instantiate</span>(<span class="kw-2">&amp;</span><span class="ident">imports</span>)
                     .<span class="ident">expect</span>(<span class="string">&quot;failed to instantiate wasm module&quot;</span>);
-                <span class="kw">let</span> <span class="ident">check_password</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">func</span>::<span class="op">&lt;</span>(<span class="ident">u64</span>, <span class="ident">u64</span>), <span class="ident">u64</span><span class="op">&gt;</span>(<span class="string">&quot;check_password&quot;</span>).<span class="ident">unwrap</span>();
+                <span class="kw">let</span> <span class="ident">check_password</span>: <span class="ident">Func</span><span class="op">&lt;</span>(<span class="ident">u64</span>, <span class="ident">u64</span>), <span class="ident">u64</span><span class="op">&gt;</span> <span class="op">=</span>
+                    <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="string">&quot;check_password&quot;</span>).<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">j</span> <span class="op">=</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">10000</span>;
                 <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">check_password</span>.<span class="ident">call</span>(<span class="ident">j</span>, <span class="ident">j</span> <span class="op">+</span> <span class="number">10000</span>).<span class="ident">unwrap</span>();
                 <span class="macro">print</span><span class="macro">!</span>(<span class="string">&quot;.&quot;</span>);
@@ -239,7 +245,7 @@
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span>
         <span class="ident">instantiate</span>(<span class="kw-2">&amp;</span><span class="ident">wasm_bytes</span>[..], <span class="kw-2">&amp;</span><span class="ident">imports</span>).<span class="ident">expect</span>(<span class="string">&quot;failed to instantiate wasm module&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">check_password</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">func</span>::<span class="op">&lt;</span>(<span class="ident">u64</span>, <span class="ident">u64</span>), <span class="ident">u64</span><span class="op">&gt;</span>(<span class="string">&quot;check_password&quot;</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">check_password</span>: <span class="ident">Func</span><span class="op">&lt;</span>(<span class="ident">u64</span>, <span class="ident">u64</span>), <span class="ident">u64</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="string">&quot;check_password&quot;</span>).<span class="ident">unwrap</span>();
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RetStr</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-val">None</span>;
     <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> (<span class="number">0</span>..<span class="op">=</span><span class="ident">u64</span>::<span class="ident">max_value</span>()).<span class="ident">step_by</span>(<span class="number">10000</span>) {

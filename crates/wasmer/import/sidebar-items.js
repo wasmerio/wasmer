@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ExternDescriptor","Information about an import such as its type and metadata."]],"macro":[["func","Helper macro to create a new `Func` object using the provided function pointer."],["imports","Generate an [`ImportObject`] safely."]],"struct":[["ImportDescriptor","A type describing an import that a [`Module`] needs to be instantiated."]]});

@@ -181,6 +181,76 @@
 <span id="181">181</span>
 <span id="182">182</span>
 <span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The runtime table module contains data structures and functions used to create and update wasm</span>
 <span class="doccomment">//! tables.</span>
@@ -192,6 +262,7 @@
     <span class="ident">vm</span>,
 };
 <span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">convert</span>::<span class="ident">TryFrom</span>,
     <span class="ident">fmt</span>, <span class="ident">ptr</span>,
     <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>},
 };
@@ -202,10 +273,74 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="self">self</span>::<span class="ident">anyfunc</span>::<span class="ident">AnyfuncTable</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">GrowError</span>;
 
+<span class="doccomment">/// Error type indicating why a table access failed.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TableAccessError</span> {
+    <span class="doccomment">/// The index wasn&#39;t valid, so no element could be accessed.</span>
+    <span class="ident">IndexError</span>,
+
+    <span class="comment">// we&#39;ll need this error when we support tables holding more types</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+    <span class="doccomment">/// The type of the table was incorrect, so no element could be accessed.</span>
+    <span class="ident">TypeError</span>,
+}
+
+<span class="doccomment">/// Trait indicates types that can be stored in tables</span>
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">StorableInTable</span>: <span class="ident">Sized</span> {
+    <span class="doccomment">/// Attempt to lookup self in the given table.</span>
+    <span class="kw">fn</span> <span class="ident">unwrap_self</span>(<span class="ident">storage</span>: <span class="kw-2">&amp;</span><span class="ident">TableStorage</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">TableAccessError</span><span class="op">&gt;</span>;
+
+    <span class="doccomment">/// Wrap value to be stored in a table.</span>
+    <span class="kw">fn</span> <span class="ident">wrap_self</span>(<span class="self">self</span>, <span class="ident">storage</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">TableStorage</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TableAccessError</span><span class="op">&gt;</span>;
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">F</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Anyfunc</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">Anyfunc</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="ident">StorableInTable</span> <span class="kw">for</span> <span class="ident">F</span> {
+    <span class="kw">fn</span> <span class="ident">unwrap_self</span>(<span class="ident">storage</span>: <span class="kw-2">&amp;</span><span class="ident">TableStorage</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">TableAccessError</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="ident">storage</span> {
+            <span class="ident">TableStorage</span>::<span class="ident">Anyfunc</span>(<span class="kw-2">ref</span> <span class="ident">anyfunc_table</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">anyfunc</span> <span class="op">=</span> <span class="ident">anyfunc_table</span>
+                    .<span class="ident">get</span>(<span class="ident">index</span>)
+                    .<span class="ident">ok_or</span>(<span class="ident">TableAccessError</span>::<span class="ident">IndexError</span>)<span class="question-mark">?</span>;
+                <span class="comment">// Should this be a different error value because it&#39;s not a table type error?</span>
+                <span class="ident">F</span>::<span class="ident">try_from</span>(<span class="ident">anyfunc</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">TableAccessError</span>::<span class="ident">TypeError</span>)
+            }
+        }
+    }
+
+    <span class="kw">fn</span> <span class="ident">wrap_self</span>(<span class="self">self</span>, <span class="ident">storage</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">TableStorage</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TableAccessError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">anyfunc</span>: <span class="ident">Anyfunc</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">into</span>();
+
+        <span class="kw">match</span> <span class="ident">storage</span> {
+            <span class="ident">TableStorage</span>::<span class="ident">Anyfunc</span>(<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">anyfunc_table</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">anyfunc_table</span>
+                .<span class="ident">set</span>(<span class="ident">index</span>, <span class="ident">anyfunc</span>)
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">TableAccessError</span>::<span class="ident">IndexError</span>),
+        }
+    }
+}
+
 <span class="doccomment">/// Kind of table element.</span>
+<span class="comment">// note to implementors: all types in `Element` should implement `StorableInTable`.</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Element</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Anyfunc.</span>
     <span class="ident">Anyfunc</span>(<span class="ident">Anyfunc</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>),
+}
+
+<span class="comment">// delegation implementation for `Element`</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">StorableInTable</span> <span class="kw">for</span> <span class="ident">Element</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">unwrap_self</span>(<span class="ident">storage</span>: <span class="kw-2">&amp;</span><span class="ident">TableStorage</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">TableAccessError</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="ident">storage</span> {
+            <span class="ident">TableStorage</span>::<span class="ident">Anyfunc</span>(<span class="kw-2">ref</span> <span class="ident">anyfunc_table</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">anyfunc_table</span>
+                .<span class="ident">get</span>(<span class="ident">index</span>)
+                .<span class="ident">map</span>(<span class="ident">Element</span>::<span class="ident">Anyfunc</span>)
+                .<span class="ident">ok_or</span>(<span class="ident">TableAccessError</span>::<span class="ident">IndexError</span>),
+        }
+    }
+
+    <span class="kw">fn</span> <span class="ident">wrap_self</span>(<span class="self">self</span>, <span class="ident">storage</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">TableStorage</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TableAccessError</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">Element</span>::<span class="ident">Anyfunc</span>(<span class="ident">af</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">af</span>.<span class="ident">wrap_self</span>(<span class="ident">storage</span>, <span class="ident">index</span>),
+        }
+    }
 }
 
 <span class="doccomment">/// Kind of table storage.</span>
@@ -273,17 +408,22 @@
         <span class="self">self</span>.<span class="ident">desc</span>
     }
 
+    <span class="comment">// Made `pub(crate)` because this API is incomplete, see `anyfunc::AnyfuncTable::get`</span>
+    <span class="comment">// for more information.</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+    <span class="doccomment">/// Get the raw table value at index. A return value of `None` means either that</span>
+    <span class="doccomment">/// the index or the type wasn&#39;t valid.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">StorableInTable</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">TableAccessError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">storage</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">storage</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">guard</span>;
+        <span class="ident">T</span>::<span class="ident">unwrap_self</span>(<span class="ident">storage</span>, <span class="ident">index</span>)
+    }
+
     <span class="doccomment">/// Set the element at index.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>, <span class="ident">element</span>: <span class="ident">Element</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), ()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">storage</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">storage</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="ident">storage</span> {
-            (<span class="ident">TableStorage</span>::<span class="ident">Anyfunc</span>(<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">anyfunc_table</span>), <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">match</span> <span class="ident">element</span> {
-                    <span class="ident">Element</span>::<span class="ident">Anyfunc</span>(<span class="ident">anyfunc</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">anyfunc_table</span>.<span class="ident">set</span>(<span class="ident">index</span>, <span class="ident">anyfunc</span>),
-                    <span class="comment">// _ =&gt; panic!(&quot;wrong element type for anyfunc table&quot;),</span>
-                }
-            }
-        }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">StorableInTable</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>, <span class="ident">element</span>: <span class="ident">T</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TableAccessError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">storage</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">storage</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="ident">guard</span>;
+        <span class="ident">T</span>::<span class="ident">wrap_self</span>(<span class="ident">element</span>, <span class="ident">storage</span>, <span class="ident">index</span>)
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">anyfunc_direct_access_mut</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">R</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">R</span>

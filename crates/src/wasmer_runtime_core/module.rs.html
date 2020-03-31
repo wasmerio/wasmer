@@ -340,9 +340,141 @@
 <span id="340">340</span>
 <span id="341">341</span>
 <span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="doccomment">//! The module module contains the implementation data structures and helper functions used to</span>
-<span class="doccomment">//! manipulate and access wasm modules.</span>
+<span class="doccomment">//! This module contains the types to manipulate and access Wasm modules.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! A Wasm module is the artifact of compiling WebAssembly. Wasm modules are not executable</span>
+<span class="doccomment">//! until they&#39;re instantiated with imports (via [`ImportObject`]).</span>
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">backend</span>::<span class="ident">RunnableModule</span>,
     <span class="ident">cache</span>::{<span class="ident">Artifact</span>, <span class="ident">Error</span> <span class="kw">as</span> <span class="ident">CacheError</span>},
@@ -350,10 +482,10 @@
     <span class="ident">import</span>::<span class="ident">ImportObject</span>,
     <span class="ident">structures</span>::{<span class="ident">Map</span>, <span class="ident">TypedIndex</span>},
     <span class="ident">types</span>::{
-        <span class="ident">FuncIndex</span>, <span class="ident">FuncSig</span>, <span class="ident">GlobalDescriptor</span>, <span class="ident">GlobalIndex</span>, <span class="ident">GlobalInit</span>, <span class="ident">ImportedFuncIndex</span>,
-        <span class="ident">ImportedGlobalIndex</span>, <span class="ident">ImportedMemoryIndex</span>, <span class="ident">ImportedTableIndex</span>, <span class="ident">Initializer</span>,
-        <span class="ident">LocalGlobalIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryDescriptor</span>, <span class="ident">MemoryIndex</span>,
-        <span class="ident">SigIndex</span>, <span class="ident">TableDescriptor</span>, <span class="ident">TableIndex</span>,
+        <span class="ident">ExportDescriptor</span>, <span class="ident">FuncIndex</span>, <span class="ident">FuncSig</span>, <span class="ident">GlobalDescriptor</span>, <span class="ident">GlobalIndex</span>, <span class="ident">GlobalInit</span>,
+        <span class="ident">ImportDescriptor</span>, <span class="ident">ImportedFuncIndex</span>, <span class="ident">ImportedGlobalIndex</span>, <span class="ident">ImportedMemoryIndex</span>,
+        <span class="ident">ImportedTableIndex</span>, <span class="ident">Initializer</span>, <span class="ident">LocalGlobalIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>,
+        <span class="ident">MemoryDescriptor</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SigIndex</span>, <span class="ident">TableDescriptor</span>, <span class="ident">TableIndex</span>,
     },
     <span class="ident">Instance</span>,
 };
@@ -395,6 +527,10 @@
     <span class="kw">pub</span> <span class="ident">imported_globals</span>: <span class="ident">Map</span><span class="op">&lt;</span><span class="ident">ImportedGlobalIndex</span>, (<span class="ident">ImportName</span>, <span class="ident">GlobalDescriptor</span>)<span class="op">&gt;</span>,
 
     <span class="doccomment">/// Map of string to export index.</span>
+    <span class="comment">// Implementation note: this should maintain the order that the exports appear in the</span>
+    <span class="comment">// Wasm module.  Be careful not to use APIs that may break the order!</span>
+    <span class="comment">// Side note, because this is public we can&#39;t actually guarantee that it will remain</span>
+    <span class="comment">// in order.</span>
     <span class="kw">pub</span> <span class="ident">exports</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">ExportIndex</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Vector of data initializers.</span>
@@ -506,6 +642,130 @@
     <span class="doccomment">/// Get the module data for this module.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">info</span>
+    }
+
+    <span class="doccomment">/// Iterate over the [`ExportDescriptor`]s of the exports that this module provides.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">exports_iter</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ExportDescriptor</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span> {
+        <span class="self">self</span>.<span class="ident">info</span>()
+            .<span class="ident">exports</span>
+            .<span class="ident">iter</span>()
+            .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span>(<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">ei</span>)<span class="op">|</span> <span class="ident">ExportDescriptor</span> {
+                <span class="ident">name</span>,
+                <span class="ident">ty</span>: <span class="kw">match</span> <span class="ident">ei</span> {
+                    <span class="ident">ExportIndex</span>::<span class="ident">Func</span>(<span class="ident">f_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="kw">let</span> <span class="ident">sig_idx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">info</span>().<span class="ident">func_assoc</span>[<span class="ident">f_idx</span>].<span class="ident">into</span>();
+                        <span class="self">self</span>.<span class="ident">info</span>().<span class="ident">signatures</span>[<span class="ident">sig_idx</span>].<span class="ident">clone</span>().<span class="ident">into</span>()
+                    }
+                    <span class="ident">ExportIndex</span>::<span class="ident">Global</span>(<span class="ident">g_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">info</span>();
+                        <span class="kw">let</span> <span class="ident">local_global_idx</span> <span class="op">=</span>
+                            <span class="ident">LocalGlobalIndex</span>::<span class="ident">new</span>(<span class="ident">g_idx</span>.<span class="ident">index</span>() <span class="op">-</span> <span class="ident">info</span>.<span class="ident">imported_globals</span>.<span class="ident">len</span>());
+                        <span class="ident">info</span>.<span class="ident">globals</span>[<span class="ident">local_global_idx</span>].<span class="ident">desc</span>.<span class="ident">into</span>()
+                    }
+                    <span class="ident">ExportIndex</span>::<span class="ident">Memory</span>(<span class="ident">m_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">info</span>();
+                        <span class="kw">let</span> <span class="ident">local_memory_idx</span> <span class="op">=</span>
+                            <span class="ident">LocalMemoryIndex</span>::<span class="ident">new</span>(<span class="ident">m_idx</span>.<span class="ident">index</span>() <span class="op">-</span> <span class="ident">info</span>.<span class="ident">imported_memories</span>.<span class="ident">len</span>());
+                        <span class="ident">info</span>.<span class="ident">memories</span>[<span class="ident">local_memory_idx</span>].<span class="ident">into</span>()
+                    }
+                    <span class="ident">ExportIndex</span>::<span class="ident">Table</span>(<span class="ident">t_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">info</span>();
+                        <span class="kw">let</span> <span class="ident">local_table_idx</span> <span class="op">=</span>
+                            <span class="ident">LocalTableIndex</span>::<span class="ident">new</span>(<span class="ident">t_idx</span>.<span class="ident">index</span>() <span class="op">-</span> <span class="ident">info</span>.<span class="ident">imported_tables</span>.<span class="ident">len</span>());
+                        <span class="ident">info</span>.<span class="ident">tables</span>[<span class="ident">local_table_idx</span>].<span class="ident">into</span>()
+                    }
+                },
+            })
+    }
+
+    <span class="doccomment">/// Get the [`ExportDescriptor`]s of the exports this [`Module`] provides.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ExportDescriptor</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">exports_iter</span>().<span class="ident">collect</span>()
+    }
+
+    <span class="doccomment">/// Get the [`ImportDescriptor`]s describing the imports this [`Module`]</span>
+    <span class="doccomment">/// requires to be instantiated.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">imports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ImportDescriptor</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(
+            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">info</span>.<span class="ident">imported_functions</span>.<span class="ident">len</span>()
+                <span class="op">+</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">info</span>.<span class="ident">imported_memories</span>.<span class="ident">len</span>()
+                <span class="op">+</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">info</span>.<span class="ident">imported_tables</span>.<span class="ident">len</span>()
+                <span class="op">+</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">info</span>.<span class="ident">imported_globals</span>.<span class="ident">len</span>(),
+        );
+
+        <span class="doccomment">/// Lookup the (namespace, name) in the [`ModuleInfo`] by index.</span>
+        <span class="kw">fn</span> <span class="ident">get_import_name</span>(
+            <span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
+            <span class="kw-2">&amp;</span><span class="ident">ImportName</span> {
+                <span class="ident">namespace_index</span>,
+                <span class="ident">name_index</span>,
+            }: <span class="kw-2">&amp;</span><span class="ident">ImportName</span>,
+        ) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">String</span>, <span class="ident">String</span>) {
+            <span class="kw">let</span> <span class="ident">namespace</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">namespace_table</span>.<span class="ident">get</span>(<span class="ident">namespace_index</span>).<span class="ident">to_string</span>();
+            <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">name_table</span>.<span class="ident">get</span>(<span class="ident">name_index</span>).<span class="ident">to_string</span>();
+
+            (<span class="ident">namespace</span>, <span class="ident">name</span>)
+        }
+
+        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">info</span>;
+
+        <span class="kw">let</span> <span class="ident">imported_functions</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">imported_functions</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">idx</span>, <span class="ident">import_name</span>)<span class="op">|</span> {
+            <span class="kw">let</span> (<span class="ident">namespace</span>, <span class="ident">name</span>) <span class="op">=</span> <span class="ident">get_import_name</span>(<span class="ident">info</span>, <span class="ident">import_name</span>);
+            <span class="kw">let</span> <span class="ident">sig</span> <span class="op">=</span> <span class="ident">info</span>
+                .<span class="ident">signatures</span>
+                .<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">info</span>.<span class="ident">func_assoc</span>.<span class="ident">get</span>(<span class="ident">FuncIndex</span>::<span class="ident">new</span>(<span class="ident">idx</span>.<span class="ident">index</span>())).<span class="ident">unwrap</span>())
+                .<span class="ident">unwrap</span>();
+            <span class="ident">ImportDescriptor</span> {
+                <span class="ident">namespace</span>,
+                <span class="ident">name</span>,
+                <span class="ident">ty</span>: <span class="ident">sig</span>.<span class="ident">into</span>(),
+            }
+        });
+        <span class="kw">let</span> <span class="ident">imported_memories</span> <span class="op">=</span>
+            <span class="ident">info</span>.<span class="ident">imported_memories</span>
+                .<span class="ident">values</span>()
+                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">import_name</span>, <span class="ident">memory_descriptor</span>)<span class="op">|</span> {
+                    <span class="kw">let</span> (<span class="ident">namespace</span>, <span class="ident">name</span>) <span class="op">=</span> <span class="ident">get_import_name</span>(<span class="ident">info</span>, <span class="ident">import_name</span>);
+                    <span class="ident">ImportDescriptor</span> {
+                        <span class="ident">namespace</span>,
+                        <span class="ident">name</span>,
+                        <span class="ident">ty</span>: <span class="ident">memory_descriptor</span>.<span class="ident">into</span>(),
+                    }
+                });
+        <span class="kw">let</span> <span class="ident">imported_tables</span> <span class="op">=</span>
+            <span class="ident">info</span>.<span class="ident">imported_tables</span>
+                .<span class="ident">values</span>()
+                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">import_name</span>, <span class="ident">table_descriptor</span>)<span class="op">|</span> {
+                    <span class="kw">let</span> (<span class="ident">namespace</span>, <span class="ident">name</span>) <span class="op">=</span> <span class="ident">get_import_name</span>(<span class="ident">info</span>, <span class="ident">import_name</span>);
+                    <span class="ident">ImportDescriptor</span> {
+                        <span class="ident">namespace</span>,
+                        <span class="ident">name</span>,
+                        <span class="ident">ty</span>: <span class="ident">table_descriptor</span>.<span class="ident">into</span>(),
+                    }
+                });
+        <span class="kw">let</span> <span class="ident">imported_globals</span> <span class="op">=</span>
+            <span class="ident">info</span>.<span class="ident">imported_globals</span>
+                .<span class="ident">values</span>()
+                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">import_name</span>, <span class="ident">global_descriptor</span>)<span class="op">|</span> {
+                    <span class="kw">let</span> (<span class="ident">namespace</span>, <span class="ident">name</span>) <span class="op">=</span> <span class="ident">get_import_name</span>(<span class="ident">info</span>, <span class="ident">import_name</span>);
+                    <span class="ident">ImportDescriptor</span> {
+                        <span class="ident">namespace</span>,
+                        <span class="ident">name</span>,
+                        <span class="ident">ty</span>: <span class="ident">global_descriptor</span>.<span class="ident">into</span>(),
+                    }
+                });
+
+        <span class="ident">out</span>.<span class="ident">extend</span>(<span class="ident">imported_functions</span>);
+        <span class="ident">out</span>.<span class="ident">extend</span>(<span class="ident">imported_memories</span>);
+        <span class="ident">out</span>.<span class="ident">extend</span>(<span class="ident">imported_tables</span>);
+        <span class="ident">out</span>.<span class="ident">extend</span>(<span class="ident">imported_globals</span>);
+        <span class="ident">out</span>
+    }
+
+    <span class="doccomment">/// Get the custom sections matching the given name.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">custom_sections</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">key</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">str</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]<span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="ident">key</span>.<span class="ident">as_ref</span>();
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">info</span>.<span class="ident">custom_sections</span>.<span class="ident">get</span>(<span class="ident">key</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">as_ref</span>())
     }
 }
 

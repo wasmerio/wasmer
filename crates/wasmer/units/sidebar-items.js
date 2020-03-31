@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Bytes","Units of WebAssembly memory in terms of 8-bit bytes."],["Pages","Units of WebAssembly pages (as specified to be 65,536 bytes)."]]});

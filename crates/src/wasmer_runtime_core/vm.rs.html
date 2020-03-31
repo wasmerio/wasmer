@@ -1138,6 +1138,15 @@
 <span id="1138">1138</span>
 <span id="1139">1139</span>
 <span id="1140">1140</span>
+<span id="1141">1141</span>
+<span id="1142">1142</span>
+<span id="1143">1143</span>
+<span id="1144">1144</span>
+<span id="1145">1145</span>
+<span id="1146">1146</span>
+<span id="1147">1147</span>
+<span id="1148">1148</span>
+<span id="1149">1149</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The runtime vm module contains data structures and helper functions used during runtime to</span>
 <span class="doccomment">//! execute wasm instance functions.</span>
@@ -1857,9 +1866,18 @@
 }
 
 <span class="doccomment">/// Identifier for a function signature.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// A transparent `SigIndex`</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SigId</span>(<span class="kw">pub</span> <span class="ident">u32</span>);
+
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::<span class="ident">SigIndex</span>;
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">SigId</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">SigIndex</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">SigId</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SigIndex</span> {
+        <span class="ident">SigIndex</span>::<span class="ident">new</span>(<span class="ident">other</span>.<span class="number">0</span> <span class="kw">as</span> <span class="kw">_</span>)
+    }
+}
 
 <span class="doccomment">/// Caller-checked anyfunc</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>

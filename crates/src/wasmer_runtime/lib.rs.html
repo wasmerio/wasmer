@@ -448,7 +448,7 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     let mut instance = instantiate(WASM, &amp;import_object)?;</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//!     let add_one: Func&lt;i32, i32&gt; = instance.func(&quot;add_one&quot;)?;</span>
+<span class="doccomment">//!     let add_one: Func&lt;i32, i32&gt; = instance.exports.get(&quot;add_one&quot;)?;</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     let value = add_one.call(42)?;</span>
 <span class="doccomment">//!</span>
