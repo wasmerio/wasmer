@@ -716,9 +716,18 @@ impl LocalGlobal {
 }
 
 /// Identifier for a function signature.
+///
+/// A transparent `SigIndex`
 #[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
 pub struct SigId(pub u32);
+
+use crate::types::SigIndex;
+impl From<SigId> for SigIndex {
+    fn from(other: SigId) -> SigIndex {
+        SigIndex::new(other.0 as _)
+    }
+}
 
 /// Caller-checked anyfunc
 #[derive(Debug, Clone, Copy)]

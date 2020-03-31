@@ -71,6 +71,7 @@ static WASM: &'static [u8] = &[
 
 use wasmer_runtime::{
     instantiate,
+    DynFunc,
     Value,
     imports,
     error,
@@ -83,7 +84,8 @@ fn main() -> error::Result<()> {
     let instance = instantiate(WASM, &import_object)?;
 
     let values = instance
-        .dyn_func("add_one")?
+        .exports
+        .get::<DynFunc>("add_one")?
         .call(&[Value::I32(42)])?;
 
     assert_eq!(values[0], Value::I32(43));

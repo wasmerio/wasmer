@@ -50,7 +50,7 @@ fn handle_client(mut stream: UnixStream) {
     let mut wasm_binary: Vec<u8> = Vec::with_capacity(binary_size as usize);
     unsafe { wasm_binary.set_len(binary_size as usize) };
     stream.read_exact(&mut wasm_binary).unwrap();
-    use wasmer::webassembly;
+    use wasmer_bin::webassembly;
     use wasmer_runtime_core::{
         backend::{CompilerConfig, MemoryBoundCheckMode},
         loader::Instance,

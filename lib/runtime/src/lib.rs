@@ -66,7 +66,7 @@
 //!
 //!     let mut instance = instantiate(WASM, &import_object)?;
 //!
-//!     let add_one: Func<i32, i32> = instance.func("add_one")?;
+//!     let add_one: Func<i32, i32> = instance.exports.get("add_one")?;
 //!
 //!     let value = add_one.call(42)?;
 //!

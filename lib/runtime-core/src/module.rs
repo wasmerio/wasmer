@@ -1,5 +1,7 @@
-//! The module module contains the implementation data structures and helper functions used to
-//! manipulate and access wasm modules.
+//! This module contains the types to manipulate and access Wasm modules.
+//!
+//! A Wasm module is the artifact of compiling WebAssembly. Wasm modules are not executable
+//! until they're instantiated with imports (via [`ImportObject`]).
 use crate::{
     backend::RunnableModule,
     cache::{Artifact, Error as CacheError},
@@ -7,10 +9,10 @@ use crate::{
     import::ImportObject,
     structures::{Map, TypedIndex},
     types::{
-        FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
-        ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
-        LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor, MemoryIndex,
-        SigIndex, TableDescriptor, TableIndex,
+        ExportDescriptor, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit,
+        ImportDescriptor, ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex,
+        ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
+        MemoryDescriptor, MemoryIndex, SigIndex, TableDescriptor, TableIndex,
     },
     Instance,
 };
@@ -52,6 +54,10 @@ pub struct ModuleInfo {
     pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDescriptor)>,
 
     /// Map of string to export index.
+    // Implementation note: this should maintain the order that the exports appear in the
+    // Wasm module.  Be careful not to use APIs that may break the order!
+    // Side note, because this is public we can't actually guarantee that it will remain
+    // in order.
     pub exports: IndexMap<String, ExportIndex>,
 
     /// Vector of data initializers.
@@ -163,6 +169,130 @@ impl Module {
     /// Get the module data for this module.
     pub fn info(&self) -> &ModuleInfo {
         &self.inner.info
+    }
+
+    /// Iterate over the [`ExportDescriptor`]s of the exports that this module provides.
+    pub(crate) fn exports_iter(&self) -> impl Iterator<Item = ExportDescriptor> + '_ {
+        self.info()
+            .exports
+            .iter()
+            .map(move |(name, &ei)| ExportDescriptor {
+                name,
+                ty: match ei {
+                    ExportIndex::Func(f_idx) => {
+                        let sig_idx = self.info().func_assoc[f_idx].into();
+                        self.info().signatures[sig_idx].clone().into()
+                    }
+                    ExportIndex::Global(g_idx) => {
+                        let info = self.info();
+                        let local_global_idx =
+                            LocalGlobalIndex::new(g_idx.index() - info.imported_globals.len());
+                        info.globals[local_global_idx].desc.into()
+                    }
+                    ExportIndex::Memory(m_idx) => {
+                        let info = self.info();
+                        let local_memory_idx =
+                            LocalMemoryIndex::new(m_idx.index() - info.imported_memories.len());
+                        info.memories[local_memory_idx].into()
+                    }
+                    ExportIndex::Table(t_idx) => {
+                        let info = self.info();
+                        let local_table_idx =
+                            LocalTableIndex::new(t_idx.index() - info.imported_tables.len());
+                        info.tables[local_table_idx].into()
+                    }
+                },
+            })
+    }
+
+    /// Get the [`ExportDescriptor`]s of the exports this [`Module`] provides.
+    pub fn exports(&self) -> Vec<ExportDescriptor> {
+        self.exports_iter().collect()
+    }
+
+    /// Get the [`ImportDescriptor`]s describing the imports this [`Module`]
+    /// requires to be instantiated.
+    pub fn imports(&self) -> Vec<ImportDescriptor> {
+        let mut out = Vec::with_capacity(
+            self.inner.info.imported_functions.len()
+                + self.inner.info.imported_memories.len()
+                + self.inner.info.imported_tables.len()
+                + self.inner.info.imported_globals.len(),
+        );
+
+        /// Lookup the (namespace, name) in the [`ModuleInfo`] by index.
+        fn get_import_name(
+            info: &ModuleInfo,
+            &ImportName {
+                namespace_index,
+                name_index,
+            }: &ImportName,
+        ) -> (String, String) {
+            let namespace = info.namespace_table.get(namespace_index).to_string();
+            let name = info.name_table.get(name_index).to_string();
+
+            (namespace, name)
+        }
+
+        let info = &self.inner.info;
+
+        let imported_functions = info.imported_functions.iter().map(|(idx, import_name)| {
+            let (namespace, name) = get_import_name(info, import_name);
+            let sig = info
+                .signatures
+                .get(*info.func_assoc.get(FuncIndex::new(idx.index())).unwrap())
+                .unwrap();
+            ImportDescriptor {
+                namespace,
+                name,
+                ty: sig.into(),
+            }
+        });
+        let imported_memories =
+            info.imported_memories
+                .values()
+                .map(|(import_name, memory_descriptor)| {
+                    let (namespace, name) = get_import_name(info, import_name);
+                    ImportDescriptor {
+                        namespace,
+                        name,
+                        ty: memory_descriptor.into(),
+                    }
+                });
+        let imported_tables =
+            info.imported_tables
+                .values()
+                .map(|(import_name, table_descriptor)| {
+                    let (namespace, name) = get_import_name(info, import_name);
+                    ImportDescriptor {
+                        namespace,
+                        name,
+                        ty: table_descriptor.into(),
+                    }
+                });
+        let imported_globals =
+            info.imported_globals
+                .values()
+                .map(|(import_name, global_descriptor)| {
+                    let (namespace, name) = get_import_name(info, import_name);
+                    ImportDescriptor {
+                        namespace,
+                        name,
+                        ty: global_descriptor.into(),
+                    }
+                });
+
+        out.extend(imported_functions);
+        out.extend(imported_memories);
+        out.extend(imported_tables);
+        out.extend(imported_globals);
+        out
+    }
+
+    /// Get the custom sections matching the given name.
+    pub fn custom_sections(&self, key: impl AsRef<str>) -> Option<&[Vec<u8>]> {
+        let key = key.as_ref();
+        self.inner.info.custom_sections.get(key).map(|v| v.as_ref())
     }
 }
 

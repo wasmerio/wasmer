@@ -36,7 +36,7 @@ fn error_propagation() {
         })
         .unwrap();
 
-    let foo: Func<(), ()> = instance.func("call_err").unwrap();
+    let foo: Func<(), ()> = instance.exports.get("call_err").unwrap();
 
     let result = foo.call();
 

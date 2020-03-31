@@ -1,0 +1,40 @@
+[package]
+name = "wasmer"
+version = "0.16.2"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+publish = true
+description = "The high-level public API of the Wasmer WebAssembly runtime"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wasmer-runtime-core = { version = "0.16.2", path = "../runtime-core" }
+
+[dependencies.wasmer-singlepass-backend]
+path = "../singlepass-backend"
+version = "0.16.2"
+optional = true
+
+[dependencies.wasmer-llvm-backend]
+path = "../llvm-backend"
+optional = true
+
+[dependencies.wasmer-clif-backend]
+path = "../clif-backend"
+version = "0.16.2"
+optional = true
+
+[features]
+default = ["cranelift", "default-backend-cranelift"]
+
+singlepass = ["wasmer-singlepass-backend"]
+llvm = ["wasmer-llvm-backend"]
+cranelift = ["wasmer-clif-backend"]
+
+default-backend-singlepass = ["singlepass"]
+default-backend-llvm = ["llvm"]
+default-backend-cranelift = ["cranelift"]
+
+deterministic-execution = ["wasmer-singlepass-backend/deterministic-execution", "wasmer-runtime-core/deterministic-execution"]

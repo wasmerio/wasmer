@@ -2,19 +2,48 @@ use std::{convert::TryInto, sync::Arc};
 use wasmer_runtime_core::{
     compile_with,
     error::RuntimeError,
+    global::Global,
     imports,
     memory::Memory,
     typed_func::{DynamicFunc, Func},
     types::{FuncSig, MemoryDescriptor, Type, Value},
     units::Pages,
-    vm, Instance,
+    vm, DynFunc, Instance,
 };
 use wasmer_runtime_core_tests::{get_compiler, wat2wasm};
+
+#[test]
+fn new_api_works() {
+    let wasm = r#"
+(module
+  (type $type (func (param i32) (result i32)))
+  (global (export "my_global") i32 (i32.const 45))
+  (func (export "add_one") (type $type)
+    (i32.add (get_local 0)
+             (i32.const 1)))
+  (func (export "double") (type $type)
+    (i32.mul (get_local 0)
+             (i32.const 2)))
+)"#;
+    let wasm_binary = wat2wasm(wasm.as_bytes()).expect("WAST not valid or malformed");
+    let module = compile_with(&wasm_binary, &get_compiler()).unwrap();
+    let import_object = imports! {};
+    let instance = module.instantiate(&import_object).unwrap();
+
+    let my_global: Global = instance.exports.get("my_global").unwrap();
+    assert_eq!(my_global.get(), Value::I32(45));
+    let double: Func<i32, i32> = instance.exports.get("double").unwrap();
+    assert_eq!(double.call(5).unwrap(), 10);
+    let add_one: DynFunc = instance.exports.get("add_one").unwrap();
+    assert_eq!(add_one.call(&[Value::I32(5)]).unwrap(), &[Value::I32(6)]);
+    let add_one_memory: Result<DynFunc, _> = instance.exports.get("my_global");
+    assert!(add_one_memory.is_err());
+}
 
 macro_rules! call_and_assert {
     ($instance:ident, $function:ident( $( $inputs:ty ),* ) -> $output:ty, ( $( $arguments:expr ),* ) == $expected_value:expr) => {
         #[allow(unused_parens)]
-        let $function: Func<( $( $inputs ),* ), $output> = $instance.func(stringify!($function)).expect(concat!("Failed to get the `", stringify!($function), "` export function."));
+        let $function: Func<( $( $inputs ),* ), $output> = $instance.exports.get(stringify!($function)).expect(concat!("Failed to get the `", stringify!($function), "` export function."));
 
         let result = $function.call( $( $arguments ),* );
 
