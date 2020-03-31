@@ -165,6 +165,69 @@ mod tests {
             ])],
     );
 
+    #[test]
+    #[allow(non_snake_case, unused)]
+    fn test_record_lift__to_rust_struct() {
+        use crate::interpreter::{
+            instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
+            stack::Stackable,
+            wasm::values::{from_values, InterfaceType, InterfaceValue},
+            Instruction, Interpreter,
+        };
+        use serde::Deserialize;
+        use std::{cell::Cell, collections::HashMap, convert::TryInto};
+
+        let interpreter: Interpreter<Instance, Export, LocalImport, Memory, MemoryView> = (&vec![
+            Instruction::ArgumentGet { index: 0 },
+            Instruction::ArgumentGet { index: 1 },
+            Instruction::ArgumentGet { index: 2 },
+            Instruction::ArgumentGet { index: 3 },
+            Instruction::RecordLift { type_index: 0 },
+        ])
+            .try_into()
+            .unwrap();
+
+        let invocation_inputs = vec![
+            InterfaceValue::I32(1),
+            InterfaceValue::String("Hello".to_string()),
+            InterfaceValue::F32(2.),
+            InterfaceValue::I64(3),
+        ];
+        let mut instance = Instance::new();
+        let run = interpreter.run(&invocation_inputs, &mut instance);
+
+        assert!(run.is_ok());
+
+        let stack = run.unwrap();
+
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S {
+            a: String,
+            b: f32,
+        }
+
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct T {
+            x: i32,
+            s: S,
+            y: i64,
+        }
+
+        let record: T = from_values(stack.as_slice()).unwrap();
+
+        assert_eq!(
+            record,
+            T {
+                x: 1,
+                s: S {
+                    a: "Hello".to_string(),
+                    b: 2.,
+                },
+                y: 3,
+            }
+        );
+    }
+
     test_executable_instruction!(
         test_record_lift__one_dimension =
             instructions: [
