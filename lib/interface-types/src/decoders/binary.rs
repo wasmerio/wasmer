@@ -227,7 +227,6 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
         0x21 => (input, Instruction::I64FromU64),
 
         0x22 => (input, Instruction::StringLiftMemory),
-
         0x23 => {
             consume!((input, argument_0) = uleb(input)?);
 
@@ -238,7 +237,6 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
                 },
             )
         }
-
         0x24 => (input, Instruction::StringSize),
 
         0x25 => {
@@ -247,6 +245,16 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
             (
                 input,
                 Instruction::RecordLift {
+                    type_index: argument_0 as u32,
+                },
+            )
+        }
+        0x26 => {
+            consume!((input, argument_0) = uleb(input)?);
+
+            (
+                input,
+                Instruction::RecordLower {
                     type_index: argument_0 as u32,
                 },
             )
@@ -715,7 +723,7 @@ mod tests {
     #[test]
     fn test_instructions() {
         let input = &[
-            0x26, // list of 38 items
+            0x27, // list of 39 items
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, 0x01, // CallCore { function_index: 1 }
             0x02, // S8FromI32
@@ -754,6 +762,7 @@ mod tests {
             0x23, 0x01, // StringLowerMemory { allocator_index: 1 }
             0x24, // StringSize
             0x25, 0x01, // RecordLift { type_index: 1 },
+            0x26, 0x01, // RecordLower { type_index: 1 },
             0x0a,
         ];
         let output = Ok((
@@ -797,6 +806,7 @@ mod tests {
                 Instruction::StringLowerMemory { allocator_index: 1 },
                 Instruction::StringSize,
                 Instruction::RecordLift { type_index: 1 },
+                Instruction::RecordLower { type_index: 1 },
             ],
         ));
 

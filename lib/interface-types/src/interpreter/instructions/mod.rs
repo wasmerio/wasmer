@@ -143,6 +143,12 @@ pub enum Instruction {
         /// The type index of the record.
         type_index: u32,
     },
+
+    /// The `record.lower` instruction.
+    RecordLower {
+        /// The type index of the record.
+        type_index: u32,
+    },
 }
 
 /// Just a short helper to map the error of a cast from an

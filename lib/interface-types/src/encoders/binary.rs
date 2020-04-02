@@ -331,16 +331,18 @@ where
             Instruction::I64FromU64 => 0x21_u8.to_bytes(writer)?,
 
             Instruction::StringLiftMemory => 0x22_u8.to_bytes(writer)?,
-
             Instruction::StringLowerMemory { allocator_index } => {
                 0x23_u8.to_bytes(writer)?;
                 (*allocator_index as u64).to_bytes(writer)?;
             }
-
             Instruction::StringSize => 0x24_u8.to_bytes(writer)?,
 
             Instruction::RecordLift { type_index } => {
                 0x25_u8.to_bytes(writer)?;
+                (*type_index as u64).to_bytes(writer)?
+            }
+            Instruction::RecordLower { type_index } => {
+                0x26_u8.to_bytes(writer)?;
                 (*type_index as u64).to_bytes(writer)?
             }
         }
@@ -689,9 +691,10 @@ mod tests {
                 Instruction::StringLowerMemory { allocator_index: 1 },
                 Instruction::StringSize,
                 Instruction::RecordLift { type_index: 1 },
+                Instruction::RecordLower { type_index: 1 },
             ],
             &[
-                0x26, // list of 38 items
+                0x27, // list of 39 items
                 0x00, 0x01, // ArgumentGet { index: 1 }
                 0x01, 0x01, // CallCore { function_index: 1 }
                 0x02, // S8FromI32
@@ -730,6 +733,7 @@ mod tests {
                 0x23, 0x01, // StringLowerMemory { allocator_index: 1 }
                 0x24, // StringSize
                 0x025, 0x01, // RecordLift { type_index: 1 }
+                0x026, 0x01, // RecordLower { type_index: 1 }
             ]
         );
     }
