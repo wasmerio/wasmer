@@ -221,7 +221,7 @@ mod tests {
         use crate::interpreter::{
             instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
             stack::Stackable,
-            wasm::values::{from_values, InterfaceType, InterfaceValue},
+            wasm::values::{from_interface_values, InterfaceType, InterfaceValue},
             Instruction, Interpreter,
         };
         use serde::Deserialize;
@@ -263,7 +263,7 @@ mod tests {
             y: i64,
         }
 
-        let record: T = from_values(stack.as_slice()).unwrap();
+        let record: T = from_interface_values(stack.as_slice()).unwrap();
 
         assert_eq!(
             record,

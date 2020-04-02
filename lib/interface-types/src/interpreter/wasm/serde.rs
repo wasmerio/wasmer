@@ -16,7 +16,7 @@ use std::{
 };
 
 /// Deserialize a set of `InterfaceValue`s to a type `T` that
-/// implements `Deserialize`.
+/// implements the `Deserialize` trait.
 ///
 /// This is not a requirement to use WIT, but Serde provides an even
 /// nicer API to the user to rebuild its complex types from WIT
@@ -27,7 +27,7 @@ use std::{
 /// ```rust
 /// use wasmer_interface_types::interpreter::wasm::values::{
 ///     InterfaceValue,
-///     from_values,
+///     from_interface_values,
 /// };
 /// use serde::Deserialize;
 ///
@@ -46,7 +46,7 @@ use std::{
 ///     InterfaceValue::Record(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]),
 ///     InterfaceValue::F32(3.),
 /// ];
-/// let t: T = from_values(&values).unwrap();
+/// let t: T = from_interface_values(&values).unwrap();
 ///
 /// assert_eq!(
 ///     t,
@@ -57,7 +57,7 @@ use std::{
 ///     }
 /// );
 /// ```
-pub fn from_values<'a, T>(values: &'a [InterfaceValue]) -> Result<T, Error>
+pub fn from_interface_values<'a, T>(values: &'a [InterfaceValue]) -> Result<T, Error>
 where
     T: Deserialize<'a>,
 {
@@ -475,7 +475,7 @@ mod tests {
                 type Error = Error;
 
                 fn try_from(value: Vec<InterfaceValue>) -> Result<Self, Self::Error> {
-                    from_values(&value)
+                    from_interface_values(&value)
                 }
             }
 
@@ -483,7 +483,7 @@ mod tests {
                 type Error = Error;
 
                 fn try_from(value: &Vec<InterfaceValue>) -> Result<Self, Self::Error> {
-                    from_values(value)
+                    from_interface_values(value)
                 }
             }
         };
@@ -640,7 +640,7 @@ mod tests {
         };
 
         let v = vec![InterfaceValue::String("foo".to_string())];
-        let input: S = from_values(&v).unwrap();
+        let input: S = from_interface_values(&v).unwrap();
         let output = S { x: "foo" };
 
         assert_eq!(input, output);
