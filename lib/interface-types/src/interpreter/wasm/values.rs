@@ -2,8 +2,10 @@
 
 pub use crate::ast::{InterfaceType, RecordType};
 use crate::errors::WasmValueNativeCastError;
-pub use crate::interpreter::wasm::serde::*;
 use std::{convert::TryFrom, slice::Iter};
+
+#[cfg(feature = "serde")]
+pub use crate::interpreter::wasm::serde::*;
 
 /// A WIT value.
 #[derive(Debug, Clone, PartialEq)]

@@ -214,6 +214,7 @@ mod tests {
             ])],
     );
 
+    #[cfg(feature = "serde")]
     #[test]
     #[allow(non_snake_case, unused)]
     fn test_record_lift__to_rust_struct() {

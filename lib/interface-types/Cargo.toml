@@ -10,4 +10,11 @@ edition = "2018"
 [dependencies]
 nom = "5.1"
 wast = "8.0"
-serde = { version = "1.0", features = ["derive"] }
+
+# `serde` is useful only to simplify the users' life. It is not
+# required by WIT itself, is is used to transform WIT values like
+# `record`s to Rust sum types.
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+default = ["serde"]
