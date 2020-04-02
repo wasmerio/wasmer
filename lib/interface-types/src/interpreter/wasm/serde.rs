@@ -6,10 +6,7 @@ use crate::{
     ast::InterfaceType,
     interpreter::wasm::values::{FlattenInterfaceValueIterator, InterfaceValue},
 };
-use serde::{
-    de::{self, DeserializeSeed, SeqAccess, Visitor},
-    Deserialize,
-};
+use serde::{de, ser, Deserialize, Serialize};
 use std::{
     fmt::{self, Display},
     iter::Peekable,
@@ -57,7 +54,7 @@ use std::{
 ///     }
 /// );
 /// ```
-pub fn from_interface_values<'a, T>(values: &'a [InterfaceValue]) -> Result<T, Error>
+pub fn from_interface_values<'a, T>(values: &'a [InterfaceValue]) -> Result<T, DeserializeError>
 where
     T: Deserialize<'a>,
 {
@@ -66,8 +63,21 @@ where
 
     match deserializer.iterator.peek() {
         None => Ok(result),
-        _ => Err(Error::InputNotEmpty),
+        _ => Err(DeserializeError::InputNotEmpty),
     }
+}
+
+/// foo
+pub fn to_interface_value<T>(value: &T) -> Result<InterfaceValue, SerializeError>
+where
+    T: Serialize,
+{
+    let mut serializer = Serializer::new();
+    value.serialize(&mut serializer)?;
+
+    assert_eq!(serializer.values.len(), 1);
+
+    Ok(serializer.values.pop().unwrap().pop().unwrap())
 }
 
 /// The deserializer. The iterator iterates over `InterfaceValue`s,
@@ -86,7 +96,7 @@ impl<'de> Deserializer<'de> {
 
 macro_rules! next {
     ($method_name:ident, $variant:ident, $type:ty) => {
-        fn $method_name(&mut self) -> Result<$type, Error> {
+        fn $method_name(&mut self) -> Result<$type, DeserializeError> {
             match self.iterator.peek() {
                 Some(InterfaceValue::$variant(value)) => {
                     self.iterator.next();
@@ -94,12 +104,12 @@ macro_rules! next {
                     Ok(*value)
                 }
 
-                Some(wrong_value) => Err(Error::TypeMismatch {
+                Some(wrong_value) => Err(DeserializeError::TypeMismatch {
                     expected_type: InterfaceType::$variant,
                     received_type: (*wrong_value).into(),
                 }),
 
-                None => Err(Error::InputEmpty),
+                None => Err(DeserializeError::InputEmpty),
             }
         }
     }
@@ -117,7 +127,7 @@ impl<'de> Deserializer<'de> {
     next!(next_f32, F32, f32);
     next!(next_f64, F64, f64);
 
-    fn next_string(&mut self) -> Result<&'de str, Error> {
+    fn next_string(&mut self) -> Result<&'de str, DeserializeError> {
         match self.iterator.peek() {
             Some(InterfaceValue::String(v)) => {
                 self.iterator.next();
@@ -125,12 +135,12 @@ impl<'de> Deserializer<'de> {
                 Ok(v)
             }
 
-            Some(wrong_value) => Err(Error::TypeMismatch {
+            Some(wrong_value) => Err(DeserializeError::TypeMismatch {
                 expected_type: InterfaceType::String,
                 received_type: (*wrong_value).into(),
             }),
 
-            None => Err(Error::InputEmpty),
+            None => Err(DeserializeError::InputEmpty),
         }
     }
 
@@ -140,7 +150,7 @@ impl<'de> Deserializer<'de> {
 
 /// Represents an error while deserializing.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Error {
+pub enum DeserializeError {
     /// The input isn't empty, i.e. some values aren't deserialized.
     InputNotEmpty,
 
@@ -160,19 +170,19 @@ pub enum Error {
     Message(String),
 }
 
-impl de::Error for Error {
+impl de::Error for DeserializeError {
     fn custom<T: Display>(msg: T) -> Self {
-        Error::Message(msg.to_string())
+        Self::Message(msg.to_string())
     }
 }
 
-impl Display for Error {
+impl Display for DeserializeError {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::InputNotEmpty => write!(formatter, "Unexpected input remaining"),
-            Error::Message(ref msg) => write!(formatter, "{}", msg),
-            Error::InputEmpty => write!(formatter, "Unexpected end of input"),
-            Error::TypeMismatch {
+            Self::InputNotEmpty => write!(formatter, "Unexpected input remaining"),
+            Self::Message(ref msg) => write!(formatter, "{}", msg),
+            Self::InputEmpty => write!(formatter, "Unexpected end of input"),
+            Self::TypeMismatch {
                 ref expected_type,
                 ref received_type,
             } => write!(
@@ -184,14 +194,14 @@ impl Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for DeserializeError {}
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
-    type Error = Error;
+    type Error = DeserializeError;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         match self.iterator.peek() {
             Some(InterfaceValue::S8(_)) => self.deserialize_i8(visitor),
@@ -208,34 +218,34 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             Some(InterfaceValue::I32(_)) => self.deserialize_i32(visitor),
             Some(InterfaceValue::I64(_)) => self.deserialize_i64(visitor),
             Some(InterfaceValue::Record(_)) => unreachable!("Records should have been flatten."), // already flatten
-            None => Err(Error::InputEmpty),
+            None => Err(DeserializeError::InputEmpty),
         }
     }
 
     fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         unimplemented!("`bool` is not supported by WIT for the moment.")
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_i8(self.next_s8()?)
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_i16(self.next_s16()?)
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         // Both `InterfaceValue::S32` and `InterfaceValue::I32`
         // represent `i32`.
@@ -244,7 +254,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         // Both `InterfaceValue::S64` and `InterfaceValue::I64`
         // represent `i64`.
@@ -253,91 +263,91 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_u8(self.next_u8()?)
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_u16(self.next_u16()?)
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_u32(self.next_u32()?)
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_u64(self.next_u64()?)
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_f32(self.next_f32()?)
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_f64(self.next_f64()?)
     }
 
     fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("`char` is not supported by WIT for the moment.")
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_borrowed_str(self.next_string()?)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         self.deserialize_str(visitor)
     }
 
     fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("`bytes` is not supported by WIT for the moment.")
     }
 
     fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("`bytes` buffer is not supported by WIT for the moment.")
     }
 
     fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("`option` is not supported by WIT for the moment.")
     }
 
     fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("`unit` is not supported by WIT for the moment.")
     }
@@ -348,7 +358,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         _visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("`unit_struct` is not supported by WIT for the moment.")
     }
@@ -359,21 +369,21 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         self.deserialize_seq(visitor)
     }
 
     fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         visitor.visit_seq(Sequence::new(&mut self))
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         self.deserialize_seq(visitor)
     }
@@ -385,14 +395,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         self.deserialize_seq(visitor)
     }
 
     fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("`map` is not supported by WIT for the moment.")
     }
@@ -404,7 +414,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         self.deserialize_seq(visitor)
     }
@@ -416,21 +426,21 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         _visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("`enum` is not supported by WIT for the moment.")
     }
 
     fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("`identifier` is not supported by WIT for the moment.");
     }
 
     fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: Visitor<'de>,
+        V: de::Visitor<'de>,
     {
         todo!("`ignored_any` is not implemented for the moment.")
     }
@@ -449,18 +459,394 @@ impl<'a, 'de> Sequence<'a, 'de> {
     }
 }
 
-impl<'de, 'a> SeqAccess<'de> for Sequence<'a, 'de> {
-    type Error = Error;
+impl<'de, 'a> de::SeqAccess<'de> for Sequence<'a, 'de> {
+    type Error = DeserializeError;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
-        T: DeserializeSeed<'de>,
+        T: de::DeserializeSeed<'de>,
     {
         if self.de.iterator.peek().is_none() {
             return Ok(None);
         }
 
         seed.deserialize(&mut *self.de).map(Some)
+    }
+}
+
+/// The serializer.
+struct Serializer {
+    values: Vec<Vec<InterfaceValue>>,
+}
+
+impl Serializer {
+    fn new() -> Self {
+        Self {
+            values: vec![vec![]],
+        }
+    }
+
+    fn last(&mut self) -> &mut Vec<InterfaceValue> {
+        let index = self.values.len() - 1;
+
+        &mut self.values[index]
+    }
+
+    fn push_with_capacity(&mut self, capacity: usize) {
+        self.values.push(Vec::with_capacity(capacity));
+    }
+
+    fn pop(&mut self) -> Vec<InterfaceValue> {
+        assert!(self.values.len() >= 2);
+
+        self.values.pop().unwrap()
+    }
+}
+
+/// Represents an error while serializing.
+#[derive(Clone, Debug, PartialEq)]
+pub enum SerializeError {
+    /// Arbitrary message.
+    Message(String),
+}
+
+impl ser::Error for SerializeError {
+    fn custom<T: Display>(msg: T) -> Self {
+        Self::Message(msg.to_string())
+    }
+}
+
+impl Display for SerializeError {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Message(ref msg) => write!(formatter, "{}", msg),
+        }
+    }
+}
+
+impl std::error::Error for SerializeError {}
+
+impl<'a> ser::Serializer for &'a mut Serializer {
+    type Ok = ();
+    type Error = SerializeError;
+
+    type SerializeSeq = Self;
+    type SerializeTuple = Self;
+    type SerializeTupleStruct = Self;
+    type SerializeTupleVariant = Self;
+    type SerializeMap = Self;
+    type SerializeStruct = Self;
+    type SerializeStructVariant = Self;
+
+    fn serialize_bool(self, _value: bool) -> Result<Self::Ok, Self::Error> {
+        unimplemented!("`bool` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_i8(self, value: i8) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.into());
+
+        Ok(())
+    }
+
+    fn serialize_i16(self, value: i16) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.into());
+
+        Ok(())
+    }
+
+    fn serialize_i32(self, value: i32) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.into());
+
+        Ok(())
+    }
+
+    fn serialize_i64(self, value: i64) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.into());
+
+        Ok(())
+    }
+
+    fn serialize_u8(self, value: u8) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.into());
+
+        Ok(())
+    }
+
+    fn serialize_u16(self, value: u16) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.into());
+
+        Ok(())
+    }
+
+    fn serialize_u32(self, value: u32) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.into());
+
+        Ok(())
+    }
+
+    fn serialize_u64(self, value: u64) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.into());
+
+        Ok(())
+    }
+
+    fn serialize_f32(self, value: f32) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.into());
+
+        Ok(())
+    }
+
+    fn serialize_f64(self, value: f64) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.into());
+
+        Ok(())
+    }
+
+    fn serialize_char(self, _value: char) -> Result<Self::Ok, Self::Error> {
+        todo!("`char` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_str(self, value: &str) -> Result<Self::Ok, Self::Error> {
+        self.last().push(value.to_owned().into());
+
+        Ok(())
+    }
+
+    fn serialize_bytes(self, _value: &[u8]) -> Result<Self::Ok, Self::Error> {
+        todo!("`bytes` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
+        self.serialize_unit()
+    }
+
+    fn serialize_some<T>(self, _value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        todo!("`some` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+        todo!("`unit` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+        todo!("`unit_struct` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_unit_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!("`unit_variant` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_newtype_struct<T>(
+        self,
+        _name: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(self)
+    }
+
+    fn serialize_newtype_variant<T>(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _value: &T,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        todo!("`newtype_variant` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+        todo!("`seq` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+        todo!("`tuple` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleStruct, Self::Error> {
+        self.push_with_capacity(len);
+
+        Ok(self)
+    }
+
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
+        todo!("`tuple_variant` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        todo!("`map` is not supported by WIT for the moment.")
+    }
+
+    fn serialize_struct(
+        self,
+        _name: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeStruct, Self::Error> {
+        self.push_with_capacity(len);
+
+        Ok(self)
+    }
+
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStructVariant, Self::Error> {
+        todo!("`struct_variant` is not supported by WIT for the moment.")
+    }
+}
+
+impl<'a> ser::SerializeSeq for &'a mut Serializer {
+    type Ok = ();
+    type Error = SerializeError;
+
+    fn serialize_element<T>(&mut self, _value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        unimplemented!()
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'a> ser::SerializeTuple for &'a mut Serializer {
+    type Ok = ();
+    type Error = SerializeError;
+
+    fn serialize_element<T>(&mut self, _value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        unimplemented!()
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
+    type Ok = ();
+    type Error = SerializeError;
+
+    fn serialize_field<T>(&mut self, value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(&mut **self)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        let record = InterfaceValue::Record(self.pop());
+        self.last().push(record);
+
+        Ok(())
+    }
+}
+
+impl<'a> ser::SerializeTupleVariant for &'a mut Serializer {
+    type Ok = ();
+    type Error = SerializeError;
+
+    fn serialize_field<T>(&mut self, _value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        unimplemented!()
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'a> ser::SerializeMap for &'a mut Serializer {
+    type Ok = ();
+    type Error = SerializeError;
+
+    fn serialize_key<T>(&mut self, _key: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        unimplemented!()
+    }
+
+    fn serialize_value<T>(&mut self, _value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        unimplemented!()
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        unimplemented!()
+    }
+}
+
+impl<'a> ser::SerializeStruct for &'a mut Serializer {
+    type Ok = ();
+    type Error = SerializeError;
+
+    fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(&mut **self)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        let record = InterfaceValue::Record(self.pop());
+        self.last().push(record);
+
+        Ok(())
+    }
+}
+
+impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
+    type Ok = ();
+    type Error = SerializeError;
+
+    fn serialize_field<T>(
+        &mut self,
+        _key: &'static str,
+        _value: &T,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        unimplemented!()
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        unimplemented!()
     }
 }
 
@@ -472,7 +858,7 @@ mod tests {
     macro_rules! try_into {
         ($ty:ty) => {
             impl TryFrom<Vec<InterfaceValue>> for $ty {
-                type Error = Error;
+                type Error = DeserializeError;
 
                 fn try_from(value: Vec<InterfaceValue>) -> Result<Self, Self::Error> {
                     from_interface_values(&value)
@@ -480,7 +866,7 @@ mod tests {
             }
 
             impl TryFrom<&Vec<InterfaceValue>> for $ty {
-                type Error = Error;
+                type Error = DeserializeError;
 
                 fn try_from(value: &Vec<InterfaceValue>) -> Result<Self, Self::Error> {
                     from_interface_values(value)
@@ -594,37 +980,31 @@ mod tests {
         assert_eq!(input, output);
     }
 
-    macro_rules! value {
+    macro_rules! deserialize_value {
         ($test_name:ident, $variant:ident, $ty:ident, $value:expr) => {
             #[test]
             #[allow(non_snake_case)]
             fn $test_name() {
-                #[derive(Deserialize, Debug, PartialEq)]
-                struct S {
-                    x: $ty,
-                };
-
-                try_into!(S);
-
-                let input: S = vec![InterfaceValue::$variant($value)].try_into().unwrap();
-                let output = S { x: $value };
+                let input: $ty =
+                    from_interface_values(&vec![InterfaceValue::$variant($value)]).unwrap();
+                let output: $ty = $value;
 
                 assert_eq!(input, output);
             }
         };
     }
 
-    value!(test_deserialize_value__s8, S8, i8, 42);
-    value!(test_deserialize_value__s16, S16, i16, 42);
-    value!(test_deserialize_value__s32, S32, i32, 42);
-    value!(test_deserialize_value__s64, S64, i64, 42);
-    value!(test_deserialize_value__u8, U8, u8, 42);
-    value!(test_deserialize_value__u16, U16, u16, 42);
-    value!(test_deserialize_value__u32, U32, u32, 42);
-    value!(test_deserialize_value__u64, U64, u64, 42);
-    value!(test_deserialize_value__f32, F32, f32, 42.);
-    value!(test_deserialize_value__f64, F32, f32, 42.);
-    value!(
+    deserialize_value!(test_deserialize_value__s8, S8, i8, 42);
+    deserialize_value!(test_deserialize_value__s16, S16, i16, 42);
+    deserialize_value!(test_deserialize_value__s32, S32, i32, 42);
+    deserialize_value!(test_deserialize_value__s64, S64, i64, 42);
+    deserialize_value!(test_deserialize_value__u8, U8, u8, 42);
+    deserialize_value!(test_deserialize_value__u16, U16, u16, 42);
+    deserialize_value!(test_deserialize_value__u32, U32, u32, 42);
+    deserialize_value!(test_deserialize_value__u64, U64, u64, 42);
+    deserialize_value!(test_deserialize_value__f32, F32, f32, 42.);
+    deserialize_value!(test_deserialize_value__f64, F32, f32, 42.);
+    deserialize_value!(
         test_deserialize_value__string,
         String,
         String,
@@ -634,20 +1014,16 @@ mod tests {
     #[test]
     #[allow(non_snake_case)]
     fn test_deserialize_value__str() {
-        #[derive(Deserialize, Debug, PartialEq)]
-        struct S<'a> {
-            x: &'a str,
-        };
-
-        let v = vec![InterfaceValue::String("foo".to_string())];
-        let input: S = from_interface_values(&v).unwrap();
-        let output = S { x: "foo" };
+        let foo = "foo".to_string();
+        let values = vec![InterfaceValue::String(foo)];
+        let input: &str = from_interface_values(&values).unwrap();
+        let output: &str = "foo";
 
         assert_eq!(input, output);
     }
 
-    value!(test_deserialize_value__i32, I32, i32, 42);
-    value!(test_deserialize_value__i64, I64, i64, 42);
+    deserialize_value!(test_deserialize_value__i32, I32, i32, 42);
+    deserialize_value!(test_deserialize_value__i64, I64, i64, 42);
 
     #[test]
     #[allow(non_snake_case)]
@@ -690,13 +1066,118 @@ mod tests {
 
         try_into!(S);
 
-        let input: Result<S, Error> =
+        let input: Result<S, DeserializeError> =
             vec![InterfaceValue::I32(1), InterfaceValue::I32(2)].try_into();
-        let output = Err(Error::TypeMismatch {
+        let output = Err(DeserializeError::TypeMismatch {
             expected_type: InterfaceType::I64,
             received_type: InterfaceType::I32,
         });
 
         assert_eq!(input, output);
+    }
+
+    macro_rules! serialize_value {
+        ($test_name:ident, $ty:ident, $variant:ident, $value:expr) => {
+            #[test]
+            #[allow(non_snake_case)]
+            fn $test_name() {
+                let input: $ty = $value;
+                let output = InterfaceValue::$variant($value);
+
+                assert_eq!(to_interface_value(&input).unwrap(), output);
+            }
+        };
+    }
+
+    serialize_value!(test_serialize_value__s8, i8, S8, 42);
+    serialize_value!(test_serialize_value__s16, i16, S16, 42);
+    serialize_value!(test_serialize_value__i32, i32, I32, 42);
+    serialize_value!(test_serialize_value__i64, i64, I64, 42);
+    serialize_value!(test_serialize_value__u8, u8, U8, 42);
+    serialize_value!(test_serialize_value__u16, u16, U16, 42);
+    serialize_value!(test_serialize_value__u32, u32, U32, 42);
+    serialize_value!(test_serialize_value__u64, u64, U64, 42);
+    serialize_value!(test_serialize_value__f32, f32, F32, 42.);
+    serialize_value!(test_serialize_value__f64, f32, F32, 42.);
+    serialize_value!(
+        test_serialize_value__string,
+        String,
+        String,
+        "foo".to_string()
+    );
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_serialize_value__newtype_struct() {
+        #[derive(Serialize)]
+        struct S(i8);
+
+        let input = S(42);
+        let output = InterfaceValue::S8(42);
+
+        assert_eq!(to_interface_value(&input).unwrap(), output);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_serialize_value__tuple_struct() {
+        #[derive(Serialize)]
+        struct S(i8, f32);
+
+        let input = S(7, 42.);
+        let output = InterfaceValue::Record(vec![InterfaceValue::S8(7), InterfaceValue::F32(42.)]);
+
+        assert_eq!(to_interface_value(&input).unwrap(), output);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_serialize_value__struct() {
+        #[derive(Serialize)]
+        struct S {
+            x: i8,
+            y: f32,
+        }
+
+        let input = S { x: 7, y: 42. };
+        let output = InterfaceValue::Record(vec![InterfaceValue::S8(7), InterfaceValue::F32(42.)]);
+
+        assert_eq!(to_interface_value(&input).unwrap(), output);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_serialize_value__struct_nested() {
+        #[derive(Serialize)]
+        struct Point {
+            x: i32,
+            y: i32,
+            z: i32,
+        }
+
+        #[derive(Serialize)]
+        struct Line {
+            p1: Point,
+            p2: Point,
+        }
+
+        let input = Line {
+            p1: Point { x: 1, y: 2, z: 3 },
+            p2: Point { x: 4, y: 5, z: 6 },
+        };
+        let output = InterfaceValue::Record(vec![
+            InterfaceValue::Record(vec![
+                InterfaceValue::I32(1),
+                InterfaceValue::I32(2),
+                InterfaceValue::I32(3),
+            ]),
+            InterfaceValue::Record(vec![
+                InterfaceValue::I32(4),
+                InterfaceValue::I32(5),
+                InterfaceValue::I32(6),
+            ]),
+        ]);
+
+        assert_eq!(to_interface_value(&input).unwrap(), output);
     }
 }
