@@ -114,9 +114,19 @@ where
     let mut serializer = Serializer::new();
     value.serialize(&mut serializer)?;
 
-    assert_eq!(serializer.values.len(), 1);
+    if serializer.values.len() != 1 {
+        Err(SerializeError::TransformationNotFinished)
+    } else {
+        let mut first_values = serializer.values.pop().unwrap(); // this `unwrap` is safe because we are sure the length is 1.
 
-    Ok(serializer.values.pop().unwrap().pop().unwrap())
+        if first_values.len() != 1 {
+            Err(SerializeError::TransformationNotFinished)
+        } else {
+            let first_value = first_values.pop().unwrap(); // this `unwrap` is safe because we are sure the length is 1.
+
+            Ok(first_value)
+        }
+    }
 }
 
 /// The deserializer. The iterator iterates over `InterfaceValue`s,
@@ -535,16 +545,25 @@ impl Serializer {
         self.values.push(Vec::with_capacity(capacity));
     }
 
-    fn pop(&mut self) -> Vec<InterfaceValue> {
-        assert!(self.values.len() >= 2);
-
-        self.values.pop().unwrap()
+    fn pop(&mut self) -> Result<Vec<InterfaceValue>, SerializeError> {
+        if self.values.len() < 2 {
+            Err(SerializeError::InternalValuesCorrupted)
+        } else {
+            Ok(self.values.pop().unwrap()) // this `unwrap` is safe before `self.values` contains at least 2 items
+        }
     }
 }
 
 /// Represents an error while serializing.
 #[derive(Clone, Debug, PartialEq)]
 pub enum SerializeError {
+    /// The serialization still has pending values internally.
+    TransformationNotFinished,
+
+    /// The internal values have been corrupted during the
+    /// serialization.
+    InternalValuesCorrupted,
+
     /// Arbitrary message.
     Message(String),
 }
@@ -558,6 +577,14 @@ impl ser::Error for SerializeError {
 impl Display for SerializeError {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Self::TransformationNotFinished => write!(
+                formatter,
+                "serialization still has pending values internally, something incorrect happened"
+            ),
+            Self::InternalValuesCorrupted => write!(
+                formatter,
+                "the internal values have been corrutped during the serialization"
+            ),
             Self::Message(ref msg) => write!(formatter, "{}", msg),
         }
     }
@@ -804,7 +831,7 @@ impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        let record = InterfaceValue::Record(self.pop());
+        let record = InterfaceValue::Record(self.pop()?);
         self.last().push(record);
 
         Ok(())
@@ -862,7 +889,7 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        let record = InterfaceValue::Record(self.pop());
+        let record = InterfaceValue::Record(self.pop()?);
         self.last().push(record);
 
         Ok(())
