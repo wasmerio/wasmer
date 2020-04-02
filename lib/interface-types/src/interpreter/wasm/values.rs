@@ -69,9 +69,7 @@ impl From<&InterfaceValue> for InterfaceType {
             //InterfaceValue::Anyref(_) => Self::Anyref,
             InterfaceValue::I32(_) => Self::I32,
             InterfaceValue::I64(_) => Self::I64,
-            InterfaceValue::Record(values) => Self::Record(RecordType {
-                fields: values.iter().map(Into::into).collect(),
-            }),
+            InterfaceValue::Record(values) => Self::Record(values.into()),
         }
     }
 }
@@ -79,6 +77,14 @@ impl From<&InterfaceValue> for InterfaceType {
 impl Default for InterfaceValue {
     fn default() -> Self {
         Self::I32(0)
+    }
+}
+
+impl From<&Vec<InterfaceValue>> for RecordType {
+    fn from(values: &Vec<InterfaceValue>) -> Self {
+        RecordType {
+            fields: values.iter().map(Into::into).collect(),
+        }
     }
 }
 
