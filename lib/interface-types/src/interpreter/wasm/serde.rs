@@ -67,7 +67,46 @@ where
     }
 }
 
-/// foo
+/// Serialize a type `T` that implements the `Serialize` trait to an
+/// `InterfaceValue`.
+///
+/// This is not a requirement to use WIT, but Serde provides an even
+/// nicer API to the user to send its complex types to WIT.
+///
+/// # Example
+///
+/// ```rust
+/// use wasmer_interface_types::interpreter::wasm::values::{
+///     InterfaceValue,
+///     to_interface_value,
+/// };
+/// use serde::Serialize;
+///
+/// #[derive(Serialize)]
+/// struct S(i32, i64);
+///
+/// #[derive(Serialize)]
+/// struct T {
+///     x: String,
+///     s: S,
+///     y: f32,
+/// };
+///
+/// let input = T {
+///     x: "abc".to_string(),
+///     s: S(1, 2),
+///     y: 3.,
+/// };
+///
+/// assert_eq!(
+///     to_interface_value(&input).unwrap(),
+///     InterfaceValue::Record(vec![
+///         InterfaceValue::String("abc".to_string()),
+///         InterfaceValue::Record(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]),
+///         InterfaceValue::F32(3.),
+///     ]),
+/// );
+/// ```
 pub fn to_interface_value<T>(value: &T) -> Result<InterfaceValue, SerializeError>
 where
     T: Serialize,
