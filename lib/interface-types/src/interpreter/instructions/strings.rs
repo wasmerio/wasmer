@@ -259,7 +259,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory =
+        test_string_lower_memory =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory { allocator_index: 43 },
@@ -275,7 +275,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__roundtrip_ =
+        test_string__roundtrip =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory { allocator_index: 43 },
@@ -287,7 +287,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__allocator_does_not_exist =
+        test_string_lower_memory__allocator_does_not_exist =
             instructions: [Instruction::StringLowerMemory { allocator_index: 43 }],
             invocation_inputs: [],
             instance: Instance { ..Default::default() },
@@ -295,7 +295,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__stack_is_too_small =
+        test_string_lower_memory__stack_is_too_small =
             instructions: [
                 Instruction::StringLowerMemory { allocator_index: 43 }
                 //                                                ^^ `43` expects 1 value on the stack, none is present
@@ -306,7 +306,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__failure_when_calling_the_allocator =
+        test_string_lower_memory__failure_when_calling_the_allocator =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory { allocator_index: 153 }
@@ -330,7 +330,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__invalid_allocator_signature =
+        test_string_lower_memory__invalid_allocator_signature =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory { allocator_index: 153 }
