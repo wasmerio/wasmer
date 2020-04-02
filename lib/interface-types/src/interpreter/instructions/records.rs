@@ -1,6 +1,7 @@
 use crate::{
     ast::{InterfaceType, RecordType, Type, TypeKind},
     errors::{InstructionError, InstructionErrorKind},
+    interpreter::wasm::values::FlattenInterfaceValueIterator,
     interpreter::{
         stack::{Stack, Stackable},
         wasm::values::InterfaceValue,
@@ -131,6 +132,54 @@ executable_instruction!(
             runtime.stack.push(record);
 
             Ok(())
+        }
+    }
+);
+
+executable_instruction!(
+    record_lower(type_index: u32, instruction: Instruction) -> _ {
+        move |runtime| -> _ {
+            let instance = &runtime.wasm_instance;
+            let record_type = match instance.wit_type(type_index).ok_or_else(|| {
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::TypeIsMissing { type_index },
+                )
+            })? {
+                Type::Record(record_type) => record_type,
+                Type::Function { .. } => return Err(InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::InvalidTypeKind {
+                        expected_kind: TypeKind::Record,
+                        received_kind: TypeKind::Function
+                    }
+                )),
+            };
+
+            match runtime.stack.pop1() {
+                Some(InterfaceValue::Record(record_values)) if record_type == &(&record_values).into() => {
+                    let values = FlattenInterfaceValueIterator::new(&record_values);
+
+                    for value in values {
+                        runtime.stack.push(value.clone());
+                    }
+
+                    Ok(())
+                },
+
+                Some(value) => Err(InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::InvalidValueOnTheStack {
+                        expected_type: InterfaceType::Record(record_type.clone()),
+                        received_type: (&value).into(),
+                    }
+                )),
+
+                None => Err(InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::StackIsTooSmall { needed: 1 },
+                )),
+            }
         }
     }
 );
@@ -283,5 +332,92 @@ mod tests {
             ],
             instance: Instance::new(),
             error: r#"`record.lift 0` read a value of type `F64` from the stack, but the type `F32` was expected"#,
+    );
+
+    test_executable_instruction!(
+        test_record_lower =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::RecordLower { type_index: 0 },
+            ],
+            invocation_inputs: [
+                InterfaceValue::Record(vec![
+                    InterfaceValue::I32(1),
+                    InterfaceValue::Record(vec![
+                        InterfaceValue::String("Hello".to_string()),
+                        InterfaceValue::F32(2.),
+                    ]),
+                    InterfaceValue::I64(3),
+                ])
+            ],
+            instance: Instance::new(),
+            stack: [
+                InterfaceValue::I32(1),
+                InterfaceValue::String("Hello".to_string()),
+                InterfaceValue::F32(2.),
+                InterfaceValue::I64(3),
+            ],
+    );
+
+    test_executable_instruction!(
+        test_record__roundtrip =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::RecordLower { type_index: 0 },
+                Instruction::RecordLift { type_index: 0 },
+            ],
+            invocation_inputs: [
+                InterfaceValue::Record(vec![
+                    InterfaceValue::I32(1),
+                    InterfaceValue::Record(vec![
+                        InterfaceValue::String("Hello".to_string()),
+                        InterfaceValue::F32(2.),
+                    ]),
+                    InterfaceValue::I64(3),
+                ])
+            ],
+            instance: Instance::new(),
+            stack: [
+                InterfaceValue::Record(vec![
+                    InterfaceValue::I32(1),
+                    InterfaceValue::Record(vec![
+                        InterfaceValue::String("Hello".to_string()),
+                        InterfaceValue::F32(2.),
+                    ]),
+                    InterfaceValue::I64(3),
+                ])
+            ],
+    );
+
+    test_executable_instruction!(
+        test_record_lower__invalid_value_on_the_stack =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::RecordLower { type_index: 0 },
+            ],
+            invocation_inputs: [
+                InterfaceValue::I32(1),
+            ],
+            instance: Instance::new(),
+            error: r#"`record.lower 0` read a value of type `I32` from the stack, but the type `Record(RecordType { fields: [I32, Record(RecordType { fields: [String, F32] }), I64] })` was expected"#,
+    );
+
+    test_executable_instruction!(
+        test_record_lower__invalid_value_on_the_stack__different_record_type =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::RecordLower { type_index: 0 },
+            ],
+            invocation_inputs: [
+                InterfaceValue::Record(vec![
+                    InterfaceValue::I32(1),
+                    InterfaceValue::Record(vec![
+                        InterfaceValue::String("Hello".to_string()),
+                    ]),
+                    InterfaceValue::I64(3),
+                ])
+            ],
+            instance: Instance::new(),
+            error: r#"`record.lower 0` read a value of type `Record(RecordType { fields: [I32, Record(RecordType { fields: [String] }), I64] })` from the stack, but the type `Record(RecordType { fields: [I32, Record(RecordType { fields: [String, F32] }), I64] })` was expected"#,
     );
 }

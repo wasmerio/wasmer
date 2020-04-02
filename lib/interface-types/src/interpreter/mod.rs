@@ -238,6 +238,9 @@ where
                 Instruction::RecordLift { type_index } => {
                     instructions::record_lift(*type_index, *instruction)
                 }
+                Instruction::RecordLower { type_index } => {
+                    instructions::record_lower(*type_index, *instruction)
+                }
             })
             .collect();
 
