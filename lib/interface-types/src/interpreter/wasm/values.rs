@@ -5,7 +5,7 @@ use crate::errors::WasmValueNativeCastError;
 use std::{convert::TryFrom, slice::Iter};
 
 #[cfg(feature = "serde")]
-pub use crate::interpreter::wasm::serde::*;
+pub use crate::interpreter::wasm::serde::{de::*, ser::*};
 
 /// A WIT value.
 #[derive(Debug, Clone, PartialEq)]
