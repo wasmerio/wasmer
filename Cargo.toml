@@ -1,5 +1,5 @@
 [package]
-name = "wasmer"
+name = "wasmer-bin"
 version = "0.16.2"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
@@ -27,6 +27,7 @@ fern = { version = "0.5", features = ["colored"], optional = true }
 log = "0.4"
 structopt = "0.3"
 wabt = { version = "0.9.1", optional = true }
+wasmer = { path = "lib/api" }
 wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
@@ -44,6 +45,8 @@ wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices
 
 [workspace]
 members = [
+    "lib/api",
+    "lib/api-tests",
     "lib/clif-backend",
     "lib/singlepass-backend",
     "lib/runtime",

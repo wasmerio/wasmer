@@ -257,6 +257,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
+    // TODO: document the invariants `unsafe` requires here
     pub(crate) unsafe fn from_raw_parts(
         inner: Wasm,
         func: NonNull<vm::Func>,

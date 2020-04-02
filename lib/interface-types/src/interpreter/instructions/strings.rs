@@ -10,7 +10,7 @@ use crate::{
         Instruction,
     },
 };
-use std::cell::Cell;
+use std::{cell::Cell, convert::TryInto};
 
 executable_instruction!(
     string_lift_memory(instruction: Instruction) -> _ {
@@ -23,7 +23,6 @@ executable_instruction!(
             })?;
 
             let memory_index: u32 = 0;
-
             let memory = runtime
                 .wasm_instance
                 .memory(memory_index as usize)
@@ -34,8 +33,14 @@ executable_instruction!(
                     )
                 })?;
 
-            let pointer = to_native::<i32>(&inputs[0], instruction)? as usize;
-            let length = to_native::<i32>(&inputs[1], instruction)? as usize;
+            let pointer: usize = to_native::<i32>(&inputs[0], instruction)?
+                .try_into()
+                .map_err(|e| (e, "pointer").into())
+                .map_err(|k| InstructionError::new(instruction, k))?;
+            let length: usize = to_native::<i32>(&inputs[1], instruction)?
+                .try_into()
+                .map_err(|e| (e, "length").into())
+                .map_err(|k| InstructionError::new(instruction, k))?;
             let memory_view = memory.view();
 
             if length == 0 {
@@ -102,7 +107,12 @@ executable_instruction!(
 
             let string: String = to_native(&string, instruction)?;
             let string_bytes = string.as_bytes();
-            let string_length = string_bytes.len() as i32;
+            let string_length: i32 = string_bytes.len().try_into().map_err(|_| {
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::NegativeValue { subject: "string_length" },
+                )
+            })?;
 
             let outputs = allocator.call(&[InterfaceValue::I32(string_length)]).map_err(|_| {
                 InstructionError::new(
@@ -110,7 +120,12 @@ executable_instruction!(
                     InstructionErrorKind::LocalOrImportCall { function_index: allocator_index },
                 )
             })?;
-            let string_pointer: i32 = to_native(&outputs[0], instruction)?;
+            let string_pointer: u32 = to_native::<i32>(&outputs[0], instruction)?.try_into().map_err(|_| {
+                InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::NegativeValue { subject: "string_pointer" },
+                )
+            })?;
 
             let memory_index: u32 = 0;
             let memory_view = instance
@@ -127,7 +142,7 @@ executable_instruction!(
                 memory_view[string_pointer as usize + nth].set(*byte);
             }
 
-            runtime.stack.push(InterfaceValue::I32(string_pointer));
+            runtime.stack.push(InterfaceValue::I32(string_pointer as i32));
             runtime.stack.push(InterfaceValue::I32(string_length));
 
             Ok(())
@@ -201,6 +216,42 @@ mod tests {
                 ..Default::default()
             },
             stack: [InterfaceValue::String("".into())],
+    );
+
+    test_executable_instruction!(
+        test_string_lift_memory__negative_pointer =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::StringLiftMemory,
+            ],
+            invocation_inputs: [
+                InterfaceValue::I32(-42),
+                InterfaceValue::I32(13),
+            ],
+            instance: Instance {
+                memory: Memory::new("Hello!".as_bytes().iter().map(|u| Cell::new(*u)).collect()),
+                ..Default::default()
+            },
+            error: r#"`string.lift_memory` attempted to convert `pointer` but it appears to be a negative value"#,
+    );
+
+    test_executable_instruction!(
+        test_string_lift_memory__negative_length =
+            instructions: [
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
+                Instruction::StringLiftMemory,
+            ],
+            invocation_inputs: [
+                InterfaceValue::I32(0),
+                InterfaceValue::I32(-1),
+            ],
+            instance: Instance {
+                memory: Memory::new("Hello!".as_bytes().iter().map(|u| Cell::new(*u)).collect()),
+                ..Default::default()
+            },
+            error: r#"`string.lift_memory` attempted to convert `length` but it appears to be a negative value"#,
     );
 
     test_executable_instruction!(

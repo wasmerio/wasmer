@@ -190,7 +190,7 @@ fn bench_metering(c: &mut Criterion) {
             let module = compile_with(&wasm_binary, &compiler).unwrap();
             let import_object = imports! {};
             let instance = module.instantiate(&import_object).unwrap();
-            let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
+            let add_to: Func<(i32, i32), i32> = instance.exports.get("add_to").unwrap();
             b.iter(|| black_box(add_to.call(100, 4)))
         })
         .with_function("Gas Metering", |b| {
@@ -203,7 +203,7 @@ fn bench_metering(c: &mut Criterion) {
                 },
             };
             let gas_instance = gas_module.instantiate(&gas_import_object).unwrap();
-            let gas_add_to: Func<(i32, i32), i32> = gas_instance.func("add_to").unwrap();
+            let gas_add_to: Func<(i32, i32), i32> = gas_instance.exports.get("add_to").unwrap();
             b.iter(|| black_box(gas_add_to.call(100, 4)))
         })
         .with_function("Built-in Metering", |b| {
@@ -215,7 +215,8 @@ fn bench_metering(c: &mut Criterion) {
                 .instantiate(&metering_import_object)
                 .unwrap();
             metering::set_points_used(&mut metering_instance, 0u64);
-            let metering_add_to: Func<(i32, i32), i32> = metering_instance.func("add_to").unwrap();
+            let metering_add_to: Func<(i32, i32), i32> =
+                metering_instance.exports.get("add_to").unwrap();
             b.iter(|| black_box(metering_add_to.call(100, 4)))
         }),
     );

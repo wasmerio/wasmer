@@ -160,6 +160,7 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 capi-test: test-capi
 
 test-rest:
+	cargo test --release -p api-tests
 	cargo test --release -p wasmer-dev-utils
 	cargo test --release -p wasmer-interface-types
 	cargo test --release -p wasmer-kernel-loader

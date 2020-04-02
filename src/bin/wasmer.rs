@@ -22,7 +22,7 @@ use std::str::FromStr;
 
 use structopt::{clap, StructOpt};
 
-use wasmer::*;
+use wasmer_bin::*;
 #[cfg(feature = "backend-cranelift")]
 use wasmer_clif_backend::CraneliftCompiler;
 #[cfg(feature = "backend-llvm")]
@@ -31,7 +31,7 @@ use wasmer_llvm_backend::{
 };
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
-    Backend, Value, VERSION,
+    Backend, DynFunc, Value, VERSION,
 };
 #[cfg(feature = "managed")]
 use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
@@ -437,8 +437,10 @@ fn execute_wasi(
         .instantiate(&import_object)
         .map_err(|e| format!("Can't instantiate WASI module: {:?}", e))?;
 
-    let start: wasmer_runtime::Func<(), ()> =
-        instance.func("_start").map_err(|e| format!("{:?}", e))?;
+    let start: wasmer_runtime::Func<(), ()> = instance
+        .exports
+        .get("_start")
+        .map_err(|e| format!("{:?}", e))?;
 
     #[cfg(feature = "managed")]
     {
@@ -506,7 +508,8 @@ fn execute_wasi(
             eprintln!("WARNING: Invoking aribtrary functions with WASI is not officially supported in the WASI standard yet.  Use this feature at your own risk!");
             let args = options.parse_args(&module, invoke_fn)?;
             let invoke_result = instance
-                .dyn_func(invoke_fn)
+                .exports
+                .get::<DynFunc>(invoke_fn)
                 .map_err(|e| format!("Invoke failed: {:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("Calling invoke fn failed: {:?}", e))?;
@@ -900,7 +903,8 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
                 };
 
             let result = instance
-                .dyn_func(&invoke_fn)
+                .exports
+                .get::<DynFunc>(&invoke_fn)
                 .map_err(|e| format!("{:?}", e))?
                 .call(&args)
                 .map_err(|e| format!("{:?}", e))?;

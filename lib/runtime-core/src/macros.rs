@@ -76,7 +76,7 @@ macro_rules! func {
 /// ```
 #[macro_export]
 macro_rules! imports {
-    ( $( $ns_name:expr => $ns:tt, )* ) => {{
+    ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {{
         use $crate::{
             import::{ImportObject, Namespace},
         };
@@ -91,7 +91,7 @@ macro_rules! imports {
 
         import_object
     }};
-    ($state_gen:expr, $( $ns_name:expr => $ns:tt, )* ) => {{
+    ($state_gen:expr, $( $ns_name:expr => $ns:tt ),* $(,)? ) => {{
         use $crate::{
             import::{ImportObject, Namespace},
         };
@@ -111,7 +111,7 @@ macro_rules! imports {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __imports_internal {
-    ( { $( $imp_name:expr => $import_item:expr, )* } ) => {{
+    ( { $( $imp_name:expr => $import_item:expr ),* $(,)? } ) => {{
         let mut ns = Namespace::new();
         $(
             ns.insert($imp_name, $import_item);
@@ -126,11 +126,93 @@ macro_rules! __imports_internal {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! namespace {
-    ( $( $imp_name:expr => $import_item:expr, )* ) => {{
+    ( $( $imp_name:expr => $import_item:expr ),* $(,)? ) => {{
         let mut ns = $crate::import::Namespace::new();
         $(
             ns.insert($imp_name, $import_item);
         )*
         ns
     }};
+}
+
+#[cfg(test)]
+mod test {
+    fn func(arg: i32) -> i32 {
+        arg + 1
+    }
+
+    #[test]
+    fn imports_macro_allows_trailing_comma_and_none() {
+        let _ = imports! {
+            "env" => {
+                "func" => func!(func),
+            },
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => func!(func),
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => func!(func),
+            },
+            "abc" => {
+                "def" => func!(func),
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => func!(func)
+            },
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => func!(func)
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func1" => func!(func),
+                "func2" => func!(func)
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func1" => func!(func),
+                "func2" => func!(func),
+            }
+        };
+    }
+
+    #[test]
+    fn imports_macro_allows_trailing_comma_and_none_with_state() {
+        use std::{ffi, ptr};
+
+        fn dtor(_arg: *mut ffi::c_void) {}
+        fn state_creator() -> (*mut ffi::c_void, fn(*mut ffi::c_void)) {
+            (ptr::null_mut() as *mut ffi::c_void, dtor)
+        }
+        let _ = imports! {
+            state_creator,
+            "env" => {
+                "func1" => func!(func),
+                "func2" => func!(func),
+            }
+        };
+        let _ = imports! {
+            state_creator,
+            "env" => {
+                "func1" => func!(func),
+                "func2" => func!(func)
+            },
+        };
+        let _ = imports! {
+            state_creator,
+            "env" => {
+                "func1" => func!(func),
+                "func2" => func!(func),
+            },
+        };
+    }
 }

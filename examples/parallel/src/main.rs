@@ -1,5 +1,7 @@
 use rayon::prelude::*;
-use wasmer_runtime::{compile_with, compiler_for_backend, func, imports, instantiate, Backend};
+use wasmer_runtime::{
+    compile_with, compiler_for_backend, func, imports, instantiate, Backend, Func,
+};
 use wasmer_runtime_core::{
     memory::ptr::{Array, WasmPtr},
     vm::Ctx,
@@ -61,7 +63,8 @@ fn main() {
                     .clone()
                     .instantiate(&imports)
                     .expect("failed to instantiate wasm module");
-                let check_password = instance.func::<(u64, u64), u64>("check_password").unwrap();
+                let check_password: Func<(u64, u64), u64> =
+                    instance.exports.get("check_password").unwrap();
                 let j = i * 10000;
                 let result = check_password.call(j, j + 10000).unwrap();
                 print!(".");
@@ -101,7 +104,7 @@ fn main() {
     let instance =
         instantiate(&wasm_bytes[..], &imports).expect("failed to instantiate wasm module");
 
-    let check_password = instance.func::<(u64, u64), u64>("check_password").unwrap();
+    let check_password: Func<(u64, u64), u64> = instance.exports.get("check_password").unwrap();
 
     let mut out: Option<RetStr> = None;
     for i in (0..=u64::max_value()).step_by(10000) {

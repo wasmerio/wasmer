@@ -2,9 +2,17 @@
 
 ## **[Unreleased]**
 
+- [#1345](https://github.com/wasmerio/wasmer/pull/1345) Adding ARM testing in Azure Pipelines
+- [#1335](https://github.com/wasmerio/wasmer/pull/1335) Change mutability of `memory` to `const` in `wasmer_memory_data_length` in the C API
 - [#1329](https://github.com/wasmerio/wasmer/pull/1329) New numbers and strings instructions for WIT
 - [#1332](https://github.com/wasmerio/wasmer/pull/1332) Add option to `CompilerConfig` to force compiler IR verification off even when `debug_assertions` are enabled. This can be used to make debug builds faster, which may be important if you're creating a library that wraps Wasmer and depend on the speed of debug builds.
 - [#1320](https://github.com/wasmerio/wasmer/pull/1320) Change `custom_sections` field in `ModuleInfo` to be more standards compliant by allowing multiple custom sections with the same name. To get the old behavior with the new API, you can add `.last().unwrap()` to accesses. For example, `module_info.custom_sections["custom_section_name"].last().unwrap()`.
+- [#1313](https://github.com/wasmerio/wasmer/pull/1313) Add new high-level public API through `wasmer` crate. Includes many updates including:
+  - Minor improvement: `imports!` macro now handles no trailing comma as well as a trailing comma in namespaces and between namespaces.
+  - New methods on `Module`: `exports`, `imports`, and `custom_sections`.
+  - New way to get exports from an instance with `let func_name: Func<i32, i64> = instance.exports.get("func_name");`.
+  - Improved `Table` APIs including `set` which now allows setting functions directly.  TODO: update this more if `Table::get` gets made public in this PR
+  - TODO: finish the list of changes here
 - [#1303](https://github.com/wasmerio/wasmer/pull/1303) NaN canonicalization for singlepass backend.
 - [#1292](https://github.com/wasmerio/wasmer/pull/1292) Experimental Support for Android (x86_64 and AArch64)
 - [#1305](https://github.com/wasmerio/wasmer/pull/1305) Handle panics from DynamicFunc.

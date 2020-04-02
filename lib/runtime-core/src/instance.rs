@@ -1,10 +1,12 @@
-//! The instance module contains the implementation data structures and helper functions used to
-//! manipulate and access wasm instances.
+//! This module contains types for manipulating and accessing Wasm instances.
+//!
+//! An "instance", or "instantiated module", is a compiled WebAssembly [`Module`] with its
+//! corresponding imports (via [`ImportObject`]) that is ready to execute.
 use crate::{
     backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
-    error::{CallError, CallResult, ResolveError, ResolveResult, Result, RuntimeError},
-    export::{Context, Export, ExportIter, FuncPointer},
+    error::{CallResult, ResolveError, ResolveResult, Result, RuntimeError},
+    export::{Context, Export, ExportIter, Exportable, FuncPointer},
     global::Global,
     import::{ImportObject, LikeNamespace},
     loader::Loader,
@@ -19,6 +21,7 @@ use crate::{
 };
 use smallvec::{smallvec, SmallVec};
 use std::{
+    borrow::Borrow,
     mem,
     pin::Pin,
     ptr::{self, NonNull},
@@ -53,6 +56,8 @@ pub struct Instance {
     /// Reference to the module used to instantiate this instance.
     pub module: Arc<ModuleInner>,
     inner: Pin<Box<InstanceInner>>,
+    /// The exports of this instance.
+    pub exports: Exports,
     #[allow(dead_code)]
     import_object: ImportObject,
 }
@@ -89,9 +94,15 @@ impl Instance {
         };
         Box::leak(vmctx);
 
+        let exports = Exports {
+            module: module.clone(),
+            instance_inner: &*inner as *const InstanceInner,
+        };
+
         let instance = Instance {
             module,
             inner,
+            exports,
             import_object: imports.clone_ref(),
         };
 
@@ -170,103 +181,21 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
+    #[deprecated(
+        since = "0.17.0",
+        note = "Please use `instance.exports.get(name)` instead"
+    )]
     pub fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Wasm>>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
-
-        if let ExportIndex::Func(func_index) = export_index {
-            let sig_index = *self
-                .module
-                .info
-                .func_assoc
-                .get(*func_index)
-                .expect("broken invariant, incorrect func index");
-            let signature =
-                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
-
-            if signature.params() != Args::types() || signature.returns() != Rets::types() {
-                Err(ResolveError::Signature {
-                    expected: (*signature).clone(),
-                    found: Args::types().to_vec(),
-                })?;
-            }
-
-            let ctx = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(_) => self.inner.vmctx,
-                LocalOrImport::Import(imported_func_index) => unsafe {
-                    self.inner.import_backing.vm_functions[imported_func_index]
-                        .func_ctx
-                        .as_ref()
-                }
-                .vmctx
-                .as_ptr(),
-            };
-
-            let func_wasm_inner = self
-                .module
-                .runnable_module
-                .get_trampoline(&self.module.info, sig_index)
-                .unwrap();
-
-            let (func_ptr, func_env) = match func_index.local_or_import(&self.module.info) {
-                LocalOrImport::Local(local_func_index) => (
-                    self.module
-                        .runnable_module
-                        .get_func(&self.module.info, local_func_index)
-                        .unwrap(),
-                    None,
-                ),
-                LocalOrImport::Import(import_func_index) => {
-                    let imported_func = &self.inner.import_backing.vm_functions[import_func_index];
-
-                    (
-                        NonNull::new(imported_func.func as *mut _).unwrap(),
-                        unsafe { imported_func.func_ctx.as_ref() }.func_env,
-                    )
-                }
-            };
-
-            let typed_func: Func<Args, Rets, Wasm> =
-                unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, func_env, ctx) };
-
-            Ok(typed_func)
-        } else {
-            Err(ResolveError::ExportWrongType {
-                name: name.to_string(),
-            }
-            .into())
-        }
+        self.exports.get(name)
     }
 
     /// Resolve a function by name.
     pub fn resolve_func(&self, name: &str) -> ResolveResult<usize> {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
-
-        if let ExportIndex::Func(func_index) = export_index {
-            Ok(func_index.index())
-        } else {
-            Err(ResolveError::ExportWrongType {
-                name: name.to_string(),
-            }
-            .into())
-        }
+        resolve_func_index(&*self.module, name).map(|fi| fi.index())
     }
 
     /// This returns the representation of a function that can be called
@@ -283,38 +212,12 @@ impl Instance {
     /// # Ok(())
     /// # }
     /// ```
+    #[deprecated(
+        since = "0.17.0",
+        note = "Please use `instance.exports.get(name)` instead"
+    )]
     pub fn dyn_func(&self, name: &str) -> ResolveResult<DynFunc> {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
-
-        if let ExportIndex::Func(func_index) = export_index {
-            let sig_index = *self
-                .module
-                .info
-                .func_assoc
-                .get(*func_index)
-                .expect("broken invariant, incorrect func index");
-            let signature =
-                SigRegistry.lookup_signature_ref(&self.module.info.signatures[sig_index]);
-
-            Ok(DynFunc {
-                signature,
-                module: &self.module,
-                instance_inner: &self.inner,
-                func_index: *func_index,
-            })
-        } else {
-            Err(ResolveError::ExportWrongType {
-                name: name.to_string(),
-            }
-            .into())
-        }
+        self.exports.get(name)
     }
 
     /// Call an exported WebAssembly function given the export name.
@@ -326,6 +229,23 @@ impl Instance {
     /// # Note:
     /// This returns `CallResult<Vec<Value>>` in order to support
     /// the future multi-value returns WebAssembly feature.
+    ///
+    /// Consider using the more explicit [`Exports::get`]` with [`DynFunc::call`]
+    /// instead. For example:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::types::Value;
+    /// # use wasmer_runtime_core::error::Result;
+    /// # use wasmer_runtime_core::Instance;
+    /// # use wasmer_runtime_core::DynFunc;
+    /// # fn call_foo(instance: &mut Instance) -> Result<()> {
+    /// // ...
+    /// let foo: DynFunc = instance.exports.get("foo")?;
+    /// let results = foo.call(&[Value::I32(42)])?;
+    /// // ...
+    /// # Ok(())
+    /// # }
+    /// ```
     ///
     /// # Usage:
     /// ```
@@ -340,37 +260,8 @@ impl Instance {
     /// # }
     /// ```
     pub fn call(&self, name: &str, params: &[Value]) -> CallResult<Vec<Value>> {
-        let export_index =
-            self.module
-                .info
-                .exports
-                .get(name)
-                .ok_or_else(|| ResolveError::ExportNotFound {
-                    name: name.to_string(),
-                })?;
-
-        let func_index = if let ExportIndex::Func(func_index) = export_index {
-            *func_index
-        } else {
-            return Err(CallError::Resolve(ResolveError::ExportWrongType {
-                name: name.to_string(),
-            })
-            .into());
-        };
-
-        let mut results = Vec::new();
-
-        call_func_with_index(
-            &self.module.info,
-            &**self.module.runnable_module,
-            &self.inner.import_backing,
-            self.inner.vmctx,
-            func_index,
-            params,
-            &mut results,
-        )?;
-
-        Ok(results)
+        let func: DynFunc = self.exports.get(name)?;
+        func.call(params)
     }
 
     /// Returns an immutable reference to the
@@ -408,6 +299,27 @@ impl Instance {
     /// Set the value of an internal field.
     pub fn set_internal(&mut self, field: &InternalField, value: u64) {
         self.inner.backing.internals.0[field.index()] = value;
+    }
+}
+
+/// Private function used to find the [`FuncIndex`] of a given export.
+fn resolve_func_index(module: &ModuleInner, name: &str) -> ResolveResult<FuncIndex> {
+    let export_index =
+        module
+            .info
+            .exports
+            .get(name)
+            .ok_or_else(|| ResolveError::ExportNotFound {
+                name: name.to_string(),
+            })?;
+
+    if let ExportIndex::Func(func_index) = export_index {
+        Ok(*func_index)
+    } else {
+        Err(ResolveError::ExportWrongType {
+            name: name.to_string(),
+        }
+        .into())
     }
 }
 
@@ -811,6 +723,219 @@ impl<'a> DynFunc<'a> {
                 self.instance_inner.import_backing.vm_functions[import_func_index].func
             }
         }
+    }
+}
+
+impl<'a> Exportable<'a> for Memory {
+    fn get_self(exports: &'a Exports, name: &str) -> ResolveResult<Self> {
+        let (inst_inner, module) = exports.get_inner();
+        let export_index =
+            module
+                .info
+                .exports
+                .get(name)
+                .ok_or_else(|| ResolveError::ExportNotFound {
+                    name: name.to_string(),
+                })?;
+        if let ExportIndex::Memory(idx) = export_index {
+            Ok(inst_inner.get_memory_from_index(module, *idx))
+        } else {
+            Err(ResolveError::ExportWrongType {
+                name: name.to_string(),
+            })
+        }
+    }
+}
+
+impl<'a> Exportable<'a> for Table {
+    fn get_self(exports: &'a Exports, name: &str) -> ResolveResult<Self> {
+        let (inst_inner, module) = exports.get_inner();
+        let export_index =
+            module
+                .info
+                .exports
+                .get(name)
+                .ok_or_else(|| ResolveError::ExportNotFound {
+                    name: name.to_string(),
+                })?;
+        if let ExportIndex::Table(idx) = export_index {
+            Ok(inst_inner.get_table_from_index(module, *idx))
+        } else {
+            Err(ResolveError::ExportWrongType {
+                name: name.to_string(),
+            })
+        }
+    }
+}
+
+impl<'a> Exportable<'a> for Global {
+    fn get_self(exports: &'a Exports, name: &str) -> ResolveResult<Self> {
+        let (inst_inner, module) = exports.get_inner();
+        let export_index =
+            module
+                .info
+                .exports
+                .get(name)
+                .ok_or_else(|| ResolveError::ExportNotFound {
+                    name: name.to_string(),
+                })?;
+        if let ExportIndex::Global(idx) = export_index {
+            Ok(inst_inner.get_global_from_index(module, *idx))
+        } else {
+            Err(ResolveError::ExportWrongType {
+                name: name.to_string(),
+            })
+        }
+    }
+}
+
+impl<'a> Exportable<'a> for DynFunc<'a> {
+    fn get_self(exports: &'a Exports, name: &str) -> ResolveResult<Self> {
+        let (inst_inner, module) = exports.get_inner();
+        let func_index = resolve_func_index(module, name)?;
+
+        let sig_index = *module
+            .info
+            .func_assoc
+            .get(func_index)
+            .expect("broken invariant, incorrect func index");
+        let signature = SigRegistry.lookup_signature_ref(&module.info.signatures[sig_index]);
+
+        Ok(DynFunc {
+            signature,
+            module: &module,
+            instance_inner: &inst_inner,
+            func_index: func_index,
+        })
+    }
+}
+
+impl<'a, Args: WasmTypeList, Rets: WasmTypeList> Exportable<'a> for Func<'a, Args, Rets, Wasm> {
+    fn get_self(exports: &'a Exports, name: &str) -> ResolveResult<Self> {
+        let (inst_inner, module) = exports.get_inner();
+
+        let func_index = resolve_func_index(module, name)?;
+
+        let sig_index = *module
+            .info
+            .func_assoc
+            .get(func_index)
+            .expect("broken invariant, incorrect func index");
+        let signature = SigRegistry.lookup_signature_ref(&module.info.signatures[sig_index]);
+
+        if signature.params() != Args::types() || signature.returns() != Rets::types() {
+            Err(ResolveError::Signature {
+                expected: (*signature).clone(),
+                found: Args::types().to_vec(),
+            })?;
+        }
+
+        let ctx = match func_index.local_or_import(&module.info) {
+            LocalOrImport::Local(_) => inst_inner.vmctx,
+            LocalOrImport::Import(imported_func_index) => unsafe {
+                inst_inner.import_backing.vm_functions[imported_func_index]
+                    .func_ctx
+                    .as_ref()
+            }
+            .vmctx
+            .as_ptr(),
+        };
+
+        let func_wasm_inner = module
+            .runnable_module
+            .get_trampoline(&module.info, sig_index)
+            .unwrap();
+
+        let (func_ptr, func_env) = match func_index.local_or_import(&module.info) {
+            LocalOrImport::Local(local_func_index) => (
+                module
+                    .runnable_module
+                    .get_func(&module.info, local_func_index)
+                    .unwrap(),
+                None,
+            ),
+            LocalOrImport::Import(import_func_index) => {
+                let imported_func = &inst_inner.import_backing.vm_functions[import_func_index];
+
+                (
+                    NonNull::new(imported_func.func as *mut _).unwrap(),
+                    unsafe { imported_func.func_ctx.as_ref() }.func_env,
+                )
+            }
+        };
+
+        let typed_func: Func<Args, Rets, Wasm> =
+            unsafe { Func::from_raw_parts(func_wasm_inner, func_ptr, func_env, ctx) };
+
+        Ok(typed_func)
+    }
+}
+
+/// `Exports` is used to get exports like [`Func`]s, [`DynFunc`]s, [`Memory`]s,
+/// [`Global`]s, and [`Table`]s from an [`Instance`].
+///
+/// Use `Instance.exports` to get an `Exports` from an [`Instance`].
+pub struct Exports {
+    // We want to avoid the borrow checker here.
+    // This is safe because
+    // 1. `Exports` can't be constructed, its fields inspected (directly or via methods),
+    //    or copied outside of this module/in Instance, so it can't safely outlive `Instance`.
+    // 2. `InstanceInner` is `Pin<Box<>>`, thus we know that it will not move.
+    instance_inner: *const InstanceInner,
+    module: Arc<ModuleInner>,
+}
+
+// this is safe because the lifetime of `Exports` is tied to `Instance` and
+// `*const InstanceInner` comes from a `Pin<Box<InstanceInner>>`
+unsafe impl Send for Exports {}
+
+impl Exports {
+    /// Get an export.
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{DynFunc, Func, Instance};
+    /// # use wasmer_runtime_core::global::Global;
+    /// # use wasmer_runtime_core::types::Value;
+    /// # use wasmer_runtime_core::error::ResolveResult;
+    /// # fn example_fn(instance: &Instance) -> ResolveResult<()> {
+    /// // We can get a function as a static `Func`
+    /// let func: Func<i32, i32> = instance.exports.get("my_func")?;
+    /// let _result = func.call(42);
+    ///
+    /// // Or we can get it as a dynamic `DynFunc`
+    /// let dyn_func: DynFunc = instance.exports.get("my_func")?;
+    /// let _result= dyn_func.call(&[Value::I32(42)]);
+    ///
+    /// // We can also get other exports like `Global`s, `Memory`s, and `Table`s
+    /// let _counter: Global = instance.exports.get("counter")?;
+    ///
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> ResolveResult<T> {
+        T::get_self(self, name)
+    }
+
+    /// This method must remain private for `Exports` to be sound.
+    fn get_inner(&self) -> (&InstanceInner, &ModuleInner) {
+        let inst_inner = unsafe { &*self.instance_inner };
+        let module = self.module.borrow();
+        (inst_inner, module)
+    }
+
+    /// Iterate the exports.
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::instance::Instance;
+    /// # fn iterate_exports_example(instance: &Instance) {
+    /// for (export_name, export_value) in instance.exports.into_iter() {
+    ///    println!("Found export `{}` with value `{:?}`", export_name, export_value);
+    /// }
+    /// # }
+    /// ```
+    pub fn into_iter(&self) -> ExportIter {
+        let (inst_inner, module) = self.get_inner();
+        ExportIter::new(&module, &inst_inner)
     }
 }
 

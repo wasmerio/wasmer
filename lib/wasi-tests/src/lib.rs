@@ -35,7 +35,7 @@ fn serializing_works() {
     let state_bytes = {
         let instance = module.instantiate(&import_object).unwrap();
 
-        let start: Func<(), ()> = instance.func("_start").unwrap();
+        let start: Func<(), ()> = instance.exports.get("_start").unwrap();
         start.call().unwrap();
         let state = get_wasi_state(instance.context());
 
@@ -52,7 +52,7 @@ fn serializing_works() {
 
     instance.context_mut().data = Box::into_raw(wasi_state) as *mut c_void;
 
-    let second_entry: Func<(), i32> = instance.func("second_entry").unwrap();
+    let second_entry: Func<(), i32> = instance.exports.get("second_entry").unwrap();
     let result = second_entry.call().unwrap();
     assert_eq!(result, true as i32);
 }

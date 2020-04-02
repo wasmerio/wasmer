@@ -103,7 +103,7 @@ mod tests {
 
         set_points_used(&mut instance, 0u64);
 
-        let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
+        let add_to: Func<(i32, i32), i32> = instance.exports.get("add_to").unwrap();
 
         let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
             push_code_version(CodeVersion {
@@ -145,7 +145,7 @@ mod tests {
 
         set_points_used(&mut instance, 0u64);
 
-        let add_to: Func<(i32, i32), i32> = instance.func("add_to").unwrap();
+        let add_to: Func<(i32, i32), i32> = instance.exports.get("add_to").unwrap();
 
         let cv_pushed = if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
             push_code_version(CodeVersion {
