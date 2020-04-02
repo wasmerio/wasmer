@@ -275,7 +275,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__roundtrip_with_memory_to_string =
+        test_string_memory__roundtrip_ =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory { allocator_index: 43 },
