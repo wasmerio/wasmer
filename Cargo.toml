@@ -38,7 +38,6 @@ wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
 wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
-wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
 wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
 
 [workspace]
@@ -59,16 +58,17 @@ members = [
     "lib/kernel-net",
     "lib/dev-utils",
     "lib/wasi-experimental-io-devices",
-    "lib/emscripten-tests",
     "lib/interface-types",
     "examples/parallel",
     "examples/plugin-for-example",
     "examples/parallel-guest",
     "tests/generate-wasi-tests",
+    "tests/generate-emscripten-tests",
 ]
 
 [build-dependencies]
 wabt = "0.9.1"
+generate-emscripten-tests = { path = "tests/generate-emscripten-tests" }
 generate-wasi-tests = { path = "tests/generate-wasi-tests" }
 glob = "0.3"
 rustc_version = "0.2"

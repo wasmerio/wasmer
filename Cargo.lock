@@ -754,6 +754,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f5f3913fa0bfe7ee1fd8248b6b9f42a5af4b9d65ec2dd2c3c26132b950ecfc2"
 
 [[package]]
+name = "generate-emscripten-tests"
+version = "0.16.2"
+dependencies = [
+ "glob 0.3.0",
+ "tempfile",
+]
+
+[[package]]
 name = "generate-wasi-tests"
 version = "0.16.2"
 dependencies = [
@@ -2742,6 +2750,7 @@ dependencies = [
  "criterion",
  "errno",
  "fern",
+ "generate-emscripten-tests",
  "generate-wasi-tests",
  "glob 0.3.0",
  "log",
@@ -2754,7 +2763,6 @@ dependencies = [
  "wasmer-clif-backend",
  "wasmer-dev-utils",
  "wasmer-emscripten",
- "wasmer-emscripten-tests",
  "wasmer-kernel-loader",
  "wasmer-llvm-backend",
  "wasmer-middleware-common",
@@ -2834,20 +2842,6 @@ dependencies = [
  "log",
  "time",
  "wasmer-runtime-core",
-]
-
-[[package]]
-name = "wasmer-emscripten-tests"
-version = "0.16.2"
-dependencies = [
- "glob 0.3.0",
- "wabt",
- "wasmer-clif-backend",
- "wasmer-dev-utils",
- "wasmer-emscripten",
- "wasmer-llvm-backend",
- "wasmer-runtime",
- "wasmer-singlepass-backend",
 ]
 
 [[package]]
