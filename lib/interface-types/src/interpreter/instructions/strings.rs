@@ -88,15 +88,15 @@ executable_instruction!(
                     InstructionErrorKind::LocalOrImportSignatureMismatch {
                         function_index: allocator_index,
                         expected: (vec![InterfaceType::I32], vec![InterfaceType::I32]),
-                        received: (allocator.inputs().to_vec(), allocator.outputs().to_vec())
-                    }
+                        received: (allocator.inputs().to_vec(), allocator.outputs().to_vec()),
+                    },
                 ))
             }
 
             let string = runtime.stack.pop1().ok_or_else(|| {
                 InstructionError::new(
                     instruction,
-                    InstructionErrorKind::StackIsTooSmall { needed: 1 }
+                    InstructionErrorKind::StackIsTooSmall { needed: 1 },
                 )
             })?;
 
@@ -118,7 +118,7 @@ executable_instruction!(
                 .ok_or_else(|| {
                     InstructionError::new(
                         instruction,
-                        InstructionErrorKind::MemoryIsMissing { memory_index }
+                        InstructionErrorKind::MemoryIsMissing { memory_index },
                     )
                 })?
                 .view();
@@ -138,26 +138,26 @@ executable_instruction!(
 executable_instruction!(
     string_size(instruction: Instruction) -> _ {
         move |runtime| -> _ {
-            let value = runtime.stack.peek1().ok_or_else(|| {
-                InstructionError::new(
-                    instruction,
-                    InstructionErrorKind::StackIsTooSmall { needed: 1 },
-                )
-            })?;
+            match runtime.stack.peek1() {
+                Some(InterfaceValue::String(string)) => {
+                    let length = string.len() as i32;
+                    runtime.stack.push(InterfaceValue::I32(length));
 
-            if let InterfaceValue::String(string) = value {
-                let length = string.len() as i32;
-                runtime.stack.push(InterfaceValue::I32(length));
+                    Ok(())
+                },
 
-                Ok(())
-            } else {
-                Err(InstructionError::new(
+                Some(value) => Err(InstructionError::new(
                     instruction,
                     InstructionErrorKind::InvalidValueOnTheStack {
                         expected_type: InterfaceType::String,
                         received_type: value.into(),
-                    }
-                ))
+                    },
+                )),
+
+                None => Err(InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::StackIsTooSmall { needed: 1 },
+                )),
             }
         }
     }
