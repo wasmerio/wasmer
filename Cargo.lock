@@ -31,14 +31,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7825f6833612eb2414095684fcf6c635becf3ce97fe48cf6421321e93bfbd53c"
 
 [[package]]
-name = "api-tests"
-version = "0.16.2"
-dependencies = [
- "wabt",
- "wasmer",
-]
-
-[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -760,6 +752,14 @@ name = "gcc"
 version = "0.3.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f5f3913fa0bfe7ee1fd8248b6b9f42a5af4b9d65ec2dd2c3c26132b950ecfc2"
+
+[[package]]
+name = "generate-wasi-tests"
+version = "0.16.2"
+dependencies = [
+ "glob 0.3.0",
+ "tempfile",
+]
 
 [[package]]
 name = "generational-arena"
@@ -2739,8 +2739,10 @@ version = "0.16.2"
 dependencies = [
  "atty",
  "byteorder",
+ "criterion",
  "errno",
  "fern",
+ "generate-wasi-tests",
  "glob 0.3.0",
  "log",
  "rustc_version",
@@ -2756,13 +2758,11 @@ dependencies = [
  "wasmer-kernel-loader",
  "wasmer-llvm-backend",
  "wasmer-middleware-common",
- "wasmer-middleware-common-tests",
  "wasmer-runtime",
  "wasmer-runtime-core",
  "wasmer-singlepass-backend",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
- "wasmer-wasi-tests",
 ]
 
 [[package]]
@@ -2888,33 +2888,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-llvm-backend-tests"
-version = "0.10.2"
-dependencies = [
- "wabt",
- "wasmer-llvm-backend",
- "wasmer-runtime",
- "wasmer-runtime-core",
-]
-
-[[package]]
 name = "wasmer-middleware-common"
 version = "0.16.2"
 dependencies = [
  "wasmer-runtime-core",
-]
-
-[[package]]
-name = "wasmer-middleware-common-tests"
-version = "0.16.2"
-dependencies = [
- "criterion",
- "wabt",
- "wasmer-clif-backend",
- "wasmer-llvm-backend",
- "wasmer-middleware-common",
- "wasmer-runtime-core",
- "wasmer-singlepass-backend",
 ]
 
 [[package]]
@@ -2975,17 +2952,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-runtime-core-tests"
-version = "0.16.2"
-dependencies = [
- "wabt",
- "wasmer-clif-backend",
- "wasmer-llvm-backend",
- "wasmer-runtime-core",
- "wasmer-singlepass-backend",
-]
-
-[[package]]
 name = "wasmer-singlepass-backend"
 version = "0.16.2"
 dependencies = [
@@ -3041,20 +3007,6 @@ dependencies = [
  "serde",
  "typetag",
  "wasmer-runtime-core",
- "wasmer-wasi",
-]
-
-[[package]]
-name = "wasmer-wasi-tests"
-version = "0.16.2"
-dependencies = [
- "glob 0.3.0",
- "tempfile",
- "wasmer-clif-backend",
- "wasmer-dev-utils",
- "wasmer-llvm-backend",
- "wasmer-runtime",
- "wasmer-singlepass-backend",
  "wasmer-wasi",
 ]
 

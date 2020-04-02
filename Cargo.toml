@@ -38,49 +38,48 @@ wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
 wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
-wasmer-wasi-tests = { path = "lib/wasi-tests", optional = true }
-wasmer-middleware-common-tests = { path = "lib/middleware-common-tests", optional = true }
 wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
 wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
 
 [workspace]
 members = [
     "lib/api",
-    "lib/api-tests",
     "lib/clif-backend",
     "lib/singlepass-backend",
     "lib/runtime",
     "lib/runtime-core",
-    "lib/runtime-core-tests",
     "lib/emscripten",
     "lib/spectests",
     "lib/win-exception-handler",
     "lib/runtime-c-api",
     "lib/llvm-backend",
-    "lib/llvm-backend-tests",
     "lib/wasi",
     "lib/middleware-common",
     "lib/kernel-loader",
     "lib/kernel-net",
     "lib/dev-utils",
     "lib/wasi-experimental-io-devices",
-    "lib/wasi-tests",
     "lib/emscripten-tests",
-    "lib/middleware-common-tests",
     "lib/interface-types",
     "examples/parallel",
     "examples/plugin-for-example",
     "examples/parallel-guest",
+    "tests/generate-wasi-tests",
 ]
 
 [build-dependencies]
 wabt = "0.9.1"
+generate-wasi-tests = { path = "tests/generate-wasi-tests" }
 glob = "0.3"
 rustc_version = "0.2"
 
 [dev-dependencies]
+criterion = "0.3"
+glob = "0.3"
 serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
+wabt = "0.9.1"
+wasmer-dev-utils = { path = "lib/dev-utils" }
 
 [features]
 default = ["fast-tests", "wasi", "backend-cranelift", "wabt"]
@@ -95,18 +94,15 @@ backend-cranelift = [
     "wasmer-clif-backend/generate-debug-information",
     "wasmer-runtime-core/generate-debug-information",
     "wasmer-runtime/cranelift",
-    "wasmer-middleware-common-tests/clif",
 ]
 backend-llvm = [
     "wasmer-llvm-backend",
     "wasmer-runtime/llvm",
-    "wasmer-middleware-common-tests/llvm",
     "wasmer-runtime-core/generate-debug-information-no-export-symbols"
 ]
 backend-singlepass = [
     "wasmer-singlepass-backend",
     "wasmer-runtime/singlepass",
-    "wasmer-middleware-common-tests/singlepass",
 ]
 wasi = ["wasmer-wasi"]
 experimental-io-devices = ["wasmer-wasi-experimental-io-devices"]

@@ -1,0 +1,21 @@
+[package]
+name = "generate-wasi-tests"
+version = "0.16.2"
+description = "Tests for our WASI implementation"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+glob = "0.3"
+tempfile = "3"
+# We set default features to false to be able to use the singlepass backend properly
+
+#[dev-dependencies]
+#wasmer-dev-utils = { path = "../../lib/dev-utils", version = "0.16.2"}
+
+#[features]
+#clif = ["wasmer-clif-backend", "wasmer-runtime/default-backend-cranelift"]
+#singlepass = ["wasmer-singlepass-backend", "wasmer-runtime/default-backend-singlepass"]
+#llvm = ["wasmer-llvm-backend", "wasmer-runtime/default-backend-llvm"]
