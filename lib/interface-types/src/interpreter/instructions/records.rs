@@ -53,7 +53,7 @@ use std::mem::{transmute, MaybeUninit};
 /// This latter approach allows to allocate one and final vector to
 /// hold all the record values.
 #[allow(unsafe_code)]
-fn record_hydrate(
+fn record_lift_(
     stack: &mut Stack<InterfaceValue>,
     record_type: &RecordType,
 ) -> Result<InterfaceValue, InstructionErrorKind> {
@@ -78,7 +78,7 @@ fn record_hydrate(
             // The record type tells a record is expected.
             InterfaceType::Record(record_type) => {
                 // Build it recursively.
-                let value = record_hydrate(stack, &record_type)?;
+                let value = record_lift_(stack, &record_type)?;
 
                 unsafe {
                     values[max - nth].as_mut_ptr().write(value);
@@ -89,7 +89,7 @@ fn record_hydrate(
                 let value = stack.pop1().unwrap();
                 let value_type = (&value).into();
 
-                if *ty != value_type {
+                if ty != &value_type {
                     return Err(InstructionErrorKind::InvalidValueOnTheStack {
                         expected_type: ty.clone(),
                         received_type: value_type,
@@ -113,7 +113,7 @@ executable_instruction!(
             let record_type = match instance.wit_type(type_index).ok_or_else(|| {
                 InstructionError::new(
                     instruction,
-                    InstructionErrorKind::TypeIsMissing { type_index }
+                    InstructionErrorKind::TypeIsMissing { type_index },
                 )
             })? {
                 Type::Record(record_type) => record_type,
@@ -126,7 +126,7 @@ executable_instruction!(
                 )),
             };
 
-            let record = record_hydrate(&mut runtime.stack, &record_type)
+            let record = record_lift_(&mut runtime.stack, &record_type)
                 .map_err(|k| InstructionError::new(instruction, k))?;
 
             runtime.stack.push(record);
