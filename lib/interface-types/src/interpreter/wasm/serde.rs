@@ -410,25 +410,25 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        self.deserialize_seq(visitor)
+        visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_seq(Sequence::new(&mut self))
+        todo!("`seq` is not supported by WIT for the moment.")
     }
 
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        self.deserialize_seq(visitor)
+        todo!("`tuple` is not supported by WIT for the moment.")
     }
 
     fn deserialize_tuple_struct<V>(
-        self,
+        mut self,
         _name: &'static str,
         _len: usize,
         visitor: V,
@@ -436,7 +436,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        self.deserialize_seq(visitor)
+        visitor.visit_seq(Sequence::new(&mut self))
     }
 
     fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
@@ -447,7 +447,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     fn deserialize_struct<V>(
-        self,
+        mut self,
         _name: &'static str,
         _fields: &'static [&'static str],
         visitor: V,
@@ -455,7 +455,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        self.deserialize_seq(visitor)
+        visitor.visit_seq(Sequence::new(&mut self))
     }
 
     fn deserialize_enum<V>(
@@ -892,143 +892,16 @@ impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::{TryFrom, TryInto};
-
-    macro_rules! try_into {
-        ($ty:ty) => {
-            impl TryFrom<Vec<InterfaceValue>> for $ty {
-                type Error = DeserializeError;
-
-                fn try_from(value: Vec<InterfaceValue>) -> Result<Self, Self::Error> {
-                    from_interface_values(&value)
-                }
-            }
-
-            impl TryFrom<&Vec<InterfaceValue>> for $ty {
-                type Error = DeserializeError;
-
-                fn try_from(value: &Vec<InterfaceValue>) -> Result<Self, Self::Error> {
-                    from_interface_values(value)
-                }
-            }
-        };
-    }
-
-    #[test]
-    fn test_deserialize_basic() {
-        #[derive(Deserialize, Debug, PartialEq)]
-        struct S {
-            x: i32,
-            y: i64,
-        }
-
-        try_into!(S);
-
-        let input: S = vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]
-            .try_into()
-            .unwrap();
-        let output = S { x: 1, y: 2 };
-
-        assert_eq!(input, output);
-    }
-
-    #[test]
-    fn test_deserialize_compound() {
-        #[derive(Deserialize, Debug, PartialEq)]
-        struct Point {
-            x: i32,
-            y: i32,
-        }
-
-        #[derive(Deserialize, Debug, PartialEq)]
-        struct Compound {
-            points: (Point, Point),
-            more_points: Vec<Point>,
-        }
-
-        try_into!(Compound);
-
-        let input: Compound = vec![
-            InterfaceValue::I32(1),
-            InterfaceValue::I32(2),
-            InterfaceValue::I32(3),
-            InterfaceValue::I32(4),
-            InterfaceValue::I32(5),
-            InterfaceValue::I32(6),
-            InterfaceValue::I32(7),
-            InterfaceValue::I32(8),
-            InterfaceValue::I32(9),
-            InterfaceValue::I32(10),
-        ]
-        .try_into()
-        .unwrap();
-        let output = Compound {
-            points: (Point { x: 1, y: 2 }, Point { x: 3, y: 4 }),
-            more_points: vec![
-                Point { x: 5, y: 6 },
-                Point { x: 7, y: 8 },
-                Point { x: 9, y: 10 },
-            ],
-        };
-
-        assert_eq!(input, output);
-    }
-
-    #[test]
-    fn test_deserialize_newtype_struct() {
-        #[derive(Deserialize, Debug, PartialEq)]
-        struct S(i32);
-
-        try_into!(S);
-
-        let input: S = vec![InterfaceValue::I32(1)].try_into().unwrap();
-        let output = S(1);
-
-        assert_eq!(input, output);
-    }
-
-    #[test]
-    fn test_deserialize_tuple() {
-        #[derive(Deserialize, Debug, PartialEq)]
-        struct S {
-            x: (i32, i64),
-        };
-
-        try_into!(S);
-
-        let input: S = vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]
-            .try_into()
-            .unwrap();
-        let output = S { x: (1, 2) };
-
-        assert_eq!(input, output);
-    }
-
-    #[test]
-    fn test_deserialize_tuple_struct() {
-        #[derive(Deserialize, Debug, PartialEq)]
-        struct S(i32, i64);
-
-        try_into!(S);
-
-        let input: S = vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]
-            .try_into()
-            .unwrap();
-        let output = S(1, 2);
-
-        assert_eq!(input, output);
-    }
 
     macro_rules! deserialize_value {
         ($test_name:ident, $variant:ident, $ty:ident, $value:expr) => {
             #[test]
             #[allow(non_snake_case)]
             fn $test_name() {
-                let input: $ty =
-                    from_interface_values(&vec![InterfaceValue::$variant($value)]).unwrap();
+                let input = vec![InterfaceValue::$variant($value)];
                 let output: $ty = $value;
 
-                assert_eq!(input, output);
+                assert_eq!(from_interface_values::<$ty>(&input).unwrap(), output);
             }
         };
     }
@@ -1066,53 +939,83 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    fn test_deserialize_value__record() {
+    fn test_deserialize_value__newtype_struct() {
         #[derive(Deserialize, Debug, PartialEq)]
-        struct S(i32, i64);
+        struct S(i8);
 
-        #[derive(Deserialize, Debug, PartialEq)]
-        struct T {
-            x: String,
-            s: S,
-            y: f32,
-        };
+        let input = vec![InterfaceValue::S8(42)];
+        let output = S(42);
 
-        try_into!(T);
-
-        let input: T = vec![
-            InterfaceValue::String("abc".to_string()),
-            InterfaceValue::Record(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]),
-            InterfaceValue::F32(3.),
-        ]
-        .try_into()
-        .unwrap();
-        let output = T {
-            x: "abc".to_string(),
-            s: S(1, 2),
-            y: 3.,
-        };
-
-        assert_eq!(input, output);
+        assert_eq!(from_interface_values::<S>(&input).unwrap(), output);
     }
 
     #[test]
-    fn test_deserialize_error_type_mismatch() {
+    #[allow(non_snake_case)]
+    fn test_deserialize_value__tuple_struct() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct S(i8, f32);
+
+        let input = vec![InterfaceValue::Record(vec![
+            InterfaceValue::S8(7),
+            InterfaceValue::F32(42.),
+        ])];
+        let output = S(7, 42.);
+
+        assert_eq!(from_interface_values::<S>(&input).unwrap(), output);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_deserialize_value__struct() {
         #[derive(Deserialize, Debug, PartialEq)]
         struct S {
+            x: i8,
+            y: f32,
+        }
+
+        let input = vec![InterfaceValue::Record(vec![
+            InterfaceValue::S8(7),
+            InterfaceValue::F32(42.),
+        ])];
+        let output = S { x: 7, y: 42. };
+
+        assert_eq!(from_interface_values::<S>(&input).unwrap(), output);
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn test_deserialize_value__struct_nested() {
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct Point {
             x: i32,
-            y: i64,
+            y: i32,
+            z: i32,
+        }
+
+        #[derive(Deserialize, Debug, PartialEq)]
+        struct Line {
+            p1: Point,
+            p2: Point,
+        }
+
+        let input = vec![InterfaceValue::Record(vec![
+            InterfaceValue::Record(vec![
+                InterfaceValue::I32(1),
+                InterfaceValue::I32(2),
+                InterfaceValue::I32(3),
+            ]),
+            InterfaceValue::Record(vec![
+                InterfaceValue::I32(4),
+                InterfaceValue::I32(5),
+                InterfaceValue::I32(6),
+            ]),
+        ])];
+        let output = Line {
+            p1: Point { x: 1, y: 2, z: 3 },
+            p2: Point { x: 4, y: 5, z: 6 },
         };
 
-        try_into!(S);
-
-        let input: Result<S, DeserializeError> =
-            vec![InterfaceValue::I32(1), InterfaceValue::I32(2)].try_into();
-        let output = Err(DeserializeError::TypeMismatch {
-            expected_type: InterfaceType::I64,
-            received_type: InterfaceType::I32,
-        });
-
-        assert_eq!(input, output);
+        assert_eq!(from_interface_values::<Line>(&input).unwrap(), output);
     }
 
     macro_rules! serialize_value {
