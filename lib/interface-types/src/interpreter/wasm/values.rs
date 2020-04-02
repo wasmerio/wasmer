@@ -3,7 +3,7 @@
 pub use crate::ast::{InterfaceType, RecordType};
 use crate::errors::WasmValueNativeCastError;
 pub use crate::interpreter::wasm::serde::*;
-use std::convert::TryFrom;
+use std::{convert::TryFrom, slice::Iter};
 
 /// A WIT value.
 #[derive(Debug, Clone, PartialEq)]
@@ -127,6 +127,51 @@ native!(u64, U64);
 native!(f32, F32);
 native!(f64, F64);
 native!(String, String);
+
+/// Iterates over a vector of `InterfaceValues` but flatten all the
+/// values. So `I32(1), Record([I32(2), I32(3)]), I32(4)` will be
+/// iterated like `I32(1), I32(2), I32(3), I32(4)`.
+pub(crate) struct FlattenInterfaceValueIterator<'a> {
+    iterators: Vec<Iter<'a, InterfaceValue>>,
+}
+
+impl<'a> FlattenInterfaceValueIterator<'a> {
+    pub(crate) fn new(values: &'a [InterfaceValue]) -> Self {
+        Self {
+            iterators: vec![values.iter()],
+        }
+    }
+}
+
+impl<'a> Iterator for FlattenInterfaceValueIterator<'a> {
+    type Item = &'a InterfaceValue;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.iterators.is_empty() {
+            return None;
+        }
+
+        let index = self.iterators.len() - 1;
+
+        match self.iterators[index].next() {
+            // End of the current iterator, go back to the previous
+            // one.
+            None => {
+                self.iterators.pop();
+                self.next()
+            }
+
+            // Recursively iterate over the record.
+            Some(InterfaceValue::Record(values)) => {
+                self.iterators.push(values.iter());
+                self.next()
+            }
+
+            // A regular item.
+            e @ Some(_) => e,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

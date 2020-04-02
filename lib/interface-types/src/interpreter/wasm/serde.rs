@@ -2,7 +2,10 @@
 //! for the end-user to rebuild its complex types from WIT values,
 //! like `record`.
 
-use crate::{ast::InterfaceType, interpreter::wasm::values::InterfaceValue};
+use crate::{
+    ast::InterfaceType,
+    interpreter::wasm::values::{FlattenInterfaceValueIterator, InterfaceValue},
+};
 use serde::{
     de::{self, DeserializeSeed, SeqAccess, Visitor},
     Deserialize,
@@ -10,7 +13,6 @@ use serde::{
 use std::{
     fmt::{self, Display},
     iter::Peekable,
-    slice::Iter,
 };
 
 /// Deserialize a set of `InterfaceValue`s to a type `T` that
@@ -68,63 +70,16 @@ where
     }
 }
 
-/// Iterates over a vector of `InterfaceValues` but flatten all the
-/// values for Serde. It means that the ideal representation for Serde
-/// regarding our implementation is to get all values flatten. So
-/// `I32(1), Record([I32(2), I32(3)]), I32(4)` must be iterated like
-/// `I32(1), I32(2), I32(3), I32(4)`.
-struct InterfaceValueIterator<'a> {
-    iterators: Vec<Iter<'a, InterfaceValue>>,
-}
-
-impl<'a> InterfaceValueIterator<'a> {
-    fn new(values: &'a [InterfaceValue]) -> Self {
-        Self {
-            iterators: vec![values.iter()],
-        }
-    }
-}
-
-impl<'a> Iterator for InterfaceValueIterator<'a> {
-    type Item = &'a InterfaceValue;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.iterators.is_empty() {
-            return None;
-        }
-
-        let index = self.iterators.len() - 1;
-
-        match self.iterators[index].next() {
-            // End of the current iterator, go back to the previous
-            // one.
-            None => {
-                self.iterators.pop();
-                self.next()
-            }
-
-            // Recursively iterate over the record.
-            Some(InterfaceValue::Record(values)) => {
-                self.iterators.push(values.iter());
-                self.next()
-            }
-
-            // A regular item.
-            e @ Some(_) => e,
-        }
-    }
-}
-
 /// The deserializer. The iterator iterates over `InterfaceValue`s,
-/// all flatten, see `InterfaceValueIterator`.
+/// all flatten, see `FlattenInterfaceValueIterator`.
 struct Deserializer<'de> {
-    iterator: Peekable<InterfaceValueIterator<'de>>,
+    iterator: Peekable<FlattenInterfaceValueIterator<'de>>,
 }
 
 impl<'de> Deserializer<'de> {
     pub fn new(input: &'de [InterfaceValue]) -> Deserializer<'de> {
         Deserializer {
-            iterator: InterfaceValueIterator::new(input).peekable(),
+            iterator: FlattenInterfaceValueIterator::new(input).peekable(),
         }
     }
 }
