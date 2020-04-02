@@ -43,7 +43,7 @@ use std::{
 ///     InterfaceValue::Record(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]),
 ///     InterfaceValue::F32(3.),
 /// ];
-/// let t: T = from_interface_values(&values).unwrap();
+/// let t = from_interface_values::<T>(&values).unwrap();
 ///
 /// assert_eq!(
 ///     t,
