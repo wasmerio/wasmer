@@ -243,7 +243,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         // Both `InterfaceValue::S64` and `InterfaceValue::I64`
         // represent `i64`.
-        visitor.visit_i64(self.next_s64().or(self.next_i64())?)
+        visitor.visit_i64(self.next_s64().or_else(|_| self.next_i64())?)
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
