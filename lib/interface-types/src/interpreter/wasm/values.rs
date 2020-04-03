@@ -156,13 +156,7 @@ impl<'a> Iterator for FlattenInterfaceValueIterator<'a> {
     type Item = &'a InterfaceValue;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.iterators.is_empty() {
-            return None;
-        }
-
-        let index = self.iterators.len() - 1;
-
-        match self.iterators[index].next() {
+        match self.iterators.last_mut()?.next() {
             // End of the current iterator, go back to the previous
             // one.
             None => {
