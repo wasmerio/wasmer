@@ -48,7 +48,6 @@ members = [
     "lib/runtime",
     "lib/runtime-core",
     "lib/emscripten",
-    "lib/spectests",
     "lib/win-exception-handler",
     "lib/runtime-c-api",
     "lib/llvm-backend",
@@ -110,6 +109,7 @@ managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
 
 [[example]]
 name = "plugin"
+required-features = ["wasi"]
 crate-type = ["bin"]
 
 [[example]]

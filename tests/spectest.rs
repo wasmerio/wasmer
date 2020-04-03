@@ -72,17 +72,17 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "clif")]
+    #[cfg(feature = "backend-cranelift")]
     fn get_compiler_name() -> &'static str {
         "clif"
     }
 
-    #[cfg(feature = "llvm")]
+    #[cfg(feature = "backend-llvm")]
     fn get_compiler_name() -> &'static str {
         "llvm"
     }
 
-    #[cfg(feature = "singlepass")]
+    #[cfg(feature = "backend-singlepass")]
     fn get_compiler_name() -> &'static str {
         "singlepass"
     }
@@ -216,7 +216,11 @@ mod tests {
         }
     }
 
-    #[cfg(not(any(feature = "llvm", feature = "clif", feature = "singlepass")))]
+    #[cfg(not(any(
+        feature = "backend-llvm",
+        feature = "backend-cranelift",
+        feature = "backend-singlepass"
+    )))]
     fn get_compiler_name() -> &'static str {
         panic!("compiler not specified, activate a compiler via features");
         "unknown"
@@ -1293,8 +1297,9 @@ mod tests {
     fn read_excludes() -> (HashMap<String, Vec<Exclude>>, HashSet<String>) {
         let mut excludes_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         excludes_path.push("tests");
+        excludes_path.push("spectests");
         excludes_path.push("excludes.txt");
-        let input = File::open(excludes_path).unwrap();
+        let input = File::open(dbg!(excludes_path)).unwrap();
         let buffered = BufReader::new(input);
         let mut result = HashMap::new();
         let mut file_excludes = HashSet::new();
@@ -1375,6 +1380,7 @@ mod tests {
         let (excludes, file_excludes) = read_excludes();
 
         let mut glob_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        glob_path.push("tests");
         glob_path.push("spectests");
         glob_path.push("*.wast");
 

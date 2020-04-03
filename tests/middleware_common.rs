@@ -15,9 +15,6 @@ mod tests {
     #[cfg(feature = "backend-singlepass")]
     use wasmer_singlepass_backend::ModuleCodeGenerator as MCG;
 
-    #[cfg(feature = "backend-cranelift")]
-    compile_error!("cranelift does not implement metering yet");
-
     fn get_compiler(limit: u64) -> impl Compiler {
         let c: StreamingCompiler<MCG, _, _, _, _> = StreamingCompiler::new(move || {
             let mut chain = MiddlewareChain::new();
@@ -94,7 +91,7 @@ mod tests {
         "#;
 
     #[test]
-    fn test_points_reduced_after_call() {
+    fn middleware_test_points_reduced_after_call() {
         let wasm_binary = wat2wasm(WAT).unwrap();
 
         let limit = 100u64;
@@ -135,7 +132,7 @@ mod tests {
     }
 
     #[test]
-    fn test_traps_after_costly_call() {
+    fn middleware_test_traps_after_costly_call() {
         use wasmer_runtime_core::error::RuntimeError;
         let wasm_binary = wat2wasm(WAT).unwrap();
 

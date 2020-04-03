@@ -1,104 +1,95 @@
 .PHONY: spectests emtests clean build install lint precommit docs examples 
 
 # Generate files
-generate-spectests:
-	WASMER_RUNTIME_GENERATE_SPECTESTS=1 cargo build -p wasmer-runtime-core --release \
-	&& echo "formatting" \
-	&& cargo fmt
-
 generate-emtests:
-	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build -p wasmer-emscripten-tests --release \
+	WASM_EMSCRIPTEN_GENERATE_EMTESTS=1 cargo build --release \
 	&& echo "formatting" \
 	&& cargo fmt
 
 # To generate WASI tests you'll need to have the correct versions of the Rust nightly
 # toolchain installed, see `WasiVersion::get_compiler_toolchain` in
-# `lib/wasi-tests/build/wasi_version.rs`
+# `tests/generate-wasi-tests/src/wasi_version.rs`
 #
 # or run `make wasitests-setup-toolchain` or `make wasitests-setup-toolchain-all`
 generate-wasitests: wasitests-setup
-	WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv \
+	WASM_WASI_GENERATE_WASITESTS=1 cargo build --release -vv \
 	&& echo "formatting" \
 	&& cargo fmt
 
 generate-wasitests-all: wasitests-setup
-	WASI_TEST_GENERATE_ALL=1 WASM_WASI_GENERATE_WASITESTS=1 cargo build -p wasmer-wasi-tests --release -vv \
+	WASI_TEST_GENERATE_ALL=1 WASM_WASI_GENERATE_WASITESTS=1 cargo build --release -vv \
 	&& echo "formatting" \
 	&& cargo fmt
 
-spectests-generate: generate-spectests
 emtests-generate: generate-emtests
 wasitests-generate: generate-wasitests
 
 wasitests-setup-toolchain: wasitests-setup
-	WASITESTS_SET_UP_TOOLCHAIN=1 cargo build -p wasmer-wasi-tests --release -vv
+	WASITESTS_SET_UP_TOOLCHAIN=1 cargo build --release -vv
 
 wasitests-setup-toolchain-all: wasitests-setup
-	WASI_TEST_GENERATE_ALL=1 WASITESTS_SET_UP_TOOLCHAIN=1 cargo build -p wasmer-wasi-tests --release -vv
+	WASI_TEST_GENERATE_ALL=1 WASITESTS_SET_UP_TOOLCHAIN=1 cargo build --release -vv
 
-generate: generate-spectests generate-emtests generate-wasitests
+generate: generate-emtests generate-wasitests
 
 
 # Spectests
 spectests-singlepass:
-	cargo test --manifest-path lib/spectests/Cargo.toml --release --features singlepass -- --nocapture --test-threads 1
+	cargo test test_run_spectests --release --no-default-features --features "wasi backend-singlepass" -- --nocapture --test-threads 1
 
 spectests-cranelift:
-	cargo test --manifest-path lib/spectests/Cargo.toml --release --features clif -- --nocapture
+	cargo test test_run_spectests --release --no-default-features --features "wasi backend-cranelift" -- --nocapture
 
 spectests-llvm:
-	cargo test --manifest-path lib/spectests/Cargo.toml --release --features llvm -- --nocapture
+	cargo test test_run_spectests --release --no-default-features --features "wasi backend-llvm" -- --nocapture
 
 spectests: spectests-singlepass spectests-cranelift spectests-llvm
 
 
 # Emscripten tests
 emtests-singlepass:
-	cargo test --manifest-path lib/emscripten-tests/Cargo.toml --release --features singlepass -- --test-threads=1
+	cargo test emtest --release --no-default-features --features "wasi backend-singlepass" -- --test-threads=1
 
 emtests-cranelift:
-	cargo test --manifest-path lib/emscripten-tests/Cargo.toml --release --features clif -- --test-threads=1
+	cargo test emtest --release --no-default-features --features "wasi backend-cranelift" -- --test-threads=1
 
 emtests-llvm:
-	cargo test --manifest-path lib/emscripten-tests/Cargo.toml --release --features llvm -- --test-threads=1
+	cargo test emtest --release --no-default-features --features "wasi backend-llvm" -- --test-threads=1
 
 emtests-unit:
-	cargo test --manifest-path lib/emscripten/Cargo.toml --release
+	cargo test emscripten --release
 
 emtests: emtests-unit emtests-singlepass emtests-cranelift emtests-llvm
 
 
 # Middleware tests
 middleware-singlepass:
-	cargo test --manifest-path lib/middleware-common-tests/Cargo.toml --release --features singlepass
+	cargo test middleware --release --no-default-features --features "wasi backend-singlepass"
 
 middleware-cranelift:
-	cargo test --manifest-path lib/middleware-common-tests/Cargo.toml --release --features clif
+	cargo test middleware --release --no-default-features --features "wasi backend-cranelift" 
 
 middleware-llvm:
-	cargo test --manifest-path lib/middleware-common-tests/Cargo.toml --release --features llvm
+	cargo test middleware --release --no-default-features --features "wasi backend-llvm" 
 
 middleware: middleware-singlepass middleware-cranelift middleware-llvm
 
 
 # Wasitests
 wasitests-setup:
-# force cargo to rerun the build.rs step
-	touch lib/wasi-tests/build/mod.rs
-	rm -rf lib/wasi-tests/wasitests/test_fs/temp
-	mkdir -p lib/wasi-tests/wasitests/test_fs/temp
+	rm -rf tests/wasi_test_resources/test_fs/temp
+	mkdir -p tests/wasi_test_resources/test_fs/temp
 
 wasitests-singlepass: wasitests-setup
-	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features singlepass -- --test-threads=1
+	cargo test wasitest --release --no-default-features --features "wasi singlepass" -- --test-threads=1
 
 wasitests-cranelift: wasitests-setup
-	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features clif -- --test-threads=1 --nocapture
+	cargo test wasitest --release --no-default-features --features "wasi backend-cranelift" -- --test-threads=1 --nocapture
 
 wasitests-llvm: wasitests-setup
-	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features llvm -- --test-threads=1
+	cargo test wasitest --release --no-default-features --features "wasi backend-llvm" -- --test-threads=1
 
 wasitests-unit: wasitests-setup
-	cargo test --manifest-path lib/wasi-tests/Cargo.toml --release --features clif -- --test-threads=1 --nocapture
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
 wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llvm
@@ -107,16 +98,16 @@ wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llv
 # Backends
 singlepass: spectests-singlepass emtests-singlepass middleware-singlepass wasitests-singlepass
 	cargo test -p wasmer-singlepass-backend --release
-	cargo test --manifest-path lib/runtime-core-tests/Cargo.toml --release --no-default-features --features backend-singlepass
+	cargo test --release --no-default-features --features "wasi backend-singlepass"
 
 cranelift: spectests-cranelift emtests-cranelift middleware-cranelift wasitests-cranelift
 	cargo test -p wasmer-clif-backend --release
-	cargo test -p wasmer-runtime-core-tests --release
+	cargo test --release --no-default-features --features "wasi backend-cranelift"
 
 llvm: spectests-llvm emtests-llvm wasitests-llvm
 	cargo test -p wasmer-llvm-backend --release
-	cargo test -p wasmer-llvm-backend-tests --release
-	cargo test --manifest-path lib/runtime-core-tests/Cargo.toml --release --no-default-features --features backend-llvm
+	cargo test llvm --release --no-default-features --features "wasi backend-llvm"
+	cargo test --release --no-default-features --features "wasi backend-llvm"
 
 
 # All tests
@@ -160,12 +151,10 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 capi-test: test-capi
 
 test-rest:
-	cargo test --release -p api-tests
 	cargo test --release -p wasmer-dev-utils
 	cargo test --release -p wasmer-interface-types
 	cargo test --release -p wasmer-kernel-loader
 	cargo test --release -p kernel-net
-	cargo test --release -p wasmer-llvm-backend-tests
 	cargo test --release -p wasmer-runtime
 	cargo test --release -p wasmer-runtime-core
 	cargo test --release -p wasmer-wasi-experimental-io-devices
@@ -175,7 +164,7 @@ test: spectests emtests middleware wasitests test-rest examples
 
 test-android:
 	ci/run-docker.sh x86_64-linux-android --manifest-path=lib/singlepass-backend/Cargo.toml
-	ci/run-docker.sh x86_64-linux-android --manifest-path=lib/runtime-core-tests/Cargo.toml
+	ci/run-docker.sh x86_64-linux-android
 
 # Integration tests
 integration-tests: release-clif examples
@@ -207,8 +196,7 @@ check-bench-singlepass:
 	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 check-bench-clif:
 	cargo check --benches --all --no-default-features --features "backend-cranelift" \
-	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader \
-	--exclude wasmer-middleware-common-tests
+	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 check-bench-llvm:
 	cargo check --benches --all --no-default-features --features "backend-llvm" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
@@ -217,7 +205,7 @@ check-bench: check-bench-singlepass check-bench-llvm
 
 # TODO: We wanted `--workspace --exclude wasmer-runtime`, but can't due
 # to https://github.com/rust-lang/cargo/issues/6745 .
-NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-wasi-tests -p wasmer-middleware-common-tests -p wasmer-emscripten-tests -p wasmer-interface-types
+NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-interface-types
 RUNTIME_CHECK = cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features
 check: check-bench
 	cargo check $(NOT_RUNTIME_CRATES)
@@ -298,8 +286,7 @@ bench-singlepass:
 	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 bench-clif:
 	cargo bench --all --no-default-features --features "backend-cranelift" \
-	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader \
-	--exclude wasmer-middleware-common-tests
+	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 bench-llvm:
 	cargo bench --all --no-default-features --features "backend-llvm" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
@@ -354,7 +341,7 @@ publish-release:
 # cargo install cargo-deps
 # must install graphviz for `dot`
 dep-graph:
-	cargo deps --optional-deps --filter wasmer-wasi wasmer-wasi-tests wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-emscripten-tests wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-middleware-common-tests wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
+	cargo deps --optional-deps --filter wasmer-wasi wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
 
 docs-capi:
 	cd lib/runtime-c-api/ && doxygen doxyfile

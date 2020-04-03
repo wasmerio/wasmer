@@ -1,9 +1,16 @@
 use wabt::wat2wasm;
-use wasmer_runtime::{compile, ImportObject, Instance};
+use wasmer_runtime::{compile, DynFunc, ImportObject, Instance, Value};
 
-fn main() {
+#[test]
+fn override_works() {
     let instance = create_module_1();
-    let result = instance.call("call-overwritten-element", &[]);
+    let result = instance
+        .exports
+        .get::<DynFunc>("call-overwritten-element")
+        .unwrap()
+        .call(&[])
+        .unwrap();
+    assert_eq!(result, vec![Value::I32(66)]);
     println!("result: {:?}", result);
 }
 

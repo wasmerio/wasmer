@@ -169,9 +169,8 @@ fn get_compiler(limit: u64, metering: bool) -> impl Compiler {
 )))]
 compile_error!("compiler not specified, activate a compiler via features");
 
-#[cfg(feature = "backend-cranelift")]
 fn get_compiler(_limit: u64, metering: bool) -> impl Compiler {
-    compile_error!("cranelift does not implement metering");
+    unimplemented!("cranelift does not implement metering");
     use wasmer_clif_backend::CraneliftCompiler;
     CraneliftCompiler::new()
 }
@@ -226,5 +225,7 @@ fn bench_metering(c: &mut Criterion) {
     );
 }
 
+#[cfg(not(feature = "backend-cranelift"))]
 criterion_group!(benches, bench_metering);
+#[cfg(not(feature = "backend-cranelift"))]
 criterion_main!(benches);
