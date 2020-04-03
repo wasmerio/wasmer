@@ -79,9 +79,7 @@ impl Serializer {
     }
 
     fn last(&mut self) -> &mut Vec<InterfaceValue> {
-        let index = self.values.len() - 1;
-
-        &mut self.values[index]
+        self.values.last_mut().unwrap()
     }
 
     fn push_with_capacity(&mut self, capacity: usize) {
