@@ -106,7 +106,7 @@ fn ty<'input, E: ParseError<&'input [u8]>>(
     Ok((input, ty))
 }
 
-/// Parse an record type.
+/// Parse a record type.
 fn record_type<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
 ) -> IResult<&'input [u8], RecordType, E> {

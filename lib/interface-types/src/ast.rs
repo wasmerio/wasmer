@@ -53,7 +53,7 @@ pub enum InterfaceType {
     Record(RecordType),
 }
 
-/// Representing a record type.
+/// Represents a record type.
 #[derive(PartialEq, Debug, Clone)]
 pub struct RecordType {
     /// Types representing the fields.
