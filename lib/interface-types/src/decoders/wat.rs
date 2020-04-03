@@ -1,6 +1,6 @@
 //! Parse the WIT textual representation into an [AST](crate::ast).
 
-use crate::{ast::*, interpreter::Instruction};
+use crate::{ast::*, interpreter::Instruction, vec1::Vec1};
 pub use wast::parser::ParseBuffer as Buffer;
 use wast::parser::{self, Cursor, Parse, Parser, Peek, Result};
 
@@ -151,7 +151,9 @@ impl Parse<'_> for RecordType {
             })?);
         }
 
-        Ok(RecordType { fields })
+        Ok(RecordType {
+            fields: Vec1::new(fields).expect("Record must have at least one field, zero given."),
+        })
     }
 }
 
@@ -681,7 +683,7 @@ mod tests {
             InterfaceType::I32,
             InterfaceType::I64,
             InterfaceType::Record(RecordType {
-                fields: vec![InterfaceType::String],
+                fields: vec1![InterfaceType::String],
             }),
         ];
 
@@ -704,16 +706,16 @@ mod tests {
         ];
         let outputs = vec![
             RecordType {
-                fields: vec![InterfaceType::String],
+                fields: vec1![InterfaceType::String],
             },
             RecordType {
-                fields: vec![InterfaceType::String, InterfaceType::I32],
+                fields: vec1![InterfaceType::String, InterfaceType::I32],
             },
             RecordType {
-                fields: vec![
+                fields: vec1![
                     InterfaceType::String,
                     InterfaceType::Record(RecordType {
-                        fields: vec![InterfaceType::I32, InterfaceType::I32],
+                        fields: vec1![InterfaceType::I32, InterfaceType::I32],
                     }),
                     InterfaceType::F64,
                 ],
@@ -874,7 +876,7 @@ mod tests {
     fn test_type_record() {
         let input = buffer(r#"(@interface type (record (field string) (field i32)))"#);
         let output = Interface::Type(Type::Record(RecordType {
-            fields: vec![InterfaceType::String, InterfaceType::I32],
+            fields: vec1![InterfaceType::String, InterfaceType::I32],
         }));
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);

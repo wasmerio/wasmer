@@ -293,7 +293,7 @@ mod tests {
                 let mut instance = Instance::new();
                 instance.wit_types.push(
                     Type::Record(RecordType {
-                        fields: vec![InterfaceType::I32, InterfaceType::I32],
+                        fields: vec1![InterfaceType::I32, InterfaceType::I32],
                     })
                 );
 

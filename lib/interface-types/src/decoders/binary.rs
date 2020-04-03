@@ -1,6 +1,6 @@
 //! Parse the WIT binary representation into an [AST](crate::ast).
 
-use crate::{ast::*, interpreter::Instruction};
+use crate::{ast::*, interpreter::Instruction, vec1::Vec1};
 use nom::{
     error::{make_error, ErrorKind, ParseError},
     Err, IResult,
@@ -112,7 +112,12 @@ fn record_type<'input, E: ParseError<&'input [u8]>>(
 ) -> IResult<&'input [u8], RecordType, E> {
     let (output, fields) = list(input, ty)?;
 
-    Ok((output, RecordType { fields }))
+    Ok((
+        output,
+        RecordType {
+            fields: Vec1::new(fields).expect("Record must have at least one field, zero given."),
+        },
+    ))
 }
 
 /// Parse a UTF-8 string.
@@ -640,7 +645,7 @@ mod tests {
                 InterfaceType::I32,
                 InterfaceType::I64,
                 InterfaceType::Record(RecordType {
-                    fields: vec![InterfaceType::S32],
+                    fields: vec1![InterfaceType::S32],
                 }),
             ],
         ));
@@ -670,16 +675,16 @@ mod tests {
             &[0x01][..],
             vec![
                 RecordType {
-                    fields: vec![InterfaceType::String],
+                    fields: vec1![InterfaceType::String],
                 },
                 RecordType {
-                    fields: vec![InterfaceType::String, InterfaceType::I32],
+                    fields: vec1![InterfaceType::String, InterfaceType::I32],
                 },
                 RecordType {
-                    fields: vec![
+                    fields: vec1![
                         InterfaceType::String,
                         InterfaceType::Record(RecordType {
-                            fields: vec![InterfaceType::I32, InterfaceType::I32],
+                            fields: vec1![InterfaceType::I32, InterfaceType::I32],
                         }),
                         InterfaceType::F64,
                     ],
@@ -864,7 +869,7 @@ mod tests {
                     outputs: vec![InterfaceType::S32],
                 },
                 Type::Record(RecordType {
-                    fields: vec![InterfaceType::S32, InterfaceType::S32],
+                    fields: vec1![InterfaceType::S32, InterfaceType::S32],
                 }),
             ],
         ));

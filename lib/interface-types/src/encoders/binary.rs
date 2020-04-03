@@ -445,7 +445,7 @@ mod tests {
         assert_to_bytes!(InterfaceType::I64, &[0x0d]);
         assert_to_bytes!(
             InterfaceType::Record(RecordType {
-                fields: vec![InterfaceType::String]
+                fields: vec1![InterfaceType::String]
             }),
             &[0x0e, 0x01, 0x0a]
         );
@@ -455,7 +455,7 @@ mod tests {
     fn test_record_type() {
         assert_to_bytes!(
             RecordType {
-                fields: vec![InterfaceType::String]
+                fields: vec1![InterfaceType::String]
             },
             &[
                 0x01, // 1 field
@@ -464,7 +464,7 @@ mod tests {
         );
         assert_to_bytes!(
             RecordType {
-                fields: vec![InterfaceType::String, InterfaceType::I32]
+                fields: vec1![InterfaceType::String, InterfaceType::I32]
             },
             &[
                 0x02, // 2 fields
@@ -474,10 +474,10 @@ mod tests {
         );
         assert_to_bytes!(
             RecordType {
-                fields: vec![
+                fields: vec1![
                     InterfaceType::String,
                     InterfaceType::Record(RecordType {
-                        fields: vec![InterfaceType::I32, InterfaceType::I32],
+                        fields: vec1![InterfaceType::I32, InterfaceType::I32],
                     }),
                     InterfaceType::F64,
                 ],
@@ -542,7 +542,7 @@ mod tests {
     fn test_type_record() {
         assert_to_bytes!(
             Type::Record(RecordType {
-                fields: vec![InterfaceType::I32, InterfaceType::I64],
+                fields: vec1![InterfaceType::I32, InterfaceType::I64],
             }),
             &[
                 0x01, // record type

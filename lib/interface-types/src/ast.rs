@@ -1,7 +1,7 @@
 //! Represents the WIT language as a tree. This is the central
 //! representation of the language.
 
-use crate::interpreter::Instruction;
+use crate::{interpreter::Instruction, vec1::Vec1};
 use std::str;
 
 /// Represents the types supported by WIT.
@@ -57,7 +57,7 @@ pub enum InterfaceType {
 #[derive(PartialEq, Debug, Clone)]
 pub struct RecordType {
     /// Types representing the fields.
-    pub fields: Vec<InterfaceType>,
+    pub fields: Vec1<InterfaceType>,
 }
 
 /// Represents the kind of type.

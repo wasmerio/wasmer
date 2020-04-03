@@ -368,7 +368,7 @@ mod tests {
             (&InterfaceType::I32).to_string(),
             (&InterfaceType::I64).to_string(),
             (&InterfaceType::Record(RecordType {
-                fields: vec![InterfaceType::String],
+                fields: vec1![InterfaceType::String],
             }))
                 .to_string(),
         ];
@@ -397,18 +397,18 @@ mod tests {
     fn test_record_type() {
         let inputs = vec![
             (&RecordType {
-                fields: vec![InterfaceType::String],
+                fields: vec1![InterfaceType::String],
             })
                 .to_string(),
             (&RecordType {
-                fields: vec![InterfaceType::String, InterfaceType::I32],
+                fields: vec1![InterfaceType::String, InterfaceType::I32],
             })
                 .to_string(),
             (&RecordType {
-                fields: vec![
+                fields: vec1![
                     InterfaceType::String,
                     InterfaceType::Record(RecordType {
-                        fields: vec![InterfaceType::I32, InterfaceType::I32],
+                        fields: vec1![InterfaceType::I32, InterfaceType::I32],
                     }),
                     InterfaceType::F64,
                 ],
@@ -539,7 +539,7 @@ mod tests {
             })
                 .to_string(),
             (&Type::Record(RecordType {
-                fields: vec![InterfaceType::String, InterfaceType::I32],
+                fields: vec1![InterfaceType::String, InterfaceType::I32],
             }))
                 .to_string(),
         ];

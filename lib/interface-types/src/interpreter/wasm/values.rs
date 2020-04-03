@@ -1,7 +1,7 @@
 //! Defines WIT values and associated operations.
 
 pub use crate::ast::{InterfaceType, RecordType};
-use crate::errors::WasmValueNativeCastError;
+use crate::{errors::WasmValueNativeCastError, vec1::Vec1};
 use std::{convert::TryFrom, slice::Iter};
 
 #[cfg(feature = "serde")]
@@ -85,7 +85,8 @@ impl Default for InterfaceValue {
 impl From<&Vec<InterfaceValue>> for RecordType {
     fn from(values: &Vec<InterfaceValue>) -> Self {
         RecordType {
-            fields: values.iter().map(Into::into).collect(),
+            fields: Vec1::new(values.iter().map(Into::into).collect())
+                .expect("Record must have at least one field, zero given."),
         }
     }
 }
@@ -225,7 +226,7 @@ mod tests {
                 InterfaceValue::S8(2)
             ])),
             InterfaceType::Record(RecordType {
-                fields: vec![InterfaceType::I32, InterfaceType::S8]
+                fields: vec1![InterfaceType::I32, InterfaceType::S8]
             })
         );
 
@@ -239,10 +240,10 @@ mod tests {
                 InterfaceValue::S8(2)
             ])),
             InterfaceType::Record(RecordType {
-                fields: vec![
+                fields: vec1![
                     InterfaceType::I32,
                     InterfaceType::Record(RecordType {
-                        fields: vec![InterfaceType::String, InterfaceType::F64]
+                        fields: vec1![InterfaceType::String, InterfaceType::F64]
                     }),
                     InterfaceType::S8
                 ]

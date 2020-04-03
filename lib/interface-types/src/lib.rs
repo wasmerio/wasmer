@@ -57,3 +57,4 @@ pub mod decoders;
 pub mod encoders;
 pub mod errors;
 pub mod interpreter;
+pub mod vec1;

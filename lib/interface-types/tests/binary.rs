@@ -1,5 +1,6 @@
 use wasmer_interface_types::{
     ast::*, decoders::binary::parse, encoders::binary::ToBytes, interpreter::Instruction,
+    vec1::Vec1,
 };
 
 /// Tests an AST to binary, then binary to AST roundtrip.
@@ -16,7 +17,7 @@ fn test_binary_encoding_decoding_roundtrip() {
                 outputs: vec![InterfaceType::S32],
             },
             Type::Record(RecordType {
-                fields: vec![InterfaceType::String, InterfaceType::I32],
+                fields: Vec1::new(vec![InterfaceType::String, InterfaceType::I32]).unwrap(),
             }),
         ],
         imports: vec![Import {

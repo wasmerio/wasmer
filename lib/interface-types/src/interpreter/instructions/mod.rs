@@ -326,10 +326,10 @@ pub(crate) mod tests {
                 },
                 memory: Memory::new(vec![Cell::new(0); 128]),
                 wit_types: vec![ast::Type::Record(ast::RecordType {
-                    fields: vec![
+                    fields: vec1![
                         InterfaceType::I32,
                         InterfaceType::Record(ast::RecordType {
-                            fields: vec![InterfaceType::String, InterfaceType::F32],
+                            fields: vec1![InterfaceType::String, InterfaceType::F32],
                         }),
                         InterfaceType::I64,
                     ],
