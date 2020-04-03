@@ -202,7 +202,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             Some(InterfaceValue::String(_)) => self.deserialize_string(visitor),
             Some(InterfaceValue::I32(_)) => self.deserialize_i32(visitor),
             Some(InterfaceValue::I64(_)) => self.deserialize_i64(visitor),
-            Some(InterfaceValue::Record(_)) => unreachable!("Records should have been flatten."), // already flatten
+            Some(InterfaceValue::Record(_)) => unreachable!("Records should have been flattened."), // already flattened
             None => Err(DeserializeError::InputEmpty),
         }
     }
