@@ -7,6 +7,13 @@
     unreachable_patterns
 )]
 
+#[cfg(not(any(
+    feature = "backend-llvm",
+    feature = "backend-cranelift",
+    feature = "backend-singlepass"
+)))]
+compile_error!("No compiler backend detected: please specify at least one compiler backend!");
+
 #[cfg(test)]
 mod tests {
 
@@ -19,6 +26,7 @@ mod tests {
     // TODO Allow running WAST &str directly (E.g. for use outside of spectests)
 
     use std::collections::HashSet;
+    use std::env;
     use std::sync::{Arc, Mutex};
 
     struct SpecFailure {
@@ -72,19 +80,36 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "backend-cranelift")]
-    fn get_compiler_name() -> &'static str {
-        "clif"
+    fn get_available_compilers() -> &'static [&'static str] {
+        &[
+            #[cfg(feature = "backend-cranelift")]
+            "clif",
+            #[cfg(feature = "backend-llvm")]
+            "llvm",
+            #[cfg(feature = "backend-singlepass")]
+            "singlepass",
+        ]
     }
 
-    #[cfg(feature = "backend-llvm")]
-    fn get_compiler_name() -> &'static str {
-        "llvm"
-    }
+    fn get_compilers_to_test() -> Vec<&'static str> {
+        let mut out = vec![];
+        if let Ok(v) = env::var("SPECTEST_TEST_CLIF") {
+            if v == "1" {
+                out.push("clif");
+            }
+        }
+        if let Ok(v) = env::var("SPECTEST_TEST_LLVM") {
+            if v == "1" {
+                out.push("llvm");
+            }
+        }
+        if let Ok(v) = env::var("SPECTEST_TEST_SINGLEPASS") {
+            if v == "1" {
+                out.push("singlepass");
+            }
+        }
 
-    #[cfg(feature = "backend-singlepass")]
-    fn get_compiler_name() -> &'static str {
-        "singlepass"
+        out
     }
 
     #[cfg(unix)]
@@ -216,16 +241,6 @@ mod tests {
         }
     }
 
-    #[cfg(not(any(
-        feature = "backend-llvm",
-        feature = "backend-cranelift",
-        feature = "backend-singlepass"
-    )))]
-    fn get_compiler_name() -> &'static str {
-        panic!("compiler not specified, activate a compiler via features");
-        "unknown"
-    }
-
     fn with_instance<F, R>(
         maybe_instance: Option<Arc<Mutex<Instance>>>,
         named_modules: &HashMap<String, Arc<Mutex<Instance>>>,
@@ -249,15 +264,16 @@ mod tests {
     use std::fs;
     use std::panic::AssertUnwindSafe;
     use std::path::PathBuf;
+    use std::str::FromStr;
     use wabt::script::{Action, Command, CommandKind, ScriptParser, Value};
     use wasmer_runtime::{
-        compile_with_config,
+        compile_with_config_with, compiler_for_backend,
         error::CompileError,
         func, imports,
         types::{ElementType, MemoryDescriptor, TableDescriptor},
         units::Pages,
-        CompilerConfig, Ctx, Export, Features, Global, ImportObject, Instance, LikeNamespace,
-        Memory, Table,
+        Backend, CompilerConfig, Ctx, Export, Features, Global, ImportObject, Instance,
+        LikeNamespace, Memory, Table,
     };
 
     fn format_panic(e: &dyn std::any::Any) -> String {
@@ -274,6 +290,7 @@ mod tests {
         path: &PathBuf,
         file_excludes: &HashSet<String>,
         excludes: &HashMap<String, Vec<Exclude>>,
+        backend: &'static str,
     ) -> Result<TestReport, String> {
         let mut test_report = TestReport {
             failures: vec![],
@@ -310,8 +327,12 @@ mod tests {
             .map(|file| file.iter().map(|x| Some(x.clone())).collect())
             .unwrap_or(vec![]);
         let excludes = &mut excludes;
-
-        let backend = get_compiler_name();
+        let backend_enum = Backend::from_str(if backend == "clif" {
+            "cranelift"
+        } else {
+            backend
+        })
+        .unwrap();
 
         while let Some(Command { kind, line }) =
             parser.next().map_err(|e| format!("Parse err: {:?}", e))?
@@ -344,8 +365,11 @@ mod tests {
                             enable_verification: true,
                             ..Default::default()
                         };
-                        let module = compile_with_config(&module.into_vec(), config)
-                            .expect("WASM can't be compiled");
+
+                        let compiler = compiler_for_backend(backend_enum).unwrap();
+                        let module =
+                            compile_with_config_with(&module.into_vec(), config, &*compiler)
+                                .expect("WASM can't be compiled");
                         let i = module
                             .instantiate(&spectest_import_object)
                             .expect("WASM can't be instantiated");
@@ -784,7 +808,9 @@ mod tests {
                             enable_verification: true,
                             ..Default::default()
                         };
-                        compile_with_config(&module.into_vec(), config)
+
+                        let compiler = compiler_for_backend(backend_enum).unwrap();
+                        compile_with_config_with(&module.into_vec(), config, &*compiler)
                     });
                     match result {
                         Ok(module) => {
@@ -838,7 +864,9 @@ mod tests {
                             enable_verification: true,
                             ..Default::default()
                         };
-                        compile_with_config(&module.into_vec(), config)
+
+                        let compiler = compiler_for_backend(backend_enum).unwrap();
+                        compile_with_config_with(&module.into_vec(), config, &*compiler)
                     });
 
                     match result {
@@ -891,7 +919,9 @@ mod tests {
                         enable_verification: true,
                         ..Default::default()
                     };
-                    let module = compile_with_config(&module.into_vec(), config)
+
+                    let compiler = compiler_for_backend(backend_enum).unwrap();
+                    let module = compile_with_config_with(&module.into_vec(), config, &*compiler)
                         .expect("WASM can't be compiled");
                     let result = panic::catch_unwind(AssertUnwindSafe(|| {
                         module
@@ -988,8 +1018,11 @@ mod tests {
                             enable_verification: true,
                             ..Default::default()
                         };
-                        let module = compile_with_config(&module.into_vec(), config)
-                            .expect("WASM can't be compiled");
+
+                        let compiler = compiler_for_backend(backend_enum).unwrap();
+                        let module =
+                            compile_with_config_with(&module.into_vec(), config, &*compiler)
+                                .expect("WASM can't be compiled");
                         module.instantiate(&spectest_import_object)
                     }));
                     match result {
@@ -1294,16 +1327,15 @@ mod tests {
     use std::io::{BufRead, BufReader};
 
     /// Reads the excludes.txt file into a hash map
-    fn read_excludes() -> (HashMap<String, Vec<Exclude>>, HashSet<String>) {
+    fn read_excludes(current_backend: &str) -> (HashMap<String, Vec<Exclude>>, HashSet<String>) {
         let mut excludes_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         excludes_path.push("tests");
         excludes_path.push("spectests");
         excludes_path.push("excludes.txt");
-        let input = File::open(dbg!(excludes_path)).unwrap();
+        let input = File::open(excludes_path).unwrap();
         let buffered = BufReader::new(input);
         let mut result = HashMap::new();
         let mut file_excludes = HashSet::new();
-        let current_backend = get_compiler_name();
         let current_target_os = get_target_os();
         let current_target_family = get_target_family();
         let current_target_arch = get_target_arch();
@@ -1374,72 +1406,96 @@ mod tests {
 
     #[test]
     fn test_run_spectests() {
-        let mut success = true;
-        let mut test_reports = vec![];
-
-        let (excludes, file_excludes) = read_excludes();
-
         let mut glob_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         glob_path.push("tests");
         glob_path.push("spectests");
         glob_path.push("*.wast");
 
+        let available_compilers = get_available_compilers()
+            .iter()
+            .cloned()
+            .collect::<HashSet<&'static str>>();
+        let desired_compilers = get_compilers_to_test();
+        // default to testing all enabled compilers
+        let compilers_to_test = if desired_compilers.is_empty() {
+            available_compilers.iter().cloned().collect::<Vec<_>>()
+        } else {
+            desired_compilers
+                .iter()
+                .cloned()
+                .filter(|c| available_compilers.contains(c))
+                .collect::<Vec<_>>()
+        };
+
+        // if we've asked to run specific compilers, make sure they're all actually enabled
+        if !desired_compilers.is_empty() && desired_compilers.len() != compilers_to_test.len() {
+            panic!("Asked to run spectests with `{:?}` compilers but `{:?}` compilers are enabled (found {} of them: {:?})", desired_compilers, get_compilers_to_test(), compilers_to_test.len(), compilers_to_test);
+        }
+
         let glob_str = glob_path.to_str().unwrap();
-        for entry in glob(glob_str).expect("Failed to read glob pattern") {
-            match entry {
-                Ok(wast_path) => {
-                    let result = parse_and_run(&wast_path, &file_excludes, &excludes);
-                    match result {
-                        Ok(test_report) => {
-                            if test_report.has_failures() {
-                                success = false
+        for backend in compilers_to_test {
+            println!("Testing `{}` backend", backend);
+            let (excludes, file_excludes) = read_excludes(backend);
+            let mut test_reports = vec![];
+            let mut success = true;
+            for entry in glob(glob_str).expect("Failed to read glob pattern") {
+                match entry {
+                    Ok(wast_path) => {
+                        let result = parse_and_run(&wast_path, &file_excludes, &excludes, backend);
+                        match result {
+                            Ok(test_report) => {
+                                if test_report.has_failures() {
+                                    success = false
+                                }
+                                test_reports.push(test_report);
                             }
-                            test_reports.push(test_report);
-                        }
-                        Err(e) => {
-                            success = false;
-                            println!("Unexpected test run error: {:?}", e)
+                            Err(e) => {
+                                success = false;
+                                println!("Unexpected test run error: {:?}", e)
+                            }
                         }
                     }
+                    Err(e) => panic!("glob err: {:?}", e),
                 }
-                Err(e) => panic!("glob err: {:?}", e),
             }
-        }
 
-        // Print summary
-        let mut failures = vec![];
-        let mut total_passed = 0;
-        let mut total_failed = 0;
-        let mut total_allowed_failures = 0;
-        for mut test_report in test_reports.into_iter() {
-            total_passed += test_report.passed;
-            total_failed += test_report.failed;
-            total_allowed_failures += test_report.allowed_failure;
-            failures.append(&mut test_report.failures);
-        }
+            // Print summary
+            let mut failures = vec![];
+            let mut total_passed = 0;
+            let mut total_failed = 0;
+            let mut total_allowed_failures = 0;
+            for mut test_report in test_reports.into_iter() {
+                total_passed += test_report.passed;
+                total_failed += test_report.failed;
+                total_allowed_failures += test_report.allowed_failure;
+                failures.append(&mut test_report.failures);
+            }
 
-        println!("");
-        println!("Failures:");
-        let backend = get_compiler_name();
-        for failure in failures.iter() {
-            // To print excludes for all failures:
+            println!("");
+            println!("{} backend results:", backend);
+            println!("Failures:");
+            for failure in failures.iter() {
+                // To print excludes for all failures:
+                println!(
+                    "{}:fail:{}:{} # {} - {}",
+                    backend, failure.file, failure.line, failure.kind, failure.message
+                );
+            }
+            println!("");
+            println!("");
+            println!("Spec tests summary report: ");
             println!(
-                "{}:fail:{}:{} # {} - {}",
-                backend, failure.file, failure.line, failure.kind, failure.message
+                "total: {}",
+                total_passed + total_failed + total_allowed_failures
             );
+            println!("passed: {}", total_passed);
+            println!("failed: {}", total_failed);
+            println!("allowed failures: {}", total_allowed_failures);
+            println!("");
+            println!("Tests {}.", if success { "passed" } else { "failed" });
+            println!("");
+            assert!(success, "tests passed")
         }
-        println!("");
-        println!("");
-        println!("Spec tests summary report: ");
-        println!(
-            "total: {}",
-            total_passed + total_failed + total_allowed_failures
-        );
-        println!("passed: {}", total_passed);
-        println!("failed: {}", total_failed);
-        println!("allowed failures: {}", total_allowed_failures);
-        println!("");
-        assert!(success, "tests passed")
     }
 
     /// Bit pattern of an f32 value:

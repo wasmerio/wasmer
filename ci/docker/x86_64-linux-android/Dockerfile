@@ -5,6 +5,7 @@ RUN apt-get update && \
   ca-certificates \
   curl \
   gcc \
+  g++ \
   libc-dev \
   python \
   unzip \

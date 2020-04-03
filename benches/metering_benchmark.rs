@@ -169,6 +169,7 @@ fn get_compiler(limit: u64, metering: bool) -> impl Compiler {
 )))]
 compile_error!("compiler not specified, activate a compiler via features");
 
+#[cfg(feature = "backend-cranelift")]
 fn get_compiler(_limit: u64, metering: bool) -> impl Compiler {
     unimplemented!("cranelift does not implement metering");
     use wasmer_clif_backend::CraneliftCompiler;

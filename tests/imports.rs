@@ -100,6 +100,7 @@ const SHIFT: i32 = 10;
 #[allow(non_upper_case_globals)]
 const shift: i32 = 100;
 
+#[cfg(all(unix, target_arch = "x86_64"))]
 fn imported_functions_forms(test: &dyn Fn(&Instance)) {
     const MODULE: &str = r#"
 (module
@@ -391,6 +392,7 @@ fn callback_fn_trap_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, Strin
 
 macro_rules! test {
     ($test_name:ident, $function:ident( $( $inputs:ty ),* ) -> $output:ty, ( $( $arguments:expr ),* ) == $expected_value:expr) => {
+        #[cfg(all(unix, target_arch = "x86_64"))]
         #[test]
         fn $test_name() {
             imported_functions_forms(&|instance| {
