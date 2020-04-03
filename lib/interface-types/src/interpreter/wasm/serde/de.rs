@@ -234,7 +234,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         // Both `InterfaceValue::S32` and `InterfaceValue::I32`
         // represent `i32`.
-        visitor.visit_i32(self.next_s32().or(self.next_i32())?)
+        visitor.visit_i32(self.next_s32().or_else(|_| self.next_i32())?)
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
