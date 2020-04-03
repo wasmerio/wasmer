@@ -405,4 +405,44 @@ impl<'ctx> State<'ctx> {
             if_else_state: IfElseState::If,
         });
     }
+
+    pub fn rauw_block(&mut self, from: BasicBlock<'ctx>, to: BasicBlock<'ctx>) {
+        for ref mut frame in &mut self.control_stack {
+            match frame {
+                ControlFrame::Block { ref mut next, .. } => {
+                    if *next == from {
+                        *next = to
+                    };
+                }
+                ControlFrame::Loop {
+                    ref mut body,
+                    ref mut next,
+                    ..
+                } => {
+                    if *body == from {
+                        *body = to
+                    };
+                    if *next == from {
+                        *next = to
+                    };
+                }
+                ControlFrame::IfElse {
+                    ref mut if_then,
+                    ref mut if_else,
+                    ref mut next,
+                    ..
+                } => {
+                    if *if_then == from {
+                        *if_then = to
+                    };
+                    if *if_else == from {
+                        *if_else = to
+                    };
+                    if *next == from {
+                        *next = to
+                    };
+                }
+            }
+        }
+    }
 }

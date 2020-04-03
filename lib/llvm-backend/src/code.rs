@@ -1301,7 +1301,17 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     phi.add_incoming(&[(&value, current_block)]);
                 }
 
-                builder.build_unconditional_branch(*frame.br_dest());
+                if current_block.get_first_instruction().is_none()
+                    && frame.phis().len() == 0
+                    && *frame.br_dest() != current_block
+                {
+                    let dest = *frame.br_dest();
+                    current_block.replace_all_uses_with(&dest);
+                    state.rauw_block(current_block, dest);
+                    unsafe { current_block.delete() }.unwrap();
+                } else {
+                    builder.build_unconditional_branch(*frame.br_dest());
+                }
 
                 state.popn(value_len)?;
                 state.reachable = false;
@@ -1441,7 +1451,17 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                         phi.add_incoming(&[(&value, current_block)])
                     }
                     let frame = state.frame_at_depth(0)?;
-                    builder.build_unconditional_branch(*frame.code_after());
+                    if current_block.get_first_instruction().is_none()
+                        && frame.phis().len() == 0
+                        && current_block != *frame.code_after()
+                    {
+                        let dest = *frame.code_after();
+                        current_block.replace_all_uses_with(&dest);
+                        state.rauw_block(current_block, dest);
+                        unsafe { current_block.delete() }.unwrap();
+                    } else {
+                        builder.build_unconditional_branch(*frame.code_after());
+                    }
                 }
 
                 let (if_else_block, if_else_state) = if let ControlFrame::IfElse {
@@ -1475,7 +1495,17 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                         phi.add_incoming(&[(&value, current_block)]);
                     }
 
-                    builder.build_unconditional_branch(*frame.code_after());
+                    if current_block.get_first_instruction().is_none()
+                        && frame.phis().len() == 0
+                        && current_block != *frame.code_after()
+                    {
+                        let dest = *frame.code_after();
+                        current_block.replace_all_uses_with(&dest);
+                        state.rauw_block(current_block, dest);
+                        unsafe { current_block.delete() }.unwrap();
+                    } else {
+                        builder.build_unconditional_branch(*frame.code_after());
+                    }
                 }
 
                 if let ControlFrame::IfElse {
@@ -1486,8 +1516,14 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 } = &frame
                 {
                     if let IfElseState::If = if_else_state {
-                        builder.position_at_end(*if_else);
-                        builder.build_unconditional_branch(*next);
+                        if if_else.get_first_instruction().is_none() {
+                            if_else.replace_all_uses_with(next);
+                            state.rauw_block(*if_else, *next);
+                            unsafe { if_else.delete() }.unwrap();
+                        } else {
+                            builder.position_at_end(*if_else);
+                            builder.build_unconditional_branch(*next);
+                        }
                     }
                 }
 
@@ -1533,7 +1569,18 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                 }
 
                 let frame = state.outermost_frame()?;
-                builder.build_unconditional_branch(*frame.br_dest());
+
+                if current_block.get_first_instruction().is_none()
+                    && frame.phis().len() == 0
+                    && *frame.br_dest() != current_block
+                {
+                    let dest = *frame.br_dest();
+                    current_block.replace_all_uses_with(&dest);
+                    state.rauw_block(current_block, dest);
+                    unsafe { current_block.delete() }.unwrap();
+                } else {
+                    builder.build_unconditional_branch(*frame.br_dest());
+                }
 
                 state.reachable = false;
             }
