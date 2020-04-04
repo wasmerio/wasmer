@@ -87,6 +87,8 @@ impl Serializer {
     }
 
     fn pop(&mut self) -> Result<Vec<InterfaceValue>, SerializeError> {
+        // The first `vec` contains the final result. It is forbidden
+        // to `pop` it as is.
         if self.values.len() < 2 {
             Err(SerializeError::InternalValuesCorrupted)
         } else {
