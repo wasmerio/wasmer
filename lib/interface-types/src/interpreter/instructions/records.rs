@@ -10,48 +10,19 @@ use crate::{
 };
 use std::collections::VecDeque;
 
-/// Build a `InterfaceValue::Record` based on values on the stack.
+/// Build an `InterfaceValue::Record` based on values on the stack.
 ///
 /// To fill a record, every field `field_1` to `field_n` must get its
-/// value from the stack with `value_1` to `value_n`. To simplify this
-/// algorithm that also typed-checks values when hydrating, the number
-/// of values to read from the stack isn't known ahead-of-time. Thus,
-/// the `Stack::pop` method cannot be used, and `Stack::pop1` is used
-/// instead. It implies that values are read one after the other from
-/// the stack, in a natural reverse order, from `value_n` to
-/// `value_1`.
-///
-/// Consequently, record fields are filled in reverse order, from
-/// `field_n` to `field_1`.
-///
-/// A basic algorithm would then be:
-///
-/// ```rust,ignore
-/// let mut values = vec![];
-///
-/// // Read fields in reverse-order, from `field_n` to `field_1`.
-/// for field in fields.iter().rev() {
-///     let value = stack.pop1();
-///     // type-check with `field` and `value`, to finally…
-///     values.push(value);
-/// }
-///
-/// InterfaceValue::Record(values.iter().rev().collect())
-/// ```
-///
-/// Note that it is required to reverse the `values` vector at the end
-/// because `InterfaceValue::Record` expects its values to match the
-/// original `fields` order.
-///
-/// Because this approach allocates two vectors for `values`, another
-/// approach has been adopted. `values` is an initialized vector
-/// containing uninitialized values of type
-/// `MaybeUninit<InterfaceValue>`. With this approach, it is possible
-/// to fill `values` from index `n` to `0`. Once `values` is entirely
-/// filled, it is `transmute`d to `Vec<InterfaceType>`.
-///
-/// This latter approach allows to allocate one and final vector to
-/// hold all the record values.
+/// value from the stack with `value_1` to `value_n`. It is not
+/// possible to use `Stack::pop` because the one-pass algorithm does
+/// not know exactly the number of values to read from the stack
+/// ahead-of-time, so `Stack::pop1` is used. It implies that values
+/// are read one after the other from the stack, in a natural reverse
+/// order, from `value_n` to `value_1`. Thus, the `values` vector must
+/// be filled from the end to the beginning. It is not safely possible
+/// to fill the `values` vector with empty values though (so that it
+/// is possible to access to last positions). So a `VecDeque` type is
+/// used: it is a double-ended queue.
 fn record_lift_(
     stack: &mut Stack<InterfaceValue>,
     record_type: &RecordType,
