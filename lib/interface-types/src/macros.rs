@@ -1,3 +1,28 @@
+/// This macro creates a `Vec1` by checking at compile-time that its
+/// invariant holds.
+#[allow(unused)]
+macro_rules! vec1 {
+    ($item:expr; 0) => {
+        compile_error!("Cannot create an empty `Vec1`, it violates its invariant.")
+    };
+
+    () => {
+        compile_error!("Cannot create an empty `Vec1`, it violates its invariant.")
+    };
+
+    ($item:expr; $length:expr) => {
+        {
+            crate::vec1::Vec1::new(vec![$item; $length]).unwrap()
+        }
+    };
+
+    ($($item:expr),+ $(,)?) => {
+        {
+            crate::vec1::Vec1::new(vec![$($item),*]).unwrap()
+        }
+    };
+}
+
 /// This macro runs a parser, extracts the next input and the parser
 /// output, and positions the next input on `$input`.
 macro_rules! consume {

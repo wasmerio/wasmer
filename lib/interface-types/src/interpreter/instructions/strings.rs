@@ -93,15 +93,15 @@ executable_instruction!(
                     InstructionErrorKind::LocalOrImportSignatureMismatch {
                         function_index: allocator_index,
                         expected: (vec![InterfaceType::I32], vec![InterfaceType::I32]),
-                        received: (allocator.inputs().to_vec(), allocator.outputs().to_vec())
-                    }
+                        received: (allocator.inputs().to_vec(), allocator.outputs().to_vec()),
+                    },
                 ))
             }
 
             let string = runtime.stack.pop1().ok_or_else(|| {
                 InstructionError::new(
                     instruction,
-                    InstructionErrorKind::StackIsTooSmall { needed: 1 }
+                    InstructionErrorKind::StackIsTooSmall { needed: 1 },
                 )
             })?;
 
@@ -133,7 +133,7 @@ executable_instruction!(
                 .ok_or_else(|| {
                     InstructionError::new(
                         instruction,
-                        InstructionErrorKind::MemoryIsMissing { memory_index }
+                        InstructionErrorKind::MemoryIsMissing { memory_index },
                     )
                 })?
                 .view();
@@ -153,26 +153,26 @@ executable_instruction!(
 executable_instruction!(
     string_size(instruction: Instruction) -> _ {
         move |runtime| -> _ {
-            let value = runtime.stack.peek1().ok_or_else(|| {
-                InstructionError::new(
-                    instruction,
-                    InstructionErrorKind::StackIsTooSmall { needed: 1 },
-                )
-            })?;
+            match runtime.stack.peek1() {
+                Some(InterfaceValue::String(string)) => {
+                    let length = string.len() as i32;
+                    runtime.stack.push(InterfaceValue::I32(length));
 
-            if let InterfaceValue::String(string) = value {
-                let length = string.len() as i32;
-                runtime.stack.push(InterfaceValue::I32(length));
+                    Ok(())
+                },
 
-                Ok(())
-            } else {
-                Err(InstructionError::new(
+                Some(value) => Err(InstructionError::new(
                     instruction,
                     InstructionErrorKind::InvalidValueOnTheStack {
                         expected_type: InterfaceType::String,
                         received_type: value.into(),
-                    }
-                ))
+                    },
+                )),
+
+                None => Err(InstructionError::new(
+                    instruction,
+                    InstructionErrorKind::StackIsTooSmall { needed: 1 },
+                )),
             }
         }
     }
@@ -310,7 +310,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory =
+        test_string_lower_memory =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory { allocator_index: 43 },
@@ -326,7 +326,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__roundtrip_with_memory_to_string =
+        test_string__roundtrip =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory { allocator_index: 43 },
@@ -338,7 +338,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__allocator_does_not_exist =
+        test_string_lower_memory__allocator_does_not_exist =
             instructions: [Instruction::StringLowerMemory { allocator_index: 43 }],
             invocation_inputs: [],
             instance: Instance { ..Default::default() },
@@ -346,7 +346,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__stack_is_too_small =
+        test_string_lower_memory__stack_is_too_small =
             instructions: [
                 Instruction::StringLowerMemory { allocator_index: 43 }
                 //                                                ^^ `43` expects 1 value on the stack, none is present
@@ -357,7 +357,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__failure_when_calling_the_allocator =
+        test_string_lower_memory__failure_when_calling_the_allocator =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory { allocator_index: 153 }
@@ -381,7 +381,7 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_memory__invalid_allocator_signature =
+        test_string_lower_memory__invalid_allocator_signature =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory { allocator_index: 153 }

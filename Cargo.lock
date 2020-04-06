@@ -2855,6 +2855,7 @@ name = "wasmer-interface-types"
 version = "0.16.2"
 dependencies = [
  "nom",
+ "serde",
  "wast",
 ]
 
