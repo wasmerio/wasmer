@@ -36,11 +36,11 @@ use std::{
 ///     y: f32,
 /// };
 ///
-/// let values = vec![
+/// let values = vec![InterfaceValue::Record(vec![
 ///     InterfaceValue::String("abc".to_string()),
 ///     InterfaceValue::Record(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]),
 ///     InterfaceValue::F32(3.),
-/// ];
+/// ])];
 /// let t = from_interface_values::<T>(&values).unwrap();
 ///
 /// assert_eq!(
@@ -513,7 +513,7 @@ mod tests {
         #[derive(Deserialize, Debug, PartialEq)]
         struct S(i8);
 
-        let input = vec![InterfaceValue::S8(42)];
+        let input = vec![InterfaceValue::Record(vec![InterfaceValue::S8(42)])];
         let output = S(42);
 
         assert_eq!(from_interface_values::<S>(&input).unwrap(), output);
