@@ -8,7 +8,7 @@ use crate::{
         Instruction,
     },
 };
-use std::mem::{transmute, MaybeUninit};
+use std::collections::VecDeque;
 
 /// Build a `InterfaceValue::Record` based on values on the stack.
 ///
@@ -52,37 +52,21 @@ use std::mem::{transmute, MaybeUninit};
 ///
 /// This latter approach allows to allocate one and final vector to
 /// hold all the record values.
-#[allow(unsafe_code)]
 fn record_lift_(
     stack: &mut Stack<InterfaceValue>,
     record_type: &RecordType,
 ) -> Result<InterfaceValue, InstructionErrorKind> {
     let length = record_type.fields.len();
-    let mut values = {
-        // Initialize a vector of length `length` with `MaybeUninit`
-        // values.
-        let mut v = Vec::with_capacity(length);
-
-        for _ in 0..length {
-            v.push(MaybeUninit::<InterfaceValue>::uninit());
-        }
-
-        v
-    };
-    let max = length - 1;
+    let mut values = VecDeque::with_capacity(length);
 
     // Iterate over fields in reverse order to match the stack `pop`
     // order.
-    for (nth, field) in record_type.fields.iter().rev().enumerate() {
+    for field in record_type.fields.iter().rev() {
         match field {
             // The record type tells a record is expected.
             InterfaceType::Record(record_type) => {
                 // Build it recursively.
-                let value = record_lift_(stack, &record_type)?;
-
-                unsafe {
-                    values[max - nth].as_mut_ptr().write(value);
-                }
+                values.push_front(record_lift_(stack, &record_type)?)
             }
             // Any other type.
             ty => {
@@ -96,14 +80,12 @@ fn record_lift_(
                     });
                 }
 
-                unsafe {
-                    values[max - nth].as_mut_ptr().write(value);
-                }
+                values.push_front(value)
             }
         }
     }
 
-    Ok(InterfaceValue::Record(unsafe { transmute(values) }))
+    Ok(InterfaceValue::Record(values.into_iter().collect()))
 }
 
 executable_instruction!(
