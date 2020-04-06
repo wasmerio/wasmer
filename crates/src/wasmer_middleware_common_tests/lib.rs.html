@@ -173,7 +173,6 @@
 <span id="173">173</span>
 <span id="174">174</span>
 <span id="175">175</span>
-<span id="176">176</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">test</span>, <span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)))]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
@@ -309,7 +308,6 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_traps_after_costly_call</span>() {
-        <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">error</span>::<span class="ident">RuntimeError</span>;
         <span class="kw">let</span> <span class="ident">wasm_binary</span> <span class="op">=</span> <span class="ident">wat2wasm</span>(<span class="ident">WAT</span>).<span class="ident">unwrap</span>();
 
         <span class="kw">let</span> <span class="ident">limit</span> <span class="op">=</span> <span class="number">100u64</span>;
