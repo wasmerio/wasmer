@@ -132,7 +132,6 @@ mod tests {
 
     #[test]
     fn test_traps_after_costly_call() {
-        use wasmer_runtime_core::error::RuntimeError;
         let wasm_binary = wat2wasm(WAT).unwrap();
 
         let limit = 100u64;
