@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["EmptyVec","Represents the only error that can be emitted by `Vec1`, i.e. when the number of items is zero."],["Vec1","`Vec1<T>` represents a non-empty `Vec<T>`. It derefs to `Vec<T>` directly."]]});

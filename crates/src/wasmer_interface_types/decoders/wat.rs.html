@@ -864,10 +864,124 @@
 <span id="864">864</span>
 <span id="865">865</span>
 <span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
+<span id="881">881</span>
+<span id="882">882</span>
+<span id="883">883</span>
+<span id="884">884</span>
+<span id="885">885</span>
+<span id="886">886</span>
+<span id="887">887</span>
+<span id="888">888</span>
+<span id="889">889</span>
+<span id="890">890</span>
+<span id="891">891</span>
+<span id="892">892</span>
+<span id="893">893</span>
+<span id="894">894</span>
+<span id="895">895</span>
+<span id="896">896</span>
+<span id="897">897</span>
+<span id="898">898</span>
+<span id="899">899</span>
+<span id="900">900</span>
+<span id="901">901</span>
+<span id="902">902</span>
+<span id="903">903</span>
+<span id="904">904</span>
+<span id="905">905</span>
+<span id="906">906</span>
+<span id="907">907</span>
+<span id="908">908</span>
+<span id="909">909</span>
+<span id="910">910</span>
+<span id="911">911</span>
+<span id="912">912</span>
+<span id="913">913</span>
+<span id="914">914</span>
+<span id="915">915</span>
+<span id="916">916</span>
+<span id="917">917</span>
+<span id="918">918</span>
+<span id="919">919</span>
+<span id="920">920</span>
+<span id="921">921</span>
+<span id="922">922</span>
+<span id="923">923</span>
+<span id="924">924</span>
+<span id="925">925</span>
+<span id="926">926</span>
+<span id="927">927</span>
+<span id="928">928</span>
+<span id="929">929</span>
+<span id="930">930</span>
+<span id="931">931</span>
+<span id="932">932</span>
+<span id="933">933</span>
+<span id="934">934</span>
+<span id="935">935</span>
+<span id="936">936</span>
+<span id="937">937</span>
+<span id="938">938</span>
+<span id="939">939</span>
+<span id="940">940</span>
+<span id="941">941</span>
+<span id="942">942</span>
+<span id="943">943</span>
+<span id="944">944</span>
+<span id="945">945</span>
+<span id="946">946</span>
+<span id="947">947</span>
+<span id="948">948</span>
+<span id="949">949</span>
+<span id="950">950</span>
+<span id="951">951</span>
+<span id="952">952</span>
+<span id="953">953</span>
+<span id="954">954</span>
+<span id="955">955</span>
+<span id="956">956</span>
+<span id="957">957</span>
+<span id="958">958</span>
+<span id="959">959</span>
+<span id="960">960</span>
+<span id="961">961</span>
+<span id="962">962</span>
+<span id="963">963</span>
+<span id="964">964</span>
+<span id="965">965</span>
+<span id="966">966</span>
+<span id="967">967</span>
+<span id="968">968</span>
+<span id="969">969</span>
+<span id="970">970</span>
+<span id="971">971</span>
+<span id="972">972</span>
+<span id="973">973</span>
+<span id="974">974</span>
+<span id="975">975</span>
+<span id="976">976</span>
+<span id="977">977</span>
+<span id="978">978</span>
+<span id="979">979</span>
+<span id="980">980</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parse the WIT textual representation into an [AST](crate::ast).</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>, <span class="ident">vec1</span>::<span class="ident">Vec1</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wast</span>::<span class="ident">parser</span>::<span class="ident">ParseBuffer</span> <span class="kw">as</span> <span class="ident">Buffer</span>;
 <span class="kw">use</span> <span class="ident">wast</span>::<span class="ident">parser</span>::{<span class="self">self</span>, <span class="ident">Cursor</span>, <span class="ident">Parse</span>, <span class="ident">Parser</span>, <span class="ident">Peek</span>, <span class="prelude-ty">Result</span>};
 
@@ -880,6 +994,8 @@
     <span class="comment">// New keywords.</span>
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">implement</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">r#type</span> <span class="op">=</span> <span class="string">&quot;type&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">record</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">field</span>);
 
     <span class="comment">// New types.</span>
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">s8</span>);
@@ -930,6 +1046,8 @@
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">string_lift_memory</span> <span class="op">=</span> <span class="string">&quot;string.lift_memory&quot;</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">string_lower_memory</span> <span class="op">=</span> <span class="string">&quot;string.lower_memory&quot;</span>);
     <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">string_size</span> <span class="op">=</span> <span class="string">&quot;string.size&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">record_lift</span> <span class="op">=</span> <span class="string">&quot;record.lift&quot;</span>);
+    <span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">record_lower</span> <span class="op">=</span> <span class="string">&quot;record.lower&quot;</span>);
 }
 
 <span class="kw">impl</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InterfaceType</span> {
@@ -992,9 +1110,31 @@
             <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">i64</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(<span class="ident">InterfaceType</span>::<span class="ident">I64</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">record</span><span class="op">&gt;</span>() {
+            <span class="prelude-val">Ok</span>(<span class="ident">InterfaceType</span>::<span class="ident">Record</span>(<span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>))
         } <span class="kw">else</span> {
             <span class="prelude-val">Err</span>(<span class="ident">lookahead</span>.<span class="ident">error</span>())
         }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RecordType</span> {
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">record</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fields</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+
+        <span class="kw">while</span> <span class="op">!</span><span class="ident">parser</span>.<span class="ident">is_empty</span>() {
+            <span class="ident">fields</span>.<span class="ident">push</span>(<span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">parser</span><span class="op">|</span> {
+                <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">field</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+                <span class="ident">parser</span>.<span class="ident">parse</span>()
+            })<span class="question-mark">?</span>);
+        }
+
+        <span class="prelude-val">Ok</span>(<span class="ident">RecordType</span> {
+            <span class="ident">fields</span>: <span class="ident">Vec1</span>::<span class="ident">new</span>(<span class="ident">fields</span>).<span class="ident">expect</span>(<span class="string">&quot;Record must have at least one field, zero given.&quot;</span>),
+        })
     }
 }
 
@@ -1157,6 +1297,18 @@
             <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_size</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">StringSize</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">record_lift</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">record_lift</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">RecordLift</span> {
+                <span class="ident">type_index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
+            })
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">record_lower</span><span class="op">&gt;</span>() {
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">record_lower</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">RecordLower</span> {
+                <span class="ident">type_index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
+            })
         } <span class="kw">else</span> {
             <span class="prelude-val">Err</span>(<span class="ident">lookahead</span>.<span class="ident">error</span>())
         }
@@ -1268,25 +1420,36 @@
     <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">r#type</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> (<span class="ident">inputs</span>, <span class="ident">outputs</span>) <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">parser</span><span class="op">|</span> {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">func</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">parser</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">lookahead</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">lookahead1</span>();
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">input_types</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output_types</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+            <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">func</span><span class="op">&gt;</span>() {
+                <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">func</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-            <span class="kw">while</span> <span class="op">!</span><span class="ident">parser</span>.<span class="ident">is_empty</span>() {
-                <span class="kw">let</span> <span class="ident">function_type</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">FunctionType</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">input_types</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output_types</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
 
-                <span class="kw">match</span> <span class="ident">function_type</span> {
-                    <span class="ident">FunctionType</span>::<span class="ident">Input</span>(<span class="kw-2">mut</span> <span class="ident">inputs</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">input_types</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inputs</span>),
-                    <span class="ident">FunctionType</span>::<span class="ident">Output</span>(<span class="kw-2">mut</span> <span class="ident">outputs</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">output_types</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">outputs</span>),
+                <span class="kw">while</span> <span class="op">!</span><span class="ident">parser</span>.<span class="ident">is_empty</span>() {
+                    <span class="kw">let</span> <span class="ident">function_type</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">FunctionType</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+                    <span class="kw">match</span> <span class="ident">function_type</span> {
+                        <span class="ident">FunctionType</span>::<span class="ident">Input</span>(<span class="kw-2">mut</span> <span class="ident">inputs</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">input_types</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inputs</span>),
+                        <span class="ident">FunctionType</span>::<span class="ident">Output</span>(<span class="kw-2">mut</span> <span class="ident">outputs</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">output_types</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">outputs</span>),
+                    }
                 }
-            }
 
-            <span class="prelude-val">Ok</span>((<span class="ident">input_types</span>, <span class="ident">output_types</span>))
+                <span class="prelude-val">Ok</span>(<span class="ident">Type</span>::<span class="ident">Function</span> {
+                    <span class="ident">inputs</span>: <span class="ident">input_types</span>,
+                    <span class="ident">outputs</span>: <span class="ident">output_types</span>,
+                })
+            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">record</span><span class="op">&gt;</span>() {
+                <span class="prelude-val">Ok</span>(<span class="ident">Type</span>::<span class="ident">Record</span>(<span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>))
+            } <span class="kw">else</span> {
+                <span class="prelude-val">Err</span>(<span class="ident">lookahead</span>.<span class="ident">error</span>())
+            }
         })<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>(<span class="ident">Type</span> { <span class="ident">inputs</span>, <span class="ident">outputs</span> })
+        <span class="prelude-val">Ok</span>(<span class="ident">ty</span>)
     }
 }
 
@@ -1428,7 +1591,7 @@
 <span class="doccomment">/// )</span>
 <span class="doccomment">/// .unwrap();</span>
 <span class="doccomment">/// let output = Interfaces {</span>
-<span class="doccomment">///     types: vec![Type {</span>
+<span class="doccomment">///     types: vec![Type::Function {</span>
 <span class="doccomment">///         inputs: vec![InterfaceType::I32],</span>
 <span class="doccomment">///         outputs: vec![InterfaceType::S8],</span>
 <span class="doccomment">///     }],</span>
@@ -1469,8 +1632,21 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_interface_type</span>() {
         <span class="kw">let</span> <span class="ident">inputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
-            <span class="string">&quot;s8&quot;</span>, <span class="string">&quot;s16&quot;</span>, <span class="string">&quot;s32&quot;</span>, <span class="string">&quot;s64&quot;</span>, <span class="string">&quot;u8&quot;</span>, <span class="string">&quot;u16&quot;</span>, <span class="string">&quot;u32&quot;</span>, <span class="string">&quot;u64&quot;</span>, <span class="string">&quot;f32&quot;</span>, <span class="string">&quot;f64&quot;</span>, <span class="string">&quot;string&quot;</span>, <span class="string">&quot;anyref&quot;</span>,
-            <span class="string">&quot;i32&quot;</span>, <span class="string">&quot;i64&quot;</span>,
+            <span class="string">&quot;s8&quot;</span>,
+            <span class="string">&quot;s16&quot;</span>,
+            <span class="string">&quot;s32&quot;</span>,
+            <span class="string">&quot;s64&quot;</span>,
+            <span class="string">&quot;u8&quot;</span>,
+            <span class="string">&quot;u16&quot;</span>,
+            <span class="string">&quot;u32&quot;</span>,
+            <span class="string">&quot;u64&quot;</span>,
+            <span class="string">&quot;f32&quot;</span>,
+            <span class="string">&quot;f64&quot;</span>,
+            <span class="string">&quot;string&quot;</span>,
+            <span class="string">&quot;anyref&quot;</span>,
+            <span class="string">&quot;i32&quot;</span>,
+            <span class="string">&quot;i64&quot;</span>,
+            <span class="string">&quot;record (field string)&quot;</span>,
         ];
         <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             <span class="ident">InterfaceType</span>::<span class="ident">S8</span>,
@@ -1487,6 +1663,9 @@
             <span class="ident">InterfaceType</span>::<span class="ident">Anyref</span>,
             <span class="ident">InterfaceType</span>::<span class="ident">I32</span>,
             <span class="ident">InterfaceType</span>::<span class="ident">I64</span>,
+            <span class="ident">InterfaceType</span>::<span class="ident">Record</span>(<span class="ident">RecordType</span> {
+                <span class="ident">fields</span>: <span class="macro">vec1</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">String</span>],
+            }),
         ];
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inputs</span>.<span class="ident">len</span>(), <span class="ident">outputs</span>.<span class="ident">len</span>());
@@ -1494,6 +1673,41 @@
         <span class="kw">for</span> (<span class="ident">input</span>, <span class="ident">output</span>) <span class="kw">in</span> <span class="ident">inputs</span>.<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">outputs</span>.<span class="ident">iter</span>()) {
             <span class="macro">assert_eq</span><span class="macro">!</span>(
                 <span class="kw-2">&amp;</span><span class="ident">parser</span>::<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">InterfaceType</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>(<span class="ident">input</span>)).<span class="ident">unwrap</span>(),
+                <span class="ident">output</span>
+            );
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_record_type</span>() {
+        <span class="kw">let</span> <span class="ident">inputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
+            <span class="string">&quot;record (field string)&quot;</span>,
+            <span class="string">&quot;record (field string) (field i32)&quot;</span>,
+            <span class="string">&quot;record (field string) (field record (field i32) (field i32)) (field f64)&quot;</span>,
+        ];
+        <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
+            <span class="ident">RecordType</span> {
+                <span class="ident">fields</span>: <span class="macro">vec1</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">String</span>],
+            },
+            <span class="ident">RecordType</span> {
+                <span class="ident">fields</span>: <span class="macro">vec1</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">String</span>, <span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+            },
+            <span class="ident">RecordType</span> {
+                <span class="ident">fields</span>: <span class="macro">vec1</span><span class="macro">!</span>[
+                    <span class="ident">InterfaceType</span>::<span class="ident">String</span>,
+                    <span class="ident">InterfaceType</span>::<span class="ident">Record</span>(<span class="ident">RecordType</span> {
+                        <span class="ident">fields</span>: <span class="macro">vec1</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+                    }),
+                    <span class="ident">InterfaceType</span>::<span class="ident">F64</span>,
+                ],
+            },
+        ];
+
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inputs</span>.<span class="ident">len</span>(), <span class="ident">outputs</span>.<span class="ident">len</span>());
+
+        <span class="kw">for</span> (<span class="ident">input</span>, <span class="ident">output</span>) <span class="kw">in</span> <span class="ident">inputs</span>.<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">outputs</span>.<span class="ident">iter</span>()) {
+            <span class="macro">assert_eq</span><span class="macro">!</span>(
+                <span class="kw-2">&amp;</span><span class="ident">parser</span>::<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">RecordType</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>(<span class="ident">input</span>)).<span class="ident">unwrap</span>(),
                 <span class="ident">output</span>
             );
         }
@@ -1539,6 +1753,8 @@
             <span class="string">&quot;string.lift_memory&quot;</span>,
             <span class="string">&quot;string.lower_memory 42&quot;</span>,
             <span class="string">&quot;string.size&quot;</span>,
+            <span class="string">&quot;record.lift 42&quot;</span>,
+            <span class="string">&quot;record.lower 42&quot;</span>,
         ];
         <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[
             <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">7</span> },
@@ -1580,6 +1796,8 @@
                 <span class="ident">allocator_index</span>: <span class="number">42</span>,
             },
             <span class="ident">Instruction</span>::<span class="ident">StringSize</span>,
+            <span class="ident">Instruction</span>::<span class="ident">RecordLift</span> { <span class="ident">type_index</span>: <span class="number">42</span> },
+            <span class="ident">Instruction</span>::<span class="ident">RecordLower</span> { <span class="ident">type_index</span>: <span class="number">42</span> },
         ];
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">inputs</span>.<span class="ident">len</span>(), <span class="ident">outputs</span>.<span class="ident">len</span>());
@@ -1625,12 +1843,22 @@
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_type</span>() {
+    <span class="kw">fn</span> <span class="ident">test_type_function</span>() {
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">buffer</span>(<span class="string">r#&quot;(@interface type (func (param i32 i32) (result i32)))&quot;#</span>);
-        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">Interface</span>::<span class="ident">Type</span>(<span class="ident">Type</span> {
+        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">Interface</span>::<span class="ident">Type</span>(<span class="ident">Type</span>::<span class="ident">Function</span> {
             <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
             <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
         });
+
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parser</span>::<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Interface</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>).<span class="ident">unwrap</span>(), <span class="ident">output</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_type_record</span>() {
+        <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="ident">buffer</span>(<span class="string">r#&quot;(@interface type (record (field string) (field i32)))&quot;#</span>);
+        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">Interface</span>::<span class="ident">Type</span>(<span class="ident">Type</span>::<span class="ident">Record</span>(<span class="ident">RecordType</span> {
+            <span class="ident">fields</span>: <span class="macro">vec1</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">String</span>, <span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
+        }));
 
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parser</span>::<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Interface</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>).<span class="ident">unwrap</span>(), <span class="ident">output</span>);
     }
@@ -1705,7 +1933,7 @@
 (@interface implement (func 0) (func 1))&quot;#</span>,
         );
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">Interfaces</span> {
-            <span class="ident">types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Type</span> {
+            <span class="ident">types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Type</span>::<span class="ident">Function</span> {
                 <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
                 <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">S8</span>],
             }],

@@ -249,11 +249,35 @@
 <span id="249">249</span>
 <span id="250">250</span>
 <span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The error module contains all the data structures that represent</span>
 <span class="doccomment">//! an error.</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="ident">InterfaceType</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">ast</span>::{<span class="ident">InterfaceType</span>, <span class="ident">TypeKind</span>},
+    <span class="ident">interpreter</span>::<span class="ident">Instruction</span>,
+};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">error</span>::<span class="ident">Error</span>,
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>},
@@ -408,6 +432,21 @@
         <span class="doccomment">/// The variable name that triggered the error.</span>
         <span class="ident">subject</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>,
     },
+
+    <span class="doccomment">/// The type doesn&#39;t exist.</span>
+    <span class="ident">TypeIsMissing</span> {
+        <span class="doccomment">/// The type index.</span>
+        <span class="ident">type_index</span>: <span class="ident">u32</span>,
+    },
+
+    <span class="doccomment">/// Read a type that has an unexpected type.</span>
+    <span class="ident">InvalidTypeKind</span> {
+        <span class="doccomment">/// The expected kind.</span>
+        <span class="ident">expected_kind</span>: <span class="ident">TypeKind</span>,
+
+        <span class="doccomment">/// The received kind.</span>
+        <span class="ident">received_kind</span>: <span class="ident">TypeKind</span>,
+    },
 }
 
 <span class="kw">impl</span> <span class="ident">Error</span> <span class="kw">for</span> <span class="ident">InstructionErrorKind</span> {}
@@ -455,11 +494,7 @@
             <span class="self">Self</span>::<span class="ident">LocalOrImportSignatureMismatch</span> { <span class="ident">function_index</span>, <span class="ident">expected</span>, <span class="ident">received</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
                 <span class="ident">formatter</span>,
                 <span class="string">&quot;the local or import function `{}` has the signature `{:?} -&gt; {:?}` but it received values of kind `{:?} -&gt; {:?}`&quot;</span>,
-                <span class="ident">function_index</span>,
-                <span class="ident">expected</span>.<span class="number">0</span>,
-                <span class="ident">expected</span>.<span class="number">1</span>,
-                <span class="ident">received</span>.<span class="number">0</span>,
-                <span class="ident">received</span>.<span class="number">1</span>,
+                <span class="ident">function_index</span>, <span class="ident">expected</span>.<span class="number">0</span>, <span class="ident">expected</span>.<span class="number">1</span>, <span class="ident">received</span>.<span class="number">0</span>, <span class="ident">received</span>.<span class="number">1</span>,
             ),
 
             <span class="self">Self</span>::<span class="ident">LocalOrImportCall</span>  { <span class="ident">function_index</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
@@ -477,20 +512,27 @@
             <span class="self">Self</span>::<span class="ident">MemoryOutOfBoundsAccess</span> { <span class="ident">index</span>, <span class="ident">length</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
                 <span class="ident">formatter</span>,
                 <span class="string">&quot;read out of the memory bounds (index {} &gt; memory length {})&quot;</span>,
-                <span class="ident">index</span>,
-                <span class="ident">length</span>,
+                <span class="ident">index</span>, <span class="ident">length</span>,
             ),
 
-            <span class="self">Self</span>::<span class="ident">String</span>(<span class="ident">error</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
-                <span class="ident">formatter</span>,
-                <span class="string">&quot;{}&quot;</span>,
-                <span class="ident">error</span>
-            ),
+            <span class="self">Self</span>::<span class="ident">String</span>(<span class="ident">error</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">formatter</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">error</span>),
 
             <span class="self">Self</span>::<span class="ident">NegativeValue</span> { <span class="ident">subject</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
                 <span class="ident">formatter</span>,
                 <span class="string">&quot;attempted to convert `{}` but it appears to be a negative value&quot;</span>,
                 <span class="ident">subject</span>
+            ),
+
+            <span class="self">Self</span>::<span class="ident">TypeIsMissing</span> { <span class="ident">type_index</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
+                <span class="ident">formatter</span>,
+                <span class="string">&quot;the type `{}` doesn&#39;t exist&quot;</span>,
+                <span class="ident">type_index</span>
+            ),
+
+            <span class="self">Self</span>::<span class="ident">InvalidTypeKind</span> { <span class="ident">expected_kind</span>, <span class="ident">received_kind</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
+                <span class="ident">formatter</span>,
+                <span class="string">&quot;read a type of kind `{:?}`, but the kind `{:?}` was expected&quot;</span>,
+                <span class="ident">received_kind</span>, <span class="ident">expected_kind</span>
             ),
         }
     }

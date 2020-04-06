@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["de","Provides a deserializer from WIT values to Rust value."],["ser","Provides a serializer from Rust value to WIT values."]]});

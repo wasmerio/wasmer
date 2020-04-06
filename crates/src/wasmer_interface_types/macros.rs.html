@@ -128,7 +128,57 @@
 <span id="128">128</span>
 <span id="129">129</span>
 <span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="doccomment">/// This macro creates a `Vec1` by checking at compile-time that its</span>
+<span class="doccomment">/// invariant holds.</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused</span>)]</span>
+<span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">vec1</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">item</span>:<span class="ident">expr</span>; <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="macro">compile_error</span><span class="macro">!</span>(<span class="string">&quot;Cannot create an empty `Vec1`, it violates its invariant.&quot;</span>)
+    };
+
+    () <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="macro">compile_error</span><span class="macro">!</span>(<span class="string">&quot;Cannot create an empty `Vec1`, it violates its invariant.&quot;</span>)
+    };
+
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">item</span>:<span class="ident">expr</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">length</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        {
+            <span class="kw">crate</span>::<span class="ident">vec1</span>::<span class="ident">Vec1</span>::<span class="ident">new</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="macro-nonterminal">$</span><span class="macro-nonterminal">item</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">length</span>]).<span class="ident">unwrap</span>()
+        }
+    };
+
+    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">item</span>:<span class="ident">expr</span>),<span class="op">+</span> $(,)<span class="question-mark">?</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        {
+            <span class="kw">crate</span>::<span class="ident">vec1</span>::<span class="ident">Vec1</span>::<span class="ident">new</span>(<span class="macro">vec</span><span class="macro">!</span>[$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">item</span>),<span class="kw-2">*</span>]).<span class="ident">unwrap</span>()
+        }
+    };
+}
+
 <span class="doccomment">/// This macro runs a parser, extracts the next input and the parser</span>
 <span class="doccomment">/// output, and positions the next input on `$input`.</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">consume</span> {

@@ -247,8 +247,8 @@
                 )
             })<span class="question-mark">?</span>;
 
-            <span class="kw">for</span> <span class="ident">output</span> <span class="kw">in</span> <span class="ident">outputs</span>.<span class="ident">iter</span>() {
-                <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">push</span>(<span class="ident">output</span>.<span class="ident">clone</span>());
+            <span class="kw">for</span> <span class="ident">output</span> <span class="kw">in</span> <span class="ident">outputs</span>.<span class="ident">into_iter</span>() {
+                <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">push</span>(<span class="ident">output</span>)
             }
 
             <span class="prelude-val">Ok</span>(())

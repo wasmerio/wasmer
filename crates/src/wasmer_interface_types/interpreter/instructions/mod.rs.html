@@ -207,24 +207,311 @@
 <span id="207">207</span>
 <span id="208">208</span>
 <span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">mod</span> <span class="ident">argument_get</span>;
 <span class="kw">mod</span> <span class="ident">call_core</span>;
 <span class="kw">mod</span> <span class="ident">numbers</span>;
+<span class="kw">mod</span> <span class="ident">records</span>;
 <span class="kw">mod</span> <span class="ident">strings</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">errors</span>::{<span class="ident">InstructionError</span>, <span class="ident">InstructionErrorKind</span>, <span class="ident">InstructionResult</span>, <span class="ident">WasmValueNativeCastError</span>},
-    <span class="ident">interpreter</span>::{
-        <span class="ident">wasm</span>::<span class="ident">values</span>::{<span class="ident">InterfaceValue</span>, <span class="ident">NativeType</span>},
-        <span class="ident">Instruction</span>,
-    },
+    <span class="ident">interpreter</span>::<span class="ident">wasm</span>::<span class="ident">values</span>::{<span class="ident">InterfaceValue</span>, <span class="ident">NativeType</span>},
 };
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">argument_get</span>::<span class="ident">argument_get</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">call_core</span>::<span class="ident">call_core</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">numbers</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">records</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryFrom</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">strings</span>::<span class="kw-2">*</span>;
+
+<span class="doccomment">/// Represents all the possible WIT instructions.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Instruction</span> {
+    <span class="doccomment">/// The `arg.get` instruction.</span>
+    <span class="ident">ArgumentGet</span> {
+        <span class="doccomment">/// The argument index.</span>
+        <span class="ident">index</span>: <span class="ident">u32</span>,
+    },
+
+    <span class="doccomment">/// The `call-core` instruction.</span>
+    <span class="ident">CallCore</span> {
+        <span class="doccomment">/// The function index.</span>
+        <span class="ident">function_index</span>: <span class="ident">u32</span>,
+    },
+
+    <span class="doccomment">/// The `s8.from_i32` instruction.</span>
+    <span class="ident">S8FromI32</span>,
+
+    <span class="doccomment">/// The `s8.from_i64` instruction.</span>
+    <span class="ident">S8FromI64</span>,
+
+    <span class="doccomment">/// The `s16.from_i32` instruction.</span>
+    <span class="ident">S16FromI32</span>,
+
+    <span class="doccomment">/// The `s16.from_i64` instruction.</span>
+    <span class="ident">S16FromI64</span>,
+
+    <span class="doccomment">/// The `s32.from_i32` instruction.</span>
+    <span class="ident">S32FromI32</span>,
+
+    <span class="doccomment">/// The `s32.from_i64` instruction.</span>
+    <span class="ident">S32FromI64</span>,
+
+    <span class="doccomment">/// The `s64.from_i32` instruction.</span>
+    <span class="ident">S64FromI32</span>,
+
+    <span class="doccomment">/// The `s64.from_i64` instruction.</span>
+    <span class="ident">S64FromI64</span>,
+
+    <span class="doccomment">/// The `i32.from_s8` instruction.</span>
+    <span class="ident">I32FromS8</span>,
+
+    <span class="doccomment">/// The `i32.from_s16` instruction.</span>
+    <span class="ident">I32FromS16</span>,
+
+    <span class="doccomment">/// The `i32.from_s32` instruction.</span>
+    <span class="ident">I32FromS32</span>,
+
+    <span class="doccomment">/// The `i32.from_s64` instruction.</span>
+    <span class="ident">I32FromS64</span>,
+
+    <span class="doccomment">/// The `i64.from_s8` instruction.</span>
+    <span class="ident">I64FromS8</span>,
+
+    <span class="doccomment">/// The `i64.from_s16` instruction.</span>
+    <span class="ident">I64FromS16</span>,
+
+    <span class="doccomment">/// The `i64.from_s32` instruction.</span>
+    <span class="ident">I64FromS32</span>,
+
+    <span class="doccomment">/// The `i64.from_s64` instruction.</span>
+    <span class="ident">I64FromS64</span>,
+
+    <span class="doccomment">/// The `u8.from_i32` instruction.</span>
+    <span class="ident">U8FromI32</span>,
+
+    <span class="doccomment">/// The `u8.from_i64` instruction.</span>
+    <span class="ident">U8FromI64</span>,
+
+    <span class="doccomment">/// The `u16.from_i32` instruction.</span>
+    <span class="ident">U16FromI32</span>,
+
+    <span class="doccomment">/// The `u16.from_i64` instruction.</span>
+    <span class="ident">U16FromI64</span>,
+
+    <span class="doccomment">/// The `u32.from_i32` instruction.</span>
+    <span class="ident">U32FromI32</span>,
+
+    <span class="doccomment">/// The `u32.from_i64` instruction.</span>
+    <span class="ident">U32FromI64</span>,
+
+    <span class="doccomment">/// The `u64.from_i32` instruction.</span>
+    <span class="ident">U64FromI32</span>,
+
+    <span class="doccomment">/// The `u64.from_i64` instruction.</span>
+    <span class="ident">U64FromI64</span>,
+
+    <span class="doccomment">/// The `i32.from_u8` instruction.</span>
+    <span class="ident">I32FromU8</span>,
+
+    <span class="doccomment">/// The `i32.from_u16` instruction.</span>
+    <span class="ident">I32FromU16</span>,
+
+    <span class="doccomment">/// The `i32.from_u32` instruction.</span>
+    <span class="ident">I32FromU32</span>,
+
+    <span class="doccomment">/// The `i32.from_u64` instruction.</span>
+    <span class="ident">I32FromU64</span>,
+
+    <span class="doccomment">/// The `i64.from_u8` instruction.</span>
+    <span class="ident">I64FromU8</span>,
+
+    <span class="doccomment">/// The `i64.from_u16` instruction.</span>
+    <span class="ident">I64FromU16</span>,
+
+    <span class="doccomment">/// The `i64.from_u32` instruction.</span>
+    <span class="ident">I64FromU32</span>,
+
+    <span class="doccomment">/// The `i64.from_u64` instruction.</span>
+    <span class="ident">I64FromU64</span>,
+
+    <span class="doccomment">/// The `string.lift_memory` instruction.</span>
+    <span class="ident">StringLiftMemory</span>,
+
+    <span class="doccomment">/// The `string.lower_memory` instruction.</span>
+    <span class="ident">StringLowerMemory</span> {
+        <span class="doccomment">/// The allocator function index.</span>
+        <span class="ident">allocator_index</span>: <span class="ident">u32</span>,
+    },
+
+    <span class="doccomment">/// The `string.size` instruction.</span>
+    <span class="ident">StringSize</span>,
+
+    <span class="doccomment">/// The `record.lift` instruction.</span>
+    <span class="ident">RecordLift</span> {
+        <span class="doccomment">/// The type index of the record.</span>
+        <span class="ident">type_index</span>: <span class="ident">u32</span>,
+    },
+
+    <span class="doccomment">/// The `record.lower` instruction.</span>
+    <span class="ident">RecordLower</span> {
+        <span class="doccomment">/// The type index of the record.</span>
+        <span class="ident">type_index</span>: <span class="ident">u32</span>,
+    },
+}
 
 <span class="doccomment">/// Just a short helper to map the error of a cast from an</span>
 <span class="doccomment">/// `InterfaceValue` to a native value.</span>
@@ -241,9 +528,12 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">interpreter</span>::<span class="ident">wasm</span>::{
-        <span class="self">self</span>,
-        <span class="ident">values</span>::{<span class="ident">InterfaceType</span>, <span class="ident">InterfaceValue</span>},
+    <span class="kw">use</span> <span class="kw">crate</span>::{
+        <span class="ident">ast</span>,
+        <span class="ident">interpreter</span>::<span class="ident">wasm</span>::{
+            <span class="self">self</span>,
+            <span class="ident">values</span>::{<span class="ident">InterfaceType</span>, <span class="ident">InterfaceValue</span>},
+        },
     };
     <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">convert</span>::<span class="ident">TryInto</span>, <span class="ident">ops</span>::<span class="ident">Deref</span>, <span class="ident">rc</span>::<span class="ident">Rc</span>};
 
@@ -340,6 +630,7 @@
         <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">exports</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Export</span><span class="op">&gt;</span>,
         <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">locals_or_imports</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">LocalImport</span><span class="op">&gt;</span>,
         <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">memory</span>: <span class="ident">Memory</span>,
+        <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wit_types</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ast</span>::<span class="ident">Type</span><span class="op">&gt;</span>,
     }
 
     <span class="kw">impl</span> <span class="ident">Instance</span> {
@@ -396,6 +687,15 @@
                     <span class="ident">hashmap</span>
                 },
                 <span class="ident">memory</span>: <span class="ident">Memory</span>::<span class="ident">new</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Cell</span>::<span class="ident">new</span>(<span class="number">0</span>); <span class="number">128</span>]),
+                <span class="ident">wit_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">ast</span>::<span class="ident">Type</span>::<span class="ident">Record</span>(<span class="ident">ast</span>::<span class="ident">RecordType</span> {
+                    <span class="ident">fields</span>: <span class="macro">vec1</span><span class="macro">!</span>[
+                        <span class="ident">InterfaceType</span>::<span class="ident">I32</span>,
+                        <span class="ident">InterfaceType</span>::<span class="ident">Record</span>(<span class="ident">ast</span>::<span class="ident">RecordType</span> {
+                            <span class="ident">fields</span>: <span class="macro">vec1</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">String</span>, <span class="ident">InterfaceType</span>::<span class="ident">F32</span>],
+                        }),
+                        <span class="ident">InterfaceType</span>::<span class="ident">I64</span>,
+                    ],
+                })],
             }
         }
     }
@@ -414,6 +714,10 @@
 
         <span class="kw">fn</span> <span class="ident">memory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_index</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Memory</span><span class="op">&gt;</span> {
             <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">memory</span>)
+        }
+
+        <span class="kw">fn</span> <span class="ident">wit_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ast</span>::<span class="ident">Type</span><span class="op">&gt;</span> {
+            <span class="self">self</span>.<span class="ident">wit_types</span>.<span class="ident">get</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>)
         }
     }
 }

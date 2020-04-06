@@ -4,10 +4,16 @@
 <span id="4">4</span>
 <span id="5">5</span>
 <span id="6">6</span>
+<span id="7">7</span>
+<span id="8">8</span>
+<span id="9">9</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! An hypothetic WebAssembly runtime, represented as a set of enums,</span>
 <span class="doccomment">//! types, and traits —basically this is the part a runtime should</span>
 <span class="doccomment">//! take a look to use the `wasmer-interface-types` crate—.</span>
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;serde&quot;</span>)]</span>
+<span class="kw">mod</span> <span class="ident">serde</span>;
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">structures</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">values</span>;
