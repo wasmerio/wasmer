@@ -7,40 +7,43 @@ use std::fs::File;
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
-use wasmer_runtime::compile_with_config_with;
+#[cfg(feature = "backend-llvm")]
+use std::{cell::RefCell, rc::Rc};
 
 use structopt::StructOpt;
 
-#[cfg(feature = "backend-cranelift")]
-use wasmer_clif_backend::CraneliftCompiler;
-#[cfg(feature = "backend-llvm")]
-use wasmer_llvm_backend::{
-    InkwellMemoryBuffer, InkwellModule, LLVMBackendConfig, LLVMCallbacks, LLVMCompiler,
-};
 use wasmer_runtime::{
     cache::{Cache as BaseCache, FileSystemCache, WasmHash},
-    Backend, DynFunc, Value,
+    compile_with_config_with, Backend, DynFunc, Value,
 };
-#[cfg(feature = "managed")]
-use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
 use wasmer_runtime_core::{
     self,
     backend::{Compiler, CompilerConfig, MemoryBoundCheckMode},
     loader::{Instance as LoadedInstance, LocalLoader},
     Module,
 };
+
 #[cfg(unix)]
 use wasmer_runtime_core::{
     fault::{pop_code_version, push_code_version},
     state::CodeVersion,
 };
-#[cfg(feature = "wasi")]
-use wasmer_wasi;
+
+#[cfg(feature = "backend-cranelift")]
+use wasmer_clif_backend::CraneliftCompiler;
 
 #[cfg(feature = "backend-llvm")]
-use std::{cell::RefCell, rc::Rc};
+use wasmer_llvm_backend::{
+    InkwellMemoryBuffer, InkwellModule, LLVMBackendConfig, LLVMCallbacks, LLVMCompiler,
+};
 #[cfg(feature = "backend-llvm")]
 use wasmer_runtime_core::backend::BackendCompilerConfig;
+
+#[cfg(feature = "managed")]
+use wasmer_runtime_core::tiering::{run_tiering, InteractiveShellContext, ShellExitOperation};
+
+#[cfg(feature = "wasi")]
+use wasmer_wasi;
 
 #[cfg(not(any(
     feature = "backend-cranelift",
