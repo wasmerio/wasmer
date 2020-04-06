@@ -122,6 +122,11 @@ mod tests {
         "windows"
     }
 
+    #[cfg(target_os = "android")]
+    fn get_target_os() -> &'static str {
+        "android"
+    }
+
     #[cfg(target_os = "freebsd")]
     fn get_target_os() -> &'static str {
         "freebsd"
