@@ -1,7 +1,7 @@
 //! Represents the WIT language as a tree. This is the central
 //! representation of the language.
 
-use crate::interpreter::Instruction;
+use crate::{interpreter::Instruction, vec1::Vec1};
 use std::str;
 
 /// Represents the types supported by WIT.
@@ -48,20 +48,50 @@ pub enum InterfaceType {
 
     /// A 64-bits integer (as defiend in WebAssembly core).
     I64,
+
+    /// A record.
+    Record(RecordType),
 }
 
-/// Represents a type signature.
-///
-/// ```wasm,ignore
-/// (@interface type (param i32 i32) (result string))
-/// ```
-#[derive(PartialEq, Debug)]
-pub struct Type {
-    /// Types for the parameters (`(param …)`).
-    pub inputs: Vec<InterfaceType>,
+/// Represents a record type.
+#[derive(PartialEq, Debug, Clone)]
+pub struct RecordType {
+    /// Types representing the fields.
+    pub fields: Vec1<InterfaceType>,
+}
 
-    /// Types for the results (`(result …)`).
-    pub outputs: Vec<InterfaceType>,
+/// Represents the kind of type.
+#[derive(PartialEq, Debug)]
+pub enum TypeKind {
+    /// A function type.
+    Function,
+
+    /// A record type.
+    Record,
+}
+
+/// Represents a type.
+#[derive(PartialEq, Debug)]
+pub enum Type {
+    /// A function type, like:
+    ///
+    /// ```wasm,ignore
+    /// (@interface type (func (param i32 i32) (result string)))
+    /// ```
+    Function {
+        /// Types for the parameters (`(param …)`).
+        inputs: Vec<InterfaceType>,
+
+        /// Types for the results (`(result …)`).
+        outputs: Vec<InterfaceType>,
+    },
+
+    /// A record type, like:
+    ///
+    /// ```wasm,ignore
+    /// (@interface type (record string i32))
+    /// ```
+    Record(RecordType),
 }
 
 /// Represents an imported function.

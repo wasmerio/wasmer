@@ -1,6 +1,6 @@
 //! Parse the WIT textual representation into an [AST](crate::ast).
 
-use crate::{ast::*, interpreter::Instruction};
+use crate::{ast::*, interpreter::Instruction, vec1::Vec1};
 pub use wast::parser::ParseBuffer as Buffer;
 use wast::parser::{self, Cursor, Parse, Parser, Peek, Result};
 
@@ -13,6 +13,8 @@ mod keyword {
     // New keywords.
     custom_keyword!(implement);
     custom_keyword!(r#type = "type");
+    custom_keyword!(record);
+    custom_keyword!(field);
 
     // New types.
     custom_keyword!(s8);
@@ -63,6 +65,8 @@ mod keyword {
     custom_keyword!(string_lift_memory = "string.lift_memory");
     custom_keyword!(string_lower_memory = "string.lower_memory");
     custom_keyword!(string_size = "string.size");
+    custom_keyword!(record_lift = "record.lift");
+    custom_keyword!(record_lower = "record.lower");
 }
 
 impl Parse<'_> for InterfaceType {
@@ -125,9 +129,31 @@ impl Parse<'_> for InterfaceType {
             parser.parse::<keyword::i64>()?;
 
             Ok(InterfaceType::I64)
+        } else if lookahead.peek::<keyword::record>() {
+            Ok(InterfaceType::Record(parser.parse()?))
         } else {
             Err(lookahead.error())
         }
+    }
+}
+
+impl Parse<'_> for RecordType {
+    fn parse(parser: Parser<'_>) -> Result<Self> {
+        parser.parse::<keyword::record>()?;
+
+        let mut fields = vec![];
+
+        while !parser.is_empty() {
+            fields.push(parser.parens(|parser| {
+                parser.parse::<keyword::field>()?;
+
+                parser.parse()
+            })?);
+        }
+
+        Ok(RecordType {
+            fields: Vec1::new(fields).expect("Record must have at least one field, zero given."),
+        })
     }
 }
 
@@ -290,6 +316,18 @@ impl<'a> Parse<'a> for Instruction {
             parser.parse::<keyword::string_size>()?;
 
             Ok(Instruction::StringSize)
+        } else if lookahead.peek::<keyword::record_lift>() {
+            parser.parse::<keyword::record_lift>()?;
+
+            Ok(Instruction::RecordLift {
+                type_index: parser.parse()?,
+            })
+        } else if lookahead.peek::<keyword::record_lower>() {
+            parser.parse::<keyword::record_lower>()?;
+
+            Ok(Instruction::RecordLower {
+                type_index: parser.parse()?,
+            })
         } else {
             Err(lookahead.error())
         }
@@ -401,25 +439,36 @@ impl<'a> Parse<'a> for Type {
     fn parse(parser: Parser<'a>) -> Result<Self> {
         parser.parse::<keyword::r#type>()?;
 
-        let (inputs, outputs) = parser.parens(|parser| {
-            parser.parse::<keyword::func>()?;
+        let ty = parser.parens(|parser| {
+            let mut lookahead = parser.lookahead1();
 
-            let mut input_types = vec![];
-            let mut output_types = vec![];
+            if lookahead.peek::<keyword::func>() {
+                parser.parse::<keyword::func>()?;
 
-            while !parser.is_empty() {
-                let function_type = parser.parse::<FunctionType>()?;
+                let mut input_types = vec![];
+                let mut output_types = vec![];
 
-                match function_type {
-                    FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
-                    FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
+                while !parser.is_empty() {
+                    let function_type = parser.parse::<FunctionType>()?;
+
+                    match function_type {
+                        FunctionType::Input(mut inputs) => input_types.append(&mut inputs),
+                        FunctionType::Output(mut outputs) => output_types.append(&mut outputs),
+                    }
                 }
-            }
 
-            Ok((input_types, output_types))
+                Ok(Type::Function {
+                    inputs: input_types,
+                    outputs: output_types,
+                })
+            } else if lookahead.peek::<keyword::record>() {
+                Ok(Type::Record(parser.parse()?))
+            } else {
+                Err(lookahead.error())
+            }
         })?;
 
-        Ok(Type { inputs, outputs })
+        Ok(ty)
     }
 }
 
@@ -561,7 +610,7 @@ impl<'a> Parse<'a> for Interfaces<'a> {
 /// )
 /// .unwrap();
 /// let output = Interfaces {
-///     types: vec![Type {
+///     types: vec![Type::Function {
 ///         inputs: vec![InterfaceType::I32],
 ///         outputs: vec![InterfaceType::S8],
 ///     }],
@@ -602,8 +651,21 @@ mod tests {
     #[test]
     fn test_interface_type() {
         let inputs = vec![
-            "s8", "s16", "s32", "s64", "u8", "u16", "u32", "u64", "f32", "f64", "string", "anyref",
-            "i32", "i64",
+            "s8",
+            "s16",
+            "s32",
+            "s64",
+            "u8",
+            "u16",
+            "u32",
+            "u64",
+            "f32",
+            "f64",
+            "string",
+            "anyref",
+            "i32",
+            "i64",
+            "record (field string)",
         ];
         let outputs = vec![
             InterfaceType::S8,
@@ -620,6 +682,9 @@ mod tests {
             InterfaceType::Anyref,
             InterfaceType::I32,
             InterfaceType::I64,
+            InterfaceType::Record(RecordType {
+                fields: vec1![InterfaceType::String],
+            }),
         ];
 
         assert_eq!(inputs.len(), outputs.len());
@@ -627,6 +692,41 @@ mod tests {
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             assert_eq!(
                 &parser::parse::<InterfaceType>(&buffer(input)).unwrap(),
+                output
+            );
+        }
+    }
+
+    #[test]
+    fn test_record_type() {
+        let inputs = vec![
+            "record (field string)",
+            "record (field string) (field i32)",
+            "record (field string) (field record (field i32) (field i32)) (field f64)",
+        ];
+        let outputs = vec![
+            RecordType {
+                fields: vec1![InterfaceType::String],
+            },
+            RecordType {
+                fields: vec1![InterfaceType::String, InterfaceType::I32],
+            },
+            RecordType {
+                fields: vec1![
+                    InterfaceType::String,
+                    InterfaceType::Record(RecordType {
+                        fields: vec1![InterfaceType::I32, InterfaceType::I32],
+                    }),
+                    InterfaceType::F64,
+                ],
+            },
+        ];
+
+        assert_eq!(inputs.len(), outputs.len());
+
+        for (input, output) in inputs.iter().zip(outputs.iter()) {
+            assert_eq!(
+                &parser::parse::<RecordType>(&buffer(input)).unwrap(),
                 output
             );
         }
@@ -672,6 +772,8 @@ mod tests {
             "string.lift_memory",
             "string.lower_memory 42",
             "string.size",
+            "record.lift 42",
+            "record.lower 42",
         ];
         let outputs = vec![
             Instruction::ArgumentGet { index: 7 },
@@ -713,6 +815,8 @@ mod tests {
                 allocator_index: 42,
             },
             Instruction::StringSize,
+            Instruction::RecordLift { type_index: 42 },
+            Instruction::RecordLower { type_index: 42 },
         ];
 
         assert_eq!(inputs.len(), outputs.len());
@@ -758,12 +862,22 @@ mod tests {
     }
 
     #[test]
-    fn test_type() {
+    fn test_type_function() {
         let input = buffer(r#"(@interface type (func (param i32 i32) (result i32)))"#);
-        let output = Interface::Type(Type {
+        let output = Interface::Type(Type::Function {
             inputs: vec![InterfaceType::I32, InterfaceType::I32],
             outputs: vec![InterfaceType::I32],
         });
+
+        assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
+    }
+
+    #[test]
+    fn test_type_record() {
+        let input = buffer(r#"(@interface type (record (field string) (field i32)))"#);
+        let output = Interface::Type(Type::Record(RecordType {
+            fields: vec1![InterfaceType::String, InterfaceType::I32],
+        }));
 
         assert_eq!(parser::parse::<Interface>(&input).unwrap(), output);
     }
@@ -838,7 +952,7 @@ mod tests {
 (@interface implement (func 0) (func 1))"#,
         );
         let output = Interfaces {
-            types: vec![Type {
+            types: vec![Type::Function {
                 inputs: vec![InterfaceType::I32],
                 outputs: vec![InterfaceType::S8],
             }],

@@ -56,8 +56,8 @@ executable_instruction!(
                 )
             })?;
 
-            for output in outputs.iter() {
-                runtime.stack.push(output.clone());
+            for output in outputs.into_iter() {
+                runtime.stack.push(output)
             }
 
             Ok(())
