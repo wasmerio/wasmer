@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1331](https://github.com/wasmerio/wasmer/pull/1331) Implement the `record` type and instrutions for WIT
 - [#1345](https://github.com/wasmerio/wasmer/pull/1345) Adding ARM testing in Azure Pipelines
 - [#1335](https://github.com/wasmerio/wasmer/pull/1335) Change mutability of `memory` to `const` in `wasmer_memory_data_length` in the C API
 - [#1329](https://github.com/wasmerio/wasmer/pull/1329) New numbers and strings instructions for WIT
