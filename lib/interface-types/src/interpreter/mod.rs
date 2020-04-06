@@ -1,12 +1,11 @@
 //! A stack-based interpreter to execute instructions of WIT adapters.
 
-mod instruction;
 mod instructions;
 pub mod stack;
 pub mod wasm;
 
 use crate::errors::{InstructionResult, InterpreterResult};
-pub use instruction::Instruction;
+pub use instructions::Instruction;
 use stack::Stack;
 use std::{convert::TryFrom, marker::PhantomData};
 use wasm::values::InterfaceValue;
@@ -235,6 +234,13 @@ where
                     instructions::string_lower_memory(*allocator_index, *instruction)
                 }
                 Instruction::StringSize => instructions::string_size(*instruction),
+
+                Instruction::RecordLift { type_index } => {
+                    instructions::record_lift(*type_index, *instruction)
+                }
+                Instruction::RecordLower { type_index } => {
+                    instructions::record_lower(*type_index, *instruction)
+                }
             })
             .collect();
 

@@ -108,6 +108,33 @@ where
             InterfaceType::Anyref => 0x0b_u8.to_bytes(writer),
             InterfaceType::I32 => 0x0c_u8.to_bytes(writer),
             InterfaceType::I64 => 0x0d_u8.to_bytes(writer),
+            InterfaceType::Record(record_type) => {
+                0x0e_u8.to_bytes(writer)?;
+                record_type.to_bytes(writer)
+            }
+        }
+    }
+}
+
+/// Encode a `RecordType` into bytes.
+impl<W> ToBytes<W> for RecordType
+where
+    W: Write,
+{
+    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
+        self.fields.to_bytes(writer)
+    }
+}
+
+/// Encode a `TypeKind` into bytes.
+impl<W> ToBytes<W> for TypeKind
+where
+    W: Write,
+{
+    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            TypeKind::Function => 0x00_u8.to_bytes(writer),
+            TypeKind::Record => 0x01_u8.to_bytes(writer),
         }
     }
 }
@@ -136,8 +163,18 @@ where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.inputs.to_bytes(writer)?;
-        self.outputs.to_bytes(writer)?;
+        match self {
+            Type::Function { inputs, outputs } => {
+                TypeKind::Function.to_bytes(writer)?;
+                inputs.to_bytes(writer)?;
+                outputs.to_bytes(writer)?;
+            }
+
+            Type::Record(RecordType { fields }) => {
+                TypeKind::Record.to_bytes(writer)?;
+                fields.to_bytes(writer)?;
+            }
+        }
 
         Ok(())
     }
@@ -294,13 +331,20 @@ where
             Instruction::I64FromU64 => 0x21_u8.to_bytes(writer)?,
 
             Instruction::StringLiftMemory => 0x22_u8.to_bytes(writer)?,
-
             Instruction::StringLowerMemory { allocator_index } => {
                 0x23_u8.to_bytes(writer)?;
                 (*allocator_index as u64).to_bytes(writer)?;
             }
-
             Instruction::StringSize => 0x24_u8.to_bytes(writer)?,
+
+            Instruction::RecordLift { type_index } => {
+                0x25_u8.to_bytes(writer)?;
+                (*type_index as u64).to_bytes(writer)?
+            }
+            Instruction::RecordLower { type_index } => {
+                0x26_u8.to_bytes(writer)?;
+                (*type_index as u64).to_bytes(writer)?
+            }
         }
 
         Ok(())
@@ -399,6 +443,55 @@ mod tests {
         assert_to_bytes!(InterfaceType::Anyref, &[0x0b]);
         assert_to_bytes!(InterfaceType::I32, &[0x0c]);
         assert_to_bytes!(InterfaceType::I64, &[0x0d]);
+        assert_to_bytes!(
+            InterfaceType::Record(RecordType {
+                fields: vec1![InterfaceType::String]
+            }),
+            &[0x0e, 0x01, 0x0a]
+        );
+    }
+
+    #[test]
+    fn test_record_type() {
+        assert_to_bytes!(
+            RecordType {
+                fields: vec1![InterfaceType::String]
+            },
+            &[
+                0x01, // 1 field
+                0x0a, // String
+            ]
+        );
+        assert_to_bytes!(
+            RecordType {
+                fields: vec1![InterfaceType::String, InterfaceType::I32]
+            },
+            &[
+                0x02, // 2 fields
+                0x0a, // String
+                0x0c, // I32
+            ]
+        );
+        assert_to_bytes!(
+            RecordType {
+                fields: vec1![
+                    InterfaceType::String,
+                    InterfaceType::Record(RecordType {
+                        fields: vec1![InterfaceType::I32, InterfaceType::I32],
+                    }),
+                    InterfaceType::F64,
+                ],
+            },
+            &[
+                0x03, // 3 fields
+                0x0a, // String
+                0x0e, // Record
+                0x02, // 2 fields
+                0x0c, // I32
+                0x0c, // I32
+                0x09, // F64
+            ]
+        );
     }
 
     #[test]
@@ -428,18 +521,34 @@ mod tests {
     }
 
     #[test]
-    fn test_type() {
+    fn test_type_function() {
         assert_to_bytes!(
-            Type {
+            Type::Function {
                 inputs: vec![InterfaceType::I32, InterfaceType::I64],
                 outputs: vec![InterfaceType::S32],
             },
             &[
+                0x00, // function type
                 0x02, // list of 2 items
                 0x0c, // I32
                 0x0d, // I64
                 0x01, // list of 1 items
                 0x02, // I64
+            ]
+        );
+    }
+
+    #[test]
+    fn test_type_record() {
+        assert_to_bytes!(
+            Type::Record(RecordType {
+                fields: vec1![InterfaceType::I32, InterfaceType::I64],
+            }),
+            &[
+                0x01, // record type
+                0x02, // list of 2 items
+                0x0c, // I32
+                0x0d, // I64
             ]
         );
     }
@@ -481,7 +590,7 @@ mod tests {
     fn test_interfaces() {
         assert_to_bytes!(
             Interfaces {
-                types: vec![Type {
+                types: vec![Type::Function {
                     inputs: vec![InterfaceType::S8],
                     outputs: vec![InterfaceType::S16],
                 }],
@@ -506,6 +615,7 @@ mod tests {
             &[
                 0x00, // type section
                 0x01, // 1 type
+                0x00, // function type
                 0x01, // list of 1 item
                 0x00, // S8
                 0x01, // list of 1 item
@@ -580,9 +690,11 @@ mod tests {
                 Instruction::StringLiftMemory,
                 Instruction::StringLowerMemory { allocator_index: 1 },
                 Instruction::StringSize,
+                Instruction::RecordLift { type_index: 1 },
+                Instruction::RecordLower { type_index: 1 },
             ],
             &[
-                0x25, // list of 37 items
+                0x27, // list of 39 items
                 0x00, 0x01, // ArgumentGet { index: 1 }
                 0x01, 0x01, // CallCore { function_index: 1 }
                 0x02, // S8FromI32
@@ -620,6 +732,8 @@ mod tests {
                 0x22, // StringLiftMemory
                 0x23, 0x01, // StringLowerMemory { allocator_index: 1 }
                 0x24, // StringSize
+                0x025, 0x01, // RecordLift { type_index: 1 }
+                0x026, 0x01, // RecordLower { type_index: 1 }
             ]
         );
     }
