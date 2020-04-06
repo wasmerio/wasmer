@@ -1,3 +1,35 @@
+use std::env;
+use wasmer_runtime::Backend;
+
+pub fn get_backend() -> Option<Backend> {
+    #[cfg(feature = "backend-cranelift")]
+    {
+        if let Ok(v) = env::var("WASMER_TEST_CLIF") {
+            if v == "1" {
+                return Some(Backend::Cranelift);
+            }
+        }
+    }
+    #[cfg(feature = "backend-llvm")]
+    {
+        if let Ok(v) = env::var("WASMER_TEST_LLVM") {
+            if v == "1" {
+                return Some(Backend::LLVM);
+            }
+        }
+    }
+    #[cfg(feature = "backend-singlepass")]
+    {
+        if let Ok(v) = env::var("WASMER_TEST_SINGLEPASS") {
+            if v == "1" {
+                return Some(Backend::Singlepass);
+            }
+        }
+    }
+
+    None
+}
+
 macro_rules! assert_emscripten_output {
     ($file:expr, $name:expr, $args:expr, $expected:expr) => {{
 
@@ -5,16 +37,14 @@ macro_rules! assert_emscripten_output {
             EmscriptenGlobals,
             generate_emscripten_env,
         };
-        use wasmer_runtime::compile;
         use wasmer_dev_utils::stdio::StdioCapturer;
 
         let wasm_bytes = include_bytes!($file);
+        let backend = $crate::emtests::_common::get_backend().expect("Please set one of `WASMER_TEST_CLIF`, `WASMER_TEST_LLVM`, or `WASMER_TEST_SINGELPASS` to `1`.");
+        let compiler = wasmer_runtime::compiler_for_backend(backend).expect("The desired compiler was not found!");
 
-        let module = compile(&wasm_bytes[..])
-            .expect("WASM can't be compiled");
+        let module = wasmer_runtime::compile_with_config_with(&wasm_bytes[..], Default::default(), &*compiler).expect("WASM can't be compiled");
 
-//        let module = compile(&wasm_bytes[..])
-//            .map_err(|err| format!("Can't create the WebAssembly module: {}", err)).unwrap(); // NOTE: Need to figure what the unwrap is for ??
         let mut emscripten_globals = EmscriptenGlobals::new(&module).expect("globals are valid");
         let import_object = generate_emscripten_env(&mut emscripten_globals);
 

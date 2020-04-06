@@ -53,13 +53,13 @@ spectests: spectests-singlepass spectests-cranelift spectests-llvm
 
 # Emscripten tests
 emtests-singlepass:
-	cargo test emtest --release --no-default-features --features "wasi backend-singlepass" -- --test-threads=1
+	WASMER_TEST_SINGLEPASS=1 cargo test emtest --release --no-default-features --features "wasi backend-singlepass" -- --test-threads=1
 
 emtests-cranelift:
-	cargo test emtest --release --no-default-features --features "wasi backend-cranelift" -- --test-threads=1
+	WASMER_TEST_CRANELIFT=1 cargo test emtest --release --no-default-features --features "wasi backend-cranelift" -- --test-threads=1
 
 emtests-llvm:
-	cargo test emtest --release --no-default-features --features "wasi backend-llvm" -- --test-threads=1
+	WASMER_TEST_LLVM=1 cargo test emtest --release --no-default-features --features "wasi backend-llvm" -- --test-threads=1
 
 emtests-unit:
 	cargo test emscripten --release
@@ -86,13 +86,13 @@ wasitests-setup:
 	mkdir -p tests/wasi_test_resources/test_fs/temp
 
 wasitests-singlepass: wasitests-setup
-	cargo test wasitest --release --no-default-features --features "wasi backend-singlepass" -- --test-threads=1
+	WASMER_TEST_SINGLEPASS=1 cargo test wasitest --release --no-default-features --features "wasi backend-singlepass" -- --test-threads=1
 
 wasitests-cranelift: wasitests-setup
-	cargo test wasitest --release --no-default-features --features "wasi backend-cranelift" -- --test-threads=1 --nocapture
+	WASMER_TEST_CRANELIFT=1 cargo test wasitest --release --no-default-features --features "wasi backend-cranelift" -- --test-threads=1 --nocapture
 
 wasitests-llvm: wasitests-setup
-	cargo test wasitest --release --no-default-features --features "wasi backend-llvm" -- --test-threads=1
+	WASMER_TEST_LLVM=1 cargo test wasitest --release --no-default-features --features "wasi backend-llvm" -- --test-threads=1
 
 wasitests-unit: wasitests-setup
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
@@ -174,9 +174,9 @@ test-android:
 # Integration tests
 integration-tests: release-clif examples
 	echo "Running Integration Tests"
-	./integration_tests/lua/test.sh
-	./integration_tests/nginx/test.sh
-	./integration_tests/cowsay/test.sh
+	./tests/integration_tests/lua/test.sh
+	./tests/integration_tests/nginx/test.sh
+	./tests/integration_tests/cowsay/test.sh
 
 examples:
 	cargo run --example plugin
@@ -287,12 +287,14 @@ release-llvm:
 	cargo build --release --features backend-llvm,experimental-io-devices
 
 bench-singlepass:
+# NOTE this will run some benchmarks using clif; TODO: fix this
 	cargo bench --all --no-default-features --features "backend-singlepass" \
 	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 bench-clif:
 	cargo bench --all --no-default-features --features "backend-cranelift" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 bench-llvm:
+# NOTE this will run some benchmarks using clif; TODO: fix this
 	cargo bench --all --no-default-features --features "backend-llvm" \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
 
