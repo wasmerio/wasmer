@@ -130,10 +130,7 @@ pub enum Instruction {
     StringLiftMemory,
 
     /// The `string.lower_memory` instruction.
-    StringLowerMemory {
-        /// The allocator function index.
-        allocator_index: u32,
-    },
+    StringLowerMemory,
 
     /// The `string.size` instruction.
     StringSize,

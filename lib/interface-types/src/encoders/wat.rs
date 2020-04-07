@@ -135,9 +135,7 @@ impl ToString for &Instruction {
             Instruction::I64FromU32 => "i64.from_u32".into(),
             Instruction::I64FromU64 => "i64.from_u64".into(),
             Instruction::StringLiftMemory => "string.lift_memory".into(),
-            Instruction::StringLowerMemory { allocator_index } => {
-                format!("string.lower_memory {}", allocator_index)
-            }
+            Instruction::StringLowerMemory => "string.lower_memory".into(),
             Instruction::StringSize => "string.size".into(),
             Instruction::RecordLift { type_index } => format!("record.lift {}", type_index),
             Instruction::RecordLower { type_index } => format!("record.lower {}", type_index),
@@ -462,10 +460,7 @@ mod tests {
             (&Instruction::I64FromU32).to_string(),
             (&Instruction::I64FromU64).to_string(),
             (&Instruction::StringLiftMemory).to_string(),
-            (&Instruction::StringLowerMemory {
-                allocator_index: 42,
-            })
-                .to_string(),
+            (&Instruction::StringLowerMemory).to_string(),
             (&Instruction::StringSize).to_string(),
             (&Instruction::RecordLift { type_index: 42 }).to_string(),
             (&Instruction::RecordLower { type_index: 42 }).to_string(),
@@ -506,7 +501,7 @@ mod tests {
             "i64.from_u32",
             "i64.from_u64",
             "string.lift_memory",
-            "string.lower_memory 42",
+            "string.lower_memory",
             "string.size",
             "record.lift 42",
             "record.lower 42",
