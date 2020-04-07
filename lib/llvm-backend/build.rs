@@ -387,6 +387,8 @@ fn set_env_llvm_prefix_to_user_installed_llvm() {
 
 #[cfg(not(target_os = "windows"))]
 fn install_llvm() {
+    use xz2::read::XzDecoder;
+
     let llvm_path: PathBuf = LLVM_OUT_PATH.clone().into();
     let full_llvm_path: PathBuf = LLVM_OUT_TARGET_PATH.clone().into();
 
@@ -412,8 +414,7 @@ fn install_llvm() {
         download_path, llvm_path
     );
     let llvm_file = File::open(&download_path).expect("Failed to open downloaded llvm file");
-    let lzma_reader =
-        lzma::LzmaReader::new_decompressor(llvm_file).expect("Failed to initialize decompressor");
+    let lzma_reader = XzDecoder::new(llvm_file);
     let mut archive = tar::Archive::new(lzma_reader);
 
     archive
@@ -436,6 +437,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed={}", &*ENV_FORCE_FFI);
     println!("cargo:rerun-if-env-changed={}", &*ENV_DISABLE_INSTALL);
 
+    let system_llvm_config = locate_system_llvm_config();
     // Install LLVM automatically only if the following conditions matches:
     //   - Your environment is Mac OS or Linux.
     //   - The system LLVM doesn't exist.
@@ -449,8 +451,10 @@ fn main() {
         };
         let is_online = online::online(None).is_ok();
         let user_provided_llvm = env::var_os(&*ENV_LLVM_PREFIX).is_some();
+        let has_system_llvm = false;
+        // let has_system_llvm = system_llvm_config.is_some();
 
-        if !should_disable_install && is_online && !user_provided_llvm {
+        if !should_disable_install && is_online && !user_provided_llvm && !has_system_llvm {
             install_llvm();
         }
     }

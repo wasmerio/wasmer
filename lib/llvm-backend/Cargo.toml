@@ -47,7 +47,7 @@ hex-literal = "0.2.1"
 online = "0.2.2"
 
 [target.'cfg(not(windows))'.build-dependencies]
-rust-lzma = "0.5.1"
+xz2 = "0.1"
 
 [dev-dependencies]
 wabt = "0.9.1"
