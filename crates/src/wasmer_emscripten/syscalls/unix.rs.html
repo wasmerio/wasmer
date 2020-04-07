@@ -1140,6 +1140,8 @@
 <span id="1140">1140</span>
 <span id="1141">1141</span>
 <span id="1142">1142</span>
+<span id="1143">1143</span>
+<span id="1144">1144</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ptr</span>::<span class="ident">WasmPtr</span>, <span class="ident">varargs</span>::<span class="ident">VarArgs</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
@@ -1283,10 +1285,12 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lstat</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">c_char</span>, <span class="ident">buf</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">stat</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span>;
 }
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>)))]</span>
+<span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">fallocate</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">madvise</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)))]</span>
-<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">fallocate</span>, <span class="ident">fdatasync</span>, <span class="ident">ftruncate64</span>, <span class="ident">lstat</span>, <span class="ident">madvise</span>, <span class="ident">wait4</span>};
+<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">fdatasync</span>, <span class="ident">ftruncate64</span>, <span class="ident">lstat</span>, <span class="ident">madvise</span>, <span class="ident">wait4</span>};
 
 <span class="comment">// Another conditional constant for name resolution: Macos et iOS use</span>
 <span class="comment">// SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.</span>
@@ -2274,11 +2278,11 @@
     <span class="kw">let</span> <span class="ident">_mode</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">_offset</span>: <span class="ident">off_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">_len</span>: <span class="ident">off_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)))]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>)))]</span>
     <span class="kw">unsafe</span> {
         <span class="ident">fallocate</span>(<span class="ident">_fd</span>, <span class="ident">_mode</span>, <span class="ident">_offset</span>, <span class="ident">_len</span>)
     }
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>))]</span>
     {
         <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall324 (fallocate) {}&quot;</span>, <span class="ident">_which</span>)
     }
