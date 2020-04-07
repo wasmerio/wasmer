@@ -17,9 +17,9 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 [dependencies]
 libc = "0.2.60"
 
-[dependencies.wasmer-runtime]
+[dependencies.wasmer]
 default-features = false
-path = "../runtime"
+path = "../api"
 version = "0.16.2"
 
 [dependencies.wasmer-runtime-core]
@@ -40,9 +40,9 @@ optional = true
 
 [features]
 default = ["cranelift-backend", "wasi"]
-singlepass-backend = ["wasmer-runtime/singlepass", "wasmer-runtime/default-backend-singlepass"]
-cranelift-backend = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend-cranelift"]
-llvm-backend = ["wasmer-runtime/llvm", "wasmer-runtime/default-backend-llvm"]
+singlepass-backend = ["wasmer/singlepass", "wasmer/default-backend-singlepass"]
+cranelift-backend = ["wasmer/cranelift", "wasmer/default-backend-cranelift"]
+llvm-backend = ["wasmer/llvm", "wasmer/default-backend-llvm"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]
 

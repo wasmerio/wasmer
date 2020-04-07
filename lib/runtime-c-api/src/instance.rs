@@ -10,11 +10,9 @@ use crate::{
 };
 use libc::{c_char, c_int, c_void};
 use std::{collections::HashMap, ffi::CStr, ptr, slice};
-use wasmer_runtime::{Ctx, Global, Instance, Memory, Table, Value};
-use wasmer_runtime_core::{
-    export::Export,
-    import::{ImportObject, Namespace},
-};
+use wasmer::import::{ImportObject, Namespace};
+use wasmer::wasm::{Ctx, Global, Instance, Memory, Table, Value};
+use wasmer_runtime_core::export::Export;
 
 /// Opaque pointer to a `wasmer_runtime::Instance` value in Rust.
 ///
@@ -166,7 +164,15 @@ pub unsafe extern "C" fn wasmer_instantiate(
     }
 
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
-    let result = wasmer_runtime::instantiate(bytes, &import_object);
+    let module_result = wasmer::compile(bytes);
+    let module = match module_result {
+        Ok(module) => module,
+        Err(error) => {
+            update_last_error(error);
+            return wasmer_result_t::WASMER_ERROR;
+        }
+    };
+    let result = module.instantiate(&import_object);
     let new_instance = match result {
         Ok(instance) => instance,
         Err(error) => {

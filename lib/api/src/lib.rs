@@ -66,15 +66,20 @@ pub mod wasm {
     //!
     //! # Tables
     pub use wasmer_runtime_core::global::Global;
+    pub use wasmer_runtime_core::instance::Instance;
+    pub use wasmer_runtime_core::memory::Memory;
+    pub use wasmer_runtime_core::module::Module;
     pub use wasmer_runtime_core::table::Table;
     pub use wasmer_runtime_core::types::{ExportDescriptor, ExternDescriptor, ImportDescriptor};
     pub use wasmer_runtime_core::types::{
         FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value,
     };
+    pub use wasmer_runtime_core::vm::Ctx;
 }
 
 pub mod import {
     //! Types and functions for Wasm imports.
+    pub use wasmer_runtime_core::import::{ImportObject, ImportObjectIterator, Namespace};
     pub use wasmer_runtime_core::types::{ExternDescriptor, ImportDescriptor};
     pub use wasmer_runtime_core::{func, imports};
 }
@@ -216,4 +221,24 @@ impl CompiledModule for Module {
         let _ = Self::from_binary(bytes)?;
         Ok(())
     }
+}
+
+// Below this line is things copied from `wasmer-runtime` to make the C API work.
+// All these additions should be reviewed carefully before shipping.
+
+/// Compile WebAssembly binary code into a [`Module`].
+/// This function is useful if it is necessary to
+/// compile a module before it can be instantiated
+/// (otherwise, the [`instantiate`] function should be used).
+///
+/// [`Module`]: struct.Module.html
+/// [`instantiate`]: fn.instantiate.html
+///
+/// # Params:
+/// * `wasm`: A `&[u8]` containing the
+///   binary code of the wasm module you want to compile.
+/// # Errors:
+/// If the operation fails, the function returns `Err(error::CompileError::...)`.
+pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
+    wasmer_runtime_core::compile_with(&wasm[..], &default_compiler())
 }

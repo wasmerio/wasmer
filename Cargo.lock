@@ -2941,8 +2941,8 @@ version = "0.16.2"
 dependencies = [
  "cbindgen",
  "libc",
+ "wasmer",
  "wasmer-emscripten",
- "wasmer-runtime",
  "wasmer-runtime-core",
  "wasmer-wasi",
 ]

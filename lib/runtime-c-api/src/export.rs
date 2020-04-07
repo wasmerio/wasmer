@@ -13,7 +13,8 @@ use crate::{
 };
 use libc::{c_int, c_uint};
 use std::{ptr, slice};
-use wasmer_runtime::{Instance, Module, Value};
+use wasmer::wasm::Value;
+use wasmer::{Instance, Module};
 use wasmer_runtime_core::{export::Export, module::ExportIndex};
 
 /// Intermediate representation of an `Export` instance that is
