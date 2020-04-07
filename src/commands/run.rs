@@ -2,6 +2,8 @@ use crate::common::{get_cache_dir, PrestandardFeatures};
 use crate::utils::read_file_contents;
 use std::collections::HashMap;
 use std::fs::read_to_string;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
@@ -364,10 +366,7 @@ fn execute_wasi(
                     let mut f = File::open(path).unwrap();
                     let mut out: Vec<u8> = vec![];
                     f.read_to_end(&mut out).unwrap();
-                    Some(
-                        wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
-                            .map_err(|_| format!("failed to decode image"))?,
-                    )
+                    wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
                 } else {
                     None
                 },
@@ -379,7 +378,7 @@ fn execute_wasi(
                     .optimized_backends
                     .iter()
                     .map(
-                        |&backend| -> (Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>) {
+                        |&backend| -> (&str, Box<dyn Fn() -> Box<dyn Compiler> + Send>) {
                             let options = options.clone();
                             (
                                 backend.to_string(),
@@ -460,8 +459,6 @@ impl LLVMCallbacks for LLVMCLIOptions {
     }
 
     fn obj_memory_buffer_callback(&mut self, memory_buffer: &InkwellMemoryBuffer) {
-        use std::fs::File;
-        use std::io::Write;
         if let Some(filename) = &self.obj_file {
             let mem_buf_slice = memory_buffer.as_slice();
             let mut file = File::create(filename).unwrap();
@@ -835,8 +832,6 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
 
 #[cfg(feature = "managed")]
 fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
-    use std::io::Write;
-
     let mut stdout = ::std::io::stdout();
     let stdin = ::std::io::stdin();
 
