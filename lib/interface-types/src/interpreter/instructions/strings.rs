@@ -78,7 +78,11 @@ executable_instruction!(
                 )
             })?;
 
-            let string: String = to_native(&inputs[0], instruction)?;
+            let string_pointer: usize = to_native::<i32>(&inputs[0], instruction)?
+                .try_into()
+                .map_err(|e| (e, "pointer").into())
+                .map_err(|k| InstructionError::new(instruction, k))?;
+            let string: String = to_native(&inputs[1], instruction)?;
             let string_bytes = string.as_bytes();
             let string_length: i32 = string_bytes.len().try_into().map_err(|_| {
                 InstructionError::new(
@@ -86,10 +90,6 @@ executable_instruction!(
                     InstructionErrorKind::NegativeValue { subject: "string_length" },
                 )
             })?;
-            let string_pointer: usize = to_native::<i32>(&inputs[1], instruction)?
-                .try_into()
-                .map_err(|e| (e, "pointer").into())
-                .map_err(|k| InstructionError::new(instruction, k))?;
 
             let instance = &mut runtime.wasm_instance;
             let memory_index: u32 = 0;
@@ -118,7 +118,7 @@ executable_instruction!(
 executable_instruction!(
     string_size(instruction: Instruction) -> _ {
         move |runtime| -> _ {
-            match runtime.stack.peek1() {
+            match runtime.stack.pop1() {
                 Some(InterfaceValue::String(string)) => {
                     let length = string.len() as i32;
                     runtime.stack.push(InterfaceValue::I32(length));
@@ -130,7 +130,7 @@ executable_instruction!(
                     instruction,
                     InstructionErrorKind::InvalidValueOnTheStack {
                         expected_type: InterfaceType::String,
-                        received_type: value.into(),
+                        received_type: (&value).into(),
                     },
                 )),
 
@@ -280,6 +280,7 @@ mod tests {
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringSize,
                 Instruction::CallCore { function_index: 43 },
+                Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory,
 
             ],
@@ -299,6 +300,7 @@ mod tests {
                 Instruction::ArgumentGet { index: 0 },
                 Instruction::StringSize,
                 Instruction::CallCore { function_index: 43 },
+                Instruction::ArgumentGet { index: 0 },
                 Instruction::StringLowerMemory,
                 Instruction::StringLiftMemory,
             ],
@@ -325,7 +327,7 @@ mod tests {
             ],
             invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
             instance: Instance::new(),
-            stack: [InterfaceValue::String("Hello, World!".into()), InterfaceValue::I32(13)],
+            stack: [InterfaceValue::I32(13)],
     );
 
     test_executable_instruction!(
