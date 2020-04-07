@@ -140,10 +140,12 @@ extern "C" {
     pub fn lstat(path: *const libc::c_char, buf: *mut stat) -> c_int;
 }
 
+#[cfg(not(any(target_os = "freebsd", target_os = "macos", target_os = "android")))]
+use libc::fallocate;
 #[cfg(target_os = "freebsd")]
 use libc::madvise;
 #[cfg(not(any(target_os = "freebsd", target_os = "macos")))]
-use libc::{fallocate, fdatasync, ftruncate64, lstat, madvise, wait4};
+use libc::{fdatasync, ftruncate64, lstat, madvise, wait4};
 
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
@@ -1131,11 +1133,11 @@ pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let _mode: c_int = varargs.get(ctx);
     let _offset: off_t = varargs.get(ctx);
     let _len: off_t = varargs.get(ctx);
-    #[cfg(not(any(target_os = "freebsd", target_os = "macos")))]
+    #[cfg(not(any(target_os = "freebsd", target_os = "macos", target_os = "android")))]
     unsafe {
         fallocate(_fd, _mode, _offset, _len)
     }
-    #[cfg(any(target_os = "freebsd", target_os = "macos"))]
+    #[cfg(any(target_os = "freebsd", target_os = "macos", target_os = "android"))]
     {
         unimplemented!("emscripten::___syscall324 (fallocate) {}", _which)
     }
