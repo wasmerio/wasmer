@@ -15,6 +15,8 @@ use std::fs::File;
 use std::io::{self, ErrorKind};
 use std::path::PathBuf;
 use std::process::Command;
+use std::io::Write;
+use futures::executor::block_on;
 
 #[cfg(not(target_os = "windows"))]
 #[macro_use]
@@ -303,15 +305,17 @@ fn llvm_url() -> String {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
+async fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
     if download_path.exists() {
         return Ok(());
     }
 
     let url = llvm_url();
     let mut resp = surf::get(&url).await.expect("Failed to connect to the llvm server");
+    let mut bytes = resp.body_bytes().await.expect("can't get bytes");
     let mut out = File::create(download_path)?;
-    io::copy(&mut resp, &mut out)?;
+
+    out.write_all(&bytes);
 
     if !verify_sha256sum(download_path) {
         return Err(io::Error::new(
@@ -368,7 +372,8 @@ fn install_llvm() {
 
     let mut download_path = llvm_path.clone();
     download_path.set_file_name(format!("{}.tar.xz", llvm_target_name()));
-    download_llvm_binary(&download_path).expect("Failed to donwload llvm binary");
+    let future = download_llvm_binary(&download_path);
+    block_on(future).expect("Failed to donwload llvm binary");
 
     let llvm_file = File::open(&download_path).expect("Failed to open downloaded llvm file");
     let lzma_reader =

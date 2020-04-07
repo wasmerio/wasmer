@@ -20,12 +20,12 @@ byteorder = "1"
 [target.'cfg(target_arch = "x86_64")'.dependencies.inkwell]
 version = "0.1.0-llvm8sample"
 default-features = false
-features = ["llvm8-0", "target-x86"]
+features = ["llvm8-0", "no-llvm-linking", "target-x86"]
 
 [target.'cfg(target_arch = "aarch64")'.dependencies.inkwell]
 version = "0.1.0-llvm8sample"
 default-features = false
-features = ["llvm8-0", "target-aarch64"]
+features = ["llvm8-0", "no-llvm-linking", "target-aarch64"]
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.15"
@@ -40,6 +40,7 @@ regex = "1.2"
 semver = "0.9"
 rustc_version = "0.2"
 surf = "1.0.3"
+futures = "0.3.4"
 tar = "0.4.26"
 sha2 = "0.8.0"
 hex-literal = "0.2.1"
