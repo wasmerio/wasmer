@@ -323,21 +323,19 @@ fn llvm_url() -> String {
 
 #[cfg(not(target_os = "windows"))]
 async fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
+    use isahc::prelude::*;
+    use std::fs;
     if download_path.exists() {
         return Ok(());
     }
 
     let url = llvm_url();
     println!("Downloading LLVM from: {}", url);
-    let mut resp = surf::get(&url)
-        .await
-        .expect("Failed to connect to the llvm server");
-    let mut bytes = resp.body_bytes().await.expect("can't get bytes");
-    let mut out = File::create(download_path)?;
-
-    out.write_all(&bytes);
+    let mut resp = isahc::get(&url)
+        .expect("Failed to connect to the llvm server").copy_to_file(&download_path).expect("can't copy to file");
 
     if !verify_sha256sum(download_path) {
+        fs::remove_file(download_path).expect("Can't remove file");
         return Err(io::Error::new(
             ErrorKind::InvalidData,
             "Failed to verify downloaded file by sha256sum",
