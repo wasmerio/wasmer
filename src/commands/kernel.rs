@@ -1,44 +1,27 @@
-#![deny(
-    dead_code,
-    nonstandard_style,
-    unused_imports,
-    unused_mut,
-    unused_variables,
-    unused_unsafe,
-    unreachable_patterns
-)]
-extern crate byteorder;
-extern crate structopt;
-
 use structopt::StructOpt;
 
-#[cfg(feature = "loader-kernel")]
+use wasmer_runtime_core::loader::Instance;
 use wasmer_singlepass_backend::SinglePassCompiler;
 
-#[cfg(feature = "loader-kernel")]
 use std::os::unix::net::{UnixListener, UnixStream};
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "kwasmd", about = "Kernel-mode WebAssembly service.")]
-enum CLIOptions {
+#[structopt(name = "kernel", about = "Kernel-mode WebAssembly service.")]
+pub enum Kernel {
     #[structopt(name = "listen")]
     Listen(Listen),
 }
 
 #[derive(Debug, StructOpt)]
-struct Listen {
+pub struct Listen {
     #[structopt(long = "socket")]
     socket: String,
 }
 
-#[cfg(feature = "loader-kernel")]
 const CMD_RUN_CODE: u32 = 0x901;
-#[cfg(feature = "loader-kernel")]
 const CMD_READ_MEMORY: u32 = 0x902;
-#[cfg(feature = "loader-kernel")]
 const CMD_WRITE_MEMORY: u32 = 0x903;
 
-#[cfg(feature = "loader-kernel")]
 fn handle_client(mut stream: UnixStream) {
     use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
     use std::io::{Read, Write};
@@ -50,12 +33,8 @@ fn handle_client(mut stream: UnixStream) {
     let mut wasm_binary: Vec<u8> = Vec::with_capacity(binary_size as usize);
     unsafe { wasm_binary.set_len(binary_size as usize) };
     stream.read_exact(&mut wasm_binary).unwrap();
-    use wasmer_bin::webassembly;
-    use wasmer_runtime_core::{
-        backend::{CompilerConfig, MemoryBoundCheckMode},
-        loader::Instance,
-    };
-    let module = webassembly::compile_with_config_with(
+    use wasmer_runtime_core::backend::{CompilerConfig, MemoryBoundCheckMode};
+    let module = wasmer_runtime::compile_with_config_with(
         &wasm_binary[..],
         CompilerConfig {
             symbol_map: None,
@@ -72,7 +51,7 @@ fn handle_client(mut stream: UnixStream) {
     let mut import_object = wasmer_runtime_core::import::ImportObject::new();
     import_object.allow_missing_functions = true; // Import initialization might be left to the loader.
     let instance = module.instantiate(&import_object).unwrap();
-    let mut ins = instance.load(::wasmer_kernel_loader::KernelLoader).unwrap();
+    let mut ins = instance.load(wasmer_kernel_loader::KernelLoader).unwrap();
 
     loop {
         let cmd = stream.read_u32::<LittleEndian>().unwrap();
@@ -141,8 +120,7 @@ fn handle_client(mut stream: UnixStream) {
     }
 }
 
-#[cfg(feature = "loader-kernel")]
-fn run_listen(opts: Listen) {
+fn run_listen(opts: &Listen) {
     let listener = UnixListener::bind(&opts.socket).unwrap();
     use std::thread;
     for stream in listener.incoming() {
@@ -164,18 +142,12 @@ fn run_listen(opts: Listen) {
     }
 }
 
-#[cfg(feature = "loader-kernel")]
-fn main() {
-    panic!("Kwasm not updated for 128-bit support, yet. Sorry!");
-    let options = CLIOptions::from_args();
-    match options {
-        CLIOptions::Listen(listen) => {
-            run_listen(listen);
+impl Kernel {
+    pub fn execute(&self) {
+        match &self {
+            Kernel::Listen(listen) => {
+                run_listen(listen);
+            }
         }
     }
-}
-
-#[cfg(not(feature = "loader-kernel"))]
-fn main() {
-    panic!("Kwasm loader is not enabled during compilation.");
 }
