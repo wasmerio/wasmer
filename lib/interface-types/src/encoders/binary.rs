@@ -170,9 +170,9 @@ where
                 outputs.to_bytes(writer)?;
             }
 
-            Type::Record(RecordType { fields }) => {
+            Type::Record(record_type) => {
                 TypeKind::Record.to_bytes(writer)?;
-                fields.to_bytes(writer)?;
+                record_type.to_bytes(writer)?;
             }
         }
 
