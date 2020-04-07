@@ -13,7 +13,7 @@ pub enum Kernel {
 }
 
 #[derive(Debug, StructOpt)]
-struct Listen {
+pub struct Listen {
     #[structopt(long = "socket")]
     socket: String,
 }
@@ -143,7 +143,7 @@ fn run_listen(opts: &Listen) {
 }
 
 impl Kernel {
-    fn execute(&self) {
+    pub fn execute(&self) {
         match &self {
             Kernel::Listen(listen) => {
                 run_listen(listen);
