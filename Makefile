@@ -354,7 +354,7 @@ docs-capi:
 	cd lib/runtime-c-api/ && doxygen doxyfile
 
 docs: docs-capi
-	cargo doc --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --workspace --document-private-items --no-deps
+	cargo doc --release --features=backend-singlepass,backend-cranelift,backend-llvm,docs,wasi,managed --workspace --document-private-items --no-deps
 	mkdir -p api-docs
 	mkdir -p api-docs/c
 	cp -R target/doc api-docs/crates
