@@ -2,7 +2,6 @@ var ALIASES = {};
 ALIASES["generate_emscripten_tests"] = {};
 ALIASES["generate_wasi_tests"] = {};
 ALIASES["kernel_net"] = {};
-ALIASES["kwasmd"] = {};
 ALIASES["parallel"] = {};
 ALIASES["parallel_guest"] = {};
 ALIASES["plugin_for_example"] = {};
