@@ -59,9 +59,7 @@ lazy_static! {
     /// If set, disable the automatic LLVM installing
     static ref ENV_DISABLE_INSTALL: String =
         format!("LLVM_SYS_{}_DISABLE_INSTALL", LLVM_SYS_MAJOR_VERSION);
-}
 
-lazy_static! {
     /// LLVM version used by this version of the crate.
     static ref CRATE_VERSION: Version = {
         Version::new(LLVM_SYS_MAJOR_VERSION.parse::<u64>().unwrap() / 10,
@@ -69,6 +67,7 @@ lazy_static! {
                      0)
     };
 
+    /// LLVM possible names for the binary files
     static ref LLVM_CONFIG_BINARY_NAMES: Vec<String> = {
         vec![
             "llvm-config".into(),
@@ -78,56 +77,80 @@ lazy_static! {
         ]
     };
 
-    /// Filesystem path to an llvm-config binary for the correct version.
-    static ref LLVM_CONFIG_PATH: PathBuf = {
-        // Try llvm-config via PATH first.
-        if let Some(name) = locate_system_llvm_config() {
-            return name.into();
+    static ref LLVM_OUT_PATH: String =
+        format!("{}/llvm", std::env::var("OUT_DIR").unwrap());
+
+    static ref LLVM_OUT_TARGET_PATH: String =
+        format!("{}/{}", *LLVM_OUT_PATH, llvm_target_name());
+}
+
+fn get_llvm_binary_from_path(path: &PathBuf) -> Option<PathBuf> {
+    for binary_name in LLVM_CONFIG_BINARY_NAMES.iter() {
+        let mut pb: PathBuf = path.clone().into();
+        pb.push("bin");
+        pb.push(binary_name);
+
+        let ver = llvm_version(&pb).expect(&format!("Failed to execute {:?}", &pb));
+        if is_compatible_llvm(&ver) {
+            return Some(pb);
         } else {
-            println!("Didn't find usable system-wide LLVM.");
+            println!(
+                "LLVM binaries specified by {} are the wrong version.
+                        (Found {}, need {}.)",
+                *ENV_LLVM_PREFIX, ver, *CRATE_VERSION
+            );
         }
+    }
+    None
+}
 
-        // Did the user give us a binary path to use? If yes, try
-        // to use that and fail if it doesn't work.
-        if let Some(path) = env::var_os(&*ENV_LLVM_PREFIX) {
-            for binary_name in LLVM_CONFIG_BINARY_NAMES.iter() {
-                let mut pb: PathBuf = path.clone().into();
-                pb.push("bin");
-                pb.push(binary_name);
-
-                let ver = llvm_version(&pb)
-                    .expect(&format!("Failed to execute {:?}", &pb));
-                if is_compatible_llvm(&ver) {
-                    return pb;
-                } else {
-                    println!("LLVM binaries specified by {} are the wrong version.
-                              (Found {}, need {}.)", *ENV_LLVM_PREFIX, ver, *CRATE_VERSION);
-                }
+fn locate_user_llvm_config() -> Option<PathBuf> {
+    println!("Locating user-provided preinstalled LLVM");
+    // Did the user give us a binary path to use? If yes, try
+    // to use that and fail if it doesn't work.
+    if let Some(env_var) = env::var_os(&*ENV_LLVM_PREFIX) {
+        println!("Environment var found: {}={:?}", *ENV_LLVM_PREFIX, env_var);
+        match get_llvm_binary_from_path(&(env_var.clone().into())) {
+            Some(path) => return Some(path.into()),
+            None => {
+                println!(
+                    "No suitable version of LLVM was found pointed to by {}.",
+                    *ENV_LLVM_PREFIX
+                );
             }
         }
+    }
+    None
+}
 
-        println!("No suitable version of LLVM was found system-wide or pointed
-                  to by {}.
-                  
-                  Consider using `llvmenv` to compile an appropriate copy of LLVM, and
-                  refer to the llvm-sys documentation for more information.
-                  
-                  llvm-sys: https://crates.io/crates/llvm-sys
-                  llvmenv: https://crates.io/crates/llvmenv", *ENV_LLVM_PREFIX);
-        panic!("Could not find a compatible version of LLVM");
-    };
+fn locate_wasmer_preinstalled_llvm_config() -> Option<PathBuf> {
+    println!(
+        "Locating Wasmer preinstalled LLVM at {}",
+        *LLVM_OUT_TARGET_PATH
+    );
+    match get_llvm_binary_from_path(&(*LLVM_OUT_TARGET_PATH).clone().into()) {
+        Some(path) => return Some(path.into()),
+        None => {
+            println!(
+                "No suitable version of LLVM was found pointed to by {}.",
+                *ENV_LLVM_PREFIX
+            );
+        }
+    }
+    None
 }
 
 /// Try to find a system-wide version of llvm-config that is compatible with
 /// this crate.
 ///
 /// Returns None on failure.
-fn locate_system_llvm_config() -> Option<&'static str> {
+fn locate_system_llvm_config() -> Option<PathBuf> {
+    println!("Locating System provided LLVM");
     for binary_name in LLVM_CONFIG_BINARY_NAMES.iter() {
         match llvm_version(binary_name) {
             Ok(ref version) if is_compatible_llvm(version) => {
                 // Compatible version found. Nice.
-                return Some(binary_name);
+                return Some(binary_name.into());
             }
             Ok(version) => {
                 // Version mismatch. Will try further searches, but warn that
@@ -207,19 +230,11 @@ fn is_compatible_llvm(llvm_version: &Version) -> bool {
     }
 }
 
-/// Get the output from running `llvm-config` with the given argument.
-///
-/// Lazily searches for or compiles LLVM as configured by the environment
-/// variables.
-fn llvm_config(arg: &str) -> String {
-    llvm_config_ex(&*LLVM_CONFIG_PATH, arg).expect("Surprising failure from llvm-config")
-}
-
 /// Invoke the specified binary as llvm-config.
 ///
 /// Explicit version of the `llvm_config` function that bubbles errors
 /// up.
-fn llvm_config_ex<S: AsRef<OsStr>>(binary: S, arg: &str) -> io::Result<String> {
+fn llvm_config<S: AsRef<OsStr>>(binary: S, arg: &str) -> io::Result<String> {
     Command::new(binary)
         .arg(arg)
         .arg("--link-static") // Don't use dylib for >= 3.9
@@ -231,7 +246,7 @@ fn llvm_config_ex<S: AsRef<OsStr>>(binary: S, arg: &str) -> io::Result<String> {
 
 /// Get the LLVM version using llvm-config.
 fn llvm_version<S: AsRef<OsStr>>(binary: S) -> io::Result<Version> {
-    let version_str = llvm_config_ex(binary.as_ref(), "--version")?;
+    let version_str = llvm_config(binary.as_ref(), "--version")?;
 
     // LLVM isn't really semver and uses version suffixes to build
     // version strings like '3.8.0svn', so limit what we try to parse
@@ -250,8 +265,8 @@ fn llvm_version<S: AsRef<OsStr>>(binary: S) -> io::Result<Version> {
     Ok(Version::parse(&s).unwrap())
 }
 
-fn get_llvm_cxxflags() -> String {
-    let output = llvm_config("--cxxflags");
+fn get_llvm_cxxflags<S: AsRef<OsStr>>(binary: S) -> String {
+    let output = llvm_config(binary, "--cxxflags").expect("Can't get cxx flags");
 
     // llvm-config includes cflags from its own compilation with --cflags that
     // may not be relevant to us. In particularly annoying cases, these might
@@ -274,9 +289,11 @@ fn get_llvm_cxxflags() -> String {
         .join(" ")
 }
 
-fn is_llvm_debug() -> bool {
+fn is_llvm_debug<S: AsRef<OsStr>>(binary: S) -> bool {
     // Has to be either Debug or Release
-    llvm_config("--build-mode").contains("Debug")
+    llvm_config(binary, "--build-mode")
+        .expect("Can't get LLVM build mode")
+        .contains("Debug")
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -311,6 +328,7 @@ async fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
     }
 
     let url = llvm_url();
+    println!("Downloading LLVM from: {}", url);
     let mut resp = surf::get(&url)
         .await
         .expect("Failed to connect to the llvm server");
@@ -359,24 +377,40 @@ fn verify_sha256sum(download_path: &PathBuf) -> bool {
     is_verify
 }
 
+fn set_env_llvm_prefix_to_user_installed_llvm() {
+    println!(
+        "Setting environment var {}={:?}",
+        *ENV_LLVM_PREFIX, *LLVM_OUT_TARGET_PATH
+    );
+    std::env::set_var(&*ENV_LLVM_PREFIX, &*LLVM_OUT_TARGET_PATH);
+}
+
 #[cfg(not(target_os = "windows"))]
 fn install_llvm() {
-    let llvm_path: PathBuf = format!("{}/llvm", std::env::var("OUT_DIR").unwrap()).into();
+    let llvm_path: PathBuf = LLVM_OUT_PATH.clone().into();
+    let full_llvm_path: PathBuf = LLVM_OUT_TARGET_PATH.clone().into();
 
-    std::env::set_var(
-        &*ENV_LLVM_PREFIX,
-        format!("{}/{}", llvm_path.display(), llvm_target_name()),
-    );
+    println!("Installing LLVM to {:?}", full_llvm_path);
 
-    if llvm_path.exists() {
+    if full_llvm_path.exists() {
+        println!("LLVM already installed at {:?}", full_llvm_path);
+        set_env_llvm_prefix_to_user_installed_llvm();
         return;
     }
 
     let mut download_path = llvm_path.clone();
     download_path.set_file_name(format!("{}.tar.xz", llvm_target_name()));
-    let future = download_llvm_binary(&download_path);
-    block_on(future).expect("Failed to donwload llvm binary");
 
+    if !download_path.exists() {
+        println!("Downloading LLVM to: {:?}", download_path);
+        let future = download_llvm_binary(&download_path);
+        block_on(future).expect("Failed to download llvm binary");
+    }
+
+    println!(
+        "Uncompressing LLVM from {:?} to {:?}",
+        download_path, llvm_path
+    );
     let llvm_file = File::open(&download_path).expect("Failed to open downloaded llvm file");
     let lzma_reader =
         lzma::LzmaReader::new_decompressor(llvm_file).expect("Failed to initialize decompressor");
@@ -385,6 +419,8 @@ fn install_llvm() {
     archive
         .unpack(&llvm_path)
         .expect("Failed to unpack the tar file");
+
+    set_env_llvm_prefix_to_user_installed_llvm();
 }
 
 fn main() {
@@ -407,15 +443,24 @@ fn main() {
     //   - The flag to disable installing isn't set.
     #[cfg(not(target_os = "windows"))]
     {
-        if locate_system_llvm_config().is_none()
-            && online::online(None).is_ok()
-            && env::var_os(&*ENV_DISABLE_INSTALL).is_some()
-        {
+        let should_disable_install = match env::var_os(&*ENV_DISABLE_INSTALL) {
+            Some(v) => v != "1",
+            None => false,
+        };
+        let is_online = online::online(None).is_ok();
+        let user_provided_llvm = env::var_os(&*ENV_LLVM_PREFIX).is_some();
+
+        if !should_disable_install && is_online && !user_provided_llvm {
             install_llvm();
         }
     }
 
-    std::env::set_var("CXXFLAGS", get_llvm_cxxflags());
+    let llvm_config = locate_user_llvm_config()
+        .or_else(locate_system_llvm_config)
+        .or_else(locate_wasmer_preinstalled_llvm_config)
+        .expect("Couldn't find a usable LLVM");
+
+    std::env::set_var("CXXFLAGS", get_llvm_cxxflags(&llvm_config));
     cc::Build::new()
         .cpp(true)
         .file("cpp/object_loader.cpp")
@@ -427,7 +472,7 @@ fn main() {
     }
 
     let use_debug_msvcrt = env::var_os(&*ENV_USE_DEBUG_MSVCRT).is_some();
-    if cfg!(target_env = "msvc") && (use_debug_msvcrt || is_llvm_debug()) {
+    if cfg!(target_env = "msvc") && (use_debug_msvcrt || is_llvm_debug(&llvm_config)) {
         println!("cargo:rustc-link-lib={}", "msvcrtd");
     }
 
