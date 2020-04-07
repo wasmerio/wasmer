@@ -1,6 +1,7 @@
 //! This file was mostly taken from the llvm-sys crate.
 //! (https://bitbucket.org/tari/llvm-sys.rs/raw/94361c1083a88f439b9d24c59b2d2831517413d7/build.rs)
 
+use futures::executor::block_on;
 use lazy_static::lazy_static;
 use regex::Regex;
 use semver::Version;
@@ -12,11 +13,10 @@ use std::env;
 use std::ffi::OsStr;
 #[cfg(not(target_os = "windows"))]
 use std::fs::File;
+use std::io::Write;
 use std::io::{self, ErrorKind};
 use std::path::PathBuf;
 use std::process::Command;
-use std::io::Write;
-use futures::executor::block_on;
 
 #[cfg(not(target_os = "windows"))]
 #[macro_use]
@@ -311,7 +311,9 @@ async fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
     }
 
     let url = llvm_url();
-    let mut resp = surf::get(&url).await.expect("Failed to connect to the llvm server");
+    let mut resp = surf::get(&url)
+        .await
+        .expect("Failed to connect to the llvm server");
     let mut bytes = resp.body_bytes().await.expect("can't get bytes");
     let mut out = File::create(download_path)?;
 
