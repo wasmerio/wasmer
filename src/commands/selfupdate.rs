@@ -1,4 +1,5 @@
 //! When wasmer self-update is executed, this is what gets executed
+#[cfg(not(target_os = "windows"))]
 use std::process::{Command, Stdio};
 
 pub struct SelfUpdate;

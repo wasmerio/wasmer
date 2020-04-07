@@ -16,6 +16,9 @@ use structopt::StructOpt;
 use wasmer_singlepass_backend::SinglePassCompiler;
 
 #[cfg(feature = "loader-kernel")]
+use wasmer_runtime_core::loader::Instance;
+
+#[cfg(feature = "loader-kernel")]
 use std::os::unix::net::{UnixListener, UnixStream};
 
 #[derive(Debug, StructOpt)]
