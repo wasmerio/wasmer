@@ -129,8 +129,6 @@ pub fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
     let mut buffer: Vec<u8> = Vec::new();
     let mut file = File::open(path)?;
     file.read_to_end(&mut buffer)?;
-    // We force to close the file
-    drop(file);
     Ok(buffer)
 }
 

@@ -2,8 +2,6 @@ use crate::common::{get_cache_dir, PrestandardFeatures};
 use crate::utils::read_file_contents;
 use std::collections::HashMap;
 use std::fs::read_to_string;
-#[cfg(feature = "backend-llvm")]
-use std::fs::File;
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
@@ -462,6 +460,8 @@ impl LLVMCallbacks for LLVMCLIOptions {
     }
 
     fn obj_memory_buffer_callback(&mut self, memory_buffer: &InkwellMemoryBuffer) {
+        use std::fs::File;
+        use std::io::Write;
         if let Some(filename) = &self.obj_file {
             let mem_buf_slice = memory_buffer.as_slice();
             let mut file = File::create(filename).unwrap();
