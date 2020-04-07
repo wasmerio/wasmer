@@ -93,7 +93,7 @@ mod tests {
 
     fn get_compilers_to_test() -> Vec<&'static str> {
         let mut out = vec![];
-        if let Ok(v) = env::var("SPECTEST_TEST_CLIF") {
+        if let Ok(v) = env::var("SPECTEST_TEST_CRANELIFT") {
             if v == "1" {
                 out.push("clif");
             }

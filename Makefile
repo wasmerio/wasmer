@@ -44,7 +44,7 @@ spectests-llvm:
 	SPECTEST_TEST_LLVM=1 cargo test test_run_spectests --release --no-default-features --features "wasi backend-llvm wasmer-llvm-backend/test" -- --nocapture
 
 spectests-all:
-	SPECTEST_TEST_CLIF=1 SPECTEST_TEST_LLVM=1 SPECTEST_TEST_SINGLEPASS=1 \
+	SPECTEST_TEST_CRANELIFT=1 SPECTEST_TEST_LLVM=1 SPECTEST_TEST_SINGLEPASS=1 \
 	cargo test test_run_spectests --release --no-default-features --features "wasi backend-cranelift backend-singlepass backend-llvm wasmer-llvm-backend/test" -- --nocapture --test-threads 1
 
 
