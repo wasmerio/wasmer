@@ -50,12 +50,8 @@ fn handle_client(mut stream: UnixStream) {
     let mut wasm_binary: Vec<u8> = Vec::with_capacity(binary_size as usize);
     unsafe { wasm_binary.set_len(binary_size as usize) };
     stream.read_exact(&mut wasm_binary).unwrap();
-    use wasmer_bin::webassembly;
-    use wasmer_runtime_core::{
-        backend::{CompilerConfig, MemoryBoundCheckMode},
-        loader::Instance,
-    };
-    let module = webassembly::compile_with_config_with(
+    use wasmer_runtime_core::backend::{CompilerConfig, MemoryBoundCheckMode};
+    let module = wasmer_runtime::compile_with_config_with(
         &wasm_binary[..],
         CompilerConfig {
             symbol_map: None,
@@ -167,12 +163,12 @@ fn run_listen(opts: Listen) {
 #[cfg(feature = "loader-kernel")]
 fn main() {
     panic!("Kwasm not updated for 128-bit support, yet. Sorry!");
-    let options = CLIOptions::from_args();
-    match options {
-        CLIOptions::Listen(listen) => {
-            run_listen(listen);
-        }
-    }
+    // let options = CLIOptions::from_args();
+    // match options {
+    //     CLIOptions::Listen(listen) => {
+    //         run_listen(listen);
+    //     }
+    // }
 }
 
 #[cfg(not(feature = "loader-kernel"))]
