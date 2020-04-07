@@ -1,5 +1,6 @@
 //! The error module contains the data structures and helper functions used to implement errors that
 //! are produced and returned from the wasmer runtime core.
+use crate::backend::ExceptionCode;
 use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type};
 use core::borrow::Borrow;
 use std::any::Any;
@@ -178,18 +179,7 @@ impl std::error::Error for LinkError {}
 /// The main way to do this is `Instance.call`.
 ///
 /// Comparing two `RuntimeError`s always evaluates to false.
-pub enum RuntimeError {
-    /// Trap.
-    Trap {
-        /// Trap message.
-        msg: Box<str>,
-    },
-    /// Error.
-    Error {
-        /// Error data.
-        data: Box<dyn Any>,
-    },
-}
+pub struct RuntimeError(pub Box<dyn Any + Send>);
 
 impl PartialEq for RuntimeError {
     fn eq(&self, _other: &RuntimeError) -> bool {
@@ -199,19 +189,15 @@ impl PartialEq for RuntimeError {
 
 impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            RuntimeError::Trap { ref msg } => {
-                write!(f, "WebAssembly trap occurred during runtime: {}", msg)
-            }
-            RuntimeError::Error { data } => {
-                if let Some(s) = data.downcast_ref::<String>() {
-                    write!(f, "\"{}\"", s)
-                } else if let Some(s) = data.downcast_ref::<&str>() {
-                    write!(f, "\"{}\"", s)
-                } else {
-                    write!(f, "unknown error")
-                }
-            }
+        let data = &*self.0;
+        if let Some(s) = data.downcast_ref::<String>() {
+            write!(f, "\"{}\"", s)
+        } else if let Some(s) = data.downcast_ref::<&str>() {
+            write!(f, "\"{}\"", s)
+        } else if let Some(exc_code) = data.downcast_ref::<ExceptionCode>() {
+            write!(f, "Caught exception of type \"{:?}\".", exc_code)
+        } else {
+            write!(f, "unknown error")
         }
     }
 }

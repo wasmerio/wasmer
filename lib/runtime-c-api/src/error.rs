@@ -1,11 +1,12 @@
 //! Read runtime errors.
 
 use libc::{c_char, c_int};
-use std::cell::RefCell;
-use std::error::Error;
-use std::fmt::{self, Display, Formatter};
-use std::ptr;
-use std::slice;
+use std::{
+    cell::RefCell,
+    error::Error,
+    fmt::{self, Display, Formatter},
+    ptr, slice,
+};
 
 thread_local! {
     static LAST_ERROR: RefCell<Option<Box<dyn Error>>> = RefCell::new(None);
@@ -22,16 +23,12 @@ pub(crate) fn take_last_error() -> Option<Box<dyn Error>> {
     LAST_ERROR.with(|prev| prev.borrow_mut().take())
 }
 
-/// Gets the length in bytes of the last error.
+/// Gets the length in bytes of the last error if any.
+///
 /// This can be used to dynamically allocate a buffer with the correct number of
 /// bytes needed to store a message.
 ///
-/// # Example
-///
-/// ```c
-/// int error_len = wasmer_last_error_length();
-/// char *error_str = malloc(error_len);
-/// ```
+/// See `wasmer_last_error_message()` to get a full example.
 #[no_mangle]
 pub extern "C" fn wasmer_last_error_length() -> c_int {
     LAST_ERROR.with(|prev| match *prev.borrow() {
@@ -40,19 +37,33 @@ pub extern "C" fn wasmer_last_error_length() -> c_int {
     })
 }
 
-/// Stores the last error message into the provided buffer up to the given `length`.
-/// The `length` parameter must be large enough to store the last error message.
+/// Gets the last error message if any into the provided buffer
+/// `buffer` up to the given `length`.
 ///
-/// Returns the length of the string in bytes.
-/// Returns `-1` if an error occurs.
+/// The `length` parameter must be large enough to store the last
+/// error message. Ideally, the value should come from
+/// `wasmer_last_error_length()`.
 ///
-/// # Example
+/// The function returns the length of the string in bytes, `-1` if an
+/// error occurs. Potential errors are:
+///
+///  * The buffer is a null pointer,
+///  * The buffer is too smal to hold the error message.
+///
+/// Note: The error message always has a trailing null character.
+///
+/// Example:
 ///
 /// ```c
-/// int error_len = wasmer_last_error_length();
-/// char *error_str = malloc(error_len);
-/// wasmer_last_error_message(error_str, error_len);
-/// printf("Error str: `%s`\n", error_str);
+/// int error_length = wasmer_last_error_length();
+///
+/// if (error_length > 0) {
+///     char *error_message = malloc(error_length);
+///     wasmer_last_error_message(error_message, error_length);
+///     printf("Error message: `%s`\n", error_message);
+/// } else {
+///     printf("No error message\n");
+/// }
 /// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: c_int) -> c_int {

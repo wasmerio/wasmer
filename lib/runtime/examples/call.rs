@@ -64,14 +64,14 @@ fn main() -> Result<(), error::Error> {
       },
     })?;
 
-    let foo: Func<(), i32> = instance.func("dbz")?;
+    let foo: Func<(), i32> = instance.exports.get("dbz")?;
 
     let result = foo.call();
 
     println!("result: {:?}", result);
 
-    if let Err(RuntimeError::Error { data }) = result {
-        if let Ok(exit_code) = data.downcast::<ExitCode>() {
+    if let Err(e) = result {
+        if let Ok(exit_code) = e.0.downcast::<ExitCode>() {
             println!("exit code: {:?}", exit_code);
         }
     }

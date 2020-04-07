@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-llvm-backend"
-version = "0.11.0"
+version = "0.16.2"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -10,18 +10,22 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.11.0" }
-wasmparser = "0.39.1"
-smallvec = "0.6"
-goblin = "0.0.24"
+wasmer-runtime-core = { path = "../runtime-core", version = "0.16.2", features = ["generate-debug-information-no-export-symbols"] }
+wasmparser = "0.51.3"
+smallvec = "1"
+goblin = "0.1"
 libc = "0.2.60"
 byteorder = "1"
 
-[dependencies.inkwell]
-git = "https://github.com/TheDan64/inkwell"
-rev = "781620e9fa30e51a6e03bd0d49b5f5bb7a782520"
+[target.'cfg(target_arch = "x86_64")'.dependencies.inkwell]
+version = "0.1.0-llvm8sample"
 default-features = false
 features = ["llvm8-0", "target-x86"]
+
+[target.'cfg(target_arch = "aarch64")'.dependencies.inkwell]
+version = "0.1.0-llvm8sample"
+default-features = false
+features = ["llvm8-0", "target-aarch64"]
 
 [target.'cfg(unix)'.dependencies]
 nix = "0.15"
@@ -35,7 +39,7 @@ lazy_static = "1.4"
 regex = "1.2"
 semver = "0.9"
 rustc_version = "0.2"
-reqwest = "0.9.22"
+surf = "1.0.3"
 tar = "0.4.26"
 sha2 = "0.8.0"
 hex-literal = "0.2.1"
@@ -48,5 +52,4 @@ rust-lzma = "0.5.1"
 wabt = "0.9.1"
 
 [features]
-debug = ["wasmer-runtime-core/debug"]
 test = []

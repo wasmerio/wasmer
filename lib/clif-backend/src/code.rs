@@ -7,18 +7,19 @@ use crate::{
 };
 
 use cranelift_codegen::entity::EntityRef;
-use cranelift_codegen::ir::{self, Ebb, Function, InstBuilder};
+use cranelift_codegen::ir::{self, Block, Function, InstBuilder};
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::{cursor::FuncCursor, isa};
 use cranelift_frontend::{FunctionBuilder, Position, Variable};
-use cranelift_wasm::{self, FuncTranslator};
+use cranelift_wasm::{self, FuncTranslator, ModuleTranslationState};
 use cranelift_wasm::{get_vmctx_value_label, translate_operator};
-use cranelift_wasm::{FuncEnvironment, ReturnMode, WasmError};
+use cranelift_wasm::{FuncEnvironment, ReturnMode, TargetEnvironment, WasmError};
+
 use std::mem;
 use std::sync::{Arc, RwLock};
 use wasmer_runtime_core::error::CompileError;
 use wasmer_runtime_core::{
-    backend::{Backend, CacheGen, Token},
+    backend::{CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
     memory::MemoryType,
@@ -32,8 +33,10 @@ use wasmer_runtime_core::{
 };
 use wasmparser::Type as WpType;
 
+static BACKEND_ID: &str = "cranelift";
+
 pub struct CraneliftModuleCodeGenerator {
-    isa: Box<dyn isa::TargetIsa>,
+    isa: Option<Box<dyn isa::TargetIsa>>,
     signatures: Option<Arc<Map<SigIndex, FuncSig>>>,
     pub clif_signatures: Map<SigIndex, ir::Signature>,
     function_signatures: Option<Arc<Map<FuncIndex, SigIndex>>>,
@@ -44,9 +47,8 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     for CraneliftModuleCodeGenerator
 {
     fn new() -> Self {
-        let isa = get_isa();
         CraneliftModuleCodeGenerator {
-            isa,
+            isa: None,
             clif_signatures: Map::new(),
             functions: vec![],
             function_signatures: None,
@@ -58,8 +60,8 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         unimplemented!("cross compilation is not available for clif backend")
     }
 
-    fn backend_id() -> Backend {
-        Backend::Cranelift
+    fn backend_id() -> &'static str {
+        BACKEND_ID
     }
 
     fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
@@ -69,6 +71,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     fn next_function(
         &mut self,
         module_info: Arc<RwLock<ModuleInfo>>,
+        loc: WasmSpan,
     ) -> Result<&mut CraneliftFunctionCodeGenerator, CodegenError> {
         // define_function_body(
 
@@ -96,12 +99,18 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             position: Position::default(),
             func_env: FunctionEnvironment {
                 module_info: Arc::clone(&module_info),
-                target_config: self.isa.frontend_config().clone(),
+                target_config: self.isa.as_ref().unwrap().frontend_config().clone(),
                 clif_signatures: self.clif_signatures.clone(),
             },
+            loc,
         };
 
-        debug_assert_eq!(func_env.func.dfg.num_ebbs(), 0, "Function must be empty");
+        let generate_debug_info = module_info.read().unwrap().generate_debug_info;
+        if generate_debug_info {
+            func_env.func.collect_debug_info();
+        }
+
+        debug_assert_eq!(func_env.func.dfg.num_blocks(), 0, "Function must be empty");
         debug_assert_eq!(func_env.func.dfg.num_insts(), 0, "Function must be empty");
 
         let mut builder = FunctionBuilder::new(
@@ -110,23 +119,22 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
             &mut func_env.position,
         );
 
-        // TODO srcloc
-        //builder.set_srcloc(cur_srcloc(&reader));
+        builder.set_srcloc(ir::SourceLoc::new(loc.start()));
 
-        let entry_block = builder.create_ebb();
-        builder.append_ebb_params_for_function_params(entry_block);
+        let entry_block = builder.create_block();
+        builder.append_block_params_for_function_params(entry_block);
         builder.switch_to_block(entry_block); // This also creates values for the arguments.
         builder.seal_block(entry_block);
         // Make sure the entry block is inserted in the layout before we make any callbacks to
         // `environ`. The callback functions may need to insert things in the entry block.
-        builder.ensure_inserted_ebb();
+        builder.ensure_inserted_block();
 
         declare_wasm_parameters(&mut builder, entry_block);
 
         // Set up the translation state with a single pushed control block representing the whole
         // function and its return values.
-        let exit_block = builder.create_ebb();
-        builder.append_ebb_params_for_function_returns(exit_block);
+        let exit_block = builder.create_block();
+        builder.append_block_params_for_function_returns(exit_block);
         func_env
             .func_translator
             .state
@@ -139,16 +147,23 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
     fn finalize(
         self,
         module_info: &ModuleInfo,
-    ) -> Result<(Caller, Box<dyn CacheGen>), CodegenError> {
-        let mut func_bodies: Map<LocalFuncIndex, ir::Function> = Map::new();
+    ) -> Result<
+        (
+            Caller,
+            Option<wasmer_runtime_core::codegen::DebugMetadata>,
+            Box<dyn CacheGen>,
+        ),
+        CodegenError,
+    > {
+        let mut func_bodies: Map<LocalFuncIndex, (ir::Function, WasmSpan)> = Map::new();
         for f in self.functions.into_iter() {
-            func_bodies.push(f.func);
+            func_bodies.push((f.func, f.loc));
         }
 
-        let (func_resolver_builder, handler_data) =
-            FuncResolverBuilder::new(&*self.isa, func_bodies, module_info)?;
+        let (func_resolver_builder, debug_metadata, handler_data) =
+            FuncResolverBuilder::new(&**self.isa.as_ref().unwrap(), func_bodies, module_info)?;
 
-        let trampolines = Arc::new(Trampolines::new(&*self.isa, module_info));
+        let trampolines = Arc::new(Trampolines::new(&**self.isa.as_ref().unwrap(), module_info));
 
         let signatures_empty = Map::new();
         let signatures = if self.signatures.is_some() {
@@ -170,13 +185,24 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
 
         Ok((
             Caller::new(handler_data, trampolines, func_resolver),
+            debug_metadata,
             cache_gen,
         ))
     }
 
+    fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CodegenError> {
+        self.isa = Some(get_isa(Some(config)));
+        Ok(())
+    }
+
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), CodegenError> {
         self.signatures = Some(Arc::new(signatures));
-        let call_conv = self.isa.frontend_config().default_call_conv;
+        let call_conv = self
+            .isa
+            .as_ref()
+            .unwrap()
+            .frontend_config()
+            .default_call_conv;
         for (_sig_idx, func_sig) in self.signatures.as_ref().unwrap().iter() {
             self.clif_signatures
                 .push(convert_func_sig(func_sig, call_conv));
@@ -192,7 +218,7 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         Ok(())
     }
 
-    fn feed_import_function(&mut self) -> Result<(), CodegenError> {
+    fn feed_import_function(&mut self, _sigindex: SigIndex) -> Result<(), CodegenError> {
         Ok(())
     }
 
@@ -239,6 +265,8 @@ pub struct CraneliftFunctionCodeGenerator {
     next_local: usize,
     position: Position,
     func_env: FunctionEnvironment,
+    /// Where the function lives in the Wasm module as a span of bytes
+    loc: WasmSpan,
 }
 
 pub struct FunctionEnvironment {
@@ -247,7 +275,7 @@ pub struct FunctionEnvironment {
     clif_signatures: Map<SigIndex, ir::Signature>,
 }
 
-impl FuncEnvironment for FunctionEnvironment {
+impl TargetEnvironment for FunctionEnvironment {
     /// Gets configuration information needed for compiling functions
     fn target_config(&self) -> isa::TargetFrontendConfig {
         self.target_config
@@ -265,6 +293,13 @@ impl FuncEnvironment for FunctionEnvironment {
         self.target_config().pointer_bytes()
     }
 
+    /// Return Cranelift reference type.
+    fn reference_type(&self) -> ir::Type {
+        ir::types::R64
+    }
+}
+
+impl FuncEnvironment for FunctionEnvironment {
     /// Sets up the necessary preamble definitions in `func` to access the global identified
     /// by `index`.
     ///
@@ -434,7 +469,7 @@ impl FuncEnvironment for FunctionEnvironment {
                 let local_memory_bound = func.create_global_value(ir::GlobalValueData::Load {
                     base: local_memory_ptr,
                     offset: (vm::LocalMemory::offset_bound() as i32).into(),
-                    global_type: ptr_type,
+                    global_type: ir::types::I32,
                     readonly: false,
                 });
 
@@ -542,7 +577,7 @@ impl FuncEnvironment for FunctionEnvironment {
         let table_count = func.create_global_value(ir::GlobalValueData::Load {
             base: table_struct_ptr,
             offset: (vm::LocalTable::offset_count() as i32).into(),
-            global_type: ptr_type,
+            global_type: ir::types::I32,
             // The table length can change, so it can't be readonly.
             readonly: false,
         });
@@ -664,7 +699,8 @@ impl FuncEnvironment for FunctionEnvironment {
                 colocated: false,
             });
 
-            pos.ins().symbol_value(ir::types::I64, sig_index_global)
+            let val = pos.ins().symbol_value(ir::types::I64, sig_index_global);
+            pos.ins().ireduce(ir::types::I32, val)
 
             // let dynamic_sigindices_array_ptr = pos.ins().load(
             //     ptr_type,
@@ -802,7 +838,6 @@ impl FuncEnvironment for FunctionEnvironment {
             }
         }
     }
-
     /// Generates code corresponding to wasm `memory.grow`.
     ///
     /// `index` refers to the linear memory to query.
@@ -931,6 +966,159 @@ impl FuncEnvironment for FunctionEnvironment {
 
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
+    fn translate_memory_copy(
+        &mut self,
+        _pos: FuncCursor,
+        _clif_mem_index: cranelift_wasm::MemoryIndex,
+        _heap: ir::Heap,
+        _dst: ir::Value,
+        _src: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("memory.copy not yet implemented");
+    }
+
+    fn translate_memory_fill(
+        &mut self,
+        _pos: FuncCursor,
+        _clif_mem_index: cranelift_wasm::MemoryIndex,
+        _heap: ir::Heap,
+        _dst: ir::Value,
+        _val: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("memory.fill not yet implemented");
+    }
+
+    fn translate_memory_init(
+        &mut self,
+        _pos: FuncCursor,
+        _clif_mem_index: cranelift_wasm::MemoryIndex,
+        _heap: ir::Heap,
+        _seg_index: u32,
+        _dst: ir::Value,
+        _src: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("memory.init not yet implemented");
+    }
+
+    fn translate_data_drop(
+        &mut self,
+        _pos: FuncCursor,
+        _seg_index: u32,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("data.drop not yet implemented");
+    }
+
+    fn translate_table_size(
+        &mut self,
+        _pos: FuncCursor,
+        _index: cranelift_wasm::TableIndex,
+        _table: ir::Table,
+    ) -> cranelift_wasm::WasmResult<ir::Value> {
+        unimplemented!("table.size not yet implemented");
+    }
+
+    fn translate_table_copy(
+        &mut self,
+        _pos: FuncCursor,
+        _dst_table_index: cranelift_wasm::TableIndex,
+        _dst_table: ir::Table,
+        _src_table_index: cranelift_wasm::TableIndex,
+        _src_table: ir::Table,
+        _dst: ir::Value,
+        _src: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("table.copy not yet implemented");
+    }
+
+    fn translate_table_init(
+        &mut self,
+        _pos: FuncCursor,
+        _seg_index: u32,
+        _table_index: cranelift_wasm::TableIndex,
+        _table: ir::Table,
+        _dst: ir::Value,
+        _src: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("table.init not yet implemented");
+    }
+
+    fn translate_elem_drop(
+        &mut self,
+        _pos: FuncCursor,
+        _seg_index: u32,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("elem.drop not yet implemented");
+    }
+
+    fn translate_table_grow(
+        &mut self,
+        _pos: FuncCursor,
+        _table_index: u32,
+        _delta: ir::Value,
+        _init_value: ir::Value,
+    ) -> cranelift_wasm::WasmResult<ir::Value> {
+        unimplemented!("table.grow not yet implemented");
+    }
+
+    fn translate_table_get(
+        &mut self,
+        _pos: FuncCursor,
+        _table_index: u32,
+        _index: ir::Value,
+    ) -> cranelift_wasm::WasmResult<ir::Value> {
+        unimplemented!("table.get not yet implemented");
+    }
+
+    fn translate_table_set(
+        &mut self,
+        _pos: FuncCursor,
+        _table_index: u32,
+        _value: ir::Value,
+        _index: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("table.set not yet implemented");
+    }
+
+    fn translate_table_fill(
+        &mut self,
+        _pos: FuncCursor,
+        _table_index: u32,
+        _dst: ir::Value,
+        _val: ir::Value,
+        _len: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("table.fill not yet implemented");
+    }
+
+    fn translate_ref_func(
+        &mut self,
+        _pos: FuncCursor,
+        _func_index: u32,
+    ) -> cranelift_wasm::WasmResult<ir::Value> {
+        unimplemented!("ref.func not yet implemented");
+    }
+
+    fn translate_custom_global_get(
+        &mut self,
+        _pos: FuncCursor,
+        _global_index: cranelift_wasm::GlobalIndex,
+    ) -> cranelift_wasm::WasmResult<ir::Value> {
+        unimplemented!("custom global.get not yet implemented");
+    }
+
+    fn translate_custom_global_set(
+        &mut self,
+        _pos: FuncCursor,
+        _global_index: cranelift_wasm::GlobalIndex,
+        _val: ir::Value,
+    ) -> cranelift_wasm::WasmResult<()> {
+        unimplemented!("custom global.set not yet implemented");
+    }
 }
 
 impl FunctionEnvironment {
@@ -972,13 +1160,14 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         Ok(())
     }
 
-    fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), CodegenError> {
+    fn feed_local(&mut self, ty: WpType, n: usize, loc: u32) -> Result<(), CodegenError> {
         let mut next_local = self.next_local;
         let mut builder = FunctionBuilder::new(
             &mut self.func,
             &mut self.func_translator.func_ctx,
             &mut self.position,
         );
+        builder.set_srcloc(ir::SourceLoc::new(loc));
         cranelift_wasm::declare_locals(
             &mut builder,
             n as u32,
@@ -994,7 +1183,12 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         Ok(())
     }
 
-    fn feed_event(&mut self, event: Event, _module_info: &ModuleInfo) -> Result<(), CodegenError> {
+    fn feed_event(
+        &mut self,
+        event: Event,
+        _module_info: &ModuleInfo,
+        source_loc: u32,
+    ) -> Result<(), CodegenError> {
         let op = match event {
             Event::Wasm(x) => x,
             Event::WasmOwned(ref x) => x,
@@ -1016,8 +1210,18 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
             &mut self.func_translator.func_ctx,
             &mut self.position,
         );
-        let state = &mut self.func_translator.state;
-        translate_operator(op, &mut builder, state, &mut self.func_env)?;
+        builder.func.collect_debug_info();
+        builder.set_srcloc(ir::SourceLoc::new(source_loc));
+        let module_state = ModuleTranslationState::new();
+        let func_state = &mut self.func_translator.state;
+        translate_operator(
+            &module_state,
+            op,
+            &mut builder,
+            func_state,
+            &mut self.func_env,
+        )?;
+
         Ok(())
     }
 
@@ -1036,7 +1240,7 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
         //
         // If the exit block is unreachable, it may not have the correct arguments, so we would
         // generate a return instruction that doesn't match the signature.
-        if state.reachable {
+        if state.reachable() {
             debug_assert!(builder.is_pristine());
             if !builder.is_unreachable() {
                 match return_mode {
@@ -1045,6 +1249,8 @@ impl FunctionCodeGenerator<CodegenError> for CraneliftFunctionCodeGenerator {
                 };
             }
         }
+
+        builder.finalize();
 
         // Discard any remaining values on the stack. Either we just returned them,
         // or the end of the function is unreachable.
@@ -1105,13 +1311,16 @@ fn generate_signature(
 }
 
 fn pointer_type(mcg: &CraneliftModuleCodeGenerator) -> ir::Type {
-    ir::Type::int(u16::from(mcg.isa.frontend_config().pointer_bits())).unwrap()
+    ir::Type::int(u16::from(
+        mcg.isa.as_ref().unwrap().frontend_config().pointer_bits(),
+    ))
+    .unwrap()
 }
 
 /// Declare local variables for the signature parameters that correspond to WebAssembly locals.
 ///
 /// Return the number of local variables declared.
-fn declare_wasm_parameters(builder: &mut FunctionBuilder, entry_block: Ebb) -> usize {
+fn declare_wasm_parameters(builder: &mut FunctionBuilder, entry_block: Block) -> usize {
     let sig_len = builder.func.signature.params.len();
     let mut next_local = 0;
     for i in 0..sig_len {
@@ -1124,11 +1333,11 @@ fn declare_wasm_parameters(builder: &mut FunctionBuilder, entry_block: Ebb) -> u
             builder.declare_var(local, param_type.value_type);
             next_local += 1;
 
-            let param_value = builder.ebb_params(entry_block)[i];
+            let param_value = builder.block_params(entry_block)[i];
             builder.def_var(local, param_value);
         }
         if param_type.purpose == ir::ArgumentPurpose::VMContext {
-            let param_value = builder.ebb_params(entry_block)[i];
+            let param_value = builder.block_params(entry_block)[i];
             builder.set_val_label(param_value, get_vmctx_value_label());
         }
     }

@@ -66,28 +66,35 @@
 //!
 //!     let mut instance = instantiate(WASM, &import_object)?;
 //!
-//!     let add_one: Func<i32, i32> = instance.func("add_one")?;
+//!     let add_one: Func<i32, i32> = instance.exports.get("add_one")?;
 //!
 //!     let value = add_one.call(42)?;
 //!
 //!     assert_eq!(value, 43);
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
 //!
 //! # Additional Notes:
 //!
-//! The `wasmer-runtime` is build to support compiler multiple backends.
-//! Currently, we support the [Cranelift] compiler with the [`wasmer-clif-backend`] crate.
+//! `wasmer-runtime` is built to support multiple compiler backends.
+//! Currently, we support the Singlepass, [Cranelift], and LLVM compilers
+//! with the [`wasmer-singlepass-backend`], [`wasmer-clif-backend`], and
+//! wasmer-llvm-backend crates, respectively.
 //!
-//! You can specify the compiler you wish to use with the [`compile_with`] function.
+//! You can specify the compiler you wish to use with the [`compile_with`]
+//! function or use the default with the [`compile`] function.
 //!
 //! [Cranelift]: https://github.com/CraneStation/cranelift
+//! [LLVM]: https://llvm.org
+//! [`wasmer-singlepass-backend`]: https://crates.io/crates/wasmer-singlepass-backend
 //! [`wasmer-clif-backend`]: https://crates.io/crates/wasmer-clif-backend
-//! [`compile_with`]: fn.compile_with.html
 
-pub use wasmer_runtime_core::backend::{Backend, Features};
+#[macro_use]
+extern crate serde_derive;
+
+pub use wasmer_runtime_core::backend::{ExceptionCode, Features};
 pub use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
 pub use wasmer_runtime_core::export::Export;
 pub use wasmer_runtime_core::global::Global;
@@ -103,6 +110,12 @@ pub use wasmer_runtime_core::vm::Ctx;
 pub use wasmer_runtime_core::Func;
 pub use wasmer_runtime_core::{compile_with, validate};
 pub use wasmer_runtime_core::{func, imports};
+
+#[cfg(unix)]
+pub use wasmer_runtime_core::{
+    fault::{pop_code_version, push_code_version},
+    state::CodeVersion,
+};
 
 pub mod memory {
     //! The memory module contains the implementation data structures and helper functions used to
@@ -132,13 +145,87 @@ pub mod units {
 }
 
 pub mod types {
-    //! Various types.
+    //! Types used in the Wasm runtime and conversion functions.
     pub use wasmer_runtime_core::types::*;
 }
 
 pub mod cache;
 
 pub use wasmer_runtime_core::backend::{Compiler, CompilerConfig};
+
+/// Enum used to select which compiler should be used to generate code.
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Backend {
+    #[cfg(feature = "singlepass")]
+    /// Singlepass backend
+    Singlepass,
+    #[cfg(feature = "cranelift")]
+    /// Cranelift backend
+    Cranelift,
+    #[cfg(feature = "llvm")]
+    /// LLVM backend
+    LLVM,
+    /// Auto backend
+    Auto,
+}
+
+impl Backend {
+    /// Get a list of the currently enabled (via feature flag) backends.
+    pub fn variants() -> &'static [&'static str] {
+        &[
+            #[cfg(feature = "singlepass")]
+            "singlepass",
+            #[cfg(feature = "cranelift")]
+            "cranelift",
+            #[cfg(feature = "llvm")]
+            "llvm",
+            "auto",
+        ]
+    }
+
+    /// Stable string representation of the backend.
+    /// It can be used as part of a cache key, for example.
+    pub fn to_string(&self) -> &'static str {
+        match self {
+            #[cfg(feature = "singlepass")]
+            Backend::Singlepass => "singlepass",
+            #[cfg(feature = "cranelift")]
+            Backend::Cranelift => "cranelift",
+            #[cfg(feature = "llvm")]
+            Backend::LLVM => "llvm",
+            Backend::Auto => "auto",
+        }
+    }
+}
+
+impl Default for Backend {
+    fn default() -> Self {
+        #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
+        return Backend::Singlepass;
+
+        #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
+        return Backend::Cranelift;
+
+        #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
+        return Backend::LLVM;
+    }
+}
+
+impl std::str::FromStr for Backend {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Backend, String> {
+        match s.to_lowercase().as_str() {
+            #[cfg(feature = "singlepass")]
+            "singlepass" => Ok(Backend::Singlepass),
+            #[cfg(feature = "cranelift")]
+            "cranelift" => Ok(Backend::Cranelift),
+            #[cfg(feature = "llvm")]
+            "llvm" => Ok(Backend::LLVM),
+            "auto" => Ok(Backend::Auto),
+            _ => Err(format!("The backend {} doesn't exist", s)),
+        }
+    }
+}
 
 /// Compile WebAssembly binary code into a [`Module`].
 /// This function is useful if it is necessary to
@@ -246,7 +333,7 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "cranelift")]
         Backend::Cranelift => Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new())),
 
-        #[cfg(feature = "singlepass")]
+        #[cfg(any(feature = "singlepass"))]
         Backend::Singlepass => Some(Box::new(
             wasmer_singlepass_backend::SinglePassCompiler::new(),
         )),
@@ -254,9 +341,41 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
         #[cfg(feature = "llvm")]
         Backend::LLVM => Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new())),
 
-        _ => None,
+        Backend::Auto => {
+            #[cfg(feature = "default-backend-singlepass")]
+            return Some(Box::new(
+                wasmer_singlepass_backend::SinglePassCompiler::new(),
+            ));
+            #[cfg(feature = "default-backend-cranelift")]
+            return Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new()));
+            #[cfg(feature = "default-backend-llvm")]
+            return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
+        }
     }
 }
 
 /// The current version of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn str_repr_matches() {
+        // if this test breaks, think hard about why it's breaking
+        // can we avoid having these be different?
+
+        for &backend in &[
+            #[cfg(feature = "cranelift")]
+            Backend::Cranelift,
+            #[cfg(feature = "llvm")]
+            Backend::LLVM,
+            #[cfg(feature = "singlepass")]
+            Backend::Singlepass,
+        ] {
+            assert_eq!(backend, Backend::from_str(backend.to_string()).unwrap());
+        }
+    }
+}

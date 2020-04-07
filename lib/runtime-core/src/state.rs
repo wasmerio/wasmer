@@ -2,16 +2,17 @@
 //! state could read or updated at runtime. Use cases include generating stack traces, switching
 //! generated code from one tier to another, or serializing state of a running instace.
 
-use crate::backend::Backend;
+use crate::backend::RunnableModule;
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
+use std::sync::Arc;
 
 /// An index to a register
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct RegisterIndex(pub usize);
 
 /// A kind of wasm or constant value
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum WasmAbstractValue {
     /// A wasm runtime value
     Runtime,
@@ -20,7 +21,7 @@ pub enum WasmAbstractValue {
 }
 
 /// A container for the state of a running wasm instance.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MachineState {
     /// Stack values.
     pub stack_values: Vec<MachineValue>,
@@ -37,7 +38,7 @@ pub struct MachineState {
 }
 
 /// A diff of two `MachineState`s.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MachineStateDiff {
     /// Last.
     pub last: Option<usize>,
@@ -63,7 +64,7 @@ pub struct MachineStateDiff {
 }
 
 /// A kind of machine value.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum MachineValue {
     /// Undefined.
     Undefined,
@@ -86,7 +87,7 @@ pub enum MachineValue {
 }
 
 /// A map of function states.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionStateMap {
     /// Initial.
     pub initial: MachineState,
@@ -111,7 +112,7 @@ pub struct FunctionStateMap {
 }
 
 /// A kind of suspend offset.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum SuspendOffset {
     /// A loop.
     Loop(usize),
@@ -122,7 +123,7 @@ pub enum SuspendOffset {
 }
 
 /// Info for an offset.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OffsetInfo {
     /// End offset.
     pub end_offset: usize, // excluded bound
@@ -133,7 +134,7 @@ pub struct OffsetInfo {
 }
 
 /// A map of module state.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModuleStateMap {
     /// Local functions.
     pub local_functions: BTreeMap<usize, FunctionStateMap>,
@@ -173,7 +174,7 @@ pub struct InstanceImage {
 }
 
 /// A `CodeVersion` is a container for a unit of generated code for a module.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct CodeVersion {
     /// Indicates if this code version is the baseline version.
     pub baseline: bool,
@@ -185,7 +186,10 @@ pub struct CodeVersion {
     pub base: usize,
 
     /// The backend used to compile this module.
-    pub backend: Backend,
+    pub backend: &'static str,
+
+    /// `RunnableModule` for this code version.
+    pub runnable_module: Arc<Box<dyn RunnableModule>>,
 }
 
 impl ModuleStateMap {
@@ -413,7 +417,7 @@ impl ExecutionStateImage {
         }
 
         fn format_optional_u64_sequence(x: &[Option<u64>]) -> String {
-            if x.len() == 0 {
+            if x.is_empty() {
                 "(empty)".into()
             } else {
                 join_strings(
@@ -432,7 +436,7 @@ impl ExecutionStateImage {
 
         let mut ret = String::new();
 
-        if self.frames.len() == 0 {
+        if self.frames.is_empty() {
             ret += &"Unknown fault address, cannot read stack.";
             ret += "\n";
         } else {
@@ -476,10 +480,11 @@ impl InstanceImage {
     }
 }
 
-/// Declarations for x86-64 registers.
+/// X64-specific structures and methods that do not depend on an x64 machine to run.
 #[cfg(unix)]
 pub mod x64_decl {
     use super::*;
+    use crate::types::Type;
 
     /// General-purpose registers.
     #[repr(u8)]
@@ -606,9 +611,88 @@ pub mod x64_decl {
                 _ => return None,
             })
         }
+
+        /// Returns the instruction prefix for `movq %this_reg, ?(%rsp)`.
+        ///
+        /// To build an instruction, append the memory location as a 32-bit
+        /// offset to the stack pointer to this prefix.
+        pub fn prefix_mov_to_stack(&self) -> Option<&'static [u8]> {
+            Some(match *self {
+                X64Register::GPR(gpr) => match gpr {
+                    GPR::RDI => &[0x48, 0x89, 0xbc, 0x24],
+                    GPR::RSI => &[0x48, 0x89, 0xb4, 0x24],
+                    GPR::RDX => &[0x48, 0x89, 0x94, 0x24],
+                    GPR::RCX => &[0x48, 0x89, 0x8c, 0x24],
+                    GPR::R8 => &[0x4c, 0x89, 0x84, 0x24],
+                    GPR::R9 => &[0x4c, 0x89, 0x8c, 0x24],
+                    _ => return None,
+                },
+                X64Register::XMM(xmm) => match xmm {
+                    XMM::XMM0 => &[0x66, 0x0f, 0xd6, 0x84, 0x24],
+                    XMM::XMM1 => &[0x66, 0x0f, 0xd6, 0x8c, 0x24],
+                    XMM::XMM2 => &[0x66, 0x0f, 0xd6, 0x94, 0x24],
+                    XMM::XMM3 => &[0x66, 0x0f, 0xd6, 0x9c, 0x24],
+                    XMM::XMM4 => &[0x66, 0x0f, 0xd6, 0xa4, 0x24],
+                    XMM::XMM5 => &[0x66, 0x0f, 0xd6, 0xac, 0x24],
+                    XMM::XMM6 => &[0x66, 0x0f, 0xd6, 0xb4, 0x24],
+                    XMM::XMM7 => &[0x66, 0x0f, 0xd6, 0xbc, 0x24],
+                    _ => return None,
+                },
+            })
+        }
+    }
+
+    /// An allocator that allocates registers for function arguments according to the System V ABI.
+    #[derive(Default)]
+    pub struct ArgumentRegisterAllocator {
+        n_gprs: usize,
+        n_xmms: usize,
+    }
+
+    impl ArgumentRegisterAllocator {
+        /// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.
+        pub fn next(&mut self, ty: Type) -> Option<X64Register> {
+            static GPR_SEQ: &'static [GPR] =
+                &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+            static XMM_SEQ: &'static [XMM] = &[
+                XMM::XMM0,
+                XMM::XMM1,
+                XMM::XMM2,
+                XMM::XMM3,
+                XMM::XMM4,
+                XMM::XMM5,
+                XMM::XMM6,
+                XMM::XMM7,
+            ];
+            match ty {
+                Type::I32 | Type::I64 => {
+                    if self.n_gprs < GPR_SEQ.len() {
+                        let gpr = GPR_SEQ[self.n_gprs];
+                        self.n_gprs += 1;
+                        Some(X64Register::GPR(gpr))
+                    } else {
+                        None
+                    }
+                }
+                Type::F32 | Type::F64 => {
+                    if self.n_xmms < XMM_SEQ.len() {
+                        let xmm = XMM_SEQ[self.n_xmms];
+                        self.n_xmms += 1;
+                        Some(X64Register::XMM(xmm))
+                    } else {
+                        None
+                    }
+                }
+                _ => todo!(
+                    "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
+                    ty
+                ),
+            }
+        }
     }
 }
 
+/// X64-specific structures and methods that only work on an x64 machine.
 #[cfg(unix)]
 pub mod x64 {
     //! The x64 state module contains functions to generate state and code for x64 targets.
@@ -623,10 +707,12 @@ pub mod x64 {
     use crate::vm::Ctx;
     use std::any::Any;
 
+    #[allow(clippy::cast_ptr_alignment)]
     unsafe fn compute_vmctx_deref(vmctx: *const Ctx, seq: &[usize]) -> u64 {
         let mut ptr = &vmctx as *const *const Ctx as *const u8;
         for x in seq {
-            ptr = (*(ptr as *const *const u8)).offset(*x as isize);
+            debug_assert!(ptr.align_offset(std::mem::align_of::<*const u8>()) == 0);
+            ptr = (*(ptr as *const *const u8)).add(*x);
         }
         ptr as usize as u64
     }
@@ -652,7 +738,7 @@ pub mod x64 {
         image: InstanceImage,
         vmctx: &mut Ctx,
         breakpoints: Option<BreakpointMap>,
-    ) -> Result<u64, Box<dyn Any>> {
+    ) -> Result<u64, Box<dyn Any + Send>> {
         let mut stack: Vec<u64> = vec![0; 1048576 * 8 / 8]; // 8MB stack
         let mut stack_offset: usize = stack.len();
 
@@ -673,7 +759,7 @@ pub mod x64 {
             } else {
                 fsm.wasm_offset_to_target_offset
                     .get(&f.wasm_inst_offset)
-                    .map(|x| *x)
+                    .copied()
             }
             .expect("instruction is not a critical point");
 
@@ -988,8 +1074,8 @@ pub mod x64 {
         catch_unsafe_unwind(
             || {
                 run_on_alternative_stack(
-                    stack.as_mut_ptr().offset(stack.len() as isize),
-                    stack.as_mut_ptr().offset(stack_offset as isize),
+                    stack.as_mut_ptr().add(stack.len()),
+                    stack.as_mut_ptr().add(stack_offset),
                 )
             },
             breakpoints,
@@ -1063,7 +1149,6 @@ pub mod x64 {
             let mut is_baseline: Option<bool> = None;
 
             for version in versions() {
-                //println!("Lookup IP: {:x}", ret_addr);
                 match version
                     .msm
                     .lookup_call_ip(ret_addr as usize, version.base)
@@ -1152,24 +1237,18 @@ pub mod x64 {
                 }
             }
 
-            let mut found_shadow = false;
-            for v in state.stack_values.iter() {
-                match *v {
-                    MachineValue::ExplicitShadow => {
-                        found_shadow = true;
-                        break;
-                    }
-                    _ => {}
-                }
-            }
+            let found_shadow = state
+                .stack_values
+                .iter()
+                .any(|v| *v == MachineValue::ExplicitShadow);
             if !found_shadow {
-                stack = stack.offset((fsm.shadow_size / 8) as isize);
+                stack = stack.add(fsm.shadow_size / 8);
             }
 
             for v in state.stack_values.iter().rev() {
                 match *v {
                     MachineValue::ExplicitShadow => {
-                        stack = stack.offset((fsm.shadow_size / 8) as isize);
+                        stack = stack.add(fsm.shadow_size / 8);
                     }
                     MachineValue::Undefined => {
                         stack = stack.offset(1);
@@ -1251,7 +1330,6 @@ pub mod x64 {
                 stack: wasm_stack,
                 locals: wasm_locals,
             };
-            //println!("WFS = {:?}", wfs);
             results.push(wfs);
         }
 

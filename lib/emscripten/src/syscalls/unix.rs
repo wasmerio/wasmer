@@ -7,6 +7,7 @@ use libc::{
     accept,
     access,
     bind,
+    c_char,
     c_int,
     c_ulong,
     c_void,
@@ -97,12 +98,12 @@ const WASM_TCSETSW: u32 = 0x5403;
 // https://github.com/wasmerio/wasmer/pull/532#discussion_r300837800
 fn translate_ioctl(wasm_ioctl: u32) -> c_ulong {
     match wasm_ioctl {
-        WASM_FIOCLEX => FIOCLEX,
-        WASM_TIOCGWINSZ => TIOCGWINSZ,
-        WASM_TIOCSPGRP => TIOCSPGRP,
-        WASM_FIONBIO => FIONBIO,
-        WASM_TCGETS => TCGETS,
-        WASM_TCSETSW => TCSETSW,
+        WASM_FIOCLEX => FIOCLEX as _,
+        WASM_TIOCGWINSZ => TIOCGWINSZ as _,
+        WASM_TIOCSPGRP => TIOCSPGRP as _,
+        WASM_FIONBIO => FIONBIO as _,
+        WASM_TCGETS => TCGETS as _,
+        WASM_TCSETSW => TCSETSW as _,
         _otherwise => {
             unimplemented!("The ioctl {} is not yet implemented", wasm_ioctl);
         }
@@ -129,7 +130,19 @@ extern "C" {
     pub fn lstat64(path: *const libc::c_char, buf: *mut c_void) -> c_int;
 }
 
-#[cfg(not(target_os = "macos"))]
+// Linking to functions that are not provided by rust libc
+#[cfg(target_os = "freebsd")]
+#[link(name = "c")]
+extern "C" {
+    pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
+    pub fn fdatasync(fd: c_int) -> c_int;
+    pub fn ftruncate(fd: c_int, length: i64) -> c_int;
+    pub fn lstat(path: *const libc::c_char, buf: *mut stat) -> c_int;
+}
+
+#[cfg(target_os = "freebsd")]
+use libc::madvise;
+#[cfg(not(any(target_os = "freebsd", target_os = "macos")))]
 use libc::{fallocate, fdatasync, ftruncate64, lstat, madvise, wait4};
 
 // Another conditional constant for name resolution: Macos et iOS use
@@ -254,9 +267,13 @@ pub fn ___syscall194(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     debug!("emscripten::___syscall194 (ftruncate64) {}", _which);
     let _fd: c_int = varargs.get(ctx);
     let _length: i64 = varargs.get(ctx);
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "freebsd", target_os = "macos")))]
     unsafe {
         ftruncate64(_fd, _length)
+    }
+    #[cfg(target_os = "freebsd")]
+    unsafe {
+        ftruncate(_fd, _length)
     }
     #[cfg(target_os = "macos")]
     unimplemented!("emscripten::___syscall194 (ftruncate64) {}", _which)
@@ -464,7 +481,7 @@ pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
             let argp: u32 = varargs.get(ctx);
             let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
             let translated_request = translate_ioctl(request);
-            let ret = unsafe { ioctl(fd, translated_request, argp_ptr) };
+            let ret = unsafe { ioctl(fd, translated_request as _, argp_ptr) };
             debug!(
                 " => request: {}, translated: {}, return: {}",
                 request, translated_request, ret
@@ -525,7 +542,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             if ty_and_flags & SOCK_CLOEXC != 0 {
                 // set_cloexec
                 unsafe {
-                    ioctl(fd, translate_ioctl(WASM_FIOCLEX));
+                    ioctl(fd, translate_ioctl(WASM_FIOCLEX) as _);
                 };
             }
 
@@ -620,7 +637,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let mut host_address: sockaddr = sockaddr {
                 sa_family: Default::default(),
                 sa_data: Default::default(),
-                #[cfg(target_os = "macos")]
+                #[cfg(any(target_os = "freebsd", target_os = "macos"))]
                 sa_len: Default::default(),
             };
             let fd = unsafe { accept(socket, &mut host_address, address_len_addr) };
@@ -632,7 +649,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             // why is this here?
             // set_cloexec
             unsafe {
-                ioctl(fd, translate_ioctl(WASM_FIOCLEX));
+                ioctl(fd, translate_ioctl(WASM_FIOCLEX) as _);
             };
 
             debug!(
@@ -654,7 +671,7 @@ pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
             let mut sock_addr_host: sockaddr = sockaddr {
                 sa_family: Default::default(),
                 sa_data: Default::default(),
-                #[cfg(target_os = "macos")]
+                #[cfg(any(target_os = "freebsd", target_os = "macos"))]
                 sa_len: Default::default(),
             };
             let ret = unsafe {
@@ -1055,22 +1072,31 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
             break;
         }
         #[allow(clippy::cast_ptr_alignment)]
+        #[cfg(not(target_os = "freebsd"))]
         unsafe {
             *(dirp.add(pos) as *mut u32) = (*dirent).d_ino as u32;
+        }
+        #[allow(clippy::cast_ptr_alignment)]
+        #[cfg(target_os = "freebsd")]
+        unsafe {
+            *(dirp.add(pos) as *mut u32) = (*dirent).d_fileno as u32;
+        }
+        #[allow(clippy::cast_ptr_alignment)]
+        unsafe {
             *(dirp.add(pos + 4) as *mut u32) = pos as u32;
             *(dirp.add(pos + 8) as *mut u16) = offset as u16;
             *(dirp.add(pos + 10) as *mut u8) = (*dirent).d_type;
             let upper_bound = std::cmp::min((*dirent).d_reclen, 255) as usize;
             let mut i = 0;
             while i < upper_bound {
-                *(dirp.add(pos + 11 + i) as *mut i8) = (*dirent).d_name[i] as _;
+                *(dirp.add(pos + 11 + i) as *mut c_char) = (*dirent).d_name[i] as c_char;
                 i += 1;
             }
             // We set the termination string char
-            *(dirp.add(pos + 11 + i) as *mut i8) = 0 as i8;
+            *(dirp.add(pos + 11 + i) as *mut c_char) = 0 as c_char;
             debug!(
                 "  => file {}",
-                CStr::from_ptr(dirp.add(pos + 11) as *const i8)
+                CStr::from_ptr(dirp.add(pos + 11) as *const c_char)
                     .to_str()
                     .unwrap()
             );
@@ -1105,11 +1131,11 @@ pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
     let _mode: c_int = varargs.get(ctx);
     let _offset: off_t = varargs.get(ctx);
     let _len: off_t = varargs.get(ctx);
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "freebsd", target_os = "macos")))]
     unsafe {
         fallocate(_fd, _mode, _offset, _len)
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "freebsd", target_os = "macos"))]
     {
         unimplemented!("emscripten::___syscall324 (fallocate) {}", _which)
     }

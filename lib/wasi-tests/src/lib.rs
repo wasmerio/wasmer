@@ -15,12 +15,12 @@ fn serializing_works() {
         b"PATH=/bin".into_iter().cloned().collect(),
         b"GOROOT=$HOME/.cargo/bin".into_iter().cloned().collect(),
     ];
-    let wasm_binary = include_bytes!("../wasitests/fd_read.wasm");
+    let wasm_binary = include_bytes!("../wasitests/unstable/fd_read.wasm");
     let module = compile(&wasm_binary[..])
         .map_err(|e| format!("Can't compile module: {:?}", e))
         .unwrap();
 
-    let wasi_version = get_wasi_version(&module).expect("WASI module");
+    let wasi_version = get_wasi_version(&module, true).expect("WASI module");
     let import_object = generate_import_object_for_version(
         wasi_version,
         args.clone(),
@@ -35,7 +35,7 @@ fn serializing_works() {
     let state_bytes = {
         let instance = module.instantiate(&import_object).unwrap();
 
-        let start: Func<(), ()> = instance.func("_start").unwrap();
+        let start: Func<(), ()> = instance.exports.get("_start").unwrap();
         start.call().unwrap();
         let state = get_wasi_state(instance.context());
 
@@ -52,7 +52,7 @@ fn serializing_works() {
 
     instance.context_mut().data = Box::into_raw(wasi_state) as *mut c_void;
 
-    let second_entry: Func<(), i32> = instance.func("second_entry").unwrap();
+    let second_entry: Func<(), i32> = instance.exports.get("second_entry").unwrap();
     let result = second_entry.call().unwrap();
     assert_eq!(result, true as i32);
 }

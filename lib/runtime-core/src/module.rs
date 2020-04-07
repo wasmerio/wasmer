@@ -1,21 +1,25 @@
-//! The module module contains the implementation data structures and helper functions used to
-//! manipulate and access wasm modules.
+//! This module contains the types to manipulate and access Wasm modules.
+//!
+//! A Wasm module is the artifact of compiling WebAssembly. Wasm modules are not executable
+//! until they're instantiated with imports (via [`ImportObject`]).
 use crate::{
-    backend::{Backend, RunnableModule},
+    backend::RunnableModule,
     cache::{Artifact, Error as CacheError},
     error,
     import::ImportObject,
     structures::{Map, TypedIndex},
     types::{
-        FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit, ImportedFuncIndex,
-        ImportedGlobalIndex, ImportedMemoryIndex, ImportedTableIndex, Initializer,
-        LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryDescriptor, MemoryIndex,
-        SigIndex, TableDescriptor, TableIndex,
+        ExportDescriptor, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit,
+        ImportDescriptor, ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex,
+        ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
+        MemoryDescriptor, MemoryIndex, SigIndex, TableDescriptor, TableIndex,
     },
     Instance,
 };
 
 use crate::backend::CacheGen;
+#[cfg(feature = "generate-debug-information")]
+use crate::jit_debug;
 use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -23,9 +27,8 @@ use std::sync::Arc;
 /// This is used to instantiate a new WebAssembly module.
 #[doc(hidden)]
 pub struct ModuleInner {
-    pub runnable_module: Box<dyn RunnableModule>,
+    pub runnable_module: Arc<Box<dyn RunnableModule>>,
     pub cache_gen: Box<dyn CacheGen>,
-
     pub info: ModuleInfo,
 }
 
@@ -51,6 +54,10 @@ pub struct ModuleInfo {
     pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDescriptor)>,
 
     /// Map of string to export index.
+    // Implementation note: this should maintain the order that the exports appear in the
+    // Wasm module.  Be careful not to use APIs that may break the order!
+    // Side note, because this is public we can't actually guarantee that it will remain
+    // in order.
     pub exports: IndexMap<String, ExportIndex>,
 
     /// Vector of data initializers.
@@ -66,7 +73,7 @@ pub struct ModuleInfo {
     /// Map signature index to function signature.
     pub signatures: Map<SigIndex, FuncSig>,
     /// Backend.
-    pub backend: Backend,
+    pub backend: String,
 
     /// Table of namespace indexes.
     pub namespace_table: StringTable<NamespaceIndex>,
@@ -77,7 +84,16 @@ pub struct ModuleInfo {
     pub em_symbol_map: Option<HashMap<u32, String>>,
 
     /// Custom sections.
-    pub custom_sections: HashMap<String, Vec<u8>>,
+    pub custom_sections: HashMap<String, Vec<Vec<u8>>>,
+
+    /// Flag controlling whether or not debug information for use in a debugger
+    /// will be generated.
+    pub generate_debug_info: bool,
+
+    #[cfg(feature = "generate-debug-information")]
+    #[serde(skip)]
+    /// Resource manager of debug information being used by a debugger.
+    pub(crate) debug_info_manager: jit_debug::JitCodeDebugInfoManager,
 }
 
 impl ModuleInfo {
@@ -92,7 +108,8 @@ impl ModuleInfo {
                 let bytes = reader.read_bytes(len)?;
                 let data = bytes.to_vec();
                 let name = name.to_string();
-                self.custom_sections.insert(name, data);
+                let entry: &mut Vec<Vec<u8>> = self.custom_sections.entry(name).or_default();
+                entry.push(data);
             }
         }
         Ok(())
@@ -101,11 +118,9 @@ impl ModuleInfo {
 
 /// A compiled WebAssembly module.
 ///
-/// `Module` is returned by the [`compile`] and
-/// [`compile_with`] functions.
+/// `Module` is returned by the [`compile_with`][] function.
 ///
-/// [`compile`]: fn.compile.html
-/// [`compile_with`]: fn.compile_with.html
+/// [`compile_with`]: crate::compile_with
 pub struct Module {
     inner: Arc<ModuleInner>,
 }
@@ -155,6 +170,130 @@ impl Module {
     pub fn info(&self) -> &ModuleInfo {
         &self.inner.info
     }
+
+    /// Iterate over the [`ExportDescriptor`]s of the exports that this module provides.
+    pub(crate) fn exports_iter(&self) -> impl Iterator<Item = ExportDescriptor> + '_ {
+        self.info()
+            .exports
+            .iter()
+            .map(move |(name, &ei)| ExportDescriptor {
+                name,
+                ty: match ei {
+                    ExportIndex::Func(f_idx) => {
+                        let sig_idx = self.info().func_assoc[f_idx].into();
+                        self.info().signatures[sig_idx].clone().into()
+                    }
+                    ExportIndex::Global(g_idx) => {
+                        let info = self.info();
+                        let local_global_idx =
+                            LocalGlobalIndex::new(g_idx.index() - info.imported_globals.len());
+                        info.globals[local_global_idx].desc.into()
+                    }
+                    ExportIndex::Memory(m_idx) => {
+                        let info = self.info();
+                        let local_memory_idx =
+                            LocalMemoryIndex::new(m_idx.index() - info.imported_memories.len());
+                        info.memories[local_memory_idx].into()
+                    }
+                    ExportIndex::Table(t_idx) => {
+                        let info = self.info();
+                        let local_table_idx =
+                            LocalTableIndex::new(t_idx.index() - info.imported_tables.len());
+                        info.tables[local_table_idx].into()
+                    }
+                },
+            })
+    }
+
+    /// Get the [`ExportDescriptor`]s of the exports this [`Module`] provides.
+    pub fn exports(&self) -> Vec<ExportDescriptor> {
+        self.exports_iter().collect()
+    }
+
+    /// Get the [`ImportDescriptor`]s describing the imports this [`Module`]
+    /// requires to be instantiated.
+    pub fn imports(&self) -> Vec<ImportDescriptor> {
+        let mut out = Vec::with_capacity(
+            self.inner.info.imported_functions.len()
+                + self.inner.info.imported_memories.len()
+                + self.inner.info.imported_tables.len()
+                + self.inner.info.imported_globals.len(),
+        );
+
+        /// Lookup the (namespace, name) in the [`ModuleInfo`] by index.
+        fn get_import_name(
+            info: &ModuleInfo,
+            &ImportName {
+                namespace_index,
+                name_index,
+            }: &ImportName,
+        ) -> (String, String) {
+            let namespace = info.namespace_table.get(namespace_index).to_string();
+            let name = info.name_table.get(name_index).to_string();
+
+            (namespace, name)
+        }
+
+        let info = &self.inner.info;
+
+        let imported_functions = info.imported_functions.iter().map(|(idx, import_name)| {
+            let (namespace, name) = get_import_name(info, import_name);
+            let sig = info
+                .signatures
+                .get(*info.func_assoc.get(FuncIndex::new(idx.index())).unwrap())
+                .unwrap();
+            ImportDescriptor {
+                namespace,
+                name,
+                ty: sig.into(),
+            }
+        });
+        let imported_memories =
+            info.imported_memories
+                .values()
+                .map(|(import_name, memory_descriptor)| {
+                    let (namespace, name) = get_import_name(info, import_name);
+                    ImportDescriptor {
+                        namespace,
+                        name,
+                        ty: memory_descriptor.into(),
+                    }
+                });
+        let imported_tables =
+            info.imported_tables
+                .values()
+                .map(|(import_name, table_descriptor)| {
+                    let (namespace, name) = get_import_name(info, import_name);
+                    ImportDescriptor {
+                        namespace,
+                        name,
+                        ty: table_descriptor.into(),
+                    }
+                });
+        let imported_globals =
+            info.imported_globals
+                .values()
+                .map(|(import_name, global_descriptor)| {
+                    let (namespace, name) = get_import_name(info, import_name);
+                    ImportDescriptor {
+                        namespace,
+                        name,
+                        ty: global_descriptor.into(),
+                    }
+                });
+
+        out.extend(imported_functions);
+        out.extend(imported_memories);
+        out.extend(imported_tables);
+        out.extend(imported_globals);
+        out
+    }
+
+    /// Get the custom sections matching the given name.
+    pub fn custom_sections(&self, key: impl AsRef<str>) -> Option<&[Vec<u8>]> {
+        let key = key.as_ref();
+        self.inner.info.custom_sections.get(key).map(|v| v.as_ref())
+    }
 }
 
 impl Clone for Module {
@@ -174,16 +313,25 @@ pub struct ImportName {
     pub name_index: NameIndex,
 }
 
-/// Kinds of export indexes.
+/// A wrapper around the [`TypedIndex`]es for Wasm functions, Wasm memories,
+/// Wasm globals, and Wasm tables.
+///
+/// Used in [`ModuleInfo`] to access function signatures ([`SigIndex`]s,
+/// [`FuncSig`]), [`GlobalInit`]s, [`MemoryDescriptor`]s, and
+/// [`TableDescriptor`]s.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportIndex {
-    /// Function export index.
+    /// Function export index. [`FuncIndex`] is a type-safe handle referring to
+    /// a Wasm function.
     Func(FuncIndex),
-    /// Memory export index.
+    /// Memory export index. [`MemoryIndex`] is a type-safe handle referring to
+    /// a Wasm memory.
     Memory(MemoryIndex),
-    /// Global export index.
+    /// Global export index. [`GlobalIndex`] is a type-safe handle referring to
+    /// a Wasm global.
     Global(GlobalIndex),
-    /// Table export index.
+    /// Table export index. [`TableIndex`] is a type-safe handle referring to
+    /// to a Wasm table.
     Table(TableIndex),
 }
 
@@ -218,7 +366,7 @@ pub struct StringTableBuilder<K: TypedIndex> {
 }
 
 impl<K: TypedIndex> StringTableBuilder<K> {
-    /// Creates a new `StringTableBuilder`.
+    /// Creates a new [`StringTableBuilder`].
     pub fn new() -> Self {
         Self {
             map: IndexMap::new(),
@@ -250,7 +398,7 @@ impl<K: TypedIndex> StringTableBuilder<K> {
         }
     }
 
-    /// Finish building the `StringTable`.
+    /// Finish building the [`StringTable`].
     pub fn finish(self) -> StringTable<K> {
         let table = self
             .map
@@ -291,7 +439,7 @@ impl<K: TypedIndex> StringTable<K> {
     }
 }
 
-/// Namespace index.
+/// A type-safe handle referring to a module namespace.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NamespaceIndex(u32);
 
@@ -307,7 +455,7 @@ impl TypedIndex for NamespaceIndex {
     }
 }
 
-/// Name index.
+/// A type-safe handle referring to a name in a module namespace.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NameIndex(u32);
 

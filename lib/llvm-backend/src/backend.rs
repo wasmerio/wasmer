@@ -2,6 +2,7 @@ use super::stackmap::StackmapRegistry;
 use crate::{
     intrinsics::Intrinsics,
     structs::{Callbacks, LLVMModule, LLVMResult, MemProtect},
+    LLVMCallbacks,
 };
 use inkwell::{
     memory_buffer::MemoryBuffer,
@@ -13,8 +14,6 @@ use std::{
     any::Any,
     cell::RefCell,
     ffi::{c_void, CString},
-    fs::File,
-    io::Write,
     mem,
     ops::Deref,
     ptr::{self, NonNull},
@@ -25,13 +24,13 @@ use std::{
 use wasmer_runtime_core::{
     backend::{
         sys::{Memory, Protect},
-        CacheGen, RunnableModule,
+        CacheGen, ExceptionCode, RunnableModule,
     },
     cache::Error as CacheError,
     module::ModuleInfo,
     state::ModuleStateMap,
     structures::TypedIndex,
-    typed_func::{Trampoline, Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm},
     types::{LocalFuncIndex, SigIndex},
     vm, vmcalls,
 };
@@ -60,16 +59,53 @@ extern "C" {
     fn throw_any(data: *mut dyn Any) -> !;
 
     #[allow(improper_ctypes)]
-    fn invoke_trampoline(
+    fn cxx_invoke_trampoline(
         trampoline: Trampoline,
         vmctx_ptr: *mut vm::Ctx,
         func_ptr: NonNull<vm::Func>,
         params: *const u64,
         results: *mut u64,
-        trap_out: *mut WasmTrapInfo,
-        user_error: *mut Option<Box<dyn Any>>,
+        trap_out: *mut i32,
+        error_out: *mut Option<Box<dyn Any + Send>>,
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
+}
+
+/// `invoke_trampoline` is a wrapper around `cxx_invoke_trampoline`, for fixing up the obsoleted
+/// `trap_out` in the C++ part.
+unsafe extern "C" fn invoke_trampoline(
+    trampoline: Trampoline,
+    vmctx_ptr: *mut vm::Ctx,
+    func_ptr: NonNull<vm::Func>,
+    params: *const u64,
+    results: *mut u64,
+    error_out: *mut Option<Box<dyn Any + Send>>,
+    invoke_env: Option<NonNull<c_void>>,
+) -> bool {
+    let mut trap_out: i32 = -1;
+    let ret = cxx_invoke_trampoline(
+        trampoline,
+        vmctx_ptr,
+        func_ptr,
+        params,
+        results,
+        &mut trap_out,
+        error_out,
+        invoke_env,
+    );
+    // Translate trap code if an error occurred.
+    if !ret && (*error_out).is_none() && trap_out != -1 {
+        *error_out = Some(Box::new(match trap_out {
+            0 => ExceptionCode::Unreachable,
+            1 => ExceptionCode::IncorrectCallIndirectSignature,
+            2 => ExceptionCode::MemoryOutOfBounds,
+            3 => ExceptionCode::CallIndirectOOB,
+            4 => ExceptionCode::IllegalArithmetic,
+            5 => ExceptionCode::MisalignedAtomicAccess,
+            _ => return ret,
+        }));
+    }
+    ret
 }
 
 static SIGNAL_HANDLER_INSTALLED: Once = Once::new();
@@ -176,23 +212,22 @@ impl LLVMBackend {
         _stackmaps: &StackmapRegistry,
         _module_info: &ModuleInfo,
         target_machine: &TargetMachine,
+        llvm_callbacks: &Option<Rc<RefCell<dyn LLVMCallbacks>>>,
     ) -> (Self, LLVMCache) {
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module.borrow_mut(), FileType::Object)
             .unwrap();
-        let mem_buf_slice = memory_buffer.as_slice();
 
-        if let Some(path) = unsafe { &crate::GLOBAL_OPTIONS.obj_file } {
-            let mut file = File::create(path).unwrap();
-            let mut pos = 0;
-            while pos < mem_buf_slice.len() {
-                pos += file.write(&mem_buf_slice[pos..]).unwrap();
-            }
+        if let Some(callbacks) = llvm_callbacks {
+            callbacks
+                .borrow_mut()
+                .obj_memory_buffer_callback(&memory_buffer);
         }
 
         let callbacks = get_callbacks();
         let mut module: *mut LLVMModule = ptr::null_mut();
 
+        let mem_buf_slice = memory_buffer.as_slice();
         let res = unsafe {
             module_load(
                 mem_buf_slice.as_ptr(),
@@ -208,7 +243,10 @@ impl LLVMBackend {
 
         let buffer = Arc::new(Buffer::LlvmMemory(memory_buffer));
 
-        #[cfg(all(any(target_os = "linux", target_os = "macos"), target_arch = "x86_64"))]
+        #[cfg(all(
+            any(target_os = "freebsd", target_os = "linux", target_os = "macos"),
+            target_arch = "x86_64"
+        ))]
         {
             use super::stackmap::{self, StkMapRecord, StkSizeRecord};
             use std::collections::BTreeMap;
@@ -429,7 +467,7 @@ impl RunnableModule for LLVMBackend {
         self.msm.clone()
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
         throw_any(Box::leak(data))
     }
 }

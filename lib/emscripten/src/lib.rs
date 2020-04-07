@@ -12,6 +12,8 @@
 
 #[macro_use]
 extern crate wasmer_runtime_core;
+#[macro_use]
+extern crate log;
 
 use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
@@ -31,7 +33,7 @@ use wasmer_runtime_core::{
     types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type, Value},
     units::Pages,
     vm::Ctx,
-    Func, Instance, IsExport, Module,
+    DynFunc, Func, Instance, IsExport, Module,
 };
 
 #[cfg(unix)]
@@ -111,7 +113,7 @@ pub struct EmscriptenData<'a> {
     pub dyn_call_iii: Option<Func<'a, (i32, i32, i32), i32>>,
     pub dyn_call_iiii: Option<Func<'a, (i32, i32, i32, i32), i32>>,
     pub dyn_call_iifi: Option<Func<'a, (i32, i32, f64, i32), i32>>,
-    pub dyn_call_v: Option<Func<'a, (i32)>>,
+    pub dyn_call_v: Option<Func<'a, i32>>,
     pub dyn_call_vi: Option<Func<'a, (i32, i32)>>,
     pub dyn_call_vii: Option<Func<'a, (i32, i32, i32)>>,
     pub dyn_call_viii: Option<Func<'a, (i32, i32, i32, i32)>>,
@@ -168,7 +170,7 @@ pub struct EmscriptenData<'a> {
     pub temp_ret_0: i32,
 
     pub stack_save: Option<Func<'a, (), i32>>,
-    pub stack_restore: Option<Func<'a, (i32)>>,
+    pub stack_restore: Option<Func<'a, i32>>,
     pub set_threw: Option<Func<'a, (i32, i32)>>,
     pub mapped_dirs: HashMap<String, PathBuf>,
 }
@@ -179,75 +181,89 @@ impl<'a> EmscriptenData<'a> {
         globals: &'a EmscriptenGlobalsData,
         mapped_dirs: HashMap<String, PathBuf>,
     ) -> EmscriptenData<'a> {
-        let malloc = instance.func("_malloc").or(instance.func("malloc")).ok();
-        let free = instance.func("_free").or(instance.func("free")).ok();
-        let memalign = instance
-            .func("_memalign")
-            .or(instance.func("memalign"))
+        let malloc = instance
+            .exports
+            .get("_malloc")
+            .or(instance.exports.get("malloc"))
             .ok();
-        let memset = instance.func("_memset").or(instance.func("memset")).ok();
-        let stack_alloc = instance.func("stackAlloc").ok();
+        let free = instance
+            .exports
+            .get("_free")
+            .or(instance.exports.get("free"))
+            .ok();
+        let memalign = instance
+            .exports
+            .get("_memalign")
+            .or(instance.exports.get("memalign"))
+            .ok();
+        let memset = instance
+            .exports
+            .get("_memset")
+            .or(instance.exports.get("memset"))
+            .ok();
+        let stack_alloc = instance.exports.get("stackAlloc").ok();
 
-        let dyn_call_i = instance.func("dynCall_i").ok();
-        let dyn_call_ii = instance.func("dynCall_ii").ok();
-        let dyn_call_iii = instance.func("dynCall_iii").ok();
-        let dyn_call_iiii = instance.func("dynCall_iiii").ok();
-        let dyn_call_iifi = instance.func("dynCall_iifi").ok();
-        let dyn_call_v = instance.func("dynCall_v").ok();
-        let dyn_call_vi = instance.func("dynCall_vi").ok();
-        let dyn_call_vii = instance.func("dynCall_vii").ok();
-        let dyn_call_viii = instance.func("dynCall_viii").ok();
-        let dyn_call_viiii = instance.func("dynCall_viiii").ok();
+        let dyn_call_i = instance.exports.get("dynCall_i").ok();
+        let dyn_call_ii = instance.exports.get("dynCall_ii").ok();
+        let dyn_call_iii = instance.exports.get("dynCall_iii").ok();
+        let dyn_call_iiii = instance.exports.get("dynCall_iiii").ok();
+        let dyn_call_iifi = instance.exports.get("dynCall_iifi").ok();
+        let dyn_call_v = instance.exports.get("dynCall_v").ok();
+        let dyn_call_vi = instance.exports.get("dynCall_vi").ok();
+        let dyn_call_vii = instance.exports.get("dynCall_vii").ok();
+        let dyn_call_viii = instance.exports.get("dynCall_viii").ok();
+        let dyn_call_viiii = instance.exports.get("dynCall_viiii").ok();
 
         // round 2
-        let dyn_call_dii = instance.func("dynCall_dii").ok();
-        let dyn_call_diiii = instance.func("dynCall_diiii").ok();
-        let dyn_call_iiiii = instance.func("dynCall_iiiii").ok();
-        let dyn_call_iiiiii = instance.func("dynCall_iiiiii").ok();
-        let dyn_call_iiiiiii = instance.func("dynCall_iiiiiii").ok();
-        let dyn_call_iiiiiiii = instance.func("dynCall_iiiiiiii").ok();
-        let dyn_call_iiiiiiiii = instance.func("dynCall_iiiiiiiii").ok();
-        let dyn_call_iiiiiiiiii = instance.func("dynCall_iiiiiiiiii").ok();
-        let dyn_call_iiiiiiiiiii = instance.func("dynCall_iiiiiiiiiii").ok();
-        let dyn_call_vd = instance.func("dynCall_vd").ok();
-        let dyn_call_viiiii = instance.func("dynCall_viiiii").ok();
-        let dyn_call_viiiiii = instance.func("dynCall_viiiiii").ok();
-        let dyn_call_viiiiiii = instance.func("dynCall_viiiiiii").ok();
-        let dyn_call_viiiiiiii = instance.func("dynCall_viiiiiiii").ok();
-        let dyn_call_viiiiiiiii = instance.func("dynCall_viiiiiiiii").ok();
-        let dyn_call_viiiiiiiiii = instance.func("dynCall_viiiiiiiiii").ok();
-        let dyn_call_iij = instance.func("dynCall_iij").ok();
-        let dyn_call_iji = instance.func("dynCall_iji").ok();
-        let dyn_call_iiji = instance.func("dynCall_iiji").ok();
-        let dyn_call_iiijj = instance.func("dynCall_iiijj").ok();
-        let dyn_call_j = instance.func("dynCall_j").ok();
-        let dyn_call_ji = instance.func("dynCall_ji").ok();
-        let dyn_call_jii = instance.func("dynCall_jii").ok();
-        let dyn_call_jij = instance.func("dynCall_jij").ok();
-        let dyn_call_jjj = instance.func("dynCall_jjj").ok();
-        let dyn_call_viiij = instance.func("dynCall_viiij").ok();
-        let dyn_call_viiijiiii = instance.func("dynCall_viiijiiii").ok();
-        let dyn_call_viiijiiiiii = instance.func("dynCall_viiijiiiiii").ok();
-        let dyn_call_viij = instance.func("dynCall_viij").ok();
-        let dyn_call_viiji = instance.func("dynCall_viiji").ok();
-        let dyn_call_viijiii = instance.func("dynCall_viijiii").ok();
-        let dyn_call_viijj = instance.func("dynCall_viijj").ok();
-        let dyn_call_vj = instance.func("dynCall_vj").ok();
-        let dyn_call_vjji = instance.func("dynCall_vjji").ok();
-        let dyn_call_vij = instance.func("dynCall_vij").ok();
-        let dyn_call_viji = instance.func("dynCall_viji").ok();
-        let dyn_call_vijiii = instance.func("dynCall_vijiii").ok();
-        let dyn_call_vijj = instance.func("dynCall_vijj").ok();
-        let dyn_call_viid = instance.func("dynCall_viid").ok();
-        let dyn_call_vidd = instance.func("dynCall_vidd").ok();
-        let dyn_call_viidii = instance.func("dynCall_viidii").ok();
-        let dyn_call_viidddddddd = instance.func("dynCall_viidddddddd").ok();
+        let dyn_call_dii = instance.exports.get("dynCall_dii").ok();
+        let dyn_call_diiii = instance.exports.get("dynCall_diiii").ok();
+        let dyn_call_iiiii = instance.exports.get("dynCall_iiiii").ok();
+        let dyn_call_iiiiii = instance.exports.get("dynCall_iiiiii").ok();
+        let dyn_call_iiiiiii = instance.exports.get("dynCall_iiiiiii").ok();
+        let dyn_call_iiiiiiii = instance.exports.get("dynCall_iiiiiiii").ok();
+        let dyn_call_iiiiiiiii = instance.exports.get("dynCall_iiiiiiiii").ok();
+        let dyn_call_iiiiiiiiii = instance.exports.get("dynCall_iiiiiiiiii").ok();
+        let dyn_call_iiiiiiiiiii = instance.exports.get("dynCall_iiiiiiiiiii").ok();
+        let dyn_call_vd = instance.exports.get("dynCall_vd").ok();
+        let dyn_call_viiiii = instance.exports.get("dynCall_viiiii").ok();
+        let dyn_call_viiiiii = instance.exports.get("dynCall_viiiiii").ok();
+        let dyn_call_viiiiiii = instance.exports.get("dynCall_viiiiiii").ok();
+        let dyn_call_viiiiiiii = instance.exports.get("dynCall_viiiiiiii").ok();
+        let dyn_call_viiiiiiiii = instance.exports.get("dynCall_viiiiiiiii").ok();
+        let dyn_call_viiiiiiiiii = instance.exports.get("dynCall_viiiiiiiiii").ok();
+        let dyn_call_iij = instance.exports.get("dynCall_iij").ok();
+        let dyn_call_iji = instance.exports.get("dynCall_iji").ok();
+        let dyn_call_iiji = instance.exports.get("dynCall_iiji").ok();
+        let dyn_call_iiijj = instance.exports.get("dynCall_iiijj").ok();
+        let dyn_call_j = instance.exports.get("dynCall_j").ok();
+        let dyn_call_ji = instance.exports.get("dynCall_ji").ok();
+        let dyn_call_jii = instance.exports.get("dynCall_jii").ok();
+        let dyn_call_jij = instance.exports.get("dynCall_jij").ok();
+        let dyn_call_jjj = instance.exports.get("dynCall_jjj").ok();
+        let dyn_call_viiij = instance.exports.get("dynCall_viiij").ok();
+        let dyn_call_viiijiiii = instance.exports.get("dynCall_viiijiiii").ok();
+        let dyn_call_viiijiiiiii = instance.exports.get("dynCall_viiijiiiiii").ok();
+        let dyn_call_viij = instance.exports.get("dynCall_viij").ok();
+        let dyn_call_viiji = instance.exports.get("dynCall_viiji").ok();
+        let dyn_call_viijiii = instance.exports.get("dynCall_viijiii").ok();
+        let dyn_call_viijj = instance.exports.get("dynCall_viijj").ok();
+        let dyn_call_vj = instance.exports.get("dynCall_vj").ok();
+        let dyn_call_vjji = instance.exports.get("dynCall_vjji").ok();
+        let dyn_call_vij = instance.exports.get("dynCall_vij").ok();
+        let dyn_call_viji = instance.exports.get("dynCall_viji").ok();
+        let dyn_call_vijiii = instance.exports.get("dynCall_vijiii").ok();
+        let dyn_call_vijj = instance.exports.get("dynCall_vijj").ok();
+        let dyn_call_viid = instance.exports.get("dynCall_viid").ok();
+        let dyn_call_vidd = instance.exports.get("dynCall_vidd").ok();
+        let dyn_call_viidii = instance.exports.get("dynCall_viidii").ok();
+        let dyn_call_viidddddddd = instance.exports.get("dynCall_viidddddddd").ok();
 
-        let stack_save = instance.func("stackSave").ok();
-        let stack_restore = instance.func("stackRestore").ok();
+        let stack_save = instance.exports.get("stackSave").ok();
+        let stack_restore = instance.exports.get("stackRestore").ok();
         let set_threw = instance
-            .func("_setThrew")
-            .or(instance.func("setThrew"))
+            .exports
+            .get("_setThrew")
+            .or(instance.exports.get("setThrew"))
             .ok();
 
         EmscriptenData {
@@ -325,6 +341,63 @@ impl<'a> EmscriptenData<'a> {
     }
 }
 
+/// Call the global constructors for C++ and set up the emscripten environment.
+///
+/// Note that this function does not completely set up Emscripten to be called.
+/// before calling this function, please initialize `Ctx::data` with a pointer
+/// to [`EmscriptenData`].
+pub fn set_up_emscripten(instance: &mut Instance) -> CallResult<()> {
+    // ATINIT
+    // (used by C++)
+    if let Ok(func) = instance.exports.get::<DynFunc>("globalCtors") {
+        func.call(&[])?;
+    }
+
+    if let Ok(func) = instance
+        .exports
+        .get::<DynFunc>("___emscripten_environ_constructor")
+    {
+        func.call(&[])?;
+    }
+    Ok(())
+}
+
+/// Call the main function in emscripten, assumes that the emscripten state is
+/// set up.
+///
+/// If you don't want to set it up yourself, consider using [`run_emscripten_instance`].
+pub fn emscripten_call_main(instance: &mut Instance, path: &str, args: &[&str]) -> CallResult<()> {
+    let (func_name, main_func) = match instance.exports.get::<DynFunc>("_main") {
+        Ok(func) => Ok(("_main", func)),
+        Err(_e) => match instance.exports.get::<DynFunc>("main") {
+            Ok(func) => Ok(("main", func)),
+            Err(e) => Err(e),
+        },
+    }?;
+    let num_params = main_func.signature().params().len();
+    let _result = match num_params {
+        2 => {
+            let mut new_args = vec![path];
+            new_args.extend(args);
+            let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
+            let func: DynFunc = instance.exports.get(func_name)?;
+            func.call(&[Value::I32(argc as i32), Value::I32(argv as i32)])?;
+        }
+        0 => {
+            let func: DynFunc = instance.exports.get(func_name)?;
+            func.call(&[])?;
+        }
+        _ => {
+            return Err(CallError::Resolve(ResolveError::ExportWrongType {
+                name: "main".to_string(),
+            }))
+        }
+    };
+
+    Ok(())
+}
+
+/// Top level function to execute emscripten
 pub fn run_emscripten_instance(
     _module: &Module,
     instance: &mut Instance,
@@ -338,15 +411,7 @@ pub fn run_emscripten_instance(
     let data_ptr = &mut data as *mut _ as *mut c_void;
     instance.context_mut().data = data_ptr;
 
-    // ATINIT
-    // (used by C++)
-    if let Ok(_func) = instance.dyn_func("globalCtors") {
-        instance.call("globalCtors", &[])?;
-    }
-
-    if let Ok(_func) = instance.dyn_func("___emscripten_environ_constructor") {
-        instance.call("___emscripten_environ_constructor", &[])?;
-    }
+    set_up_emscripten(instance)?;
 
     // println!("running emscripten instance");
 
@@ -354,35 +419,10 @@ pub fn run_emscripten_instance(
         debug!("Running entry point: {}", &ep);
         let arg = unsafe { allocate_cstr_on_stack(instance.context_mut(), args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
-        instance.call(&ep, &[Value::I32(arg as i32)])?;
+        let func: DynFunc = instance.exports.get(&ep)?;
+        func.call(&[Value::I32(arg as i32)])?;
     } else {
-        let (func_name, main_func) = match instance.dyn_func("_main") {
-            Ok(func) => Ok(("_main", func)),
-            Err(_e) => match instance.dyn_func("main") {
-                Ok(func) => Ok(("main", func)),
-                Err(e) => Err(e),
-            },
-        }?;
-        let num_params = main_func.signature().params().len();
-        let _result = match num_params {
-            2 => {
-                let mut new_args = vec![path];
-                new_args.extend(args);
-                let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
-                instance.call(
-                    func_name,
-                    &[Value::I32(argc as i32), Value::I32(argv as i32)],
-                )?;
-            }
-            0 => {
-                instance.call(func_name, &[])?;
-            }
-            _ => {
-                return Err(CallError::Resolve(ResolveError::ExportWrongType {
-                    name: "main".to_string(),
-                }))
-            }
-        };
+        emscripten_call_main(instance, path, &args)?;
     }
 
     // TODO atexit for emscripten
@@ -731,7 +771,7 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
         "___syscall345" => func!(crate::syscalls::___syscall345),
 
         // Process
-        "abort" => func!(crate::process::_abort),
+        "abort" => func!(crate::process::em_abort),
         "_abort" => func!(crate::process::_abort),
         "_prctl" => func!(crate::process::_prctl),
         "abortStackOverflow" => func!(crate::process::abort_stack_overflow),
@@ -1035,10 +1075,13 @@ pub fn generate_emscripten_env(globals: &mut EmscriptenGlobals) -> ImportObject 
 pub fn nullfunc(ctx: &mut Ctx, _x: u32) {
     use crate::process::abort_with_message;
     debug!("emscripten::nullfunc_i {}", _x);
-    abort_with_message(ctx, "Invalid function pointer. Perhaps this is an invalid value \
+    abort_with_message(
+        ctx,
+        "Invalid function pointer. Perhaps this is an invalid value \
     (e.g. caused by calling a virtual method on a NULL pointer)? Or calling a function with an \
     incorrect type, which will fail? (it is worth building your source files with -Werror (\
-    warnings are errors), as warnings can indicate undefined behavior which can cause this)");
+    warnings are errors), as warnings can indicate undefined behavior which can cause this)",
+    );
 }
 
 /// The current version of this crate

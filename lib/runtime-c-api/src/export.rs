@@ -43,7 +43,11 @@ pub struct wasmer_export_func_t;
 /// exposed to C.
 pub(crate) struct NamedExports(pub Vec<NamedExport>);
 
-/// Opaque pointer to `NamedExports`.
+/// Opaque pointer to the opaque structure `crate::NamedExports`,
+/// which is a wrapper around a vector of the opaque structure
+/// `crate::NamedExport`.
+///
+/// Check the `wasmer_instance_exports()` function to learn more.
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_exports_t;
@@ -91,9 +95,16 @@ pub union wasmer_import_export_value {
 // ================
 // Do not modify these values without updating the `TryFrom` implementation below
 pub enum wasmer_import_export_kind {
+    /// The export/import is a function.
     WASM_FUNCTION = 0,
+
+    /// The export/import is a global.
     WASM_GLOBAL = 1,
+
+    /// The export/import is a memory.
     WASM_MEMORY = 2,
+
+    /// The export/import is a table.
     WASM_TABLE = 3,
 }
 
@@ -201,7 +212,23 @@ pub unsafe extern "C" fn wasmer_export_descriptor_kind(
     named_export_descriptor.kind.clone()
 }
 
-/// Frees the memory for the given exports
+/// Frees the memory for the given exports.
+///
+/// Check the `wasmer_instance_exports()` function to get a complete
+/// example.
+///
+/// If `exports` is a null pointer, this function does nothing.
+///
+/// Example:
+///
+/// ```c
+/// // Get some exports.
+/// wasmer_exports_t *exports = NULL;
+/// wasmer_instance_exports(instance, &exports);
+///
+/// // Destroy the exports.
+/// wasmer_exports_destroy(exports);
+/// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_exports_destroy(exports: *mut wasmer_exports_t) {
@@ -439,7 +466,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     }
 
     let params: Vec<Value> = {
-        if params_len <= 0 {
+        if params_len == 0 {
             vec![]
         } else {
             slice::from_raw_parts::<wasmer_value_t>(params, params_len as usize)
@@ -456,6 +483,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
 
     let instance = &*named_export.instance;
     let result = instance.call(&named_export.name, &params[..]);
+
     match result {
         Ok(results_vec) => {
             if !results_vec.is_empty() {

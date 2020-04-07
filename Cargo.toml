@@ -1,6 +1,6 @@
 [package]
-name = "wasmer"
-version = "0.11.0"
+name = "wasmer-bin"
+version = "0.16.2"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
@@ -20,10 +20,14 @@ include = [
 ]
 
 [dependencies]
+atty = "0.2"
 byteorder = "1.3"
 errno = "0.2"
+fern = { version = "0.5", features = ["colored"], optional = true }
+log = "0.4"
 structopt = "0.3"
-wabt = "0.9.1"
+wabt = { version = "0.9.1", optional = true }
+wasmer = { path = "lib/api" }
 wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
 wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
 wasmer-middleware-common = { path = "lib/middleware-common" }
@@ -37,9 +41,12 @@ wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
 wasmer-wasi-tests = { path = "lib/wasi-tests", optional = true }
 wasmer-middleware-common-tests = { path = "lib/middleware-common-tests", optional = true }
 wasmer-emscripten-tests = { path = "lib/emscripten-tests", optional = true }
+wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
 
 [workspace]
 members = [
+    "lib/api",
+    "lib/api-tests",
     "lib/clif-backend",
     "lib/singlepass-backend",
     "lib/runtime",
@@ -56,9 +63,11 @@ members = [
     "lib/kernel-loader",
     "lib/kernel-net",
     "lib/dev-utils",
+    "lib/wasi-experimental-io-devices",
     "lib/wasi-tests",
     "lib/emscripten-tests",
     "lib/middleware-common-tests",
+    "lib/interface-types",
     "examples/parallel",
     "examples/plugin-for-example",
     "examples/parallel-guest",
@@ -74,33 +83,33 @@ serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
 
 [features]
-default = ["fast-tests", "wasi"]
+default = ["fast-tests", "wasi", "backend-cranelift", "wabt"]
 "loader-kernel" = ["wasmer-kernel-loader"]
-debug = ["wasmer-runtime-core/debug"]
-trace = ["wasmer-runtime-core/trace"]
+debug = ["fern", "log/max_level_debug", "log/release_max_level_debug"]
+trace = ["fern", "log/max_level_trace", "log/release_max_level_trace"]
 docs = ["wasmer-runtime/docs"]
-extra-debug = ["wasmer-clif-backend/debug", "wasmer-runtime-core/debug"]
 # This feature will allow cargo test to run much faster
 fast-tests = []
 backend-cranelift = [
     "wasmer-clif-backend",
-    "wasmer-runtime-core/backend-cranelift",
+    "wasmer-clif-backend/generate-debug-information",
+    "wasmer-runtime-core/generate-debug-information",
     "wasmer-runtime/cranelift",
     "wasmer-middleware-common-tests/clif",
 ]
 backend-llvm = [
     "wasmer-llvm-backend",
-    "wasmer-runtime-core/backend-llvm",
     "wasmer-runtime/llvm",
     "wasmer-middleware-common-tests/llvm",
+    "wasmer-runtime-core/generate-debug-information-no-export-symbols"
 ]
 backend-singlepass = [
     "wasmer-singlepass-backend",
-    "wasmer-runtime-core/backend-singlepass",
     "wasmer-runtime/singlepass",
     "wasmer-middleware-common-tests/singlepass",
 ]
 wasi = ["wasmer-wasi"]
+experimental-io-devices = ["wasmer-wasi-experimental-io-devices"]
 managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
 
 [[example]]

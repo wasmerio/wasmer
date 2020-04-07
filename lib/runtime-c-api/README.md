@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
-    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/logo.png" alt="Wasmer logo">
+    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
   </a>
 </p>
 
@@ -17,8 +17,8 @@
   <a href="https://crates.io/crates/wasmer-runtime-c-api">
     <img src="https://img.shields.io/crates/d/wasmer-runtime-c-api.svg?style=flat-square" alt="Number of downloads from crates.io">
   </a>
-  <a href="https://docs.rs/wasmer-runtime-c-api">
-    <img src="https://docs.rs/wasmer-runtime-c-api/badge.svg" alt="Read our API documentation">
+  <a href="https://wasmerio.github.io/wasmer/c/runtime-c-api/">
+    <img src="https://img.shields.io/badge/Docs-Wasmer%20C%20API-blue?style=flat-square" alt="Wasmer C API Documentation">
   </a>
 </p>
 
@@ -37,6 +37,9 @@ crate, respectively [`wasmer.h`][wasmer_h] and
 [`wasmer.hh`][wasmer_hh]. They are automatically generated, and always
 up-to-date in this repository.
 The runtime shared library (so, dll, dylib) can also be downloaded in Wasmer [release page](https://github.com/wasmerio/wasmer/releases).
+
+You can find the full C API documentation here:
+https://wasmerio.github.io/wasmer/c/runtime-c-api/
 
 Here is a simple example to use the C API:
 
@@ -112,7 +115,7 @@ rebuild in release mode for the tests to see the changes.
 The tests can be run via `cargo test`, such as:
 
 ```sh
-$ cargo test -- --nocapture
+$ cargo test --release -- --nocapture
 ```
 
 To run tests manually, enter the `lib/runtime-c-api/tests` directory

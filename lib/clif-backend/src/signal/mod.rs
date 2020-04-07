@@ -8,7 +8,7 @@ use std::{any::Any, cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
     backend::RunnableModule,
     module::ModuleInfo,
-    typed_func::{Trampoline, Wasm, WasmTrapInfo},
+    typed_func::{Trampoline, Wasm},
     types::{LocalFuncIndex, SigIndex},
     vm,
 };
@@ -26,13 +26,10 @@ pub use self::unix::*;
 pub use self::windows::*;
 
 thread_local! {
-    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any>>> = Cell::new(None);
+    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any + Send>>> = Cell::new(None);
 }
 
-pub enum CallProtError {
-    Trap(WasmTrapInfo),
-    Error(Box<dyn Any>),
-}
+pub struct CallProtError(pub Box<dyn Any + Send>);
 
 pub struct Caller {
     handler_data: HandlerData,
@@ -66,8 +63,7 @@ impl RunnableModule for Caller {
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            trap_info: *mut WasmTrapInfo,
-            user_error: *mut Option<Box<dyn Any>>,
+            error_out: *mut Option<Box<dyn Any + Send>>,
             invoke_env: Option<NonNull<c_void>>,
         ) -> bool {
             let handler_data = &*invoke_env.unwrap().cast().as_ptr();
@@ -84,10 +80,7 @@ impl RunnableModule for Caller {
 
             match res {
                 Err(err) => {
-                    match err {
-                        CallProtError::Trap(info) => *trap_info = info,
-                        CallProtError::Error(data) => *user_error = Some(data),
-                    }
+                    *error_out = Some(err.0);
                     false
                 }
                 Ok(()) => true,
@@ -108,7 +101,7 @@ impl RunnableModule for Caller {
         })
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> ! {
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
         TRAP_EARLY_DATA.with(|cell| cell.set(Some(data)));
         trigger_trap()
     }

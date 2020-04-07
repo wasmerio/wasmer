@@ -4,7 +4,7 @@
 use crate::fault::FaultInfo;
 use crate::{
     backend::RunnableModule,
-    backend::{Backend, CacheGen, Compiler, CompilerConfig, Features, Token},
+    backend::{CacheGen, Compiler, CompilerConfig, Features, Token},
     cache::{Artifact, Error as CacheError},
     error::{CompileError, CompileResult},
     module::{ModuleInfo, ModuleInner},
@@ -23,7 +23,7 @@ use wasmparser::{Operator, Type as WpType};
 
 /// A type that defines a function pointer, which is called when breakpoints occur.
 pub type BreakpointHandler =
-    Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any>> + Send + Sync + 'static>;
+    Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any + Send>> + Send + Sync + 'static>;
 
 /// Maps instruction pointers to their breakpoint handlers.
 pub type BreakpointMap = Arc<HashMap<usize, BreakpointHandler>>;
@@ -65,6 +65,45 @@ impl fmt::Debug for InternalEvent {
     }
 }
 
+/// Type representing an area of Wasm code in bytes as an offset from the
+/// beginning of the code section.
+///
+/// `start` must be less than or equal to `end`.
+#[derive(Copy, Clone, Debug)]
+pub struct WasmSpan {
+    /// Start offset in bytes from the beginning of the Wasm code section
+    start: u32,
+    /// End offset in bytes from the beginning of the Wasm code section
+    end: u32,
+}
+
+impl WasmSpan {
+    /// Create a new `WasmSpan`.
+    ///
+    /// `start` must be less than or equal to `end`.
+    // TODO: mark this function as `const` when asserts get stabilized as `const`
+    // see: https://github.com/rust-lang/rust/issues/57563
+    pub fn new(start: u32, end: u32) -> Self {
+        debug_assert!(start <= end);
+        Self { start, end }
+    }
+
+    /// Start offset in bytes from the beginning of the Wasm code section
+    pub const fn start(&self) -> u32 {
+        self.start
+    }
+
+    /// End offset in bytes from the beginning of the Wasm code section
+    pub const fn end(&self) -> u32 {
+        self.end
+    }
+
+    /// Size in bytes of the span
+    pub const fn size(&self) -> u32 {
+        self.end - self.start
+    }
+}
+
 /// Information for a breakpoint
 #[cfg(unix)]
 pub struct BreakpointInfo<'a> {
@@ -92,14 +131,19 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     ) -> Self;
 
     /// Returns the backend id associated with this MCG.
-    fn backend_id() -> Backend;
+    fn backend_id() -> &'static str;
+
+    /// It sets if the current compiler requires validation before compilation
+    fn requires_pre_validation() -> bool {
+        true
+    }
 
     /// Feeds the compiler config.
     fn feed_compiler_config(&mut self, _config: &CompilerConfig) -> Result<(), E> {
         Ok(())
     }
     /// Adds an import function.
-    fn feed_import_function(&mut self) -> Result<(), E>;
+    fn feed_import_function(&mut self, _sigindex: SigIndex) -> Result<(), E>;
     /// Sets the signatures.
     fn feed_signatures(&mut self, signatures: Map<SigIndex, FuncSig>) -> Result<(), E>;
     /// Sets function signatures.
@@ -107,12 +151,43 @@ pub trait ModuleCodeGenerator<FCG: FunctionCodeGenerator<E>, RM: RunnableModule,
     /// Checks the precondition for a module.
     fn check_precondition(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
     /// Creates a new function and returns the function-scope code generator for it.
-    fn next_function(&mut self, module_info: Arc<RwLock<ModuleInfo>>) -> Result<&mut FCG, E>;
+    fn next_function(
+        &mut self,
+        module_info: Arc<RwLock<ModuleInfo>>,
+        loc: WasmSpan,
+    ) -> Result<&mut FCG, E>;
     /// Finalizes this module.
-    fn finalize(self, module_info: &ModuleInfo) -> Result<(RM, Box<dyn CacheGen>), E>;
+    fn finalize(
+        self,
+        module_info: &ModuleInfo,
+    ) -> Result<(RM, Option<DebugMetadata>, Box<dyn CacheGen>), E>;
 
     /// Creates a module from cache.
     unsafe fn from_cache(cache: Artifact, _: Token) -> Result<ModuleInner, CacheError>;
+}
+
+/// Mock item when compiling without debug info generation.
+#[cfg(not(feature = "generate-debug-information"))]
+type CompiledFunctionData = ();
+
+/// Mock item when compiling without debug info generation.
+#[cfg(not(feature = "generate-debug-information"))]
+type ValueLabelsRangesInner = ();
+
+#[cfg(feature = "generate-debug-information")]
+use wasm_debug::types::{CompiledFunctionData, ValueLabelsRangesInner};
+
+#[derive(Clone, Debug)]
+/// Useful information for debugging gathered by compiling a Wasm module.
+pub struct DebugMetadata {
+    /// [`CompiledFunctionData`] in [`FuncIndex`] order
+    pub func_info: Map<FuncIndex, CompiledFunctionData>,
+    /// [`ValueLabelsRangesInner`] in [`FuncIndex`] order
+    pub inst_info: Map<FuncIndex, ValueLabelsRangesInner>,
+    /// Stack slot offsets in [`FuncIndex`] order
+    pub stack_slot_offsets: Map<FuncIndex, Vec<Option<i32>>>,
+    /// function pointers and their lengths
+    pub pointers: Vec<(*const u8, usize)>,
 }
 
 /// A streaming compiler which is designed to generated code for a module based on a stream
@@ -186,6 +261,9 @@ pub fn validating_parser_config(features: &Features) -> wasmparser::ValidatingPa
             enable_simd: features.simd,
             enable_bulk_memory: false,
             enable_multi_value: false,
+
+            #[cfg(feature = "deterministic-execution")]
+            deterministic_only: true,
         },
     }
 }
@@ -197,8 +275,8 @@ fn validate_with_features(bytes: &[u8], features: &Features) -> CompileResult<()
         let state = parser.read();
         match *state {
             wasmparser::ParserState::EndWasm => break Ok(()),
-            wasmparser::ParserState::Error(err) => Err(CompileError::ValidationError {
-                msg: err.message.to_string(),
+            wasmparser::ParserState::Error(ref err) => Err(CompileError::ValidationError {
+                msg: err.message().to_string(),
             })?,
             _ => {}
         }
@@ -213,18 +291,19 @@ impl<
         CGEN: Fn() -> MiddlewareChain,
     > Compiler for StreamingCompiler<MCG, FCG, RM, E, CGEN>
 {
+    #[allow(unused_variables)]
     fn compile(
         &self,
         wasm: &[u8],
         compiler_config: CompilerConfig,
         _: Token,
     ) -> CompileResult<ModuleInner> {
-        if requires_pre_validation(MCG::backend_id()) {
+        if MCG::requires_pre_validation() {
             validate_with_features(wasm, &compiler_config.features)?;
         }
 
         let mut mcg = match MCG::backend_id() {
-            Backend::LLVM => MCG::new_with_target(
+            "llvm" => MCG::new_with_target(
                 compiler_config.triple.clone(),
                 compiler_config.cpu_name.clone(),
                 compiler_config.cpu_features.clone(),
@@ -232,21 +311,51 @@ impl<
             _ => MCG::new(),
         };
         let mut chain = (self.middleware_chain_generator)();
-        let info = crate::parse::read_module(
-            wasm,
-            MCG::backend_id(),
-            &mut mcg,
-            &mut chain,
-            &compiler_config,
-        )?;
-        let (exec_context, cache_gen) =
-            mcg.finalize(&info.read().unwrap())
-                .map_err(|x| CompileError::InternalError {
-                    msg: format!("{:?}", x),
-                })?;
+        let info = crate::parse::read_module(wasm, &mut mcg, &mut chain, &compiler_config)?;
+        let (exec_context, compile_debug_info, cache_gen) = mcg
+            .finalize(&info.read().unwrap())
+            .map_err(|x| CompileError::InternalError {
+                msg: format!("{:?}", x),
+            })?;
+
+        #[cfg(feature = "generate-debug-information")]
+        {
+            if compiler_config.should_generate_debug_info() {
+                if let Some(dbg_info) = compile_debug_info {
+                    let debug_info = wasm_debug::read_debuginfo(wasm);
+                    let extra_info = wasm_debug::types::ModuleVmctxInfo::new(
+                        crate::vm::Ctx::offset_memory_base() as _,
+                        std::mem::size_of::<crate::vm::Ctx>() as _,
+                        dbg_info.stack_slot_offsets.values(),
+                    );
+                    let compiled_fn_map =
+                        wasm_debug::types::create_module_address_map(dbg_info.func_info.values());
+                    let range_map =
+                        wasm_debug::types::build_values_ranges(dbg_info.inst_info.values());
+                    let raw_func_slice = &dbg_info.pointers;
+
+                    let debug_image = wasm_debug::emit_debugsections_image(
+                        target_lexicon::HOST,
+                        std::mem::size_of::<usize>() as u8,
+                        &debug_info,
+                        &extra_info,
+                        &compiled_fn_map,
+                        &range_map,
+                        raw_func_slice,
+                    )
+                    .expect("make debug image");
+
+                    let mut writer = info.write().unwrap();
+                    writer
+                        .debug_info_manager
+                        .register_new_jit_code_entry(&debug_image);
+                }
+            }
+        }
+
         Ok(ModuleInner {
             cache_gen,
-            runnable_module: Box::new(exec_context),
+            runnable_module: Arc::new(Box::new(exec_context)),
             info: Arc::try_unwrap(info).unwrap().into_inner().unwrap(),
         })
     }
@@ -257,15 +366,6 @@ impl<
         token: Token,
     ) -> Result<ModuleInner, CacheError> {
         MCG::from_cache(artifact, token)
-    }
-}
-
-fn requires_pre_validation(backend: Backend) -> bool {
-    match backend {
-        Backend::Cranelift => true,
-        Backend::LLVM => true,
-        Backend::Singlepass => false,
-        Backend::Auto => false,
     }
 }
 
@@ -303,20 +403,21 @@ impl MiddlewareChain {
         fcg: Option<&mut FCG>,
         ev: Event,
         module_info: &ModuleInfo,
+        source_loc: u32,
     ) -> Result<(), String> {
         let mut sink = EventSink {
             buffer: SmallVec::new(),
         };
         sink.push(ev);
         for m in &mut self.chain {
-            let prev: SmallVec<[Event; 2]> = sink.buffer.drain().collect();
+            let prev: SmallVec<[Event; 2]> = sink.buffer.drain(..).collect();
             for ev in prev {
-                m.feed_event(ev, module_info, &mut sink)?;
+                m.feed_event(ev, module_info, &mut sink, source_loc)?;
             }
         }
         if let Some(fcg) = fcg {
             for ev in sink.buffer {
-                fcg.feed_event(ev, module_info)
+                fcg.feed_event(ev, module_info, source_loc)
                     .map_err(|x| format!("{:?}", x))?;
             }
         }
@@ -335,6 +436,7 @@ pub trait FunctionMiddleware {
         op: Event<'a, 'b>,
         module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
+        source_loc: u32,
     ) -> Result<(), Self::Error>;
 }
 
@@ -344,6 +446,7 @@ pub(crate) trait GenericFunctionMiddleware {
         op: Event<'a, 'b>,
         module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
+        source_loc: u32,
     ) -> Result<(), String>;
 }
 
@@ -353,8 +456,9 @@ impl<E: Debug, T: FunctionMiddleware<Error = E>> GenericFunctionMiddleware for T
         op: Event<'a, 'b>,
         module_info: &ModuleInfo,
         sink: &mut EventSink<'a, 'b>,
+        source_loc: u32,
     ) -> Result<(), String> {
-        <Self as FunctionMiddleware>::feed_event(self, op, module_info, sink)
+        <Self as FunctionMiddleware>::feed_event(self, op, module_info, sink, source_loc)
             .map_err(|x| format!("{:?}", x))
     }
 }
@@ -368,13 +472,14 @@ pub trait FunctionCodeGenerator<E: Debug> {
     fn feed_param(&mut self, ty: WpType) -> Result<(), E>;
 
     /// Adds `n` locals to the function.
-    fn feed_local(&mut self, ty: WpType, n: usize) -> Result<(), E>;
+    fn feed_local(&mut self, ty: WpType, n: usize, loc: u32) -> Result<(), E>;
 
     /// Called before the first call to `feed_opcode`.
     fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), E>;
 
     /// Called for each operator.
-    fn feed_event(&mut self, op: Event, module_info: &ModuleInfo) -> Result<(), E>;
+    fn feed_event(&mut self, op: Event, module_info: &ModuleInfo, source_loc: u32)
+        -> Result<(), E>;
 
     /// Finalizes the function.
     fn finalize(&mut self) -> Result<(), E>;

@@ -28,9 +28,9 @@ void print_wasmer_error()
 
 // helper function to print byte array to stdout
 void print_byte_array(wasmer_byte_array *arr) {
-        for (int i = 0; i < arr->bytes_len; ++i) {
-                putchar(arr->bytes[i]);
-        }
+    for (int i = 0; i < arr->bytes_len; ++i) {
+        putchar(arr->bytes[i]);
+    }
 }
 
 int main()
@@ -164,20 +164,7 @@ int main()
     };
     int mapped_dir_len = sizeof(mapped_dirs) / sizeof(mapped_dirs[0]);
 
-    // Create the WASI import object
-    wasmer_import_object_t *import_object =
-            wasmer_wasi_generate_import_object(args, wasi_argc,
-                                               envs, wasi_env_len,
-                                               NULL, 0,
-                                               mapped_dirs, mapped_dir_len);
-    
-    // Create our imports
-    wasmer_import_t imports[] = {func_import, global_import, memory_import, table_import};
-    int imports_len = sizeof(imports) / sizeof(imports[0]);
-    // Add our imports to the import object
-    wasmer_import_object_extend(import_object, imports, imports_len);
-
-    // Read the wasm file bytes
+    // Read the Wasm file bytes.
     FILE *file = fopen("assets/extended_wasi.wasm", "r");
     assert(file);
     fseek(file, 0, SEEK_END);
@@ -191,16 +178,39 @@ int main()
     // Compile the WebAssembly module
     wasmer_result_t compile_result = wasmer_compile(&module, bytes, len);
     printf("Compile result:  %d\n", compile_result);
+
     if (compile_result != WASMER_OK)
     {
         print_wasmer_error();
     }
+
     assert(compile_result == WASMER_OK);
+
+    // Detect the WASI version if any. This step is not mandatory, we
+    // use it to test the WASI version API.
+    Version wasi_version = wasmer_wasi_get_version(module);
+
+    printf("WASI version:    %d\n", wasi_version);
+
+    // Create the WASI import object
+    wasmer_import_object_t *import_object =
+        wasmer_wasi_generate_import_object_for_version(wasi_version,
+                                                       args, wasi_argc,
+                                                       envs, wasi_env_len,
+                                                       NULL, 0,
+                                                       mapped_dirs, mapped_dir_len);
+
+    // Create our imports
+    wasmer_import_t imports[] = {func_import, global_import, memory_import, table_import};
+    int imports_len = sizeof(imports) / sizeof(imports[0]);
+    // Add our imports to the import object
+    wasmer_import_object_extend(import_object, imports, imports_len);
 
     // Instantiatoe the module with our import_object
     wasmer_instance_t *instance = NULL;
     wasmer_result_t instantiate_result = wasmer_module_import_instantiate(&instance, module, import_object);
     printf("Instantiate result:  %d\n", instantiate_result);
+
     if (instantiate_result != WASMER_OK)
     {
         print_wasmer_error();

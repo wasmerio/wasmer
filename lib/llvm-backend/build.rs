@@ -72,6 +72,7 @@ lazy_static! {
             "llvm-config".into(),
             format!("llvm-config-{}", CRATE_VERSION.major),
             format!("llvm-config-{}.{}", CRATE_VERSION.major, CRATE_VERSION.minor),
+            format!("llvm-config{}{}", CRATE_VERSION.major, CRATE_VERSION.minor),
         ]
     };
 
@@ -308,7 +309,7 @@ fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
     }
 
     let url = llvm_url();
-    let mut resp = reqwest::get(&url).expect("Failed to connect to the llvm server");
+    let mut resp = surf::get(&url).await.expect("Failed to connect to the llvm server");
     let mut out = File::create(download_path)?;
     io::copy(&mut resp, &mut out)?;
 

@@ -3,16 +3,32 @@
 use wasmer_runtime::Value;
 use wasmer_runtime_core::types::Type;
 
+/// Represents all possibles WebAssembly value types.
+///
+/// See `wasmer_value_t` to get a complete example.
 #[allow(non_camel_case_types)]
 #[repr(u32)]
 #[derive(Clone)]
 pub enum wasmer_value_tag {
+    /// Represents the `i32` WebAssembly type.
     WASM_I32,
+
+    /// Represents the `i64` WebAssembly type.
     WASM_I64,
+
+    /// Represents the `f32` WebAssembly type.
     WASM_F32,
+
+    /// Represents the `f64` WebAssembly type.
     WASM_F64,
 }
 
+/// Represents a WebAssembly value.
+///
+/// This is a [Rust union][rust-union], which is equivalent to the C
+/// union. See `wasmer_value_t` to get a complete example.
+///
+/// [rust-union]: https://doc.rust-lang.org/reference/items/unions.html
 #[repr(C)]
 #[derive(Clone, Copy)]
 #[allow(non_snake_case)]
@@ -23,10 +39,33 @@ pub union wasmer_value {
     pub F64: f64,
 }
 
+/// Represents a WebAssembly type and value pair,
+/// i.e. `wasmer_value_tag` and `wasmer_value`. Since the latter is an
+/// union, it's the safe way to read or write a WebAssembly value in
+/// C.
+///
+/// Example:
+///
+/// ```c
+/// // Create a WebAssembly value.
+/// wasmer_value_t wasm_value = {
+///     .tag = WASM_I32,
+///     .value.I32 = 42,
+/// };
+///
+/// // Read a WebAssembly value.
+/// if (wasm_value.tag == WASM_I32) {
+///     int32_t x = wasm_value.value.I32;
+///     // …
+/// }
+/// ```
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasmer_value_t {
+    /// The value type.
     pub tag: wasmer_value_tag,
+
+    /// The value.
     pub value: wasmer_value,
 }
 

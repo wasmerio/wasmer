@@ -4,13 +4,20 @@
 use crate::{
     error::{update_last_error, CApiError},
     export::{wasmer_import_export_kind, wasmer_import_export_value},
+    instance::wasmer_instance_context_t,
     module::wasmer_module_t,
     value::wasmer_value_tag,
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_uint;
-use std::{convert::TryFrom, ffi::c_void, ptr, slice, sync::Arc};
-use wasmer_runtime::{Global, Memory, Module, Table};
+use std::{
+    convert::TryFrom,
+    ffi::{c_void, CStr},
+    os::raw::c_char,
+    ptr, slice,
+    sync::Arc,
+};
+use wasmer_runtime::{Ctx, Global, Memory, Module, Table};
 use wasmer_runtime_core::{
     export::{Context, Export, FuncPointer},
     import::{ImportObject, ImportObjectIterator},
@@ -60,6 +67,12 @@ mod wasi;
 
 #[cfg(feature = "wasi")]
 pub use self::wasi::*;
+
+#[cfg(feature = "emscripten")]
+mod emscripten;
+
+#[cfg(feature = "emscripten")]
+pub use self::emscripten::*;
 
 /// Gets an entry from an ImportObject at the name and namespace.
 /// Stores `name`, `namespace`, and `import_export_value` in `import`.
@@ -437,6 +450,9 @@ pub unsafe extern "C" fn wasmer_import_descriptors(
     module: *const wasmer_module_t,
     import_descriptors: *mut *mut wasmer_import_descriptors_t,
 ) {
+    if module.is_null() {
+        return;
+    }
     let module = &*(module as *const Module);
     let total_imports = module.info().imported_functions.len()
         + module.info().imported_tables.len()
@@ -627,9 +643,23 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
     }
 }
 
-/// Creates new func
+/// Creates new host function, aka imported function. `func` is a
+/// function pointer, where the first argument is the famous `vm::Ctx`
+/// (in Rust), or `wasmer_instance_context_t` (in C). All arguments
+/// must be typed with compatible WebAssembly native types:
 ///
-/// The caller owns the object and should call `wasmer_import_func_destroy` to free it.
+/// | WebAssembly type | C/C++ type |
+/// | ---------------- | ---------- |
+/// | `i32`            | `int32_t`  |
+/// | `i64`            | `int64_t`  |
+/// | `f32`            | `float`    |
+/// | `f64`            | `double`   |
+///
+/// The function pointer must have a lifetime greater than the
+/// WebAssembly instance lifetime.
+///
+/// The caller owns the object and should call
+/// `wasmer_import_func_destroy` to free it.
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_import_func_new(
@@ -650,6 +680,59 @@ pub unsafe extern "C" fn wasmer_import_func_new(
         signature: Arc::new(FuncSig::new(params, returns)),
     });
     Box::into_raw(export) as *mut wasmer_import_func_t
+}
+
+/// Stop the execution of a host function, aka imported function. The
+/// function must be used _only_ inside a host function.
+///
+/// The pointer to `wasmer_instance_context_t` is received by the host
+/// function as its first argument. Just passing it to `ctx` is fine.
+///
+/// The error message must have a greater lifetime than the host
+/// function itself since the error is read outside the host function
+/// with `wasmer_last_error_message`.
+///
+/// This function returns `wasmer_result_t::WASMER_ERROR` if `ctx` or
+/// `error_message` are null.
+///
+/// This function never returns otherwise.
+#[no_mangle]
+#[allow(clippy::cast_ptr_alignment)]
+pub unsafe extern "C" fn wasmer_trap(
+    ctx: *const wasmer_instance_context_t,
+    error_message: *const c_char,
+) -> wasmer_result_t {
+    if ctx.is_null() {
+        update_last_error(CApiError {
+            msg: "ctx ptr is null in wasmer_trap".to_string(),
+        });
+
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
+    if error_message.is_null() {
+        update_last_error(CApiError {
+            msg: "error_message is null in wasmer_trap".to_string(),
+        });
+
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
+    let ctx = &*(ctx as *const Ctx);
+    let error_message = CStr::from_ptr(error_message).to_str().unwrap();
+
+    (&*ctx.module)
+        .runnable_module
+        .do_early_trap(Box::new(error_message)); // never returns
+
+    // cbindgen does not generate a binding for a function that
+    // returns `!`. Since we also need to error in some cases, the
+    // output type of `wasmer_trap` is `wasmer_result_t`. But the OK
+    // case is not reachable because `do_early_trap` never
+    // returns. That's a compromise to satisfy the Rust type system,
+    // cbindgen, and get an acceptable clean code.
+    #[allow(unreachable_code)]
+    wasmer_result_t::WASMER_OK
 }
 
 /// Sets the params buffer to the parameter types of the given wasmer_import_func_t

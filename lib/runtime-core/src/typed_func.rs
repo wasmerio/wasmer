@@ -11,51 +11,11 @@ use std::{
     any::Any,
     convert::Infallible,
     ffi::c_void,
-    fmt,
     marker::PhantomData,
     mem, panic,
     ptr::{self, NonNull},
     sync::Arc,
 };
-
-/// Wasm trap info.
-#[repr(C)]
-pub enum WasmTrapInfo {
-    /// Unreachable trap.
-    Unreachable = 0,
-    /// Call indirect incorrect signature trap.
-    IncorrectCallIndirectSignature = 1,
-    /// Memory out of bounds trap.
-    MemoryOutOfBounds = 2,
-    /// Call indirect out of bounds trap.
-    CallIndirectOOB = 3,
-    /// Illegal arithmetic trap.
-    IllegalArithmetic = 4,
-    /// Misaligned atomic access trap.
-    MisalignedAtomicAccess = 5,
-    /// Unknown trap.
-    Unknown,
-}
-
-impl fmt::Display for WasmTrapInfo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                WasmTrapInfo::Unreachable => "unreachable",
-                WasmTrapInfo::IncorrectCallIndirectSignature => {
-                    "incorrect `call_indirect` signature"
-                }
-                WasmTrapInfo::MemoryOutOfBounds => "memory out-of-bounds access",
-                WasmTrapInfo::CallIndirectOOB => "`call_indirect` out-of-bounds",
-                WasmTrapInfo::IllegalArithmetic => "illegal arithmetic operation",
-                WasmTrapInfo::MisalignedAtomicAccess => "misaligned atomic access",
-                WasmTrapInfo::Unknown => "unknown",
-            }
-        )
-    }
-}
 
 /// This is just an empty trait to constrict that types that
 /// can be put into the third/fourth (depending if you include lifetimes)
@@ -77,8 +37,7 @@ pub type Invoke = unsafe extern "C" fn(
     func: NonNull<vm::Func>,
     args: *const u64,
     rets: *mut u64,
-    trap_info: *mut WasmTrapInfo,
-    user_error: *mut Option<Box<dyn Any>>,
+    error_out: *mut Option<Box<dyn Any + Send>>,
     extra: Option<NonNull<c_void>>,
 ) -> bool;
 
@@ -91,6 +50,8 @@ pub struct Wasm {
     pub(crate) invoke: Invoke,
     pub(crate) invoke_env: Option<NonNull<c_void>>,
 }
+
+impl Kind for Wasm {}
 
 impl Wasm {
     /// Create new `Wasm` from given parts.
@@ -111,7 +72,6 @@ impl Wasm {
 /// by the host.
 pub struct Host(());
 
-impl Kind for Wasm {}
 impl Kind for Host {}
 
 /// Represents a list of WebAssembly values.
@@ -140,7 +100,7 @@ pub trait WasmTypeList {
 
     /// This method is used to distribute the values onto a function,
     /// e.g. `(1, 2).call(func, …)`. This form is unlikely to be used
-    /// directly in the code, see the `Func:call` implementation.
+    /// directly in the code, see the `Func::call` implementation.
     unsafe fn call<Rets>(
         self,
         f: NonNull<vm::Func>,
@@ -151,14 +111,15 @@ pub trait WasmTypeList {
         Rets: WasmTypeList;
 }
 
-/// Empty trait to specify the kind of `ExternalFunction`: With or
+/// Empty trait to specify the kind of `HostFunction`: With or
 /// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the
 /// `ImplicitVmCtx` structures.
 ///
-/// This type is never aimed to be used by a user. It is used by the
+/// This trait is never aimed to be used by a user. It is used by the
 /// trait system to automatically generate an appropriate `wrap`
 /// function.
-pub trait ExternalFunctionKind {}
+#[doc(hidden)]
+pub trait HostFunctionKind {}
 
 /// This empty structure indicates that an external function must
 /// contain an explicit `vm::Ctx` argument (at first position).
@@ -168,7 +129,10 @@ pub trait ExternalFunctionKind {}
 ///     x + 1
 /// }
 /// ```
+#[doc(hidden)]
 pub struct ExplicitVmCtx {}
+
+impl HostFunctionKind for ExplicitVmCtx {}
 
 /// This empty structure indicates that an external function has no
 /// `vm::Ctx` argument (at first position). Its signature is:
@@ -180,18 +144,17 @@ pub struct ExplicitVmCtx {}
 /// ```
 pub struct ImplicitVmCtx {}
 
-impl ExternalFunctionKind for ExplicitVmCtx {}
-impl ExternalFunctionKind for ImplicitVmCtx {}
+impl HostFunctionKind for ImplicitVmCtx {}
 
 /// Represents a function that can be converted to a `vm::Func`
 /// (function pointer) that can be called within WebAssembly.
-pub trait ExternalFunction<Kind, Args, Rets>
+pub trait HostFunction<Kind, Args, Rets>
 where
-    Kind: ExternalFunctionKind,
+    Kind: HostFunctionKind,
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    /// Conver to function pointer.
+    /// Convert to function pointer.
     fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>);
 }
 
@@ -201,7 +164,7 @@ where
     Rets: WasmTypeList,
 {
     /// The error type for this trait.
-    type Error: 'static;
+    type Error: Send + 'static;
     /// Get returns or error result.
     fn report(self) -> Result<Rets, Self::Error>;
 }
@@ -219,7 +182,7 @@ where
 impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
 where
     Rets: WasmTypeList,
-    E: 'static,
+    E: Send + 'static,
 {
     type Error = E;
     fn report(self) -> Result<Rets, E> {
@@ -227,23 +190,74 @@ where
     }
 }
 
+/// Represents a type-erased function provided by either the host or the WebAssembly program.
+pub struct DynamicFunc<'a> {
+    _inner: Box<dyn Kind>,
+
+    /// The function pointer.
+    func: NonNull<vm::Func>,
+
+    /// The function environment.
+    func_env: Option<NonNull<vm::FuncEnv>>,
+
+    /// The famous `vm::Ctx`.
+    vmctx: *mut vm::Ctx,
+
+    /// The runtime signature of this function.
+    ///
+    /// When converted from a `Func`, this is determined by the static `Args` and `Rets` type parameters.
+    /// otherwise the signature is dynamically assigned during `DynamicFunc` creation, usually when creating
+    /// a polymorphic host function.
+    signature: Arc<FuncSig>,
+
+    _phantom: PhantomData<&'a ()>,
+}
+
+unsafe impl<'a> Send for DynamicFunc<'a> {}
+
 /// Represents a function that can be used by WebAssembly.
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
+
+    /// The function pointer.
     func: NonNull<vm::Func>,
+
+    /// The function environment.
     func_env: Option<NonNull<vm::FuncEnv>>,
+
+    /// The famous `vm::Ctx`.
     vmctx: *mut vm::Ctx,
+
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
 unsafe impl<'a, Args, Rets> Send for Func<'a, Args, Rets, Wasm> {}
 unsafe impl<'a, Args, Rets> Send for Func<'a, Args, Rets, Host> {}
 
+impl<'a, Args, Rets, Inner> From<Func<'a, Args, Rets, Inner>> for DynamicFunc<'a>
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+    Inner: Kind + 'static,
+{
+    fn from(that: Func<'a, Args, Rets, Inner>) -> DynamicFunc<'a> {
+        DynamicFunc {
+            _inner: Box::new(that.inner),
+            func: that.func,
+            func_env: that.func_env,
+            vmctx: that.vmctx,
+            signature: Arc::new(FuncSig::new(Args::types(), Rets::types())),
+            _phantom: PhantomData,
+        }
+    }
+}
+
 impl<'a, Args, Rets> Func<'a, Args, Rets, Wasm>
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
+    // TODO: document the invariants `unsafe` requires here
     pub(crate) unsafe fn from_raw_parts(
         inner: Wasm,
         func: NonNull<vm::Func>,
@@ -258,11 +272,6 @@ where
             _phantom: PhantomData,
         }
     }
-
-    /// Get the underlying func pointer.
-    pub fn get_vm_func(&self) -> NonNull<vm::Func> {
-        self.func
-    }
 }
 
 impl<'a, Args, Rets> Func<'a, Args, Rets, Host>
@@ -271,10 +280,10 @@ where
     Rets: WasmTypeList,
 {
     /// Creates a new `Func`.
-    pub fn new<F, Kind>(func: F) -> Func<'a, Args, Rets, Host>
+    pub fn new<F, Kind>(func: F) -> Self
     where
-        Kind: ExternalFunctionKind,
-        F: ExternalFunction<Kind, Args, Rets>,
+        Kind: HostFunctionKind,
+        F: HostFunction<Kind, Args, Rets>,
     {
         let (func, func_env) = func.to_raw();
 
@@ -283,6 +292,156 @@ where
             func,
             func_env,
             vmctx: ptr::null_mut(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a> DynamicFunc<'a> {
+    /// Creates a dynamic function that is polymorphic over its argument and return types.
+    #[allow(unused_variables)]
+    #[cfg(all(unix, target_arch = "x86_64"))]
+    pub fn new<F>(signature: Arc<FuncSig>, func: F) -> Self
+    where
+        F: Fn(&mut vm::Ctx, &[crate::types::Value]) -> Vec<crate::types::Value> + 'static,
+    {
+        use crate::trampoline_x64::{CallContext, TrampolineBufferBuilder};
+        use crate::types::Value;
+
+        struct PolymorphicContext {
+            arg_types: Vec<Type>,
+            func: Box<dyn Fn(&mut vm::Ctx, &[Value]) -> Vec<Value>>,
+        }
+        unsafe fn do_enter_host_polymorphic(
+            ctx: *const CallContext,
+            args: *const u64,
+        ) -> Vec<Value> {
+            let ctx = &*(ctx as *const PolymorphicContext);
+            let vmctx = &mut *(*args.offset(0) as *mut vm::Ctx);
+            let args: Vec<Value> = ctx
+                .arg_types
+                .iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    let i = i + 1; // skip vmctx
+                    match *t {
+                        Type::I32 => Value::I32(*args.offset(i as _) as i32),
+                        Type::I64 => Value::I64(*args.offset(i as _) as i64),
+                        Type::F32 => Value::F32(f32::from_bits(*args.offset(i as _) as u32)),
+                        Type::F64 => Value::F64(f64::from_bits(*args.offset(i as _) as u64)),
+                        Type::V128 => {
+                            todo!("enter_host_polymorphic: 128-bit types are not supported")
+                        }
+                    }
+                })
+                .collect();
+            match panic::catch_unwind(panic::AssertUnwindSafe(|| (ctx.func)(vmctx, &args))) {
+                Ok(x) => x,
+                Err(e) => {
+                    // At this point, there is an error that needs to be trapped.
+                    drop(args); // Release the Vec which will leak otherwise.
+                    (&*vmctx.module).runnable_module.do_early_trap(e)
+                }
+            }
+        }
+        unsafe extern "C" fn enter_host_polymorphic_i(
+            ctx: *const CallContext,
+            args: *const u64,
+        ) -> u64 {
+            let rets = do_enter_host_polymorphic(ctx, args);
+            if rets.len() == 0 {
+                0
+            } else if rets.len() == 1 {
+                match rets[0] {
+                    Value::I32(x) => x as u64,
+                    Value::I64(x) => x as u64,
+                    _ => panic!("enter_host_polymorphic_i: invalid return type"),
+                }
+            } else {
+                panic!(
+                    "multiple return values from polymorphic host functions is not yet supported"
+                );
+            }
+        }
+        unsafe extern "C" fn enter_host_polymorphic_f(
+            ctx: *const CallContext,
+            args: *const u64,
+        ) -> f64 {
+            let rets = do_enter_host_polymorphic(ctx, args);
+            if rets.len() == 0 {
+                0.0
+            } else if rets.len() == 1 {
+                match rets[0] {
+                    Value::F32(x) => f64::from_bits(x.to_bits() as u64),
+                    Value::F64(x) => x,
+                    _ => panic!("enter_host_polymorphic_f: invalid return type"),
+                }
+            } else {
+                panic!(
+                    "multiple return values from polymorphic host functions is not yet supported"
+                );
+            }
+        }
+
+        if cfg!(not(feature = "dynamicfunc-fat-closures")) && mem::size_of::<F>() != 0 {
+            unimplemented!("DynamicFunc with captured environment is disabled");
+        }
+
+        let mut builder = TrampolineBufferBuilder::new();
+        let ctx: Box<PolymorphicContext> = Box::new(PolymorphicContext {
+            arg_types: signature.params().to_vec(),
+            func: Box::new(func),
+        });
+        let ctx = Box::into_raw(ctx);
+
+        let mut native_param_types = vec![Type::I64]; // vm::Ctx is the first parameter.
+        native_param_types.extend_from_slice(signature.params());
+
+        match signature.returns() {
+            [x] if *x == Type::F32 || *x == Type::F64 => {
+                builder.add_callinfo_trampoline(
+                    unsafe { std::mem::transmute(enter_host_polymorphic_f as usize) },
+                    ctx as *const _,
+                    &native_param_types,
+                    signature.returns(),
+                );
+            }
+            _ => {
+                builder.add_callinfo_trampoline(
+                    enter_host_polymorphic_i,
+                    ctx as *const _,
+                    &native_param_types,
+                    signature.returns(),
+                );
+            }
+        }
+
+        let ptr = builder
+            .insert_global()
+            .expect("cannot bump-allocate global trampoline memory");
+
+        struct AutoRelease {
+            ptr: NonNull<u8>,
+            ctx: *mut PolymorphicContext,
+        }
+
+        impl Drop for AutoRelease {
+            fn drop(&mut self) {
+                unsafe {
+                    TrampolineBufferBuilder::remove_global(self.ptr);
+                    Box::from_raw(self.ctx);
+                }
+            }
+        }
+
+        impl Kind for AutoRelease {}
+
+        DynamicFunc {
+            _inner: Box::new(AutoRelease { ptr, ctx }),
+            func: ptr.cast::<vm::Func>(),
+            func_env: None,
+            vmctx: ptr::null_mut(),
+            signature,
             _phantom: PhantomData,
         }
     }
@@ -302,6 +461,11 @@ where
     /// Returns the types of the function outputs.
     pub fn returns(&self) -> &'static [Type] {
         Rets::types()
+    }
+
+    /// Get the underlying func pointer.
+    pub fn get_vm_func(&self) -> NonNull<vm::Func> {
+        self.func
     }
 }
 
@@ -351,6 +515,7 @@ macro_rules! impl_traits {
         where
             $( $x: WasmExternType ),*;
 
+        #[allow(unused_parens)]
         impl< $( $x ),* > WasmTypeList for ( $( $x ),* )
         where
             $( $x: WasmExternType ),*
@@ -401,8 +566,7 @@ macro_rules! impl_traits {
                 let ( $( $x ),* ) = self;
                 let args = [ $( $x.to_native().to_binary()),* ];
                 let mut rets = Rets::empty_ret_array();
-                let mut trap = WasmTrapInfo::Unknown;
-                let mut user_error = None;
+                let mut error_out = None;
 
                 if (wasm.invoke)(
                     wasm.trampoline,
@@ -410,27 +574,25 @@ macro_rules! impl_traits {
                     f,
                     args.as_ptr(),
                     rets.as_mut().as_mut_ptr(),
-                    &mut trap,
-                    &mut user_error,
+                    &mut error_out,
                     wasm.invoke_env
                 ) {
                     Ok(Rets::from_ret_array(rets))
                 } else {
-                    if let Some(data) = user_error {
-                        Err(RuntimeError::Error { data })
-                    } else {
-                        Err(RuntimeError::Trap { msg: trap.to_string().into() })
-                    }
+                    Err(error_out.map(RuntimeError).unwrap_or_else(|| {
+                        RuntimeError(Box::new("invoke(): Unknown error".to_string()))
+                    }))
                 }
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        #[allow(unused_parens)]
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<ExplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
             Trap: TrapEarly<Rets>,
-            FN: Fn(&mut vm::Ctx $( , $x )*) -> Trap + 'static,
+            FN: Fn(&mut vm::Ctx $( , $x )*) -> Trap + 'static + Send,
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
@@ -507,7 +669,7 @@ macro_rules! impl_traits {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => {
                             let b: Box<_> = err.into();
-                            b as Box<dyn Any>
+                            b as Box<dyn Any + Send>
                         },
                         Err(err) => err,
                     };
@@ -540,12 +702,13 @@ macro_rules! impl_traits {
             }
         }
 
-        impl< $( $x, )* Rets, Trap, FN > ExternalFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
+        #[allow(unused_parens)]
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<ImplicitVmCtx, ( $( $x ),* ), Rets> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
             Trap: TrapEarly<Rets>,
-            FN: Fn($( $x, )*) -> Trap + 'static,
+            FN: Fn($( $x, )*) -> Trap + 'static + Send,
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> (NonNull<vm::Func>, Option<NonNull<vm::FuncEnv>>) {
@@ -619,7 +782,7 @@ macro_rules! impl_traits {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => {
                             let b: Box<_> = err.into();
-                            b as Box<dyn Any>
+                            b as Box<dyn Any + Send>
                         },
                         Err(err) => err,
                     };
@@ -652,13 +815,14 @@ macro_rules! impl_traits {
             }
         }
 
+        #[allow(unused_parens)]
         impl<'a $( , $x )*, Rets> Func<'a, ( $( $x ),* ), Rets, Wasm>
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
         {
             /// Call the typed func and return results.
-            #[allow(non_snake_case)]
+            #[allow(non_snake_case, clippy::too_many_arguments)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 #[allow(unused_parens)]
                 unsafe {
@@ -696,6 +860,36 @@ impl_traits!([C] S9, A, B, C, D, E, F, G, H, I);
 impl_traits!([C] S10, A, B, C, D, E, F, G, H, I, J);
 impl_traits!([C] S11, A, B, C, D, E, F, G, H, I, J, K);
 impl_traits!([C] S12, A, B, C, D, E, F, G, H, I, J, K, L);
+impl_traits!([C] S13, A, B, C, D, E, F, G, H, I, J, K, L, M);
+impl_traits!([C] S14, A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+impl_traits!([C] S15, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+impl_traits!([C] S16, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+impl_traits!([C] S17, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
+impl_traits!([C] S18, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
+impl_traits!([C] S19, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S);
+impl_traits!([C] S20, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T);
+impl_traits!([C] S21, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
+impl_traits!([C] S22, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V);
+impl_traits!([C] S23, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W);
+impl_traits!([C] S24, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X);
+impl_traits!([C] S25, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y);
+impl_traits!([C] S26, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z);
+
+impl<'a> IsExport for DynamicFunc<'a> {
+    fn to_export(&self) -> Export {
+        let func = unsafe { FuncPointer::new(self.func.as_ptr()) };
+        let ctx = match self.func_env {
+            func_env @ Some(_) => Context::ExternalWithEnv(self.vmctx, func_env),
+            None => Context::Internal,
+        };
+
+        Export::Function {
+            func,
+            ctx,
+            signature: self.signature.clone(),
+        }
+    }
+}
 
 impl<'a, Args, Rets, Inner> IsExport for Func<'a, Args, Rets, Inner>
 where
@@ -709,14 +903,19 @@ where
             func_env @ Some(_) => Context::ExternalWithEnv(self.vmctx, func_env),
             None => Context::Internal,
         };
-        let signature = Arc::new(FuncSig::new(Args::types(), Rets::types()));
 
         Export::Function {
             func,
             ctx,
-            signature,
+            signature: Arc::new(FuncSig::new(Args::types(), Rets::types())),
         }
     }
+}
+
+/// Function that always fails. It can be used as a placeholder when a
+/// host function is missing for instance.
+pub(crate) fn always_trap() -> Result<(), &'static str> {
+    Err("not implemented")
 }
 
 #[cfg(test)]
@@ -777,6 +976,20 @@ mod tests {
     test_func_arity_n!(test_func_arity_10, a, b, c, d, e, f, g, h, i, j);
     test_func_arity_n!(test_func_arity_11, a, b, c, d, e, f, g, h, i, j, k);
     test_func_arity_n!(test_func_arity_12, a, b, c, d, e, f, g, h, i, j, k, l);
+    test_func_arity_n!(test_func_arity_13, a, b, c, d, e, f, g, h, i, j, k, l, m);
+    test_func_arity_n!(test_func_arity_14, a, b, c, d, e, f, g, h, i, j, k, l, m, n);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_15, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_16, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_17, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_18, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_19, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_20, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_21, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_22, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_23, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_24, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_25, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_26, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z);
 
     #[test]
     fn test_call() {
@@ -800,5 +1013,19 @@ mod tests {
                 "foo" => func!(foo),
             },
         };
+    }
+
+    #[test]
+    fn test_many_new_dynamics() {
+        use crate::types::{FuncSig, Type};
+
+        // Check that generating a lot (1M) of polymorphic functions doesn't use up the executable buffer.
+        for _ in 0..1000000 {
+            let arglist = vec![Type::I32; 100];
+            DynamicFunc::new(
+                Arc::new(FuncSig::new(arglist, vec![Type::I32])),
+                |_, _| unreachable!(),
+            );
+        }
     }
 }

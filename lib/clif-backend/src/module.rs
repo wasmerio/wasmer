@@ -42,9 +42,8 @@ impl Module {
         let runnable_module = Caller::new(handler_data, trampolines, func_resolver);
 
         Ok(ModuleInner {
-            runnable_module: Box::new(runnable_module),
+            runnable_module: Arc::new(Box::new(runnable_module)),
             cache_gen,
-
             info,
         })
     }
@@ -56,7 +55,7 @@ macro_rules! convert_clif_to_runtime_index {
     ($clif_index:ident, $runtime_index:ident) => {
         impl From<Converter<cranelift_wasm::$clif_index>> for $runtime_index {
             fn from(clif_index: Converter<cranelift_wasm::$clif_index>) -> Self {
-                $runtime_index::new(clif_index.0.index())
+                <$runtime_index as TypedIndex>::new(clif_index.0.index())
             }
         }
 

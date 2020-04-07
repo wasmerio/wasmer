@@ -1,21 +1,30 @@
 # Wasmer Attributions
 
-Wasmer is a community effort.
-In order to build the best WebAssembly runtime it's our duty to see how other runtimes are approaching the same space
-and get inspired from them on the things that they got right, so Wasmer and its community can benefit from a solid
-foundation.
+Wasmer is a community effort and makes use of code from various other
+projects. Listed below are notable sections of code that are licensed
+from other projects and the relevant license of those projects.
 
-These are the different project that we used as inspiration:
+These are the projects that were used as inspiration and/or that we are using code from:
 
 - [Nebulet](https://github.com/nebulet/nebulet): as the base for creating a great Rust WebAssembly runtime
 - [WAVM](https://github.com/wavm/wavm): for their great integration and testing framework
 - [greenwasm](https://github.com/Kimundi/greenwasm): for their [spectests framework](https://github.com/Kimundi/greenwasm/tree/master/greenwasm-spectest)
-- [wasmtime](https://github.com/CraneStation/wasmtime): for their [mmap implementation](https://github.com/CraneStation/wasmtime/blob/3f24098edc81cd9bf0f877fb7fba018cad0f039e/lib/runtime/src/mmap.rs)
+- [wasmtime](https://github.com/CraneStation/wasmtime):
+  - For their [mmap implementation](https://github.com/CraneStation/wasmtime/blob/3f24098edc81cd9bf0f877fb7fba018cad0f039e/lib/runtime/src/mmap.rs)
+  - For the implementation of the `__jit_debug_register_code` function
+    in Rust, the structure of using Cranelift with the GDB JIT
+    interface including implementation details regarding the structure
+    of generating debug information for each function with Cranelift
+    (for example, the sorting of the extended basic blocks before
+    processing the instructions), and the API for transforming DWARF
+    see [wasm-debug's attribution file](https://github.com/wasmerio/wasm-debug/blob/master/ATTRIBUTIONS.md)
+    for more information
 - [stackoverflow](https://stackoverflow.com/a/45795699/1072990): to create an efficient HashMap with pair keys
 - [Emscripten](https://github.com/kripken/emscripten): for emtests test sources to ensure compatibility
+- [The WebAssembly spec](https://github.com/WebAssembly/spec/tree/master/test): for implementation details of WebAssembly and spectests
 
-We would love to hear from you if you think we can take inspiration from other projects that we haven't covered here.
-😊
+Please let us know if you believe there is an error or omission in
+this list and we will do our best to correct it.
 
 ## Licenses
 

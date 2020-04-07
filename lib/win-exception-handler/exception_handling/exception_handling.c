@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <setjmp.h>
+#include <intrin.h>
 #include "exception_handling.h"
 
 #define CALL_FIRST 1
@@ -59,6 +60,7 @@ uint8_t callProtected(trampoline_t trampoline,
     // install exception handler
     if (exceptionHandlerInstalled == FALSE) {
         exceptionHandlerInstalled = TRUE;
+        alreadyHandlingException = FALSE;
         handle = AddVectoredExceptionHandler(CALL_FIRST, exceptionHandler);
     }
 

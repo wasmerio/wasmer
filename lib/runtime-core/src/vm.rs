@@ -54,11 +54,14 @@ pub struct Ctx {
     /// This is intended to be user-supplied, per-instance
     /// contextual data. There are currently some issue with it,
     /// notably that it cannot be set before running the `start`
-    /// function in a WebAssembly module.
+    /// function in a WebAssembly module. Additionally, the `data`
+    /// field may be taken by another ABI implementation that the user
+    /// wishes to use in addition to their own, such as WASI.  This issue is
+    /// being discussed at [#1111](https://github.com/wasmerio/wasmer/pull/1111).
     ///
-    /// [#219](https://github.com/wasmerio/wasmer/pull/219) fixes that
-    /// issue, as well as allowing the user to have *per-function*
-    /// context, instead of just per-instance.
+    /// Alternatively, per-function data can be used if the function in the
+    /// [`ImportObject`] is a closure.  This cannot duplicate data though,
+    /// so if data may be shared if the [`ImportObject`] is reused.
     pub data: *mut c_void,
 
     /// If there's a function set in this field, it gets called
@@ -195,13 +198,13 @@ unsafe impl Send for Intrinsics {}
 unsafe impl Sync for Intrinsics {}
 
 impl Intrinsics {
-    /// Memory grow offset
+    /// Offset of the `memory_grow` field.
     #[allow(clippy::erasing_op)]
-    pub fn offset_memory_grow() -> u8 {
+    pub const fn offset_memory_grow() -> u8 {
         (0 * ::std::mem::size_of::<usize>()) as u8
     }
-    /// Memory size offset
-    pub fn offset_memory_size() -> u8 {
+    /// Offset of the `memory_size` field.
+    pub const fn offset_memory_size() -> u8 {
         (1 * ::std::mem::size_of::<usize>()) as u8
     }
 }
@@ -228,8 +231,8 @@ pub static INTRINSICS_IMPORTED_DYNAMIC_MEMORY: Intrinsics = Intrinsics {
 };
 
 fn get_intrinsics_for_module(m: &ModuleInfo) -> *const Intrinsics {
-    if m.memories.len() == 0 && m.imported_memories.len() == 0 {
-        ::std::ptr::null()
+    if m.memories.is_empty() && m.imported_memories.is_empty() {
+        ptr::null()
     } else {
         match MemoryIndex::new(0).local_or_import(m) {
             LocalOrImport::Local(local_mem_index) => {
@@ -271,7 +274,7 @@ impl Ctx {
         module: &ModuleInner,
     ) -> Self {
         let (mem_base, mem_bound): (*mut u8, usize) =
-            if module.info.memories.len() == 0 && module.info.imported_memories.len() == 0 {
+            if module.info.memories.is_empty() && module.info.imported_memories.is_empty() {
                 (::std::ptr::null_mut(), 0)
             } else {
                 let mem = match MemoryIndex::new(0).local_or_import(&module.info) {
@@ -324,7 +327,7 @@ impl Ctx {
         data_finalizer: fn(*mut c_void),
     ) -> Self {
         let (mem_base, mem_bound): (*mut u8, usize) =
-            if module.info.memories.len() == 0 && module.info.imported_memories.len() == 0 {
+            if module.info.memories.is_empty() && module.info.imported_memories.is_empty() {
                 (::std::ptr::null_mut(), 0)
             } else {
                 let mem = match MemoryIndex::new(0).local_or_import(&module.info) {
@@ -348,7 +351,7 @@ impl Ctx {
 
                 intrinsics: get_intrinsics_for_module(&module.info),
 
-                stack_lower_bound: ::std::ptr::null_mut(),
+                stack_lower_bound: ptr::null_mut(),
 
                 memory_base: mem_base,
                 memory_bound: mem_bound,
@@ -399,6 +402,21 @@ impl Ctx {
                 &import_backing.memories[import_mem_index]
             },
         }
+    }
+
+    /// Get access to [`Memory`] and mutable access to the user defined data
+    /// field as the type, `T`.
+    ///
+    /// This method is required to access both at the same time.
+    /// This is useful for updating a data type that stores information about
+    /// locations in Wasm memory.
+    ///
+    /// # Safety
+    ///
+    /// This function must be called with the same type, `T`, that the `data`
+    /// was initialized with.
+    pub unsafe fn memory_and_data_mut<T>(&mut self, mem_index: u32) -> (&Memory, &mut T) {
+        (self.memory(mem_index), &mut *(self.data as *mut T))
     }
 
     /// Gives access to the emscripten symbol map, used for debugging
@@ -462,63 +480,63 @@ impl Ctx {
 #[doc(hidden)]
 impl Ctx {
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_memories() -> u8 {
+    pub const fn offset_memories() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_tables() -> u8 {
+    pub const fn offset_tables() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_globals() -> u8 {
+    pub const fn offset_globals() -> u8 {
         2 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_imported_memories() -> u8 {
+    pub const fn offset_imported_memories() -> u8 {
         3 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_imported_tables() -> u8 {
+    pub const fn offset_imported_tables() -> u8 {
         4 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_imported_globals() -> u8 {
+    pub const fn offset_imported_globals() -> u8 {
         5 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_imported_funcs() -> u8 {
+    pub const fn offset_imported_funcs() -> u8 {
         6 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_signatures() -> u8 {
+    pub const fn offset_signatures() -> u8 {
         7 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_intrinsics() -> u8 {
+    pub const fn offset_intrinsics() -> u8 {
         8 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_stack_lower_bound() -> u8 {
+    pub const fn offset_stack_lower_bound() -> u8 {
         9 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_memory_base() -> u8 {
+    pub const fn offset_memory_base() -> u8 {
         10 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_memory_bound() -> u8 {
+    pub const fn offset_memory_bound() -> u8 {
         11 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_internals() -> u8 {
+    pub const fn offset_internals() -> u8 {
         12 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_interrupt_signal_mem() -> u8 {
+    pub const fn offset_interrupt_signal_mem() -> u8 {
         13 * (mem::size_of::<usize>() as u8)
     }
 
-    pub fn offset_local_functions() -> u8 {
+    pub const fn offset_local_functions() -> u8 {
         14 * (mem::size_of::<usize>() as u8)
     }
 }
@@ -527,13 +545,13 @@ impl Ctx {
 /// `typed_func` module within the `wrap` functions, to wrap imported
 /// functions.
 #[repr(transparent)]
-pub struct Func(pub(self) *mut c_void);
+pub struct Func(*mut c_void);
 
 /// Represents a function environment pointer, like a captured
 /// environment of a closure. It is mostly used in the `typed_func`
 /// module within the `wrap` functions, to wrap imported functions.
 #[repr(transparent)]
-pub struct FuncEnv(pub(self) *mut c_void);
+pub struct FuncEnv(*mut c_void);
 
 /// Represents a function context. It is used by imported functions
 /// only.
@@ -551,18 +569,19 @@ pub struct FuncCtx {
 }
 
 impl FuncCtx {
-    /// Offset to `vmctx`.
-    pub fn offset_vmctx() -> u8 {
+    /// Offset to the `vmctx` field.
+    #[allow(clippy::erasing_op)]
+    pub const fn offset_vmctx() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// Offset to `func_env`.
-    pub fn offset_func_env() -> u8 {
+    /// Offset to the `func_env` field.
+    pub const fn offset_func_env() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
     /// Size of a `FuncCtx`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -572,10 +591,10 @@ impl FuncCtx {
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct ImportedFunc {
-    /// Const pointer to `Func`.
+    /// Pointer to the function itself.
     pub(crate) func: *const Func,
 
-    /// Mutable non-null pointer to `FuncCtx`.
+    /// Mutable non-null pointer to [`FuncCtx`].
     pub(crate) func_ctx: NonNull<FuncCtx>,
 }
 
@@ -585,19 +604,19 @@ pub struct ImportedFunc {
 unsafe impl Send for ImportedFunc {}
 
 impl ImportedFunc {
-    /// Offset to func.
+    /// Offset to the `func` field.
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_func() -> u8 {
+    pub const fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// Offset to func_ctx.
-    pub fn offset_func_ctx() -> u8 {
+    /// Offset to the `func_ctx` field.
+    pub const fn offset_func_ctx() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
     /// Size of an `ImportedFunc`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -618,19 +637,19 @@ pub struct LocalTable {
 unsafe impl Send for LocalTable {}
 
 impl LocalTable {
-    /// Offset to base.
+    /// Offset to the `base` field.
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_base() -> u8 {
+    pub const fn offset_base() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// Offset count.
-    pub fn offset_count() -> u8 {
+    /// Offset to the `count` field.
+    pub const fn offset_count() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
     /// Size of a `LocalTable`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -653,19 +672,19 @@ pub struct LocalMemory {
 unsafe impl Send for LocalMemory {}
 
 impl LocalMemory {
-    /// Offset base.
+    /// Offset to the `base` field.
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_base() -> u8 {
+    pub const fn offset_base() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// Offset bound.
-    pub fn offset_bound() -> u8 {
+    /// Offset to the `bound` field.
+    pub const fn offset_bound() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
     /// Size of a `LocalMemory`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -679,27 +698,36 @@ pub struct LocalGlobal {
 }
 
 impl LocalGlobal {
-    /// Offset data.
+    /// Offset to the `data` field.
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_data() -> u8 {
+    pub const fn offset_data() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
     /// A null `LocalGlobal`.
-    pub fn null() -> Self {
+    pub const fn null() -> Self {
         Self { data: 0 }
     }
 
     /// Size of a `LocalGlobal`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
 
 /// Identifier for a function signature.
+///
+/// A transparent `SigIndex`
 #[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
 pub struct SigId(pub u32);
+
+use crate::types::SigIndex;
+impl From<SigId> for SigIndex {
+    fn from(other: SigId) -> SigIndex {
+        SigIndex::new(other.0 as _)
+    }
+}
 
 /// Caller-checked anyfunc
 #[derive(Debug, Clone, Copy)]
@@ -718,7 +746,7 @@ unsafe impl Send for Anyfunc {}
 
 impl Anyfunc {
     /// A null `Anyfunc` value.
-    pub fn null() -> Self {
+    pub const fn null() -> Self {
         Self {
             func: ptr::null(),
             ctx: ptr::null_mut(),
@@ -726,24 +754,24 @@ impl Anyfunc {
         }
     }
 
-    /// The offset for this func.
+    /// Offset to the `func` field.
     #[allow(clippy::erasing_op)] // TODO
-    pub fn offset_func() -> u8 {
+    pub const fn offset_func() -> u8 {
         0 * (mem::size_of::<usize>() as u8)
     }
 
-    /// The offset of the vmctx.
-    pub fn offset_vmctx() -> u8 {
+    /// Offset to the `vmctx` field..
+    pub const fn offset_vmctx() -> u8 {
         1 * (mem::size_of::<usize>() as u8)
     }
 
-    /// The offset of the sig id.
-    pub fn offset_sig_id() -> u8 {
+    /// Offset to the `sig_id` field.
+    pub const fn offset_sig_id() -> u8 {
         2 * (mem::size_of::<usize>() as u8)
     }
 
     /// The size of `Anyfunc`.
-    pub fn size() -> u8 {
+    pub const fn size() -> u8 {
         mem::size_of::<Self>() as u8
     }
 }
@@ -960,6 +988,7 @@ mod vm_ctx_tests {
     use crate::module::{ModuleInfo, ModuleInner, StringTable};
     use crate::structures::Map;
     use std::ffi::c_void;
+    use std::sync::Arc;
 
     struct TestData {
         x: u32,
@@ -1048,7 +1077,7 @@ mod vm_ctx_tests {
 
     fn generate_module() -> ModuleInner {
         use super::Func;
-        use crate::backend::{sys::Memory, Backend, CacheGen, RunnableModule};
+        use crate::backend::{sys::Memory, CacheGen, RunnableModule};
         use crate::cache::Error as CacheError;
         use crate::typed_func::Wasm;
         use crate::types::{LocalFuncIndex, SigIndex};
@@ -1069,7 +1098,7 @@ mod vm_ctx_tests {
             fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
                 unimplemented!("generate_module::get_trampoline")
             }
-            unsafe fn do_early_trap(&self, _: Box<dyn Any>) -> ! {
+            unsafe fn do_early_trap(&self, _: Box<dyn Any + Send>) -> ! {
                 unimplemented!("generate_module::do_early_trap")
             }
         }
@@ -1080,7 +1109,7 @@ mod vm_ctx_tests {
         }
 
         ModuleInner {
-            runnable_module: Box::new(Placeholder),
+            runnable_module: Arc::new(Box::new(Placeholder)),
             cache_gen: Box::new(Placeholder),
             info: ModuleInfo {
                 memories: Map::new(),
@@ -1102,7 +1131,7 @@ mod vm_ctx_tests {
 
                 func_assoc: Map::new(),
                 signatures: Map::new(),
-                backend: Backend::Cranelift,
+                backend: Default::default(),
 
                 namespace_table: StringTable::new(),
                 name_table: StringTable::new(),
@@ -1110,6 +1139,10 @@ mod vm_ctx_tests {
                 em_symbol_map: None,
 
                 custom_sections: HashMap::new(),
+
+                generate_debug_info: false,
+                #[cfg(feature = "generate-debug-information")]
+                debug_info_manager: crate::jit_debug::JitCodeDebugInfoManager::new(),
             },
         }
     }

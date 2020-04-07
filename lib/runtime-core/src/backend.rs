@@ -13,6 +13,7 @@ use crate::{
     module::ModuleInfo,
     sys::Memory,
 };
+use std::fmt;
 use std::{any::Any, ptr::NonNull};
 
 use std::collections::HashMap;
@@ -22,150 +23,32 @@ pub mod sys {
 }
 pub use crate::sig_registry::SigRegistry;
 
-/// Enum used to select which compiler should be used to generate code.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Backend {
-    Cranelift,
-    Singlepass,
-    LLVM,
-    Auto,
-}
-
-impl Backend {
-    /// Get a list of the currently enabled (via feature flag) backends.
-    pub fn variants() -> &'static [&'static str] {
-        &[
-            #[cfg(feature = "backend-cranelift")]
-            "cranelift",
-            #[cfg(feature = "backend-singlepass")]
-            "singlepass",
-            #[cfg(feature = "backend-llvm")]
-            "llvm",
-            "auto",
-        ]
-    }
-
-    /// Stable string representation of the backend.
-    /// It can be used as part of a cache key, for example.
-    pub fn to_string(&self) -> &'static str {
-        match self {
-            Backend::Cranelift => "cranelift",
-            Backend::Singlepass => "singlepass",
-            Backend::LLVM => "llvm",
-            Backend::Auto => "auto",
-        }
-    }
-}
-
-impl Default for Backend {
-    fn default() -> Self {
-        Backend::Cranelift
-    }
-}
-
-impl std::str::FromStr for Backend {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Backend, String> {
-        match s.to_lowercase().as_str() {
-            "singlepass" => Ok(Backend::Singlepass),
-            "cranelift" => Ok(Backend::Cranelift),
-            "llvm" => Ok(Backend::LLVM),
-            "auto" => Ok(Backend::Auto),
-            _ => Err(format!("The backend {} doesn't exist", s)),
-        }
-    }
-}
-
+/// The target architecture for code generation.
 #[derive(Copy, Clone, Debug)]
 pub enum Architecture {
+    /// x86-64.
     X64,
+
+    /// Aarch64 (ARM64).
     Aarch64,
 }
 
+/// The type of an inline breakpoint.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
 pub enum InlineBreakpointType {
-    Trace,
+    /// A middleware invocation breakpoint.
     Middleware,
-    Unknown,
 }
 
+/// Information of an inline breakpoint.
 #[derive(Clone, Debug)]
 pub struct InlineBreakpoint {
+    /// Size in bytes taken by this breakpoint's instruction sequence.
     pub size: usize,
+
+    /// Type of the inline breakpoint.
     pub ty: InlineBreakpointType,
-}
-
-pub fn get_inline_breakpoint_size(arch: Architecture, backend: Backend) -> Option<usize> {
-    match (arch, backend) {
-        (Architecture::X64, Backend::Singlepass) => Some(7),
-        (Architecture::Aarch64, Backend::Singlepass) => Some(12),
-        _ => None,
-    }
-}
-
-pub fn read_inline_breakpoint(
-    arch: Architecture,
-    backend: Backend,
-    code: &[u8],
-) -> Option<InlineBreakpoint> {
-    match arch {
-        Architecture::X64 => match backend {
-            Backend::Singlepass => {
-                if code.len() < 7 {
-                    None
-                } else if &code[..6] == &[0x0f, 0x0b, 0x0f, 0xb9, 0xcd, 0xff] {
-                    // ud2 ud (int 0xff) code
-                    Some(InlineBreakpoint {
-                        size: 7,
-                        ty: match code[6] {
-                            0 => InlineBreakpointType::Trace,
-                            1 => InlineBreakpointType::Middleware,
-                            _ => InlineBreakpointType::Unknown,
-                        },
-                    })
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        },
-        Architecture::Aarch64 => match backend {
-            Backend::Singlepass => {
-                if code.len() < 12 {
-                    None
-                } else if &code[..8] == &[0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff] {
-                    Some(InlineBreakpoint {
-                        size: 12,
-                        ty: match code[8] {
-                            0 => InlineBreakpointType::Trace,
-                            1 => InlineBreakpointType::Middleware,
-                            _ => InlineBreakpointType::Unknown,
-                        },
-                    })
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        },
-    }
-}
-
-#[cfg(test)]
-mod backend_test {
-    use super::*;
-    use std::str::FromStr;
-
-    #[test]
-    fn str_repr_matches() {
-        // if this test breaks, think hard about why it's breaking
-        // can we avoid having these be different?
-
-        for &backend in &[Backend::Cranelift, Backend::LLVM, Backend::Singlepass] {
-            assert_eq!(backend, Backend::from_str(backend.to_string()).unwrap());
-        }
-    }
 }
 
 /// This type cannot be constructed from
@@ -194,26 +77,164 @@ impl Default for MemoryBoundCheckMode {
 }
 
 /// Controls which experimental features will be enabled.
+/// Features usually have a corresponding [WebAssembly proposal][wasm-props].
+///
+/// [wasm-props]: https://github.com/WebAssembly/proposals
 #[derive(Debug, Default)]
 pub struct Features {
+    /// Whether support for the [SIMD proposal][simd-prop] is enabled.
+    ///
+    /// [simd-prop]: https://github.com/webassembly/simd
     pub simd: bool,
+    /// Whether support for the [threads proposal][threads-prop] is enabled.
+    ///
+    /// [threads-prop]: https://github.com/webassembly/threads
     pub threads: bool,
 }
 
+/// Use this to point to a compiler config struct provided by the backend.
+/// The backend struct must support runtime reflection with `Any`, which is any
+/// struct that does not contain a non-`'static` reference.
+#[derive(Debug)]
+pub struct BackendCompilerConfig(pub Box<dyn Any + 'static>);
+
+impl BackendCompilerConfig {
+    /// Obtain the backend-specific compiler config struct.
+    pub fn get_specific<T: 'static>(&self) -> Option<&T> {
+        self.0.downcast_ref::<T>()
+    }
+}
+
 /// Configuration data for the compiler
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct CompilerConfig {
     /// Symbol information generated from emscripten; used for more detailed debug messages
     pub symbol_map: Option<HashMap<u32, String>>,
+
+    /// How to make the decision whether to emit bounds checks for memory accesses.
     pub memory_bound_check_mode: MemoryBoundCheckMode,
+
+    /// Whether to generate explicit native stack checks against `stack_lower_bound` in `InternalCtx`.
+    ///
+    /// Usually it's adequate to use hardware memory protection mechanisms such as `mprotect` on Unix to
+    /// prevent stack overflow. But for low-level environments, e.g. the kernel, faults are generally
+    /// not expected and relying on hardware memory protection would add too much complexity.
     pub enforce_stack_check: bool,
+
+    /// Whether to enable state tracking. Necessary for managed mode.
     pub track_state: bool,
+
+    /// Whether to enable full preemption checkpoint generation.
+    ///
+    /// This inserts checkpoints at critical locations such as loop backedges and function calls,
+    /// allowing preemptive unwinding/task switching.
+    ///
+    /// When enabled there can be a small amount of runtime performance overhead.
+    pub full_preemption: bool,
+
+    /// Always choose a unique bit representation for NaN.
+    /// Enabling this makes execution deterministic but increases runtime overhead.
+    pub nan_canonicalization: bool,
+
+    /// Turns on verification that is done by default when `debug_assertions` are enabled
+    /// (for example in 'debug' builds). Disabling this flag will make compilation faster
+    /// in debug mode at the cost of not detecting bugs in the compiler.
+    ///
+    /// These verifications are disabled by default in 'release' builds.
+    pub enable_verification: bool,
+
     pub features: Features,
 
-    // target info used by LLVM
+    // Target info. Presently only supported by LLVM.
     pub triple: Option<String>,
     pub cpu_name: Option<String>,
     pub cpu_features: Option<String>,
+
+    pub backend_specific_config: Option<BackendCompilerConfig>,
+
+    pub generate_debug_info: bool,
+}
+
+impl Default for CompilerConfig {
+    fn default() -> Self {
+        Self {
+            symbol_map: Default::default(),
+            memory_bound_check_mode: Default::default(),
+            enforce_stack_check: Default::default(),
+            track_state: Default::default(),
+            full_preemption: Default::default(),
+            nan_canonicalization: Default::default(),
+            features: Default::default(),
+            triple: Default::default(),
+            cpu_name: Default::default(),
+            cpu_features: Default::default(),
+            backend_specific_config: Default::default(),
+            generate_debug_info: Default::default(),
+
+            // Default verification to 'on' when testing or running in debug mode.
+            // NOTE: cfg(test) probably does nothing when not running `cargo test`
+            //       on this crate
+            enable_verification: cfg!(test) || cfg!(debug_assertions),
+        }
+    }
+}
+
+impl CompilerConfig {
+    /// Use this to check if we should be generating debug information.
+    /// This function takes into account the features that runtime-core was
+    /// compiled with in addition to the value of the `generate_debug_info` field.
+    pub(crate) fn should_generate_debug_info(&self) -> bool {
+        cfg!(feature = "generate-debug-information") && self.generate_debug_info
+    }
+}
+
+/// An exception table for a `RunnableModule`.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ExceptionTable {
+    /// Mappings from offsets in generated machine code to the corresponding exception code.
+    pub offset_to_code: HashMap<usize, ExceptionCode>,
+}
+
+impl ExceptionTable {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// The code of an exception.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum ExceptionCode {
+    /// An `unreachable` opcode was executed.
+    Unreachable = 0,
+    /// Call indirect incorrect signature trap.
+    IncorrectCallIndirectSignature = 1,
+    /// Memory out of bounds trap.
+    MemoryOutOfBounds = 2,
+    /// Call indirect out of bounds trap.
+    CallIndirectOOB = 3,
+    /// An arithmetic exception, e.g. divided by zero.
+    IllegalArithmetic = 4,
+    /// Misaligned atomic access trap.
+    MisalignedAtomicAccess = 5,
+}
+
+impl fmt::Display for ExceptionCode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ExceptionCode::Unreachable => "unreachable",
+                ExceptionCode::IncorrectCallIndirectSignature => {
+                    "incorrect `call_indirect` signature"
+                }
+                ExceptionCode::MemoryOutOfBounds => "memory out-of-bounds access",
+                ExceptionCode::CallIndirectOOB => "`call_indirect` out-of-bounds",
+                ExceptionCode::IllegalArithmetic => "illegal arithmetic operation",
+                ExceptionCode::MisalignedAtomicAccess => "misaligned atomic access",
+            }
+        )
+    }
 }
 
 pub trait Compiler {
@@ -247,16 +268,21 @@ pub trait RunnableModule: Send + Sync {
         None
     }
 
+    fn get_exception_table(&self) -> Option<&ExceptionTable> {
+        None
+    }
+
     unsafe fn patch_local_function(&self, _idx: usize, _target_address: usize) -> bool {
         false
     }
 
     /// A wasm trampoline contains the necessary data to dynamically call an exported wasm function.
-    /// Given a particular signature index, we are returned a trampoline that is matched with that
+    /// Given a particular signature index, we return a trampoline that is matched with that
     /// signature and an invoke function that can call the trampoline.
     fn get_trampoline(&self, info: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm>;
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any>) -> !;
+    /// Trap an error.
+    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> !;
 
     /// Returns the machine code associated with this module.
     fn get_code(&self) -> Option<&[u8]> {
@@ -270,6 +296,23 @@ pub trait RunnableModule: Send + Sync {
 
     /// Returns the beginning offsets of all local functions.
     fn get_local_function_offsets(&self) -> Option<Vec<usize>> {
+        None
+    }
+
+    /// Returns the inline breakpoint size corresponding to an Architecture (None in case is not implemented)
+    fn get_inline_breakpoint_size(&self, _arch: Architecture) -> Option<usize> {
+        None
+    }
+
+    /// Attempts to read an inline breakpoint from the code.
+    ///
+    /// Inline breakpoints are detected by special instruction sequences that never
+    /// appear in valid code.
+    fn read_inline_breakpoint(
+        &self,
+        _arch: Architecture,
+        _code: &[u8],
+    ) -> Option<InlineBreakpoint> {
         None
     }
 }

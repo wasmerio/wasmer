@@ -1,9 +1,12 @@
-//! Builder code for [`WasiState`]
+//! Builder system for configuring a [`WasiState`] and creating it.
 
-use crate::state::{WasiFs, WasiState};
+use crate::state::{WasiFile, WasiFs, WasiFsError, WasiState};
+use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 use std::path::{Path, PathBuf};
 
 /// Creates an empty [`WasiStateBuilder`].
+///
+/// Internal method only, users should call [`WasiState::new`].
 pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
     WasiStateBuilder {
         args: vec![program_name.bytes().collect()],
@@ -11,13 +14,45 @@ pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
     }
 }
 
-/// Type for building an instance of [`WasiState`]
-#[derive(Debug, Default, Clone, PartialEq)]
+/// Convenient builder API for configuring WASI via [`WasiState`].
+///
+/// Usage:
+/// ```no_run
+/// # use wasmer_wasi::state::{WasiState, WasiStateCreationError};
+/// # fn main() -> Result<(), WasiStateCreationError> {
+/// let mut state_builder = WasiState::new("wasi-prog-name");
+/// state_builder
+///    .env("ENV_VAR", "ENV_VAL")
+///    .arg("--verbose")
+///    .preopen_dir("src")?
+///    .map_dir("name_wasi_sees", "path/on/host/fs")?
+///    .build();
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Default)]
 pub struct WasiStateBuilder {
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
-    preopened_files: Vec<PathBuf>,
-    mapped_dirs: Vec<(String, PathBuf)>,
+    preopens: Vec<PreopenedDir>,
+    setup_fs_fn: Option<Box<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>>,
+    stdout_override: Option<Box<dyn WasiFile>>,
+    stderr_override: Option<Box<dyn WasiFile>>,
+    stdin_override: Option<Box<dyn WasiFile>>,
+}
+
+impl std::fmt::Debug for WasiStateBuilder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WasiStateBuilder")
+            .field("args", &self.args)
+            .field("envs", &self.envs)
+            .field("preopens", &self.preopens)
+            .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
+            .field("stdout_override exists", &self.stdout_override.is_some())
+            .field("stderr_override exists", &self.stderr_override.is_some())
+            .field("stdin_override exists", &self.stdin_override.is_some())
+            .finish()
+    }
 }
 
 /// Error type returned when bad data is given to [`WasiStateBuilder`].
@@ -26,18 +61,16 @@ pub enum WasiStateCreationError {
     EnvironmentVariableFormatError(String),
     ArgumentContainsNulByte(String),
     PreopenedDirectoryNotFound(PathBuf),
+    PreopenedDirectoryError(String),
     MappedDirAliasFormattingError(String),
     WasiFsCreationError(String),
+    WasiFsSetupError(String),
+    WasiFsError(WasiFsError),
 }
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
     for byte in alias.bytes() {
         match byte {
-            b'/' => {
-                return Err(WasiStateCreationError::MappedDirAliasFormattingError(
-                    format!("Alias \"{}\" contains the character '/'", alias),
-                ));
-            }
             b'\0' => {
                 return Err(WasiStateCreationError::MappedDirAliasFormattingError(
                     format!("Alias \"{}\" contains a nul byte", alias),
@@ -135,41 +168,137 @@ impl WasiStateBuilder {
     /// Preopen a directory
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
-    // TODO: design a simple API for passing in permissions here (i.e. read-only)
-    pub fn preopen_dir<FilePath>(&mut self, po_dir: FilePath) -> &mut Self
+    pub fn preopen_dir<FilePath>(
+        &mut self,
+        po_dir: FilePath,
+    ) -> Result<&mut Self, WasiStateCreationError>
     where
         FilePath: AsRef<Path>,
     {
+        let mut pdb = PreopenDirBuilder::new();
         let path = po_dir.as_ref();
-        self.preopened_files.push(path.to_path_buf());
+        pdb.directory(path).read(true).write(true).create(true);
+        let preopen = pdb.build()?;
 
-        self
+        self.preopens.push(preopen);
+
+        Ok(self)
+    }
+
+    /// Preopen a directory and configure it.
+    ///
+    /// Usage:
+    ///
+    /// ```no_run
+    /// # use wasmer_wasi::state::{WasiState, WasiStateCreationError};
+    /// # fn main() -> Result<(), WasiStateCreationError> {
+    /// WasiState::new("program_name")
+    ///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
+    ///    .preopen(|p| p.directory(".").alias("dot").read(true))?
+    ///    .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn preopen<F>(&mut self, inner: F) -> Result<&mut Self, WasiStateCreationError>
+    where
+        F: Fn(&mut PreopenDirBuilder) -> &mut PreopenDirBuilder,
+    {
+        let mut pdb = PreopenDirBuilder::new();
+        let po_dir = inner(&mut pdb).build()?;
+
+        self.preopens.push(po_dir);
+
+        Ok(self)
     }
 
     /// Preopen a directory
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
-    pub fn preopen_dirs<I, FilePath>(&mut self, po_dirs: I) -> &mut Self
+    pub fn preopen_dirs<I, FilePath>(
+        &mut self,
+        po_dirs: I,
+    ) -> Result<&mut Self, WasiStateCreationError>
     where
         I: IntoIterator<Item = FilePath>,
         FilePath: AsRef<Path>,
     {
         for po_dir in po_dirs {
-            let path = po_dir.as_ref();
-            self.preopened_files.push(path.to_path_buf());
+            self.preopen_dir(po_dir)?;
         }
+
+        Ok(self)
+    }
+
+    /// Preopen a directory with a different name exposed to the WASI.
+    pub fn map_dir<FilePath>(
+        &mut self,
+        alias: &str,
+        po_dir: FilePath,
+    ) -> Result<&mut Self, WasiStateCreationError>
+    where
+        FilePath: AsRef<Path>,
+    {
+        let mut pdb = PreopenDirBuilder::new();
+        let path = po_dir.as_ref();
+        pdb.directory(path)
+            .alias(alias)
+            .read(true)
+            .write(true)
+            .create(true);
+        let preopen = pdb.build()?;
+
+        self.preopens.push(preopen);
+
+        Ok(self)
+    }
+
+    /// Preopen directorys with a different names exposed to the WASI.
+    pub fn map_dirs<I, FilePath>(
+        &mut self,
+        mapped_dirs: I,
+    ) -> Result<&mut Self, WasiStateCreationError>
+    where
+        I: IntoIterator<Item = (String, FilePath)>,
+        FilePath: AsRef<Path>,
+    {
+        for (alias, dir) in mapped_dirs {
+            self.map_dir(&alias, dir)?;
+        }
+
+        Ok(self)
+    }
+
+    /// Overwrite the default WASI `stdout`, if you want to hold on to the
+    /// original `stdout` use [`WasiFs::swap_file`] after building.
+    pub fn stdout(&mut self, new_file: Box<dyn WasiFile>) -> &mut Self {
+        self.stdout_override = Some(new_file);
 
         self
     }
 
-    /// Preopen a directory with a different name exposed to the WASI.
-    pub fn map_dir<FilePath>(&mut self, alias: &str, po_dir: FilePath) -> &mut Self
-    where
-        FilePath: AsRef<Path>,
-    {
-        let path = po_dir.as_ref();
-        self.mapped_dirs
-            .push((alias.to_string(), path.to_path_buf()));
+    /// Overwrite the default WASI `stderr`, if you want to hold on to the
+    /// original `stderr` use [`WasiFs::swap_file`] after building.
+    pub fn stderr(&mut self, new_file: Box<dyn WasiFile>) -> &mut Self {
+        self.stderr_override = Some(new_file);
+
+        self
+    }
+
+    /// Overwrite the default WASI `stdin`, if you want to hold on to the
+    /// original `stdin` use [`WasiFs::swap_file`] after building.
+    pub fn stdin(&mut self, new_file: Box<dyn WasiFile>) -> &mut Self {
+        self.stdin_override = Some(new_file);
+
+        self
+    }
+
+    /// Setup the WASI filesystem before running
+    // TODO: improve ergonomics on this function
+    pub fn setup_fs(
+        &mut self,
+        setup_fs_fn: Box<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>,
+    ) -> &mut Self {
+        self.setup_fs_fn = Some(setup_fs_fn);
 
         self
     }
@@ -223,27 +352,135 @@ impl WasiStateBuilder {
             }
         }
 
-        for po_f in self.preopened_files.iter() {
-            if !po_f.exists() {
-                return Err(WasiStateCreationError::PreopenedDirectoryNotFound(
-                    po_f.clone(),
-                ));
-            }
-        }
+        // self.preopens are checked in [`PreopenDirBuilder::build`]
 
-        for (alias, po_f) in self.mapped_dirs.iter() {
-            if !po_f.exists() {
-                return Err(WasiStateCreationError::PreopenedDirectoryNotFound(
-                    po_f.clone(),
-                ));
-            }
-            validate_mapped_dir_alias(&alias)?;
+        // this deprecation warning only applies to external callers
+        #[allow(deprecated)]
+        let mut wasi_fs = WasiFs::new_with_preopen(&self.preopens)
+            .map_err(WasiStateCreationError::WasiFsCreationError)?;
+        // set up the file system, overriding base files and calling the setup function
+        if let Some(stdin_override) = self.stdin_override.take() {
+            wasi_fs
+                .swap_file(__WASI_STDIN_FILENO, stdin_override)
+                .map_err(WasiStateCreationError::WasiFsError)?;
+        }
+        if let Some(stdout_override) = self.stdout_override.take() {
+            wasi_fs
+                .swap_file(__WASI_STDOUT_FILENO, stdout_override)
+                .map_err(WasiStateCreationError::WasiFsError)?;
+        }
+        if let Some(stderr_override) = self.stderr_override.take() {
+            wasi_fs
+                .swap_file(__WASI_STDERR_FILENO, stderr_override)
+                .map_err(WasiStateCreationError::WasiFsError)?;
+        }
+        if let Some(f) = &self.setup_fs_fn {
+            f(&mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
         }
         Ok(WasiState {
-            fs: WasiFs::new(&self.preopened_files, &self.mapped_dirs)
-                .map_err(WasiStateCreationError::WasiFsCreationError)?,
+            fs: wasi_fs,
             args: self.args.clone(),
             envs: self.envs.clone(),
+        })
+    }
+}
+
+/// Builder for preopened directories.
+#[derive(Debug, Default)]
+pub struct PreopenDirBuilder {
+    path: Option<PathBuf>,
+    alias: Option<String>,
+    read: bool,
+    write: bool,
+    create: bool,
+}
+
+/// The built version of `PreopenDirBuilder`
+#[derive(Debug, Default)]
+pub(crate) struct PreopenedDir {
+    pub(crate) path: PathBuf,
+    pub(crate) alias: Option<String>,
+    pub(crate) read: bool,
+    pub(crate) write: bool,
+    pub(crate) create: bool,
+}
+
+impl PreopenDirBuilder {
+    /// Create an empty builder
+    pub(crate) fn new() -> Self {
+        PreopenDirBuilder::default()
+    }
+
+    /// Point the preopened directory to the path given by `po_dir`
+    pub fn directory<FilePath>(&mut self, po_dir: FilePath) -> &mut Self
+    where
+        FilePath: AsRef<Path>,
+    {
+        let path = po_dir.as_ref();
+        self.path = Some(path.to_path_buf());
+
+        self
+    }
+
+    /// Make this preopened directory appear to the WASI program as `alias`
+    pub fn alias(&mut self, alias: &str) -> &mut Self {
+        self.alias = Some(alias.to_string());
+
+        self
+    }
+
+    /// Set read permissions affecting files in the directory
+    pub fn read(&mut self, toggle: bool) -> &mut Self {
+        self.read = toggle;
+
+        self
+    }
+
+    /// Set write permissions affecting files in the directory
+    pub fn write(&mut self, toggle: bool) -> &mut Self {
+        self.write = toggle;
+
+        self
+    }
+
+    /// Set create permissions affecting files in the directory
+    ///
+    /// Create implies `write` permissions
+    pub fn create(&mut self, toggle: bool) -> &mut Self {
+        self.create = toggle;
+        if toggle {
+            self.write = true;
+        }
+
+        self
+    }
+
+    pub(crate) fn build(&self) -> Result<PreopenedDir, WasiStateCreationError> {
+        // ensure at least one is set
+        if !(self.read || self.write || self.create) {
+            return Err(WasiStateCreationError::PreopenedDirectoryError("Preopened directories must have at least one of read, write, create permissions set".to_string()));
+        }
+
+        if self.path.is_none() {
+            return Err(WasiStateCreationError::PreopenedDirectoryError(
+                "Preopened directories must point to a host directory".to_string(),
+            ));
+        }
+        let path = self.path.clone().unwrap();
+
+        if !path.exists() {
+            return Err(WasiStateCreationError::PreopenedDirectoryNotFound(path));
+        }
+        if let Some(alias) = &self.alias {
+            validate_mapped_dir_alias(alias)?;
+        }
+
+        Ok(PreopenedDir {
+            path,
+            alias: self.alias.clone(),
+            read: self.read,
+            write: self.write,
+            create: self.create,
         })
     }
 }

@@ -2,6 +2,7 @@
 name = "plugin-for-example"
 version = "0.1.0"
 authors = ["The Wasmer Engineering Team <enigneering@wasmer.io>"]
+license = "MIT"
 edition = "2018"
 
 [dependencies]

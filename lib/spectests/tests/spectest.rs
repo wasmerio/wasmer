@@ -48,12 +48,21 @@ mod tests {
             &mut self,
             failure: SpecFailure,
             _testkey: &str,
-            excludes: &Vec<Exclude>,
+            excludes: &mut Vec<Option<Exclude>>,
             line: u64,
         ) {
-            if excludes
-                .iter()
-                .any(|e| e.line_matches(line) && e.exclude_kind == ExcludeKind::Fail)
+            // Ensure that each exclude is only used once.
+            if let Some(_) = excludes
+                .iter_mut()
+                .find(|e| {
+                    if let Some(ref e) = e {
+                        e.line_matches(line) && e.exclude_kind == ExcludeKind::Fail
+                    } else {
+                        false
+                    }
+                })
+                .take()
+                .and_then(|x| x.take())
             {
                 self.allowed_failure += 1;
                 return;
@@ -88,6 +97,26 @@ mod tests {
         "windows"
     }
 
+    #[cfg(target_os = "freebsd")]
+    fn get_target_os() -> &'static str {
+        "freebsd"
+    }
+
+    #[cfg(target_os = "linux")]
+    fn get_target_os() -> &'static str {
+        "linux"
+    }
+
+    #[cfg(target_os = "macos")]
+    fn get_target_os() -> &'static str {
+        "macos"
+    }
+
+    #[cfg(target_os = "windows")]
+    fn get_target_os() -> &'static str {
+        "windows"
+    }
+
     fn get_target_arch() -> &'static str {
         if cfg!(target_arch = "x86_64") {
             "x86_64"
@@ -110,6 +139,7 @@ mod tests {
 
     //  clif:skip:data.wast:172:unix:x86
     #[allow(dead_code)]
+    #[derive(Clone)]
     struct Exclude {
         backend: Option<String>,
         exclude_kind: ExcludeKind,
@@ -226,6 +256,16 @@ mod tests {
         Memory, Table,
     };
 
+    fn format_panic(e: &dyn std::any::Any) -> String {
+        if let Some(s) = e.downcast_ref::<&str>() {
+            format!("{}", s)
+        } else if let Some(s) = e.downcast_ref::<String>() {
+            format!("{}", s)
+        } else {
+            "(unknown)".into()
+        }
+    }
+
     fn parse_and_run(
         path: &PathBuf,
         file_excludes: &HashSet<String>,
@@ -250,6 +290,7 @@ mod tests {
         features.enable_simd();
         features.enable_threads();
         features.enable_sign_extension();
+        features.enable_sat_float_to_int();
         let mut parser: ScriptParser =
             ScriptParser::from_source_and_name_with_features(&source, filename, features)
                 .expect(&format!("Failed to parse script {}", &filename));
@@ -260,13 +301,11 @@ mod tests {
         let mut named_modules: HashMap<String, Arc<Mutex<Instance>>> = HashMap::new();
 
         let mut registered_modules: HashMap<String, Arc<Mutex<Instance>>> = HashMap::new();
-        //
-        let empty_excludes = vec![];
-        let excludes = if excludes.contains_key(filename) {
-            excludes.get(filename).unwrap()
-        } else {
-            &empty_excludes
-        };
+        let mut excludes: Vec<_> = excludes
+            .get(filename)
+            .map(|file| file.iter().map(|x| Some(x.clone())).collect())
+            .unwrap_or(vec![]);
+        let excludes = &mut excludes;
 
         let backend = get_compiler_name();
 
@@ -280,6 +319,7 @@ mod tests {
             // Skip tests that match this line
             if excludes
                 .iter()
+                .filter_map(|x| x.as_ref())
                 .any(|e| e.line_exact_match(line) && e.exclude_kind == ExcludeKind::Skip)
             {
                 continue;
@@ -296,6 +336,8 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
+                            enable_verification: true,
                             ..Default::default()
                         };
                         let module = compile_with_config(&module.into_vec(), config)
@@ -312,7 +354,7 @@ mod tests {
                                     file: filename.to_string(),
                                     line: line,
                                     kind: format!("{}", "Module"),
-                                    message: format!("caught panic {:?}", e),
+                                    message: format!("caught panic {}", format_panic(&e)),
                                 },
                                 &test_key,
                                 excludes,
@@ -615,9 +657,47 @@ mod tests {
                     } => {
                         let maybe_call_result =
                             with_instance(instance.clone(), &named_modules, &module, |instance| {
+                                #[cfg(unix)]
+                                use wasmer_runtime::{
+                                    pop_code_version, push_code_version, CodeVersion,
+                                };
+
+                                // Manually push code version before calling WebAssembly function, as a hack.
+                                //
+                                // This should eventually be fixed by doing push/pop code version in the function invocation
+                                // logic itself.
+
+                                #[cfg(unix)]
+                                let cv_pushed = if let Some(msm) =
+                                    instance.module.runnable_module.get_module_state_map()
+                                {
+                                    push_code_version(CodeVersion {
+                                        baseline: true,
+                                        msm: msm,
+                                        base: instance
+                                            .module
+                                            .runnable_module
+                                            .get_code()
+                                            .unwrap()
+                                            .as_ptr()
+                                            as usize,
+                                        backend: backend.into(),
+                                        runnable_module: instance.module.runnable_module.clone(),
+                                    });
+                                    true
+                                } else {
+                                    false
+                                };
                                 let params: Vec<wasmer_runtime::types::Value> =
                                     args.iter().cloned().map(convert_value).collect();
-                                instance.call(&field, &params[..])
+                                let ret = instance.call(&field, &params[..]);
+                                #[cfg(unix)]
+                                {
+                                    if cv_pushed {
+                                        pop_code_version().unwrap();
+                                    }
+                                }
+                                ret
                             });
                         if maybe_call_result.is_none() {
                             test_report.add_failure(
@@ -635,47 +715,41 @@ mod tests {
                             let call_result = maybe_call_result.unwrap();
                             use wasmer_runtime::error::{CallError, RuntimeError};
                             match call_result {
-                                Err(e) => {
-                                    match e {
-                                        CallError::Resolve(_) => {
+                                Err(e) => match e {
+                                    CallError::Resolve(_) => {
+                                        test_report.add_failure(
+                                            SpecFailure {
+                                                file: filename.to_string(),
+                                                line,
+                                                kind: format!("{}", "AssertTrap"),
+                                                message: format!("expected trap, got {:?}", e),
+                                            },
+                                            &test_key,
+                                            excludes,
+                                            line,
+                                        );
+                                    }
+                                    CallError::Runtime(RuntimeError(e)) => {
+                                        use wasmer_runtime::ExceptionCode;
+                                        if let Some(_) = e.downcast_ref::<ExceptionCode>() {
+                                            test_report.count_passed();
+                                        } else {
                                             test_report.add_failure(
                                                 SpecFailure {
                                                     file: filename.to_string(),
                                                     line,
                                                     kind: format!("{}", "AssertTrap"),
-                                                    message: format!("expected trap, got {:?}", e),
+                                                    message: format!(
+                                                        "expected trap, got RuntimeError"
+                                                    ),
                                                 },
                                                 &test_key,
                                                 excludes,
                                                 line,
                                             );
                                         }
-                                        CallError::Runtime(r) => {
-                                            match r {
-                                                RuntimeError::Trap { .. } => {
-                                                    // TODO assert message?
-                                                    test_report.count_passed()
-                                                }
-                                                RuntimeError::Error { .. } => {
-                                                    test_report.add_failure(
-                                                        SpecFailure {
-                                                            file: filename.to_string(),
-                                                            line,
-                                                            kind: format!("{}", "AssertTrap"),
-                                                            message: format!(
-                                                            "expected trap, got Runtime:Error {:?}",
-                                                            r
-                                                        ),
-                                                        },
-                                                        &test_key,
-                                                        excludes,
-                                                        line,
-                                                    );
-                                                }
-                                            }
-                                        }
                                     }
-                                }
+                                },
                                 Ok(values) => {
                                     test_report.add_failure(
                                         SpecFailure {
@@ -702,6 +776,8 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
+                            enable_verification: true,
                             ..Default::default()
                         };
                         compile_with_config(&module.into_vec(), config)
@@ -736,7 +812,7 @@ mod tests {
                                     file: filename.to_string(),
                                     line: line,
                                     kind: format!("{}", "AssertInvalid"),
-                                    message: format!("caught panic {:?}", p),
+                                    message: format!("caught panic {}", format_panic(&p)),
                                 },
                                 &test_key,
                                 excludes,
@@ -754,6 +830,8 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
+                            enable_verification: true,
                             ..Default::default()
                         };
                         compile_with_config(&module.into_vec(), config)
@@ -789,7 +867,7 @@ mod tests {
                                     file: filename.to_string(),
                                     line: line,
                                     kind: format!("{}", "AssertMalformed"),
-                                    message: format!("caught panic {:?}", p),
+                                    message: format!("caught panic {}", format_panic(&p)),
                                 },
                                 &test_key,
                                 excludes,
@@ -805,6 +883,8 @@ mod tests {
                             simd: true,
                             threads: true,
                         },
+                        nan_canonicalization: true,
+                        enable_verification: true,
                         ..Default::default()
                     };
                     let module = compile_with_config(&module.into_vec(), config)
@@ -900,6 +980,8 @@ mod tests {
                                 simd: true,
                                 threads: true,
                             },
+                            nan_canonicalization: true,
+                            enable_verification: true,
                             ..Default::default()
                         };
                         let module = compile_with_config(&module.into_vec(), config)
@@ -913,7 +995,7 @@ mod tests {
                                     file: filename.to_string(),
                                     line: line,
                                     kind: format!("{}", "AssertUnlinkable"),
-                                    message: format!("caught panic {:?}", e),
+                                    message: format!("caught panic {}", format_panic(&e)),
                                 },
                                 &test_key,
                                 excludes,
@@ -1039,6 +1121,21 @@ mod tests {
                         module, field, filename, line
                     ),
                 },
+            }
+        }
+
+        // Check for unused excludes.
+        for excl in excludes {
+            if let Some(ref excl) = *excl {
+                if excl.exclude_kind == ExcludeKind::Fail {
+                    test_report.failed += 1;
+                    test_report.failures.push(SpecFailure {
+                        file: filename.to_string(),
+                        line: excl.line.unwrap_or(0),
+                        kind: format!("{}", "Exclude"),
+                        message: format!("Excluded failure did not occur"),
+                    });
+                }
             }
         }
         Ok(test_report)
@@ -1202,6 +1299,7 @@ mod tests {
         let mut result = HashMap::new();
         let mut file_excludes = HashSet::new();
         let current_backend = get_compiler_name();
+        let current_target_os = get_target_os();
         let current_target_family = get_target_family();
         let current_target_arch = get_target_arch();
 
@@ -1250,7 +1348,8 @@ mod tests {
                 };
 
                 if exclude.matches_backend(current_backend)
-                    && exclude.matches_target_family(current_target_family)
+                    && (exclude.matches_target_family(current_target_os)
+                        || exclude.matches_target_family(current_target_family))
                     && exclude.matches_target_arch(current_target_arch)
                 {
                     // Skip the whole file for line * and skip

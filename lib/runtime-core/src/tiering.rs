@@ -1,6 +1,6 @@
 //! The tiering module supports switching between code compiled with different optimization levels
 //! as runtime.
-use crate::backend::{Backend, Compiler, CompilerConfig};
+use crate::backend::{Compiler, CompilerConfig};
 use crate::compile_with_config;
 use crate::fault::{
     catch_unsafe_unwind, ensure_sighandler, pop_code_version, push_code_version, with_ctx,
@@ -43,7 +43,7 @@ struct OptimizationState {
 }
 
 struct OptimizationOutcome {
-    backend_id: Backend,
+    backend_id: &'static str,
     module: Module,
 }
 
@@ -54,7 +54,7 @@ unsafe impl Sync for CtxWrapper {}
 
 unsafe fn do_optimize(
     binary: &[u8],
-    backend_id: Backend,
+    backend_id: &'static str,
     compiler: Box<dyn Compiler>,
     ctx: &Mutex<CtxWrapper>,
     state: &OptimizationState,
@@ -87,8 +87,8 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     import_object: &ImportObject,
     start_raw: extern "C" fn(&mut Ctx),
     baseline: &mut Instance,
-    baseline_backend: Backend,
-    optimized_backends: Vec<(Backend, Box<dyn Fn() -> Box<dyn Compiler> + Send>)>,
+    baseline_backend: &'static str,
+    optimized_backends: Vec<(&'static str, Box<dyn Fn() -> Box<dyn Compiler> + Send>)>,
     interactive_shell: F,
 ) -> Result<(), String> {
     ensure_sighandler();
@@ -129,6 +129,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
             .unwrap(),
         base: baseline.module.runnable_module.get_code().unwrap().as_ptr() as usize,
         backend: baseline_backend,
+        runnable_module: baseline.module.runnable_module.clone(),
     });
     let n_versions: Cell<usize> = Cell::new(1);
 
@@ -139,7 +140,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
     }));
 
     loop {
-        let new_optimized: Option<(Backend, &mut Instance)> = {
+        let new_optimized: Option<(&'static str, &mut Instance)> = {
             let mut outcome = opt_state.outcome.lock().unwrap();
             if let Some(x) = outcome.take() {
                 let instance = x
@@ -191,6 +192,7 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
                     .unwrap()
                     .as_ptr() as usize,
                 backend: backend_id,
+                runnable_module: optimized.module.runnable_module.clone(),
             });
             n_versions.set(n_versions.get() + 1);
 

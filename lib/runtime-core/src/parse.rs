@@ -3,11 +3,11 @@
 
 use crate::codegen::*;
 use crate::{
-    backend::{Backend, CompilerConfig, RunnableModule},
+    backend::{CompilerConfig, RunnableModule},
     error::CompileError,
     module::{
-        DataInitializer, ExportIndex, ImportName, ModuleInfo, StringTable, StringTableBuilder,
-        TableInitializer,
+        DataInitializer, ExportIndex, ImportName, ModuleInfo, NameIndex, NamespaceIndex,
+        StringTable, StringTableBuilder, TableInitializer,
     },
     structures::{Map, TypedIndex},
     types::{
@@ -21,15 +21,15 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 use wasmparser::{
-    BinaryReaderError, ExternalKind, FuncType, ImportSectionEntryType, Operator, Type as WpType,
-    WasmDecoder,
+    BinaryReaderError, ElemSectionEntryTable, ElementItem, ExternalKind, FuncType,
+    ImportSectionEntryType, Operator, Type as WpType, WasmDecoder,
 };
 
 /// Kind of load error.
 #[derive(Debug)]
 pub enum LoadError {
     /// Parse error.
-    Parse(BinaryReaderError),
+    Parse(String),
     /// Code generation error.
     Codegen(String),
 }
@@ -44,7 +44,13 @@ impl From<LoadError> for CompileError {
 
 impl From<BinaryReaderError> for LoadError {
     fn from(other: BinaryReaderError) -> LoadError {
-        LoadError::Parse(other)
+        LoadError::Parse(format!("{:?}", other))
+    }
+}
+
+impl From<&BinaryReaderError> for LoadError {
+    fn from(other: &BinaryReaderError) -> LoadError {
+        LoadError::Parse(format!("{:?}", other))
     }
 }
 
@@ -57,7 +63,6 @@ pub fn read_module<
     E: Debug,
 >(
     wasm: &[u8],
-    backend: Backend,
     mcg: &mut MCG,
     middlewares: &mut MiddlewareChain,
     compiler_config: &CompilerConfig,
@@ -83,7 +88,7 @@ pub fn read_module<
 
         func_assoc: Map::new(),
         signatures: Map::new(),
-        backend: backend,
+        backend: MCG::backend_id().to_string(),
 
         namespace_table: StringTable::new(),
         name_table: StringTable::new(),
@@ -91,6 +96,10 @@ pub fn read_module<
         em_symbol_map: compiler_config.symbol_map.clone(),
 
         custom_sections: HashMap::new(),
+
+        generate_debug_info: compiler_config.should_generate_debug_info(),
+        #[cfg(feature = "generate-debug-information")]
+        debug_info_manager: crate::jit_debug::JitCodeDebugInfoManager::new(),
     }));
 
     let mut parser = wasmparser::ValidatingParser::new(
@@ -101,13 +110,38 @@ pub fn read_module<
     let mut namespace_builder = Some(StringTableBuilder::new());
     let mut name_builder = Some(StringTableBuilder::new());
     let mut func_count: usize = 0;
-    let mut mcg_info_fed = false;
+
+    let mut feed_mcg_signatures: Option<_> = Some(|mcg: &mut MCG| -> Result<(), LoadError> {
+        let info_read = info.read().unwrap();
+        mcg.feed_signatures(info_read.signatures.clone())
+            .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+        Ok(())
+    });
+    let mut feed_mcg_info: Option<_> = Some(
+        |mcg: &mut MCG,
+         ns_builder: StringTableBuilder<NamespaceIndex>,
+         name_builder: StringTableBuilder<NameIndex>|
+         -> Result<(), LoadError> {
+            {
+                let mut info_write = info.write().unwrap();
+                info_write.namespace_table = ns_builder.finish();
+                info_write.name_table = name_builder.finish();
+            }
+            let info_read = info.read().unwrap();
+            mcg.feed_function_signatures(info_read.func_assoc.clone())
+                .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+            mcg.check_precondition(&info_read)
+                .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+            Ok(())
+        },
+    );
 
     loop {
         use wasmparser::ParserState;
         let state = parser.read();
+
         match *state {
-            ParserState::Error(err) => Err(LoadError::Parse(err))?,
+            ParserState::Error(ref err) => return Err(err.clone().into()),
             ParserState::TypeSectionEntry(ref ty) => {
                 info.write()
                     .unwrap()
@@ -115,6 +149,10 @@ pub fn read_module<
                     .push(func_type_to_func_sig(ty)?);
             }
             ParserState::ImportSectionEntry { module, field, ty } => {
+                if let Some(f) = feed_mcg_signatures.take() {
+                    f(mcg)?;
+                }
+
                 let namespace_index = namespace_builder.as_mut().unwrap().register(module);
                 let name_index = name_builder.as_mut().unwrap().register(field);
                 let import_name = ImportName {
@@ -127,7 +165,7 @@ pub fn read_module<
                         let sigindex = SigIndex::new(sigindex as usize);
                         info.write().unwrap().imported_functions.push(import_name);
                         info.write().unwrap().func_assoc.push(sigindex);
-                        mcg.feed_import_function()
+                        mcg.feed_import_function(sigindex)
                             .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                     }
                     ImportSectionEntryType::Table(table_ty) => {
@@ -146,7 +184,7 @@ pub fn read_module<
                     ImportSectionEntryType::Memory(memory_ty) => {
                         let mem_desc = MemoryDescriptor::new(
                             Pages(memory_ty.limits.initial),
-                            memory_ty.limits.maximum.map(|max| Pages(max)),
+                            memory_ty.limits.maximum.map(Pages),
                             memory_ty.shared,
                         )
                         .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
@@ -184,7 +222,7 @@ pub fn read_module<
             ParserState::MemorySectionEntry(memory_ty) => {
                 let mem_desc = MemoryDescriptor::new(
                     Pages(memory_ty.limits.initial),
-                    memory_ty.limits.maximum.map(|max| Pages(max)),
+                    memory_ty.limits.maximum.map(Pages),
                     memory_ty.shared,
                 )
                 .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
@@ -207,101 +245,125 @@ pub fn read_module<
             ParserState::StartSectionEntry(start_index) => {
                 info.write().unwrap().start_func = Some(FuncIndex::new(start_index as usize));
             }
-            ParserState::BeginFunctionBody { .. } => {
-                let id = func_count;
-                if !mcg_info_fed {
-                    mcg_info_fed = true;
-                    info.write().unwrap().namespace_table =
-                        namespace_builder.take().unwrap().finish();
-                    info.write().unwrap().name_table = name_builder.take().unwrap().finish();
-                    mcg.feed_signatures(info.read().unwrap().signatures.clone())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.feed_function_signatures(info.read().unwrap().func_assoc.clone())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.check_precondition(&info.read().unwrap())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+            ParserState::BeginFunctionBody { range } => {
+                if let Some(f) = feed_mcg_signatures.take() {
+                    f(mcg)?;
                 }
-
+                if let Some(f) = feed_mcg_info.take() {
+                    f(
+                        mcg,
+                        namespace_builder.take().unwrap(),
+                        name_builder.take().unwrap(),
+                    )?;
+                }
+                let id = func_count;
                 let fcg = mcg
-                    .next_function(Arc::clone(&info))
+                    .next_function(
+                        Arc::clone(&info),
+                        WasmSpan::new(range.start as u32, range.end as u32),
+                    )
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
 
+                {
+                    let info_read = info.read().unwrap();
+                    let sig = info_read
+                        .signatures
+                        .get(
+                            *info
+                                .read()
+                                .unwrap()
+                                .func_assoc
+                                .get(FuncIndex::new(
+                                    id as usize + info_read.imported_functions.len(),
+                                ))
+                                .unwrap(),
+                        )
+                        .unwrap();
+                    for ret in sig.returns() {
+                        fcg.feed_return(type_to_wp_type(*ret))
+                            .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    }
+                    for param in sig.params() {
+                        fcg.feed_param(type_to_wp_type(*param))
+                            .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                    }
+                }
+
                 let info_read = info.read().unwrap();
-                let sig = info_read
-                    .signatures
-                    .get(
-                        *info
-                            .read()
-                            .unwrap()
-                            .func_assoc
-                            .get(FuncIndex::new(
-                                id as usize + info.read().unwrap().imported_functions.len(),
-                            ))
-                            .unwrap(),
-                    )
-                    .unwrap();
-                for ret in sig.returns() {
-                    fcg.feed_return(type_to_wp_type(*ret))
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                }
-                for param in sig.params() {
-                    fcg.feed_param(type_to_wp_type(*param))
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                }
-
-                let mut body_begun = false;
-
+                let mut cur_pos = parser.current_position() as u32;
+                let mut state = parser.read();
+                // loop until the function body starts
                 loop {
-                    let state = parser.read();
                     match state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(*err)),
+                        ParserState::Error(err) => return Err(err.into()),
                         ParserState::FunctionBodyLocals { ref locals } => {
                             for &(count, ty) in locals.iter() {
-                                fcg.feed_local(ty, count as usize)
+                                fcg.feed_local(ty, count as usize, cur_pos)
                                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             }
                         }
-                        ParserState::CodeOperator(op) => {
-                            if !body_begun {
-                                body_begun = true;
-                                fcg.begin_body(&info.read().unwrap())
-                                    .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                                middlewares
-                                    .run(
-                                        Some(fcg),
-                                        Event::Internal(InternalEvent::FunctionBegin(id as u32)),
-                                        &info.read().unwrap(),
-                                    )
-                                    .map_err(|x| LoadError::Codegen(x))?;
-                            }
+                        ParserState::CodeOperator(_) => {
+                            // the body of the function has started
+                            fcg.begin_body(&info_read)
+                                .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                             middlewares
-                                .run(Some(fcg), Event::Wasm(op), &info.read().unwrap())
-                                .map_err(|x| LoadError::Codegen(x))?;
+                                .run(
+                                    Some(fcg),
+                                    Event::Internal(InternalEvent::FunctionBegin(id as u32)),
+                                    &info_read,
+                                    cur_pos,
+                                )
+                                .map_err(LoadError::Codegen)?;
+                            // go to other loop
+                            break;
                         }
                         ParserState::EndFunctionBody => break,
                         _ => unreachable!(),
                     }
+                    cur_pos = parser.current_position() as u32;
+                    state = parser.read();
+                }
+
+                // loop until the function body ends
+                loop {
+                    match state {
+                        ParserState::Error(err) => return Err(err.into()),
+                        ParserState::CodeOperator(op) => {
+                            middlewares
+                                .run(Some(fcg), Event::Wasm(op), &info_read, cur_pos)
+                                .map_err(LoadError::Codegen)?;
+                        }
+                        ParserState::EndFunctionBody => break,
+                        _ => unreachable!(),
+                    }
+                    cur_pos = parser.current_position() as u32;
+                    state = parser.read();
                 }
                 middlewares
                     .run(
                         Some(fcg),
                         Event::Internal(InternalEvent::FunctionEnd),
-                        &info.read().unwrap(),
+                        &info_read,
+                        cur_pos,
                     )
-                    .map_err(|x| LoadError::Codegen(x))?;
+                    .map_err(LoadError::Codegen)?;
+
                 fcg.finalize()
                     .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
                 func_count = func_count.wrapping_add(1);
             }
-            ParserState::BeginActiveElementSectionEntry(table_index) => {
-                let table_index = TableIndex::new(table_index as usize);
+            ParserState::BeginElementSectionEntry {
+                table: ElemSectionEntryTable::Active(table_index_raw),
+                ty: WpType::AnyFunc,
+            } => {
+                let table_index = TableIndex::new(table_index_raw as usize);
                 let mut elements: Option<Vec<FuncIndex>> = None;
                 let mut base: Option<Initializer> = None;
 
                 loop {
                     let state = parser.read();
                     match *state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                        ParserState::Error(ref err) => return Err(err.into()),
                         ParserState::InitExpressionOperator(ref op) => {
                             base = Some(eval_init_expr(op)?)
                         }
@@ -309,9 +371,11 @@ pub fn read_module<
                             elements = Some(
                                 _elements
                                     .iter()
-                                    .cloned()
-                                    .map(|index| FuncIndex::new(index as usize))
-                                    .collect(),
+                                    .map(|elem_idx| match elem_idx {
+                                        ElementItem::Null => Err(LoadError::Parse(format!("Error at table {}: null entries in tables are not yet supported", table_index_raw))),
+                                        ElementItem::Func(idx) => Ok(FuncIndex::new(*idx as usize)),
+                                    })
+                                    .collect::<Result<Vec<FuncIndex>, LoadError>>()?,
                             );
                         }
                         ParserState::BeginInitExpressionBody
@@ -329,6 +393,15 @@ pub fn read_module<
 
                 info.write().unwrap().elem_initializers.push(table_init);
             }
+            ParserState::BeginElementSectionEntry {
+                table: ElemSectionEntryTable::Active(table_index),
+                ty,
+            } => {
+                return Err(LoadError::Parse(format!(
+                    "Error at table {}: type \"{:?}\" is not supported in tables yet",
+                    table_index, ty
+                )));
+            }
             ParserState::BeginActiveDataSectionEntry(memory_index) => {
                 let memory_index = MemoryIndex::new(memory_index as usize);
                 let mut base: Option<Initializer> = None;
@@ -337,7 +410,7 @@ pub fn read_module<
                 loop {
                     let state = parser.read();
                     match *state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                        ParserState::Error(ref err) => return Err(err.into()),
                         ParserState::InitExpressionOperator(ref op) => {
                             base = Some(eval_init_expr(op)?)
                         }
@@ -364,7 +437,7 @@ pub fn read_module<
                 let init = loop {
                     let state = parser.read();
                     match *state {
-                        ParserState::Error(err) => return Err(LoadError::Parse(err)),
+                        ParserState::Error(ref err) => return Err(err.into()),
                         ParserState::InitExpressionOperator(ref op) => {
                             break eval_init_expr(op)?;
                         }
@@ -382,17 +455,15 @@ pub fn read_module<
                 info.write().unwrap().globals.push(global_init);
             }
             ParserState::EndWasm => {
-                // TODO Consolidate with BeginFunction body if possible
-                if !mcg_info_fed {
-                    info.write().unwrap().namespace_table =
-                        namespace_builder.take().unwrap().finish();
-                    info.write().unwrap().name_table = name_builder.take().unwrap().finish();
-                    mcg.feed_signatures(info.read().unwrap().signatures.clone())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.feed_function_signatures(info.read().unwrap().func_assoc.clone())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
-                    mcg.check_precondition(&info.read().unwrap())
-                        .map_err(|x| LoadError::Codegen(format!("{:?}", x)))?;
+                if let Some(f) = feed_mcg_signatures.take() {
+                    f(mcg)?;
+                }
+                if let Some(f) = feed_mcg_info.take() {
+                    f(
+                        mcg,
+                        namespace_builder.take().unwrap(),
+                        name_builder.take().unwrap(),
+                    )?;
                 }
                 break;
             }
@@ -403,7 +474,7 @@ pub fn read_module<
 }
 
 /// Convert given `WpType` to `Type`.
-pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
+pub fn wp_type_to_type(ty: WpType) -> Result<Type, LoadError> {
     match ty {
         WpType::I32 => Ok(Type::I32),
         WpType::I64 => Ok(Type::I64),
@@ -411,10 +482,9 @@ pub fn wp_type_to_type(ty: WpType) -> Result<Type, BinaryReaderError> {
         WpType::F64 => Ok(Type::F64),
         WpType::V128 => Ok(Type::V128),
         _ => {
-            return Err(BinaryReaderError {
-                message: "broken invariant, invalid type",
-                offset: -1isize as usize,
-            });
+            return Err(LoadError::Parse(
+                "broken invariant, invalid type".to_string(),
+            ));
         }
     }
 }
@@ -430,7 +500,7 @@ pub fn type_to_wp_type(ty: Type) -> WpType {
     }
 }
 
-fn func_type_to_func_sig(func_ty: &FuncType) -> Result<FuncSig, BinaryReaderError> {
+fn func_type_to_func_sig(func_ty: &FuncType) -> Result<FuncSig, LoadError> {
     assert_eq!(func_ty.form, WpType::Func);
 
     Ok(FuncSig::new(
@@ -449,9 +519,9 @@ fn func_type_to_func_sig(func_ty: &FuncType) -> Result<FuncSig, BinaryReaderErro
     ))
 }
 
-fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
+fn eval_init_expr(op: &Operator) -> Result<Initializer, LoadError> {
     Ok(match *op {
-        Operator::GetGlobal { global_index } => {
+        Operator::GlobalGet { global_index } => {
             Initializer::GetGlobal(ImportedGlobalIndex::new(global_index as usize))
         }
         Operator::I32Const { value } => Initializer::Const(Value::I32(value)),
@@ -466,10 +536,9 @@ fn eval_init_expr(op: &Operator) -> Result<Initializer, BinaryReaderError> {
             Initializer::Const(Value::V128(u128::from_le_bytes(*value.bytes())))
         }
         _ => {
-            return Err(BinaryReaderError {
-                message: "init expr evaluation failed: unsupported opcode",
-                offset: -1isize as usize,
-            });
+            return Err(LoadError::Parse(
+                "init expr evaluation failed: unsupported opcode".to_string(),
+            ));
         }
     })
 }

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.11.0"
+version = "0.16.2"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -12,14 +12,16 @@ edition = "2018"
 [dependencies]
 nix = "0.15"
 page_size = "0.4"
-wasmparser = "0.39.1"
-parking_lot = "0.9"
+wasmparser = "0.51.3"
+parking_lot = "0.10.0"
 lazy_static = "1.4"
 errno = "0.2"
-libc = "0.2.60"
-hex = "0.3"
-smallvec = "0.6"
+libc = "0.2.68"
+hex = "0.4"
+smallvec = "1"
 bincode = "1.1"
+wasm-debug = { optional = true, version = "0.2.0" }
+target-lexicon = "0.10"
 
 [dependencies.indexmap]
 version = "1.2"
@@ -36,8 +38,8 @@ version = "1.0"
 version = "0.11"
 [dependencies.serde-bench]
 version = "0.0.7"
-[dependencies.blake2b_simd]
-version = "0.5"
+[dependencies.blake3]
+version = "0.3.1"
 [dependencies.digest]
 version = "0.8"
 
@@ -45,15 +47,17 @@ version = "0.8"
 winapi = { version = "0.3", features = ["memoryapi"] }
 
 [build-dependencies]
-blake2b_simd = "0.5"
+blake3 = "0.3.1"
 rustc_version = "0.2"
 cc = "1.0"
 
 [features]
-debug = []
-trace = ["debug"]
-# backend flags used in conditional compilation of Backend::variants
-"backend-cranelift" = []
-"backend-singlepass" = []
-"backend-llvm" = []
 managed = []
+deterministic-execution = ["wasmparser/deterministic"]
+# generate debug information from Wasm DWARF for use with the GDB JIT interface
+generate-debug-information = ["wasm-debug"]
+# don't export symbols related to the GDB JIT interafce, LLVM or some other native
+# code will be providing them
+generate-debug-information-no-export-symbols = []
+# enable DynamicFunc's for closures with captured environment.
+dynamicfunc-fat-closures = []
