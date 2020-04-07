@@ -8,6 +8,8 @@
     unreachable_patterns
 )]
 use std::env;
+#[cfg(all(target_os = "linux", feature = "loader-kernel"))]
+use wasmer_bin::commands::Kernel;
 use wasmer_bin::commands::{Cache, Run, SelfUpdate, Validate};
 
 use structopt::{clap, StructOpt};
@@ -31,6 +33,11 @@ enum CLIOptions {
     /// Update wasmer to the latest version
     #[structopt(name = "self-update")]
     SelfUpdate,
+
+    /// The Wasm kernel loader
+    #[cfg(all(target_os = "linux", feature = "loader-kernel"))]
+    #[structopt(name = "self-update")]
+    Kernel(Kernel),
 }
 
 fn main() {
@@ -54,5 +61,7 @@ fn main() {
         CLIOptions::SelfUpdate => SelfUpdate::execute(),
         CLIOptions::Cache(cache) => cache.execute(),
         CLIOptions::Validate(validate) => validate.execute(),
+        #[cfg(all(target_os = "linux", feature = "loader-kernel"))]
+        CLIOptions::Kernel(kernel) => kernel.execute(),
     }
 }
