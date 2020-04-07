@@ -28,7 +28,7 @@ use time;
 use super::env;
 use wasmer_runtime_core::vm::Ctx;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 use libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};
 
 #[cfg(target_os = "freebsd")]
