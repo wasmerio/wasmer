@@ -122,10 +122,11 @@ pub fn compile_with_config(
     compiler_config: backend::CompilerConfig,
 ) -> CompileResult<module::Module> {
     let token = backend::Token::generate();
+    let read_custom_sections = compiler_config.read_custom_sections;
     compiler
         .compile(wasm, compiler_config, token)
         .map(|mut inner| {
-            if compiler_config.read_custom_sections {
+            if read_custom_sections {
                 let inner_info: &mut crate::module::ModuleInfo = &mut inner.info;
                 inner_info.import_custom_sections(wasm).unwrap();
             }
