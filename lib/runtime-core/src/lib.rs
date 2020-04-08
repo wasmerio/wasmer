@@ -111,14 +111,7 @@ pub fn compile_with(
     wasm: &[u8],
     compiler: &dyn backend::Compiler,
 ) -> CompileResult<module::Module> {
-    let token = backend::Token::generate();
-    compiler
-        .compile(wasm, Default::default(), token)
-        .map(|mut inner| {
-            let inner_info: &mut crate::module::ModuleInfo = &mut inner.info;
-            inner_info.import_custom_sections(wasm).unwrap();
-            module::Module::new(Arc::new(inner))
-        })
+    compile_with_config(wasm, compiler, Default::default())
 }
 
 /// The same as `compile_with` but changes the compiler behavior
@@ -131,7 +124,13 @@ pub fn compile_with_config(
     let token = backend::Token::generate();
     compiler
         .compile(wasm, compiler_config, token)
-        .map(|inner| module::Module::new(Arc::new(inner)))
+        .map(|mut inner| {
+            if compiler_config.read_custom_sections {
+                let inner_info: &mut crate::module::ModuleInfo = &mut inner.info;
+                inner_info.import_custom_sections(wasm).unwrap();
+            }
+            module::Module::new(Arc::new(inner))
+        })
 }
 
 /// Perform validation as defined by the

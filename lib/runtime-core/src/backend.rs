@@ -143,6 +143,11 @@ pub struct CompilerConfig {
     /// These verifications are disabled by default in 'release' builds.
     pub enable_verification: bool,
 
+    /// Should we automatically attach the custom sections to the Module?
+    ///
+    /// It's off by default as it takes more cpu and memory to read and store the sections.
+    pub read_custom_sections: bool,
+
     pub features: Features,
 
     // Target info. Presently only supported by LLVM.
@@ -164,6 +169,7 @@ impl Default for CompilerConfig {
             track_state: Default::default(),
             full_preemption: Default::default(),
             nan_canonicalization: Default::default(),
+            read_custom_sections: Default::default(),
             features: Default::default(),
             triple: Default::default(),
             cpu_name: Default::default(),

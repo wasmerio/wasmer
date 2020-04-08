@@ -47,7 +47,10 @@ fn append_custom_section(
     wasm.extend(custom_section_contents);
 }
 
+// TODO: Re-enable this test once we have a way to put custom
+// configuration using the `wasmer` crate.
 #[test]
+#[ignore]
 fn custom_section_parsing_works() {
     use wasmer::{CompiledModule, Module};
     let wasm = {
