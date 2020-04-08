@@ -332,7 +332,9 @@ async fn download_llvm_binary(download_path: &PathBuf) -> io::Result<()> {
     let url = llvm_url();
     println!("Downloading LLVM from: {}", url);
     let mut resp = isahc::get(&url)
-        .expect("Failed to connect to the llvm server").copy_to_file(&download_path).expect("can't copy to file");
+        .expect("Failed to connect to the llvm server")
+        .copy_to_file(&download_path)
+        .expect("can't copy to file");
 
     if !verify_sha256sum(download_path) {
         fs::remove_file(download_path).expect("Can't remove file");
