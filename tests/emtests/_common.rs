@@ -37,7 +37,7 @@ macro_rules! assert_emscripten_output {
             EmscriptenGlobals,
             generate_emscripten_env,
         };
-        use wasmer_dev_utils::stdio::StdioCapturer;
+        use crate::dev_utils::stdio::StdioCapturer;
 
         let wasm_bytes = include_bytes!($file);
         let backend = $crate::emtests::_common::get_backend().expect("Please set one of `WASMER_TEST_CRANELIFT`, `WASMER_TEST_LLVM`, or `WASMER_TEST_SINGELPASS` to `1`.");
