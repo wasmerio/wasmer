@@ -393,10 +393,10 @@ pub unsafe extern "C" fn wasmer_instance_exports(
     let instance_ref = &mut *(instance as *mut Instance);
     let mut exports_vec: Vec<NamedExport> = Vec::with_capacity(instance_ref.exports().count());
 
-    for (name, export) in instance_ref.exports() {
+    for export_descriptor in instance_ref.module.exports().into_iter() {
         exports_vec.push(NamedExport {
-            name: name.clone(),
-            export: export.clone(),
+            name: export_descriptor.name.to_string(),
+            extern_descriptor: export_descriptor.ty,
             instance: instance as *mut Instance,
         });
     }
