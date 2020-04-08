@@ -33,6 +33,9 @@ nix = "0.15"
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["memoryapi"] }
 
+[patch.crates-io]
+curl = { version = "0.4.28", features = ["static-curl", "static-ssl"]}
+
 [build-dependencies]
 cc = "1.0"
 lazy_static = "1.4"

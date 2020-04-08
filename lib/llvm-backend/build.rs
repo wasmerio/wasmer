@@ -392,7 +392,13 @@ fn install_llvm() {
 
     println!("Installing LLVM to {:?}", full_llvm_path);
 
-    if full_llvm_path.exists() {
+    // Sometimes the LLVM path exists, but it have the content empty
+    // so we check directly for the llvm-config bin
+    let mut llvm_config_path: PathBuf = full_llvm_path.clone().into();
+    llvm_config_path.push("bin");
+    llvm_config_path.push("llvm-config");
+
+    if llvm_config_path.exists() {
         println!("LLVM already installed at {:?}", full_llvm_path);
         set_env_llvm_prefix_to_user_installed_llvm();
         return;
