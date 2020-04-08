@@ -59,13 +59,13 @@ thread_local! {
 
 #[derive(Default)]
 struct AsyncState {
-    callback: Option<Box<FnOnce()>>,
+    callback: Option<Box<dyn FnOnce()>>,
     _epoll: Option<Arc<Epoll>>,
 }
 
 pub struct Epoll {
     fd: i32,
-    imm_queue: Mutex<Vec<Box<FnOnce()>>>,
+    imm_queue: Mutex<Vec<Box<dyn FnOnce()>>>,
 }
 
 impl Epoll {
@@ -163,7 +163,7 @@ fn get_async_io_payload<
     direction: EpollDirection,
     poll_action: P,
     on_ready: F,
-) -> Box<FnOnce()> {
+) -> Box<dyn FnOnce()> {
     __get_async_io_payload(epoll, fd, direction, poll_action, on_ready, false)
 }
 
@@ -178,7 +178,7 @@ fn __get_async_io_payload<
     mut poll_action: P,
     on_ready: F,
     registered: bool,
-) -> Box<FnOnce()> {
+) -> Box<dyn FnOnce()> {
     let epfd = epoll.fd;
     Box::new(move || {
         //println!("async io payload");
@@ -230,7 +230,7 @@ struct SockaddrIn {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Default, Copy, Clone)]
 struct InAddr {
     s_addr: u32,
 }
