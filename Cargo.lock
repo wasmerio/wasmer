@@ -2753,6 +2753,7 @@ dependencies = [
  "generate-emscripten-tests",
  "generate-wasi-tests",
  "glob 0.3.0",
+ "libc",
  "log",
  "rustc_version",
  "serde",
@@ -2761,7 +2762,6 @@ dependencies = [
  "wabt",
  "wasmer",
  "wasmer-clif-backend",
- "wasmer-dev-utils",
  "wasmer-emscripten",
  "wasmer-kernel-loader",
  "wasmer-llvm-backend",
@@ -2822,13 +2822,6 @@ dependencies = [
  "thiserror",
  "wasmer-clif-fork-frontend",
  "wasmparser",
-]
-
-[[package]]
-name = "wasmer-dev-utils"
-version = "0.16.2"
-dependencies = [
- "libc",
 ]
 
 [[package]]

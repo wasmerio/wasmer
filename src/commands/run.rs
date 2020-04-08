@@ -1,9 +1,11 @@
 use crate::common::{get_cache_dir, PrestandardFeatures};
 use crate::utils::read_file_contents;
 use std::collections::HashMap;
-use std::fs::read_to_string;
-use std::fs::File;
-use std::io::{Read, Write};
+use std::fs;
+#[cfg(feature = "managed")]
+use std::io::Read;
+#[cfg(any(feature = "backend-llvm", feature = "managed"))]
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
@@ -363,7 +365,7 @@ fn execute_wasi(
                 module.info(),
                 &_wasm_binary,
                 if let Some(ref path) = options.resume {
-                    let mut f = File::open(path).unwrap();
+                    let mut f = fs::File::open(path).unwrap();
                     let mut out: Vec<u8> = vec![];
                     f.read_to_end(&mut out).unwrap();
                     wasmer_runtime_core::state::InstanceImage::from_bytes(&out)
@@ -461,7 +463,7 @@ impl LLVMCallbacks for LLVMCLIOptions {
     fn obj_memory_buffer_callback(&mut self, memory_buffer: &InkwellMemoryBuffer) {
         if let Some(filename) = &self.obj_file {
             let mem_buf_slice = memory_buffer.as_slice();
-            let mut file = File::create(filename).unwrap();
+            let mut file = fs::File::create(filename).unwrap();
             let mut pos = 0;
             while pos < mem_buf_slice.len() {
                 pos += file.write(&mem_buf_slice[pos..]).unwrap();
@@ -493,7 +495,7 @@ fn execute_wasm(options: &Run) -> Result<(), String> {
     })?;
 
     let em_symbol_map = if let Some(em_symbol_map_path) = options.em_symbol_map.clone() {
-        let em_symbol_map_content: String = read_to_string(&em_symbol_map_path)
+        let em_symbol_map_content: String = fs::read_to_string(&em_symbol_map_path)
             .map_err(|err| {
                 format!(
                     "Can't read symbol map file {}: {}",
@@ -860,7 +862,7 @@ fn interactive_shell(mut ctx: InteractiveShellContext) -> ShellExitOperation {
 
                 if let Some(ref image) = ctx.image {
                     let buf = image.to_bytes();
-                    let mut f = match File::create(path) {
+                    let mut f = match fs::File::create(path) {
                         Ok(x) => x,
                         Err(e) => {
                             println!("Cannot open output file at {}: {:?}", path, e);

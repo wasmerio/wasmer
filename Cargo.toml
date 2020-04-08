@@ -37,7 +37,6 @@ wasmer-emscripten = { path = "lib/emscripten" }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
-wasmer-dev-utils = { path = "lib/dev-utils", optional = true }
 wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
 
 [workspace]
@@ -55,7 +54,6 @@ members = [
     "lib/middleware-common",
     "lib/kernel-loader",
     "lib/kernel-net",
-    "lib/dev-utils",
     "lib/wasi-experimental-io-devices",
     "lib/interface-types",
     "examples/parallel",
@@ -75,10 +73,10 @@ rustc_version = "0.2"
 [dev-dependencies]
 criterion = "0.3"
 glob = "0.3"
+libc = "0.2.60" # for `tests/dev-utils`'s Stdout capturing
 serde = { version = "1", features = ["derive"] } # used by the plugin example
 typetag = "0.1" # used by the plugin example
 wabt = "0.9.1"
-wasmer-dev-utils = { path = "lib/dev-utils" }
 
 [features]
 default = ["fast-tests", "wasi", "backend-cranelift", "wabt"]

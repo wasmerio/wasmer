@@ -32,7 +32,7 @@ pub fn get_backend() -> Option<Backend> {
 
 macro_rules! assert_wasi_output {
     ($file:expr, $name:expr, $po_dir_args: expr, $mapdir_args:expr, $envvar_args:expr, $expected:expr) => {{
-        use wasmer_dev_utils::stdio::StdioCapturer;
+        use crate::dev_utils::stdio::StdioCapturer;
         use wasmer_runtime::Func;
         use wasmer_wasi::{generate_import_object_for_version, get_wasi_version};
 
