@@ -156,7 +156,6 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 capi-test: test-capi
 
 test-rest:
-	cargo test --release -p wasmer-dev-utils
 	cargo test --release -p wasmer-interface-types
 	cargo test --release -p wasmer-kernel-loader
 	cargo test --release -p kernel-net
@@ -210,7 +209,7 @@ check-bench: check-bench-singlepass check-bench-llvm
 
 # TODO: We wanted `--workspace --exclude wasmer-runtime`, but can't due
 # to https://github.com/rust-lang/cargo/issues/6745 .
-NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-dev-utils -p wasmer-interface-types
+NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-interface-types
 RUNTIME_CHECK = cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features
 check: check-bench
 	cargo check $(NOT_RUNTIME_CRATES)
@@ -348,7 +347,7 @@ publish-release:
 # cargo install cargo-deps
 # must install graphviz for `dot`
 dep-graph:
-	cargo deps --optional-deps --filter wasmer-wasi wasmer-kernel-loader wasmer-dev-utils wasmer-llvm-backend wasmer-emscripten wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
+	cargo deps --optional-deps --filter wasmer-wasi wasmer-kernel-loader wasmer-llvm-backend wasmer-emscripten wasmer-runtime-core wasmer-runtime wasmer-middleware-common wasmer-singlepass-backend wasmer-clif-backend wasmer --manifest-path Cargo.toml | dot -Tpng > wasmer_depgraph.png
 
 docs-capi:
 	cd lib/runtime-c-api/ && doxygen doxyfile
