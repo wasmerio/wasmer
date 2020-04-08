@@ -911,9 +911,9 @@
                 <span class="ident">outputs</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Type</span>::<span class="ident">Record</span>(<span class="ident">RecordType</span> { <span class="ident">fields</span> }) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Type</span>::<span class="ident">Record</span>(<span class="ident">record_type</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">TypeKind</span>::<span class="ident">Record</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                <span class="ident">fields</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
+                <span class="ident">record_type</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
             }
         }
 
