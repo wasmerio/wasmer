@@ -88,5 +88,7 @@ Here is the instructions that are implemented by this crate:
 | `string.lift_memory` | ✅ | ✅ | ✅ | `#memidx` is not supported; `#encoding` is not supported but UTF-8 is assumed |
 | `string.lower_memory` | ✅ | ✅ | ✅ | `#memidx` is not supported; `#encoding` is not supported but UTF-8 is assumed |
 | `string.size` | ✅ | ✅ | ✅ | `#encoding` is not supported but UTF-8 is assumed |
+| `record.lift` | ✅ | ✅ | ✅ | |
+| `record.lower` | ✅ | ✅ | ✅ | |
 | `call-adapter` | ❌ | ❌ | ❌ | |
 | `defer-call-core` | ❌ | ❌ | ❌ | |
