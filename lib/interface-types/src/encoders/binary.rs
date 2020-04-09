@@ -1,6 +1,6 @@
 //! Writes the AST into bytes representing WIT with its binary format.
 
-use crate::{ast::*, interpreter::Instruction};
+use crate::{ast::*, interpreter::Instruction, types::*};
 use std::io::{self, Write};
 
 /// A trait for converting a value to bytes.

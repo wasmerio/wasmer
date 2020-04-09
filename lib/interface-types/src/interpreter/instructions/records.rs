@@ -1,5 +1,5 @@
 use crate::{
-    ast::{InterfaceType, RecordType, Type, TypeKind},
+    ast::{Type, TypeKind},
     errors::{InstructionError, InstructionErrorKind},
     interpreter::wasm::values::FlattenInterfaceValueIterator,
     interpreter::{
@@ -7,6 +7,7 @@ use crate::{
         wasm::values::InterfaceValue,
         Instruction,
     },
+    types::{InterfaceType, RecordType},
 };
 use std::collections::VecDeque;
 
@@ -139,7 +140,7 @@ executable_instruction!(
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::{RecordType, Type};
+    use super::*;
 
     test_executable_instruction!(
         test_record_lift =

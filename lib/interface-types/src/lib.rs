@@ -51,6 +51,7 @@
 #![doc(html_logo_url = "https://github.com/wasmerio.png")]
 
 pub mod ast;
+pub mod types;
 #[macro_use]
 mod macros;
 pub mod decoders;

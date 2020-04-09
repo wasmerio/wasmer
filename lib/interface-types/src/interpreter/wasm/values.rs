@@ -1,6 +1,6 @@
 //! Defines WIT values and associated operations.
 
-pub use crate::ast::{InterfaceType, RecordType};
+pub use crate::types::{InterfaceType, RecordType};
 use crate::{errors::WasmValueNativeCastError, vec1::Vec1};
 use std::{convert::TryFrom, slice::Iter};
 

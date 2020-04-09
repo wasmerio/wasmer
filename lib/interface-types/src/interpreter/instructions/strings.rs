@@ -1,8 +1,8 @@
 use super::to_native;
 use crate::{
-    ast::InterfaceType,
     errors::{InstructionError, InstructionErrorKind},
     interpreter::{wasm::values::InterfaceValue, Instruction},
+    types::InterfaceType,
 };
 use std::{cell::Cell, convert::TryInto};
 

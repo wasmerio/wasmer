@@ -1,8 +1,8 @@
 //! Provides a deserializer from WIT values to Rust value.
 
 use crate::{
-    ast::InterfaceType,
     interpreter::wasm::values::{FlattenInterfaceValueIterator, InterfaceValue},
+    types::InterfaceType,
 };
 use serde::{de, Deserialize};
 use std::{

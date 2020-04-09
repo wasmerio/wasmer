@@ -1,6 +1,6 @@
 //! Parse the WIT textual representation into an [AST](crate::ast).
 
-use crate::{ast::*, interpreter::Instruction, vec1::Vec1};
+use crate::{ast::*, interpreter::Instruction, types::*, vec1::Vec1};
 pub use wast::parser::ParseBuffer as Buffer;
 use wast::parser::{self, Cursor, Parse, Parser, Peek, Result};
 
@@ -590,9 +590,10 @@ impl<'a> Parse<'a> for Interfaces<'a> {
 ///
 /// ```rust
 /// use wasmer_interface_types::{
-///     ast::*,
+///     ast::{Adapter, Export, Implementation, Import, Interfaces, Type},
 ///     decoders::wat::{parse, Buffer},
 ///     interpreter::Instruction,
+///     types::InterfaceType,
 /// };
 ///
 /// let input = Buffer::new(

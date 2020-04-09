@@ -1,5 +1,5 @@
 use wasmer_interface_types::{
-    ast::*, decoders::binary::parse, encoders::binary::ToBytes, interpreter::Instruction,
+    ast::*, decoders::binary::parse, encoders::binary::ToBytes, interpreter::Instruction, types::*,
     vec1::Vec1,
 };
 
