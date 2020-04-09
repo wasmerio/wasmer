@@ -93,17 +93,17 @@ mod tests {
 
     fn get_compilers_to_test() -> Vec<&'static str> {
         let mut out = vec![];
-        if let Ok(v) = env::var("SPECTEST_TEST_CRANELIFT") {
+        if let Ok(v) = env::var("WASMER_TEST_CRANELIFT") {
             if v == "1" {
                 out.push("clif");
             }
         }
-        if let Ok(v) = env::var("SPECTEST_TEST_LLVM") {
+        if let Ok(v) = env::var("WASMER_TEST_LLVM") {
             if v == "1" {
                 out.push("llvm");
             }
         }
-        if let Ok(v) = env::var("SPECTEST_TEST_SINGLEPASS") {
+        if let Ok(v) = env::var("WASMER_TEST_SINGLEPASS") {
             if v == "1" {
                 out.push("singlepass");
             }
