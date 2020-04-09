@@ -309,9 +309,7 @@ impl<'a> Parse<'a> for Instruction {
         } else if lookahead.peek::<keyword::string_lower_memory>() {
             parser.parse::<keyword::string_lower_memory>()?;
 
-            Ok(Instruction::StringLowerMemory {
-                allocator_index: parser.parse()?,
-            })
+            Ok(Instruction::StringLowerMemory)
         } else if lookahead.peek::<keyword::string_size>() {
             parser.parse::<keyword::string_size>()?;
 
@@ -770,7 +768,7 @@ mod tests {
             "i64.from_u32",
             "i64.from_u64",
             "string.lift_memory",
-            "string.lower_memory 42",
+            "string.lower_memory",
             "string.size",
             "record.lift 42",
             "record.lower 42",
@@ -811,9 +809,7 @@ mod tests {
             Instruction::I64FromU32,
             Instruction::I64FromU64,
             Instruction::StringLiftMemory,
-            Instruction::StringLowerMemory {
-                allocator_index: 42,
-            },
+            Instruction::StringLowerMemory,
             Instruction::StringSize,
             Instruction::RecordLift { type_index: 42 },
             Instruction::RecordLower { type_index: 42 },

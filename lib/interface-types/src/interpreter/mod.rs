@@ -230,9 +230,7 @@ where
                 Instruction::I64FromU64 => instructions::i64_from_u64(*instruction),
 
                 Instruction::StringLiftMemory => instructions::string_lift_memory(*instruction),
-                Instruction::StringLowerMemory { allocator_index } => {
-                    instructions::string_lower_memory(*allocator_index, *instruction)
-                }
+                Instruction::StringLowerMemory => instructions::string_lower_memory(*instruction),
                 Instruction::StringSize => instructions::string_size(*instruction),
 
                 Instruction::RecordLift { type_index } => {
