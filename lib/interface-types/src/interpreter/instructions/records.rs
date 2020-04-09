@@ -172,11 +172,14 @@ mod tests {
     #[test]
     #[allow(non_snake_case, unused)]
     fn test_record_lift__to_rust_struct() {
-        use crate::interpreter::{
-            instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
-            stack::Stackable,
-            wasm::values::{from_interface_values, InterfaceType, InterfaceValue},
-            Instruction, Interpreter,
+        use crate::{
+            interpreter::{
+                instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
+                stack::Stackable,
+                wasm::values::{from_interface_values, InterfaceValue},
+                Instruction, Interpreter,
+            },
+            types::InterfaceType,
         };
         use serde::Deserialize;
         use std::{cell::Cell, collections::HashMap, convert::TryInto};
