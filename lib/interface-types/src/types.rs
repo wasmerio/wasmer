@@ -55,5 +55,7 @@ pub enum InterfaceType {
 #[derive(PartialEq, Debug, Clone)]
 pub struct RecordType {
     /// Types representing the fields.
+    /// A record must have at least one field, hence the
+    /// [`Vec1`][crate::vec1::Vec1].
     pub fields: Vec1<InterfaceType>,
 }

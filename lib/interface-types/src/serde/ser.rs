@@ -1,6 +1,6 @@
 //! Provides a serializer from Rust value to WIT values.
 
-use crate::values::InterfaceValue;
+use crate::{values::InterfaceValue, vec1::Vec1};
 use serde::{ser, Serialize};
 use std::fmt::{self, Display};
 
@@ -13,9 +13,9 @@ use std::fmt::{self, Display};
 /// # Example
 ///
 /// ```rust
-/// use wasmer_interface_types::values::{
-///     InterfaceValue,
-///     to_interface_value,
+/// use wasmer_interface_types::{
+///     values::{InterfaceValue, to_interface_value},
+///     vec1::Vec1,
 /// };
 /// use serde::Serialize;
 ///
@@ -37,11 +37,11 @@ use std::fmt::{self, Display};
 ///
 /// assert_eq!(
 ///     to_interface_value(&input).unwrap(),
-///     InterfaceValue::Record(vec![
+///     InterfaceValue::Record(Vec1::new(vec![
 ///         InterfaceValue::String("abc".to_string()),
-///         InterfaceValue::Record(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]),
+///         InterfaceValue::Record(Vec1::new(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]).unwrap()),
 ///         InterfaceValue::F32(3.),
-///     ]),
+///     ]).unwrap()),
 /// );
 /// ```
 pub fn to_interface_value<T>(value: &T) -> Result<InterfaceValue, SerializeError>
@@ -107,6 +107,9 @@ pub enum SerializeError {
     /// serialization.
     InternalValuesCorrupted,
 
+    /// A record must contain at least one field.
+    RecordNeedsAtLeastOneField,
+
     /// Arbitrary message.
     Message(String),
 }
@@ -127,6 +130,10 @@ impl Display for SerializeError {
             Self::InternalValuesCorrupted => write!(
                 formatter,
                 "the internal values have been corrutped during the serialization"
+            ),
+            Self::RecordNeedsAtLeastOneField => write!(
+                formatter,
+                "a record must contain at least one field, zero given"
             ),
             Self::Message(ref msg) => write!(formatter, "{}", msg),
         }
@@ -374,7 +381,9 @@ impl<'a> ser::SerializeTupleStruct for &'a mut Serializer {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        let record = InterfaceValue::Record(self.pop()?);
+        let record = InterfaceValue::Record(
+            Vec1::new(self.pop()?).map_err(|_| Self::Error::RecordNeedsAtLeastOneField)?,
+        );
         self.last().push(record);
 
         Ok(())
@@ -432,7 +441,9 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        let record = InterfaceValue::Record(self.pop()?);
+        let record = InterfaceValue::Record(
+            Vec1::new(self.pop()?).map_err(|_| Self::Error::RecordNeedsAtLeastOneField)?,
+        );
         self.last().push(record);
 
         Ok(())
@@ -512,7 +523,7 @@ mod tests {
         struct S(i8, f32);
 
         let input = S(7, 42.);
-        let output = InterfaceValue::Record(vec![InterfaceValue::S8(7), InterfaceValue::F32(42.)]);
+        let output = InterfaceValue::Record(vec1![InterfaceValue::S8(7), InterfaceValue::F32(42.)]);
 
         assert_eq!(to_interface_value(&input).unwrap(), output);
     }
@@ -527,7 +538,7 @@ mod tests {
         }
 
         let input = S { x: 7, y: 42. };
-        let output = InterfaceValue::Record(vec![InterfaceValue::S8(7), InterfaceValue::F32(42.)]);
+        let output = InterfaceValue::Record(vec1![InterfaceValue::S8(7), InterfaceValue::F32(42.)]);
 
         assert_eq!(to_interface_value(&input).unwrap(), output);
     }
@@ -552,13 +563,13 @@ mod tests {
             p1: Point { x: 1, y: 2, z: 3 },
             p2: Point { x: 4, y: 5, z: 6 },
         };
-        let output = InterfaceValue::Record(vec![
-            InterfaceValue::Record(vec![
+        let output = InterfaceValue::Record(vec1![
+            InterfaceValue::Record(vec1![
                 InterfaceValue::I32(1),
                 InterfaceValue::I32(2),
                 InterfaceValue::I32(3),
             ]),
-            InterfaceValue::Record(vec![
+            InterfaceValue::Record(vec1![
                 InterfaceValue::I32(4),
                 InterfaceValue::I32(5),
                 InterfaceValue::I32(6),
