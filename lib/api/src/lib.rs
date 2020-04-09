@@ -58,7 +58,7 @@ pub mod memory {
 }
 
 pub mod wasm {
-    //! Various types exposed by the Wasmer Runtime.
+    //! Various types exposed by the Wasmer Runtime relating to Wasm.
     //!
     //! TODO: Add index with links to sub sections
     //!
@@ -66,15 +66,25 @@ pub mod wasm {
     //!
     //! # Tables
     pub use wasmer_runtime_core::global::Global;
+    pub use wasmer_runtime_core::instance::{DynFunc, Instance};
+    pub use wasmer_runtime_core::memory::Memory;
     pub use wasmer_runtime_core::table::Table;
     pub use wasmer_runtime_core::types::{ExportDescriptor, ExternDescriptor, ImportDescriptor};
     pub use wasmer_runtime_core::types::{
         FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value,
     };
+    pub use wasmer_runtime_core::Func;
 }
 
+pub mod vm {
+    //! Various types exposed by the Wasmer Runtime relating to the VM.
+    pub use wasmer_runtime_core::vm::Ctx;
+}
+
+// TODO: `import` or `imports`?
 pub mod import {
     //! Types and functions for Wasm imports.
+    pub use wasmer_runtime_core::import::{ImportObject, LikeNamespace, Namespace};
     pub use wasmer_runtime_core::types::{ExternDescriptor, ImportDescriptor};
     pub use wasmer_runtime_core::{func, imports};
 }
@@ -99,7 +109,11 @@ pub mod types {
 
 pub mod error {
     //! Various error types returned by Wasmer APIs.
-    pub use wasmer_runtime_core::error::{CompileError, CompileResult};
+    pub use wasmer_runtime_core::backend::ExceptionCode;
+    pub use wasmer_runtime_core::error::{
+        CallError, CompileError, CompileResult, CreationError, Error, LinkError, ResolveError,
+        RuntimeError,
+    };
 
     #[derive(Debug)]
     pub enum CompileFromFileError {

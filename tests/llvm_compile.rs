@@ -17,8 +17,9 @@ pub fn get_compiler() -> impl Compiler {
     LLVMCompiler::new()
 }
 
+use wasmer::imports;
 use wasmer_llvm_backend::{InkwellModule, LLVMBackendConfig, LLVMCallbacks};
-use wasmer_runtime::{imports, CompilerConfig};
+use wasmer_runtime::CompilerConfig;
 use wasmer_runtime_core::{backend::BackendCompilerConfig, compile_with, compile_with_config};
 
 use std::cell::RefCell;

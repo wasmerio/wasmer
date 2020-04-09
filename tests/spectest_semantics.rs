@@ -1,10 +1,8 @@
 #[cfg(test)]
 mod tests {
     use wabt::wat2wasm;
-    use wasmer_runtime::{
-        error::{CallError, RuntimeError},
-        ExceptionCode, ImportObject,
-    };
+    use wasmer::error::{CallError, ExceptionCode, RuntimeError};
+    use wasmer::import::ImportObject;
 
     // The semantics of stack overflow are documented at:
     // https://webassembly.org/docs/semantics/#stack-overflow

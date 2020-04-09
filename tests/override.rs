@@ -1,5 +1,10 @@
 use wabt::wat2wasm;
-use wasmer_runtime::{compile, DynFunc, ImportObject, Instance, Value};
+use wasmer::{
+    import::ImportObject,
+    wasm::{Instance, Value},
+    DynFunc,
+};
+use wasmer_runtime::compile;
 
 #[test]
 fn override_works() {

@@ -2,7 +2,8 @@ mod runtime_core_tests;
 
 pub mod runtime_core_exception_handling {
     use super::runtime_core_tests::{get_compiler, wat2wasm};
-    use wasmer_runtime_core::{compile_with, imports};
+    use wasmer::imports;
+    use wasmer_runtime_core::compile_with;
 
     #[test]
     fn exception_handling_works() {
