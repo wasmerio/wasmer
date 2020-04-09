@@ -2,6 +2,7 @@
 mod tests {
     use wabt::wat2wasm;
 
+    use wasmer::compiler::{compile_with, Compiler};
     use wasmer::imports;
     use wasmer::wasm::Func;
     use wasmer_middleware_common::metering::*;
@@ -9,7 +10,6 @@ mod tests {
     use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
     use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
     use wasmer_runtime_core::state::CodeVersion;
-    use wasmer_runtime_core::{backend::Compiler, compile_with};
 
     #[cfg(feature = "backend-llvm")]
     use wasmer_llvm_backend::ModuleCodeGenerator as MCG;

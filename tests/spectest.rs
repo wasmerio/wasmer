@@ -272,6 +272,7 @@ mod tests {
     use std::str::FromStr;
     use wabt::script::{Action, Command, CommandKind, ScriptParser, Value};
     use wasmer::{
+        compiler::{compile_with_config_with, compiler_for_backend, Backend, CompilerConfig},
         error::CompileError,
         func,
         import::{ImportObject, LikeNamespace},
@@ -281,9 +282,7 @@ mod tests {
         vm::Ctx,
         wasm::{self, Global, Instance, Memory, MemoryDescriptor, Table, TableDescriptor},
     };
-    use wasmer_runtime::{
-        compile_with_config_with, compiler_for_backend, Backend, CompilerConfig, Export, Features,
-    };
+    use wasmer_runtime::{Export, Features};
 
     fn format_panic(e: &dyn std::any::Any) -> String {
         if let Some(s) = e.downcast_ref::<&str>() {

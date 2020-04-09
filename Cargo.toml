@@ -91,15 +91,18 @@ backend-cranelift = [
     "wasmer-clif-backend/generate-debug-information",
     "wasmer-runtime-core/generate-debug-information",
     "wasmer-runtime/cranelift",
+    "wasmer/cranelift",
 ]
 backend-llvm = [
     "wasmer-llvm-backend",
     "wasmer-runtime/llvm",
-    "wasmer-runtime-core/generate-debug-information-no-export-symbols"
+    "wasmer-runtime-core/generate-debug-information-no-export-symbols",
+    "wasmer/llvm",
 ]
 backend-singlepass = [
     "wasmer-singlepass-backend",
     "wasmer-runtime/singlepass",
+    "wasmer/singlepass",
 ]
 wasi = ["wasmer-wasi"]
 experimental-io-devices = ["wasmer-wasi-experimental-io-devices"]

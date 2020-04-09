@@ -19,7 +19,7 @@ mod tests {
       (elem (;0;) (i32.const 0) 0))
     "#;
         let wasm_binary = wat2wasm(module_str.as_bytes()).expect("WAST not valid or malformed");
-        let module = wasmer_runtime::compile(&wasm_binary[..]).expect("WASM can't be compiled");
+        let module = wasmer::compiler::compile(&wasm_binary[..]).expect("WASM can't be compiled");
         let instance = module
             .instantiate(&ImportObject::new())
             .expect("WASM can't be instantiated");

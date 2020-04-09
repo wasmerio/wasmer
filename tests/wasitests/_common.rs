@@ -1,5 +1,5 @@
 use std::env;
-use wasmer_runtime::Backend;
+use wasmer::compiler::Backend;
 
 pub fn get_backend() -> Option<Backend> {
     #[cfg(feature = "backend-cranelift")]
@@ -38,9 +38,9 @@ macro_rules! assert_wasi_output {
 
         let wasm_bytes = include_bytes!($file);
         let backend = $crate::wasitests::_common::get_backend().expect("Please set one of `WASMER_TEST_CRANELIFT`, `WASMER_TEST_LLVM`, or `WASMER_TEST_SINGELPASS` to `1`.");
-        let compiler = wasmer_runtime::compiler_for_backend(backend).expect("The desired compiler was not found!");
+        let compiler = wasmer::compiler::compiler_for_backend(backend).expect("The desired compiler was not found!");
 
-        let module = wasmer_runtime::compile_with_config_with(&wasm_bytes[..], Default::default(), &*compiler).expect("WASM can't be compiled");
+        let module = wasmer::compiler::compile_with_config_with(&wasm_bytes[..], Default::default(), &*compiler).expect("WASM can't be compiled");
 
         let wasi_version = get_wasi_version(&module, true).expect("WASI module");
 

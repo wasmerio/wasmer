@@ -1,6 +1,5 @@
 #![cfg(test)]
-use wasmer::{vm::Ctx, Func};
-use wasmer_runtime::compile;
+use wasmer::{compiler::compile, vm::Ctx, Func};
 use wasmer_wasi::{state::*, *};
 
 use std::ffi::c_void;

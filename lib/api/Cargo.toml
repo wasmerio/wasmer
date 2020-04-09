@@ -10,6 +10,7 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
 wasmer-runtime-core = { version = "0.16.2", path = "../runtime-core" }
 
 [dependencies.wasmer-singlepass-backend]
