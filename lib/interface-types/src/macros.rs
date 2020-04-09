@@ -100,10 +100,10 @@ macro_rules! test_executable_instruction {
                 interpreter::{
                     instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
                     stack::Stackable,
-                    wasm::values::InterfaceValue,
                     Instruction, Interpreter,
                 },
                 types::InterfaceType,
+                values::InterfaceValue,
             };
             use std::{cell::Cell, collections::HashMap, convert::TryInto};
 
@@ -142,10 +142,10 @@ macro_rules! test_executable_instruction {
                 interpreter::{
                     instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
                     stack::Stackable,
-                    wasm::values::InterfaceValue,
                     Instruction, Interpreter,
                 },
                 types::InterfaceType,
+                values::InterfaceValue,
             };
             use std::{cell::Cell, collections::HashMap, convert::TryInto};
 

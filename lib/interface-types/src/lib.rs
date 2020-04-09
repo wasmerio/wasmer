@@ -58,4 +58,7 @@ pub mod decoders;
 pub mod encoders;
 pub mod errors;
 pub mod interpreter;
+#[cfg(feature = "serde")]
+mod serde;
+pub mod values;
 pub mod vec1;

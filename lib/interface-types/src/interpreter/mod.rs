@@ -4,11 +4,13 @@ mod instructions;
 pub mod stack;
 pub mod wasm;
 
-use crate::errors::{InstructionResult, InterpreterResult};
+use crate::{
+    errors::{InstructionResult, InterpreterResult},
+    values::InterfaceValue,
+};
 pub use instructions::Instruction;
 use stack::Stack;
 use std::{convert::TryFrom, marker::PhantomData};
-use wasm::values::InterfaceValue;
 
 /// Represents the `Runtime`, which is used by an adapter to execute
 /// its instructions.

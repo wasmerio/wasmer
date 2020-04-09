@@ -1,11 +1,13 @@
 //! Defines WIT values and associated operations.
 
-use crate::types::{InterfaceType, RecordType};
-use crate::{errors::WasmValueNativeCastError, vec1::Vec1};
+use crate::{
+    types::{InterfaceType, RecordType},
+    {errors::WasmValueNativeCastError, vec1::Vec1},
+};
 use std::{convert::TryFrom, slice::Iter};
 
 #[cfg(feature = "serde")]
-pub use crate::interpreter::wasm::serde::{de::*, ser::*};
+pub use crate::serde::{de::from_interface_values, ser::to_interface_value};
 
 /// A WIT value.
 #[derive(Debug, Clone, PartialEq)]

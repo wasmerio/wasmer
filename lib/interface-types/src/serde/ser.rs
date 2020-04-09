@@ -1,6 +1,6 @@
 //! Provides a serializer from Rust value to WIT values.
 
-use crate::interpreter::wasm::values::InterfaceValue;
+use crate::values::InterfaceValue;
 use serde::{ser, Serialize};
 use std::fmt::{self, Display};
 
@@ -13,7 +13,7 @@ use std::fmt::{self, Display};
 /// # Example
 ///
 /// ```rust
-/// use wasmer_interface_types::interpreter::wasm::values::{
+/// use wasmer_interface_types::values::{
 ///     InterfaceValue,
 ///     to_interface_value,
 /// };

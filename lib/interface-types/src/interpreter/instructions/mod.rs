@@ -6,7 +6,7 @@ mod strings;
 
 use crate::{
     errors::{InstructionError, InstructionErrorKind, InstructionResult, WasmValueNativeCastError},
-    interpreter::wasm::values::{InterfaceValue, NativeType},
+    values::{InterfaceValue, NativeType},
 };
 pub(crate) use argument_get::argument_get;
 pub(crate) use call_core::call_core;
@@ -163,11 +163,7 @@ where
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::{
-        ast::*,
-        interpreter::wasm::{self, values::InterfaceValue},
-        types::*,
-    };
+    use crate::{ast::*, interpreter::wasm, types::*, values::*};
     use std::{cell::Cell, collections::HashMap, convert::TryInto, ops::Deref, rc::Rc};
 
     pub(crate) struct Export {

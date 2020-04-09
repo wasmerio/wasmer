@@ -1,13 +1,12 @@
 use crate::{
     ast::{Type, TypeKind},
     errors::{InstructionError, InstructionErrorKind},
-    interpreter::wasm::values::FlattenInterfaceValueIterator,
     interpreter::{
         stack::{Stack, Stackable},
-        wasm::values::InterfaceValue,
         Instruction,
     },
     types::{InterfaceType, RecordType},
+    values::{FlattenInterfaceValueIterator, InterfaceValue},
 };
 use std::collections::VecDeque;
 
@@ -176,10 +175,10 @@ mod tests {
             interpreter::{
                 instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
                 stack::Stackable,
-                wasm::values::{from_interface_values, InterfaceValue},
                 Instruction, Interpreter,
             },
             types::InterfaceType,
+            values::{from_interface_values, InterfaceValue},
         };
         use serde::Deserialize;
         use std::{cell::Cell, collections::HashMap, convert::TryInto};
