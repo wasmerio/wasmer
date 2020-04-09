@@ -7,8 +7,8 @@
 //!    (which is not really abstract). This is the central
 //!    representation of the language.
 //! 3. [Decoders](decoders): To read the [AST] from a particular data
-//!    representation; for instance, [`decoders::binary`] reads the
-//!    [AST] from a binary.
+//!    representation; for instance, [`decoders::binary::parse`] reads
+//!    the [AST] from a binary.
 //! 4. [Encoders](encoders): To write the [AST](ast) into a particular
 //!    format; for instance, [`encoders::wat`] writes the [AST] into a
 //!    string representing WIT with its textual format.
