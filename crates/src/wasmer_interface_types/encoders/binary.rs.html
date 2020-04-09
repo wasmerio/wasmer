@@ -735,9 +735,6 @@
 <span id="735">735</span>
 <span id="736">736</span>
 <span id="737">737</span>
-<span id="738">738</span>
-<span id="739">739</span>
-<span id="740">740</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Writes the AST into bytes representing WIT with its binary format.</span>
 
@@ -1072,10 +1069,7 @@
             <span class="ident">Instruction</span>::<span class="ident">I64FromU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x21_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
 
             <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x22_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
-            <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="number">0x23_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-                (<span class="kw-2">*</span><span class="ident">allocator_index</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>;
-            }
+            <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x23_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
             <span class="ident">Instruction</span>::<span class="ident">StringSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0x24_u8</span>.<span class="ident">to_bytes</span>(<span class="ident">writer</span>)<span class="question-mark">?</span>,
 
             <span class="ident">Instruction</span>::<span class="ident">RecordLift</span> { <span class="ident">type_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
@@ -1429,7 +1423,7 @@
                 <span class="ident">Instruction</span>::<span class="ident">I64FromU32</span>,
                 <span class="ident">Instruction</span>::<span class="ident">I64FromU64</span>,
                 <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>,
-                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span>: <span class="number">1</span> },
+                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span>,
                 <span class="ident">Instruction</span>::<span class="ident">StringSize</span>,
                 <span class="ident">Instruction</span>::<span class="ident">RecordLift</span> { <span class="ident">type_index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">RecordLower</span> { <span class="ident">type_index</span>: <span class="number">1</span> },
@@ -1471,7 +1465,7 @@
                 <span class="number">0x20</span>, <span class="comment">// I64FromU32</span>
                 <span class="number">0x21</span>, <span class="comment">// I64FromU64</span>
                 <span class="number">0x22</span>, <span class="comment">// StringLiftMemory</span>
-                <span class="number">0x23</span>, <span class="number">0x01</span>, <span class="comment">// StringLowerMemory { allocator_index: 1 }</span>
+                <span class="number">0x23</span>, <span class="comment">// StringLowerMemory</span>
                 <span class="number">0x24</span>, <span class="comment">// StringSize</span>
                 <span class="number">0x025</span>, <span class="number">0x01</span>, <span class="comment">// RecordLift { type_index: 1 }</span>
                 <span class="number">0x026</span>, <span class="number">0x01</span>, <span class="comment">// RecordLower { type_index: 1 }</span>

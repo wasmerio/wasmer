@@ -638,11 +638,6 @@
 <span id="638">638</span>
 <span id="639">639</span>
 <span id="640">640</span>
-<span id="641">641</span>
-<span id="642">642</span>
-<span id="643">643</span>
-<span id="644">644</span>
-<span id="645">645</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Writes the AST into a string representing WIT with its textual format.</span>
 <span class="doccomment">//!</span>
@@ -781,9 +776,7 @@
             <span class="ident">Instruction</span>::<span class="ident">I64FromU32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64.from_u32&quot;</span>.<span class="ident">into</span>(),
             <span class="ident">Instruction</span>::<span class="ident">I64FromU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;i64.from_u64&quot;</span>.<span class="ident">into</span>(),
             <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;string.lift_memory&quot;</span>.<span class="ident">into</span>(),
-            <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;string.lower_memory {}&quot;</span>, <span class="ident">allocator_index</span>)
-            }
+            <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;string.lower_memory&quot;</span>.<span class="ident">into</span>(),
             <span class="ident">Instruction</span>::<span class="ident">StringSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;string.size&quot;</span>.<span class="ident">into</span>(),
             <span class="ident">Instruction</span>::<span class="ident">RecordLift</span> { <span class="ident">type_index</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;record.lift {}&quot;</span>, <span class="ident">type_index</span>),
             <span class="ident">Instruction</span>::<span class="ident">RecordLower</span> { <span class="ident">type_index</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;record.lower {}&quot;</span>, <span class="ident">type_index</span>),
@@ -1108,10 +1101,7 @@
             (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64FromU32</span>).<span class="ident">to_string</span>(),
             (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">I64FromU64</span>).<span class="ident">to_string</span>(),
             (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>).<span class="ident">to_string</span>(),
-            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> {
-                <span class="ident">allocator_index</span>: <span class="number">42</span>,
-            })
-                .<span class="ident">to_string</span>(),
+            (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span>).<span class="ident">to_string</span>(),
             (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">StringSize</span>).<span class="ident">to_string</span>(),
             (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">RecordLift</span> { <span class="ident">type_index</span>: <span class="number">42</span> }).<span class="ident">to_string</span>(),
             (<span class="kw-2">&amp;</span><span class="ident">Instruction</span>::<span class="ident">RecordLower</span> { <span class="ident">type_index</span>: <span class="number">42</span> }).<span class="ident">to_string</span>(),
@@ -1152,7 +1142,7 @@
             <span class="string">&quot;i64.from_u32&quot;</span>,
             <span class="string">&quot;i64.from_u64&quot;</span>,
             <span class="string">&quot;string.lift_memory&quot;</span>,
-            <span class="string">&quot;string.lower_memory 42&quot;</span>,
+            <span class="string">&quot;string.lower_memory&quot;</span>,
             <span class="string">&quot;string.size&quot;</span>,
             <span class="string">&quot;record.lift 42&quot;</span>,
             <span class="string">&quot;record.lower 42&quot;</span>,

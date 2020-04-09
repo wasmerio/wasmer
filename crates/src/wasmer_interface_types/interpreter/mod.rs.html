@@ -247,8 +247,6 @@
 <span id="247">247</span>
 <span id="248">248</span>
 <span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A stack-based interpreter to execute instructions of WIT adapters.</span>
 
@@ -482,9 +480,7 @@
                 <span class="ident">Instruction</span>::<span class="ident">I64FromU64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">instructions</span>::<span class="ident">i64_from_u64</span>(<span class="kw-2">*</span><span class="ident">instruction</span>),
 
                 <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">instructions</span>::<span class="ident">string_lift_memory</span>(<span class="kw-2">*</span><span class="ident">instruction</span>),
-                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="ident">instructions</span>::<span class="ident">string_lower_memory</span>(<span class="kw-2">*</span><span class="ident">allocator_index</span>, <span class="kw-2">*</span><span class="ident">instruction</span>)
-                }
+                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">instructions</span>::<span class="ident">string_lower_memory</span>(<span class="kw-2">*</span><span class="ident">instruction</span>),
                 <span class="ident">Instruction</span>::<span class="ident">StringSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">instructions</span>::<span class="ident">string_size</span>(<span class="kw-2">*</span><span class="ident">instruction</span>),
 
                 <span class="ident">Instruction</span>::<span class="ident">RecordLift</span> { <span class="ident">type_index</span> } <span class="op">=</span><span class="op">&gt;</span> {

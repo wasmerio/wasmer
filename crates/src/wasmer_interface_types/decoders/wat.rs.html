@@ -974,10 +974,6 @@
 <span id="974">974</span>
 <span id="975">975</span>
 <span id="976">976</span>
-<span id="977">977</span>
-<span id="978">978</span>
-<span id="979">979</span>
-<span id="980">980</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parse the WIT textual representation into an [AST](crate::ast).</span>
 
@@ -1290,9 +1286,7 @@
         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_lower_memory</span><span class="op">&gt;</span>() {
             <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_lower_memory</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> {
-                <span class="ident">allocator_index</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
-            })
+            <span class="prelude-val">Ok</span>(<span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span>)
         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">lookahead</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_size</span><span class="op">&gt;</span>() {
             <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">keyword</span>::<span class="ident">string_size</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
@@ -1751,7 +1745,7 @@
             <span class="string">&quot;i64.from_u32&quot;</span>,
             <span class="string">&quot;i64.from_u64&quot;</span>,
             <span class="string">&quot;string.lift_memory&quot;</span>,
-            <span class="string">&quot;string.lower_memory 42&quot;</span>,
+            <span class="string">&quot;string.lower_memory&quot;</span>,
             <span class="string">&quot;string.size&quot;</span>,
             <span class="string">&quot;record.lift 42&quot;</span>,
             <span class="string">&quot;record.lower 42&quot;</span>,
@@ -1792,9 +1786,7 @@
             <span class="ident">Instruction</span>::<span class="ident">I64FromU32</span>,
             <span class="ident">Instruction</span>::<span class="ident">I64FromU64</span>,
             <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>,
-            <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> {
-                <span class="ident">allocator_index</span>: <span class="number">42</span>,
-            },
+            <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span>,
             <span class="ident">Instruction</span>::<span class="ident">StringSize</span>,
             <span class="ident">Instruction</span>::<span class="ident">RecordLift</span> { <span class="ident">type_index</span>: <span class="number">42</span> },
             <span class="ident">Instruction</span>::<span class="ident">RecordLower</span> { <span class="ident">type_index</span>: <span class="number">42</span> },

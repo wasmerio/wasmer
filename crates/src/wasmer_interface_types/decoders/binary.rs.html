@@ -987,15 +987,6 @@
 <span id="987">987</span>
 <span id="988">988</span>
 <span id="989">989</span>
-<span id="990">990</span>
-<span id="991">991</span>
-<span id="992">992</span>
-<span id="993">993</span>
-<span id="994">994</span>
-<span id="995">995</span>
-<span id="996">996</span>
-<span id="997">997</span>
-<span id="998">998</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parse the WIT binary representation into an [AST](crate::ast).</span>
 
@@ -1231,16 +1222,7 @@
         <span class="number">0x21</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">I64FromU64</span>),
 
         <span class="number">0x22</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>),
-        <span class="number">0x23</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">consume</span><span class="macro">!</span>((<span class="ident">input</span>, <span class="ident">argument_0</span>) <span class="op">=</span> <span class="ident">uleb</span>(<span class="ident">input</span>)<span class="question-mark">?</span>);
-
-            (
-                <span class="ident">input</span>,
-                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> {
-                    <span class="ident">allocator_index</span>: <span class="ident">argument_0</span> <span class="kw">as</span> <span class="ident">u32</span>,
-                },
-            )
-        }
+        <span class="number">0x23</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span>),
         <span class="number">0x24</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">input</span>, <span class="ident">Instruction</span>::<span class="ident">StringSize</span>),
 
         <span class="number">0x25</span> <span class="op">=</span><span class="op">&gt;</span> {
@@ -1763,7 +1745,7 @@
             <span class="number">0x20</span>, <span class="comment">// I64FromU32</span>
             <span class="number">0x21</span>, <span class="comment">// I64FromU64</span>
             <span class="number">0x22</span>, <span class="comment">// StringLiftMemory</span>
-            <span class="number">0x23</span>, <span class="number">0x01</span>, <span class="comment">// StringLowerMemory { allocator_index: 1 }</span>
+            <span class="number">0x23</span>, <span class="comment">// StringLowerMemory</span>
             <span class="number">0x24</span>, <span class="comment">// StringSize</span>
             <span class="number">0x25</span>, <span class="number">0x01</span>, <span class="comment">// RecordLift { type_index: 1 },</span>
             <span class="number">0x26</span>, <span class="number">0x01</span>, <span class="comment">// RecordLower { type_index: 1 },</span>
@@ -1807,7 +1789,7 @@
                 <span class="ident">Instruction</span>::<span class="ident">I64FromU32</span>,
                 <span class="ident">Instruction</span>::<span class="ident">I64FromU64</span>,
                 <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>,
-                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span>: <span class="number">1</span> },
+                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span>,
                 <span class="ident">Instruction</span>::<span class="ident">StringSize</span>,
                 <span class="ident">Instruction</span>::<span class="ident">RecordLift</span> { <span class="ident">type_index</span>: <span class="number">1</span> },
                 <span class="ident">Instruction</span>::<span class="ident">RecordLower</span> { <span class="ident">type_index</span>: <span class="number">1</span> },

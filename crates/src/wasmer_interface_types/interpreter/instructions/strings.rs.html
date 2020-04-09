@@ -351,102 +351,12 @@
 <span id="351">351</span>
 <span id="352">352</span>
 <span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-<span id="386">386</span>
-<span id="387">387</span>
-<span id="388">388</span>
-<span id="389">389</span>
-<span id="390">390</span>
-<span id="391">391</span>
-<span id="392">392</span>
-<span id="393">393</span>
-<span id="394">394</span>
-<span id="395">395</span>
-<span id="396">396</span>
-<span id="397">397</span>
-<span id="398">398</span>
-<span id="399">399</span>
-<span id="400">400</span>
-<span id="401">401</span>
-<span id="402">402</span>
-<span id="403">403</span>
-<span id="404">404</span>
-<span id="405">405</span>
-<span id="406">406</span>
-<span id="407">407</span>
-<span id="408">408</span>
-<span id="409">409</span>
-<span id="410">410</span>
-<span id="411">411</span>
-<span id="412">412</span>
-<span id="413">413</span>
-<span id="414">414</span>
-<span id="415">415</span>
-<span id="416">416</span>
-<span id="417">417</span>
-<span id="418">418</span>
-<span id="419">419</span>
-<span id="420">420</span>
-<span id="421">421</span>
-<span id="422">422</span>
-<span id="423">423</span>
-<span id="424">424</span>
-<span id="425">425</span>
-<span id="426">426</span>
-<span id="427">427</span>
-<span id="428">428</span>
-<span id="429">429</span>
-<span id="430">430</span>
-<span id="431">431</span>
-<span id="432">432</span>
-<span id="433">433</span>
-<span id="434">434</span>
-<span id="435">435</span>
-<span id="436">436</span>
-<span id="437">437</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">to_native</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">ast</span>::<span class="ident">InterfaceType</span>,
     <span class="ident">errors</span>::{<span class="ident">InstructionError</span>, <span class="ident">InstructionErrorKind</span>},
-    <span class="ident">interpreter</span>::{
-        <span class="ident">wasm</span>::{
-            <span class="ident">structures</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">TypedIndex</span>},
-            <span class="ident">values</span>::<span class="ident">InterfaceValue</span>,
-        },
-        <span class="ident">Instruction</span>,
-    },
+    <span class="ident">interpreter</span>::{<span class="ident">wasm</span>::<span class="ident">values</span>::<span class="ident">InterfaceValue</span>, <span class="ident">Instruction</span>},
 };
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">convert</span>::<span class="ident">TryInto</span>};
 
@@ -513,37 +423,20 @@
 );
 
 <span class="macro">executable_instruction</span><span class="macro">!</span>(
-    <span class="ident">string_lower_memory</span>(<span class="ident">allocator_index</span>: <span class="ident">u32</span>, <span class="ident">instruction</span>: <span class="ident">Instruction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
+    <span class="ident">string_lower_memory</span>(<span class="ident">instruction</span>: <span class="ident">Instruction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
         <span class="kw">move</span> <span class="op">|</span><span class="ident">runtime</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
-            <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">runtime</span>.<span class="ident">wasm_instance</span>;
-            <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">FunctionIndex</span>::<span class="ident">new</span>(<span class="ident">allocator_index</span> <span class="kw">as</span> <span class="ident">usize</span>);
-
-            <span class="kw">let</span> <span class="ident">allocator</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">local_or_import</span>(<span class="ident">index</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">inputs</span> <span class="op">=</span> <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">pop</span>(<span class="number">2</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
                 <span class="ident">InstructionError</span>::<span class="ident">new</span>(
                     <span class="ident">instruction</span>,
-                    <span class="ident">InstructionErrorKind</span>::<span class="ident">LocalOrImportIsMissing</span> { <span class="ident">function_index</span>: <span class="ident">allocator_index</span> },
+                    <span class="ident">InstructionErrorKind</span>::<span class="ident">StackIsTooSmall</span> { <span class="ident">needed</span>: <span class="number">2</span> },
                 )
             })<span class="question-mark">?</span>;
 
-            <span class="kw">if</span> <span class="ident">allocator</span>.<span class="ident">inputs</span>() <span class="op">!</span><span class="op">=</span> [<span class="ident">InterfaceType</span>::<span class="ident">I32</span>] <span class="op">|</span><span class="op">|</span> <span class="ident">allocator</span>.<span class="ident">outputs</span>() <span class="op">!</span><span class="op">=</span> [<span class="ident">InterfaceType</span>::<span class="ident">I32</span>] {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">InstructionError</span>::<span class="ident">new</span>(
-                    <span class="ident">instruction</span>,
-                    <span class="ident">InstructionErrorKind</span>::<span class="ident">LocalOrImportSignatureMismatch</span> {
-                        <span class="ident">function_index</span>: <span class="ident">allocator_index</span>,
-                        <span class="ident">expected</span>: (<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>], <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>]),
-                        <span class="ident">received</span>: (<span class="ident">allocator</span>.<span class="ident">inputs</span>().<span class="ident">to_vec</span>(), <span class="ident">allocator</span>.<span class="ident">outputs</span>().<span class="ident">to_vec</span>()),
-                    },
-                ))
-            }
-
-            <span class="kw">let</span> <span class="ident">string</span> <span class="op">=</span> <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">pop1</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="ident">InstructionError</span>::<span class="ident">new</span>(
-                    <span class="ident">instruction</span>,
-                    <span class="ident">InstructionErrorKind</span>::<span class="ident">StackIsTooSmall</span> { <span class="ident">needed</span>: <span class="number">1</span> },
-                )
-            })<span class="question-mark">?</span>;
-
-            <span class="kw">let</span> <span class="ident">string</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">to_native</span>(<span class="kw-2">&amp;</span><span class="ident">string</span>, <span class="ident">instruction</span>)<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">string_pointer</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">inputs</span>[<span class="number">0</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span>
+                .<span class="ident">try_into</span>()
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> (<span class="ident">e</span>, <span class="string">&quot;pointer&quot;</span>).<span class="ident">into</span>())
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">k</span><span class="op">|</span> <span class="ident">InstructionError</span>::<span class="ident">new</span>(<span class="ident">instruction</span>, <span class="ident">k</span>))<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">string</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">to_native</span>(<span class="kw-2">&amp;</span><span class="ident">inputs</span>[<span class="number">1</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="ident">string_bytes</span> <span class="op">=</span> <span class="ident">string</span>.<span class="ident">as_bytes</span>();
             <span class="kw">let</span> <span class="ident">string_length</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">string_bytes</span>.<span class="ident">len</span>().<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
                 <span class="ident">InstructionError</span>::<span class="ident">new</span>(
@@ -552,19 +445,7 @@
                 )
             })<span class="question-mark">?</span>;
 
-            <span class="kw">let</span> <span class="ident">outputs</span> <span class="op">=</span> <span class="ident">allocator</span>.<span class="ident">call</span>(<span class="kw-2">&amp;</span>[<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="ident">string_length</span>)]).<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
-                <span class="ident">InstructionError</span>::<span class="ident">new</span>(
-                    <span class="ident">instruction</span>,
-                    <span class="ident">InstructionErrorKind</span>::<span class="ident">LocalOrImportCall</span> { <span class="ident">function_index</span>: <span class="ident">allocator_index</span> },
-                )
-            })<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">string_pointer</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">to_native</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">outputs</span>[<span class="number">0</span>], <span class="ident">instruction</span>)<span class="question-mark">?</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
-                <span class="ident">InstructionError</span>::<span class="ident">new</span>(
-                    <span class="ident">instruction</span>,
-                    <span class="ident">InstructionErrorKind</span>::<span class="ident">NegativeValue</span> { <span class="ident">subject</span>: <span class="string">&quot;string_pointer&quot;</span> },
-                )
-            })<span class="question-mark">?</span>;
-
+            <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">runtime</span>.<span class="ident">wasm_instance</span>;
             <span class="kw">let</span> <span class="ident">memory_index</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0</span>;
             <span class="kw">let</span> <span class="ident">memory_view</span> <span class="op">=</span> <span class="ident">instance</span>
                 .<span class="ident">memory</span>(<span class="ident">memory_index</span> <span class="kw">as</span> <span class="ident">usize</span>)
@@ -591,7 +472,7 @@
 <span class="macro">executable_instruction</span><span class="macro">!</span>(
     <span class="ident">string_size</span>(<span class="ident">instruction</span>: <span class="ident">Instruction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
         <span class="kw">move</span> <span class="op">|</span><span class="ident">runtime</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="kw">_</span> {
-            <span class="kw">match</span> <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">peek1</span>() {
+            <span class="kw">match</span> <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">pop1</span>() {
                 <span class="prelude-val">Some</span>(<span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="ident">string</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="ident">string</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>;
                     <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">push</span>(<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="ident">length</span>));
@@ -603,7 +484,7 @@
                     <span class="ident">instruction</span>,
                     <span class="ident">InstructionErrorKind</span>::<span class="ident">InvalidValueOnTheStack</span> {
                         <span class="ident">expected_type</span>: <span class="ident">InterfaceType</span>::<span class="ident">String</span>,
-                        <span class="ident">received_type</span>: <span class="ident">value</span>.<span class="ident">into</span>(),
+                        <span class="ident">received_type</span>: (<span class="kw-2">&amp;</span><span class="ident">value</span>).<span class="ident">into</span>(),
                     },
                 )),
 
@@ -751,7 +632,11 @@
         <span class="ident">test_string_lower_memory</span> <span class="op">=</span>
             <span class="ident">instructions</span>: [
                 <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
-                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span>: <span class="number">43</span> },
+                <span class="ident">Instruction</span>::<span class="ident">StringSize</span>,
+                <span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span>: <span class="number">43</span> },
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
+                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span>,
+
             ],
             <span class="ident">invocation_inputs</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello, World!&quot;</span>.<span class="ident">into</span>())],
             <span class="ident">instance</span>: <span class="ident">Instance</span>::<span class="ident">new</span>(),
@@ -767,7 +652,10 @@
         <span class="ident">test_string__roundtrip</span> <span class="op">=</span>
             <span class="ident">instructions</span>: [
                 <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
-                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span>: <span class="number">43</span> },
+                <span class="ident">Instruction</span>::<span class="ident">StringSize</span>,
+                <span class="ident">Instruction</span>::<span class="ident">CallCore</span> { <span class="ident">function_index</span>: <span class="number">43</span> },
+                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
+                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span>,
                 <span class="ident">Instruction</span>::<span class="ident">StringLiftMemory</span>,
             ],
             <span class="ident">invocation_inputs</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello, World!&quot;</span>.<span class="ident">into</span>())],
@@ -776,69 +664,13 @@
     );
 
     <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
-        <span class="ident">test_string_lower_memory__allocator_does_not_exist</span> <span class="op">=</span>
-            <span class="ident">instructions</span>: [<span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span>: <span class="number">43</span> }],
-            <span class="ident">invocation_inputs</span>: [],
-            <span class="ident">instance</span>: <span class="ident">Instance</span> { ..<span class="ident">Default</span>::<span class="ident">default</span>() },
-            <span class="ident">error</span>: <span class="string">r#&quot;`string.lower_memory 43` the local or import function `43` doesn&#39;t exist&quot;#</span>,
-    );
-
-    <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
         <span class="ident">test_string_lower_memory__stack_is_too_small</span> <span class="op">=</span>
             <span class="ident">instructions</span>: [
-                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span>: <span class="number">43</span> }
-                <span class="comment">//                                                ^^ `43` expects 1 value on the stack, none is present</span>
+                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span>,
             ],
-            <span class="ident">invocation_inputs</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello, World!&quot;</span>.<span class="ident">into</span>())],
+            <span class="ident">invocation_inputs</span>: [],
             <span class="ident">instance</span>: <span class="ident">Instance</span>::<span class="ident">new</span>(),
-            <span class="ident">error</span>: <span class="string">r#&quot;`string.lower_memory 43` needed to read `1` value(s) from the stack, but it doesn&#39;t contain enough data&quot;#</span>,
-    );
-
-    <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
-        <span class="ident">test_string_lower_memory__failure_when_calling_the_allocator</span> <span class="op">=</span>
-            <span class="ident">instructions</span>: [
-                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
-                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span>: <span class="number">153</span> }
-            ],
-            <span class="ident">invocation_inputs</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello, World!&quot;</span>.<span class="ident">into</span>())],
-            <span class="ident">instance</span>: {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span>::<span class="ident">new</span>();
-                <span class="ident">instance</span>.<span class="ident">locals_or_imports</span>.<span class="ident">insert</span>(
-                    <span class="number">153</span>,
-                    <span class="ident">LocalImport</span> {
-                        <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                        <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                        <span class="ident">function</span>: <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Err</span>(()),
-                        <span class="comment">//            ^^^^^^^ function fails</span>
-                    },
-                );
-
-                <span class="ident">instance</span>
-            },
-            <span class="ident">error</span>: <span class="string">r#&quot;`string.lower_memory 153` failed while calling the local or import function `153`&quot;#</span>,
-    );
-
-    <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
-        <span class="ident">test_string_lower_memory__invalid_allocator_signature</span> <span class="op">=</span>
-            <span class="ident">instructions</span>: [
-                <span class="ident">Instruction</span>::<span class="ident">ArgumentGet</span> { <span class="ident">index</span>: <span class="number">0</span> },
-                <span class="ident">Instruction</span>::<span class="ident">StringLowerMemory</span> { <span class="ident">allocator_index</span>: <span class="number">153</span> }
-            ],
-            <span class="ident">invocation_inputs</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello, World!&quot;</span>.<span class="ident">into</span>())],
-            <span class="ident">instance</span>: {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span>::<span class="ident">new</span>();
-                <span class="ident">instance</span>.<span class="ident">locals_or_imports</span>.<span class="ident">insert</span>(
-                    <span class="number">153</span>,
-                    <span class="ident">LocalImport</span> {
-                        <span class="ident">inputs</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">I32</span>, <span class="ident">InterfaceType</span>::<span class="ident">I32</span>],
-                        <span class="ident">outputs</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                        <span class="ident">function</span>: <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="prelude-val">Err</span>(()),
-                    },
-                );
-
-                <span class="ident">instance</span>
-            },
-            <span class="ident">error</span>: <span class="string">r#&quot;`string.lower_memory 153` the local or import function `153` has the signature `[I32] -&gt; [I32]` but it received values of kind `[I32, I32] -&gt; []`&quot;#</span>,
+            <span class="ident">error</span>: <span class="string">r#&quot;`string.lower_memory` needed to read `2` value(s) from the stack, but it doesn&#39;t contain enough data&quot;#</span>,
     );
 
     <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
@@ -849,7 +681,7 @@
             ],
             <span class="ident">invocation_inputs</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello, World!&quot;</span>.<span class="ident">into</span>())],
             <span class="ident">instance</span>: <span class="ident">Instance</span>::<span class="ident">new</span>(),
-            <span class="ident">stack</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello, World!&quot;</span>.<span class="ident">into</span>()), <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">13</span>)],
+            <span class="ident">stack</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">13</span>)],
     );
 
     <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
