@@ -65,10 +65,12 @@ pub mod wasm {
     //! Various types exposed by the Wasmer Runtime relating to Wasm.
     //!
     //! TODO: Add index with links to sub sections
-    //!
+    //
     //! # Globals
     //!
     //! # Tables
+    pub use wasmer_runtime_core::backend::Features;
+    pub use wasmer_runtime_core::export::Export;
     pub use wasmer_runtime_core::global::Global;
     pub use wasmer_runtime_core::instance::{DynFunc, Instance};
     pub use wasmer_runtime_core::memory::Memory;
@@ -88,8 +90,13 @@ pub mod vm {
 pub mod compiler {
     //! Types and functions for compiling wasm;
     use crate::module::Module;
-    pub use wasmer_runtime_core::backend::{BackendCompilerConfig, Compiler, CompilerConfig};
+    pub use wasmer_runtime_core::backend::{
+        BackendCompilerConfig, Compiler, CompilerConfig, Features,
+    };
     pub use wasmer_runtime_core::compile_with;
+    #[cfg(unix)]
+    pub use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
+    pub use wasmer_runtime_core::state::CodeVersion;
 
     /// Enum used to select which compiler should be used to generate code.
     #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
@@ -264,6 +271,11 @@ pub mod compiler {
             }
         }
     }
+}
+
+pub mod codegen {
+    //! Types and functions for generating native code.
+    pub use wasmer_runtime_core::codegen::ModuleCodeGenerator;
 }
 
 // TODO: `import` or `imports`?

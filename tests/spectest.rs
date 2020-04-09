@@ -271,6 +271,7 @@ mod tests {
     use std::path::PathBuf;
     use std::str::FromStr;
     use wabt::script::{Action, Command, CommandKind, ScriptParser, Value};
+    use wasmer::wasm::Export;
     use wasmer::{
         compiler::{compile_with_config_with, compiler_for_backend, Backend, CompilerConfig},
         error::CompileError,
@@ -280,9 +281,10 @@ mod tests {
         types::ElementType,
         units::Pages,
         vm::Ctx,
-        wasm::{self, Global, Instance, Memory, MemoryDescriptor, Table, TableDescriptor},
+        wasm::{
+            self, Features, Global, Instance, Memory, MemoryDescriptor, Table, TableDescriptor,
+        },
     };
-    use wasmer_runtime::{Export, Features};
 
     fn format_panic(e: &dyn std::any::Any) -> String {
         if let Some(s) = e.downcast_ref::<&str>() {
@@ -694,7 +696,7 @@ mod tests {
                         let maybe_call_result =
                             with_instance(instance.clone(), &named_modules, &module, |instance| {
                                 #[cfg(unix)]
-                                use wasmer_runtime::{
+                                use wasmer::compiler::{
                                     pop_code_version, push_code_version, CodeVersion,
                                 };
 
