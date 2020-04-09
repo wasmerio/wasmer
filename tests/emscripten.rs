@@ -2,8 +2,8 @@
 mod tests {
     use std::sync::Arc;
     use wabt::wat2wasm;
+    use wasmer::compiler::compile;
     use wasmer_emscripten::is_emscripten_module;
-    use wasmer_runtime::compile;
 
     #[test]
     fn should_detect_emscripten_files() {

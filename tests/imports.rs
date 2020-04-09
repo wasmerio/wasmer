@@ -5,17 +5,13 @@ pub mod runtime_core_imports {
 
     use super::runtime_core_tests::{get_compiler, wat2wasm};
     use std::{convert::TryInto, sync::Arc};
-    use wasmer_runtime_core::{
-        compile_with,
-        error::RuntimeError,
-        global::Global,
-        imports,
-        memory::Memory,
-        typed_func::{DynamicFunc, Func},
-        types::{FuncSig, MemoryDescriptor, Type, Value},
-        units::Pages,
-        vm, DynFunc, Instance,
+    use wasmer::compiler::compile_with;
+    use wasmer::error::RuntimeError;
+    use wasmer::units::Pages;
+    use wasmer::wasm::{
+        DynFunc, Func, FuncSig, Global, Instance, Memory, MemoryDescriptor, Type, Value,
     };
+    use wasmer::{imports, vm, DynamicFunc};
 
     #[test]
     fn runtime_core_new_api_works() {

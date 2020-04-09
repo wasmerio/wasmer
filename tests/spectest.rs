@@ -271,14 +271,19 @@ mod tests {
     use std::path::PathBuf;
     use std::str::FromStr;
     use wabt::script::{Action, Command, CommandKind, ScriptParser, Value};
-    use wasmer_runtime::{
-        compile_with_config_with, compiler_for_backend,
+    use wasmer::wasm::Export;
+    use wasmer::{
+        compiler::{compile_with_config_with, compiler_for_backend, Backend, CompilerConfig},
         error::CompileError,
-        func, imports,
-        types::{ElementType, MemoryDescriptor, TableDescriptor},
+        func,
+        import::{ImportObject, LikeNamespace},
+        imports,
+        types::ElementType,
         units::Pages,
-        Backend, CompilerConfig, Ctx, Export, Features, Global, ImportObject, Instance,
-        LikeNamespace, Memory, Table,
+        vm::Ctx,
+        wasm::{
+            self, Features, Global, Instance, Memory, MemoryDescriptor, Table, TableDescriptor,
+        },
     };
 
     fn format_panic(e: &dyn std::any::Any) -> String {
@@ -416,7 +421,7 @@ mod tests {
                                 &named_modules,
                                 &module,
                                 |instance| {
-                                    let params: Vec<wasmer_runtime::types::Value> =
+                                    let params: Vec<wasm::Value> =
                                         args.iter().cloned().map(convert_value).collect();
                                     instance.call(&field, &params[..])
                                 },
@@ -548,7 +553,7 @@ mod tests {
                     } => {
                         let maybe_call_result =
                             with_instance(instance.clone(), &named_modules, &module, |instance| {
-                                let params: Vec<wasmer_runtime::types::Value> =
+                                let params: Vec<wasm::Value> =
                                     args.iter().cloned().map(convert_value).collect();
                                 instance.call(&field, &params[..])
                             });
@@ -619,7 +624,7 @@ mod tests {
                     } => {
                         let maybe_call_result =
                             with_instance(instance.clone(), &named_modules, &module, |instance| {
-                                let params: Vec<wasmer_runtime::types::Value> =
+                                let params: Vec<wasm::Value> =
                                     args.iter().cloned().map(convert_value).collect();
                                 instance.call(&field, &params[..])
                             });
@@ -691,7 +696,7 @@ mod tests {
                         let maybe_call_result =
                             with_instance(instance.clone(), &named_modules, &module, |instance| {
                                 #[cfg(unix)]
-                                use wasmer_runtime::{
+                                use wasmer::compiler::{
                                     pop_code_version, push_code_version, CodeVersion,
                                 };
 
@@ -721,7 +726,7 @@ mod tests {
                                 } else {
                                     false
                                 };
-                                let params: Vec<wasmer_runtime::types::Value> =
+                                let params: Vec<wasm::Value> =
                                     args.iter().cloned().map(convert_value).collect();
                                 let ret = instance.call(&field, &params[..]);
                                 #[cfg(unix)]
@@ -746,7 +751,7 @@ mod tests {
                             );
                         } else {
                             let call_result = maybe_call_result.unwrap();
-                            use wasmer_runtime::error::{CallError, RuntimeError};
+                            use wasmer::error::{CallError, RuntimeError};
                             match call_result {
                                 Err(e) => match e {
                                     CallError::Resolve(_) => {
@@ -763,7 +768,7 @@ mod tests {
                                         );
                                     }
                                     CallError::Runtime(RuntimeError(e)) => {
-                                        use wasmer_runtime::ExceptionCode;
+                                        use wasmer::error::ExceptionCode;
                                         if let Some(_) = e.downcast_ref::<ExceptionCode>() {
                                             test_report.count_passed();
                                         } else {
@@ -964,7 +969,7 @@ mod tests {
                                 &named_modules,
                                 &module,
                                 |instance| {
-                                    let params: Vec<wasmer_runtime::types::Value> =
+                                    let params: Vec<wasm::Value> =
                                         args.iter().cloned().map(convert_value).collect();
                                     instance.call(&field, &params[..])
                                 },
@@ -1061,7 +1066,7 @@ mod tests {
                                 );
                             }
                             Err(e) => match e {
-                                wasmer_runtime::error::Error::LinkError(_) => {
+                                wasmer::error::Error::LinkError(_) => {
                                     test_report.count_passed();
                                 }
                                 _ => {
@@ -1120,7 +1125,7 @@ mod tests {
                     } => {
                         let maybe_call_result =
                             with_instance(instance.clone(), &named_modules, &module, |instance| {
-                                let params: Vec<wasmer_runtime::types::Value> =
+                                let params: Vec<wasm::Value> =
                                     args.iter().cloned().map(convert_value).collect();
                                 instance.call(&field, &params[..])
                             });
@@ -1183,29 +1188,29 @@ mod tests {
         Ok(test_report)
     }
 
-    fn is_canonical_nan(val: wasmer_runtime::types::Value) -> bool {
+    fn is_canonical_nan(val: wasm::Value) -> bool {
         match val {
-            wasmer_runtime::types::Value::F32(x) => x.is_canonical_nan(),
-            wasmer_runtime::types::Value::F64(x) => x.is_canonical_nan(),
+            wasm::Value::F32(x) => x.is_canonical_nan(),
+            wasm::Value::F64(x) => x.is_canonical_nan(),
             _ => panic!("value is not a float {:?}", val),
         }
     }
 
-    fn is_arithmetic_nan(val: wasmer_runtime::types::Value) -> bool {
+    fn is_arithmetic_nan(val: wasm::Value) -> bool {
         match val {
-            wasmer_runtime::types::Value::F32(x) => x.is_quiet_nan(),
-            wasmer_runtime::types::Value::F64(x) => x.is_quiet_nan(),
+            wasm::Value::F32(x) => x.is_quiet_nan(),
+            wasm::Value::F64(x) => x.is_quiet_nan(),
             _ => panic!("value is not a float {:?}", val),
         }
     }
 
-    fn value_to_hex(val: wasmer_runtime::types::Value) -> String {
+    fn value_to_hex(val: wasm::Value) -> String {
         match val {
-            wasmer_runtime::types::Value::I32(x) => format!("{:#x}", x),
-            wasmer_runtime::types::Value::I64(x) => format!("{:#x}", x),
-            wasmer_runtime::types::Value::F32(x) => format!("{:#x}", x.to_bits()),
-            wasmer_runtime::types::Value::F64(x) => format!("{:#x}", x.to_bits()),
-            wasmer_runtime::types::Value::V128(x) => format!("{:#x}", x),
+            wasm::Value::I32(x) => format!("{:#x}", x),
+            wasm::Value::I64(x) => format!("{:#x}", x),
+            wasm::Value::F32(x) => format!("{:#x}", x.to_bits()),
+            wasm::Value::F64(x) => format!("{:#x}", x.to_bits()),
+            wasm::Value::V128(x) => format!("{:#x}", x),
         }
     }
 
@@ -1218,13 +1223,13 @@ mod tests {
         V128(u128),
     }
 
-    fn convert_wasmer_value(other: wasmer_runtime::types::Value) -> SpectestValue {
+    fn convert_wasmer_value(other: wasm::Value) -> SpectestValue {
         match other {
-            wasmer_runtime::types::Value::I32(v) => SpectestValue::I32(v),
-            wasmer_runtime::types::Value::I64(v) => SpectestValue::I64(v),
-            wasmer_runtime::types::Value::F32(v) => SpectestValue::F32(v.to_bits()),
-            wasmer_runtime::types::Value::F64(v) => SpectestValue::F64(v.to_bits()),
-            wasmer_runtime::types::Value::V128(v) => SpectestValue::V128(v),
+            wasm::Value::I32(v) => SpectestValue::I32(v),
+            wasm::Value::I64(v) => SpectestValue::I64(v),
+            wasm::Value::F32(v) => SpectestValue::F32(v.to_bits()),
+            wasm::Value::F64(v) => SpectestValue::F64(v.to_bits()),
+            wasm::Value::V128(v) => SpectestValue::V128(v),
         }
     }
 
@@ -1238,13 +1243,13 @@ mod tests {
         }
     }
 
-    fn convert_value(other: Value<f32, f64>) -> wasmer_runtime::types::Value {
+    fn convert_value(other: Value<f32, f64>) -> wasm::Value {
         match other {
-            Value::I32(v) => wasmer_runtime::types::Value::I32(v),
-            Value::I64(v) => wasmer_runtime::types::Value::I64(v),
-            Value::F32(v) => wasmer_runtime::types::Value::F32(v),
-            Value::F64(v) => wasmer_runtime::types::Value::F64(v),
-            Value::V128(v) => wasmer_runtime::types::Value::V128(v),
+            Value::I32(v) => wasm::Value::I32(v),
+            Value::I64(v) => wasm::Value::I64(v),
+            Value::F32(v) => wasm::Value::F32(v),
+            Value::F64(v) => wasm::Value::F64(v),
+            Value::V128(v) => wasm::Value::V128(v),
         }
     }
 
@@ -1288,9 +1293,9 @@ mod tests {
         let memory_desc = MemoryDescriptor::new(Pages(1), Some(Pages(2)), false).unwrap();
         let memory = Memory::new(memory_desc).unwrap();
 
-        let global_i32 = Global::new(wasmer_runtime::types::Value::I32(666));
-        let global_f32 = Global::new(wasmer_runtime::types::Value::F32(666.0));
-        let global_f64 = Global::new(wasmer_runtime::types::Value::F64(666.0));
+        let global_i32 = Global::new(wasm::Value::I32(666));
+        let global_f32 = Global::new(wasm::Value::F32(666.0));
+        let global_f64 = Global::new(wasm::Value::F64(666.0));
 
         let table = Table::new(TableDescriptor {
             element: ElementType::Anyfunc,

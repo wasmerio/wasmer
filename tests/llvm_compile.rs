@@ -10,16 +10,17 @@
 )]
 
 use wabt::wat2wasm;
+use wasmer::compiler::Compiler;
 use wasmer_llvm_backend::LLVMCompiler;
-use wasmer_runtime_core::backend::Compiler;
 
 pub fn get_compiler() -> impl Compiler {
     LLVMCompiler::new()
 }
 
+use wasmer::compiler::CompilerConfig;
+use wasmer::compiler::{compile_with, compile_with_config_with, BackendCompilerConfig};
+use wasmer::imports;
 use wasmer_llvm_backend::{InkwellModule, LLVMBackendConfig, LLVMCallbacks};
-use wasmer_runtime::{imports, CompilerConfig};
-use wasmer_runtime_core::{backend::BackendCompilerConfig, compile_with, compile_with_config};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -73,7 +74,7 @@ fn crash_select_with_mismatched_pending() {
         ..Default::default()
     };
     let wasm_binary = wat2wasm(WAT.as_bytes()).expect("WAST not valid or malformed");
-    let module = compile_with_config(&wasm_binary, &get_compiler(), compiler_config).unwrap();
+    let module = compile_with_config_with(&wasm_binary, compiler_config, &get_compiler()).unwrap();
     module.instantiate(&imports! {}).unwrap();
     const LLVM: &str = r#"
   %s3 = fadd double 0.000000e+00, %s2
