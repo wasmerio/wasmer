@@ -656,7 +656,7 @@
         <span class="macro">assert</span><span class="macro">!</span>(<span class="kw">unsafe</span> { <span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_some</span>() });
         <span class="kw">let</span> <span class="ident">invalid_idx_len_combos</span>: [(<span class="ident">u32</span>, <span class="ident">u32</span>); <span class="number">3</span>] <span class="op">=</span>
             [(<span class="ident">last_valid_address_for_u8</span> <span class="op">+</span> <span class="number">1</span>, <span class="number">0</span>), (<span class="number">0</span>, <span class="number">2</span>), (<span class="number">1</span>, <span class="number">1</span>)];
-        <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">idx</span>, <span class="ident">len</span>) <span class="kw">in</span> <span class="ident">invalid_idx_len_combos</span>.<span class="ident">into_iter</span>() {
+        <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">idx</span>, <span class="ident">len</span>) <span class="kw">in</span> <span class="ident">invalid_idx_len_combos</span>.<span class="ident">iter</span>() {
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">idx</span>, <span class="ident">len</span>).<span class="ident">is_none</span>());
             <span class="macro">assert</span><span class="macro">!</span>(<span class="kw">unsafe</span> { <span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">idx</span>, <span class="ident">len</span>).<span class="ident">is_none</span>() });
         }
@@ -677,7 +677,7 @@
             <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">3</span>),
             <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">4</span>),
         ];
-        <span class="kw">for</span> <span class="ident">oob_end_ptr</span> <span class="kw">in</span> <span class="ident">end_wasm_ptr_oob_array</span>.<span class="ident">into_iter</span>() {
+        <span class="kw">for</span> <span class="ident">oob_end_ptr</span> <span class="kw">in</span> <span class="ident">end_wasm_ptr_oob_array</span>.<span class="ident">iter</span>() {
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">oob_end_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_none</span>());
             <span class="macro">assert</span><span class="macro">!</span>(<span class="kw">unsafe</span> { <span class="ident">oob_end_ptr</span>.<span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_none</span>() });
         }
@@ -687,7 +687,7 @@
 
         <span class="kw">let</span> <span class="ident">invalid_idx_len_combos</span>: [(<span class="ident">u32</span>, <span class="ident">u32</span>); <span class="number">3</span>] <span class="op">=</span>
             [(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">1</span>, <span class="number">0</span>), (<span class="number">0</span>, <span class="number">2</span>), (<span class="number">1</span>, <span class="number">1</span>)];
-        <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">idx</span>, <span class="ident">len</span>) <span class="kw">in</span> <span class="ident">invalid_idx_len_combos</span>.<span class="ident">into_iter</span>() {
+        <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">idx</span>, <span class="ident">len</span>) <span class="kw">in</span> <span class="ident">invalid_idx_len_combos</span>.<span class="ident">iter</span>() {
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">idx</span>, <span class="ident">len</span>).<span class="ident">is_none</span>());
             <span class="macro">assert</span><span class="macro">!</span>(<span class="kw">unsafe</span> { <span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">idx</span>, <span class="ident">len</span>).<span class="ident">is_none</span>() });
         }
@@ -699,7 +699,7 @@
             <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">4</span>),
         ];
 
-        <span class="kw">for</span> <span class="ident">oob_end_array_ptr</span> <span class="kw">in</span> <span class="ident">end_wasm_ptr_array_oob_array</span>.<span class="ident">into_iter</span>() {
+        <span class="kw">for</span> <span class="ident">oob_end_array_ptr</span> <span class="kw">in</span> <span class="ident">end_wasm_ptr_array_oob_array</span>.<span class="ident">iter</span>() {
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">oob_end_array_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_none</span>());
             <span class="macro">assert</span><span class="macro">!</span>(<span class="kw">unsafe</span> { <span class="ident">oob_end_array_ptr</span>.<span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_none</span>() });
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">oob_end_array_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">1</span>, <span class="number">0</span>).<span class="ident">is_none</span>());

@@ -528,13 +528,13 @@
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
 <span class="kw">struct</span> <span class="ident">AsyncState</span> {
-    <span class="ident">callback</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">FnOnce</span>()<span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">callback</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FnOnce</span>()<span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">_epoll</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Epoll</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Epoll</span> {
     <span class="ident">fd</span>: <span class="ident">i32</span>,
-    <span class="ident">imm_queue</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">FnOnce</span>()<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">imm_queue</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FnOnce</span>()<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Epoll</span> {
@@ -632,7 +632,7 @@
     <span class="ident">direction</span>: <span class="ident">EpollDirection</span>,
     <span class="ident">poll_action</span>: <span class="ident">P</span>,
     <span class="ident">on_ready</span>: <span class="ident">F</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">FnOnce</span>()<span class="op">&gt;</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FnOnce</span>()<span class="op">&gt;</span> {
     <span class="ident">__get_async_io_payload</span>(<span class="ident">epoll</span>, <span class="ident">fd</span>, <span class="ident">direction</span>, <span class="ident">poll_action</span>, <span class="ident">on_ready</span>, <span class="bool-val">false</span>)
 }
 
@@ -647,7 +647,7 @@
     <span class="kw-2">mut</span> <span class="ident">poll_action</span>: <span class="ident">P</span>,
     <span class="ident">on_ready</span>: <span class="ident">F</span>,
     <span class="ident">registered</span>: <span class="ident">bool</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">FnOnce</span>()<span class="op">&gt;</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FnOnce</span>()<span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">epfd</span> <span class="op">=</span> <span class="ident">epoll</span>.<span class="ident">fd</span>;
     <span class="ident">Box</span>::<span class="ident">new</span>(<span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {
         <span class="comment">//println!(&quot;async io payload&quot;);</span>
@@ -699,7 +699,7 @@
 }
 
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">struct</span> <span class="ident">InAddr</span> {
     <span class="ident">s_addr</span>: <span class="ident">u32</span>,
 }
