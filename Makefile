@@ -206,6 +206,12 @@ check-bench-llvm:
 
 check-bench: check-bench-singlepass check-bench-llvm
 
+check-kernel-net:
+	cargo check -p kernel-net --target=wasm32-wasi
+
+# checks that require a nightly version of Rust
+check-nightly: check-kernel-net
+
 # TODO: We wanted `--workspace --exclude wasmer-runtime`, but can't due
 # to https://github.com/rust-lang/cargo/issues/6745 .
 NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-interface-types

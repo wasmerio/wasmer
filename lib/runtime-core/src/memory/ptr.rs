@@ -301,7 +301,7 @@ mod test {
         assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
         let invalid_idx_len_combos: [(u32, u32); 3] =
             [(last_valid_address_for_u8 + 1, 0), (0, 2), (1, 1)];
-        for &(idx, len) in invalid_idx_len_combos.into_iter() {
+        for &(idx, len) in invalid_idx_len_combos.iter() {
             assert!(end_wasm_ptr_array.deref(&memory, idx, len).is_none());
             assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, idx, len).is_none() });
         }
@@ -322,7 +322,7 @@ mod test {
             WasmPtr::new(last_valid_address_for_u32 + 3),
             WasmPtr::new(last_valid_address_for_u32 + 4),
         ];
-        for oob_end_ptr in end_wasm_ptr_oob_array.into_iter() {
+        for oob_end_ptr in end_wasm_ptr_oob_array.iter() {
             assert!(oob_end_ptr.deref(&memory).is_none());
             assert!(unsafe { oob_end_ptr.deref_mut(&memory).is_none() });
         }
@@ -332,7 +332,7 @@ mod test {
 
         let invalid_idx_len_combos: [(u32, u32); 3] =
             [(last_valid_address_for_u32 + 1, 0), (0, 2), (1, 1)];
-        for &(idx, len) in invalid_idx_len_combos.into_iter() {
+        for &(idx, len) in invalid_idx_len_combos.iter() {
             assert!(end_wasm_ptr_array.deref(&memory, idx, len).is_none());
             assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, idx, len).is_none() });
         }
@@ -344,7 +344,7 @@ mod test {
             WasmPtr::new(last_valid_address_for_u32 + 4),
         ];
 
-        for oob_end_array_ptr in end_wasm_ptr_array_oob_array.into_iter() {
+        for oob_end_array_ptr in end_wasm_ptr_array_oob_array.iter() {
             assert!(oob_end_array_ptr.deref(&memory, 0, 1).is_none());
             assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 0, 1).is_none() });
             assert!(oob_end_array_ptr.deref(&memory, 1, 0).is_none());
