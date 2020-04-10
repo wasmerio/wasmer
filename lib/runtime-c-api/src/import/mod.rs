@@ -18,9 +18,10 @@ use std::{
     sync::Arc,
 };
 use wasmer::import::{ImportObject, ImportObjectIterator};
-use wasmer::wasm::{Ctx, FuncSig, Global, Memory, Module, Table, Type};
+use wasmer::vm::Ctx;
+use wasmer::wasm::{Export, FuncSig, Global, Memory, Module, Table, Type};
 use wasmer_runtime_core::{
-    export::{Context, Export, FuncPointer},
+    export::{Context, FuncPointer},
     module::ImportName,
 };
 

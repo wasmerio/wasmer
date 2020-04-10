@@ -282,13 +282,16 @@ pub mod codegen {
 // TODO: `import` or `imports`?
 pub mod import {
     //! Types and functions for Wasm imports.
-    pub use wasmer_runtime_core::import::{ImportObject, ImportObjectIterator, LikeNamespace, Namespace};
+    pub use wasmer_runtime_core::import::{
+        ImportObject, ImportObjectIterator, LikeNamespace, Namespace,
+    };
     pub use wasmer_runtime_core::types::{ExternDescriptor, ImportDescriptor};
     pub use wasmer_runtime_core::{func, imports};
 }
 
 pub mod export {
     //! Types and functions for Wasm exports.
+    pub use wasmer_runtime_core::export::Export;
     pub use wasmer_runtime_core::types::{ExportDescriptor, ExternDescriptor};
 }
 
@@ -393,24 +396,4 @@ impl CompiledModule for Module {
         let _ = Self::from_binary(bytes)?;
         Ok(())
     }
-}
-
-// Below this line is things copied from `wasmer-runtime` to make the C API work.
-// All these additions should be reviewed carefully before shipping.
-
-/// Compile WebAssembly binary code into a [`Module`].
-/// This function is useful if it is necessary to
-/// compile a module before it can be instantiated
-/// (otherwise, the [`instantiate`] function should be used).
-///
-/// [`Module`]: struct.Module.html
-/// [`instantiate`]: fn.instantiate.html
-///
-/// # Params:
-/// * `wasm`: A `&[u8]` containing the
-///   binary code of the wasm module you want to compile.
-/// # Errors:
-/// If the operation fails, the function returns `Err(error::CompileError::...)`.
-pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
-    wasmer_runtime_core::compile_with(&wasm[..], &default_compiler())
 }
