@@ -974,10 +974,11 @@
 <span id="974">974</span>
 <span id="975">975</span>
 <span id="976">976</span>
+<span id="977">977</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parse the WIT textual representation into an [AST](crate::ast).</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>, <span class="ident">vec1</span>::<span class="ident">Vec1</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>, <span class="ident">types</span>::<span class="kw-2">*</span>, <span class="ident">vec1</span>::<span class="ident">Vec1</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wast</span>::<span class="ident">parser</span>::<span class="ident">ParseBuffer</span> <span class="kw">as</span> <span class="ident">Buffer</span>;
 <span class="kw">use</span> <span class="ident">wast</span>::<span class="ident">parser</span>::{<span class="self">self</span>, <span class="ident">Cursor</span>, <span class="ident">Parse</span>, <span class="ident">Parser</span>, <span class="ident">Peek</span>, <span class="prelude-ty">Result</span>};
 
@@ -1567,9 +1568,10 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
 <span class="doccomment">/// use wasmer_interface_types::{</span>
-<span class="doccomment">///     ast::*,</span>
+<span class="doccomment">///     ast::{Adapter, Export, Implementation, Import, Interfaces, Type},</span>
 <span class="doccomment">///     decoders::wat::{parse, Buffer},</span>
 <span class="doccomment">///     interpreter::Instruction,</span>
+<span class="doccomment">///     types::InterfaceType,</span>
 <span class="doccomment">/// };</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// let input = Buffer::new(</span>

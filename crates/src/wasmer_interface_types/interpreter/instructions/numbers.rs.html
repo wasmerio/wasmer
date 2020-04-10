@@ -367,11 +367,13 @@
 <span id="367">367</span>
 <span id="368">368</span>
 <span id="369">369</span>
+<span id="370">370</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">ast</span>::<span class="ident">InterfaceType</span>,
     <span class="ident">errors</span>::{<span class="ident">InstructionError</span>, <span class="ident">InstructionErrorKind</span>},
-    <span class="ident">interpreter</span>::{<span class="ident">wasm</span>::<span class="ident">values</span>::<span class="ident">InterfaceValue</span>, <span class="ident">Instruction</span>},
+    <span class="ident">interpreter</span>::<span class="ident">Instruction</span>,
+    <span class="ident">types</span>::<span class="ident">InterfaceType</span>,
+    <span class="ident">values</span>::<span class="ident">InterfaceValue</span>,
 };
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryInto</span>;
 

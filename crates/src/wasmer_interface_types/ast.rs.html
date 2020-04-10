@@ -122,121 +122,15 @@
 <span id="122">122</span>
 <span id="123">123</span>
 <span id="124">124</span>
-<span id="125">125</span>
-<span id="126">126</span>
-<span id="127">127</span>
-<span id="128">128</span>
-<span id="129">129</span>
-<span id="130">130</span>
-<span id="131">131</span>
-<span id="132">132</span>
-<span id="133">133</span>
-<span id="134">134</span>
-<span id="135">135</span>
-<span id="136">136</span>
-<span id="137">137</span>
-<span id="138">138</span>
-<span id="139">139</span>
-<span id="140">140</span>
-<span id="141">141</span>
-<span id="142">142</span>
-<span id="143">143</span>
-<span id="144">144</span>
-<span id="145">145</span>
-<span id="146">146</span>
-<span id="147">147</span>
-<span id="148">148</span>
-<span id="149">149</span>
-<span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
-<span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
-<span id="173">173</span>
-<span id="174">174</span>
-<span id="175">175</span>
-<span id="176">176</span>
-<span id="177">177</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Represents the WIT language as a tree. This is the central</span>
 <span class="doccomment">//! representation of the language.</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">interpreter</span>::<span class="ident">Instruction</span>, <span class="ident">vec1</span>::<span class="ident">Vec1</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">interpreter</span>::<span class="ident">Instruction</span>,
+    <span class="ident">types</span>::{<span class="ident">InterfaceType</span>, <span class="ident">RecordType</span>},
+};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">str</span>;
-
-<span class="doccomment">/// Represents the types supported by WIT.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">InterfaceType</span> {
-    <span class="doccomment">/// A 8-bits signed integer.</span>
-    <span class="ident">S8</span>,
-
-    <span class="doccomment">/// A 16-bits signed integer.</span>
-    <span class="ident">S16</span>,
-
-    <span class="doccomment">/// A 32-bits signed integer.</span>
-    <span class="ident">S32</span>,
-
-    <span class="doccomment">/// A 64-bits signed integer.</span>
-    <span class="ident">S64</span>,
-
-    <span class="doccomment">/// A 8-bits unsigned integer.</span>
-    <span class="ident">U8</span>,
-
-    <span class="doccomment">/// A 16-bits unsigned integer.</span>
-    <span class="ident">U16</span>,
-
-    <span class="doccomment">/// A 32-bits unsigned integer.</span>
-    <span class="ident">U32</span>,
-
-    <span class="doccomment">/// A 64-bits unsigned integer.</span>
-    <span class="ident">U64</span>,
-
-    <span class="doccomment">/// A 32-bits float.</span>
-    <span class="ident">F32</span>,
-
-    <span class="doccomment">/// A 64-bits float.</span>
-    <span class="ident">F64</span>,
-
-    <span class="doccomment">/// A string.</span>
-    <span class="ident">String</span>,
-
-    <span class="doccomment">/// An `any` reference.</span>
-    <span class="ident">Anyref</span>,
-
-    <span class="doccomment">/// A 32-bits integer (as defined in WebAssembly core).</span>
-    <span class="ident">I32</span>,
-
-    <span class="doccomment">/// A 64-bits integer (as defiend in WebAssembly core).</span>
-    <span class="ident">I64</span>,
-
-    <span class="doccomment">/// A record.</span>
-    <span class="ident">Record</span>(<span class="ident">RecordType</span>),
-}
-
-<span class="doccomment">/// Represents a record type.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RecordType</span> {
-    <span class="doccomment">/// Types representing the fields.</span>
-    <span class="kw">pub</span> <span class="ident">fields</span>: <span class="ident">Vec1</span><span class="op">&lt;</span><span class="ident">InterfaceType</span><span class="op">&gt;</span>,
-}
 
 <span class="doccomment">/// Represents the kind of type.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Debug</span>)]</span>

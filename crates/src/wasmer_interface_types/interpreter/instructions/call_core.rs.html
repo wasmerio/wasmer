@@ -186,16 +186,12 @@
 <span id="186">186</span>
 <span id="187">187</span>
 <span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">errors</span>::{<span class="ident">InstructionError</span>, <span class="ident">InstructionErrorKind</span>},
-    <span class="ident">interpreter</span>::<span class="ident">wasm</span>::{
-        <span class="ident">structures</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">TypedIndex</span>},
-        <span class="ident">values</span>::<span class="ident">InterfaceType</span>,
-    },
+    <span class="ident">interpreter</span>::<span class="ident">wasm</span>::<span class="ident">structures</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">TypedIndex</span>},
     <span class="ident">interpreter</span>::<span class="ident">Instruction</span>,
+    <span class="ident">types</span>::<span class="ident">InterfaceType</span>,
 };
 
 <span class="macro">executable_instruction</span><span class="macro">!</span>(

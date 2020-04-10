@@ -375,16 +375,24 @@
 <span id="375">375</span>
 <span id="376">376</span>
 <span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">ast</span>::{<span class="ident">InterfaceType</span>, <span class="ident">RecordType</span>, <span class="ident">Type</span>, <span class="ident">TypeKind</span>},
+    <span class="ident">ast</span>::{<span class="ident">Type</span>, <span class="ident">TypeKind</span>},
     <span class="ident">errors</span>::{<span class="ident">InstructionError</span>, <span class="ident">InstructionErrorKind</span>},
-    <span class="ident">interpreter</span>::<span class="ident">wasm</span>::<span class="ident">values</span>::<span class="ident">FlattenInterfaceValueIterator</span>,
     <span class="ident">interpreter</span>::{
         <span class="ident">stack</span>::{<span class="ident">Stack</span>, <span class="ident">Stackable</span>},
-        <span class="ident">wasm</span>::<span class="ident">values</span>::<span class="ident">InterfaceValue</span>,
         <span class="ident">Instruction</span>,
     },
+    <span class="ident">types</span>::{<span class="ident">InterfaceType</span>, <span class="ident">RecordType</span>},
+    <span class="ident">values</span>::{<span class="ident">FlattenInterfaceValueIterator</span>, <span class="ident">InterfaceValue</span>},
+    <span class="ident">vec1</span>::<span class="ident">Vec1</span>,
 };
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">VecDeque</span>;
 
@@ -434,7 +442,10 @@
         }
     }
 
-    <span class="prelude-val">Ok</span>(<span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="ident">values</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>()))
+    <span class="prelude-val">Ok</span>(<span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(
+        <span class="ident">Vec1</span>::<span class="ident">new</span>(<span class="ident">values</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>())
+            .<span class="ident">expect</span>(<span class="string">&quot;Record must have at least one field, zero given&quot;</span>), <span class="comment">// normally unreachable because of the type-checking</span>
+    ))
 }
 
 <span class="macro">executable_instruction</span><span class="macro">!</span>(
@@ -488,7 +499,7 @@
             };
 
             <span class="kw">match</span> <span class="ident">runtime</span>.<span class="ident">stack</span>.<span class="ident">pop1</span>() {
-                <span class="prelude-val">Some</span>(<span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="ident">record_values</span>)) <span class="kw">if</span> <span class="ident">record_type</span> <span class="op">=</span><span class="op">=</span> <span class="kw-2">&amp;</span>(<span class="kw-2">&amp;</span><span class="ident">record_values</span>).<span class="ident">into</span>() <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Some</span>(<span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="ident">record_values</span>)) <span class="kw">if</span> <span class="ident">record_type</span> <span class="op">=</span><span class="op">=</span> <span class="kw-2">&amp;</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">record_values</span>).<span class="ident">into</span>() <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">let</span> <span class="ident">values</span> <span class="op">=</span> <span class="ident">FlattenInterfaceValueIterator</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">record_values</span>);
 
                     <span class="kw">for</span> <span class="ident">value</span> <span class="kw">in</span> <span class="ident">values</span> {
@@ -517,7 +528,7 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ast</span>::{<span class="ident">RecordType</span>, <span class="ident">Type</span>};
+    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
     <span class="macro">test_executable_instruction</span><span class="macro">!</span>(
         <span class="ident">test_record_lift</span> <span class="op">=</span>
@@ -535,9 +546,9 @@
                 <span class="ident">InterfaceValue</span>::<span class="ident">I64</span>(<span class="number">3</span>),
             ],
             <span class="ident">instance</span>: <span class="ident">Instance</span>::<span class="ident">new</span>(),
-            <span class="ident">stack</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+            <span class="ident">stack</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                 <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">1</span>),
-                <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                     <span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello&quot;</span>.<span class="ident">to_string</span>()),
                     <span class="ident">InterfaceValue</span>::<span class="ident">F32</span>(<span class="number">2.</span>),
                 ]),
@@ -549,11 +560,14 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>, <span class="ident">unused</span>)]</span>
     <span class="kw">fn</span> <span class="ident">test_record_lift__to_rust_struct</span>() {
-        <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">interpreter</span>::{
-            <span class="ident">instructions</span>::<span class="ident">tests</span>::{<span class="ident">Export</span>, <span class="ident">Instance</span>, <span class="ident">LocalImport</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span>},
-            <span class="ident">stack</span>::<span class="ident">Stackable</span>,
-            <span class="ident">wasm</span>::<span class="ident">values</span>::{<span class="ident">from_interface_values</span>, <span class="ident">InterfaceType</span>, <span class="ident">InterfaceValue</span>},
-            <span class="ident">Instruction</span>, <span class="ident">Interpreter</span>,
+        <span class="kw">use</span> <span class="kw">crate</span>::{
+            <span class="ident">interpreter</span>::{
+                <span class="ident">instructions</span>::<span class="ident">tests</span>::{<span class="ident">Export</span>, <span class="ident">Instance</span>, <span class="ident">LocalImport</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span>},
+                <span class="ident">stack</span>::<span class="ident">Stackable</span>,
+                <span class="ident">Instruction</span>, <span class="ident">Interpreter</span>,
+            },
+            <span class="ident">types</span>::<span class="ident">InterfaceType</span>,
+            <span class="ident">values</span>::{<span class="ident">from_interface_values</span>, <span class="ident">InterfaceValue</span>},
         };
         <span class="kw">use</span> <span class="ident">serde</span>::<span class="ident">Deserialize</span>;
         <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">convert</span>::<span class="ident">TryInto</span>};
@@ -630,7 +644,7 @@
 
                 <span class="ident">instance</span>
             },
-            <span class="ident">stack</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+            <span class="ident">stack</span>: [<span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                 <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">1</span>),
                 <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">2</span>),
             ])],
@@ -673,9 +687,9 @@
                 <span class="ident">Instruction</span>::<span class="ident">RecordLower</span> { <span class="ident">type_index</span>: <span class="number">0</span> },
             ],
             <span class="ident">invocation_inputs</span>: [
-                <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                     <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">1</span>),
-                    <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                    <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                         <span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello&quot;</span>.<span class="ident">to_string</span>()),
                         <span class="ident">InterfaceValue</span>::<span class="ident">F32</span>(<span class="number">2.</span>),
                     ]),
@@ -699,9 +713,9 @@
                 <span class="ident">Instruction</span>::<span class="ident">RecordLift</span> { <span class="ident">type_index</span>: <span class="number">0</span> },
             ],
             <span class="ident">invocation_inputs</span>: [
-                <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                     <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">1</span>),
-                    <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                    <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                         <span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello&quot;</span>.<span class="ident">to_string</span>()),
                         <span class="ident">InterfaceValue</span>::<span class="ident">F32</span>(<span class="number">2.</span>),
                     ]),
@@ -710,9 +724,9 @@
             ],
             <span class="ident">instance</span>: <span class="ident">Instance</span>::<span class="ident">new</span>(),
             <span class="ident">stack</span>: [
-                <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                     <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">1</span>),
-                    <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                    <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                         <span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello&quot;</span>.<span class="ident">to_string</span>()),
                         <span class="ident">InterfaceValue</span>::<span class="ident">F32</span>(<span class="number">2.</span>),
                     ]),
@@ -741,9 +755,9 @@
                 <span class="ident">Instruction</span>::<span class="ident">RecordLower</span> { <span class="ident">type_index</span>: <span class="number">0</span> },
             ],
             <span class="ident">invocation_inputs</span>: [
-                <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                     <span class="ident">InterfaceValue</span>::<span class="ident">I32</span>(<span class="number">1</span>),
-                    <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec</span><span class="macro">!</span>[
+                    <span class="ident">InterfaceValue</span>::<span class="ident">Record</span>(<span class="macro">vec1</span><span class="macro">!</span>[
                         <span class="ident">InterfaceValue</span>::<span class="ident">String</span>(<span class="string">&quot;Hello&quot;</span>.<span class="ident">to_string</span>()),
                     ]),
                     <span class="ident">InterfaceValue</span>::<span class="ident">I64</span>(<span class="number">3</span>),

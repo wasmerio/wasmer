@@ -267,17 +267,11 @@
 <span id="267">267</span>
 <span id="268">268</span>
 <span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The error module contains all the data structures that represent</span>
 <span class="doccomment">//! an error.</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">ast</span>::{<span class="ident">InterfaceType</span>, <span class="ident">TypeKind</span>},
-    <span class="ident">interpreter</span>::<span class="ident">Instruction</span>,
-};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="ident">TypeKind</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>, <span class="ident">types</span>::<span class="ident">InterfaceType</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">error</span>::<span class="ident">Error</span>,
     <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>},

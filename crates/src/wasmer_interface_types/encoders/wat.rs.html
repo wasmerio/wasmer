@@ -638,6 +638,7 @@
 <span id="638">638</span>
 <span id="639">639</span>
 <span id="640">640</span>
+<span id="641">641</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Writes the AST into a string representing WIT with its textual format.</span>
 <span class="doccomment">//!</span>
@@ -645,9 +646,10 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
 <span class="doccomment">//! use wasmer_interface_types::{</span>
-<span class="doccomment">//!     ast::*,</span>
+<span class="doccomment">//!     ast::{Adapter, Export, Implementation, Import, Interfaces, Type},</span>
 <span class="doccomment">//!     encoders::wat::*,</span>
 <span class="doccomment">//!     interpreter::Instruction,</span>
+<span class="doccomment">//!     types::InterfaceType,</span>
 <span class="doccomment">//! };</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! let input: String = (&amp;Interfaces {</span>
@@ -695,7 +697,7 @@
 <span class="doccomment">//! assert_eq!(input, output);</span>
 <span class="doccomment">//! ```</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>, <span class="ident">types</span>::<span class="kw-2">*</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">string</span>::<span class="ident">ToString</span>;
 
 <span class="doccomment">/// Encode an `InterfaceType` into a string.</span>
@@ -987,7 +989,7 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>};
+    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_interface_types</span>() {

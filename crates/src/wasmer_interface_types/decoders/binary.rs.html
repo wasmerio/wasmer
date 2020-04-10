@@ -987,10 +987,11 @@
 <span id="987">987</span>
 <span id="988">988</span>
 <span id="989">989</span>
+<span id="990">990</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parse the WIT binary representation into an [AST](crate::ast).</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>, <span class="ident">vec1</span>::<span class="ident">Vec1</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">Instruction</span>, <span class="ident">types</span>::<span class="kw-2">*</span>, <span class="ident">vec1</span>::<span class="ident">Vec1</span>};
 <span class="kw">use</span> <span class="ident">nom</span>::{
     <span class="ident">error</span>::{<span class="ident">make_error</span>, <span class="ident">ErrorKind</span>, <span class="ident">ParseError</span>},
     <span class="prelude-val">Err</span>, <span class="ident">IResult</span>,
@@ -1435,9 +1436,10 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
 <span class="doccomment">/// use wasmer_interface_types::{</span>
-<span class="doccomment">///     ast::*,</span>
+<span class="doccomment">///     ast::{Adapter, Export, Implementation, Import, Interfaces, Type},</span>
 <span class="doccomment">///     decoders::binary::parse,</span>
 <span class="doccomment">///     interpreter::Instruction,</span>
+<span class="doccomment">///     types::InterfaceType,</span>
 <span class="doccomment">/// };</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// let input = &amp;[</span>

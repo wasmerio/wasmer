@@ -351,12 +351,14 @@
 <span id="351">351</span>
 <span id="352">352</span>
 <span id="353">353</span>
+<span id="354">354</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">to_native</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">ast</span>::<span class="ident">InterfaceType</span>,
     <span class="ident">errors</span>::{<span class="ident">InstructionError</span>, <span class="ident">InstructionErrorKind</span>},
-    <span class="ident">interpreter</span>::{<span class="ident">wasm</span>::<span class="ident">values</span>::<span class="ident">InterfaceValue</span>, <span class="ident">Instruction</span>},
+    <span class="ident">interpreter</span>::<span class="ident">Instruction</span>,
+    <span class="ident">types</span>::<span class="ident">InterfaceType</span>,
+    <span class="ident">values</span>::<span class="ident">InterfaceValue</span>,
 };
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">convert</span>::<span class="ident">TryInto</span>};
 

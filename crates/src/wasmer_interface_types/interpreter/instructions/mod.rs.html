@@ -350,12 +350,6 @@
 <span id="350">350</span>
 <span id="351">351</span>
 <span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">mod</span> <span class="ident">argument_get</span>;
 <span class="kw">mod</span> <span class="ident">call_core</span>;
@@ -365,7 +359,7 @@
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">errors</span>::{<span class="ident">InstructionError</span>, <span class="ident">InstructionErrorKind</span>, <span class="ident">InstructionResult</span>, <span class="ident">WasmValueNativeCastError</span>},
-    <span class="ident">interpreter</span>::<span class="ident">wasm</span>::<span class="ident">values</span>::{<span class="ident">InterfaceValue</span>, <span class="ident">NativeType</span>},
+    <span class="ident">values</span>::{<span class="ident">InterfaceValue</span>, <span class="ident">NativeType</span>},
 };
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">argument_get</span>::<span class="ident">argument_get</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">call_core</span>::<span class="ident">call_core</span>;
@@ -522,13 +516,7 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">crate</span>::{
-        <span class="ident">ast</span>,
-        <span class="ident">interpreter</span>::<span class="ident">wasm</span>::{
-            <span class="self">self</span>,
-            <span class="ident">values</span>::{<span class="ident">InterfaceType</span>, <span class="ident">InterfaceValue</span>},
-        },
-    };
+    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>::<span class="kw-2">*</span>, <span class="ident">interpreter</span>::<span class="ident">wasm</span>, <span class="ident">types</span>::<span class="kw-2">*</span>, <span class="ident">values</span>::<span class="kw-2">*</span>};
     <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">convert</span>::<span class="ident">TryInto</span>, <span class="ident">ops</span>::<span class="ident">Deref</span>, <span class="ident">rc</span>::<span class="ident">Rc</span>};
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">Export</span> {
@@ -624,7 +612,7 @@
         <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">exports</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Export</span><span class="op">&gt;</span>,
         <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">locals_or_imports</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">LocalImport</span><span class="op">&gt;</span>,
         <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">memory</span>: <span class="ident">Memory</span>,
-        <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wit_types</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ast</span>::<span class="ident">Type</span><span class="op">&gt;</span>,
+        <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wit_types</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span>,
     }
 
     <span class="kw">impl</span> <span class="ident">Instance</span> {
@@ -681,10 +669,10 @@
                     <span class="ident">hashmap</span>
                 },
                 <span class="ident">memory</span>: <span class="ident">Memory</span>::<span class="ident">new</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Cell</span>::<span class="ident">new</span>(<span class="number">0</span>); <span class="number">128</span>]),
-                <span class="ident">wit_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">ast</span>::<span class="ident">Type</span>::<span class="ident">Record</span>(<span class="ident">ast</span>::<span class="ident">RecordType</span> {
+                <span class="ident">wit_types</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Type</span>::<span class="ident">Record</span>(<span class="ident">RecordType</span> {
                     <span class="ident">fields</span>: <span class="macro">vec1</span><span class="macro">!</span>[
                         <span class="ident">InterfaceType</span>::<span class="ident">I32</span>,
-                        <span class="ident">InterfaceType</span>::<span class="ident">Record</span>(<span class="ident">ast</span>::<span class="ident">RecordType</span> {
+                        <span class="ident">InterfaceType</span>::<span class="ident">Record</span>(<span class="ident">RecordType</span> {
                             <span class="ident">fields</span>: <span class="macro">vec1</span><span class="macro">!</span>[<span class="ident">InterfaceType</span>::<span class="ident">String</span>, <span class="ident">InterfaceType</span>::<span class="ident">F32</span>],
                         }),
                         <span class="ident">InterfaceType</span>::<span class="ident">I64</span>,
@@ -710,7 +698,7 @@
             <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">memory</span>)
         }
 
-        <span class="kw">fn</span> <span class="ident">wit_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ast</span>::<span class="ident">Type</span><span class="op">&gt;</span> {
+        <span class="kw">fn</span> <span class="ident">wit_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Type</span><span class="op">&gt;</span> {
             <span class="self">self</span>.<span class="ident">wit_types</span>.<span class="ident">get</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>)
         }
     }

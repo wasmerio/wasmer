@@ -247,6 +247,11 @@
 <span id="247">247</span>
 <span id="248">248</span>
 <span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A stack-based interpreter to execute instructions of WIT adapters.</span>
 
@@ -254,11 +259,13 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">stack</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wasm</span>;
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">errors</span>::{<span class="ident">InstructionResult</span>, <span class="ident">InterpreterResult</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">errors</span>::{<span class="ident">InstructionResult</span>, <span class="ident">InterpreterResult</span>},
+    <span class="ident">values</span>::<span class="ident">InterfaceValue</span>,
+};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">instructions</span>::<span class="ident">Instruction</span>;
 <span class="kw">use</span> <span class="ident">stack</span>::<span class="ident">Stack</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">convert</span>::<span class="ident">TryFrom</span>, <span class="ident">marker</span>::<span class="ident">PhantomData</span>};
-<span class="kw">use</span> <span class="ident">wasm</span>::<span class="ident">values</span>::<span class="ident">InterfaceValue</span>;
 
 <span class="doccomment">/// Represents the `Runtime`, which is used by an adapter to execute</span>
 <span class="doccomment">/// its instructions.</span>
@@ -309,13 +316,16 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust,ignore</span>
 <span class="doccomment">/// use std::{cell::Cell, collections::HashMap, convert::TryInto};</span>
-<span class="doccomment">/// use wasmer_interface_types::interpreter::{</span>
-<span class="doccomment">///     instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},</span>
-<span class="doccomment">/// //  ^^^^^^^^^^^^ This is private and for testing purposes only.</span>
-<span class="doccomment">/// //               It is basically a fake WebAssembly runtime.</span>
-<span class="doccomment">///     stack::Stackable,</span>
-<span class="doccomment">///     wasm::values::{InterfaceType, InterfaceValue},</span>
-<span class="doccomment">///     Instruction, Interpreter,</span>
+<span class="doccomment">/// use wasmer_interface_types::{</span>
+<span class="doccomment">///     interpreter::{</span>
+<span class="doccomment">///         instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},</span>
+<span class="doccomment">/// //      ^^^^^^^^^^^^ This is private and for testing purposes only.</span>
+<span class="doccomment">/// //                   It is basically a fake WebAssembly runtime.</span>
+<span class="doccomment">///         stack::Stackable,</span>
+<span class="doccomment">///         Instruction, Interpreter,</span>
+<span class="doccomment">///     },</span>
+<span class="doccomment">///     types::InterfaceType,</span>
+<span class="doccomment">///     values::InterfaceValue,</span>
 <span class="doccomment">/// };</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// // 1. Creates an interpreter from a set of instructions. They will</span>

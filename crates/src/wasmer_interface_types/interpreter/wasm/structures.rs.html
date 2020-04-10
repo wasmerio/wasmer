@@ -162,16 +162,10 @@
 <span id="162">162</span>
 <span id="163">163</span>
 <span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">ast</span>,
-    <span class="ident">interpreter</span>::<span class="ident">wasm</span>::<span class="ident">values</span>::{<span class="ident">InterfaceType</span>, <span class="ident">InterfaceValue</span>},
-};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ast</span>, <span class="ident">types</span>::<span class="ident">InterfaceType</span>, <span class="ident">values</span>::<span class="ident">InterfaceValue</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">ops</span>::<span class="ident">Deref</span>};
 
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">TypedIndex</span>: <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">Clone</span> {

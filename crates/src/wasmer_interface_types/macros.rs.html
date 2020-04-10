@@ -158,10 +158,20 @@
 <span id="158">158</span>
 <span id="159">159</span>
 <span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="doccomment">//! Collection of helpful macros.</span>
+
 <span class="doccomment">/// This macro creates a `Vec1` by checking at compile-time that its</span>
 <span class="doccomment">/// invariant holds.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused</span>)]</span>
+<span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">vec1</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">item</span>:<span class="ident">expr</span>; <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
         <span class="macro">compile_error</span><span class="macro">!</span>(<span class="string">&quot;Cannot create an empty `Vec1`, it violates its invariant.&quot;</span>)
@@ -257,11 +267,14 @@
         <span class="attribute">#[<span class="ident">test</span>]</span>
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>, <span class="ident">unused</span>)]</span>
         <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">test_name</span>() {
-            <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">interpreter</span>::{
-                <span class="ident">instructions</span>::<span class="ident">tests</span>::{<span class="ident">Export</span>, <span class="ident">Instance</span>, <span class="ident">LocalImport</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span>},
-                <span class="ident">stack</span>::<span class="ident">Stackable</span>,
-                <span class="ident">wasm</span>::<span class="ident">values</span>::{<span class="ident">InterfaceType</span>, <span class="ident">InterfaceValue</span>},
-                <span class="ident">Instruction</span>, <span class="ident">Interpreter</span>,
+            <span class="kw">use</span> <span class="kw">crate</span>::{
+                <span class="ident">interpreter</span>::{
+                    <span class="ident">instructions</span>::<span class="ident">tests</span>::{<span class="ident">Export</span>, <span class="ident">Instance</span>, <span class="ident">LocalImport</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span>},
+                    <span class="ident">stack</span>::<span class="ident">Stackable</span>,
+                    <span class="ident">Instruction</span>, <span class="ident">Interpreter</span>,
+                },
+                <span class="ident">types</span>::<span class="ident">InterfaceType</span>,
+                <span class="ident">values</span>::<span class="ident">InterfaceValue</span>,
             };
             <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">convert</span>::<span class="ident">TryInto</span>};
 
@@ -296,11 +309,14 @@
         <span class="attribute">#[<span class="ident">test</span>]</span>
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>, <span class="ident">unused</span>)]</span>
         <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">test_name</span>() {
-            <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">interpreter</span>::{
-                <span class="ident">instructions</span>::<span class="ident">tests</span>::{<span class="ident">Export</span>, <span class="ident">Instance</span>, <span class="ident">LocalImport</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span>},
-                <span class="ident">stack</span>::<span class="ident">Stackable</span>,
-                <span class="ident">wasm</span>::<span class="ident">values</span>::{<span class="ident">InterfaceType</span>, <span class="ident">InterfaceValue</span>},
-                <span class="ident">Instruction</span>, <span class="ident">Interpreter</span>,
+            <span class="kw">use</span> <span class="kw">crate</span>::{
+                <span class="ident">interpreter</span>::{
+                    <span class="ident">instructions</span>::<span class="ident">tests</span>::{<span class="ident">Export</span>, <span class="ident">Instance</span>, <span class="ident">LocalImport</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span>},
+                    <span class="ident">stack</span>::<span class="ident">Stackable</span>,
+                    <span class="ident">Instruction</span>, <span class="ident">Interpreter</span>,
+                },
+                <span class="ident">types</span>::<span class="ident">InterfaceType</span>,
+                <span class="ident">values</span>::<span class="ident">InterfaceValue</span>,
             };
             <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">convert</span>::<span class="ident">TryInto</span>};
 
