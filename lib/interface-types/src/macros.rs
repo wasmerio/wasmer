@@ -111,7 +111,12 @@ macro_rules! test_executable_instruction {
             let mut instance = $instance;
             let run = interpreter.run(&invocation_inputs, &mut instance);
 
-            assert!(run.is_ok());
+            let err = match &run {
+                Ok(_) => "".to_string(),
+                Err(e) => e.to_string(),
+            };
+
+            assert!(run.is_ok(), err);
 
             let stack = run.unwrap();
 

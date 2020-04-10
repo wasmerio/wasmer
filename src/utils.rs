@@ -1,5 +1,9 @@
 //! Utility functions for the WebAssembly module
 
+use std::fs::File;
+use std::io;
+use std::io::Read;
+use std::path::PathBuf;
 use wasmer_runtime::{types::Type, Module, Value};
 use wasmer_runtime_core::{backend::SigRegistry, module::ExportIndex};
 
@@ -118,6 +122,14 @@ pub fn parse_args(
                 |arguments: Vec<Value>| Ok(arguments),
             )
     }
+}
+
+/// Read the contents of a file
+pub fn read_file_contents(path: &PathBuf) -> Result<Vec<u8>, io::Error> {
+    let mut buffer: Vec<u8> = Vec::new();
+    let mut file = File::open(path)?;
+    file.read_to_end(&mut buffer)?;
+    Ok(buffer)
 }
 
 /// Whether or not Wasmer should print with color

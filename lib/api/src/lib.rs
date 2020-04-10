@@ -22,10 +22,14 @@
 //!
 //! more info, what to do if you run into problems
 
+#[macro_use]
+extern crate serde;
+
 pub use crate::module::*;
 pub use wasmer_runtime_core::instance::{DynFunc, Instance};
 pub use wasmer_runtime_core::memory::Memory;
 pub use wasmer_runtime_core::table::Table;
+pub use wasmer_runtime_core::typed_func::DynamicFunc;
 pub use wasmer_runtime_core::Func;
 pub use wasmer_runtime_core::{func, imports};
 
@@ -58,15 +62,17 @@ pub mod memory {
 }
 
 pub mod wasm {
-    //! Various types exposed by the Wasmer Runtime.
+    //! Various types exposed by the Wasmer Runtime relating to Wasm.
     //!
     //! TODO: Add index with links to sub sections
-    //!
+    //
     //! # Globals
     //!
     //! # Tables
+    pub use wasmer_runtime_core::backend::Features;
+    pub use wasmer_runtime_core::export::Export;
     pub use wasmer_runtime_core::global::Global;
-    pub use wasmer_runtime_core::instance::Instance;
+    pub use wasmer_runtime_core::instance::{DynFunc, Instance};
     pub use wasmer_runtime_core::memory::Memory;
     pub use wasmer_runtime_core::module::Module;
     pub use wasmer_runtime_core::table::Table;
@@ -74,12 +80,209 @@ pub mod wasm {
     pub use wasmer_runtime_core::types::{
         FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value,
     };
+    pub use wasmer_runtime_core::Func;
+}
+
+pub mod vm {
+    //! Various types exposed by the Wasmer Runtime relating to the VM.
     pub use wasmer_runtime_core::vm::Ctx;
 }
 
+pub mod compiler {
+    //! Types and functions for compiling wasm;
+    use crate::module::Module;
+    pub use wasmer_runtime_core::backend::{
+        BackendCompilerConfig, Compiler, CompilerConfig, Features,
+    };
+    pub use wasmer_runtime_core::compile_with;
+    #[cfg(unix)]
+    pub use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
+    pub use wasmer_runtime_core::state::CodeVersion;
+
+    /// Enum used to select which compiler should be used to generate code.
+    #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+    pub enum Backend {
+        #[cfg(feature = "singlepass")]
+        /// Singlepass backend
+        Singlepass,
+        #[cfg(feature = "cranelift")]
+        /// Cranelift backend
+        Cranelift,
+        #[cfg(feature = "llvm")]
+        /// LLVM backend
+        LLVM,
+        /// Auto backend
+        Auto,
+    }
+
+    impl Backend {
+        /// Get a list of the currently enabled (via feature flag) backends.
+        pub fn variants() -> &'static [&'static str] {
+            &[
+                #[cfg(feature = "singlepass")]
+                "singlepass",
+                #[cfg(feature = "cranelift")]
+                "cranelift",
+                #[cfg(feature = "llvm")]
+                "llvm",
+                "auto",
+            ]
+        }
+
+        /// Stable string representation of the backend.
+        /// It can be used as part of a cache key, for example.
+        pub fn to_string(&self) -> &'static str {
+            match self {
+                #[cfg(feature = "singlepass")]
+                Backend::Singlepass => "singlepass",
+                #[cfg(feature = "cranelift")]
+                Backend::Cranelift => "cranelift",
+                #[cfg(feature = "llvm")]
+                Backend::LLVM => "llvm",
+                Backend::Auto => "auto",
+            }
+        }
+    }
+
+    impl Default for Backend {
+        fn default() -> Self {
+            #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
+            return Backend::Singlepass;
+
+            #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
+            return Backend::Cranelift;
+
+            #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
+            return Backend::LLVM;
+        }
+    }
+
+    impl std::str::FromStr for Backend {
+        type Err = String;
+        fn from_str(s: &str) -> Result<Backend, String> {
+            match s.to_lowercase().as_str() {
+                #[cfg(feature = "singlepass")]
+                "singlepass" => Ok(Backend::Singlepass),
+                #[cfg(feature = "cranelift")]
+                "cranelift" => Ok(Backend::Cranelift),
+                #[cfg(feature = "llvm")]
+                "llvm" => Ok(Backend::LLVM),
+                "auto" => Ok(Backend::Auto),
+                _ => Err(format!("The backend {} doesn't exist", s)),
+            }
+        }
+    }
+
+    /// Compile WebAssembly binary code into a [`Module`].
+    /// This function is useful if it is necessary to
+    /// compile a module before it can be instantiated
+    /// (otherwise, the [`instantiate`] function should be used).
+    ///
+    /// [`Module`]: struct.Module.html
+    /// [`instantiate`]: fn.instantiate.html
+    ///
+    /// # Params:
+    /// * `wasm`: A `&[u8]` containing the
+    ///   binary code of the wasm module you want to compile.
+    /// # Errors:
+    /// If the operation fails, the function returns `Err(error::CompileError::...)`.
+    pub fn compile(wasm: &[u8]) -> crate::error::CompileResult<Module> {
+        wasmer_runtime_core::compile_with(&wasm[..], &default_compiler())
+    }
+
+    /// The same as `compile` but takes a `CompilerConfig` for the purpose of
+    /// changing the compiler's behavior
+    pub fn compile_with_config(
+        wasm: &[u8],
+        compiler_config: CompilerConfig,
+    ) -> crate::error::CompileResult<Module> {
+        wasmer_runtime_core::compile_with_config(&wasm[..], &default_compiler(), compiler_config)
+    }
+
+    /// The same as `compile_with_config` but takes a `Compiler` for the purpose of
+    /// changing the backend.
+    pub fn compile_with_config_with(
+        wasm: &[u8],
+        compiler_config: CompilerConfig,
+        compiler: &dyn Compiler,
+    ) -> crate::error::CompileResult<Module> {
+        wasmer_runtime_core::compile_with_config(&wasm[..], compiler, compiler_config)
+    }
+
+    /// Copied from runtime core; TODO: figure out what we want to do here
+    pub fn default_compiler() -> impl Compiler {
+        #[cfg(any(
+            all(
+                feature = "default-backend-llvm",
+                not(feature = "docs"),
+                any(
+                    feature = "default-backend-cranelift",
+                    feature = "default-backend-singlepass"
+                )
+            ),
+            all(
+                not(feature = "docs"),
+                feature = "default-backend-cranelift",
+                feature = "default-backend-singlepass"
+            )
+        ))]
+        compile_error!(
+            "The `default-backend-X` features are mutually exclusive.  Please choose just one"
+        );
+
+        #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
+        use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
+
+        #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
+        use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
+
+        #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
+        use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
+
+        DefaultCompiler::new()
+    }
+
+    /// Get the `Compiler` as a trait object for the given `Backend`.
+    /// Returns `Option` because support for the requested `Compiler` may
+    /// not be enabled by feature flags.
+    ///
+    /// To get a list of the enabled backends as strings, call `Backend::variants()`.
+    pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
+        match backend {
+            #[cfg(feature = "cranelift")]
+            Backend::Cranelift => Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new())),
+
+            #[cfg(any(feature = "singlepass"))]
+            Backend::Singlepass => Some(Box::new(
+                wasmer_singlepass_backend::SinglePassCompiler::new(),
+            )),
+
+            #[cfg(feature = "llvm")]
+            Backend::LLVM => Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new())),
+
+            Backend::Auto => {
+                #[cfg(feature = "default-backend-singlepass")]
+                return Some(Box::new(
+                    wasmer_singlepass_backend::SinglePassCompiler::new(),
+                ));
+                #[cfg(feature = "default-backend-cranelift")]
+                return Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new()));
+                #[cfg(feature = "default-backend-llvm")]
+                return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
+            }
+        }
+    }
+}
+
+pub mod codegen {
+    //! Types and functions for generating native code.
+    pub use wasmer_runtime_core::codegen::ModuleCodeGenerator;
+}
+
+// TODO: `import` or `imports`?
 pub mod import {
     //! Types and functions for Wasm imports.
-    pub use wasmer_runtime_core::import::{ImportObject, ImportObjectIterator, Namespace};
+    pub use wasmer_runtime_core::import::{ImportObject, ImportObjectIterator, LikeNamespace, Namespace};
     pub use wasmer_runtime_core::types::{ExternDescriptor, ImportDescriptor};
     pub use wasmer_runtime_core::{func, imports};
 }
@@ -104,7 +307,11 @@ pub mod types {
 
 pub mod error {
     //! Various error types returned by Wasmer APIs.
-    pub use wasmer_runtime_core::error::{CompileError, CompileResult};
+    pub use wasmer_runtime_core::backend::ExceptionCode;
+    pub use wasmer_runtime_core::error::{
+        CallError, CompileError, CompileResult, CreationError, Error, LinkError, ResolveError,
+        RuntimeError,
+    };
 
     #[derive(Debug)]
     pub enum CompileFromFileError {
@@ -152,51 +359,16 @@ pub trait CompiledModule {
     fn validate(bytes: impl AsRef<[u8]>) -> error::CompileResult<()>;
 }
 
-use wasmer_runtime_core::backend::Compiler;
-
-/// Copied from runtime core; TODO: figure out what we want to do here
-pub fn default_compiler() -> impl Compiler {
-    #[cfg(any(
-        all(
-            feature = "default-backend-llvm",
-            not(feature = "docs"),
-            any(
-                feature = "default-backend-cranelift",
-                feature = "default-backend-singlepass"
-            )
-        ),
-        all(
-            not(feature = "docs"),
-            feature = "default-backend-cranelift",
-            feature = "default-backend-singlepass"
-        )
-    ))]
-    compile_error!(
-        "The `default-backend-X` features are mutually exclusive.  Please choose just one"
-    );
-
-    #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
-    use wasmer_llvm_backend::LLVMCompiler as DefaultCompiler;
-
-    #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
-    use wasmer_singlepass_backend::SinglePassCompiler as DefaultCompiler;
-
-    #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
-    use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
-
-    DefaultCompiler::new()
-}
-
 // this implementation should be moved
 impl CompiledModule for Module {
     fn new(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {
         let bytes = bytes.as_ref();
-        wasmer_runtime_core::compile_with(bytes, &default_compiler())
+        wasmer_runtime_core::compile_with(bytes, &compiler::default_compiler())
     }
 
     fn from_binary(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {
         let bytes = bytes.as_ref();
-        wasmer_runtime_core::compile_with(bytes, &default_compiler())
+        wasmer_runtime_core::compile_with(bytes, &compiler::default_compiler())
     }
 
     fn from_binary_unchecked(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {

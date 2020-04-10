@@ -2,13 +2,7 @@ use super::to_native;
 use crate::{
     ast::InterfaceType,
     errors::{InstructionError, InstructionErrorKind},
-    interpreter::{
-        wasm::{
-            structures::{FunctionIndex, TypedIndex},
-            values::InterfaceValue,
-        },
-        Instruction,
-    },
+    interpreter::{wasm::values::InterfaceValue, Instruction},
 };
 use std::{cell::Cell, convert::TryInto};
 
@@ -75,37 +69,20 @@ executable_instruction!(
 );
 
 executable_instruction!(
-    string_lower_memory(allocator_index: u32, instruction: Instruction) -> _ {
+    string_lower_memory(instruction: Instruction) -> _ {
         move |runtime| -> _ {
-            let instance = &mut runtime.wasm_instance;
-            let index = FunctionIndex::new(allocator_index as usize);
-
-            let allocator = instance.local_or_import(index).ok_or_else(|| {
+            let inputs = runtime.stack.pop(2).ok_or_else(|| {
                 InstructionError::new(
                     instruction,
-                    InstructionErrorKind::LocalOrImportIsMissing { function_index: allocator_index },
+                    InstructionErrorKind::StackIsTooSmall { needed: 2 },
                 )
             })?;
 
-            if allocator.inputs() != [InterfaceType::I32] || allocator.outputs() != [InterfaceType::I32] {
-                return Err(InstructionError::new(
-                    instruction,
-                    InstructionErrorKind::LocalOrImportSignatureMismatch {
-                        function_index: allocator_index,
-                        expected: (vec![InterfaceType::I32], vec![InterfaceType::I32]),
-                        received: (allocator.inputs().to_vec(), allocator.outputs().to_vec()),
-                    },
-                ))
-            }
-
-            let string = runtime.stack.pop1().ok_or_else(|| {
-                InstructionError::new(
-                    instruction,
-                    InstructionErrorKind::StackIsTooSmall { needed: 1 },
-                )
-            })?;
-
-            let string: String = to_native(&string, instruction)?;
+            let string_pointer: usize = to_native::<i32>(&inputs[0], instruction)?
+                .try_into()
+                .map_err(|e| (e, "pointer").into())
+                .map_err(|k| InstructionError::new(instruction, k))?;
+            let string: String = to_native(&inputs[1], instruction)?;
             let string_bytes = string.as_bytes();
             let string_length: i32 = string_bytes.len().try_into().map_err(|_| {
                 InstructionError::new(
@@ -114,19 +91,7 @@ executable_instruction!(
                 )
             })?;
 
-            let outputs = allocator.call(&[InterfaceValue::I32(string_length)]).map_err(|_| {
-                InstructionError::new(
-                    instruction,
-                    InstructionErrorKind::LocalOrImportCall { function_index: allocator_index },
-                )
-            })?;
-            let string_pointer: u32 = to_native::<i32>(&outputs[0], instruction)?.try_into().map_err(|_| {
-                InstructionError::new(
-                    instruction,
-                    InstructionErrorKind::NegativeValue { subject: "string_pointer" },
-                )
-            })?;
-
+            let instance = &mut runtime.wasm_instance;
             let memory_index: u32 = 0;
             let memory_view = instance
                 .memory(memory_index as usize)
@@ -153,7 +118,7 @@ executable_instruction!(
 executable_instruction!(
     string_size(instruction: Instruction) -> _ {
         move |runtime| -> _ {
-            match runtime.stack.peek1() {
+            match runtime.stack.pop1() {
                 Some(InterfaceValue::String(string)) => {
                     let length = string.len() as i32;
                     runtime.stack.push(InterfaceValue::I32(length));
@@ -165,7 +130,7 @@ executable_instruction!(
                     instruction,
                     InstructionErrorKind::InvalidValueOnTheStack {
                         expected_type: InterfaceType::String,
-                        received_type: value.into(),
+                        received_type: (&value).into(),
                     },
                 )),
 
@@ -313,7 +278,11 @@ mod tests {
         test_string_lower_memory =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::StringLowerMemory { allocator_index: 43 },
+                Instruction::StringSize,
+                Instruction::CallCore { function_index: 43 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::StringLowerMemory,
+
             ],
             invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
             instance: Instance::new(),
@@ -329,7 +298,10 @@ mod tests {
         test_string__roundtrip =
             instructions: [
                 Instruction::ArgumentGet { index: 0 },
-                Instruction::StringLowerMemory { allocator_index: 43 },
+                Instruction::StringSize,
+                Instruction::CallCore { function_index: 43 },
+                Instruction::ArgumentGet { index: 0 },
+                Instruction::StringLowerMemory,
                 Instruction::StringLiftMemory,
             ],
             invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
@@ -338,69 +310,13 @@ mod tests {
     );
 
     test_executable_instruction!(
-        test_string_lower_memory__allocator_does_not_exist =
-            instructions: [Instruction::StringLowerMemory { allocator_index: 43 }],
-            invocation_inputs: [],
-            instance: Instance { ..Default::default() },
-            error: r#"`string.lower_memory 43` the local or import function `43` doesn't exist"#,
-    );
-
-    test_executable_instruction!(
         test_string_lower_memory__stack_is_too_small =
             instructions: [
-                Instruction::StringLowerMemory { allocator_index: 43 }
-                //                                                ^^ `43` expects 1 value on the stack, none is present
+                Instruction::StringLowerMemory,
             ],
-            invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
+            invocation_inputs: [],
             instance: Instance::new(),
-            error: r#"`string.lower_memory 43` needed to read `1` value(s) from the stack, but it doesn't contain enough data"#,
-    );
-
-    test_executable_instruction!(
-        test_string_lower_memory__failure_when_calling_the_allocator =
-            instructions: [
-                Instruction::ArgumentGet { index: 0 },
-                Instruction::StringLowerMemory { allocator_index: 153 }
-            ],
-            invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
-            instance: {
-                let mut instance = Instance::new();
-                instance.locals_or_imports.insert(
-                    153,
-                    LocalImport {
-                        inputs: vec![InterfaceType::I32],
-                        outputs: vec![InterfaceType::I32],
-                        function: |_| Err(()),
-                        //            ^^^^^^^ function fails
-                    },
-                );
-
-                instance
-            },
-            error: r#"`string.lower_memory 153` failed while calling the local or import function `153`"#,
-    );
-
-    test_executable_instruction!(
-        test_string_lower_memory__invalid_allocator_signature =
-            instructions: [
-                Instruction::ArgumentGet { index: 0 },
-                Instruction::StringLowerMemory { allocator_index: 153 }
-            ],
-            invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
-            instance: {
-                let mut instance = Instance::new();
-                instance.locals_or_imports.insert(
-                    153,
-                    LocalImport {
-                        inputs: vec![InterfaceType::I32, InterfaceType::I32],
-                        outputs: vec![],
-                        function: |_| Err(()),
-                    },
-                );
-
-                instance
-            },
-            error: r#"`string.lower_memory 153` the local or import function `153` has the signature `[I32] -> [I32]` but it received values of kind `[I32, I32] -> []`"#,
+            error: r#"`string.lower_memory` needed to read `2` value(s) from the stack, but it doesn't contain enough data"#,
     );
 
     test_executable_instruction!(
@@ -411,7 +327,7 @@ mod tests {
             ],
             invocation_inputs: [InterfaceValue::String("Hello, World!".into())],
             instance: Instance::new(),
-            stack: [InterfaceValue::String("Hello, World!".into()), InterfaceValue::I32(13)],
+            stack: [InterfaceValue::I32(13)],
     );
 
     test_executable_instruction!(

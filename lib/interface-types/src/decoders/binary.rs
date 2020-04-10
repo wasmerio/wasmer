@@ -232,16 +232,7 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
         0x21 => (input, Instruction::I64FromU64),
 
         0x22 => (input, Instruction::StringLiftMemory),
-        0x23 => {
-            consume!((input, argument_0) = uleb(input)?);
-
-            (
-                input,
-                Instruction::StringLowerMemory {
-                    allocator_index: argument_0 as u32,
-                },
-            )
-        }
+        0x23 => (input, Instruction::StringLowerMemory),
         0x24 => (input, Instruction::StringSize),
 
         0x25 => {
@@ -764,7 +755,7 @@ mod tests {
             0x20, // I64FromU32
             0x21, // I64FromU64
             0x22, // StringLiftMemory
-            0x23, 0x01, // StringLowerMemory { allocator_index: 1 }
+            0x23, // StringLowerMemory
             0x24, // StringSize
             0x25, 0x01, // RecordLift { type_index: 1 },
             0x26, 0x01, // RecordLower { type_index: 1 },
@@ -808,7 +799,7 @@ mod tests {
                 Instruction::I64FromU32,
                 Instruction::I64FromU64,
                 Instruction::StringLiftMemory,
-                Instruction::StringLowerMemory { allocator_index: 1 },
+                Instruction::StringLowerMemory,
                 Instruction::StringSize,
                 Instruction::RecordLift { type_index: 1 },
                 Instruction::RecordLower { type_index: 1 },

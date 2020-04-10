@@ -170,9 +170,9 @@ where
                 outputs.to_bytes(writer)?;
             }
 
-            Type::Record(RecordType { fields }) => {
+            Type::Record(record_type) => {
                 TypeKind::Record.to_bytes(writer)?;
-                fields.to_bytes(writer)?;
+                record_type.to_bytes(writer)?;
             }
         }
 
@@ -331,10 +331,7 @@ where
             Instruction::I64FromU64 => 0x21_u8.to_bytes(writer)?,
 
             Instruction::StringLiftMemory => 0x22_u8.to_bytes(writer)?,
-            Instruction::StringLowerMemory { allocator_index } => {
-                0x23_u8.to_bytes(writer)?;
-                (*allocator_index as u64).to_bytes(writer)?;
-            }
+            Instruction::StringLowerMemory => 0x23_u8.to_bytes(writer)?,
             Instruction::StringSize => 0x24_u8.to_bytes(writer)?,
 
             Instruction::RecordLift { type_index } => {
@@ -688,7 +685,7 @@ mod tests {
                 Instruction::I64FromU32,
                 Instruction::I64FromU64,
                 Instruction::StringLiftMemory,
-                Instruction::StringLowerMemory { allocator_index: 1 },
+                Instruction::StringLowerMemory,
                 Instruction::StringSize,
                 Instruction::RecordLift { type_index: 1 },
                 Instruction::RecordLower { type_index: 1 },
@@ -730,7 +727,7 @@ mod tests {
                 0x20, // I64FromU32
                 0x21, // I64FromU64
                 0x22, // StringLiftMemory
-                0x23, 0x01, // StringLowerMemory { allocator_index: 1 }
+                0x23, // StringLowerMemory
                 0x24, // StringSize
                 0x025, 0x01, // RecordLift { type_index: 1 }
                 0x026, 0x01, // RecordLower { type_index: 1 }

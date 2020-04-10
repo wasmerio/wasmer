@@ -116,7 +116,9 @@ jobs:
       - template: .azure/install-llvm.yml
       - template: .azure/install-sccache.yml
       - template: .azure/install-cmake.yml
-      - bash: make check
+      - bash: |
+          make check
+          make check-nightly
         displayName: Check with Flags
         condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
 
