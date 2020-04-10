@@ -1,10 +1,7 @@
 //! The error module contains all the data structures that represent
 //! an error.
 
-use crate::{
-    ast::{InterfaceType, TypeKind},
-    interpreter::Instruction,
-};
+use crate::{ast::TypeKind, interpreter::Instruction, types::InterfaceType};
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},

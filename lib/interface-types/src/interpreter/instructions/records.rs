@@ -1,12 +1,13 @@
 use crate::{
-    ast::{InterfaceType, RecordType, Type, TypeKind},
+    ast::{Type, TypeKind},
     errors::{InstructionError, InstructionErrorKind},
-    interpreter::wasm::values::FlattenInterfaceValueIterator,
     interpreter::{
         stack::{Stack, Stackable},
-        wasm::values::InterfaceValue,
         Instruction,
     },
+    types::{InterfaceType, RecordType},
+    values::{FlattenInterfaceValueIterator, InterfaceValue},
+    vec1::Vec1,
 };
 use std::collections::VecDeque;
 
@@ -56,7 +57,10 @@ fn record_lift_(
         }
     }
 
-    Ok(InterfaceValue::Record(values.into_iter().collect()))
+    Ok(InterfaceValue::Record(
+        Vec1::new(values.into_iter().collect())
+            .expect("Record must have at least one field, zero given"), // normally unreachable because of the type-checking
+    ))
 }
 
 executable_instruction!(
@@ -110,7 +114,7 @@ executable_instruction!(
             };
 
             match runtime.stack.pop1() {
-                Some(InterfaceValue::Record(record_values)) if record_type == &(&record_values).into() => {
+                Some(InterfaceValue::Record(record_values)) if record_type == &(&*record_values).into() => {
                     let values = FlattenInterfaceValueIterator::new(&record_values);
 
                     for value in values {
@@ -139,7 +143,7 @@ executable_instruction!(
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::{RecordType, Type};
+    use super::*;
 
     test_executable_instruction!(
         test_record_lift =
@@ -157,9 +161,9 @@ mod tests {
                 InterfaceValue::I64(3),
             ],
             instance: Instance::new(),
-            stack: [InterfaceValue::Record(vec![
+            stack: [InterfaceValue::Record(vec1![
                 InterfaceValue::I32(1),
-                InterfaceValue::Record(vec![
+                InterfaceValue::Record(vec1![
                     InterfaceValue::String("Hello".to_string()),
                     InterfaceValue::F32(2.),
                 ]),
@@ -171,11 +175,14 @@ mod tests {
     #[test]
     #[allow(non_snake_case, unused)]
     fn test_record_lift__to_rust_struct() {
-        use crate::interpreter::{
-            instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
-            stack::Stackable,
-            wasm::values::{from_interface_values, InterfaceType, InterfaceValue},
-            Instruction, Interpreter,
+        use crate::{
+            interpreter::{
+                instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
+                stack::Stackable,
+                Instruction, Interpreter,
+            },
+            types::InterfaceType,
+            values::{from_interface_values, InterfaceValue},
         };
         use serde::Deserialize;
         use std::{cell::Cell, collections::HashMap, convert::TryInto};
@@ -252,7 +259,7 @@ mod tests {
 
                 instance
             },
-            stack: [InterfaceValue::Record(vec![
+            stack: [InterfaceValue::Record(vec1![
                 InterfaceValue::I32(1),
                 InterfaceValue::I32(2),
             ])],
@@ -295,9 +302,9 @@ mod tests {
                 Instruction::RecordLower { type_index: 0 },
             ],
             invocation_inputs: [
-                InterfaceValue::Record(vec![
+                InterfaceValue::Record(vec1![
                     InterfaceValue::I32(1),
-                    InterfaceValue::Record(vec![
+                    InterfaceValue::Record(vec1![
                         InterfaceValue::String("Hello".to_string()),
                         InterfaceValue::F32(2.),
                     ]),
@@ -321,9 +328,9 @@ mod tests {
                 Instruction::RecordLift { type_index: 0 },
             ],
             invocation_inputs: [
-                InterfaceValue::Record(vec![
+                InterfaceValue::Record(vec1![
                     InterfaceValue::I32(1),
-                    InterfaceValue::Record(vec![
+                    InterfaceValue::Record(vec1![
                         InterfaceValue::String("Hello".to_string()),
                         InterfaceValue::F32(2.),
                     ]),
@@ -332,9 +339,9 @@ mod tests {
             ],
             instance: Instance::new(),
             stack: [
-                InterfaceValue::Record(vec![
+                InterfaceValue::Record(vec1![
                     InterfaceValue::I32(1),
-                    InterfaceValue::Record(vec![
+                    InterfaceValue::Record(vec1![
                         InterfaceValue::String("Hello".to_string()),
                         InterfaceValue::F32(2.),
                     ]),
@@ -363,9 +370,9 @@ mod tests {
                 Instruction::RecordLower { type_index: 0 },
             ],
             invocation_inputs: [
-                InterfaceValue::Record(vec![
+                InterfaceValue::Record(vec1![
                     InterfaceValue::I32(1),
-                    InterfaceValue::Record(vec![
+                    InterfaceValue::Record(vec1![
                         InterfaceValue::String("Hello".to_string()),
                     ]),
                     InterfaceValue::I64(3),

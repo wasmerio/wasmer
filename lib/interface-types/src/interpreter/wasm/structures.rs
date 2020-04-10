@@ -1,9 +1,6 @@
 #![allow(missing_docs)]
 
-use crate::{
-    ast,
-    interpreter::wasm::values::{InterfaceType, InterfaceValue},
-};
+use crate::{ast, types::InterfaceType, values::InterfaceValue};
 use std::{cell::Cell, ops::Deref};
 
 pub trait TypedIndex: Copy + Clone {

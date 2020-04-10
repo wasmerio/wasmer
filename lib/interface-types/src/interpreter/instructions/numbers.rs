@@ -1,7 +1,8 @@
 use crate::{
-    ast::InterfaceType,
     errors::{InstructionError, InstructionErrorKind},
-    interpreter::{wasm::values::InterfaceValue, Instruction},
+    interpreter::Instruction,
+    types::InterfaceType,
+    values::InterfaceValue,
 };
 use std::convert::TryInto;
 

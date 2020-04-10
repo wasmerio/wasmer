@@ -6,7 +6,7 @@ mod strings;
 
 use crate::{
     errors::{InstructionError, InstructionErrorKind, InstructionResult, WasmValueNativeCastError},
-    interpreter::wasm::values::{InterfaceValue, NativeType},
+    values::{InterfaceValue, NativeType},
 };
 pub(crate) use argument_get::argument_get;
 pub(crate) use call_core::call_core;
@@ -163,13 +163,7 @@ where
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::{
-        ast,
-        interpreter::wasm::{
-            self,
-            values::{InterfaceType, InterfaceValue},
-        },
-    };
+    use crate::{ast::*, interpreter::wasm, types::*, values::*};
     use std::{cell::Cell, collections::HashMap, convert::TryInto, ops::Deref, rc::Rc};
 
     pub(crate) struct Export {
@@ -265,7 +259,7 @@ pub(crate) mod tests {
         pub(crate) exports: HashMap<String, Export>,
         pub(crate) locals_or_imports: HashMap<usize, LocalImport>,
         pub(crate) memory: Memory,
-        pub(crate) wit_types: Vec<ast::Type>,
+        pub(crate) wit_types: Vec<Type>,
     }
 
     impl Instance {
@@ -322,10 +316,10 @@ pub(crate) mod tests {
                     hashmap
                 },
                 memory: Memory::new(vec![Cell::new(0); 128]),
-                wit_types: vec![ast::Type::Record(ast::RecordType {
+                wit_types: vec![Type::Record(RecordType {
                     fields: vec1![
                         InterfaceType::I32,
-                        InterfaceType::Record(ast::RecordType {
+                        InterfaceType::Record(RecordType {
                             fields: vec1![InterfaceType::String, InterfaceType::F32],
                         }),
                         InterfaceType::I64,
@@ -351,7 +345,7 @@ pub(crate) mod tests {
             Some(&self.memory)
         }
 
-        fn wit_type(&self, index: u32) -> Option<&ast::Type> {
+        fn wit_type(&self, index: u32) -> Option<&Type> {
             self.wit_types.get(index as usize)
         }
     }

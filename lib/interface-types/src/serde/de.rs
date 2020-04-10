@@ -1,8 +1,8 @@
 //! Provides a deserializer from WIT values to Rust value.
 
 use crate::{
-    ast::InterfaceType,
-    interpreter::wasm::values::{FlattenInterfaceValueIterator, InterfaceValue},
+    types::InterfaceType,
+    values::{FlattenInterfaceValueIterator, InterfaceValue},
 };
 use serde::{de, Deserialize};
 use std::{
@@ -20,9 +20,9 @@ use std::{
 /// # Example
 ///
 /// ```rust
-/// use wasmer_interface_types::interpreter::wasm::values::{
-///     InterfaceValue,
-///     from_interface_values,
+/// use wasmer_interface_types::{
+///     values::{InterfaceValue, from_interface_values},
+///     vec1::Vec1,
 /// };
 /// use serde::Deserialize;
 ///
@@ -36,11 +36,11 @@ use std::{
 ///     y: f32,
 /// };
 ///
-/// let values = vec![InterfaceValue::Record(vec![
+/// let values = vec![InterfaceValue::Record(Vec1::new(vec![
 ///     InterfaceValue::String("abc".to_string()),
-///     InterfaceValue::Record(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]),
+///     InterfaceValue::Record(Vec1::new(vec![InterfaceValue::I32(1), InterfaceValue::I64(2)]).unwrap()),
 ///     InterfaceValue::F32(3.),
-/// ])];
+/// ]).unwrap())];
 /// let t = from_interface_values::<T>(&values).unwrap();
 ///
 /// assert_eq!(
@@ -513,7 +513,7 @@ mod tests {
         #[derive(Deserialize, Debug, PartialEq)]
         struct S(i8);
 
-        let input = vec![InterfaceValue::Record(vec![InterfaceValue::S8(42)])];
+        let input = vec![InterfaceValue::Record(vec1![InterfaceValue::S8(42)])];
         let output = S(42);
 
         assert_eq!(from_interface_values::<S>(&input).unwrap(), output);
@@ -525,7 +525,7 @@ mod tests {
         #[derive(Deserialize, Debug, PartialEq)]
         struct S(i8, f32);
 
-        let input = vec![InterfaceValue::Record(vec![
+        let input = vec![InterfaceValue::Record(vec1![
             InterfaceValue::S8(7),
             InterfaceValue::F32(42.),
         ])];
@@ -543,7 +543,7 @@ mod tests {
             y: f32,
         }
 
-        let input = vec![InterfaceValue::Record(vec![
+        let input = vec![InterfaceValue::Record(vec1![
             InterfaceValue::S8(7),
             InterfaceValue::F32(42.),
         ])];
@@ -568,13 +568,13 @@ mod tests {
             p2: Point,
         }
 
-        let input = vec![InterfaceValue::Record(vec![
-            InterfaceValue::Record(vec![
+        let input = vec![InterfaceValue::Record(vec1![
+            InterfaceValue::Record(vec1![
                 InterfaceValue::I32(1),
                 InterfaceValue::I32(2),
                 InterfaceValue::I32(3),
             ]),
-            InterfaceValue::Record(vec![
+            InterfaceValue::Record(vec1![
                 InterfaceValue::I32(4),
                 InterfaceValue::I32(5),
                 InterfaceValue::I32(6),

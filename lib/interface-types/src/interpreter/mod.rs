@@ -4,11 +4,13 @@ mod instructions;
 pub mod stack;
 pub mod wasm;
 
-use crate::errors::{InstructionResult, InterpreterResult};
+use crate::{
+    errors::{InstructionResult, InterpreterResult},
+    values::InterfaceValue,
+};
 pub use instructions::Instruction;
 use stack::Stack;
 use std::{convert::TryFrom, marker::PhantomData};
-use wasm::values::InterfaceValue;
 
 /// Represents the `Runtime`, which is used by an adapter to execute
 /// its instructions.
@@ -59,13 +61,16 @@ pub(crate) type ExecutableInstruction<Instance, Export, LocalImport, Memory, Mem
 ///
 /// ```rust,ignore
 /// use std::{cell::Cell, collections::HashMap, convert::TryInto};
-/// use wasmer_interface_types::interpreter::{
-///     instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
-/// //  ^^^^^^^^^^^^ This is private and for testing purposes only.
-/// //               It is basically a fake WebAssembly runtime.
-///     stack::Stackable,
-///     wasm::values::{InterfaceType, InterfaceValue},
-///     Instruction, Interpreter,
+/// use wasmer_interface_types::{
+///     interpreter::{
+///         instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
+/// //      ^^^^^^^^^^^^ This is private and for testing purposes only.
+/// //                   It is basically a fake WebAssembly runtime.
+///         stack::Stackable,
+///         Instruction, Interpreter,
+///     },
+///     types::InterfaceType,
+///     values::InterfaceValue,
 /// };
 ///
 /// // 1. Creates an interpreter from a set of instructions. They will

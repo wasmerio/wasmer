@@ -1,11 +1,14 @@
 //! Defines WIT values and associated operations.
 
-pub use crate::ast::{InterfaceType, RecordType};
-use crate::{errors::WasmValueNativeCastError, vec1::Vec1};
+use crate::{
+    errors::WasmValueNativeCastError,
+    types::{InterfaceType, RecordType},
+    vec1::Vec1,
+};
 use std::{convert::TryFrom, slice::Iter};
 
 #[cfg(feature = "serde")]
-pub use crate::interpreter::wasm::serde::{de::*, ser::*};
+pub use crate::serde::{de::from_interface_values, ser::to_interface_value};
 
 /// A WIT value.
 #[derive(Debug, Clone, PartialEq)]
@@ -51,7 +54,7 @@ pub enum InterfaceValue {
     I64(i64),
 
     /// A record.
-    Record(Vec<InterfaceValue>),
+    Record(Vec1<InterfaceValue>),
 }
 
 impl From<&InterfaceValue> for InterfaceType {
@@ -71,7 +74,7 @@ impl From<&InterfaceValue> for InterfaceType {
             //InterfaceValue::Anyref(_) => Self::Anyref,
             InterfaceValue::I32(_) => Self::I32,
             InterfaceValue::I64(_) => Self::I64,
-            InterfaceValue::Record(values) => Self::Record(values.into()),
+            InterfaceValue::Record(values) => Self::Record((&**values).into()),
         }
     }
 }
@@ -215,7 +218,7 @@ mod tests {
     #[allow(non_snake_case)]
     fn interface_type_from_interface_value__record() {
         assert_eq!(
-            InterfaceType::from(&InterfaceValue::Record(vec![
+            InterfaceType::from(&InterfaceValue::Record(vec1![
                 InterfaceValue::I32(1),
                 InterfaceValue::S8(2)
             ])),
@@ -225,9 +228,9 @@ mod tests {
         );
 
         assert_eq!(
-            InterfaceType::from(&InterfaceValue::Record(vec![
+            InterfaceType::from(&InterfaceValue::Record(vec1![
                 InterfaceValue::I32(1),
-                InterfaceValue::Record(vec![
+                InterfaceValue::Record(vec1![
                     InterfaceValue::String("a".to_string()),
                     InterfaceValue::F64(42.)
                 ]),

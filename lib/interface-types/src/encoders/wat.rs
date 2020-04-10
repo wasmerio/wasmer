@@ -4,9 +4,10 @@
 //!
 //! ```rust
 //! use wasmer_interface_types::{
-//!     ast::*,
+//!     ast::{Adapter, Export, Implementation, Import, Interfaces, Type},
 //!     encoders::wat::*,
 //!     interpreter::Instruction,
+//!     types::InterfaceType,
 //! };
 //!
 //! let input: String = (&Interfaces {
@@ -54,7 +55,7 @@
 //! assert_eq!(input, output);
 //! ```
 
-use crate::{ast::*, interpreter::Instruction};
+use crate::{ast::*, interpreter::Instruction, types::*};
 use std::string::ToString;
 
 /// Encode an `InterfaceType` into a string.
@@ -346,7 +347,7 @@ impl<'input> ToString for &Interfaces<'input> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::*, interpreter::Instruction};
+    use super::*;
 
     #[test]
     fn test_interface_types() {

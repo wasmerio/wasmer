@@ -1,6 +1,8 @@
+//! Collection of helpful macros.
+
 /// This macro creates a `Vec1` by checking at compile-time that its
 /// invariant holds.
-#[allow(unused)]
+#[macro_export]
 macro_rules! vec1 {
     ($item:expr; 0) => {
         compile_error!("Cannot create an empty `Vec1`, it violates its invariant.")
@@ -96,11 +98,14 @@ macro_rules! test_executable_instruction {
         #[test]
         #[allow(non_snake_case, unused)]
         fn $test_name() {
-            use crate::interpreter::{
-                instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
-                stack::Stackable,
-                wasm::values::{InterfaceType, InterfaceValue},
-                Instruction, Interpreter,
+            use crate::{
+                interpreter::{
+                    instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
+                    stack::Stackable,
+                    Instruction, Interpreter,
+                },
+                types::InterfaceType,
+                values::InterfaceValue,
             };
             use std::{cell::Cell, collections::HashMap, convert::TryInto};
 
@@ -135,11 +140,14 @@ macro_rules! test_executable_instruction {
         #[test]
         #[allow(non_snake_case, unused)]
         fn $test_name() {
-            use crate::interpreter::{
-                instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
-                stack::Stackable,
-                wasm::values::{InterfaceType, InterfaceValue},
-                Instruction, Interpreter,
+            use crate::{
+                interpreter::{
+                    instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
+                    stack::Stackable,
+                    Instruction, Interpreter,
+                },
+                types::InterfaceType,
+                values::InterfaceValue,
             };
             use std::{cell::Cell, collections::HashMap, convert::TryInto};
 

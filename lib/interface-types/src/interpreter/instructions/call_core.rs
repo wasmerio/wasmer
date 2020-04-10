@@ -1,10 +1,8 @@
 use crate::{
     errors::{InstructionError, InstructionErrorKind},
-    interpreter::wasm::{
-        structures::{FunctionIndex, TypedIndex},
-        values::InterfaceType,
-    },
+    interpreter::wasm::structures::{FunctionIndex, TypedIndex},
     interpreter::Instruction,
+    types::InterfaceType,
 };
 
 executable_instruction!(

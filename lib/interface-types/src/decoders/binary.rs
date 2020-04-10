@@ -1,6 +1,6 @@
 //! Parse the WIT binary representation into an [AST](crate::ast).
 
-use crate::{ast::*, interpreter::Instruction, vec1::Vec1};
+use crate::{ast::*, interpreter::Instruction, types::*, vec1::Vec1};
 use nom::{
     error::{make_error, ErrorKind, ParseError},
     Err, IResult,
@@ -445,9 +445,10 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///
 /// ```rust
 /// use wasmer_interface_types::{
-///     ast::*,
+///     ast::{Adapter, Export, Implementation, Import, Interfaces, Type},
 ///     decoders::binary::parse,
 ///     interpreter::Instruction,
+///     types::InterfaceType,
 /// };
 ///
 /// let input = &[

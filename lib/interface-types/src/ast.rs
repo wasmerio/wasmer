@@ -1,64 +1,11 @@
 //! Represents the WIT language as a tree. This is the central
 //! representation of the language.
 
-use crate::{interpreter::Instruction, vec1::Vec1};
+use crate::{
+    interpreter::Instruction,
+    types::{InterfaceType, RecordType},
+};
 use std::str;
-
-/// Represents the types supported by WIT.
-#[derive(PartialEq, Debug, Clone)]
-pub enum InterfaceType {
-    /// A 8-bits signed integer.
-    S8,
-
-    /// A 16-bits signed integer.
-    S16,
-
-    /// A 32-bits signed integer.
-    S32,
-
-    /// A 64-bits signed integer.
-    S64,
-
-    /// A 8-bits unsigned integer.
-    U8,
-
-    /// A 16-bits unsigned integer.
-    U16,
-
-    /// A 32-bits unsigned integer.
-    U32,
-
-    /// A 64-bits unsigned integer.
-    U64,
-
-    /// A 32-bits float.
-    F32,
-
-    /// A 64-bits float.
-    F64,
-
-    /// A string.
-    String,
-
-    /// An `any` reference.
-    Anyref,
-
-    /// A 32-bits integer (as defined in WebAssembly core).
-    I32,
-
-    /// A 64-bits integer (as defiend in WebAssembly core).
-    I64,
-
-    /// A record.
-    Record(RecordType),
-}
-
-/// Represents a record type.
-#[derive(PartialEq, Debug, Clone)]
-pub struct RecordType {
-    /// Types representing the fields.
-    pub fields: Vec1<InterfaceType>,
-}
 
 /// Represents the kind of type.
 #[derive(PartialEq, Debug)]
