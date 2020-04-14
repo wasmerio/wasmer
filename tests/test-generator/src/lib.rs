@@ -51,6 +51,9 @@ pub fn build_ignores_from_textfile(path: PathBuf) -> anyhow::Result<Ignores> {
         } else {
             line
         };
+
+        let line = line.trim().to_string();
+
         // If the lines contains ` on ` it means the test should be ignored
         // on that platform
         let (line, target) = if line.contains(" on ") {
@@ -62,8 +65,6 @@ pub fn build_ignores_from_textfile(path: PathBuf) -> anyhow::Result<Ignores> {
         } else {
             (line, None)
         };
-
-        let line = line.trim().to_string();
         if line.len() == 0 {
             continue;
         }

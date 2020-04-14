@@ -22,7 +22,7 @@ cranelift::spec::linking on windows
 cranelift::spec::memory_grow on windows
 cranelift::spec::memory_trap on windows
 cranelift::spec::select on windows
-cranelift::spec::stack-guard-page on windows
+cranelift::spec::skip_stack_guard_page on windows
 cranelift::spec::traps on windows
 cranelift::spec::unreachable on windows
 cranelift::spec::unwind on windows
@@ -47,7 +47,7 @@ llvm::spec::linking
 
 # LLVM AArch64
 llvm::spec::atomic on aarch64 # Out of range relocations.
-llvm::spec::stack-guard-page on aarch64 # Uncaught SIGSEGV only on release builds
+llvm::spec::skip_stack_guard_page on aarch64 # Uncaught SIGSEGV only on release builds
 
 # LLVM Windows
 llvm::spec::address on windows

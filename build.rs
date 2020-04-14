@@ -106,6 +106,6 @@ fn main() -> anyhow::Result<()> {
     // `rustfmt` if it's installed.
     let output = out_dir.join("generated_tests.rs");
     fs::write(&output, out.buffer)?;
-    drop(Command::new("rustfmt").arg(&output).status());
+    Command::new("rustfmt").arg(&output).status();
     Ok(())
 }
