@@ -88,6 +88,90 @@ enum class wasmer_value_tag : uint32_t {
   WASM_F64,
 };
 
+template<typename T>
+struct Arc;
+
+struct wasm_config_t {
+
+};
+
+struct wasm_engine_t {
+
+};
+
+using wasm_valkind_t = uint8_t;
+
+union wasm_val_inner {
+  int32_t int32_t;
+  int64_t int64_t;
+  float float32_t;
+  double float64_t;
+  wasm_ref_t *wref;
+};
+
+struct wasm_val_t {
+  wasm_valkind_t kind;
+  wasm_val_inner of;
+};
+
+using wasm_func_callback_t = wasm_trap_t*(*)(const wasm_val_t *args, wasm_val_t *results);
+
+using wasm_func_callback_with_env_t = wasm_trap_t*(*)(void, const wasm_val_t *args, wasm_val_t *results);
+
+using wasm_env_finalizer_t = void(*)(void);
+
+struct CallbackType {
+  enum class Tag {
+    WithoutEnv,
+    WithEnv,
+  };
+
+  struct WithoutEnv_Body {
+    wasm_func_callback_t _0;
+  };
+
+  struct WithEnv_Body {
+    wasm_func_callback_with_env_t callback;
+    void env;
+    wasm_env_finalizer_t finalizer;
+  };
+
+  Tag tag;
+  union {
+    WithoutEnv_Body without_env;
+    WithEnv_Body with_env;
+  };
+};
+
+struct wasm_func_t {
+  Arc<FuncSig> functype;
+  CallbackType callback;
+};
+
+struct wasm_extern_t {
+  Export export_;
+};
+
+struct wasm_store_t {
+
+};
+
+struct wasm_functype_t {
+
+};
+
+struct wasm_instance_t {
+
+};
+
+struct wasm_module_t {
+
+};
+
+struct wasm_valtype_t {
+  wasm_valkind_t valkind;
+};
+
 struct wasmer_module_t {
 
 };
@@ -322,6 +406,61 @@ struct wasmer_wasi_map_dir_entry_t {
 #endif
 
 extern "C" {
+
+wasm_config_t *wasm_config_new();
+
+void wasm_engine_delete(wasm_engine_t *wasm_engine_address);
+
+wasm_engine_t *wasm_engine_new();
+
+wasm_engine_t *wasm_engine_new_with_config(wasm_config_t *_config_ptr);
+
+wasm_func_t *wasm_extern_as_func(wasm_extern_t *extrn);
+
+wasm_extern_t *wasm_func_as_extern(wasm_func_t *func_ptr);
+
+wasm_trap_t *wasm_func_call(const wasm_func_t *func, const wasm_val_t *args, wasm_val_t *results);
+
+void wasm_func_delete(wasm_func_t *func);
+
+wasm_func_t *wasm_func_new(wasm_store_t *_store,
+                           const wasm_functype_t *ft,
+                           wasm_func_callback_t callback);
+
+wasm_func_t *wasm_func_new_with_env(wasm_store_t *_store,
+                                    const wasm_functype_t *ft,
+                                    wasm_func_callback_with_env_t callback,
+                                    void env,
+                                    wasm_env_finalizer_t finalizer);
+
+wasm_functype_t *wasm_functype_copy(wasm_functype_t *arg);
+
+void wasm_functype_delete(wasm_functype_t *arg);
+
+wasm_functype_t *wasm_functype_new(wasm_valtype_vec_t *params, wasm_valtype_vec_t *results);
+
+void wasm_instance_delete(wasm_instance_t *instance);
+
+void wasm_instance_exports(const wasm_instance_t *instance, wasm_extern_vec_t *out);
+
+wasm_instance_t *wasm_instance_new(wasm_store_t *_store,
+                                   const wasm_module_t *module,
+                                   const wasm_extern_t *const *imports,
+                                   wasm_trap_t **_traps);
+
+void wasm_module_delete(wasm_module_t *module);
+
+wasm_module_t *wasm_module_new(wasm_store_t *_store, const wasm_byte_vec_t *bytes);
+
+void wasm_store_delete(wasm_store_t *wasm_store_address);
+
+wasm_store_t *wasm_store_new(wasm_engine_t *_wasm_engine);
+
+void wasm_valtype_delete(wasm_valtype_t *valtype);
+
+wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t *valtype);
+
+wasm_valtype_t *wasm_valtype_new(wasm_valkind_t kind);
 
 /// Creates a new Module from the given wasm bytes.
 ///

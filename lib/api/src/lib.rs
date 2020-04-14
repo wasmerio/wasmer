@@ -70,7 +70,7 @@ pub mod wasm {
     //!
     //! # Tables
     pub use wasmer_runtime_core::backend::Features;
-    pub use wasmer_runtime_core::export::Export;
+    pub use wasmer_runtime_core::export::{Context, Export, FuncPointer};
     pub use wasmer_runtime_core::global::Global;
     pub use wasmer_runtime_core::instance::{DynFunc, Instance};
     pub use wasmer_runtime_core::memory::Memory;

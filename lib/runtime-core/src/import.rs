@@ -129,11 +129,23 @@ impl ImportObject {
     {
         let guard = self.map.lock().unwrap();
         let map_ref = guard.borrow();
-        if map_ref.contains_key(namespace) {
-            Some(f(map_ref[namespace].as_ref()))
-        } else {
-            None
-        }
+        map_ref.get(namespace).map(|ns| ns.as_ref()).map(f)
+    }
+
+    /// Mutably apply a function on the namespace if it exists
+    /// If your function can fail, consider using `maybe_with_namespace_mut`
+    pub fn with_namespace_mut<Func, InnerRet>(
+        &mut self,
+        namespace: &str,
+        f: Func,
+    ) -> Option<InnerRet>
+    where
+        Func: FnOnce(&mut (dyn LikeNamespace + Send)) -> InnerRet,
+        InnerRet: Sized,
+    {
+        let mut guard = self.map.lock().unwrap();
+        let map_ref = guard.borrow_mut();
+        map_ref.get_mut(namespace).map(|ns| f(ns.as_mut()))
     }
 
     /// The same as `with_namespace` but takes a function that may fail
@@ -152,10 +164,22 @@ impl ImportObject {
     {
         let guard = self.map.lock().unwrap();
         let map_ref = guard.borrow();
-        map_ref
-            .get(namespace)
-            .map(|ns| ns.as_ref())
-            .and_then(|ns| f(ns))
+        map_ref.get(namespace).map(|ns| ns.as_ref()).and_then(f)
+    }
+
+    /// The same as `with_namespace_mut` but takes a function that may fail
+    pub fn maybe_with_namespace_mut<Func, InnerRet>(
+        &self,
+        namespace: &str,
+        f: Func,
+    ) -> Option<InnerRet>
+    where
+        Func: FnOnce(&mut (dyn LikeNamespace + Send)) -> Option<InnerRet>,
+        InnerRet: Sized,
+    {
+        let mut guard = self.map.lock().unwrap();
+        let map_ref = guard.borrow_mut();
+        map_ref.get_mut(namespace).and_then(|ns| f(ns.as_mut()))
     }
 
     /// Create a clone ref of this namespace.

@@ -1524,6 +1524,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab4fb1930692d1b6a9cfabdde3d06ea0a7d186518e2f4d67660d8970e2fa647a"
+dependencies = [
+ "paste-impl",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "paste-impl"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a62486e111e571b1e93b710b61e8f493c0013be39629b714cb166bdb06aa5a8a"
+dependencies = [
+ "proc-macro-hack",
+ "proc-macro2 1.0.9",
+ "quote 1.0.2",
+ "syn 1.0.16",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1594,6 +1616,12 @@ dependencies = [
  "syn-mid",
  "version_check",
 ]
+
+[[package]]
+name = "proc-macro-hack"
+version = "0.5.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d659fe7c6d27f25e9d80a1a094c223f5246f6a6596453e09d7229bf42750b63"
 
 [[package]]
 name = "proc-macro2"
@@ -2917,6 +2945,8 @@ version = "0.16.2"
 dependencies = [
  "cbindgen",
  "libc",
+ "paste",
+ "wasmer",
  "wasmer-emscripten",
  "wasmer-runtime",
  "wasmer-runtime-core",
