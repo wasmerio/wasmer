@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["build_ignores_from_textfile","Generates an Ignores struct from a text file"],["extract_name","Extract a valid Rust identifier from the stem of a path."],["test_directory",""],["test_directory_module",""],["with_test_module",""],["write_test",""]],"struct":[["Test",""],["Testsuite",""]],"type":[["Ignores",""],["ProcessorType",""]]});

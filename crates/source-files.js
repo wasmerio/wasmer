@@ -5,6 +5,7 @@ sourcesIndex["kernel_net"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["parallel"] = {"name":"","files":["main.rs"]};
 sourcesIndex["parallel_guest"] = {"name":"","files":["main.rs"]};
 sourcesIndex["plugin_for_example"] = {"name":"","files":["main.rs"]};
+sourcesIndex["test_generator"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["wasmer"] = {"name":"","files":["wasmer.rs"]};
 sourcesIndex["wasmer_bin"] = {"name":"","dirs":[{"name":"commands","files":["cache.rs","run.rs","selfupdate.rs","validate.rs"]}],"files":["commands.rs","common.rs","lib.rs","utils.rs"]};
 sourcesIndex["wasmer_clif_backend"] = {"name":"","dirs":[{"name":"signal","files":["mod.rs","unix.rs"]}],"files":["cache.rs","code.rs","lib.rs","libcalls.rs","module.rs","relocation.rs","resolver.rs","trampoline.rs"]};
@@ -19,5 +20,6 @@ sourcesIndex["wasmer_runtime_core"] = {"name":"","dirs":[{"name":"memory","files
 sourcesIndex["wasmer_singlepass_backend"] = {"name":"","files":["codegen_x64.rs","emitter_x64.rs","lib.rs","machine.rs"]};
 sourcesIndex["wasmer_wasi"] = {"name":"","dirs":[{"name":"state","files":["builder.rs","mod.rs","types.rs"]},{"name":"syscalls","dirs":[{"name":"legacy","files":["mod.rs","snapshot0.rs"]},{"name":"unix","files":["mod.rs"]}],"files":["mod.rs","types.rs"]}],"files":["lib.rs","macros.rs","ptr.rs","utils.rs"]};
 sourcesIndex["wasmer_wasi_experimental_io_devices"] = {"name":"","files":["lib.rs","util.rs"]};
+sourcesIndex["wasmer_wast"] = {"name":"","files":["errors.rs","lib.rs","spectest.rs","wast.rs"]};
 sourcesIndex["wasmer_win_exception_handler"] = {"name":"","files":["lib.rs"]};
 createSourceSidebar();

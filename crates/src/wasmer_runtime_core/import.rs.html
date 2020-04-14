@@ -329,6 +329,11 @@
 <span id="329">329</span>
 <span id="330">330</span>
 <span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The import module contains the implementation data structures and helper functions used to</span>
 <span class="doccomment">//! manipulate and access a wasm module&#39;s imports including memories, tables, globals, and</span>
@@ -509,6 +514,11 @@
             }
         }
         <span class="ident">out</span>
+    }
+
+    <span class="doccomment">/// Returns true if the ImportObject contains namespace with the provided name.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">contains_namespace</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>().<span class="ident">borrow</span>().<span class="ident">contains_key</span>(<span class="ident">name</span>)
     }
 }
 
