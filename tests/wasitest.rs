@@ -1,2 +1,2 @@
-pub mod dev_utils;
+pub mod utils;
 mod wasitests;

@@ -35,17 +35,17 @@ generate: generate-emtests generate-wasitests
 
 # Spectests
 spectests-singlepass:
-	WASMER_TEST_SINGLEPASS=1 cargo test test_run_spectests --release --no-default-features --features "wasi backend-singlepass" -- --nocapture --test-threads 1
+	WASMER_TEST_SINGLEPASS=1 cargo test singlepass::spec --release --no-default-features --features "wasi backend-singlepass" -- --nocapture
 
 spectests-cranelift:
-	WASMER_TEST_CRANELFIT=1 cargo test test_run_spectests --release --no-default-features --features "wasi backend-cranelift" -- --nocapture
+	WASMER_TEST_CRANELFIT=1 cargo test cranelift::spec --release --no-default-features --features "wasi backend-cranelift" -- --nocapture
 
 spectests-llvm:
-	WASMER_TEST_LLVM=1 cargo test test_run_spectests --release --no-default-features --features "wasi backend-llvm wasmer-llvm-backend/test" -- --nocapture
+	WASMER_TEST_LLVM=1 cargo test llvm::spec --release --no-default-features --features "wasi backend-llvm wasmer-llvm-backend/test" -- --nocapture --test-threads=1
 
 spectests-all:
 	WASMER_TEST_CRANELIFT=1 WASMER_TEST_LLVM=1 WASMER_TEST_SINGLEPASS=1 \
-	cargo test test_run_spectests --release --no-default-features --features "wasi backend-cranelift backend-singlepass backend-llvm wasmer-llvm-backend/test" -- --nocapture --test-threads 1
+	cargo test spec --release --no-default-features --features "wasi backend-cranelift backend-singlepass backend-llvm wasmer-llvm-backend/test" 
 
 
 spectests: spectests-singlepass spectests-cranelift spectests-llvm

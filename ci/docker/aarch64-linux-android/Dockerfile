@@ -1,4 +1,4 @@
-FROM ubuntu:19.04
+FROM ubuntu:19.10
 
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
