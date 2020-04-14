@@ -2259,6 +2259,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-generator"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "target-lexicon",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2269,18 +2277,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.11"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee14bf8e6767ab4c687c9e8bc003879e042a96fd67a3ba5934eadb6536bef4db"
+checksum = "54b3d3d2ff68104100ab257bb6bb0cb26c901abe4bd4ba15961f3bf867924012"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.11"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7b51e1fbc44b5a0840be594fbc0f960be09050f2617e61e6aa43bef97cd3ef4"
+checksum = "ca972988113b7715266f91250ddb98070d033c62a011fa0fcc57434a649310dd"
 dependencies = [
  "proc-macro2 1.0.9",
  "quote 1.0.2",
@@ -2746,6 +2754,7 @@ dependencies = [
 name = "wasmer-bin"
 version = "0.16.2"
 dependencies = [
+ "anyhow",
  "atty",
  "byteorder",
  "criterion",
@@ -2759,6 +2768,7 @@ dependencies = [
  "rustc_version",
  "serde",
  "structopt",
+ "test-generator",
  "typetag",
  "wabt",
  "wasmer",
@@ -2772,6 +2782,7 @@ dependencies = [
  "wasmer-singlepass-backend",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
+ "wasmer-wast",
 ]
 
 [[package]]
@@ -2844,7 +2855,7 @@ version = "0.16.2"
 dependencies = [
  "nom",
  "serde",
- "wast",
+ "wast 8.0.0",
 ]
 
 [[package]]
@@ -2988,6 +2999,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-wast"
+version = "0.16.2"
+dependencies = [
+ "anyhow",
+ "thiserror",
+ "wasmer",
+ "wast 9.0.0",
+]
+
+[[package]]
 name = "wasmer-win-exception-handler"
 version = "0.16.2"
 dependencies = [
@@ -3008,6 +3029,15 @@ name = "wast"
 version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9df3d716118a503b2f6bbb6ff46b21997ab0cc167b01de7a188e45e4b01e8d"
+dependencies = [
+ "leb128",
+]
+
+[[package]]
+name = "wast"
+version = "9.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee7b16105405ca2aa2376ba522d8d4b1a11604941dd3bb7df9fd2ece60f8d16a"
 dependencies = [
  "leb128",
 ]

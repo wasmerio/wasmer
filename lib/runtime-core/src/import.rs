@@ -178,6 +178,11 @@ impl ImportObject {
         }
         out
     }
+
+    /// Returns true if the ImportObject contains namespace with the provided name.
+    pub fn contains_namespace(&self, name: &str) -> bool {
+        self.map.lock().unwrap().borrow().contains_key(name)
+    }
 }
 
 /// Iterator for an `ImportObject`'s exports.

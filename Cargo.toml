@@ -59,18 +59,23 @@ members = [
     "examples/parallel",
     "examples/plugin-for-example",
     "examples/parallel-guest",
+    "tests/test-generator",
     "tests/generate-wasi-tests",
     "tests/generate-emscripten-tests",
+    "tests/wast",
 ]
 
 [build-dependencies]
-wabt = "0.9.1"
+anyhow = "1.0.19"
 generate-emscripten-tests = { path = "tests/generate-emscripten-tests" }
 generate-wasi-tests = { path = "tests/generate-wasi-tests" }
+test-generator = { path = "tests/test-generator" }
 glob = "0.3"
 rustc_version = "0.2"
 
 [dev-dependencies]
+anyhow = "1.0.19"
+wasmer-wast = { path = "tests/wast" }
 criterion = "0.3"
 glob = "0.3"
 libc = "0.2.60" # for `tests/dev-utils`'s Stdout capturing
