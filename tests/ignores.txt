@@ -41,6 +41,7 @@ cranelift::spec::memory on windows
 cranelift::spec::stack on windows
 cranelift::spec::type on windows
 cranelift::spec::data on windows
+cranelift::spec::start on windows
 
 # LLVM
 llvm::spec::linking
