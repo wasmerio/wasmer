@@ -1,0 +1,101 @@
+# Cranelift
+cranelift::spec::atomic        # Threads not implemented
+cranelift::spec::simd          # SIMD not implemented
+cranelift::spec::simd_binaryen # SIMD not implemented
+cranelift::spec::linking
+
+# Cranelift Windows
+cranelift::spec::address on windows
+cranelift::spec::call on windows
+cranelift::spec::call_indirect on windows
+cranelift::spec::conversions on windows
+cranelift::spec::elem on windows
+cranelift::spec::fac on windows
+cranelift::spec::func_ptrs on windows
+cranelift::spec::globals on windows
+cranelift::spec::i32 on windows
+cranelift::spec::i64 on windows
+cranelift::spec::if on windows
+cranelift::spec::imports on windows
+cranelift::spec::int_exprs on windows
+cranelift::spec::linking on windows
+cranelift::spec::memory_grow on windows
+cranelift::spec::memory_trap on windows
+cranelift::spec::select on windows
+cranelift::spec::stack-guard-page on windows
+cranelift::spec::traps on windows
+cranelift::spec::unreachable on windows
+cranelift::spec::unwind on windows
+cranelift::spec::binary-leb128 on windows
+cranelift::spec::data on windows
+cranelift::spec::align on windows
+cranelift::spec::binary-leb128 on windows
+cranelift::spec::binary on windows
+cranelift::spec::comments on windows
+cranelift::spec::const on windows
+cranelift::spec::custom on windows
+cranelift::spec::data on windows
+cranelift::spec::exports on windows
+cranelift::spec::func on windows
+cranelift::spec::memory on windows
+cranelift::spec::stack on windows
+cranelift::spec::type on windows
+cranelift::spec::data on windows
+
+# LLVM
+llvm::spec::linking
+
+# LLVM AArch64
+llvm::spec::atomic on aarch64 # Out of range relocations.
+llvm::spec::stack-guard-page on aarch64 # Uncaught SIGSEGV only on release builds
+
+# LLVM Windows
+llvm::spec::address on windows
+llvm::spec::align on windows
+llvm::spec::call on windows
+llvm::spec::br_table on windows
+llvm::spec::call_indirect on windows
+llvm::spec::conversions on windows
+llvm::spec::elem on windows
+llvm::spec::func_ptrs on windows
+llvm::spec::const on windows
+llvm::spec::globals on windows
+llvm::spec::i32 on windows
+llvm::spec::i64 on windows
+llvm::spec::if on windows
+llvm::spec::imports on windows
+llvm::spec::int_exprs on windows
+llvm::spec::linking on windows
+llvm::spec::memory_grow on windows
+llvm::spec::memory_trap on windows
+llvm::spec::select on windows
+llvm::spec::traps on windows
+llvm::spec::unreachable on windows
+llvm::spec::unwind on windows
+
+# LLVM Linux after OSR - https,//github.com/wasmerio/wasmer/pull/567
+llvm::spec::simd on unix
+llvm::spec::simd_binaryen on unix
+
+# Temporary
+llvm::spec::simd
+llvm::spec::simd_binaryen
+
+# Singlepass
+singlepass::spec::simd          # SIMD not implemented
+singlepass::spec::simd_binaryen # SIMD not implemented
+singlepass::spec::linking
+
+singlepass::spec::atomic on aarch64 # Threads not yet supported on singlepass
+
+singlepass::spec::address
+
+# These failures only happen on AArch64 and not on x86-64. 
+singlepass::spec::conversions on aarch64
+singlepass::spec::i32 on aarch64
+singlepass::spec::i64 on aarch64
+singlepass::spec::int_exprs on aarch64
+singlepass::spec::traps on aarch64
+
+# NaN canonicalization is not yet implemented for aarch64.
+singlepass::spec::wasmer on aarch64
