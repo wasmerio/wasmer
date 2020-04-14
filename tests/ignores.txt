@@ -26,10 +26,10 @@ cranelift::spec::skip_stack_guard_page on windows
 cranelift::spec::traps on windows
 cranelift::spec::unreachable on windows
 cranelift::spec::unwind on windows
-cranelift::spec::binary-leb128 on windows
+cranelift::spec::binary_leb128 on windows
 cranelift::spec::data on windows
 cranelift::spec::align on windows
-cranelift::spec::binary-leb128 on windows
+cranelift::spec::binary_leb128 on windows
 cranelift::spec::binary on windows
 cranelift::spec::comments on windows
 cranelift::spec::const on windows
