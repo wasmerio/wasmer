@@ -26,11 +26,14 @@ ifneq (, $(findstring nightly,$(RUST_VERSION)))
 	backends += singlepass
 endif
 
-bold:=$(shell tput bold)
-green:=$(shell tput setaf 2)
-reset:=$(shell tput sgr0)
+ifneq ($(OS), Windows_NT)
+	bold := $(shell tput bold)
+	green := $(shell tput setaf 2)
+	reset := $(shell tput sgr0)
+endif
 
-$(info Available backends for this host: $(bold)$(green)${backends}$(reset))
+
+$(info Available backends: $(bold)$(green)${backends}$(reset))
 
 backend_features_spaced := $(foreach backend,$(backends),backend-$(backend))
 backend_features := --features "$(backend_features_spaced)"
