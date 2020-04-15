@@ -12,19 +12,22 @@ fn install_toolchain(toolchain_name: &str) {
         .output()
         .expect("Failed to install toolchain with rustup");
     util::print_info_on_error(&rustup_out, "TOOLCHAIN INSTALL FAILED");
+
+    println!("Installing rustup WASI target");
+    let rustup_out = Command::new("rustup")
+        .arg(format!("+{}", toolchain_name))
+        .arg("target")
+        .arg("add")
+        .arg("wasm32-wasi")
+        .output()
+        .expect("Failed to wasi target in Rust toolchain");
+    util::print_info_on_error(&rustup_out, "WASI TARGET IN TOOLCHAIN INSTAL FAILED");
 }
 
-pub fn set_it_up(only_latest: bool) {
+pub fn install_toolchains(wasi_versions: &[WasiVersion]) {
     println!("Setting up system to generate the WASI tests.");
     println!("WARNING: this may use a lot of disk space.");
 
-    let wasi_versions = if only_latest {
-        println!("Only installing the toolchain for the latest WASI version");
-        LATEST_WASI_VERSION
-    } else {
-        println!("Installing the toolchain for all WASI versions");
-        ALL_WASI_VERSIONS
-    };
     for wasi_version in wasi_versions {
         install_toolchain(wasi_version.get_compiler_toolchain());
     }

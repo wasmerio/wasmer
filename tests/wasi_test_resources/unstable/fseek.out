@@ -1,0 +1,14 @@
+{
+  "output": "SCENE III. A room in Polonius' h\nouse.\n\n    Enter LAERTES and OPH\n    And, sister, as the winds gi\nr talk with the Lord Hamlet.\n   \nuits,\n    Breathing like sanctif\nis is for all:\n    I would not, \n",
+  "options": {
+    "mapdir": [
+      [
+        ".",
+        "tests/wasi_test_resources/test_fs/hamlet"
+      ]
+    ],
+    "env": [],
+    "args": [],
+    "dir": []
+  }
+}

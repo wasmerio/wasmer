@@ -1,4 +1,4 @@
-// Args:
+// WASI:
 // dir: .
 
 use std::fs;

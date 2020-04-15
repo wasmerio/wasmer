@@ -1,4 +1,4 @@
-// Args:
+// WASI:
 // mapdir: act1:tests/wasi_test_resources/test_fs/hamlet/act1
 // mapdir: act2:tests/wasi_test_resources/test_fs/hamlet/act2
 // mapdir: act1-again:tests/wasi_test_resources/test_fs/hamlet/act1

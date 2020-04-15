@@ -1,6 +1,0 @@
-snapshot1_fd_read
-snapshot1_poll_oneoff
-snapshot1_fd_pread
-snapshot1_fd_close
-snapshot1_fd_allocate
-snapshot1_close_preopen_fd

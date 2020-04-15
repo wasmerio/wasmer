@@ -766,6 +766,8 @@ name = "generate-wasi-tests"
 version = "0.16.2"
 dependencies = [
  "glob 0.3.0",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 
@@ -2046,9 +2048,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.105"
+version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e707fbbf255b8fc8c3b99abb91e7257a622caeb20a9818cbadbeeede4e0932ff"
+checksum = "36df6ac6412072f67cf767ebbde4133a5b2e88e76dc6187fa7104cd16f783399"
 dependencies = [
  "serde_derive",
 ]
@@ -2074,9 +2076,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.105"
+version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac5d00fc561ba2724df6758a17de23df5914f20e41cb00f94d5b7ae42fffaff8"
+checksum = "9e549e3abf4fb8621bd1609f11dfc9f5e50320802273b12f3811a67e6716ea6c"
 dependencies = [
  "proc-macro2 1.0.9",
  "quote 1.0.2",
@@ -2256,6 +2258,18 @@ dependencies = [
  "redox_syscall",
  "remove_dir_all",
  "winapi 0.3.8",
+]
+
+[[package]]
+name = "test-case"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "199464148b42bcf3da8b2a56f6ee87ca68f47402496d1268849291ec9fb463c8"
+dependencies = [
+ "proc-macro2 1.0.9",
+ "quote 1.0.2",
+ "syn 1.0.16",
+ "version_check",
 ]
 
 [[package]]
@@ -2763,11 +2777,14 @@ dependencies = [
  "generate-emscripten-tests",
  "generate-wasi-tests",
  "glob 0.3.0",
+ "lazy_static",
  "libc",
  "log",
  "rustc_version",
  "serde",
+ "serde_json",
  "structopt",
+ "test-case",
  "test-generator",
  "typetag",
  "wabt",
@@ -2979,6 +2996,7 @@ dependencies = [
  "libc",
  "log",
  "serde",
+ "thiserror",
  "time",
  "typetag",
  "wasmer-runtime-core",

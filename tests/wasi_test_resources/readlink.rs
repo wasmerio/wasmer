@@ -1,4 +1,4 @@
-// Args:
+// WASI:
 // mapdir: .:tests/wasi_test_resources/test_fs/hamlet
 use std::io::Read;
 

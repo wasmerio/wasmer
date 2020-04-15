@@ -9,7 +9,7 @@
 use anyhow::Context;
 use std::collections::HashSet;
 use std::fmt::Write;
-use std::fs::{DirEntry, File};
+use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use target_lexicon::Triple;
@@ -24,7 +24,15 @@ pub struct Testsuite {
 impl Testsuite {
     fn ignore_current(&self) -> bool {
         let full = self.path.join("::");
-        self.ignores.contains(&full)
+        if self.ignores.contains(&full) {
+            return true;
+        }
+        for ignore in self.ignores.iter() {
+            if full.contains(ignore) {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -160,4 +168,18 @@ pub fn with_test_module<T>(
     out.buffer.push_str("}\n");
     out.path.pop().unwrap();
     Ok(result)
+}
+
+pub fn with_backends(
+    mut out: &mut Testsuite,
+    backends: &[&str],
+    f: impl Fn(&mut Testsuite) -> anyhow::Result<()> + Copy,
+) -> anyhow::Result<()> {
+    for compiler in backends.iter() {
+        writeln!(out.buffer, "#[cfg(feature=\"backend-{}\")]", compiler)?;
+        writeln!(out.buffer, "#[cfg(test)]")?;
+        writeln!(out.buffer, "#[allow(non_snake_case)]")?;
+        with_test_module(&mut out, &compiler, f)?;
+    }
+    Ok(())
 }

@@ -1,0 +1,14 @@
+{
+  "output": "\"./README.md\"\n\"./act1\"\n\"./act2\"\n\"./act3\"\n\"./act4\"\n\"./act5\"\n\"./bookmarks\"\n",
+  "options": {
+    "mapdir": [
+      [
+        ".",
+        "tests/wasi_test_resources/test_fs/hamlet"
+      ]
+    ],
+    "env": [],
+    "args": [],
+    "dir": []
+  }
+}

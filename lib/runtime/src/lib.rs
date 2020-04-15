@@ -208,6 +208,13 @@ impl Default for Backend {
 
         #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
         return Backend::LLVM;
+
+        #[cfg(not(any(
+            feature = "default-backend-singlepass",
+            feature = "default-backend-cranelift",
+            feature = "default-backend-llvm",
+        )))]
+        panic!("There is no default-backend set.");
     }
 }
 
@@ -241,7 +248,7 @@ impl std::str::FromStr for Backend {
 /// # Errors:
 /// If the operation fails, the function returns `Err(error::CompileError::...)`.
 pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
-    wasmer_runtime_core::compile_with(&wasm[..], &default_compiler())
+    wasmer_runtime_core::compile_with(&wasm[..], &*default_compiler())
 }
 
 /// The same as `compile` but takes a `CompilerConfig` for the purpose of
@@ -250,7 +257,7 @@ pub fn compile_with_config(
     wasm: &[u8],
     compiler_config: CompilerConfig,
 ) -> error::CompileResult<Module> {
-    wasmer_runtime_core::compile_with_config(&wasm[..], &default_compiler(), compiler_config)
+    wasmer_runtime_core::compile_with_config(&wasm[..], &*default_compiler(), compiler_config)
 }
 
 /// The same as `compile_with_config` but takes a `Compiler` for the purpose of
@@ -291,7 +298,7 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
 /// The output of this function can be controlled by the mutually
 /// exclusive `default-backend-llvm`, `default-backend-singlepass`,
 /// and `default-backend-cranelift` feature flags.
-pub fn default_compiler() -> impl Compiler {
+pub fn default_compiler() -> Box<dyn Compiler> {
     #[cfg(any(
         all(
             feature = "default-backend-llvm",
@@ -320,7 +327,19 @@ pub fn default_compiler() -> impl Compiler {
     #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
     use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
-    DefaultCompiler::new()
+    #[cfg(any(
+        feature = "default-backend-singlepass",
+        feature = "default-backend-cranelift",
+        feature = "default-backend-llvm",
+    ))]
+    return Box::new(DefaultCompiler::new());
+
+    #[cfg(not(any(
+        feature = "default-backend-singlepass",
+        feature = "default-backend-cranelift",
+        feature = "default-backend-llvm",
+    )))]
+    panic!("There is no default-compiler set.");
 }
 
 /// Get the `Compiler` as a trait object for the given `Backend`.
@@ -350,6 +369,13 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
             return Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new()));
             #[cfg(feature = "default-backend-llvm")]
             return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
+
+            #[cfg(not(any(
+                feature = "default-backend-singlepass",
+                feature = "default-backend-cranelift",
+                feature = "default-backend-llvm",
+            )))]
+            panic!("There is no default-compiler set.");
         }
     }
 }
