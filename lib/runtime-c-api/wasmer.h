@@ -127,6 +127,14 @@ typedef uint32_t wasmer_value_tag;
 
 typedef struct Arc_FuncSig Arc_FuncSig;
 
+typedef struct Arc_Instance Arc_Instance;
+
+typedef struct Arc_Module Arc_Module;
+
+typedef struct Option_Arc_Instance Option_Arc_Instance;
+
+typedef struct Option_DynFunc Option_DynFunc;
+
 typedef struct {
 
 } wasm_config_t;
@@ -180,11 +188,15 @@ typedef struct {
 } CallbackType;
 
 typedef struct {
+  const DynFunc *dynfunc;
+  Option_Arc_Instance instance;
   Arc_FuncSig functype;
   CallbackType callback;
 } wasm_func_t;
 
 typedef struct {
+  Option_DynFunc dynfunc;
+  Option_Arc_Instance instance;
   Export export_;
 } wasm_extern_t;
 
@@ -197,11 +209,11 @@ typedef struct {
 } wasm_functype_t;
 
 typedef struct {
-
+  Arc_Instance real_instance;
 } wasm_instance_t;
 
 typedef struct {
-
+  Arc_Module real_module;
 } wasm_module_t;
 
 typedef struct {
@@ -512,6 +524,10 @@ wasm_func_t *wasm_func_new_with_env(wasm_store_t *_store,
                                     wasm_func_callback_with_env_t callback,
                                     void env,
                                     wasm_env_finalizer_t finalizer);
+
+uintptr_t wasm_func_param_arity(const wasm_func_t *func);
+
+uintptr_t wasm_func_result_arity(const wasm_func_t *func);
 
 wasm_functype_t *wasm_functype_copy(wasm_functype_t *arg);
 

@@ -98,6 +98,8 @@ pub mod compiler {
     pub use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
     pub use wasmer_runtime_core::state::CodeVersion;
 
+    pub use wasmer_runtime_core::typed_func::Trampoline;
+
     /// Enum used to select which compiler should be used to generate code.
     #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
     pub enum Backend {

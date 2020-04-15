@@ -91,6 +91,9 @@ enum class wasmer_value_tag : uint32_t {
 template<typename T>
 struct Arc;
 
+template<typename T>
+struct Option;
+
 struct wasm_config_t {
 
 };
@@ -144,11 +147,15 @@ struct CallbackType {
 };
 
 struct wasm_func_t {
+  const DynFunc *dynfunc;
+  Option<Arc<Instance>> instance;
   Arc<FuncSig> functype;
   CallbackType callback;
 };
 
 struct wasm_extern_t {
+  Option<DynFunc> dynfunc;
+  Option<Arc<Instance>> instance;
   Export export_;
 };
 
@@ -161,11 +168,11 @@ struct wasm_functype_t {
 };
 
 struct wasm_instance_t {
-
+  Arc<Instance> real_instance;
 };
 
 struct wasm_module_t {
-
+  Arc<Module> real_module;
 };
 
 struct wasm_valtype_t {
@@ -432,6 +439,10 @@ wasm_func_t *wasm_func_new_with_env(wasm_store_t *_store,
                                     wasm_func_callback_with_env_t callback,
                                     void env,
                                     wasm_env_finalizer_t finalizer);
+
+uintptr_t wasm_func_param_arity(const wasm_func_t *func);
+
+uintptr_t wasm_func_result_arity(const wasm_func_t *func);
 
 wasm_functype_t *wasm_functype_copy(wasm_functype_t *arg);
 

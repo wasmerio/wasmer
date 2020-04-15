@@ -20,9 +20,9 @@ use wasmer::wasm;
 pub struct Own<T>(T);
 
 impl<T> std::ops::Deref<T> for Own<T> {
-    type Target = T;
-    fn deref(&self) -> Self::Target {
-        self.0
+type Target = T;
+fn deref(&self) -> Self::Target {
+self.0
     }
 }*/
 
@@ -68,7 +68,9 @@ pub extern "C" fn wasm_engine_new_with_config(
 }
 
 #[repr(C)]
-pub struct wasm_instance_t {}
+pub struct wasm_instance_t {
+    real_instance: Arc<wasm::Instance>,
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_new(
@@ -78,7 +80,7 @@ pub unsafe extern "C" fn wasm_instance_new(
     // own
     _traps: *mut *mut wasm_trap_t,
 ) -> *mut wasm_instance_t {
-    let module = &*(module as *mut Module);
+    let module = &(&*module).real_module;
     let module_imports = module.imports();
     let module_import_count = module_imports.len();
     let imports = argument_import_iter(imports);
@@ -131,18 +133,20 @@ pub unsafe extern "C" fn wasm_instance_new(
         return ptr::null_mut();
     }
 
-    let instance = Box::new(
+    let instance = Arc::new(
         module
             .instantiate(&import_object)
             .expect("failed to instantiate: TODO handle this error"),
     );
-    Box::into_raw(instance) as *mut wasm_instance_t
+    Box::into_raw(Box::new(wasm_instance_t {
+        real_instance: instance,
+    }))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_delete(instance: *mut wasm_instance_t) {
     if !instance.is_null() {
-        let _ = Box::from_raw(instance as *mut wasm::Instance);
+        let _ = Box::from_raw(instance);
     }
 }
 
@@ -185,12 +189,27 @@ pub unsafe extern "C" fn wasm_instance_exports(
     // TODO: review types on wasm_declare_vec, handle the optional pointer part properly
     out: *mut wasm_extern_vec_t,
 ) {
-    let instance = &*(instance as *const wasm::Instance);
+    let instance = &(&*instance).real_instance;
     // TODO: review name, does `into_iter` imply taking ownership?
     let mut extern_vec = instance
         .exports
         .into_iter()
-        .map(|(_, export)| Box::into_raw(Box::new(wasm_extern_t { export })))
+        .map(|(name, export)| {
+            let dynfunc = if let wasm::Export::Function { .. } = export {
+                instance.exports.get(&name).ok()
+
+            /*let sig_idx = SigRegistry::lookup_sig_index(signature);
+            let trampoline = instance.module.runnable_module.get_trampoline(&instance.module.info, sig_idx).expect("wasm trampoline");
+            Some(trampoline)*/
+            } else {
+                None
+            };
+            Box::into_raw(Box::new(wasm_extern_t {
+                instance: Some(Arc::clone(instance)),
+                dynfunc,
+                export,
+            }))
+        })
         .collect::<Vec<*mut wasm_extern_t>>();
     extern_vec.shrink_to_fit();
 
@@ -200,9 +219,10 @@ pub unsafe extern "C" fn wasm_instance_exports(
     mem::forget(extern_vec);
 }
 
-// opaque wrapper around `*mut Module`
 #[repr(C)]
-pub struct wasm_module_t;
+pub struct wasm_module_t {
+    real_module: Arc<Module>,
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_new(
@@ -221,13 +241,15 @@ pub unsafe extern "C" fn wasm_module_new(
         }
     };
 
-    Box::into_raw(Box::new(module)) as *mut wasm_module_t
+    Box::into_raw(Box::new(wasm_module_t {
+        real_module: Arc::new(module),
+    }))
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_module_delete(module: *mut wasm_module_t) {
     if !module.is_null() {
-        unsafe { Box::from_raw(module as *mut Module) };
+        unsafe { Box::from_raw(module) };
     }
 }
 
@@ -257,14 +279,18 @@ pub unsafe extern "C" fn wasm_func_as_extern(func_ptr: *mut wasm_func_t) -> *mut
     match func.callback {
         CallbackType::WithEnv { .. } => todo!("wasm_func_as_extern for funcs with envs"),
         CallbackType::WithoutEnv(callback) => {
-            let export = Box::new(wasm::Export::Function {
+            let export = wasm::Export::Function {
                 func: wasm::FuncPointer::new(callback as *const _),
                 // TODO: figure out how to use `wasm::Context` correctly here
                 ctx: wasm::Context::Internal,
                 signature: Arc::clone(&func.functype),
-            });
+            };
 
-            Box::into_raw(export) as *mut wasm_extern_t
+            Box::into_raw(Box::new(wasm_extern_t {
+                instance: func.instance.clone(),
+                dynfunc: None,
+                export,
+            }))
         }
     }
 }
@@ -279,6 +305,8 @@ pub unsafe extern "C" fn wasm_extern_as_func(extrn: *mut wasm_extern_t) -> *mut 
             func,
         } => {
             let func = Box::new(wasm_func_t {
+                instance: extrn.instance.clone(),
+                dynfunc: extrn.dynfunc.as_ref().map(|r| r as *const _),
                 functype: Arc::clone(signature),
                 callback: match ctx {
                     wasm::Context::Internal => CallbackType::WithoutEnv(
@@ -403,6 +431,10 @@ enum CallbackType {
 
 #[repr(C)]
 pub struct wasm_func_t {
+    // hack to make it just work for now
+    dynfunc: Option<*const wasm::DynFunc<'static>>,
+    // this is how we ensure the instance stays alive
+    instance: Option<Arc<wasm::Instance>>,
     functype: Arc<wasm::FuncSig>,
     callback: CallbackType,
 }
@@ -417,6 +449,8 @@ pub unsafe extern "C" fn wasm_func_new(
     let new_ft = wasm_functype_copy(ft as *mut _);
     let func_sig = functype_to_real_type(new_ft);
     let wasm_func = Box::new(wasm_func_t {
+        instance: None,
+        dynfunc: None,
         functype: func_sig,
         callback: CallbackType::WithoutEnv(callback),
     });
@@ -435,6 +469,8 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let new_ft = wasm_functype_copy(ft as *mut _);
     let func_sig = functype_to_real_type(new_ft);
     let wasm_func = Box::new(wasm_func_t {
+        instance: None,
+        dynfunc: None,
         functype: func_sig,
         callback: CallbackType::WithEnv {
             callback,
@@ -460,77 +496,86 @@ pub unsafe extern "C" fn wasm_func_call(
 ) -> *mut wasm_trap_t {
     let func = &*func;
 
-    /*let mut params = vec![];
-    for (i, param) in func.functype.params().iter().enumerate() {
-        let arg = &(*args.add(i));
+    let wasm_traps;
+    if let Some(dynfunc) = func.dynfunc {
+        let dynfunc = &*dynfunc;
+        let mut params = vec![];
+        for (i, param) in func.functype.params().iter().enumerate() {
+            let arg = &(*args.add(i));
 
-        match param {
-            wasm::Type::I32 => {
-                if arg.kind != wasm_valkind_enum::WASM_I32 as u8 {
-                    // todo: error handling
-                    panic!("type mismatch!");
+            match param {
+                wasm::Type::I32 => {
+                    if arg.kind != wasm_valkind_enum::WASM_I32 as u8 {
+                        // todo: error handling
+                        panic!("type mismatch!");
+                    }
+                    params.push(wasm::Value::I32(arg.of.int32_t));
                 }
-                params.push(wasm::Value::I32(arg.of.int32_t));
-            }
-            wasm::Type::I64 => {
-                if arg.kind != wasm_valkind_enum::WASM_I64 as u8 {
-                    // todo: error handling
-                    panic!("type mismatch!");
+                wasm::Type::I64 => {
+                    if arg.kind != wasm_valkind_enum::WASM_I64 as u8 {
+                        // todo: error handling
+                        panic!("type mismatch!");
+                    }
+                    params.push(wasm::Value::I64(arg.of.int64_t));
                 }
-                params.push(wasm::Value::I64(arg.of.int64_t));
-            }
-            wasm::Type::F32 => {
-                if arg.kind != wasm_valkind_enum::WASM_F32 as u8 {
-                    // todo: error handling
-                    panic!("type mismatch!");
+                wasm::Type::F32 => {
+                    if arg.kind != wasm_valkind_enum::WASM_F32 as u8 {
+                        // todo: error handling
+                        panic!("type mismatch!");
+                    }
+                    params.push(wasm::Value::F32(arg.of.float32_t));
                 }
-                params.push(wasm::Value::F32(arg.of.float32_t));
-            }
-            wasm::Type::F64 => {
-                if arg.kind != wasm_valkind_enum::WASM_F64 as u8 {
-                    // todo: error handling
-                    panic!("type mismatch!");
+                wasm::Type::F64 => {
+                    if arg.kind != wasm_valkind_enum::WASM_F64 as u8 {
+                        // todo: error handling
+                        panic!("type mismatch!");
+                    }
+                    params.push(wasm::Value::F64(arg.of.float64_t));
                 }
-                params.push(wasm::Value::F64(arg.of.float64_t));
+                wasm::Type::V128 => todo!("Handle v128 case in wasm_func_call"),
             }
-            wasm::Type::V128 => todo!("Handle v128 case in wasm_func_call"),
         }
-    }*/
 
-    // TODO: investigate constructing a dynfunc from func.callback
-    let wasm_traps = match func.callback {
-        CallbackType::WithoutEnv(fp) => fp(args, results),
-        _ => panic!("wat"),
-    };
-
-    wasm_traps
-
-    /*
-    for (i, actual_result) in wasm_results.iter().enumerate() {
-        let result_loc = &mut (*results.add(i));
-        match actual_result {
-            wasm::Value::I32(v) => {
-                result_loc.of.int32_t = v;
-                result_loc.kind = wasm_valkind_enum::WASM_I32 as u8;
+        match dynfunc.call(&params) {
+            Ok(wasm_results) => {
+                for (i, actual_result) in wasm_results.iter().enumerate() {
+                    let result_loc = &mut (*results.add(i));
+                    match *actual_result {
+                        wasm::Value::I32(v) => {
+                            result_loc.of.int32_t = v;
+                            result_loc.kind = wasm_valkind_enum::WASM_I32 as u8;
+                        }
+                        wasm::Value::I64(v) => {
+                            result_loc.of.int64_t = v;
+                            result_loc.kind = wasm_valkind_enum::WASM_I64 as u8;
+                        }
+                        wasm::Value::F32(v) => {
+                            result_loc.of.float32_t = v;
+                            result_loc.kind = wasm_valkind_enum::WASM_F32 as u8;
+                        }
+                        wasm::Value::F64(v) => {
+                            result_loc.of.float64_t = v;
+                            result_loc.kind = wasm_valkind_enum::WASM_F64 as u8;
+                        }
+                        wasm::Value::V128(_) => todo!("Handle v128 case in wasm_func_call"),
+                    }
+                }
+                wasm_traps = ptr::null_mut();
             }
-            wasm::Value::I64(v) => {
-                result_loc.of.int64_t = v;
-                result_loc.kind = wasm_valkind_enum::WASM_I64 as u8;
+            Err(e) => {
+                dbg!(e);
+                // probably the opposite of what this is supposed to do...
+                wasm_traps = ptr::null_mut();
             }
-            wasm::Value::F32(v) => {
-                result_loc.of.float32_t = v;
-                result_loc.kind = wasm_valkind_enum::WASM_F32 as u8;
-            }
-            wasm::Value::F64(v) => {
-                result_loc.of.float64_t = v;
-                result_loc.kind = wasm_valkind_enum::WASM_F64 as u8;
-            }
-            wasm::Value::V128(_) => todo!("Handle v128 case in wasm_func_call"),
-        }
+        } //
+    } else {
+        wasm_traps = match func.callback {
+            CallbackType::WithoutEnv(fp) => fp(args, results),
+            _ => unimplemented!("Host calls with `wasm_func_call`"),
+        };
     }
 
-    //let args =
-    ptr::null_mut()*/
+    wasm_traps
 }
 
 #[no_mangle]
@@ -736,6 +781,10 @@ wasm_declare_ref!(trap);
 
 #[repr(C)]
 pub struct wasm_extern_t {
+    // Hack for Wasm functions: TODO clean this up
+    dynfunc: Option<wasm::DynFunc<'static>>,
+    // this is how we ensure the instance stays alive
+    instance: Option<Arc<wasm::Instance>>,
     export: wasm::Export,
 }
 wasm_declare_boxed_vec!(extern);
