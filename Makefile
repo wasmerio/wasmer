@@ -11,7 +11,7 @@ ifeq ($(ARCH), x86_64)
   ifneq ($(OS), Windows_NT)
 	LLVM_VERSION := $(shell llvm-config --version)
 	# If findstring is not empty, then it have found the value
-    ifneq (, $(findstring 9,$(LLVM_VERSION)))
+    ifneq (, $(findstring 8,$(LLVM_VERSION))$(findstring 9,$(LLVM_VERSION)))
 	  backends += llvm
 	endif
   endif
