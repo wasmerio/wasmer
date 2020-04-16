@@ -918,6 +918,30 @@
 <span id="918">918</span>
 <span id="919">919</span>
 <span id="920">920</span>
+<span id="921">921</span>
+<span id="922">922</span>
+<span id="923">923</span>
+<span id="924">924</span>
+<span id="925">925</span>
+<span id="926">926</span>
+<span id="927">927</span>
+<span id="928">928</span>
+<span id="929">929</span>
+<span id="930">930</span>
+<span id="931">931</span>
+<span id="932">932</span>
+<span id="933">933</span>
+<span id="934">934</span>
+<span id="935">935</span>
+<span id="936">936</span>
+<span id="937">937</span>
+<span id="938">938</span>
+<span id="939">939</span>
+<span id="940">940</span>
+<span id="941">941</span>
+<span id="942">942</span>
+<span id="943">943</span>
+<span id="944">944</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">/// types for use in the WASI filesystem</span>
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">syscalls</span>::<span class="ident">types</span>::<span class="kw-2">*</span>;
@@ -930,60 +954,84 @@
     <span class="ident">path</span>::<span class="ident">PathBuf</span>,
     <span class="ident">time</span>::<span class="ident">SystemTime</span>,
 };
+<span class="kw">use</span> <span class="ident">thiserror</span>::<span class="ident">Error</span>;
 
 <span class="doccomment">/// Error type for external users</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="comment">// dead code beacuse this is for external use</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">WasiFsError</span> {
     <span class="doccomment">/// The fd given as a base was not a directory so the operation was not possible</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;fd not a directory&quot;</span>)]</span>
     <span class="ident">BaseNotDirectory</span>,
     <span class="doccomment">/// Expected a file but found not a file</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;fd not a file&quot;</span>)]</span>
     <span class="ident">NotAFile</span>,
     <span class="doccomment">/// The fd given was not usable</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;invalid fd&quot;</span>)]</span>
     <span class="ident">InvalidFd</span>,
     <span class="doccomment">/// File exists</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;file exists&quot;</span>)]</span>
     <span class="ident">AlreadyExists</span>,
     <span class="doccomment">/// Something failed when doing IO. These errors can generally not be handled.</span>
     <span class="doccomment">/// It may work if tried again.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;io error&quot;</span>)]</span>
     <span class="ident">IOError</span>,
     <span class="doccomment">/// The address was in use</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;address is in use&quot;</span>)]</span>
     <span class="ident">AddressInUse</span>,
     <span class="doccomment">/// The address could not be found</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;address could not be found&quot;</span>)]</span>
     <span class="ident">AddressNotAvailable</span>,
     <span class="doccomment">/// A pipe was closed</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;broken pipe (was closed)&quot;</span>)]</span>
     <span class="ident">BrokenPipe</span>,
     <span class="doccomment">/// The connection was aborted</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;connection aborted&quot;</span>)]</span>
     <span class="ident">ConnectionAborted</span>,
     <span class="doccomment">/// The connection request was refused</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;connection refused&quot;</span>)]</span>
     <span class="ident">ConnectionRefused</span>,
     <span class="doccomment">/// The connection was reset</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;connection reset&quot;</span>)]</span>
     <span class="ident">ConnectionReset</span>,
     <span class="doccomment">/// The operation was interrupted before it could finish</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;operation interrupted&quot;</span>)]</span>
     <span class="ident">Interrupted</span>,
     <span class="doccomment">/// Invalid internal data, if the argument data is invalid, use `InvalidInput`</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;invalid internal data&quot;</span>)]</span>
     <span class="ident">InvalidData</span>,
     <span class="doccomment">/// The provided data is invalid</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;invalid input&quot;</span>)]</span>
     <span class="ident">InvalidInput</span>,
     <span class="doccomment">/// Could not perform the operation because there was not an open connection</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;connection is not open&quot;</span>)]</span>
     <span class="ident">NotConnected</span>,
     <span class="doccomment">/// The requested file or directory could not be found</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;entity not found&quot;</span>)]</span>
     <span class="ident">EntityNotFound</span>,
     <span class="doccomment">/// The requested device couldn&#39;t be accessed</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;can&#39;t access device&quot;</span>)]</span>
     <span class="ident">NoDevice</span>,
     <span class="doccomment">/// Caller was not allowed to perform this operation</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;permission denied&quot;</span>)]</span>
     <span class="ident">PermissionDenied</span>,
     <span class="doccomment">/// The operation did not complete within the given amount of time</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;time out&quot;</span>)]</span>
     <span class="ident">TimedOut</span>,
     <span class="doccomment">/// Found EOF when EOF was not expected</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;unexpected eof&quot;</span>)]</span>
     <span class="ident">UnexpectedEof</span>,
     <span class="doccomment">/// Operation would block, this error lets the caller know that they can try again</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;blocking operation. try again&quot;</span>)]</span>
     <span class="ident">WouldBlock</span>,
     <span class="doccomment">/// A call to write returned 0</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;write returned 0&quot;</span>)]</span>
     <span class="ident">WriteZero</span>,
     <span class="doccomment">/// A WASI error without an external name.  If you encounter this it means</span>
     <span class="doccomment">/// that there&#39;s probably a bug on our side (maybe as simple as forgetting to wrap</span>
     <span class="doccomment">/// this error, but perhaps something broke)</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;unknown error: {0}&quot;</span>)]</span>
     <span class="ident">UnknownError</span>(<span class="ident">__wasi_errno_t</span>),
 }
 

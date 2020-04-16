@@ -980,6 +980,11 @@
 <span id="980">980</span>
 <span id="981">981</span>
 <span id="982">982</span>
+<span id="983">983</span>
+<span id="984">984</span>
+<span id="985">985</span>
+<span id="986">986</span>
+<span id="987">987</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">common</span>::{<span class="ident">get_cache_dir</span>, <span class="ident">PrestandardFeatures</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">utils</span>::<span class="ident">read_file_contents</span>;
@@ -1457,7 +1462,12 @@
 
 <span class="doccomment">/// Execute a wasm/wat file</span>
 <span class="kw">fn</span> <span class="ident">execute_wasm</span>(<span class="ident">options</span>: <span class="kw-2">&amp;</span><span class="ident">Run</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="ident">options</span>.<span class="ident">generate_debug_info</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">options</span>.<span class="ident">backend</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Backend</span>::<span class="ident">Cranelift</span> {
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;backend-cranelift&quot;</span>)]</span>
+    <span class="kw">let</span> <span class="ident">in_cranelift</span> <span class="op">=</span> <span class="ident">options</span>.<span class="ident">backend</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Backend</span>::<span class="ident">Cranelift</span>;
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;backend-cranelift&quot;</span>))]</span>
+    <span class="kw">let</span> <span class="ident">in_cranelift</span> <span class="op">=</span> <span class="bool-val">false</span>;
+
+    <span class="kw">if</span> <span class="ident">options</span>.<span class="ident">generate_debug_info</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="op">!</span><span class="ident">in_cranelift</span> {
         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Generating debug information is currently only available with the `cranelift` backend.&quot;</span>.<span class="ident">to_owned</span>());
     }
 

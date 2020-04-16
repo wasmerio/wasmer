@@ -289,137 +289,6 @@
 <span id="289">289</span>
 <span id="290">290</span>
 <span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
-<span id="351">351</span>
-<span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-<span id="386">386</span>
-<span id="387">387</span>
-<span id="388">388</span>
-<span id="389">389</span>
-<span id="390">390</span>
-<span id="391">391</span>
-<span id="392">392</span>
-<span id="393">393</span>
-<span id="394">394</span>
-<span id="395">395</span>
-<span id="396">396</span>
-<span id="397">397</span>
-<span id="398">398</span>
-<span id="399">399</span>
-<span id="400">400</span>
-<span id="401">401</span>
-<span id="402">402</span>
-<span id="403">403</span>
-<span id="404">404</span>
-<span id="405">405</span>
-<span id="406">406</span>
-<span id="407">407</span>
-<span id="408">408</span>
-<span id="409">409</span>
-<span id="410">410</span>
-<span id="411">411</span>
-<span id="412">412</span>
-<span id="413">413</span>
-<span id="414">414</span>
-<span id="415">415</span>
-<span id="416">416</span>
-<span id="417">417</span>
-<span id="418">418</span>
-<span id="419">419</span>
-<span id="420">420</span>
-<span id="421">421</span>
-<span id="422">422</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This file will run at build time to autogenerate the WASI regression tests</span>
 <span class="doccomment">//! It will compile the files indicated in TESTS, to:executable and .wasm</span>
@@ -429,27 +298,27 @@
 <span class="doccomment">//!   with wasmer with the expected output</span>
 
 <span class="kw">use</span> <span class="ident">glob</span>::<span class="ident">glob</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashSet</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fs</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">process</span>::<span class="ident">Command</span>;
 
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">File</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">prelude</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::{<span class="self">self</span>, <span class="ident">BufReader</span>};
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">util</span>;
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">wasi_version</span>::<span class="kw-2">*</span>;
-
-<span class="kw">static</span> <span class="ident">BANNER</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;// !!! THIS IS A GENERATED FILE !!!
-// ANY MANUAL EDITS MAY BE OVERWRITTEN AT ANY TIME
-// Files autogenerated with cargo build.\n&quot;</span>;
+<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 
 <span class="doccomment">/// Compile and execute the test file as native code, saving the results to be</span>
 <span class="doccomment">/// compared against later.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// This function attempts to clean up its output after it executes it.</span>
-<span class="kw">fn</span> <span class="ident">generate_native_output</span>(<span class="ident">temp_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">file</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">normalized_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">generate_native_output</span>(
+    <span class="ident">temp_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
+    <span class="ident">file</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    <span class="ident">normalized_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">executable_path</span> <span class="op">=</span> <span class="ident">temp_dir</span>.<span class="ident">join</span>(<span class="ident">normalized_name</span>);
     <span class="macro">println</span><span class="macro">!</span>(
         <span class="string">&quot;Compiling program {} to native at {}&quot;</span>,
@@ -459,6 +328,7 @@
     <span class="kw">let</span> <span class="ident">native_out</span> <span class="op">=</span> <span class="ident">Command</span>::<span class="ident">new</span>(<span class="string">&quot;rustc&quot;</span>)
         .<span class="ident">arg</span>(<span class="ident">file</span>)
         .<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>)
+        .<span class="ident">args</span>(<span class="ident">args</span>)
         .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">executable_path</span>)
         .<span class="ident">output</span>()
         .<span class="ident">expect</span>(<span class="string">&quot;Failed to compile program to native code&quot;</span>);
@@ -491,12 +361,7 @@
         .<span class="ident">expect</span>(<span class="string">&quot;Failed to execute native program&quot;</span>);
     <span class="ident">util</span>::<span class="ident">print_info_on_error</span>(<span class="kw-2">&amp;</span><span class="ident">result</span>, <span class="string">&quot;NATIVE PROGRAM FAILED&quot;</span>);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output_path</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="ident">file</span>);
-    <span class="ident">output_path</span>.<span class="ident">set_extension</span>(<span class="string">&quot;out&quot;</span>);
-
-    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Writing output to {}&quot;</span>, <span class="ident">output_path</span>.<span class="ident">to_string_lossy</span>());
-    <span class="ident">fs</span>::<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">output_path</span>, <span class="ident">result</span>.<span class="ident">stdout</span>)<span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>(())
+    <span class="prelude-val">Ok</span>(<span class="ident">String</span>::<span class="ident">from_utf8</span>(<span class="ident">result</span>.<span class="ident">stdout</span>).<span class="ident">unwrap</span>())
 }
 
 <span class="doccomment">/// compile the Wasm file for the given version of WASI</span>
@@ -543,16 +408,19 @@
         <span class="kw-2">&amp;</span><span class="ident">wasm_out_name</span>.<span class="ident">to_string_lossy</span>(),
         <span class="ident">version</span>.<span class="ident">get_compiler_toolchain</span>()
     );
-    <span class="kw">let</span> <span class="ident">wasm_compilation_out</span> <span class="op">=</span> <span class="ident">Command</span>::<span class="ident">new</span>(<span class="string">&quot;rustc&quot;</span>)
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">Command</span>::<span class="ident">new</span>(<span class="string">&quot;rustc&quot;</span>);
+
+    <span class="ident">command</span>
         .<span class="ident">arg</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;+{}&quot;</span>, <span class="ident">version</span>.<span class="ident">get_compiler_toolchain</span>()))
         .<span class="ident">arg</span>(<span class="string">&quot;--target=wasm32-wasi&quot;</span>)
         .<span class="ident">arg</span>(<span class="string">&quot;-C&quot;</span>)
         .<span class="ident">arg</span>(<span class="string">&quot;opt-level=z&quot;</span>)
         .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">temp_wasi_rs_file_name</span>)
         .<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>)
-        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">wasm_out_name</span>)
-        .<span class="ident">output</span>()
-        .<span class="ident">expect</span>(<span class="string">&quot;Failed to compile program to wasm&quot;</span>);
+        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">wasm_out_name</span>);
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Command {:?}&quot;</span>, <span class="ident">command</span>);
+
+    <span class="kw">let</span> <span class="ident">wasm_compilation_out</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">output</span>().<span class="ident">expect</span>(<span class="string">&quot;Failed to compile program to wasm&quot;</span>);
     <span class="ident">util</span>::<span class="ident">print_info_on_error</span>(<span class="kw-2">&amp;</span><span class="ident">wasm_compilation_out</span>, <span class="string">&quot;WASM COMPILATION&quot;</span>);
     <span class="macro">println</span><span class="macro">!</span>(
         <span class="string">&quot;Removing file `{}`&quot;</span>,
@@ -577,101 +445,11 @@
     <span class="prelude-val">Ok</span>(<span class="ident">wasm_out_name</span>)
 }
 
-<span class="kw">fn</span> <span class="ident">generate_test_file</span>(
-    <span class="ident">file</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">rs_module_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">wasm_out_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">version</span>: <span class="ident">WasiVersion</span>,
-    <span class="ident">ignores</span>: <span class="kw-2">&amp;</span><span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">test_name</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}_{}&quot;</span>, <span class="ident">version</span>.<span class="ident">get_directory_name</span>(), <span class="ident">rs_module_name</span>);
-    <span class="kw">let</span> <span class="ident">ignored</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">ignores</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">test_name</span>) <span class="op">|</span><span class="op">|</span> <span class="ident">ignores</span>.<span class="ident">contains</span>(<span class="ident">rs_module_name</span>) {
-        <span class="string">&quot;\n#[ignore]&quot;</span>
-    } <span class="kw">else</span> {
-        <span class="string">&quot;&quot;</span>
-    };
-
-    <span class="kw">let</span> <span class="ident">src_code</span> <span class="op">=</span> <span class="ident">fs</span>::<span class="ident">read_to_string</span>(<span class="ident">file</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">args</span>: <span class="ident">Args</span> <span class="op">=</span> <span class="ident">extract_args_from_source_file</span>(<span class="kw-2">&amp;</span><span class="ident">src_code</span>).<span class="ident">unwrap_or_default</span>();
-
-    <span class="kw">let</span> <span class="ident">mapdir_args</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out_str</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
-        <span class="ident">out_str</span>.<span class="ident">push_str</span>(<span class="string">&quot;vec![&quot;</span>);
-        <span class="kw">for</span> (<span class="ident">alias</span>, <span class="ident">real_dir</span>) <span class="kw">in</span> <span class="ident">args</span>.<span class="ident">mapdir</span> {
-            <span class="ident">out_str</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(
-                <span class="string">&quot;(\&quot;{}\&quot;.to_string(), ::std::path::PathBuf::from(\&quot;{}\&quot;)),&quot;</span>,
-                <span class="ident">alias</span>, <span class="ident">real_dir</span>
-            ));
-        }
-        <span class="ident">out_str</span>.<span class="ident">push_str</span>(<span class="string">&quot;]&quot;</span>);
-        <span class="ident">out_str</span>
-    };
-
-    <span class="kw">let</span> <span class="ident">envvar_args</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out_str</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
-        <span class="ident">out_str</span>.<span class="ident">push_str</span>(<span class="string">&quot;vec![&quot;</span>);
-
-        <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">args</span>.<span class="ident">envvars</span> {
-            <span class="ident">out_str</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;\&quot;{}={}\&quot;.to_string(),&quot;</span>, <span class="ident">entry</span>.<span class="number">0</span>, <span class="ident">entry</span>.<span class="number">1</span>));
-        }
-
-        <span class="ident">out_str</span>.<span class="ident">push_str</span>(<span class="string">&quot;]&quot;</span>);
-        <span class="ident">out_str</span>
-    };
-
-    <span class="kw">let</span> <span class="ident">dir_args</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out_str</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
-        <span class="ident">out_str</span>.<span class="ident">push_str</span>(<span class="string">&quot;vec![&quot;</span>);
-
-        <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">args</span>.<span class="ident">po_dirs</span> {
-            <span class="ident">out_str</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;std::path::PathBuf::from(\&quot;{}\&quot;),&quot;</span>, <span class="ident">entry</span>));
-        }
-
-        <span class="ident">out_str</span>.<span class="ident">push_str</span>(<span class="string">&quot;]&quot;</span>);
-        <span class="ident">out_str</span>
-    };
-
-    <span class="kw">let</span> <span class="ident">contents</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(
-        <span class="string">&quot;{banner}
-
-#[test]{ignore}
-fn test_{test_name}() {{
-    assert_wasi_output!(
-        \&quot;{module_path}\&quot;,
-        \&quot;{test_name}\&quot;,
-        {dir_args},
-        {mapdir_args},
-        {envvar_args},
-        \&quot;{test_output_path}\&quot;
-    );
-}}
-&quot;</span>,
-        <span class="ident">banner</span> <span class="op">=</span> <span class="ident">BANNER</span>,
-        <span class="ident">ignore</span> <span class="op">=</span> <span class="ident">ignored</span>,
-        <span class="ident">module_path</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;../wasi_test_resources/{}.wasm&quot;</span>, <span class="ident">wasm_out_name</span>),
-        <span class="ident">test_name</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">test_name</span>,
-        <span class="ident">test_output_path</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;../wasi_test_resources/{}.out&quot;</span>, <span class="ident">rs_module_name</span>),
-        <span class="ident">dir_args</span> <span class="op">=</span> <span class="ident">dir_args</span>,
-        <span class="ident">mapdir_args</span> <span class="op">=</span> <span class="ident">mapdir_args</span>,
-        <span class="ident">envvar_args</span> <span class="op">=</span> <span class="ident">envvar_args</span>
-    );
-    <span class="kw">let</span> <span class="ident">rust_test_filepath</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(
-        <span class="macro">concat</span><span class="macro">!</span>(<span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../wasitests/{}.rs&quot;</span>),
-        <span class="kw-2">&amp;</span><span class="ident">test_name</span>,
-    );
-    <span class="ident">fs</span>::<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">rust_test_filepath</span>, <span class="ident">contents</span>.<span class="ident">as_bytes</span>())<span class="question-mark">?</span>;
-
-    <span class="prelude-val">Ok</span>(<span class="ident">test_name</span>)
-}
-
 <span class="doccomment">/// Returns the a Vec of the test modules created</span>
-<span class="kw">fn</span> <span class="ident">compile</span>(
-    <span class="ident">temp_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">file</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">ignores</span>: <span class="kw-2">&amp;</span><span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">wasi_versions</span>: <span class="kw-2">&amp;</span>[<span class="ident">WasiVersion</span>],
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="comment">// TODO: hook up compile_wasm_for_version, etc with new args</span>
+<span class="kw">fn</span> <span class="ident">compile</span>(<span class="ident">temp_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">file</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">wasi_versions</span>: <span class="kw-2">&amp;</span>[<span class="ident">WasiVersion</span>]) {
+    <span class="kw">let</span> <span class="ident">src_code</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">fs</span>::<span class="ident">read_to_string</span>(<span class="ident">file</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">options</span>: <span class="ident">WasiOptions</span> <span class="op">=</span> <span class="ident">extract_args_from_source_file</span>(<span class="kw-2">&amp;</span><span class="ident">src_code</span>).<span class="ident">unwrap_or_default</span>();
+
     <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">file</span>.<span class="ident">ends_with</span>(<span class="string">&quot;.rs&quot;</span>));
     <span class="kw">let</span> <span class="ident">rs_mod_name</span> <span class="op">=</span> {
         <span class="ident">Path</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>.<span class="ident">to_lowercase</span>())
@@ -681,117 +459,74 @@ fn test_{test_name}() {{
             .<span class="ident">to_string</span>()
     };
     <span class="kw">let</span> <span class="ident">base_dir</span> <span class="op">=</span> <span class="ident">Path</span>::<span class="ident">new</span>(<span class="ident">file</span>).<span class="ident">parent</span>().<span class="ident">unwrap</span>();
-    <span class="ident">generate_native_output</span>(<span class="ident">temp_dir</span>, <span class="kw-2">&amp;</span><span class="ident">file</span>, <span class="kw-2">&amp;</span><span class="ident">rs_mod_name</span>).<span class="ident">expect</span>(<span class="string">&quot;Generate native output&quot;</span>);
+    <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">generate_native_output</span>(<span class="ident">temp_dir</span>, <span class="kw-2">&amp;</span><span class="ident">file</span>, <span class="kw-2">&amp;</span><span class="ident">rs_mod_name</span>, <span class="kw-2">&amp;</span><span class="ident">options</span>.<span class="ident">args</span>)
+        .<span class="ident">expect</span>(<span class="string">&quot;Generate native output&quot;</span>);
+
+    <span class="kw">let</span> <span class="ident">test</span> <span class="op">=</span> <span class="ident">WasiTest</span> { <span class="ident">output</span>, <span class="ident">options</span> };
+    <span class="kw">let</span> <span class="ident">test_serialized</span> <span class="op">=</span> <span class="ident">serde_json</span>::<span class="ident">to_string_pretty</span>(<span class="kw-2">&amp;</span><span class="ident">test</span>).<span class="ident">unwrap</span>();
 
     <span class="ident">wasi_versions</span>
         .<span class="ident">into_iter</span>()
         .<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">version</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">out_dir</span> <span class="op">=</span> <span class="ident">base_dir</span>.<span class="ident">join</span>(<span class="ident">version</span>.<span class="ident">get_directory_name</span>());
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">out_dir</span>.<span class="ident">exists</span>() {
+                <span class="ident">fs</span>::<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">out_dir</span>).<span class="ident">unwrap</span>();
+            }
+            <span class="kw">let</span> <span class="ident">wasm_out_name</span> <span class="op">=</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_out_name</span> <span class="op">=</span> <span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="ident">rs_mod_name</span>.<span class="ident">clone</span>());
+                <span class="ident">wasm_out_name</span>.<span class="ident">set_extension</span>(<span class="string">&quot;out&quot;</span>);
+                <span class="ident">wasm_out_name</span>
+            };
+            <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Writing test output to {}&quot;</span>, <span class="ident">wasm_out_name</span>.<span class="ident">to_string_lossy</span>());
+            <span class="ident">fs</span>::<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">wasm_out_name</span>, <span class="ident">test_serialized</span>.<span class="ident">clone</span>()).<span class="ident">unwrap</span>();
+
+            <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Compiling wasm version {:?}&quot;</span>, <span class="ident">version</span>);
             <span class="ident">compile_wasm_for_version</span>(<span class="ident">temp_dir</span>, <span class="ident">file</span>, <span class="ident">base_dir</span>, <span class="kw-2">&amp;</span><span class="ident">rs_mod_name</span>, <span class="ident">version</span>)
                 .<span class="ident">expect</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Could not compile Wasm to WASI version {:?}, perhaps you need to install the `{}` rust toolchain&quot;</span>, <span class="ident">version</span>, <span class="ident">version</span>.<span class="ident">get_compiler_toolchain</span>()));
-            <span class="kw">let</span> <span class="ident">wasm_out_relative_path</span> <span class="op">=</span> {
-                <span class="kw">let</span> <span class="ident">base_path</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="ident">version</span>.<span class="ident">get_directory_name</span>());
-                <span class="ident">base_path</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">rs_mod_name</span>)
-            };
-            <span class="kw">let</span> <span class="ident">wasm_out_name</span> <span class="op">=</span> <span class="ident">wasm_out_relative_path</span>.<span class="ident">to_string_lossy</span>();
-
-            <span class="ident">generate_test_file</span>(<span class="ident">file</span>, <span class="kw-2">&amp;</span><span class="ident">rs_mod_name</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_out_name</span>, <span class="ident">version</span>, <span class="ident">ignores</span>)
-                .<span class="ident">expect</span>(<span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;generate test file {}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">rs_mod_name</span>))
-        }).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-}
-
-<span class="kw">fn</span> <span class="ident">run_prelude</span>(<span class="ident">should_gen_all</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">WasiVersion</span>] {
-    <span class="kw">if</span> <span class="ident">should_gen_all</span> {
-        <span class="macro">println</span><span class="macro">!</span>(
-            <span class="string">&quot;Generating WASI tests for all versions of WASI. Run with WASI_TEST_GENERATE_ALL=0 to only generate the latest tests.&quot;</span>
-        );
-    } <span class="kw">else</span> {
-        <span class="macro">println</span><span class="macro">!</span>(
-            <span class="string">&quot;Generating WASI tests for the latest version of WASI. Run with WASI_TEST_GENERATE_ALL=1 to generate all versions of the tests.&quot;</span>
-        );
-    }
-
-    <span class="kw">if</span> <span class="ident">should_gen_all</span> {
-        <span class="ident">ALL_WASI_VERSIONS</span>
-    } <span class="kw">else</span> {
-        <span class="ident">LATEST_WASI_VERSION</span>
-    }
+        }).<span class="ident">for_each</span>(<span class="ident">drop</span>); <span class="comment">// Do nothing with it, but let the iterator be consumed/iterated.</span>
 }
 
 <span class="kw">const</span> <span class="ident">WASI_TEST_SRC_DIR</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">concat</span><span class="macro">!</span>(<span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../wasi_test_resources/*.rs&quot;</span>);
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="ident">should_gen_all</span>: <span class="ident">bool</span>) {
-    <span class="kw">let</span> <span class="ident">rust_test_modpath</span> <span class="op">=</span> <span class="macro">concat</span><span class="macro">!</span>(<span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../wasitests/mod.rs&quot;</span>);
-
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">modules</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
-    <span class="kw">let</span> <span class="ident">wasi_versions</span> <span class="op">=</span> <span class="ident">run_prelude</span>(<span class="ident">should_gen_all</span>);
-
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="ident">wasi_versions</span>: <span class="kw-2">&amp;</span>[<span class="ident">WasiVersion</span>]) {
     <span class="kw">let</span> <span class="ident">temp_dir</span> <span class="op">=</span> <span class="ident">tempfile</span>::<span class="ident">TempDir</span>::<span class="ident">new</span>().<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">ignores</span> <span class="op">=</span> <span class="ident">read_ignore_list</span>();
     <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">glob</span>(<span class="ident">WASI_TEST_SRC_DIR</span>).<span class="ident">unwrap</span>() {
         <span class="kw">match</span> <span class="ident">entry</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">path</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">test</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
-                <span class="ident">modules</span>.<span class="ident">extend</span>(<span class="ident">compile</span>(<span class="ident">temp_dir</span>.<span class="ident">path</span>(), <span class="ident">test</span>, <span class="kw-2">&amp;</span><span class="ident">ignores</span>, <span class="ident">wasi_versions</span>));
+                <span class="ident">compile</span>(<span class="ident">temp_dir</span>.<span class="ident">path</span>(), <span class="ident">test</span>, <span class="ident">wasi_versions</span>);
             }
             <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>),
         }
     }
-    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;All modules generated. Generating test harness.&quot;</span>);
-    <span class="ident">modules</span>.<span class="ident">sort</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">modules</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">modules</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;mod {};&quot;</span>, <span class="ident">m</span>)).<span class="ident">collect</span>();
-    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">modules</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0</span>, <span class="string">&quot;Expected &gt; 0 modules found&quot;</span>);
-
-    <span class="ident">modules</span>.<span class="ident">insert</span>(<span class="number">0</span>, <span class="ident">BANNER</span>.<span class="ident">to_string</span>());
-    <span class="ident">modules</span>.<span class="ident">insert</span>(<span class="number">1</span>, <span class="string">&quot;// The _common module is not autogenerated.  It provides common macros for the wasitests\n#[macro_use]\nmod _common;&quot;</span>.<span class="ident">to_string</span>());
-    <span class="comment">// We add an empty line</span>
-    <span class="ident">modules</span>.<span class="ident">push</span>(<span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>());
-
-    <span class="kw">let</span> <span class="ident">modfile</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">modules</span>.<span class="ident">join</span>(<span class="string">&quot;\n&quot;</span>);
-    <span class="kw">let</span> <span class="ident">should_regen</span>: <span class="ident">bool</span> <span class="op">=</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">f</span>) <span class="op">=</span> <span class="ident">fs</span>::<span class="ident">File</span>::<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">rust_test_modpath</span>) {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
-            <span class="ident">f</span>.<span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">s</span>).<span class="ident">unwrap</span>();
-            <span class="ident">s</span> <span class="op">!</span><span class="op">=</span> <span class="ident">modfile</span>
-        } <span class="kw">else</span> {
-            <span class="bool-val">false</span>
-        }
-    };
-    <span class="kw">if</span> <span class="ident">should_regen</span> {
-        <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Writing to `{}`&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">rust_test_modpath</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">test_harness_file</span> <span class="op">=</span> <span class="ident">fs</span>::<span class="ident">OpenOptions</span>::<span class="ident">new</span>()
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">create</span>(<span class="bool-val">true</span>)
-            .<span class="ident">truncate</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">rust_test_modpath</span>)
-            .<span class="ident">unwrap</span>();
-        <span class="ident">test_harness_file</span>.<span class="ident">write_all</span>(<span class="ident">modfile</span>.<span class="ident">as_bytes</span>()).<span class="ident">unwrap</span>();
-    }
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;All modules generated.&quot;</span>);
 }
 
-<span class="kw">const</span> <span class="ident">IGNORE_LIST_PATH</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">concat</span><span class="macro">!</span>(
-    <span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
-    <span class="string">&quot;/../wasi_test_resources/ignores.txt&quot;</span>
-);
-<span class="kw">fn</span> <span class="ident">read_ignore_list</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">File</span>::<span class="ident">open</span>(<span class="ident">IGNORE_LIST_PATH</span>).<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">BufReader</span>::<span class="ident">new</span>(<span class="ident">f</span>);
-    <span class="ident">f</span>.<span class="ident">lines</span>()
-        .<span class="ident">filter_map</span>(<span class="prelude-ty">Result</span>::<span class="ident">ok</span>)
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">to_lowercase</span>())
-        .<span class="ident">collect</span>()
+<span class="doccomment">/// This is the structure of the `.out` file</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiTest</span> {
+    <span class="doccomment">/// The program expected output</span>
+    <span class="kw">pub</span> <span class="ident">output</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// The program options</span>
+    <span class="kw">pub</span> <span class="ident">options</span>: <span class="ident">WasiOptions</span>,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">struct</span> <span class="ident">Args</span> {
+<span class="doccomment">/// The options provied when executed a WASI Wasm program</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiOptions</span> {
+    <span class="doccomment">/// Mapped pre-opened dirs</span>
     <span class="kw">pub</span> <span class="ident">mapdir</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>)<span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">envvars</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>)<span class="op">&gt;</span>,
-    <span class="doccomment">/// pre-opened directories</span>
-    <span class="kw">pub</span> <span class="ident">po_dirs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Environment vars</span>
+    <span class="kw">pub</span> <span class="ident">env</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>)<span class="op">&gt;</span>,
+    <span class="doccomment">/// Program arguments</span>
+    <span class="kw">pub</span> <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Pre-opened directories</span>
+    <span class="kw">pub</span> <span class="ident">dir</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 }
 
-<span class="doccomment">/// Pulls args to the program out of a comment at the top of the file starting with &quot;// Args:&quot;</span>
-<span class="kw">fn</span> <span class="ident">extract_args_from_source_file</span>(<span class="ident">source_code</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Args</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="ident">source_code</span>.<span class="ident">starts_with</span>(<span class="string">&quot;// Args:&quot;</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">Args</span>::<span class="ident">default</span>();
+<span class="doccomment">/// Pulls args to the program out of a comment at the top of the file starting with &quot;// WasiOptions:&quot;</span>
+<span class="kw">fn</span> <span class="ident">extract_args_from_source_file</span>(<span class="ident">source_code</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiOptions</span><span class="op">&gt;</span> {
+    <span class="kw">if</span> <span class="ident">source_code</span>.<span class="ident">starts_with</span>(<span class="string">&quot;// WASI:&quot;</span>) {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">WasiOptions</span>::<span class="ident">default</span>();
         <span class="kw">for</span> <span class="ident">arg_line</span> <span class="kw">in</span> <span class="ident">source_code</span>
             .<span class="ident">lines</span>()
             .<span class="ident">skip</span>(<span class="number">1</span>)
@@ -826,16 +561,19 @@ fn test_{test_name}() {{
                 }
                 <span class="string">&quot;env&quot;</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="kw">let</span> [<span class="ident">name</span>, <span class="ident">val</span>] <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">tokenized</span>[<span class="number">1</span>].<span class="ident">split</span>(<span class="string">&#39;=&#39;</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>()[..] {
-                        <span class="ident">args</span>.<span class="ident">envvars</span>.<span class="ident">push</span>((<span class="ident">name</span>.<span class="ident">to_string</span>(), <span class="ident">val</span>.<span class="ident">to_string</span>()));
+                        <span class="ident">args</span>.<span class="ident">env</span>.<span class="ident">push</span>((<span class="ident">name</span>.<span class="ident">to_string</span>(), <span class="ident">val</span>.<span class="ident">to_string</span>()));
                     } <span class="kw">else</span> {
                         <span class="macro">eprintln</span><span class="macro">!</span>(<span class="string">&quot;Parse error in env {} not parsed correctly&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">tokenized</span>[<span class="number">1</span>]);
                     }
                 }
                 <span class="string">&quot;dir&quot;</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="ident">args</span>.<span class="ident">po_dirs</span>.<span class="ident">push</span>(<span class="ident">tokenized</span>[<span class="number">1</span>].<span class="ident">to_string</span>());
+                    <span class="ident">args</span>.<span class="ident">dir</span>.<span class="ident">push</span>(<span class="ident">tokenized</span>[<span class="number">1</span>].<span class="ident">to_string</span>());
+                }
+                <span class="string">&quot;arg&quot;</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">args</span>.<span class="ident">args</span>.<span class="ident">push</span>(<span class="ident">tokenized</span>[<span class="number">1</span>].<span class="ident">to_string</span>());
                 }
                 <span class="ident">e</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">eprintln</span><span class="macro">!</span>(<span class="string">&quot;WARN: comment arg: {} is not supported&quot;</span>, <span class="ident">e</span>);
+                    <span class="macro">eprintln</span><span class="macro">!</span>(<span class="string">&quot;WARN: comment arg: `{}` is not supported&quot;</span>, <span class="ident">e</span>);
                 }
             }
         }

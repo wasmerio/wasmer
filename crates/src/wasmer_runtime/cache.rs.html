@@ -145,56 +145,6 @@
 <span id="145">145</span>
 <span id="146">146</span>
 <span id="147">147</span>
-<span id="148">148</span>
-<span id="149">149</span>
-<span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
-<span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
-<span id="173">173</span>
-<span id="174">174</span>
-<span id="175">175</span>
-<span id="176">176</span>
-<span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
-<span id="181">181</span>
-<span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
-<span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The cache module provides the common data structures used by compiler backends to allow</span>
 <span class="doccomment">//! serializing compiled wasm code to a binary format.  The binary format can be persisted,</span>
@@ -341,56 +291,6 @@
         <span class="ident">file</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">env</span>;
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_file_system_cache_run</span>() {
-        <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">compile</span>, <span class="ident">imports</span>, <span class="ident">Func</span>};
-        <span class="kw">use</span> <span class="ident">wabt</span>::<span class="ident">wat2wasm</span>;
-
-        <span class="kw">static</span> <span class="ident">WAT</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">r#&quot;
-            (module
-              (type $t0 (func (param i32) (result i32)))
-              (func $add_one (export &quot;add_one&quot;) (type $t0) (param $p0 i32) (result i32)
-                get_local $p0
-                i32.const 1
-                i32.add))
-        &quot;#</span>;
-
-        <span class="kw">let</span> <span class="ident">wasm</span> <span class="op">=</span> <span class="ident">wat2wasm</span>(<span class="ident">WAT</span>).<span class="ident">unwrap</span>();
-
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">compile</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>).<span class="ident">unwrap</span>();
-
-        <span class="kw">let</span> <span class="ident">cache_dir</span> <span class="op">=</span> <span class="ident">env</span>::<span class="ident">temp_dir</span>();
-        <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;test temp_dir {:?}&quot;</span>, <span class="ident">cache_dir</span>);
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fs_cache</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-            <span class="ident">FileSystemCache</span>::<span class="ident">new</span>(<span class="ident">cache_dir</span>)
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Cache error: {:?}&quot;</span>, <span class="ident">e</span>))
-                .<span class="ident">unwrap</span>()
-        };
-        <span class="comment">// store module</span>
-        <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="ident">WasmHash</span>::<span class="ident">generate</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>);
-        <span class="ident">fs_cache</span>.<span class="ident">store</span>(<span class="ident">key</span>, <span class="ident">module</span>.<span class="ident">clone</span>()).<span class="ident">unwrap</span>();
-
-        <span class="comment">// load module</span>
-        <span class="kw">let</span> <span class="ident">cached_module</span> <span class="op">=</span> <span class="ident">fs_cache</span>.<span class="ident">load</span>(<span class="ident">key</span>).<span class="ident">unwrap</span>();
-
-        <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="macro">imports</span><span class="macro">!</span> {};
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">cached_module</span>.<span class="ident">instantiate</span>(<span class="kw-2">&amp;</span><span class="ident">import_object</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">add_one</span>: <span class="ident">Func</span><span class="op">&lt;</span><span class="ident">i32</span>, <span class="ident">i32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="string">&quot;add_one&quot;</span>).<span class="ident">unwrap</span>();
-
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">add_one</span>.<span class="ident">call</span>(<span class="number">42</span>).<span class="ident">unwrap</span>();
-
-        <span class="comment">// verify it works</span>
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">value</span>, <span class="number">43</span>);
     }
 }
 </pre></div>

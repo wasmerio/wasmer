@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["print_info_on_error",""],["should_operate_on_all_wasi_tests","Whether or not we should operate on all WASI tests or not"]]});
+initSidebarItems({"fn":[["print_info_on_error",""]]});

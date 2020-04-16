@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["install_toolchain",""],["set_it_up",""]]});
+initSidebarItems({"fn":[["install_toolchain",""],["install_toolchains",""]]});

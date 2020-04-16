@@ -1,1 +1,1 @@
-initSidebarItems({"constant":[["EXCLUDES",""],["EXTENSIONS",""],["IGNORE_LIST_PATH",""]],"fn":[["build",""],["compile",""],["read_ignore_list",""]],"static":[["BANNER",""]]});
+initSidebarItems({"constant":[["EXCLUDES",""],["EXTENSIONS",""]],"fn":[["build",""],["compile",""]]});
