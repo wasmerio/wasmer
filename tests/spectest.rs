@@ -8,8 +8,7 @@ use std::path::Path;
     feature = "backend-singlepass"
 )))]
 compile_error!("No compiler backend detected: please specify at least one compiler backend!");
-use anyhow::bail;
-use wasmer::compiler::Backend;
+
 use wasmer_wast::Wast;
 
 // The generated tests (from build.rs) look like:

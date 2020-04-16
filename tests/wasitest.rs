@@ -1,7 +1,7 @@
 mod utils;
-use crate::utils::stdio::StdioCapturer;
+use crate::utils::StdioCapturer;
 use serde::{Deserialize, Serialize};
-use wasmer::compiler::{compile_with, compiler_for_backend, Backend};
+use wasmer::compiler::{compile_with, compiler_for_backend};
 use wasmer::Func;
 use wasmer_wasi::state::WasiState;
 use wasmer_wasi::{generate_import_object_from_state, get_wasi_version};

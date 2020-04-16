@@ -1,8 +1,8 @@
 mod utils;
 
-use crate::utils::stdio::StdioCapturer;
-use anyhow::{anyhow, bail};
-use wasmer::compiler::{compile_with, compiler_for_backend, Backend};
+use crate::utils::StdioCapturer;
+use anyhow::anyhow;
+use wasmer::compiler::{compile_with, compiler_for_backend};
 use wasmer_emscripten::{generate_emscripten_env, run_emscripten_instance, EmscriptenGlobals};
 
 use lazy_static::lazy_static;
