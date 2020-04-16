@@ -9,9 +9,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use test_generator::{
-    build_ignores_from_textfile, emscripten_processor, test_directory,
-    test_directory_module, wasi_processor, wast_processor, with_backends, with_test_module,
-    Testsuite,
+    build_ignores_from_textfile, emscripten_processor, test_directory, test_directory_module,
+    wasi_processor, wast_processor, with_backends, with_test_module, Testsuite,
 };
 
 static EMTESTS_ENV_VAR: &str = "WASM_EMSCRIPTEN_GENERATE_EMTESTS";
