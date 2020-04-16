@@ -317,7 +317,6 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
     module.instantiate(import_object)
 }
 
-
 /// Get a single instance of the default compiler to use.
 ///
 /// The output of this function can be controlled by the mutually
