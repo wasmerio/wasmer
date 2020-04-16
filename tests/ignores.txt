@@ -230,4 +230,4 @@ wasi::snapshot1::envvar
 
 # Singlepass have to fix calls with more than 2 arguments
 # for this tests to pass
-singlepass::wasi in aarch64
+singlepass::wasi on aarch64
