@@ -138,7 +138,7 @@ wasitests-singlepass: wasitests-setup
 	cargo test singlepass::wasi --release $(backend_features) -- --test-threads=1
 
 wasitests-cranelift: wasitests-setup
-	cargo test cranelift::wasi --release $(backend_features) -- --test-threads=1 --nocapture
+	cargo test cranelift::wasi --release $(backend_features) -- --test-threads=1
 
 wasitests-llvm: wasitests-setup
 	cargo test llvm::wasi --release $(backend_features) -- --test-threads=1
