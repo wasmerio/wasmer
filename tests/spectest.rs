@@ -1,14 +1,6 @@
 mod utils;
 
 use std::path::Path;
-
-#[cfg(not(any(
-    feature = "backend-llvm",
-    feature = "backend-cranelift",
-    feature = "backend-singlepass"
-)))]
-compile_error!("No compiler backend detected: please specify at least one compiler backend!");
-
 use wasmer_wast::Wast;
 
 // The generated tests (from build.rs) look like:

@@ -1,3 +1,6 @@
+#[macro_use]
+mod utils;
+
 use std::{convert::TryInto, sync::Arc};
 use wabt::wat2wasm;
 use wasmer::compiler::{compile_with, compiler_for_backend, Backend};
@@ -386,128 +389,106 @@ fn callback_fn_trap_with_vmctx(vmctx: &mut vm::Ctx, n: i32) -> Result<i32, Strin
 }
 
 macro_rules! test {
-    ($backend:expr, $test_name:ident, $function:ident( $( $inputs:ty ),* ) -> $output:ty, ( $( $arguments:expr ),* ) == $expected_value:expr) => {
+    ($test_name:ident, $function:ident( $( $inputs:ty ),* ) -> $output:ty, ( $( $arguments:expr ),* ) == $expected_value:expr) => {
         #[cfg(all(unix, target_arch = "x86_64"))]
         #[test]
         fn $test_name() {
-            imported_functions_forms($backend, &|instance| {
+            imported_functions_forms(get_backend(), &|instance| {
                 call_and_assert!(instance, $function( $( $inputs ),* ) -> $output, ( $( $arguments ),* ) == $expected_value);
             });
         }
-    };
     }
-
-macro_rules! tests_for_backend {
-        ($backend:expr) => {
-            test!($backend, test_fn, function_fn(i32) -> i32, (1) == Ok(2));
-            test!($backend, test_closure, function_closure(i32) -> i32, (1) == Ok(2));
-            test!($backend, test_fn_dynamic, function_fn_dynamic(i32) -> i32, (1) == Ok(2));
-            test!($backend, test_fn_dynamic_panic, function_fn_dynamic_panic(i32) -> i32, (1) == Err(RuntimeError(Box::new("test"))));
-            test!(
-                $backend,
-                test_closure_dynamic_0,
-                function_closure_dynamic_0(()) -> (),
-                () == Ok(())
-            );
-            test!(
-                $backend,
-                test_closure_dynamic_1,
-                function_closure_dynamic_1(i32) -> i32,
-                (1) == Ok(1 + shift + SHIFT)
-            );
-            test!(
-                $backend,
-                test_closure_dynamic_2,
-                function_closure_dynamic_2(i32, i64) -> i64,
-                (1, 2) == Ok(1 + 2 + shift as i64 + SHIFT as i64)
-            );
-            test!(
-                $backend,
-                test_closure_dynamic_3,
-                function_closure_dynamic_3(i32, i64, f32) -> f32,
-                (1, 2, 3.) == Ok(1. + 2. + 3. + shift as f32 + SHIFT as f32)
-            );
-            test!(
-                $backend,
-                test_closure_dynamic_4,
-                function_closure_dynamic_4(i32, i64, f32, f64) -> f64,
-                (1, 2, 3., 4.) == Ok(1. + 2. + 3. + 4. + shift as f64 + SHIFT as f64)
-            );
-            test!(
-                $backend,
-                test_closure_with_env,
-                function_closure_with_env(i32) -> i32,
-                (1) == Ok(2 + shift + SHIFT)
-            );
-            test!($backend, test_fn_with_vmctx, function_fn_with_vmctx(i32) -> i32, (1) == Ok(2 + SHIFT));
-            test!(
-                $backend,
-                test_closure_with_vmctx,
-                function_closure_with_vmctx(i32) -> i32,
-                (1) == Ok(2 + SHIFT)
-            );
-            test!(
-                $backend,
-                test_closure_with_vmctx_and_env,
-                function_closure_with_vmctx_and_env(i32) -> i32,
-                (1) == Ok(2 + shift + SHIFT)
-            );
-            test!(
-                $backend,
-                test_fn_trap,
-                function_fn_trap(i32) -> i32,
-                (1) == Err(RuntimeError(Box::new(format!("foo {}", 2))))
-            );
-            test!(
-                $backend,
-                test_closure_trap,
-                function_closure_trap(i32) -> i32,
-                (1) == Err(RuntimeError(Box::new(format!("bar {}", 2))))
-            );
-            test!(
-                $backend,
-                test_fn_trap_with_vmctx,
-                function_fn_trap_with_vmctx(i32) -> i32,
-                (1) == Err(RuntimeError(Box::new(format!("baz {}", 2 + SHIFT))))
-            );
-            test!(
-                $backend,
-                test_closure_trap_with_vmctx,
-                function_closure_trap_with_vmctx(i32) -> i32,
-                (1) == Err(RuntimeError(Box::new(format!("qux {}", 2 + SHIFT))))
-            );
-            test!(
-                $backend,
-                test_closure_trap_with_vmctx_and_env,
-                function_closure_trap_with_vmctx_and_env(i32) -> i32,
-                (1) == Err(RuntimeError(Box::new(format!("! {}", 2 + shift + SHIFT))))
-            );
-
-            #[test]
-            fn runtime_core_new_api() {
-                runtime_core_new_api_works($backend)
-            }
-
-        }
-    }
-
-#[cfg(feature = "backend-singlepass")]
-#[cfg(test)]
-mod singlepass {
-    use super::*;
-    tests_for_backend!(Backend::Singlepass);
 }
 
-#[cfg(feature = "backend-cranelift")]
-#[cfg(test)]
-mod cranelift {
+wasmer_backends! {
     use super::*;
-    tests_for_backend!(Backend::Cranelift);
-}
 
-#[cfg(feature = "backend-llvm")]
-#[cfg(test)]
-mod llvm {
-    use super::*;
-    tests_for_backend!(Backend::LLVM);
+    test!( test_fn, function_fn(i32) -> i32, (1) == Ok(2));
+    test!( test_closure, function_closure(i32) -> i32, (1) == Ok(2));
+    test!( test_fn_dynamic, function_fn_dynamic(i32) -> i32, (1) == Ok(2));
+    test!( test_fn_dynamic_panic, function_fn_dynamic_panic(i32) -> i32, (1) == Err(RuntimeError(Box::new("test"))));
+    test!(
+
+        test_closure_dynamic_0,
+        function_closure_dynamic_0(()) -> (),
+        () == Ok(())
+    );
+    test!(
+
+        test_closure_dynamic_1,
+        function_closure_dynamic_1(i32) -> i32,
+        (1) == Ok(1 + shift + SHIFT)
+    );
+    test!(
+
+        test_closure_dynamic_2,
+        function_closure_dynamic_2(i32, i64) -> i64,
+        (1, 2) == Ok(1 + 2 + shift as i64 + SHIFT as i64)
+    );
+    test!(
+
+        test_closure_dynamic_3,
+        function_closure_dynamic_3(i32, i64, f32) -> f32,
+        (1, 2, 3.) == Ok(1. + 2. + 3. + shift as f32 + SHIFT as f32)
+    );
+    test!(
+
+        test_closure_dynamic_4,
+        function_closure_dynamic_4(i32, i64, f32, f64) -> f64,
+        (1, 2, 3., 4.) == Ok(1. + 2. + 3. + 4. + shift as f64 + SHIFT as f64)
+    );
+    test!(
+
+        test_closure_with_env,
+        function_closure_with_env(i32) -> i32,
+        (1) == Ok(2 + shift + SHIFT)
+    );
+    test!( test_fn_with_vmctx, function_fn_with_vmctx(i32) -> i32, (1) == Ok(2 + SHIFT));
+    test!(
+
+        test_closure_with_vmctx,
+        function_closure_with_vmctx(i32) -> i32,
+        (1) == Ok(2 + SHIFT)
+    );
+    test!(
+
+        test_closure_with_vmctx_and_env,
+        function_closure_with_vmctx_and_env(i32) -> i32,
+        (1) == Ok(2 + shift + SHIFT)
+    );
+    test!(
+
+        test_fn_trap,
+        function_fn_trap(i32) -> i32,
+        (1) == Err(RuntimeError(Box::new(format!("foo {}", 2))))
+    );
+    test!(
+
+        test_closure_trap,
+        function_closure_trap(i32) -> i32,
+        (1) == Err(RuntimeError(Box::new(format!("bar {}", 2))))
+    );
+    test!(
+
+        test_fn_trap_with_vmctx,
+        function_fn_trap_with_vmctx(i32) -> i32,
+        (1) == Err(RuntimeError(Box::new(format!("baz {}", 2 + SHIFT))))
+    );
+    test!(
+
+        test_closure_trap_with_vmctx,
+        function_closure_trap_with_vmctx(i32) -> i32,
+        (1) == Err(RuntimeError(Box::new(format!("qux {}", 2 + SHIFT))))
+    );
+    test!(
+
+        test_closure_trap_with_vmctx_and_env,
+        function_closure_trap_with_vmctx_and_env(i32) -> i32,
+        (1) == Err(RuntimeError(Box::new(format!("! {}", 2 + shift + SHIFT))))
+    );
+
+    #[test]
+    fn runtime_core_new_api() {
+        runtime_core_new_api_works(get_backend())
+    }
 }

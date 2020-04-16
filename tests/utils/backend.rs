@@ -7,6 +7,7 @@ use wasmer::compiler::Backend;
 ///
 /// This function errors if the backend doesn't exist or
 /// is not enabled.
+#[allow(dead_code)]
 pub fn get_backend_from_str(backend: &str) -> Result<Backend> {
     match backend {
         #[cfg(feature = "backend-singlepass")]

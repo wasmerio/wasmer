@@ -96,7 +96,7 @@ wabt = "0.9.1"
 # Don't add the backend features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
 default = ["wasi", "wabt"]
-"loader-kernel" = ["wasmer-kernel-loader"]
+loader-kernel = ["wasmer-kernel-loader"]
 debug = ["fern", "log/max_level_debug", "log/release_max_level_debug"]
 trace = ["fern", "log/max_level_trace", "log/release_max_level_trace"]
 docs = ["wasmer-runtime/docs"]
