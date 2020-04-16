@@ -1675,7 +1675,7 @@ impl Emitter for Assembler {
         dynasm!(self
             ; .dword 0x00000000
             ; .dword 0x0000ffff
-            ; .dword (ty as u8 as i32)
+            ; .dword ty as u8 as i32
         );
     }
 

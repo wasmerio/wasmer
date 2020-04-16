@@ -11,12 +11,3 @@ pub fn print_info_on_error(output: &std::process::Output, context: &str) {
         );
     }
 }
-
-/// Whether or not we should operate on all WASI tests or not
-pub fn should_operate_on_all_wasi_tests() -> bool {
-    std::env::var("WASI_TEST_GENERATE_ALL")
-        .ok()
-        .and_then(|s| s.parse::<u32>().ok())
-        .unwrap_or(0)
-        == 1
-}

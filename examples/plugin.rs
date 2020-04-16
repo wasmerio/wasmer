@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use wasmer_runtime::{compile, func, imports, Ctx, Func};
+use wasmer::compiler::compile;
+use wasmer::{func, imports, vm::Ctx, Func};
 use wasmer_wasi::{
     generate_import_object_for_version,
     state::{self, WasiFile, WasiFsError},

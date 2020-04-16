@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- [#1382](https://github.com/wasmerio/wasmer/pull/1382) Refactored test infranstructure (part 2)
+- [#1380](https://github.com/wasmerio/wasmer/pull/1380) Refactored test infranstructure (part 1)
 - [#1357](https://github.com/wasmerio/wasmer/pull/1357) Refactored bin commands into separate files
 - [#1331](https://github.com/wasmerio/wasmer/pull/1331) Implement the `record` type and instrutions for WIT
 - [#1345](https://github.com/wasmerio/wasmer/pull/1345) Adding ARM testing in Azure Pipelines

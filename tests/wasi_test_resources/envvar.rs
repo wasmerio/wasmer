@@ -1,4 +1,4 @@
-// Args:
+// WASI:
 // env: DOG=1
 // env: CAT=2
 

@@ -351,6 +351,10 @@ pub mod error {
 /// Idea for generic trait; consider rename; it will need to be moved somewhere else
 pub trait CompiledModule {
     fn new(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module>;
+    fn new_with_compiler(
+        bytes: impl AsRef<[u8]>,
+        compiler: Box<dyn compiler::Compiler>,
+    ) -> error::CompileResult<Module>;
     fn from_binary(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module>;
     fn from_binary_unchecked(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module>;
     fn from_file(file: impl AsRef<std::path::Path>) -> Result<Module, error::CompileFromFileError>;
@@ -363,6 +367,14 @@ impl CompiledModule for Module {
     fn new(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {
         let bytes = bytes.as_ref();
         wasmer_runtime_core::compile_with(bytes, &compiler::default_compiler())
+    }
+
+    fn new_with_compiler(
+        bytes: impl AsRef<[u8]>,
+        compiler: Box<dyn compiler::Compiler>,
+    ) -> error::CompileResult<Module> {
+        let bytes = bytes.as_ref();
+        wasmer_runtime_core::compile_with(bytes, &*compiler)
     }
 
     fn from_binary(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {

@@ -1,0 +1,9 @@
+{
+  "output": "Hello, world!\n",
+  "options": {
+    "mapdir": [],
+    "env": [],
+    "args": [],
+    "dir": []
+  }
+}

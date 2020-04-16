@@ -18,6 +18,7 @@ include = [
     "/README.md",
     "rustfmt.toml"
 ]
+autoexamples = false
 
 [dependencies]
 atty = "0.2"
@@ -27,16 +28,20 @@ fern = { version = "0.5", features = ["colored"], optional = true }
 log = "0.4"
 structopt = "0.3"
 wabt = { version = "0.9.1", optional = true }
-wasmer = { path = "lib/api" }
-wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
-wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
+wasmer = { path = "lib/api", default-features = false }
 wasmer-middleware-common = { path = "lib/middleware-common" }
-wasmer-runtime = { path = "lib/runtime" }
+wasmer-runtime = { path = "lib/runtime", default-features = false }
 wasmer-runtime-core = { path = "lib/runtime-core" }
-wasmer-emscripten = { path = "lib/emscripten" }
-wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
-wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
+
+# Backends
+wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
+wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
+wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
+
+# Frontends
+wasmer-emscripten = { path = "lib/emscripten" }
+wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
 
 [workspace]
@@ -76,21 +81,25 @@ rustc_version = "0.2"
 [dev-dependencies]
 anyhow = "1.0.19"
 wasmer-wast = { path = "tests/wast" }
+lazy_static = "1.4"
+# To allow parameterized tests
+test-case = "1.0.0"
 criterion = "0.3"
 glob = "0.3"
 libc = "0.2.60" # for `tests/dev-utils`'s Stdout capturing
 serde = { version = "1", features = ["derive"] } # used by the plugin example
+serde_json = "1"
 typetag = "0.1" # used by the plugin example
 wabt = "0.9.1"
 
 [features]
-default = ["fast-tests", "wasi", "backend-cranelift", "wabt"]
-"loader-kernel" = ["wasmer-kernel-loader"]
+# Don't add the backend features in default, please add them on the Makefile
+# since we might want to autoconfigure them depending on the availability on the host.
+default = ["wasi", "wabt"]
+loader-kernel = ["wasmer-kernel-loader"]
 debug = ["fern", "log/max_level_debug", "log/release_max_level_debug"]
 trace = ["fern", "log/max_level_trace", "log/release_max_level_trace"]
 docs = ["wasmer-runtime/docs"]
-# This feature will allow cargo test to run much faster
-fast-tests = []
 backend-cranelift = [
     "wasmer-clif-backend",
     "wasmer-clif-backend/generate-debug-information",
@@ -115,9 +124,10 @@ managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
 
 [[example]]
 name = "plugin"
-required-features = ["wasi"]
+required-features = ["wasi", "backend-cranelift"]
 crate-type = ["bin"]
 
 [[example]]
 name = "callback"
 crate-type = ["bin"]
+required-features = ["backend-cranelift"]

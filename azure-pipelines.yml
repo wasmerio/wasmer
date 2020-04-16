@@ -93,14 +93,11 @@ jobs:
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: make test
         displayName: Tests (*nix)
-        condition: and(succeeded(), eq(variables['Agent.OSArchitecture'], 'X64'), not(eq(variables['Agent.OS'], 'Windows_NT')), not(variables['ANDROID']))
-      - bash: make spectests-singlepass
-        displayName: Tests (Linux ARM)
-        condition: and(succeeded(), eq(variables['Agent.OSArchitecture'], 'ARM64'), not(variables['ANDROID']))
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')), not(variables['ANDROID']))
       - bash: make test-android
         displayName: Tests (Android)
         condition: and(succeeded(), variables['ANDROID'])
-      - bash: make spectests-cranelift
+      - bash: make spectests
         displayName: Tests (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'), not(variables['ANDROID']))
 
@@ -161,17 +158,10 @@ jobs:
           mkdir -p artifacts
         displayName: Create Artifacts Dir
       - bash: make release
-        displayName: Build (*nix X64)
-        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')), eq(variables['Agent.OSArchitecture'], 'X64'))
+        displayName: Build
       - bash: sudo apt-get install musl-tools && make release-musl
-        displayName: Build (Linux, x86_64-unknown-linux-musl)
+        displayName: Build (Linux Musl)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'), eq(variables['Agent.OSArchitecture'], 'X64'))
-      - bash: make release-singlepass
-        displayName: Build (ARM)
-        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')), eq(variables['Agent.OSArchitecture'], 'ARM64'))
-      - bash: make release-llvm
-        displayName: Build (Windows)
-        condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
       - bash: |
           make build-wapm
         displayName: Build WAPM
