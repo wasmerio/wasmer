@@ -1,4 +1,4 @@
-;; We assert that we can call a function that traps repitedly
+;; We assert that we can call a function that traps repeatedly
 
 (module
   (func (export "throw_trap")
