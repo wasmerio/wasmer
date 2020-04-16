@@ -40,7 +40,7 @@
 //!
 //! compiled into wasm bytecode, we can call the exported "add_one" function:
 //!
-//! ```
+//! ```ignore
 //! static WASM: &'static [u8] = &[
 //!     // The module above compiled to bytecode goes here.
 //!     // ...
