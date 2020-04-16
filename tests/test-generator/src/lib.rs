@@ -29,12 +29,7 @@ impl Testsuite {
         if self.ignores.contains(&full) {
             return true;
         }
-        for ignore in self.ignores.iter() {
-            if full.contains(ignore) {
-                return true;
-            }
-        }
-        false
+        self.ignores.iter().any(|ignore| full.contains(ignore))
     }
 }
 
