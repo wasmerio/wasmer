@@ -69,11 +69,6 @@ fn generate_native_output(
         .expect("Failed to execute native program");
     util::print_info_on_error(&result, "NATIVE PROGRAM FAILED");
 
-    // let mut output_path = PathBuf::from(file);
-    // output_path.set_extension("out");
-
-    // println!("Writing output to {}", output_path.to_string_lossy());
-    // fs::write(&output_path, result.stdout)?;
     Ok(String::from_utf8(result.stdout).unwrap())
 }
 
