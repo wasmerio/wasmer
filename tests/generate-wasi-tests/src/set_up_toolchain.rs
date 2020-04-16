@@ -21,7 +21,7 @@ fn install_toolchain(toolchain_name: &str) {
         .arg("wasm32-wasi")
         .output()
         .expect("Failed to wasi target in Rust toolchain");
-    util::print_info_on_error(&rustup_out, "WASI TARGET IN TOOLCHAIN INSTAL FAILED");
+    util::print_info_on_error(&rustup_out, "WASI TARGET IN TOOLCHAIN INSTALL FAILED");
 }
 
 pub fn install_toolchains(wasi_versions: &[WasiVersion]) {
