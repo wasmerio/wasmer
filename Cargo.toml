@@ -82,7 +82,7 @@ rustc_version = "0.2"
 anyhow = "1.0.19"
 wasmer-wast = { path = "tests/wast" }
 lazy_static = "1.4"
-# To allow parametrized tests
+# To allow parameterized tests
 test-case = "1.0.0"
 criterion = "0.3"
 glob = "0.3"
