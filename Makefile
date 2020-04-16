@@ -1,10 +1,11 @@
 .PHONY: spectests emtests clean build install lint precommit docs examples 
 
-# Uname only works in *Unix like systems
+# uname only works in *Unix like systems
 ifneq ($(OS), Windows_NT)
   ARCH := $(shell uname -m)
   UNAME_S := $(shell uname -s)
 else
+  # We can assume, if in windows it will likely be in x86_64
   ARCH := x86_64
   UNAME_S := 
 endif

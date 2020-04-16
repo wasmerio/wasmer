@@ -93,14 +93,11 @@ jobs:
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
       - bash: make test
         displayName: Tests (*nix)
-        condition: and(succeeded(), eq(variables['Agent.OSArchitecture'], 'X64'), not(eq(variables['Agent.OS'], 'Windows_NT')), not(variables['ANDROID']))
-      - bash: make spectests-singlepass
-        displayName: Tests (Linux ARM)
-        condition: and(succeeded(), eq(variables['Agent.OSArchitecture'], 'ARM64'), not(variables['ANDROID']))
+        condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')), not(variables['ANDROID']))
       - bash: make test-android
         displayName: Tests (Android)
         condition: and(succeeded(), variables['ANDROID'])
-      - bash: make spectests-cranelift
+      - bash: make spectests
         displayName: Tests (Windows)
         condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'), not(variables['ANDROID']))
 
