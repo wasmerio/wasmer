@@ -126,7 +126,7 @@ fn wasi_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 }
 
 fn is_truthy_env(name: &str) -> bool {
-    env::var(name).unwrap_or("0".to_string()) == "1"
+    env::var(name).map(|n| n == "1").unwrap_or_default()
 }
 
 fn main() -> anyhow::Result<()> {
