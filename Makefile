@@ -312,7 +312,7 @@ check: check-bench
 
 # Release
 release:
-	cargo build --release $(backend_features) --features loader-kernel,experimental-io-devices,log/release_max_level_off
+	cargo build --release $(backend_features) --features experimental-io-devices,log/release_max_level_off
 
 # Release with musl target
 release-musl:
