@@ -128,7 +128,9 @@ middleware: middleware-singlepass middleware-cranelift middleware-llvm
 
 # Wasitests
 wasitests-setup:
+ifeq (,$(wildcard ./tests/wasi_test_resources/test_fs/temp))
 	rm -rf tests/wasi_test_resources/test_fs/temp
+endif
 	mkdir -p tests/wasi_test_resources/test_fs/temp
 
 wasitests-singlepass: wasitests-setup
