@@ -482,6 +482,12 @@ macro_rules! tests_for_backend {
                 function_closure_trap_with_vmctx_and_env(i32) -> i32,
                 (1) == Err(RuntimeError(Box::new(format!("! {}", 2 + shift + SHIFT))))
             );
+
+            #[test]
+            fn runtime_core_new_api() {
+                runtime_core_new_api_works($backend)
+            }
+
         }
     }
 
