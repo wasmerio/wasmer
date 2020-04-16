@@ -116,13 +116,13 @@ emtests: emtests-singlepass emtests-cranelift emtests-llvm
 
 # Middleware tests
 middleware-singlepass:
-	cargo test middleware::singlepass --release $(backend_features)
+	cargo test singlepass::middleware --release $(backend_features)
 
 middleware-cranelift:
-	cargo test middleware::cranelift --release $(backend_features)
+	cargo test cranelift::middleware --release $(backend_features)
 
 middleware-llvm:
-	cargo test middleware::llvm --release $(backend_features)
+	cargo test llvm::middleware --release $(backend_features)
 
 middleware: middleware-singlepass middleware-cranelift middleware-llvm
 
@@ -135,13 +135,13 @@ endif
 	mkdir -p tests/wasi_test_resources/test_fs/temp
 
 wasitests-singlepass: wasitests-setup
-	cargo test wasi::singlepass --release $(backend_features) -- --test-threads=1
+	cargo test singlepass::wasi --release $(backend_features) -- --test-threads=1
 
 wasitests-cranelift: wasitests-setup
-	cargo test wasi::cranelift --release $(backend_features) -- --test-threads=1 --nocapture
+	cargo test cranelift::wasi --release $(backend_features) -- --test-threads=1 --nocapture
 
 wasitests-llvm: wasitests-setup
-	cargo test wasi::llvm --release $(backend_features) -- --test-threads=1
+	cargo test llvm::wasi --release $(backend_features) -- --test-threads=1
 
 wasitests-all: wasitests-setup
 	cargo test wasi --release $(backend_features) -- --test-threads=1
