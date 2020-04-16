@@ -59,8 +59,8 @@ pub fn emscripten_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     );
 
     Some(Test {
-        name: testname.to_string(),
-        body: body.to_string(),
+        name: testname,
+        body,
     })
 }
 
