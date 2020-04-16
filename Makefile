@@ -1,6 +1,13 @@
 .PHONY: spectests emtests clean build install lint precommit docs examples 
 
-ARCH := $(shell uname -m)
+# Uname only works in *Unix like systems
+ifneq ($(OS), Windows_NT)
+  ARCH := $(shell uname -m)
+  UNAME_S := $(shell uname -s)
+else
+  ARCH := x86_64
+  UNAME_S := 
+endif
 
 backends :=
 
@@ -198,12 +205,13 @@ capi-test: test-capi
 
 test-rest:
 	cargo test --release -p wasmer-interface-types
-	cargo test --release -p wasmer-kernel-loader
-	cargo test --release -p kernel-net
 	cargo test --release -p wasmer-runtime
 	cargo test --release -p wasmer-runtime-core
 	cargo test --release -p wasmer-wasi-experimental-io-devices
 	cargo test --release -p wasmer-win-exception-handler
+	# This doesn't work in windows, commented for now
+	# cargo test --release -p wasmer-kernel-loader
+	# cargo test --release -p kernel-net
 
 test: $(backends) test-rest examples
 
@@ -352,8 +360,6 @@ build-install-package:
 	# Create the wax binary as symlink to wapm
 	cd ./install/bin/ && ln -sf wapm wax && chmod +x wax
 	tar -C ./install -zcvf wasmer.tar.gz bin
-
-UNAME_S := $(shell uname -s)
 
 build-capi-package:
 	# This command doesn't build the C-API, just packages it
