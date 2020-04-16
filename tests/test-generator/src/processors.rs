@@ -23,8 +23,8 @@ pub fn wast_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     let body = format!("crate::run_wast(r#\"{}\"#, \"{}\")", p.display(), compiler);
 
     Some(Test {
-        name: testname.to_string(),
-        body: body.to_string(),
+        name: testname,
+        body,
     })
 }
 
