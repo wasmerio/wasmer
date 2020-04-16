@@ -202,7 +202,7 @@ test-rest:
 	cargo test --release -p wasmer-wasi-experimental-io-devices
 	cargo test --release -p wasmer-win-exception-handler
 
-test: singlepass cranelift llvm test-rest examples
+test: $(backends) test-rest examples
 
 test-android:
 	ci/run-docker.sh x86_64-linux-android --manifest-path=lib/singlepass-backend/Cargo.toml
