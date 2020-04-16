@@ -18,6 +18,7 @@ include = [
     "/README.md",
     "rustfmt.toml"
 ]
+autoexamples = false
 
 [dependencies]
 atty = "0.2"
@@ -123,9 +124,10 @@ managed = ["backend-singlepass", "wasmer-runtime-core/managed"]
 
 [[example]]
 name = "plugin"
-required-features = ["wasi"]
+required-features = ["wasi", "backend-cranelift"]
 crate-type = ["bin"]
 
 [[example]]
 name = "callback"
 crate-type = ["bin"]
+required-features = ["backend-cranelift"]

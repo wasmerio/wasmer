@@ -216,9 +216,9 @@ integration-tests: release-clif examples
 	./tests/integration_tests/cowsay/test.sh
 
 examples:
-	cargo run --example plugin
-	cargo run --example callback
-
+	cargo build --release $(backend_features) --examples
+	test -f target/release/examples/callbackx && ./target/release/examples/callback || echo "skipping callback test"
+	test -f target/release/examples/pluginx && ./target/release/examples/plugin || echo "skipping plugin test"
 
 # Utils
 lint:
