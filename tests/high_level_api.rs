@@ -201,6 +201,80 @@ wasmer_backends! {
         update_outside_global.call().unwrap();
         assert_eq!(outside_global.get(), Value::I32(15 * 2 * 2));
     }
+
+    #[test]
+    fn allow_missing() {
+        use wabt::wat2wasm;
+        use wasmer::{imports, CompiledModule, Module};
+
+        static WAT: &'static str = r#"
+            (module
+            (type (;0;) (func))
+            (type (;1;) (func (result i32)))
+            (import "env" "ret_err" (func $ret_err (type 0)))
+            (func $get_num (type 1)
+                i32.const 42
+            )
+            (export "get_num" (func $get_num))
+            )
+        "#;
+
+        let wasm = wat2wasm(WAT).unwrap();
+        let module = Module::new_with_compiler(wasm, get_compiler()).unwrap();
+
+        let mut import_object = imports! {};
+        import_object.allow_missing_functions = true;
+
+        assert!(module.instantiate(&import_object).is_ok());
+    }
+
+    #[test]
+    fn error_propagation() {
+        use std::convert::Infallible;
+        use wabt::wat2wasm;
+        use wasmer::{func, imports, error::RuntimeError, vm::Ctx, CompiledModule, Func, Module};
+
+        static WAT: &'static str = r#"
+            (module
+            (type (;0;) (func))
+            (import "env" "ret_err" (func $ret_err (type 0)))
+            (func $call_panic
+                call $ret_err
+            )
+            (export "call_err" (func $call_panic))
+            )
+        "#;
+
+        #[derive(Debug)]
+        struct ExitCode {
+            code: i32,
+        }
+
+        fn ret_err(_ctx: &mut Ctx) -> Result<Infallible, ExitCode> {
+            Err(ExitCode { code: 42 })
+        }
+
+        let wasm = wat2wasm(WAT).unwrap();
+        let module = Module::new_with_compiler(wasm, get_compiler()).unwrap();
+        let instance = module
+            .instantiate(&imports! {
+                "env" => {
+                    "ret_err" => Func::new(ret_err),
+                },
+            })
+            .unwrap();
+
+        let foo: Func<(), ()> = instance.exports.get("call_err").unwrap();
+
+        let result = foo.call();
+
+        if let Err(RuntimeError(e)) = result {
+            let exit_code = e.downcast::<ExitCode>().unwrap();
+            assert_eq!(exit_code.code, 42);
+        } else {
+            panic!("didn't return RuntimeError")
+        }
+    }
 }
 
 // copied from Rust stdlib: https://doc.rust-lang.org/nightly/nightly-rustc/src/serialize/leb128.rs.html#4-14
