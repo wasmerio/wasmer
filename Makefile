@@ -155,15 +155,15 @@ wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llv
 # Backends
 singlepass: wasitests-setup
 	cargo test -p wasmer-singlepass-backend --release
-	cargo test singlepass --release $(backend_features)
+	cargo test singlepass:: --release $(backend_features)
 
 cranelift: wasitests-setup
 	cargo test -p wasmer-clif-backend --release
-	cargo test cranelift --release $(backend_features)
+	cargo test cranelift:: --release $(backend_features)
 
 llvm: wasitests-setup
 	cargo test -p wasmer-llvm-backend --release
-	cargo test llvm --release $(backend_features) -- --test-threads=1
+	cargo test llvm:: --release $(backend_features) -- --test-threads=1
 
 
 # All tests
