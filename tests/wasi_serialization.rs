@@ -39,11 +39,11 @@ wasmer_backends! {
         );
 
         let state_bytes = {
-            let instance = module.instantiate(&import_object).unwrap();
+            let mut instance = module.instantiate(&import_object).unwrap();
 
             let start: Func<(), ()> = instance.exports.get("_start").unwrap();
             start.call().unwrap();
-            let state = get_wasi_state(instance.context());
+            let state = get_wasi_state(instance.context_mut());
 
             assert_eq!(state.args, args);
             assert_eq!(state.envs, envs);
@@ -63,8 +63,7 @@ wasmer_backends! {
         assert_eq!(result, true as i32);
     }
 
-    #[allow(clippy::mut_from_ref)]
-    pub(crate) fn get_wasi_state(ctx: &Ctx) -> &mut WasiState {
-        unsafe { state::get_wasi_state(&mut *(ctx as *const Ctx as *mut Ctx)) }
+    pub(crate) fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
+        unsafe { state::get_wasi_state(ctx) }
     }
 }
