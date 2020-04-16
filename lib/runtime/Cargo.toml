@@ -42,6 +42,9 @@ path = "../llvm-backend"
 optional = true
 
 [features]
+# Note: we should have default backends depending on the architecture
+# This target-directed-features is available in nightly
+# https://github.com/rust-lang/cargo/issues/7914
 default = ["cranelift", "default-backend-cranelift"]
 docs = []
 cranelift = ["wasmer-clif-backend"]
