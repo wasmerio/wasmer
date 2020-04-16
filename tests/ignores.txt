@@ -227,3 +227,7 @@ wasi::snapshot1::fd_close
 wasi::snapshot1::fd_allocate
 wasi::snapshot1::close_preopen_fd
 wasi::snapshot1::envvar
+
+# Singlepass have to fix calls with more than 2 arguments
+# for this tests to pass
+singlepass::wasi in aarch64
