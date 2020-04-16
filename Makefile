@@ -12,6 +12,16 @@ endif
 
 backends :=
 
+# Singlepass is enabled
+RUST_VERSION := $(shell rustc -V)
+
+ifneq (, $(findstring nightly,$(RUST_VERSION)))
+  # Singlepass doesn't work yet on Windows
+  ifneq ($(OS), Windows_NT)
+	backends += singlepass
+  endif
+endif
+
 ifeq ($(ARCH), x86_64)
   # In X64, Cranelift is enabled
   backends += cranelift
@@ -26,16 +36,6 @@ ifeq ($(ARCH), x86_64)
 endif
 
 backends := $(filter-out ,$(backends))
-
-# Singlepass is enabled
-RUST_VERSION := $(shell rustc -V)
-
-ifneq (, $(findstring nightly,$(RUST_VERSION)))
-  # Singlepass doesn't work yet on Windows
-  ifneq ($(OS), Windows_NT)
-	backends += singlepass
-  endif
-endif
 
 ifneq ($(OS), Windows_NT)
 	bold := $(shell tput bold)
