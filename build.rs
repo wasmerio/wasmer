@@ -130,7 +130,6 @@ fn is_truthy_env(name: &str) -> bool {
 }
 
 fn main() -> anyhow::Result<()> {
-    // println!("cargo:rustc-cfg=feature=\"backend-cranelift\"");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=test/ignores.txt");
     println!("cargo:rerun-if-env-changed={}", EMTESTS_ENV_VAR);
