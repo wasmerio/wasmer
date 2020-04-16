@@ -23,7 +23,10 @@ backends := $(filter-out ,$(backends))
 RUST_VERSION := $(shell rustc -V)
 
 ifneq (, $(findstring nightly,$(RUST_VERSION)))
+  # Singlepass doesn't work yet on Windows
+  ifneq ($(OS), Windows_NT)
 	backends += singlepass
+  endif
 endif
 
 ifneq ($(OS), Windows_NT)
