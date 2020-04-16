@@ -236,13 +236,6 @@ pub struct WasiOptions {
     pub dir: Vec<String>,
 }
 
-impl WasiOptions {
-    /// Constructs WasiOptions given a json string
-    pub fn from_str(buffer: &str) -> Result<Self, String> {
-        serde_json::from_str(buffer).map_err(|e| format!("Can't get options from bufer"))
-    }
-}
-
 /// Pulls args to the program out of a comment at the top of the file starting with "// WasiOptions:"
 fn extract_args_from_source_file(source_code: &str) -> Option<WasiOptions> {
     if source_code.starts_with("// WASI:") {
