@@ -18,29 +18,36 @@ RUST_VERSION := $(shell rustc -V)
 ifneq (, $(findstring nightly,$(RUST_VERSION)))
   # Singlepass doesn't work yet on Windows
   ifneq ($(OS), Windows_NT)
-	backends += singlepass
+    backends += singlepass
   endif
 endif
 
 ifeq ($(ARCH), x86_64)
   # In X64, Cranelift is enabled
   backends += cranelift
-  # LLVM is enabled if not in Windows
+  # LLVM could be enabled if not in Windows
   ifneq ($(OS), Windows_NT)
-	LLVM_VERSION := $(shell llvm-config --version)
-	# If findstring is not empty, then it have found the value
-    ifneq (, $(findstring 8,$(LLVM_VERSION))$(findstring 9,$(LLVM_VERSION)))
-	  backends += llvm
-	endif
+    # Autodetect LLVM from llvm-config
+    ifeq (, $(shell which llvm-config))
+      LLVM_VERSION := $(shell llvm-config --version)
+      # If findstring is not empty, then it have found the value
+      ifneq (, $(findstring 8,$(LLVM_VERSION))$(findstring 9,$(LLVM_VERSION)))
+        backends += llvm
+      endif
+    else
+      ifeq (, $(shell which llvm-config-8))
+        backends += llvm
+      endif
+    endif
   endif
 endif
 
 backends := $(filter-out ,$(backends))
 
 ifneq ($(OS), Windows_NT)
-	bold := $(shell tput bold)
-	green := $(shell tput setaf 2)
-	reset := $(shell tput sgr0)
+  bold := $(shell tput bold)
+  green := $(shell tput setaf 2)
+  reset := $(shell tput sgr0)
 endif
 
 
@@ -86,7 +93,7 @@ generate: generate-emtests generate-wasitests
 
 # Spectests
 spectests-singlepass:
-	cargo test singlepass::spec --release $(backend_features)
+	cargo test singlepass::spec --release $(backend_features) -- --test-threads=1
 
 spectests-cranelift:
 	cargo test cranelift::spec --release $(backend_features)
@@ -100,7 +107,7 @@ spectests:
 
 # Emscripten tests
 emtests-singlepass:
-	cargo test singlepass::emscripten --release $(backend_features)
+	cargo test singlepass::emscripten --release $(backend_features) -- --test-threads=1
 
 emtests-cranelift:
 	cargo test cranelift::emscripten --release $(backend_features)
@@ -155,7 +162,7 @@ wasitests: wasitests-unit wasitests-singlepass wasitests-cranelift wasitests-llv
 # Backends
 singlepass: wasitests-setup
 	cargo test -p wasmer-singlepass-backend --release
-	cargo test singlepass:: --release $(backend_features)
+	cargo test singlepass:: --release $(backend_features) -- --test-threads=1
 
 cranelift: wasitests-setup
 	cargo test -p wasmer-clif-backend --release
