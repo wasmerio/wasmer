@@ -119,7 +119,21 @@ pub unsafe extern "C" fn wasm_instance_new(
                     )
                     .expect("failed to modify namespace: TODO handle this error");
             }
-            (wasm::ExternDescriptor::Global(_), wasm::Export::Global(_)) => todo!("global"),
+            (wasm::ExternDescriptor::Global(global_desc), wasm::Export::Global(export_global)) => {
+                if global_desc != export_global.descriptor() {
+                    // TODO: report error
+                    return ptr::null_mut();
+                }
+
+                import_object
+                    .with_namespace_mut(
+                        &namespace,
+                        |ns: &mut (dyn LikeNamespace + Send)| -> Option<()> {
+                            ns.maybe_insert(&name, import.export.clone())
+                        },
+                    )
+                    .expect("failed to modify namespace");
+            }
             (wasm::ExternDescriptor::Memory(_), wasm::Export::Memory(_)) => todo!("memory"),
             (wasm::ExternDescriptor::Table(_), wasm::Export::Table(_)) => todo!("table"),
             _ => {
@@ -296,6 +310,19 @@ pub unsafe extern "C" fn wasm_func_as_extern(func_ptr: *mut wasm_func_t) -> *mut
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn wasm_global_as_extern(
+    global_ptr: *mut wasm_global_t,
+) -> *mut wasm_extern_t {
+    let global = &*global_ptr;
+    Box::into_raw(Box::new(wasm_extern_t {
+        // update this if global does hold onto an `instance`
+        instance: None,
+        dynfunc: None,
+        export: wasm::Export::Global(global.global.clone()),
+    }))
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_func(extrn: *mut wasm_extern_t) -> *mut wasm_func_t {
     let extrn = &*extrn;
     match &extrn.export {
@@ -330,23 +357,70 @@ pub unsafe extern "C" fn wasm_extern_as_func(extrn: *mut wasm_extern_t) -> *mut 
     }
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn wasm_extern_as_global(extrn: *mut wasm_extern_t) -> *mut wasm_global_t {
+    let extrn = &*extrn;
+    match &extrn.export {
+        wasm::Export::Global(global) => Box::into_raw(Box::new(wasm_global_t {
+            global: global.clone(),
+        })),
+        _ => ptr::null_mut(),
+    }
+}
+
+#[allow(non_camel_case_types)]
+pub type wasm_mutability_t = u8;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+#[repr(u8)]
+enum wasm_mutability_enum {
+    WASM_CONST = 0,
+    WASM_VAR,
+}
+
+impl wasm_mutability_enum {
+    fn is_mutable(self) -> bool {
+        self == Self::WASM_VAR
+    }
+}
+
+impl TryFrom<wasm_mutability_t> for wasm_mutability_enum {
+    type Error = &'static str;
+
+    fn try_from(item: wasm_mutability_t) -> Result<Self, Self::Error> {
+        Ok(match item {
+            0 => wasm_mutability_enum::WASM_CONST,
+            1 => wasm_mutability_enum::WASM_VAR,
+            _ => return Err("wasm_mutability_t value out of bounds"),
+        })
+    }
+}
+
 #[allow(non_camel_case_types)]
 pub type wasm_valkind_t = u8;
 
-/// Converts the numeric `wasm_valkind_t` into the structural type used by
-/// Wasmer'`s internals: [`wasm::Type`].
-fn valkind_to_type(vk: wasm_valkind_t) -> Option<wasm::Type> {
-    Some(match vk {
-        0 => wasm::Type::I32,
-        1 => wasm::Type::I64,
-        2 => wasm::Type::F32,
-        3 => wasm::Type::F64,
-        128 => todo!("WASM_ANYREF variant not yet implemented"),
-        129 => todo!("WASM_FUNCREF variant not yet implemented"),
-        _ => return None,
-    })
+impl From<wasm_valkind_enum> for wasm::Type {
+    fn from(other: wasm_valkind_enum) -> Self {
+        use wasm_valkind_enum::*;
+        match other {
+            WASM_I32 => wasm::Type::I32,
+            WASM_I64 => wasm::Type::I64,
+            WASM_F32 => wasm::Type::F32,
+            WASM_F64 => wasm::Type::F64,
+            WASM_ANYREF => todo!("WASM_ANYREF variant not yet implemented"),
+            WASM_FUNCREF => todo!("WASM_FUNCREF variant not yet implemented"),
+        }
+    }
 }
 
+impl From<wasm_valtype_t> for wasm::Type {
+    fn from(other: wasm_valtype_t) -> Self {
+        other.valkind.into()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 #[repr(u8)]
 pub enum wasm_valkind_enum {
@@ -393,6 +467,14 @@ impl TryFrom<wasm_val_t> for wasm::Value {
     type Error = &'static str;
 
     fn try_from(item: wasm_val_t) -> Result<Self, Self::Error> {
+        (&item).try_into()
+    }
+}
+
+impl TryFrom<&wasm_val_t> for wasm::Value {
+    type Error = &'static str;
+
+    fn try_from(item: &wasm_val_t) -> Result<Self, Self::Error> {
         Ok(match item.kind.try_into()? {
             wasm_valkind_enum::WASM_I32 => wasm::Value::I32(unsafe { item.of.int32_t }),
             wasm_valkind_enum::WASM_I64 => wasm::Value::I64(unsafe { item.of.int64_t }),
@@ -400,6 +482,34 @@ impl TryFrom<wasm_val_t> for wasm::Value {
             wasm_valkind_enum::WASM_F64 => wasm::Value::F64(unsafe { item.of.float64_t }),
             wasm_valkind_enum::WASM_ANYREF => return Err("ANYREF not supported at this time"),
             wasm_valkind_enum::WASM_FUNCREF => return Err("FUNCREF not supported at this time"),
+        })
+    }
+}
+
+impl TryFrom<wasm::Value> for wasm_val_t {
+    type Error = &'static str;
+
+    fn try_from(item: wasm::Value) -> Result<Self, Self::Error> {
+        Ok(match item {
+            wasm::Value::I32(v) => wasm_val_t {
+                of: wasm_val_inner { int32_t: v },
+                kind: wasm_valkind_enum::WASM_I32 as _,
+            },
+            wasm::Value::I64(v) => wasm_val_t {
+                of: wasm_val_inner { int64_t: v },
+                kind: wasm_valkind_enum::WASM_I64 as _,
+            },
+            wasm::Value::F32(v) => wasm_val_t {
+                of: wasm_val_inner { float32_t: v },
+                kind: wasm_valkind_enum::WASM_F32 as _,
+            },
+            wasm::Value::F64(v) => wasm_val_t {
+                of: wasm_val_inner { float64_t: v },
+                kind: wasm_valkind_enum::WASM_F64 as _,
+            },
+            wasm::Value::V128(_) => {
+                return Err("128bit SIMD types not yet supported in Wasm C API")
+            }
         })
     }
 }
@@ -588,6 +698,82 @@ pub unsafe extern "C" fn wasm_func_param_arity(func: *const wasm_func_t) -> usiz
 pub unsafe extern "C" fn wasm_func_result_arity(func: *const wasm_func_t) -> usize {
     let func = &*func;
     func.functype.returns().len()
+}
+
+#[repr(C)]
+pub struct wasm_global_t {
+    // maybe needs to hold onto instance
+    global: wasm::Global,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_global_new(
+    _store: *mut wasm_store_t,
+    gt_ptr: *const wasm_globaltype_t,
+    val_ptr: *const wasm_val_t,
+) -> *mut wasm_global_t {
+    let gt = &*(gt_ptr as *const wasm::GlobalDescriptor);
+    let val = &*val_ptr;
+    let wasm_val = if let Ok(wv) = val.try_into() {
+        wv
+    } else {
+        return ptr::null_mut();
+    };
+    let global = if gt.mutable {
+        wasm::Global::new_mutable(wasm_val)
+    } else {
+        wasm::Global::new(wasm_val)
+    };
+
+    Box::into_raw(Box::new(wasm_global_t { global }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_global_delete(global: *mut wasm_global_t) {
+    if !global.is_null() {
+        let _ = Box::from_raw(global);
+    }
+}
+
+// TODO: figure out if these should be deep or shallow copies
+#[no_mangle]
+pub unsafe extern "C" fn wasm_global_copy(global_ptr: *const wasm_global_t) -> *mut wasm_global_t {
+    let wasm_global = &*global_ptr;
+
+    // do shallow copy
+
+    Box::into_raw(Box::new(wasm_global_t {
+        global: wasm_global.global.clone(),
+    }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_global_get(global_ptr: *const wasm_global_t, out: *mut wasm_val_t) {
+    let wasm_global = &*global_ptr;
+    let value = wasm_global.global.get();
+    *out = value.try_into().unwrap();
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_global_set(
+    global_ptr: *mut wasm_global_t,
+    val_ptr: *const wasm_val_t,
+) {
+    let wasm_global = &mut *global_ptr;
+    let val = &*val_ptr;
+    let value = val.try_into().unwrap();
+    wasm_global.global.set(value);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_global_same(
+    global_ptr1: *const wasm_global_t,
+    global_ptr2: *const wasm_global_t,
+) -> bool {
+    let wasm_global1 = &*global_ptr1;
+    let wasm_global2 = &*global_ptr2;
+
+    wasm_global1.global.same(&wasm_global2.global)
 }
 
 macro_rules! wasm_declare_own {
@@ -789,16 +975,22 @@ pub struct wasm_extern_t {
 }
 wasm_declare_boxed_vec!(extern);
 
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct wasm_valtype_t {
-    valkind: wasm_valkind_t,
+    valkind: wasm_valkind_enum,
 }
 
 wasm_declare_vec!(valtype);
 
 #[no_mangle]
 pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> *mut wasm_valtype_t {
-    let valtype = wasm_valtype_t { valkind: kind };
+    let kind_enum = if let Ok(kind_enum) = kind.try_into() {
+        kind_enum
+    } else {
+        return ptr::null_mut();
+    };
+    let valtype = wasm_valtype_t { valkind: kind_enum };
     let valtype_ptr = Box::new(valtype);
     Box::into_raw(valtype_ptr)
 }
@@ -817,12 +1009,50 @@ pub extern "C" fn wasm_valtype_kind(valtype: *const wasm_valtype_t) -> wasm_valk
         panic!("wasm_valtype_kind: argument is null pointer");
     }
     unsafe {
-        return (*valtype).valkind;
+        return (*valtype).valkind as wasm_valkind_t;
     }
 }
 
 //wasm_declare_ref!(trap);
 //wasm_declare_ref!(foreign);
+
+// opaque type wrapping `wasm::GlobalDescriptor`
+#[repr(C)]
+pub struct wasm_globaltype_t {}
+
+wasm_declare_vec!(globaltype);
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_globaltype_new(
+    // own
+    valtype: *mut wasm_valtype_t,
+    mutability: wasm_mutability_t,
+) -> *mut wasm_globaltype_t {
+    wasm_globaltype_new_inner(valtype, mutability).unwrap_or(ptr::null_mut())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_globaltype_delete(globaltype: *mut wasm_globaltype_t) {
+    if !globaltype.is_null() {
+        let _ = Box::from_raw(globaltype as *mut wasm::GlobalDescriptor);
+    }
+}
+
+unsafe fn wasm_globaltype_new_inner(
+    // own
+    valtype_ptr: *mut wasm_valtype_t,
+    mutability: wasm_mutability_t,
+) -> Option<*mut wasm_globaltype_t> {
+    let me: wasm_mutability_enum = mutability.try_into().ok()?;
+    let valtype = *valtype_ptr;
+    let gd = Box::new(wasm::GlobalDescriptor {
+        mutable: me.is_mutable(),
+        ty: valtype.into(),
+    });
+    wasm_valtype_delete(valtype_ptr);
+
+    Some(Box::into_raw(gd) as *mut wasm_globaltype_t)
+}
 
 // opaque type wrapping `Arc<wasm::FuncSig>`
 #[repr(C)]
@@ -851,13 +1081,15 @@ unsafe fn wasm_functype_new_inner(
     let params: Vec<wasm::Type> = params
         .into_slice()?
         .iter()
-        .map(|param| valkind_to_type(param.valkind))
-        .collect::<Option<Vec<_>>>()?;
+        .copied()
+        .map(Into::into)
+        .collect::<Vec<_>>();
     let results: Vec<wasm::Type> = results
         .into_slice()?
         .iter()
-        .map(|param| valkind_to_type(param.valkind))
-        .collect::<Option<Vec<_>>>()?;
+        .copied()
+        .map(Into::into)
+        .collect::<Vec<_>>();
 
     let funcsig = Arc::new(wasm::FuncSig::new(params, results));
     Some(Arc::into_raw(funcsig) as *mut wasm_functype_t)

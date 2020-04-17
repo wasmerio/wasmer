@@ -62,6 +62,16 @@ enum Version {
 typedef uint8_t Version;
 #endif
 
+enum wasm_valkind_enum {
+  WASM_I32,
+  WASM_I64,
+  WASM_F32,
+  WASM_F64,
+  WASM_ANYREF = 128,
+  WASM_FUNCREF,
+};
+typedef uint8_t wasm_valkind_enum;
+
 /**
  * List of export/import kinds.
  */
@@ -201,6 +211,10 @@ typedef struct {
 } wasm_extern_t;
 
 typedef struct {
+  Global global;
+} wasm_global_t;
+
+typedef struct {
 
 } wasm_store_t;
 
@@ -209,16 +223,22 @@ typedef struct {
 } wasm_functype_t;
 
 typedef struct {
+
+} wasm_globaltype_t;
+
+typedef struct {
+  wasm_valkind_enum valkind;
+} wasm_valtype_t;
+
+typedef uint8_t wasm_mutability_t;
+
+typedef struct {
   Arc_Instance real_instance;
 } wasm_instance_t;
 
 typedef struct {
   Arc_Module real_module;
 } wasm_module_t;
-
-typedef struct {
-  wasm_valkind_t valkind;
-} wasm_valtype_t;
 
 typedef struct {
 
@@ -509,6 +529,8 @@ wasm_engine_t *wasm_engine_new_with_config(wasm_config_t *_config_ptr);
 
 wasm_func_t *wasm_extern_as_func(wasm_extern_t *extrn);
 
+wasm_global_t *wasm_extern_as_global(wasm_extern_t *extrn);
+
 wasm_extern_t *wasm_func_as_extern(wasm_func_t *func_ptr);
 
 wasm_trap_t *wasm_func_call(const wasm_func_t *func, const wasm_val_t *args, wasm_val_t *results);
@@ -534,6 +556,26 @@ wasm_functype_t *wasm_functype_copy(wasm_functype_t *arg);
 void wasm_functype_delete(wasm_functype_t *arg);
 
 wasm_functype_t *wasm_functype_new(wasm_valtype_vec_t *params, wasm_valtype_vec_t *results);
+
+wasm_extern_t *wasm_global_as_extern(wasm_global_t *global_ptr);
+
+wasm_global_t *wasm_global_copy(const wasm_global_t *global_ptr);
+
+void wasm_global_delete(wasm_global_t *global);
+
+void wasm_global_get(const wasm_global_t *global_ptr, wasm_val_t *out);
+
+wasm_global_t *wasm_global_new(wasm_store_t *_store,
+                               const wasm_globaltype_t *gt_ptr,
+                               const wasm_val_t *val_ptr);
+
+bool wasm_global_same(const wasm_global_t *global_ptr1, const wasm_global_t *global_ptr2);
+
+void wasm_global_set(wasm_global_t *global_ptr, const wasm_val_t *val_ptr);
+
+void wasm_globaltype_delete(wasm_globaltype_t *globaltype);
+
+wasm_globaltype_t *wasm_globaltype_new(wasm_valtype_t *valtype, wasm_mutability_t mutability);
 
 void wasm_instance_delete(wasm_instance_t *instance);
 

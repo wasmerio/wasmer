@@ -113,6 +113,19 @@ impl Global {
         }
     }
 
+    /// Returns whether or not 2 `Global`s point to the same underlying value.
+    pub fn same(&self, other: &Self) -> bool {
+        let storage_ptr1: *const vm::LocalGlobal = {
+            let storage = self.storage.lock().unwrap();
+            &*storage
+        };
+        let storage_ptr2: *const vm::LocalGlobal = {
+            let storage = other.storage.lock().unwrap();
+            &*storage
+        };
+        self.desc == other.desc && storage_ptr1 == storage_ptr2
+    }
+
     // TODO: think about this and if this should now be unsafe
     pub(crate) fn vm_local_global(&mut self) -> *mut vm::LocalGlobal {
         let mut storage = self.storage.lock().unwrap();
