@@ -93,7 +93,7 @@ generate: generate-emtests generate-wasitests
 
 # Spectests
 spectests-singlepass:
-	cargo test singlepass::spec --release $(backend_features) -- --test-threads=1
+	cargo test singlepass::spec --release $(backend_features)
 
 spectests-cranelift:
 	cargo test cranelift::spec --release $(backend_features)
@@ -107,7 +107,7 @@ spectests:
 
 # Emscripten tests
 emtests-singlepass:
-	cargo test singlepass::emscripten --release $(backend_features) -- --test-threads=1
+	cargo test singlepass::emscripten --release $(backend_features)
 
 emtests-cranelift:
 	cargo test cranelift::emscripten --release $(backend_features)
@@ -142,7 +142,7 @@ endif
 	mkdir -p tests/wasi_test_resources/test_fs/temp
 
 wasitests-singlepass: wasitests-setup
-	cargo test singlepass::wasi --release $(backend_features) -- --test-threads=1
+	cargo test singlepass::wasi --release $(backend_features)
 
 wasitests-cranelift: wasitests-setup
 	cargo test cranelift::wasi --release $(backend_features) -- --test-threads=1
