@@ -1,3 +1,0 @@
-- Run test
-- Throwing
-- Caught expected

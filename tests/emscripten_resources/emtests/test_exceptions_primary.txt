@@ -1,3 +1,0 @@
-exception caught, but continuing...
-(after exception)
-exception caught: some logic_error exception

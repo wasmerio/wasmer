@@ -1,5 +1,0 @@
-ignore = [
-    "src/spectests",
-    "src/emscripten-tests",
-    "src/wasi-tests",
-]

@@ -1,126 +1,214 @@
-
 <div align="center">
-  <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
-    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
+  <a href="https://docs.wasmer.io/ecosystem/wasienv" target="_blank" rel="noopener noreferrer">
+    <img width="240" src="https://raw.githubusercontent.com/wasienv/wasienv/master/logo.png" alt="Wasmer logo">
   </a>
   
   <p>
-    <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
-      <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
-    </a>
-    <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
-      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
+    <a href="https://github.com/wasienv/wasienv/actions?workflow=CI">
+      <img src="https://github.com/wasienv/wasienv/workflows/CI/badge.svg?style=flat-square" alt="Tests">
     </a>
     <a href="https://slack.wasmer.io">
       <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel">
     </a> 
+    <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
+      <img src="https://img.shields.io/github/license/wasienv/wasienv.svg?style=flat-square" alt="License">
+    </a>
   </p>
 
   <h3>
-    <a href="https://wasmer.io/">Website</a>
+    <a href="https://docs.wasmer.io/ecosystem/wasienv">Wasienv Docs</a>
     <span> • </span>
-    <a href="https://docs.wasmer.io">Docs</a>
+    <a href="https://slack.wasmer.io/">Slack</a>
     <span> • </span>
-    <a href="https://slack.wasmer.io/">Chat</a>
+    <a href="https://twitter.com/wasmerio">Twitter</a>
   </h3>
 
 </div>
 
 <br />
 
-[Wasmer](https://wasmer.io/) is a standalone [WebAssembly](https://webassembly.org/) runtime:
-* **Universal**: Wasmer is available in *Linux, macOS and Windows* (for both Desktop and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c))
-* **Fast**: Wasmer aims to run WebAssembly at near-native speed
-* **Pluggable**: Wasmer can be used from almost **any programming language**
-* **Safe**: supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/)
+Wasienv is a tool that aims to bring all programming languages to [WebAssembly WASI](https://github.com/WebAssembly/WASI). With `wasienv` you can compile:
 
-It is used to run software fast, universally and safely: standalone applications and universal libraries.
+* C/C++ projects to Wasm + WASI ([see usage example](https://docs.wasmer.io/ecosystem/wasienv/compile-c-c++-to-wasm-wasi))
+* Swift to Wasm + WASI ([see usage example](https://docs.wasmer.io/ecosystem/wasienv/compile-swift-to-wasm-wasi))
 
-## Contents
+So you can run them anywhere (with any [Standalone WASI WebAssembly runtime](https://wasmer.io), or [in the Browser](https://webassembly.sh)).
 
-- [Quickstart](#quickstart)
-- [Language Integrations](#language-integrations)
-- [Contribute](#contribute)
-- [Community](#community)
+> Note: If you aim to use the WebAssembly files in the web directly (using graphics, audio or other tools that are not supported in WASI) then [Emscripten](https://emscripten.org/) is probably a much better choice.
 
-## Quickstart
+## Install
 
-Get started with Wasmer:
-
-#### 1. Install Wasmer
+You can install `wasienv` with:
 
 ```sh
-curl https://get.wasmer.io -sSfL | sh
+curl https://raw.githubusercontent.com/wasienv/wasienv/master/install.sh | sh
 ```
 
-<details>
-  <summary>With PowerShell</summary>
-  <p>
+> Note: we also ship `wasienv` in a Docker image. You can check [how to use the Wasienv Docker image here](https://github.com/wasienv/wasienv/blob/master/docker/).
 
-```powershell
-iwr https://win.wasmer.io -useb | iex
+## Using wasienv for C projects
+
+If you want to compile a C file to a WebAssembly WASI:
+
+```sh
+# To compile to a WebAssembly WASI file
+# This command will generate:
+#  • An executable: ./example
+#  • A WebAssembly file: ./example.wasm
+wasicc examples/example.c -o example
+
+# If you are using configure
+wasiconfigure ./configure
+
+# If you are using cmake (or make)
+wasimake cmake .
 ```
 
-</p>
-</details>
+If you want to compile a C file to plain WebAssembly:
 
-> *Check all available installation methods here: https://github.com/wasmerio/wasmer-install*
-
-#### 2. Use Wasmer
-
-Download a WASM file, and use it universally! You can start with QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
-
-```bash
-wasmer qjs.wasm
+```sh
+# To compile to a WebAssembly file
+# This command will generate:
+#  • An executable: ./example
+#  • A WebAssembly file: ./example.wasm
+wasmcc examples/example.c -o example
 ```
 
-#### 3. Next steps
+## Commands
 
-Here is what you can do next:
+When installing `wasienv`, the following commands will be automatically available:
 
-- [Use Wasmer from your Rust application](https://docs.wasmer.io/integrations/rust)
-- [Publish a Wasm package on WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
-- [Read more about Wasmer](https://medium.com/wasmer/)
+### `wasienv`
 
+This is the compiler toolchain. You have two commands available:
 
-### Language Integrations
+For installing a SDK (`wasienv install-sdk`):
 
-Wasmer runtime can be used as a library embedded in different languages, so you can **use WebAssembly anywhere** 🎉
+```sh
+wasienv install-sdk 7
+```
 
-| &nbsp; | Language | Docs | Author(s) | Maintenance | Release | Stars |
-|-|-|-|-|-|-|-|
-| ![Rust logo](./assets/languages/rust.svg) | [**Rust**](https://github.com/wasmerio/wasmer-rust-example) | [Docs](https://wasmerio.github.io/wasmer/crates/wasmer_runtime/) | Wasmer | actively developed | <a href="https://crates.io/crates/wasmer-runtime/" target="_blank">![last release](https://img.shields.io/crates/v/wasmer-runtime?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer?style=flat-square) |
-| ![C logo](./assets/languages/c.svg) | [**C/C++**](https://github.com/wasmerio/wasmer-c-api) | [Docs](https://wasmerio.github.io/wasmer/c/runtime-c-api/) | Wasmer | actively developed | <a href="https://github.com/wasmerio/wasmer-c-api/" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/wasmer?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer?style=flat-square) |
-| ![Python logo](./assets/languages/python.svg) | [**Python**](https://github.com/wasmerio/python-ext-wasm) | [Docs](https://github.com/wasmerio/python-ext-wasm#api-of-the-wasmer-extensionmodule) | Wasmer | actively developed | <a href="https://pypi.org/project/wasmer/" target="_blank">![last release](https://img.shields.io/pypi/v/wasmer?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/python-ext-wasm?style=flat-square) |
-| ![Go logo](./assets/languages/go.svg) | [**Go**](https://github.com/wasmerio/go-ext-wasm) | [Docs](https://github.com/wasmerio/go-ext-wasm#basic-example-exported-function) | Wasmer | actively developed | <a href="https://github.com/wasmerio/go-ext-wasm" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/go-ext-wasm?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/go-ext-wasm?style=flat-square) |
-| ![PHP logo](./assets/languages/php.svg) | [**PHP**](https://github.com/wasmerio/php-ext-wasm) | [Docs](https://wasmerio.github.io/php-ext-wasm/wasm/) | Wasmer | actively developed | <a href="https://pecl.php.net/package/wasm" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/php-ext-wasm?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/php-ext-wasm?style=flat-square) |
-| ![Ruby logo](./assets/languages/ruby.svg) | [**Ruby**](https://github.com/wasmerio/ruby-ext-wasm) | [Docs](https://www.rubydoc.info/gems/wasmer/) | Wasmer | actively developed | <a href="https://rubygems.org/gems/wasmer" target="_blank">![last release](https://img.shields.io/gem/v/wasmer?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/ruby-ext-wasm?style=flat-square) |
-| ![Postgres logo](./assets/languages/postgres.svg) | [**Postgres**](https://github.com/wasmerio/postgres-ext-wasm) | |  Wasmer | actively developed | <a href="https://github.com/wasmerio/postgres-ext-wasm" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/postgres-ext-wasm?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/postgres-ext-wasm?style=flat-square) |
-| ![JS logo](./assets/languages/js.svg) | [**JavaScript**](https://github.com/wasmerio/wasmer-js) | [Docs](https://docs.wasmer.io/wasmer-js/wasmer-js) | Wasmer | actively developed | <a href="https://www.npmjs.com/package/@wasmer/wasi" target="_blank">![last release](https://img.shields.io/npm/v/@wasmer/wasi?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer-js?style=flat-square) |
-| ![Java logo](./assets/languages/java.svg) | [**Java**](https://github.com/wasmerio/java-ext-wasm) | [Docs](https://github.com/wasmerio/java-ext-wasm/#api-of-the-wasmer-library) | Wasmer | actively developed | <a href="https://bintray.com/wasmer/wasmer-jni/wasmer-jni" target="_blank">![last release](https://img.shields.io/bintray/v/wasmer/wasmer-jni/wasmer-jni?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/java-ext-wasm?style=flat-square) |
-| ![C# logo](./assets/languages/csharp.svg) | [**C#/.Net**](https://github.com/migueldeicaza/WasmerSharp) | [Docs](https://migueldeicaza.github.io/WasmerSharp/) |[Miguel de Icaza](https://github.com/migueldeicaza) | actively developed | <a href="https://www.nuget.org/packages/WasmerSharp/" target="_blank">![last release](https://img.shields.io/nuget/v/WasmerSharp?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/migueldeicaza/WasmerSharp?style=flat-square) |
-| ![R logo](./assets/languages/r.svg) | [**R**](https://github.com/dirkschumacher/wasmr) | [Docs](https://github.com/dirkschumacher/wasmr#example) | [Dirk Schumacher](https://github.com/dirkschumacher) | actively developed | | ![number of Github stars](https://img.shields.io/github/stars/dirkschumacher/wasmr?style=flat-square) |
-| ![Elixir logo](./assets/languages/elixir.png) | [**Elixir**](https://github.com/tessi/wasmex) | [Docs](https://hexdocs.pm/wasmex/api-reference.html) | [Philipp Tessenow](https://github.com/tessi) | actively developed | <a href="https://hex.pm/packages/wasmex" target="_blank">![last release](https://img.shields.io/hexpm/v/wasmex?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/tessi/wasmex?style=flat-square) |
-| ❓ | [your language is missing?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=) | | | | |
+For setting a SDK as the default (`wasienv default-sdk`):
 
+```sh
+wasienv default-sdk 7
+```
 
-## Contribute
+### `wasicc`
 
-**We welcome any form of contribution, especially from new members of our community** 💜
+It's a wrapper on top of `clang`, with additions for the stubs, sysroot and target.
+It also detects autoexecutables in the output and wraps to execute them with a WebAssembly WASI runtime via `wasirun`.
 
-You can check how to build the Wasmer runtime in [our awesome docs](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)!
+### `wasic++`
 
-### Testing
+It's a wrapper on top of `clang++`, with additions for the stubs, sysroot and target.
+It also detects autoexecutables in the output and wraps to execute them with a WebAssembly WASI runtime via `wasirun`.
 
-Test you want? The [Wasmer docs will show you how](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
+### `wasmcc`
 
-## Community
+It's a wrapper on top of `clang`, with additions for preconfiguring the wasm linker, target, etc...
 
-Wasmer has an amazing community developers and contributors. Welcome, please join us! 👋
+### `wasmc++`
 
-### Channels
+It's a wrapper on top of `clang++`, with additions for preconfiguring the wasm linker, target, etc...
 
-- [Slack](https://slack.wasmer.io/)
-- [Twitter](https://twitter.com/wasmerio)
-- [Facebook](https://www.facebook.com/wasmerio)
-- [Email](mailto:hello@wasmer.io)
+### `wasiconfigure`
+
+It's a helper that adds the wasienv environment vars (`CC`, `CXX`, `RUNLIB`, ...) to the following command (`./configure`).
+
+Example:
+
+```sh
+wasiconfigure ./configure
+```
+
+### `wasimake`
+
+It's a helper that adds the wasienv environment vars (`CC`, `CXX`, `RUNLIB`, ...) for the make (`make` or `cmake`).
+
+Example:
+
+```sh
+# With CMake
+wasimake cmake .
+
+# With Make
+wasimake make
+```
+
+### `wasirun`
+
+It executes a given WebAssembly file with a standalone WebAssembly runtime.
+
+```sh
+wasirun myfile.wasm
+```
+
+## Using wasienv for Swift projects
+
+If you want to compile a Swift file to a WebAssembly WASI, you
+will need to first install the Wasienv Swift integration:
+
+```sh
+wasienv install-swift
+```
+
+Once the integration is installed, you can start compiling Swift files
+to WebAssembly!
+
+### `wasiswiftc`
+
+It compiles your Swift files into WebAssembly.
+
+```sh
+wasiswiftc example.swift -o example.wasm
+```
+
+## Contributing
+
+After cloning this repo, ensure dependencies are installed by running:
+
+```sh
+make install-dev
+```
+
+After that, all the commands will be available on your shell and you should be able to start seeing the changes directly without re-installing wasienv.
+
+## Testing
+
+After running `make install-dev` you can run directly:
+
+```sh
+make test
+```
+
+## How wasienv compares to …?
+
+### Emscripten
+
+[Emscripten](https://emscripten.org/) is a great toolchain that let's you compile your C/C++ projects to WebAssembly so you can use them in the web easily.
+
+However, Emscripten has a **non-stable ABI** (because constant and fast iteration is very useful for their usecase).
+This makes it a bit challening for standalone-runtimes to continually adapt.
+Because of that, adopting the WASI ABI is a much easier path for standalone server-side WebAssembly runtimes.
+
+Right now Emscripten is [moving towards WASI adoption](https://github.com/emscripten-core/emscripten/issues/9479). 
+However, Emscripten can only emit WASI WebAssembly files for some programs as Emscripten's filesystem layer supports POSIX features not yet present in WASI.
+
+Emscripten has also some tools that are not needed (nor supported) in the case of server-side Standalone WebAssembly runtimes, such as [`EM_JS` and `EM_ASM`](https://emscripten.org/docs/porting/connecting_cpp_and_javascript/Interacting-with-code.html#calling-javascript-from-c-c).
+
+Wasienv learns a lot from Emscripten, since they figured out the perfect ergonomics for having C/C++ projects to adopt WebAssembly. Alon, the creator of Emscripten, is without any doubt one of the brilliant minds behind WebAssembly and he inspired us with his work to keep improving the ergonomics of WASI.
+
+### WASI-libc
+
+WASI-libc is the "frontend ABI" for WASI. By itself, it only provides header files and implementations that make C compilers adopt WASI very easily via the `--sysroot` flag.
+
+### WASI-SDK
+
+We can see WASI-SDK as the union between `WASI-libc` and the compiler binaries `clang`, `wasm-ld`, ...
+
+Wasienv is using WASI-SDK under the hood to compile to WebAssembly, however it differs from it in two major ways:
+1. `wasienv` is designed to work with **multiple SDKs** versions
+2. `wasienv` is completely focused on the **ergonomics**, exposing very simple to use CLI tools so that projects can adopt it easily.
+
+We can think of `wasienv` as applying the ergonomic ideas from Emscripten to the WASI-SDK
