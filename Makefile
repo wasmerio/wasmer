@@ -28,14 +28,14 @@ ifeq ($(ARCH), x86_64)
   # LLVM could be enabled if not in Windows
   ifneq ($(OS), Windows_NT)
     # Autodetect LLVM from llvm-config
-    ifeq (, $(shell which llvm-config))
+    ifneq (, $(shell which llvm-config))
       LLVM_VERSION := $(shell llvm-config --version)
       # If findstring is not empty, then it have found the value
       ifneq (, $(findstring 8,$(LLVM_VERSION))$(findstring 9,$(LLVM_VERSION)))
         backends += llvm
       endif
     else
-      ifeq (, $(shell which llvm-config-8))
+      ifneq (, $(shell which llvm-config-8))
         backends += llvm
       endif
     endif
