@@ -10929,8 +10929,6 @@
 <span id="10929">10929</span>
 <span id="10930">10930</span>
 <span id="10931">10931</span>
-<span id="10932">10932</span>
-<span id="10933">10933</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">forget_copy</span>)]</span> <span class="comment">// Used by dynasm.</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">unused_imports</span>)]</span>
@@ -13912,8 +13910,7 @@
                         );
                         <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="ident">type_to_wp_type</span>(<span class="ident">module_info</span>.<span class="ident">globals</span>[<span class="ident">local_index</span>].<span class="ident">desc</span>.<span class="ident">ty</span>);
                         <span class="kw">if</span> <span class="ident">ty</span>.<span class="ident">is_float</span>() {
-                            <span class="self">self</span>.<span class="ident">fp_stack</span>
-                                .<span class="ident">push</span>(<span class="ident">FloatValue</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>));
+                            <span class="self">self</span>.<span class="ident">fp_stack</span>.<span class="ident">push</span>(<span class="ident">FloatValue</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">len</span>()));
                         }
                         <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">acquire_locations</span>(
                             <span class="ident">a</span>,
@@ -13937,8 +13934,7 @@
                         );
                         <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="ident">type_to_wp_type</span>(<span class="ident">module_info</span>.<span class="ident">imported_globals</span>[<span class="ident">import_index</span>].<span class="number">1</span>.<span class="ident">ty</span>);
                         <span class="kw">if</span> <span class="ident">ty</span>.<span class="ident">is_float</span>() {
-                            <span class="self">self</span>.<span class="ident">fp_stack</span>
-                                .<span class="ident">push</span>(<span class="ident">FloatValue</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>));
+                            <span class="self">self</span>.<span class="ident">fp_stack</span>.<span class="ident">push</span>(<span class="ident">FloatValue</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">len</span>()));
                         }
                         <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">acquire_locations</span>(
                             <span class="ident">a</span>,
