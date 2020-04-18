@@ -153,6 +153,10 @@ typedef struct {
 
 } wasm_engine_t;
 
+typedef struct {
+
+} wasm_trap_t;
+
 typedef uint8_t wasm_valkind_t;
 
 typedef union {
@@ -215,6 +219,10 @@ typedef struct {
 } wasm_global_t;
 
 typedef struct {
+  Memory memory;
+} wasm_memory_t;
+
+typedef struct {
 
 } wasm_store_t;
 
@@ -239,6 +247,15 @@ typedef struct {
 typedef struct {
   Arc_Module real_module;
 } wasm_module_t;
+
+typedef struct {
+
+} wasm_memorytype_t;
+
+typedef struct {
+  uint32_t min;
+  uint32_t max;
+} wasm_limits_t;
 
 typedef struct {
 
@@ -531,6 +548,8 @@ wasm_func_t *wasm_extern_as_func(wasm_extern_t *extrn);
 
 wasm_global_t *wasm_extern_as_global(wasm_extern_t *extrn);
 
+wasm_memory_t *wasm_extern_as_memory(wasm_extern_t *extrn);
+
 wasm_extern_t *wasm_func_as_extern(wasm_func_t *func_ptr);
 
 wasm_trap_t *wasm_func_call(const wasm_func_t *func, const wasm_val_t *args, wasm_val_t *results);
@@ -586,6 +605,32 @@ wasm_instance_t *wasm_instance_new(wasm_store_t *_store,
                                    const wasm_extern_t *const *imports,
                                    wasm_trap_t **_traps);
 
+wasm_extern_t *wasm_memory_as_extern(wasm_memory_t *memory_ptr);
+
+wasm_memory_t *wasm_memory_copy(const wasm_memory_t *memory_ptr);
+
+uint8_t *wasm_memory_data(wasm_memory_t *memory_ptr);
+
+uintptr_t wasm_memory_data_size(const wasm_memory_t *memory_ptr);
+
+void wasm_memory_delete(wasm_memory_t *memory);
+
+bool wasm_memory_grow(wasm_memory_t *memory_ptr, uint32_t delta);
+
+wasm_memory_t *wasm_memory_new(wasm_store_t *_store, const wasm_memorytype_t *mt_ptr);
+
+bool wasm_memory_same(const wasm_memory_t *memory_ptr1, const wasm_memory_t *memory_ptr2);
+
+uint32_t wasm_memory_size(const wasm_memory_t *memory_ptr);
+
+wasm_memorytype_t *wasm_memory_type(const wasm_memory_t *_memory_ptr);
+
+void wasm_memorytype_delete(wasm_memorytype_t *memorytype);
+
+const wasm_limits_t *wasm_memorytype_limits(const wasm_memorytype_t *mt);
+
+wasm_memorytype_t *wasm_memorytype_new(const wasm_limits_t *limits);
+
 void wasm_module_delete(wasm_module_t *module);
 
 wasm_module_t *wasm_module_new(wasm_store_t *_store, const wasm_byte_vec_t *bytes);
@@ -593,6 +638,8 @@ wasm_module_t *wasm_module_new(wasm_store_t *_store, const wasm_byte_vec_t *byte
 void wasm_store_delete(wasm_store_t *wasm_store_address);
 
 wasm_store_t *wasm_store_new(wasm_engine_t *_wasm_engine);
+
+void wasm_trap_delete(wasm_trap_t *trap);
 
 void wasm_valtype_delete(wasm_valtype_t *valtype);
 

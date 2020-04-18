@@ -108,6 +108,17 @@ impl Memory {
         }
     }
 
+    /// Whether the two memories point to the same underlying data.
+    pub fn same(&self, other: &Self) -> bool {
+        let inner_same = match (&self.variant, &other.variant) {
+            (MemoryVariant::Unshared(us1), MemoryVariant::Unshared(us2)) => us1.same(us2),
+            (MemoryVariant::Shared(s1), MemoryVariant::Shared(s2)) => s1.same(s2),
+            _ => false,
+        };
+
+        inner_same && self.desc == other.desc
+    }
+
     /// Return a "view" of the currently accessible memory. By
     /// default, the view is unsynchronized, using regular memory
     /// accesses. You can force a memory view to use atomic accesses
@@ -279,6 +290,14 @@ impl UnsharedMemory {
         }
     }
 
+    /// Whether the two memories point to the same underlying data.
+    pub fn same(&self, other: &Self) -> bool {
+        let ptr1 = self.vm_local_memory();
+        let ptr2 = other.vm_local_memory();
+
+        ptr1 == ptr2
+    }
+
     pub(crate) fn vm_local_memory(&self) -> *mut vm::LocalMemory {
         self.internal.local.as_ptr()
     }
@@ -341,6 +360,14 @@ impl SharedMemory {
         let _guard = self.internal.lock.lock();
         let memory = self.internal.memory.lock().unwrap();
         memory.size()
+    }
+
+    /// Whether the two memories point to the same underlying data.
+    pub fn same(&self, other: &Self) -> bool {
+        let ptr1 = self.vm_local_memory();
+        let ptr2 = other.vm_local_memory();
+
+        ptr1 == ptr2
     }
 
     /// Gets a mutable pointer to the `LocalMemory`.

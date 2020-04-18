@@ -11,6 +11,8 @@ use std::sync::Arc;
 use wasmer::compiler::compile;
 use wasmer::import::{ImportObject, LikeNamespace, Namespace};
 use wasmer::module::Module;
+use wasmer::error::{CallError, RuntimeError};
+use wasmer::units;
 use wasmer::wasm;
 
 // TODO: remove delete from macro generation, need to do that manually
@@ -193,8 +195,12 @@ impl<T: Sized + 'static> Iterator for CArrayIter<T> {
 }
 
 // reads from null-terminated array of `wasm_extern_t`s
-unsafe fn argument_import_iter(imports: *const *const wasm_extern_t) -> CArrayIter<wasm_extern_t> {
-    CArrayIter::new(imports).expect("Could not create iterator over imports argument")
+unsafe fn argument_import_iter(
+    imports: *const *const wasm_extern_t,
+) -> Box<dyn Iterator<Item = &'static wasm_extern_t>> {
+    CArrayIter::new(imports)
+        .map(|it| Box::new(it) as _)
+        .unwrap_or_else(|| Box::new(std::iter::empty()) as _)
 }
 
 #[no_mangle]
@@ -323,6 +329,19 @@ pub unsafe extern "C" fn wasm_global_as_extern(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn wasm_memory_as_extern(
+    memory_ptr: *mut wasm_memory_t,
+) -> *mut wasm_extern_t {
+    let memory = &*memory_ptr;
+    Box::into_raw(Box::new(wasm_extern_t {
+        // update this if global does hold onto an `instance`
+        instance: None,
+        dynfunc: None,
+        export: wasm::Export::Memory(memory.memory.clone()),
+    }))
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_func(extrn: *mut wasm_extern_t) -> *mut wasm_func_t {
     let extrn = &*extrn;
     match &extrn.export {
@@ -363,6 +382,17 @@ pub unsafe extern "C" fn wasm_extern_as_global(extrn: *mut wasm_extern_t) -> *mu
     match &extrn.export {
         wasm::Export::Global(global) => Box::into_raw(Box::new(wasm_global_t {
             global: global.clone(),
+        })),
+        _ => ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_extern_as_memory(extrn: *mut wasm_extern_t) -> *mut wasm_memory_t {
+    let extrn = &*extrn;
+    match &extrn.export {
+        wasm::Export::Memory(memory) => Box::into_raw(Box::new(wasm_memory_t {
+            memory: memory.clone(),
         })),
         _ => ptr::null_mut(),
     }
@@ -672,12 +702,14 @@ pub unsafe extern "C" fn wasm_func_call(
                 }
                 wasm_traps = ptr::null_mut();
             }
-            Err(e) => {
-                dbg!(e);
-                // probably the opposite of what this is supposed to do...
-                wasm_traps = ptr::null_mut();
+            Err(CallError::Runtime(e)) => {
+                wasm_traps = Box::into_raw(Box::new(e)) as _;
             }
-        } //
+            Err(_) => {
+                // TODO: handle this
+                panic!("resolve error!");
+            }
+        } 
     } else {
         wasm_traps = match func.callback {
             CallbackType::WithoutEnv(fp) => fp(args, results),
@@ -774,6 +806,89 @@ pub unsafe extern "C" fn wasm_global_same(
     let wasm_global2 = &*global_ptr2;
 
     wasm_global1.global.same(&wasm_global2.global)
+}
+
+#[repr(C)]
+pub struct wasm_memory_t {
+    // maybe needs to hold onto instance
+    memory: wasm::Memory,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memory_new(
+    _store: *mut wasm_store_t,
+    mt_ptr: *const wasm_memorytype_t,
+) -> *mut wasm_memory_t {
+    let md = (&*(mt_ptr as *const wasm::MemoryDescriptor)).clone();
+
+    let memory = wasm::Memory::new(md).unwrap();
+    Box::into_raw(Box::new(wasm_memory_t { memory }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memory_delete(memory: *mut wasm_memory_t) {
+    if !memory.is_null() {
+        let _ = Box::from_raw(memory);
+    }
+}
+
+// TODO: figure out if these should be deep or shallow copies
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memory_copy(memory_ptr: *const wasm_memory_t) -> *mut wasm_memory_t {
+    let wasm_memory = &*memory_ptr;
+
+    // do shallow copy
+
+    Box::into_raw(Box::new(wasm_memory_t {
+        memory: wasm_memory.memory.clone(),
+    }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memory_type(
+    _memory_ptr: *const wasm_memory_t,
+) -> *mut wasm_memorytype_t {
+    todo!("wasm_memory_type")
+}
+
+// get a raw pointer into bytes
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memory_data(memory_ptr: *mut wasm_memory_t) -> *mut u8 {
+    let memory = &mut *memory_ptr;
+    mem::transmute::<&[std::cell::Cell<u8>], &[u8]>(&memory.memory.view()[..]) as *const [u8]
+        as *const u8 as *mut u8
+}
+
+// size in bytes
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memory_data_size(memory_ptr: *const wasm_memory_t) -> usize {
+    let memory = &*memory_ptr;
+    memory.memory.size().bytes().0
+}
+
+// size in pages
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memory_size(memory_ptr: *const wasm_memory_t) -> u32 {
+    let memory = &*memory_ptr;
+    memory.memory.size().0 as _
+}
+
+// delta is in pages
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memory_grow(memory_ptr: *mut wasm_memory_t, delta: u32) -> bool {
+    let memory = &mut *memory_ptr;
+    memory.memory.grow(units::Pages(delta)).is_ok()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memory_same(
+    memory_ptr1: *const wasm_memory_t,
+    memory_ptr2: *const wasm_memory_t,
+) -> bool {
+    let wasm_memory1 = &*memory_ptr1;
+    let wasm_memory2 = &*memory_ptr2;
+
+    wasm_memory1.memory.same(&wasm_memory2.memory)
 }
 
 macro_rules! wasm_declare_own {
@@ -963,7 +1078,16 @@ pub type wasm_byte_t = u8;
 wasm_declare_vec!(byte);
 
 wasm_declare_ref_base!(ref);
-wasm_declare_ref!(trap);
+
+#[repr(C)]
+pub struct wasm_trap_t {}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_trap_delete(trap: *mut wasm_trap_t) {
+    if !trap.is_null() {
+        let _ = Box::from_raw(trap as *mut RuntimeError);
+    }
+}
 
 #[repr(C)]
 pub struct wasm_extern_t {
@@ -1052,6 +1176,57 @@ unsafe fn wasm_globaltype_new_inner(
     wasm_valtype_delete(valtype_ptr);
 
     Some(Box::into_raw(gd) as *mut wasm_globaltype_t)
+}
+
+// opaque type wrapping `wasm::MemoryDescriptor`
+#[repr(C)]
+pub struct wasm_memorytype_t {}
+
+wasm_declare_vec!(memorytype);
+
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct wasm_limits_t {
+    min: u32,
+    max: u32,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memorytype_new(
+    limits: *const wasm_limits_t,
+) -> *mut wasm_memorytype_t {
+    let limits = *limits;
+    let min_pages = units::Pages(limits.min as _);
+    // TODO: investigate if `0` is in fact a sentinel value here
+    let max_pages = if limits.max == 0 {
+        None
+    } else {
+        Some(units::Pages(limits.max as _))
+    };
+    Box::into_raw(Box::new(
+        wasm::MemoryDescriptor::new(min_pages, max_pages, false)
+            .expect("creating a new memory descriptor"),
+    )) as *mut wasm_memorytype_t
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memorytype_delete(memorytype: *mut wasm_memorytype_t) {
+    if !memorytype.is_null() {
+        let _ = Box::from_raw(memorytype as *mut wasm::MemoryDescriptor);
+    }
+}
+
+// TODO: fix memory leak
+// this function leaks memory because the returned limits pointer is not owned
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memorytype_limits(
+    mt: *const wasm_memorytype_t,
+) -> *const wasm_limits_t {
+    let md = &*(mt as *const wasm::MemoryDescriptor);
+    Box::into_raw(Box::new(wasm_limits_t {
+        min: md.minimum.bytes().0 as _,
+        max: md.maximum.map(|max| max.bytes().0 as _).unwrap_or(0),
+    }))
 }
 
 // opaque type wrapping `Arc<wasm::FuncSig>`
