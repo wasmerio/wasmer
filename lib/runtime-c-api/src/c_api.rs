@@ -968,26 +968,24 @@ macro_rules! wasm_declare_vec_inner {
 
 
             #[no_mangle]
-            pub extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
+            pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
                 // TODO: actually implement this
                 [<wasm_ $name _vec_new>](out, length);
             }
 
             #[no_mangle]
-            pub extern "C" fn [<wasm_ $name _vec_new_empty>](out: *mut [<wasm_ $name _vec_t>]) {
+            pub unsafe extern "C" fn [<wasm_ $name _vec_new_empty>](out: *mut [<wasm_ $name _vec_t>]) {
                 // TODO: actually implement this
                 [<wasm_ $name _vec_new>](out, 0);
             }
 
             #[no_mangle]
-            pub extern "C" fn [<wasm_ $name _vec_delete>](ptr: *mut [<wasm_ $name _vec_t>]) {
-                unsafe {
-                    let vec = &mut *ptr;
-                    if !vec.data.is_null() {
-                        Vec::from_raw_parts(vec.data, vec.size, vec.size);
-                        vec.data = ptr::null_mut();
-                        vec.size = 0;
-                    }
+            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: *mut [<wasm_ $name _vec_t>]) {
+                let vec = &mut *ptr;
+                if !vec.data.is_null() {
+                    Vec::from_raw_parts(vec.data, vec.size, vec.size);
+                    vec.data = ptr::null_mut();
+                    vec.size = 0;
                 }
             }
         }
@@ -1014,14 +1012,12 @@ macro_rules! wasm_declare_vec {
             }
 
             #[no_mangle]
-            pub extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, /* TODO: this arg count is wrong)*/) {
+            pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, /* TODO: this arg count is wrong)*/) {
                 let mut bytes: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
                 let pointer = bytes.as_mut_ptr();
                 debug_assert!(bytes.len() == bytes.capacity());
-                unsafe {
-                    (*out).data = pointer;
-                    (*out).size = length;
-                };
+                (*out).data = pointer;
+                (*out).size = length;
                 mem::forget(bytes);
             }
         }
@@ -1050,14 +1046,12 @@ macro_rules! wasm_declare_boxed_vec {
             }
 
             #[no_mangle]
-            pub extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, /* TODO: this arg count is wrong)*/) {
+            pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, /* TODO: this arg count is wrong)*/) {
                 let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
                 let pointer = bytes.as_mut_ptr();
                 debug_assert!(bytes.len() == bytes.capacity());
-                unsafe {
-                    (*out).data = pointer;
-                    (*out).size = length;
-                };
+                (*out).data = pointer;
+                (*out).size = length;
                 mem::forget(bytes);
             }
         }
@@ -1087,6 +1081,7 @@ wasm_declare_vec!(byte);
 
 wasm_declare_ref_base!(ref);
 
+// opaque type which is a `RuntimeError`
 #[repr(C)]
 pub struct wasm_trap_t {}
 
@@ -1096,6 +1091,36 @@ pub unsafe extern "C" fn wasm_trap_delete(trap: *mut wasm_trap_t) {
         let _ = Box::from_raw(trap as *mut RuntimeError);
     }
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_trap_message(
+    trap: *const wasm_trap_t,
+    out_ptr: *mut wasm_byte_vec_t,
+) {
+    let re = &*(trap as *const RuntimeError);
+    // this code assumes no nul bytes appear in the message
+    let mut message = format!("{}\0", re);
+    message.shrink_to_fit();
+
+    // TODO use `String::into_raw_parts` when it gets stabilized
+    (*out_ptr).size = message.as_bytes().len();
+    (*out_ptr).data = message.as_mut_ptr();
+    mem::forget(message);
+}
+
+// in trap/RuntimeError we need to store
+// 1. message
+// 2. origin (frame); frame contains:
+//    1. func index
+//    2. func offset
+//    3. module offset
+//    4. which instance this was apart of
+
+/*#[no_mangle]
+pub unsafe extern "C" fn wasm_trap_trace(trap: *const wasm_trap_t, out_ptr: *mut wasm_frame_vec_t) {
+    let re = &*(trap as *const RuntimeError);
+    todo!()
+}*/
 
 #[repr(C)]
 pub struct wasm_extern_t {
@@ -1135,14 +1160,12 @@ pub unsafe extern "C" fn wasm_valtype_delete(valtype: *mut wasm_valtype_t) {
 }
 
 #[no_mangle]
-pub extern "C" fn wasm_valtype_kind(valtype: *const wasm_valtype_t) -> wasm_valkind_t {
+pub unsafe extern "C" fn wasm_valtype_kind(valtype: *const wasm_valtype_t) -> wasm_valkind_t {
     if valtype.is_null() {
         // TODO: handle error
         panic!("wasm_valtype_kind: argument is null pointer");
     }
-    unsafe {
-        return (*valtype).valkind as wasm_valkind_t;
-    }
+    return (*valtype).valkind as wasm_valkind_t;
 }
 
 //wasm_declare_ref!(trap);
@@ -1286,15 +1309,13 @@ pub extern "C" fn wasm_functype_delete(arg: *mut wasm_functype_t) {
 }
 
 #[no_mangle]
-pub extern "C" fn wasm_functype_copy(arg: *mut wasm_functype_t) -> *mut wasm_functype_t {
+pub unsafe extern "C" fn wasm_functype_copy(arg: *mut wasm_functype_t) -> *mut wasm_functype_t {
     if !arg.is_null() {
-        unsafe {
-            let funcsig = functype_to_real_type(arg);
-            let new_funcsig = Arc::clone(&funcsig);
-            // don't free the original Arc
-            mem::forget(funcsig);
-            Arc::into_raw(new_funcsig) as *mut wasm_functype_t
-        }
+        let funcsig = functype_to_real_type(arg);
+        let new_funcsig = Arc::clone(&funcsig);
+        // don't free the original Arc
+        mem::forget(funcsig);
+        Arc::into_raw(new_funcsig) as *mut wasm_functype_t
     } else {
         ptr::null_mut()
     }
@@ -1303,3 +1324,8 @@ pub extern "C" fn wasm_functype_copy(arg: *mut wasm_functype_t) -> *mut wasm_fun
 unsafe fn functype_to_real_type(arg: *mut wasm_functype_t) -> Arc<wasm::FuncSig> {
     Arc::from_raw(arg as *mut wasm::FuncSig)
 }
+
+#[repr(C)]
+pub struct wasm_frame_t {}
+
+wasm_declare_vec!(frame);

@@ -645,6 +645,8 @@ wasm_store_t *wasm_store_new(wasm_engine_t *_wasm_engine);
 
 void wasm_trap_delete(wasm_trap_t *trap);
 
+void wasm_trap_message(const wasm_trap_t *trap, wasm_byte_vec_t *out_ptr);
+
 void wasm_valtype_delete(wasm_valtype_t *valtype);
 
 wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t *valtype);
