@@ -9,9 +9,9 @@ use std::slice;
 use std::sync::Arc;
 
 use wasmer::compiler::compile;
+use wasmer::error::{CallError, RuntimeError};
 use wasmer::import::{ImportObject, LikeNamespace, Namespace};
 use wasmer::module::Module;
-use wasmer::error::{CallError, RuntimeError};
 use wasmer::units;
 use wasmer::wasm;
 
@@ -267,10 +267,67 @@ pub unsafe extern "C" fn wasm_module_new(
 }
 
 #[no_mangle]
-pub extern "C" fn wasm_module_delete(module: *mut wasm_module_t) {
+pub unsafe extern "C" fn wasm_module_delete(module: *mut wasm_module_t) {
     if !module.is_null() {
-        unsafe { Box::from_raw(module) };
+        let _ = Box::from_raw(module);
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_module_deserialize(
+    _store: *mut wasm_store_t,
+    bytes: *const wasm_byte_vec_t,
+) -> *mut wasm_module_t {
+    // TODO: read config from store and use that to decide which compiler to use
+
+    let byte_slice = if bytes.is_null() || (&*bytes).into_slice().is_none() {
+        // TODO: error handling here
+        return ptr::null_mut();
+    } else {
+        (&*bytes).into_slice().unwrap()
+    };
+    let artifact = if let Ok(artifact) = wasmer::cache::Artifact::deserialize(byte_slice) {
+        artifact
+    } else {
+        // TODO: error handling here
+        return ptr::null_mut();
+    };
+    let compiler = wasmer::compiler::default_compiler();
+    let module = if let Ok(module) = wasmer::module::load_from_cache(artifact, &compiler) {
+        module
+    } else {
+        // TODO: error handling here
+        return ptr::null_mut();
+    };
+
+    Box::into_raw(Box::new(wasm_module_t {
+        real_module: Arc::new(module),
+    }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_module_serialize(
+    module_ptr: *const wasm_module_t,
+    out_ptr: *mut wasm_byte_vec_t,
+) {
+    let module = &*module_ptr;
+    let artifact = match module.real_module.cache() {
+        Ok(artifact) => artifact,
+        Err(_) => return,
+    };
+    let mut byte_vec = match artifact.serialize() {
+        Ok(mut byte_vec) => {
+            byte_vec.shrink_to_fit();
+            byte_vec
+        }
+        Err(_) => return,
+    };
+    // ensure we won't leak memory
+    // TODO: use `Vec::into_raw_parts` when it becomes stable
+    debug_assert_eq!(byte_vec.capacity(), byte_vec.len());
+    (*out_ptr).size = byte_vec.len();
+    (*out_ptr).data = byte_vec.as_mut_ptr();
+    mem::forget(byte_vec);
 }
 
 #[repr(C)]
@@ -709,7 +766,7 @@ pub unsafe extern "C" fn wasm_func_call(
                 // TODO: handle this
                 panic!("resolve error!");
             }
-        } 
+        }
     } else {
         wasm_traps = match func.callback {
             CallbackType::WithoutEnv(fp) => fp(args, results),
@@ -1024,55 +1081,6 @@ macro_rules! wasm_declare_ref_base {
     };
 }
 
-macro_rules! wasm_declare_ref {
-    ($name:ident) => {
-        wasm_declare_ref_base!($name);
-
-        paste::item! {
-            #[no_mangle]
-            pub extern "C" fn [<wasm_ $name _as_ref>](_arg: *mut [<wasm_ $name _t>]) -> *mut wasm_ref_t {
-                todo!("in {}", stringify!([<wasm_ $name _as_ref>]));
-                //ptr::null_mut()
-            }
-
-            #[no_mangle]
-            pub extern "C" fn [<wasm_ref_as_ $name>](_ref: *mut wasm_ref_t ) -> *mut [<wasm_ $name _t>] {
-                todo!("in {}", stringify!([<wasm_ref_as_ $name>]));
-                //ptr::null_mut()
-            }
-
-            #[no_mangle]
-            pub extern "C" fn [<wasm_ $name _as_ref_const>](_arg: *const [<wasm_ $name _t>]) -> *const wasm_ref_t {
-                todo!("in {}", stringify!([<wasm_ $name _as_ref_const>]));
-                //ptr::null()
-            }
-
-            #[no_mangle]
-            pub extern "C" fn [<wasm_ref_as_ $name _const>](_ref: *const wasm_ref_t ) -> *const [<wasm_ $name _t>] {
-                todo!("in {}", stringify!([<wasm_ref_as_ $name _const>]));
-                //ptr::null_mut()
-            }
-        }
-    };
-}
-
-// TODO: inline this macro
-/*
-macro_rules! wasm_declare_type {
-    ($name:ident) => {
-        wasm_declare_own!($name);
-        wasm_declare_vec!($name);
-        paste::item! {
-            #[no_mangle]
-            pub extern "C" fn [<wasm_ $name _copy>](_arg: *mut [<wasm_ $name _t>]) -> *mut [<wasm_ $name _t>] {
-                todo!("in {}", stringify!([<wasm_ $name _copy>]));
-                //ptr::null_mut()
-            }
-        }
-    };
-}
-*/
-
 #[allow(non_camel_case_types)]
 pub type wasm_byte_t = u8;
 wasm_declare_vec!(byte);
@@ -1120,9 +1128,9 @@ pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> *mut wasm_valtype_t 
 }
 
 #[no_mangle]
-pub extern "C" fn wasm_valtype_delete(valtype: *mut wasm_valtype_t) {
+pub unsafe extern "C" fn wasm_valtype_delete(valtype: *mut wasm_valtype_t) {
     if !valtype.is_null() {
-        let _ = unsafe { Box::from_raw(valtype) };
+        let _ = Box::from_raw(valtype);
     }
 }
 

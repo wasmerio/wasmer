@@ -9,7 +9,11 @@
     unreachable_patterns
 )]
 // Aspirational. I hope to have no unsafe code in this crate.
-#![forbid(unsafe_code)]
+// currently commented out because of loading from cache function:
+// the name in runtime_core is confusing so I did the rename here;
+// we may able to reenable this lint by having an extra copy with
+// a new name in `runtime_core`.
+//#![forbid(unsafe_code)]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
@@ -54,6 +58,18 @@ pub mod module {
     // should this be in here?
     pub use wasmer_runtime_core::types::{ExportDescriptor, ExternDescriptor, ImportDescriptor};
     // TODO: implement abstract module API
+
+    pub unsafe fn load_from_cache(
+        cache: crate::cache::Artifact,
+        compiler: &dyn crate::compiler::Compiler,
+    ) -> Result<Module, crate::cache::CacheError> {
+        wasmer_runtime_core::load_cache_with(cache, compiler)
+    }
+}
+
+pub mod cache {
+    //! Types and functions for caching compiled Wasm.
+    pub use wasmer_runtime_core::cache::{Artifact, Error as CacheError};
 }
 
 pub mod memory {

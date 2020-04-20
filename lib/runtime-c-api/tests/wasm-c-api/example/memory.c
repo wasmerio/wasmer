@@ -204,11 +204,8 @@ int main(int argc, const char* argv[]) {
   wasm_limits_t limits = {5, 5};
   own wasm_memorytype_t* memorytype = wasm_memorytype_new(&limits);
   own wasm_memory_t* memory2 = wasm_memory_new(store, memorytype);
-  printf("A %d\n", wasm_memory_size(memory2));
   check(wasm_memory_size(memory2) == 5);
-  printf("B\n");
   check(! wasm_memory_grow(memory2, 1));
-  printf("C\n");
   check(wasm_memory_grow(memory2, 0));
 
   wasm_memorytype_delete(memorytype);

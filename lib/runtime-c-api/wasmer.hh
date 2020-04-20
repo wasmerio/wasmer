@@ -547,7 +547,11 @@ wasm_memorytype_t *wasm_memorytype_new(const wasm_limits_t *limits);
 
 void wasm_module_delete(wasm_module_t *module);
 
+wasm_module_t *wasm_module_deserialize(wasm_store_t *_store, const wasm_byte_vec_t *bytes);
+
 wasm_module_t *wasm_module_new(wasm_store_t *_store, const wasm_byte_vec_t *bytes);
+
+void wasm_module_serialize(const wasm_module_t *module_ptr, wasm_byte_vec_t *out_ptr);
 
 void wasm_store_delete(wasm_store_t *wasm_store_address);
 
