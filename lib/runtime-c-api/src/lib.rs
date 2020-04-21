@@ -93,6 +93,8 @@
 extern crate wasmer_runtime;
 extern crate wasmer_runtime_core;
 
+#[cfg(not(feature = "ignore-wasm-c-api"))]
+pub mod c_api;
 pub mod error;
 pub mod export;
 pub mod global;
@@ -103,7 +105,6 @@ pub mod module;
 pub mod table;
 // `not(target_family = "windows")` is simpler than `unix`.  See build.rs
 // if you want to change the meaning of these `cfg`s in the header file.
-pub mod c_api;
 #[cfg(all(not(target_family = "windows"), target_arch = "x86_64"))]
 pub mod trampoline;
 pub mod value;

@@ -48,6 +48,8 @@ cranelift-backend = ["wasmer-runtime/cranelift", "wasmer-runtime/default-backend
 llvm-backend = ["wasmer-runtime/llvm", "wasmer-runtime/default-backend-llvm"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]
+# used to avoid generating standard Wasm C API types in our header files
+ignore-wasm-c-api = []
 
 [build-dependencies]
-cbindgen = "0.9"
+cbindgen = "0.14"

@@ -68,6 +68,8 @@ fn main() {
         .with_define("target_arch", "x86_64", "ARCH_X86_64")
         .with_define("feature", "wasi", "WASMER_WASI_ENABLED")
         .with_define("feature", "emscripten", "WASMER_EMSCRIPTEN_ENABLED")
+        .with_parse_expand(&["wasmer-runtime-c-api"])
+        .with_parse_expand_features(&["ignore-wasm-c-api"])
         .generate()
         .expect("Unable to generate C bindings")
         .write_to_file(out_wasmer_header_file.as_path());
@@ -83,6 +85,8 @@ fn main() {
         .with_define("target_arch", "x86_64", "ARCH_X86_64")
         .with_define("feature", "wasi", "WASMER_WASI_ENABLED")
         .with_define("feature", "emscripten", "WASMER_EMSCRIPTEN_ENABLED")
+        .with_parse_expand(&["wasmer-runtime-c-api"])
+        .with_parse_expand_features(&["ignore-wasm-c-api"])
         .generate()
         .expect("Unable to generate C++ bindings")
         .write_to_file(out_wasmer_header_file.as_path());

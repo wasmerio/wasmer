@@ -15,6 +15,9 @@ use wasmer::module::Module;
 use wasmer::units;
 use wasmer::wasm;
 
+#[cfg(feature = "ignore-wasm-c-api")]
+compile_error!("SHOULD NOT BE PARSING THIS");
+
 // TODO: remove delete from macro generation, need to do that manually
 
 // TODO: investigate marking things like the C++ API does (does not work in return position)
@@ -532,6 +535,30 @@ pub union wasm_val_inner {
 pub struct wasm_val_t {
     kind: wasm_valkind_t,
     of: wasm_val_inner,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_val_copy(out_ptr: *mut wasm_val_t, val: *const wasm_val_t) {
+    let val = &*val;
+    (*out_ptr).kind = val.kind;
+    (*out_ptr).of =
+        // TODO: handle this error
+        match val.kind.try_into().unwrap() {
+            wasm_valkind_enum::WASM_I32 => wasm_val_inner { int32_t: val.of.int32_t },
+            wasm_valkind_enum::WASM_I64 => wasm_val_inner { int64_t: val.of.int64_t },
+            wasm_valkind_enum::WASM_F32 => wasm_val_inner { float32_t: val.of.float32_t },
+            wasm_valkind_enum::WASM_F64 => wasm_val_inner { float64_t: val.of.float64_t },
+            wasm_valkind_enum::WASM_ANYREF => wasm_val_inner { wref: val.of.wref },
+            wasm_valkind_enum::WASM_FUNCREF => wasm_val_inner { wref: val.of.wref },
+        };
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_val_delete(ptr: *mut wasm_val_t) {
+    if !ptr.is_null() {
+        // TODO: figure out where wasm_val is allocated first...
+        let _ = Box::from_raw(ptr);
+    }
 }
 
 impl TryFrom<wasm_valkind_t> for wasm_valkind_enum {
