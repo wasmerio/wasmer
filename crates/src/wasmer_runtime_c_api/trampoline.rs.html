@@ -137,7 +137,7 @@
     <span class="ident">ctx</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_void</span>,
     <span class="ident">num_params</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
-    <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::<span class="ident">Type</span>;
+    <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">types</span>::<span class="ident">Type</span>;
     <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span>(<span class="ident">builder</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">TrampolineBufferBuilder</span>);
     <span class="ident">builder</span>.<span class="ident">add_callinfo_trampoline</span>(
         <span class="ident">mem</span>::<span class="ident">transmute</span>(<span class="ident">func</span>),

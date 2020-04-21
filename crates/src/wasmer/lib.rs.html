@@ -405,6 +405,10 @@
 <span id="405">405</span>
 <span id="406">406</span>
 <span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">deny</span>(
     <span class="ident">dead_code</span>,
@@ -482,6 +486,7 @@
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">global</span>::<span class="ident">Global</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">instance</span>::{<span class="ident">DynFunc</span>, <span class="ident">Instance</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">memory</span>::<span class="ident">Memory</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">module</span>::<span class="ident">Module</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">table</span>::<span class="ident">Table</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{<span class="ident">ExportDescriptor</span>, <span class="ident">ExternDescriptor</span>, <span class="ident">ImportDescriptor</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{
@@ -689,13 +694,16 @@
 <span class="comment">// TODO: `import` or `imports`?</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">import</span> {
     <span class="doccomment">//! Types and functions for Wasm imports.</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">import</span>::{<span class="ident">ImportObject</span>, <span class="ident">LikeNamespace</span>, <span class="ident">Namespace</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">import</span>::{
+        <span class="ident">ImportObject</span>, <span class="ident">ImportObjectIterator</span>, <span class="ident">LikeNamespace</span>, <span class="ident">Namespace</span>,
+    };
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{<span class="ident">ExternDescriptor</span>, <span class="ident">ImportDescriptor</span>};
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{<span class="ident">func</span>, <span class="ident">imports</span>};
 }
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">export</span> {
     <span class="doccomment">//! Types and functions for Wasm exports.</span>
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">export</span>::<span class="ident">Export</span>;
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{<span class="ident">ExportDescriptor</span>, <span class="ident">ExternDescriptor</span>};
 }
 

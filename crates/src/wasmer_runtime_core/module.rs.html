@@ -470,6 +470,11 @@
 <span id="470">470</span>
 <span id="471">471</span>
 <span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This module contains the types to manipulate and access Wasm modules.</span>
 <span class="doccomment">//!</span>
@@ -644,43 +649,9 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">info</span>
     }
 
-    <span class="doccomment">/// Iterate over the [`ExportDescriptor`]s of the exports that this module provides.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">exports_iter</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ExportDescriptor</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span> {
-        <span class="self">self</span>.<span class="ident">info</span>()
-            .<span class="ident">exports</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span>(<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">ei</span>)<span class="op">|</span> <span class="ident">ExportDescriptor</span> {
-                <span class="ident">name</span>,
-                <span class="ident">ty</span>: <span class="kw">match</span> <span class="ident">ei</span> {
-                    <span class="ident">ExportIndex</span>::<span class="ident">Func</span>(<span class="ident">f_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="kw">let</span> <span class="ident">sig_idx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">info</span>().<span class="ident">func_assoc</span>[<span class="ident">f_idx</span>].<span class="ident">into</span>();
-                        <span class="self">self</span>.<span class="ident">info</span>().<span class="ident">signatures</span>[<span class="ident">sig_idx</span>].<span class="ident">clone</span>().<span class="ident">into</span>()
-                    }
-                    <span class="ident">ExportIndex</span>::<span class="ident">Global</span>(<span class="ident">g_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">info</span>();
-                        <span class="kw">let</span> <span class="ident">local_global_idx</span> <span class="op">=</span>
-                            <span class="ident">LocalGlobalIndex</span>::<span class="ident">new</span>(<span class="ident">g_idx</span>.<span class="ident">index</span>() <span class="op">-</span> <span class="ident">info</span>.<span class="ident">imported_globals</span>.<span class="ident">len</span>());
-                        <span class="ident">info</span>.<span class="ident">globals</span>[<span class="ident">local_global_idx</span>].<span class="ident">desc</span>.<span class="ident">into</span>()
-                    }
-                    <span class="ident">ExportIndex</span>::<span class="ident">Memory</span>(<span class="ident">m_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">info</span>();
-                        <span class="kw">let</span> <span class="ident">local_memory_idx</span> <span class="op">=</span>
-                            <span class="ident">LocalMemoryIndex</span>::<span class="ident">new</span>(<span class="ident">m_idx</span>.<span class="ident">index</span>() <span class="op">-</span> <span class="ident">info</span>.<span class="ident">imported_memories</span>.<span class="ident">len</span>());
-                        <span class="ident">info</span>.<span class="ident">memories</span>[<span class="ident">local_memory_idx</span>].<span class="ident">into</span>()
-                    }
-                    <span class="ident">ExportIndex</span>::<span class="ident">Table</span>(<span class="ident">t_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">info</span>();
-                        <span class="kw">let</span> <span class="ident">local_table_idx</span> <span class="op">=</span>
-                            <span class="ident">LocalTableIndex</span>::<span class="ident">new</span>(<span class="ident">t_idx</span>.<span class="ident">index</span>() <span class="op">-</span> <span class="ident">info</span>.<span class="ident">imported_tables</span>.<span class="ident">len</span>());
-                        <span class="ident">info</span>.<span class="ident">tables</span>[<span class="ident">local_table_idx</span>].<span class="ident">into</span>()
-                    }
-                },
-            })
-    }
-
     <span class="doccomment">/// Get the [`ExportDescriptor`]s of the exports this [`Module`] provides.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ExportDescriptor</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">exports_iter</span>().<span class="ident">collect</span>()
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">exports</span>()
     }
 
     <span class="doccomment">/// Get the [`ImportDescriptor`]s describing the imports this [`Module`]</span>
@@ -777,7 +748,46 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">ModuleInner</span> {}
+<span class="kw">impl</span> <span class="ident">ModuleInner</span> {
+    <span class="doccomment">/// Iterate over the [`ExportDescriptor`]s of the exports that this module provides.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">exports_iter</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ExportDescriptor</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span> {
+        <span class="self">self</span>.<span class="ident">info</span>
+            .<span class="ident">exports</span>
+            .<span class="ident">iter</span>()
+            .<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span>(<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">ei</span>)<span class="op">|</span> <span class="ident">ExportDescriptor</span> {
+                <span class="ident">name</span>,
+                <span class="ident">ty</span>: <span class="kw">match</span> <span class="ident">ei</span> {
+                    <span class="ident">ExportIndex</span>::<span class="ident">Func</span>(<span class="ident">f_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="kw">let</span> <span class="ident">sig_idx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">func_assoc</span>[<span class="ident">f_idx</span>].<span class="ident">into</span>();
+                        <span class="self">self</span>.<span class="ident">info</span>.<span class="ident">signatures</span>[<span class="ident">sig_idx</span>].<span class="ident">clone</span>().<span class="ident">into</span>()
+                    }
+                    <span class="ident">ExportIndex</span>::<span class="ident">Global</span>(<span class="ident">g_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">info</span>;
+                        <span class="kw">let</span> <span class="ident">local_global_idx</span> <span class="op">=</span>
+                            <span class="ident">LocalGlobalIndex</span>::<span class="ident">new</span>(<span class="ident">g_idx</span>.<span class="ident">index</span>() <span class="op">-</span> <span class="ident">info</span>.<span class="ident">imported_globals</span>.<span class="ident">len</span>());
+                        <span class="ident">info</span>.<span class="ident">globals</span>[<span class="ident">local_global_idx</span>].<span class="ident">desc</span>.<span class="ident">into</span>()
+                    }
+                    <span class="ident">ExportIndex</span>::<span class="ident">Memory</span>(<span class="ident">m_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">info</span>;
+                        <span class="kw">let</span> <span class="ident">local_memory_idx</span> <span class="op">=</span>
+                            <span class="ident">LocalMemoryIndex</span>::<span class="ident">new</span>(<span class="ident">m_idx</span>.<span class="ident">index</span>() <span class="op">-</span> <span class="ident">info</span>.<span class="ident">imported_memories</span>.<span class="ident">len</span>());
+                        <span class="ident">info</span>.<span class="ident">memories</span>[<span class="ident">local_memory_idx</span>].<span class="ident">into</span>()
+                    }
+                    <span class="ident">ExportIndex</span>::<span class="ident">Table</span>(<span class="ident">t_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">info</span>;
+                        <span class="kw">let</span> <span class="ident">local_table_idx</span> <span class="op">=</span>
+                            <span class="ident">LocalTableIndex</span>::<span class="ident">new</span>(<span class="ident">t_idx</span>.<span class="ident">index</span>() <span class="op">-</span> <span class="ident">info</span>.<span class="ident">imported_tables</span>.<span class="ident">len</span>());
+                        <span class="ident">info</span>.<span class="ident">tables</span>[<span class="ident">local_table_idx</span>].<span class="ident">into</span>()
+                    }
+                },
+            })
+    }
+
+    <span class="doccomment">/// Get the [`ExportDescriptor`]s of the exports this [`Module`] provides.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ExportDescriptor</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">exports_iter</span>().<span class="ident">collect</span>()
+    }
+}
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>

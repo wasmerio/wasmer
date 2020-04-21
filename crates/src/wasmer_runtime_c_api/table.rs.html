@@ -84,8 +84,8 @@
 <span class="doccomment">//! Create, grow, destroy tables of an instance.</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">error</span>::<span class="ident">update_last_error</span>, <span class="ident">wasmer_limits_t</span>, <span class="ident">wasmer_result_t</span>};
-<span class="kw">use</span> <span class="ident">wasmer_runtime</span>::<span class="ident">Table</span>;
-<span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{<span class="ident">ElementType</span>, <span class="ident">TableDescriptor</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">types</span>::{<span class="ident">ElementType</span>, <span class="ident">TableDescriptor</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">wasm</span>::<span class="ident">Table</span>;
 
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>

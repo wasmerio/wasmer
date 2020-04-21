@@ -160,8 +160,8 @@
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Create and map Rust to WebAssembly values.</span>
 
-<span class="kw">use</span> <span class="ident">wasmer_runtime</span>::<span class="ident">Value</span>;
-<span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::<span class="ident">Type</span>;
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">types</span>::<span class="ident">Type</span>;
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">wasm</span>::<span class="ident">Value</span>;
 
 <span class="doccomment">/// Represents all possibles WebAssembly value types.</span>
 <span class="doccomment">///</span>
@@ -306,7 +306,7 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasmer_runtime</span>::<span class="ident">wasm</span>::<span class="ident">Type</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasmer_value_tag</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasmer</span>::<span class="ident">wasm</span>::<span class="ident">Type</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasmer_value_tag</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">Type</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">ty</span> {
             <span class="ident">Type</span>::<span class="ident">I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_value_tag</span>::<span class="ident">WASM_I32</span>,

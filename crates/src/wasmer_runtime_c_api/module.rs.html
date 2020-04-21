@@ -325,6 +325,7 @@
 <span id="325">325</span>
 <span id="326">326</span>
 <span id="327">327</span>
+<span id="328">328</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Compile, validate, instantiate, serialize, and destroy modules.</span>
 
@@ -337,10 +338,11 @@
 };
 <span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">c_int</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">slice</span>};
-<span class="kw">use</span> <span class="ident">wasmer_runtime</span>::{
-    <span class="ident">compile</span>, <span class="ident">default_compiler</span>, <span class="ident">Global</span>, <span class="ident">ImportObject</span>, <span class="ident">Instance</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>, <span class="ident">Table</span>,
-};
-<span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{<span class="ident">cache</span>::<span class="ident">Artifact</span>, <span class="ident">export</span>::<span class="ident">Export</span>, <span class="ident">import</span>::<span class="ident">Namespace</span>, <span class="ident">load_cache_with</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">compiler</span>::{<span class="ident">compile</span>, <span class="ident">default_compiler</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">import</span>::{<span class="ident">ImportObject</span>, <span class="ident">Namespace</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">wasm</span>::{<span class="ident">Export</span>, <span class="ident">Global</span>, <span class="ident">Table</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Instance</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>};
+<span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{<span class="ident">cache</span>::<span class="ident">Artifact</span>, <span class="ident">load_cache_with</span>};
 
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasmer_module_t</span>;

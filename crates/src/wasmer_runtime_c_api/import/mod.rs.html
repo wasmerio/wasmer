@@ -859,12 +859,12 @@
     <span class="ident">ptr</span>, <span class="ident">slice</span>,
     <span class="ident">sync</span>::<span class="ident">Arc</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_runtime</span>::{<span class="ident">Ctx</span>, <span class="ident">Global</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>, <span class="ident">Table</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">import</span>::{<span class="ident">ImportObject</span>, <span class="ident">ImportObjectIterator</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">vm</span>::<span class="ident">Ctx</span>;
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">wasm</span>::{<span class="ident">Export</span>, <span class="ident">FuncSig</span>, <span class="ident">Global</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>, <span class="ident">Table</span>, <span class="ident">Type</span>};
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{
-    <span class="ident">export</span>::{<span class="ident">Context</span>, <span class="ident">Export</span>, <span class="ident">FuncPointer</span>},
-    <span class="ident">import</span>::{<span class="ident">ImportObject</span>, <span class="ident">ImportObjectIterator</span>},
+    <span class="ident">export</span>::{<span class="ident">Context</span>, <span class="ident">FuncPointer</span>},
     <span class="ident">module</span>::<span class="ident">ImportName</span>,
-    <span class="ident">types</span>::{<span class="ident">FuncSig</span>, <span class="ident">Type</span>},
 };
 
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
