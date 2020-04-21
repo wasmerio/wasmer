@@ -5,7 +5,7 @@ use crate::{
     wasmer_limits_t, wasmer_result_t,
 };
 use std::{cell::Cell, ptr};
-use wasmer::types::MemoryDescriptor;
+use wasmer::types::MemoryType;
 use wasmer::units::{Bytes, Pages};
 use wasmer::wasm::Memory;
 
@@ -69,7 +69,7 @@ pub unsafe extern "C" fn wasmer_memory_new(
     } else {
         None
     };
-    let desc = MemoryDescriptor::new(Pages(limits.min), max, false);
+    let desc = MemoryType::new(Pages(limits.min), max, false);
     let new_desc = match desc {
         Ok(desc) => desc,
         Err(error) => {

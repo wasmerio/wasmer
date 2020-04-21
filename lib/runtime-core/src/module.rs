@@ -9,10 +9,10 @@ use crate::{
     import::ImportObject,
     structures::{Map, TypedIndex},
     types::{
-        ExportDescriptor, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit,
+        ExportDescriptor, FuncIndex, FuncSig, GlobalType, GlobalIndex, GlobalInit,
         ImportDescriptor, ImportedFuncIndex, ImportedGlobalIndex, ImportedMemoryIndex,
         ImportedTableIndex, Initializer, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-        MemoryDescriptor, MemoryIndex, SigIndex, TableDescriptor, TableIndex,
+        MemoryType, MemoryIndex, SigIndex, TableType, TableIndex,
     },
     Instance,
 };
@@ -37,21 +37,21 @@ pub struct ModuleInner {
 pub struct ModuleInfo {
     /// Map of memory index to memory descriptors.
     // This are strictly local and the typesystem ensures that.
-    pub memories: Map<LocalMemoryIndex, MemoryDescriptor>,
+    pub memories: Map<LocalMemoryIndex, MemoryType>,
     /// Map of global index to global descriptors.
     pub globals: Map<LocalGlobalIndex, GlobalInit>,
     /// Map of table index to table descriptors.
-    pub tables: Map<LocalTableIndex, TableDescriptor>,
+    pub tables: Map<LocalTableIndex, TableType>,
 
     /// Map of imported function index to import name.
     // These are strictly imported and the typesystem ensures that.
     pub imported_functions: Map<ImportedFuncIndex, ImportName>,
     /// Map of imported memory index to import name and memory descriptor.
-    pub imported_memories: Map<ImportedMemoryIndex, (ImportName, MemoryDescriptor)>,
+    pub imported_memories: Map<ImportedMemoryIndex, (ImportName, MemoryType)>,
     /// Map of imported table index to import name and table descriptor.
-    pub imported_tables: Map<ImportedTableIndex, (ImportName, TableDescriptor)>,
+    pub imported_tables: Map<ImportedTableIndex, (ImportName, TableType)>,
     /// Map of imported global index to import name and global descriptor.
-    pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalDescriptor)>,
+    pub imported_globals: Map<ImportedGlobalIndex, (ImportName, GlobalType)>,
 
     /// Map of string to export index.
     // Implementation note: this should maintain the order that the exports appear in the
@@ -322,8 +322,8 @@ pub struct ImportName {
 /// Wasm globals, and Wasm tables.
 ///
 /// Used in [`ModuleInfo`] to access function signatures ([`SigIndex`]s,
-/// [`FuncSig`]), [`GlobalInit`]s, [`MemoryDescriptor`]s, and
-/// [`TableDescriptor`]s.
+/// [`FuncSig`]), [`GlobalInit`]s, [`MemoryType`]s, and
+/// [`TableType`]s.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExportIndex {
     /// Function export index. [`FuncIndex`] is a type-safe handle referring to

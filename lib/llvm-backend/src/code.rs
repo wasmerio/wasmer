@@ -35,7 +35,7 @@ use wasmer_runtime_core::{
     backend::{CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
-    memory::MemoryType,
+    memory::BackingMemoryType,
     module::{ModuleInfo, ModuleInner},
     parse::{wp_type_to_type, LoadError},
     structures::{Map, TypedIndex},
@@ -8497,17 +8497,17 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     LocalOrImport::Local(local_mem_index) => {
                         let mem_desc = &info.memories[local_mem_index];
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => intrinsics.memory_grow_dynamic_local,
-                            MemoryType::Static => intrinsics.memory_grow_static_local,
-                            MemoryType::SharedStatic => intrinsics.memory_grow_shared_local,
+                            BackingMemoryType::Dynamic => intrinsics.memory_grow_dynamic_local,
+                            BackingMemoryType::Static => intrinsics.memory_grow_static_local,
+                            BackingMemoryType::SharedStatic => intrinsics.memory_grow_shared_local,
                         }
                     }
                     LocalOrImport::Import(import_mem_index) => {
                         let mem_desc = &info.imported_memories[import_mem_index].1;
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => intrinsics.memory_grow_dynamic_import,
-                            MemoryType::Static => intrinsics.memory_grow_static_import,
-                            MemoryType::SharedStatic => intrinsics.memory_grow_shared_import,
+                            BackingMemoryType::Dynamic => intrinsics.memory_grow_dynamic_import,
+                            BackingMemoryType::Static => intrinsics.memory_grow_static_import,
+                            BackingMemoryType::SharedStatic => intrinsics.memory_grow_shared_import,
                         }
                     }
                 };
@@ -8531,17 +8531,17 @@ impl<'ctx> FunctionCodeGenerator<CodegenError> for LLVMFunctionCodeGenerator<'ct
                     LocalOrImport::Local(local_mem_index) => {
                         let mem_desc = &info.memories[local_mem_index];
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => intrinsics.memory_size_dynamic_local,
-                            MemoryType::Static => intrinsics.memory_size_static_local,
-                            MemoryType::SharedStatic => intrinsics.memory_size_shared_local,
+                            BackingMemoryType::Dynamic => intrinsics.memory_size_dynamic_local,
+                            BackingMemoryType::Static => intrinsics.memory_size_static_local,
+                            BackingMemoryType::SharedStatic => intrinsics.memory_size_shared_local,
                         }
                     }
                     LocalOrImport::Import(import_mem_index) => {
                         let mem_desc = &info.imported_memories[import_mem_index].1;
                         match mem_desc.memory_type() {
-                            MemoryType::Dynamic => intrinsics.memory_size_dynamic_import,
-                            MemoryType::Static => intrinsics.memory_size_static_import,
-                            MemoryType::SharedStatic => intrinsics.memory_size_shared_import,
+                            BackingMemoryType::Dynamic => intrinsics.memory_size_dynamic_import,
+                            BackingMemoryType::Static => intrinsics.memory_size_static_import,
+                            BackingMemoryType::SharedStatic => intrinsics.memory_size_shared_import,
                         }
                     }
                 };

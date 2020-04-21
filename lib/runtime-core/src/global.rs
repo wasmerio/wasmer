@@ -3,7 +3,7 @@
 use crate::{
     export::Export,
     import::IsExport,
-    types::{GlobalDescriptor, Type, Value},
+    types::{GlobalType, Type, Value},
     vm,
 };
 use std::{
@@ -13,7 +13,7 @@ use std::{
 
 /// A handle to a Wasm Global
 pub struct Global {
-    desc: GlobalDescriptor,
+    desc: GlobalType,
     storage: Arc<Mutex<vm::LocalGlobal>>,
 }
 
@@ -45,7 +45,7 @@ impl Global {
     }
 
     fn new_internal(value: Value, mutable: bool) -> Self {
-        let desc = GlobalDescriptor {
+        let desc = GlobalType {
             mutable,
             ty: value.ty(),
         };
@@ -66,10 +66,10 @@ impl Global {
         }
     }
 
-    /// Get the [`GlobalDescriptor`] generated for this global.
+    /// Get the [`GlobalType`] generated for this global.
     ///
-    /// [`GlobalDescriptor`]: struct.GlobalDescriptor.html
-    pub fn descriptor(&self) -> GlobalDescriptor {
+    /// [`GlobalType`]: struct.GlobalType.html
+    pub fn descriptor(&self) -> GlobalType {
         self.desc
     }
 

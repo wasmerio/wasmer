@@ -7,7 +7,7 @@ use wasmer::compiler::{compile_with, compiler_for_backend, Backend};
 use wasmer::error::RuntimeError;
 use wasmer::units::Pages;
 use wasmer::wasm::{
-    DynFunc, Func, FuncSig, Global, Instance, Memory, MemoryDescriptor, Type, Value,
+    DynFunc, Func, FuncSig, Global, Instance, Memory, MemoryType, Type, Value,
 };
 use wasmer::{imports, vm, DynamicFunc};
 
@@ -203,7 +203,7 @@ fn imported_functions_forms(backend: Backend, test: &dyn Fn(&Instance)) {
     let wasm_binary = wat2wasm(MODULE.as_bytes()).expect("WAST not valid or malformed");
     let compiler = compiler_for_backend(backend).expect("Backend not recognized");
     let module = compile_with(&wasm_binary, &*compiler).unwrap();
-    let memory_descriptor = MemoryDescriptor::new(Pages(1), Some(Pages(1)), false).unwrap();
+    let memory_descriptor = MemoryType::new(Pages(1), Some(Pages(1)), false).unwrap();
     let memory = Memory::new(memory_descriptor).unwrap();
 
     memory.view()[0].set(SHIFT);

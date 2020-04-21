@@ -6,7 +6,7 @@ use crate::{
     import::IsExport,
     memory::dynamic::DYNAMIC_GUARD_SIZE,
     memory::static_::{SAFE_STATIC_GUARD_SIZE, SAFE_STATIC_HEAP_SIZE},
-    types::{MemoryDescriptor, ValueType},
+    types::{self, ValueType},
     units::Pages,
     vm,
 };
@@ -36,30 +36,30 @@ enum MemoryVariant {
 /// A `Memory` represents the memory used by a wasm instance.
 #[derive(Clone)]
 pub struct Memory {
-    desc: MemoryDescriptor,
+    desc: types::MemoryType,
     variant: MemoryVariant,
 }
 
 impl Memory {
-    /// Create a new `Memory` from a [`MemoryDescriptor`]
+    /// Create a new `Memory` from a [`types::MemoryType`]
     ///
-    /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
+    /// [`types::MemoryType`]: struct.types::MemoryType.html
     ///
     /// Usage:
     ///
     /// ```
-    /// # use wasmer_runtime_core::types::MemoryDescriptor;
+    /// # use wasmer_runtime_core::types;
     /// # use wasmer_runtime_core::memory::Memory;
     /// # use wasmer_runtime_core::error::Result;
     /// # use wasmer_runtime_core::units::Pages;
     /// fn create_memory() -> Result<()> {
-    ///     let descriptor = MemoryDescriptor::new(Pages(10), None, false).unwrap();
+    ///     let descriptor = types::MemoryType::new(Pages(10), None, false).unwrap();
     ///
     ///     let memory = Memory::new(descriptor)?;
     ///     Ok(())
     /// }
     /// ```
-    pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+    pub fn new(desc: types::MemoryType) -> Result<Self, CreationError> {
         if let Some(max) = desc.maximum {
             if max < desc.minimum {
                 return Err(CreationError::InvalidDescriptor(
@@ -84,11 +84,11 @@ impl Memory {
         Ok(Memory { desc, variant })
     }
 
-    /// Return the [`MemoryDescriptor`] that this memory
+    /// Return the [`types::MemoryType`] that this memory
     /// was created with.
     ///
-    /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
-    pub fn descriptor(&self) -> MemoryDescriptor {
+    /// [`types::MemoryType`]: struct.types::MemoryType.html
+    pub fn descriptor(&self) -> types::MemoryType {
         self.desc
     }
 
@@ -172,9 +172,11 @@ impl fmt::Debug for Memory {
     }
 }
 
+// TODO: add legacy MemoryType typedef for now
+
 /// A kind a memory.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MemoryType {
+pub enum BackingMemoryType {
     /// A dynamic memory.
     Dynamic,
     /// A static memory.
@@ -183,20 +185,20 @@ pub enum MemoryType {
     SharedStatic,
 }
 
-impl MemoryType {
+impl BackingMemoryType {
     #[doc(hidden)]
     pub fn guard_size(self) -> u64 {
         match self {
-            MemoryType::Dynamic => DYNAMIC_GUARD_SIZE as u64,
-            MemoryType::Static | MemoryType::SharedStatic => SAFE_STATIC_GUARD_SIZE as u64,
+            BackingMemoryType::Dynamic => DYNAMIC_GUARD_SIZE as u64,
+            BackingMemoryType::Static | BackingMemoryType::SharedStatic => SAFE_STATIC_GUARD_SIZE as u64,
         }
     }
 
     #[doc(hidden)]
     pub fn bounds(self) -> Option<u64> {
         match self {
-            MemoryType::Dynamic => None,
-            MemoryType::Static | MemoryType::SharedStatic => Some(SAFE_STATIC_HEAP_SIZE as u64),
+            BackingMemoryType::Dynamic => None,
+            BackingMemoryType::Static | BackingMemoryType::SharedStatic => Some(SAFE_STATIC_HEAP_SIZE as u64),
         }
     }
 }
@@ -222,7 +224,7 @@ unsafe impl Sync for UnsharedMemoryInternal {}
 
 impl UnsharedMemory {
     /// Create a new `UnsharedMemory` from the given memory descriptor.
-    pub fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+    pub fn new(desc: types::MemoryType) -> Result<Self, CreationError> {
         let mut local = vm::LocalMemory {
             base: std::ptr::null_mut(),
             bound: 0,
@@ -230,13 +232,13 @@ impl UnsharedMemory {
         };
 
         let storage = match desc.memory_type() {
-            MemoryType::Dynamic => {
+            BackingMemoryType::Dynamic => {
                 UnsharedMemoryStorage::Dynamic(DynamicMemory::new(desc, &mut local)?)
             }
-            MemoryType::Static => {
+            BackingMemoryType::Static => {
                 UnsharedMemoryStorage::Static(StaticMemory::new(desc, &mut local)?)
             }
-            MemoryType::SharedStatic => {
+            BackingMemoryType::SharedStatic => {
                 return Err(CreationError::InvalidDescriptor(
                     "attempting to create shared unshared memory".to_string(),
                 ));
@@ -309,7 +311,7 @@ pub struct SharedMemoryInternal {
 unsafe impl Sync for SharedMemoryInternal {}
 
 impl SharedMemory {
-    fn new(desc: MemoryDescriptor) -> Result<Self, CreationError> {
+    fn new(desc: types::MemoryType) -> Result<Self, CreationError> {
         let mut local = vm::LocalMemory {
             base: std::ptr::null_mut(),
             bound: 0,
@@ -361,18 +363,18 @@ impl Clone for SharedMemory {
 #[cfg(test)]
 mod memory_tests {
 
-    use super::{Memory, MemoryDescriptor, Pages};
+    use super::{Memory, types, Pages};
 
     #[test]
     fn test_initial_memory_size() {
-        let memory_desc = MemoryDescriptor::new(Pages(10), Some(Pages(20)), false).unwrap();
+        let memory_desc = types::MemoryType::new(Pages(10), Some(Pages(20)), false).unwrap();
         let unshared_memory = Memory::new(memory_desc).unwrap();
         assert_eq!(unshared_memory.size(), Pages(10));
     }
 
     #[test]
     fn test_invalid_descriptor_returns_error() {
-        let memory_desc = MemoryDescriptor::new(Pages(10), None, true);
+        let memory_desc = types::MemoryType::new(Pages(10), None, true);
         assert!(
             memory_desc.is_err(),
             "Max number of pages is required for shared memory"

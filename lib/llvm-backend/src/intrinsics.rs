@@ -20,7 +20,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use wasmer_runtime_core::{
-    memory::MemoryType,
+    memory::BackingMemoryType,
     module::ModuleInfo,
     structures::TypedIndex,
     types::{
@@ -749,13 +749,13 @@ impl<'a, 'ctx> CtxType<'a, 'ctx> {
             };
 
             match memory_type {
-                MemoryType::Dynamic => MemoryCache::Dynamic {
+                BackingMemoryType::Dynamic => MemoryCache::Dynamic {
                     ptr_to_base_ptr,
                     ptr_to_bounds,
                     minimum,
                     maximum,
                 },
-                MemoryType::Static | MemoryType::SharedStatic => {
+                BackingMemoryType::Static | BackingMemoryType::SharedStatic => {
                     let base_ptr = cache_builder
                         .build_load(ptr_to_base_ptr, "base")
                         .into_pointer_value();

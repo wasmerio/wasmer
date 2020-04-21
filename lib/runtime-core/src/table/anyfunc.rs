@@ -3,7 +3,7 @@ use crate::{
     instance::DynFunc,
     sig_registry::SigRegistry,
     structures::TypedIndex,
-    types::{FuncSig, TableDescriptor},
+    types::{FuncSig, TableType},
     vm,
 };
 
@@ -93,7 +93,7 @@ pub struct AnyfuncTable {
 
 impl AnyfuncTable {
     pub fn new(
-        desc: TableDescriptor,
+        desc: TableType,
         local: &mut vm::LocalTable,
     ) -> Result<Box<Self>, CreationError> {
         let initial_table_backing_len = desc.minimum as usize;

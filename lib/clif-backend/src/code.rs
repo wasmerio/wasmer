@@ -22,7 +22,7 @@ use wasmer_runtime_core::{
     backend::{CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
-    memory::MemoryType,
+    memory::BackingMemoryType,
     module::{ModuleInfo, ModuleInner},
     structures::{Map, TypedIndex},
     types::{
@@ -465,7 +465,7 @@ impl FuncEnvironment for FunctionEnvironment {
         };
 
         match description.memory_type() {
-            mem_type @ MemoryType::Dynamic => {
+            mem_type @ BackingMemoryType::Dynamic => {
                 let local_memory_bound = func.create_global_value(ir::GlobalValueData::Load {
                     base: local_memory_ptr,
                     offset: (vm::LocalMemory::offset_bound() as i32).into(),
@@ -483,7 +483,7 @@ impl FuncEnvironment for FunctionEnvironment {
                     index_type: ir::types::I32,
                 }))
             }
-            mem_type @ MemoryType::Static | mem_type @ MemoryType::SharedStatic => Ok(func
+            mem_type @ BackingMemoryType::Static | mem_type @ BackingMemoryType::SharedStatic => Ok(func
                 .create_heap(ir::HeapData {
                     base: local_memory_base,
                     min_size: (description.minimum.bytes().0 as u64).into(),
@@ -879,9 +879,9 @@ impl FuncEnvironment for FunctionEnvironment {
             };
 
         let name_index = match description.memory_type() {
-            MemoryType::Dynamic => call_names::DYNAMIC_MEM_GROW,
-            MemoryType::Static => call_names::STATIC_MEM_GROW,
-            MemoryType::SharedStatic => call_names::SHARED_STATIC_MEM_GROW,
+            BackingMemoryType::Dynamic => call_names::DYNAMIC_MEM_GROW,
+            BackingMemoryType::Static => call_names::STATIC_MEM_GROW,
+            BackingMemoryType::SharedStatic => call_names::SHARED_STATIC_MEM_GROW,
         };
 
         let name = ir::ExternalName::user(namespace, name_index);
@@ -943,9 +943,9 @@ impl FuncEnvironment for FunctionEnvironment {
             };
 
         let name_index = match description.memory_type() {
-            MemoryType::Dynamic => call_names::DYNAMIC_MEM_SIZE,
-            MemoryType::Static => call_names::STATIC_MEM_SIZE,
-            MemoryType::SharedStatic => call_names::SHARED_STATIC_MEM_SIZE,
+            BackingMemoryType::Dynamic => call_names::DYNAMIC_MEM_SIZE,
+            BackingMemoryType::Static => call_names::STATIC_MEM_SIZE,
+            BackingMemoryType::SharedStatic => call_names::SHARED_STATIC_MEM_SIZE,
         };
 
         let name = ir::ExternalName::user(namespace, name_index);

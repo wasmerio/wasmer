@@ -1,7 +1,7 @@
 //! Create, grow, destroy tables of an instance.
 
 use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
-use wasmer::types::{ElementType, TableDescriptor};
+use wasmer::types::{ElementType, TableType};
 use wasmer::wasm::Table;
 
 #[repr(C)]
@@ -27,7 +27,7 @@ pub unsafe extern "C" fn wasmer_table_new(
     } else {
         None
     };
-    let desc = TableDescriptor {
+    let desc = TableType {
         element: ElementType::Anyfunc,
         minimum: limits.min,
         maximum: max,

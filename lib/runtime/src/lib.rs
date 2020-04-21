@@ -128,7 +128,7 @@ pub mod wasm {
     pub use wasmer_runtime_core::global::Global;
     pub use wasmer_runtime_core::table::Table;
     pub use wasmer_runtime_core::types::{
-        FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type, Value,
+        FuncSig, GlobalType, MemoryType, TableType, Type, Value,
     };
 }
 

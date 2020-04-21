@@ -30,7 +30,7 @@ use wasmer_runtime_core::{
     memory::Memory,
     module::ImportName,
     table::Table,
-    types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type, Value},
+    types::{ElementType, FuncSig, MemoryType, TableType, Type, Value},
     units::Pages,
     vm::Ctx,
     DynFunc, Func, Instance, IsExport, Module,
@@ -514,10 +514,10 @@ impl EmscriptenGlobals {
         let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module)?;
 
         // Memory initialization
-        let memory_type = MemoryDescriptor::new(memory_min, memory_max, shared)?;
+        let memory_type = MemoryType::new(memory_min, memory_max, shared)?;
         let memory = Memory::new(memory_type).unwrap();
 
-        let table_type = TableDescriptor {
+        let table_type = TableType {
             element: ElementType::Anyfunc,
             minimum: table_min,
             maximum: table_max,

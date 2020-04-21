@@ -1,7 +1,7 @@
 //! The error module contains the data structures and helper functions used to implement errors that
 //! are produced and returned from the wasmer runtime core.
 use crate::backend::ExceptionCode;
-use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type};
+use crate::types::{FuncSig, GlobalType, MemoryType, TableType, Type};
 use core::borrow::Borrow;
 use std::any::Any;
 
@@ -100,37 +100,37 @@ pub enum LinkError {
         name: String,
     },
     /// The memory descriptor provided does not match the expected descriptor.
-    IncorrectMemoryDescriptor {
+    IncorrectMemoryType {
         /// Namespace.
         namespace: String,
         /// Name.
         name: String,
         /// Expected.
-        expected: MemoryDescriptor,
+        expected: MemoryType,
         /// Found.
-        found: MemoryDescriptor,
+        found: MemoryType,
     },
     /// The table descriptor provided does not match the expected descriptor.
-    IncorrectTableDescriptor {
+    IncorrectTableType {
         /// Namespace.
         namespace: String,
         /// Name.
         name: String,
         /// Expected.
-        expected: TableDescriptor,
+        expected: TableType,
         /// Found.
-        found: TableDescriptor,
+        found: TableType,
     },
     /// The global descriptor provided does not match the expected descriptor.
-    IncorrectGlobalDescriptor {
+    IncorrectGlobalType {
         /// Namespace.
         namespace: String,
         /// Name.
         name: String,
         /// Expected.
-        expected: GlobalDescriptor,
+        expected: GlobalType,
         /// Found.
-        found: GlobalDescriptor,
+        found: GlobalType,
     },
     /// A generic error with a message.
     Generic {
@@ -149,7 +149,7 @@ impl std::fmt::Display for LinkError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             LinkError::ImportNotFound {namespace, name} => write!(f, "Import not found, namespace: {}, name: {}", namespace, name),
-            LinkError::IncorrectGlobalDescriptor {namespace, name,expected,found} => {
+            LinkError::IncorrectGlobalType {namespace, name,expected,found} => {
                 write!(f, "Incorrect global descriptor, namespace: {}, name: {}, expected global descriptor: {:?}, found global descriptor: {:?}", namespace, name, expected, found)
             },
             LinkError::IncorrectImportSignature{namespace, name,expected,found} => {
@@ -158,10 +158,10 @@ impl std::fmt::Display for LinkError {
             LinkError::IncorrectImportType{namespace, name,expected,found} => {
                 write!(f, "Incorrect import type, namespace: {}, name: {}, expected type: {}, found type: {}", namespace, name, expected, found)
             }
-            LinkError::IncorrectMemoryDescriptor{namespace, name,expected,found} => {
+            LinkError::IncorrectMemoryType{namespace, name,expected,found} => {
                 write!(f, "Incorrect memory descriptor, namespace: {}, name: {}, expected memory descriptor: {:?}, found memory descriptor: {:?}", namespace, name, expected, found)
             },
-            LinkError::IncorrectTableDescriptor{namespace, name,expected,found} => {
+            LinkError::IncorrectTableType{namespace, name,expected,found} => {
                 write!(f, "Incorrect table descriptor, namespace: {}, name: {}, expected table descriptor: {:?}, found table descriptor: {:?}", namespace, name, expected, found)
             },
             LinkError::Generic { message } => {

@@ -11,8 +11,8 @@ use crate::{
     },
     structures::{Map, TypedIndex},
     types::{
-        ElementType, FuncIndex, FuncSig, GlobalDescriptor, GlobalIndex, GlobalInit,
-        ImportedGlobalIndex, Initializer, MemoryDescriptor, MemoryIndex, SigIndex, TableDescriptor,
+        ElementType, FuncIndex, FuncSig, GlobalType, GlobalIndex, GlobalInit,
+        ImportedGlobalIndex, Initializer, MemoryType, MemoryIndex, SigIndex, TableType,
         TableIndex, Type, Value,
     },
     units::Pages,
@@ -170,7 +170,7 @@ pub fn read_module<
                     }
                     ImportSectionEntryType::Table(table_ty) => {
                         assert_eq!(table_ty.element_type, WpType::AnyFunc);
-                        let table_desc = TableDescriptor {
+                        let table_desc = TableType {
                             element: ElementType::Anyfunc,
                             minimum: table_ty.limits.initial,
                             maximum: table_ty.limits.maximum,
@@ -182,7 +182,7 @@ pub fn read_module<
                             .push((import_name, table_desc));
                     }
                     ImportSectionEntryType::Memory(memory_ty) => {
-                        let mem_desc = MemoryDescriptor::new(
+                        let mem_desc = MemoryType::new(
                             Pages(memory_ty.limits.initial),
                             memory_ty.limits.maximum.map(Pages),
                             memory_ty.shared,
@@ -195,7 +195,7 @@ pub fn read_module<
                             .push((import_name, mem_desc));
                     }
                     ImportSectionEntryType::Global(global_ty) => {
-                        let global_desc = GlobalDescriptor {
+                        let global_desc = GlobalType {
                             mutable: global_ty.mutable,
                             ty: wp_type_to_type(global_ty.content_type)?,
                         };
@@ -211,7 +211,7 @@ pub fn read_module<
                 info.write().unwrap().func_assoc.push(sigindex);
             }
             ParserState::TableSectionEntry(table_ty) => {
-                let table_desc = TableDescriptor {
+                let table_desc = TableType {
                     element: ElementType::Anyfunc,
                     minimum: table_ty.limits.initial,
                     maximum: table_ty.limits.maximum,
@@ -220,7 +220,7 @@ pub fn read_module<
                 info.write().unwrap().tables.push(table_desc);
             }
             ParserState::MemorySectionEntry(memory_ty) => {
-                let mem_desc = MemoryDescriptor::new(
+                let mem_desc = MemoryType::new(
                     Pages(memory_ty.limits.initial),
                     memory_ty.limits.maximum.map(Pages),
                     memory_ty.shared,
@@ -445,7 +445,7 @@ pub fn read_module<
                         _ => unreachable!(),
                     }
                 };
-                let desc = GlobalDescriptor {
+                let desc = GlobalType {
                     mutable: ty.mutable,
                     ty: wp_type_to_type(ty.content_type)?,
                 };

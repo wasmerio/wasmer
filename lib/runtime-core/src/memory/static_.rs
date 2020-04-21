@@ -1,5 +1,5 @@
 use crate::error::GrowError;
-use crate::{error::CreationError, sys, types::MemoryDescriptor, units::Pages, vm};
+use crate::{error::CreationError, sys, types::MemoryType, units::Pages, vm};
 
 #[doc(hidden)]
 pub const SAFE_STATIC_HEAP_SIZE: usize = 1 << 32; // 4 GiB
@@ -25,7 +25,7 @@ pub struct StaticMemory {
 
 impl StaticMemory {
     pub(in crate::memory) fn new(
-        desc: MemoryDescriptor,
+        desc: MemoryType,
         local: &mut vm::LocalMemory,
     ) -> Result<Box<Self>, CreationError> {
         let memory = {

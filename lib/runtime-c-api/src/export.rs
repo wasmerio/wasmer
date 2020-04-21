@@ -13,7 +13,7 @@ use crate::{
 };
 use libc::{c_int, c_uint};
 use std::{ptr, slice};
-use wasmer::export::{ExportDescriptor, ExternDescriptor};
+use wasmer::export::{ExportDescriptor, ExternType};
 use wasmer::wasm::{Memory, Value};
 use wasmer::{Instance, Module};
 
@@ -24,7 +24,7 @@ pub(crate) struct NamedExport {
     pub(crate) name: String,
 
     /// The export instance.
-    pub(crate) extern_descriptor: ExternDescriptor,
+    pub(crate) extern_descriptor: ExternType,
 
     /// The instance that holds the export.
     pub(crate) instance: *mut Instance,
@@ -270,10 +270,10 @@ pub unsafe extern "C" fn wasmer_export_kind(
 ) -> wasmer_import_export_kind {
     let named_export = &*(export as *mut NamedExport);
     match named_export.extern_descriptor {
-        ExternDescriptor::Table(_) => wasmer_import_export_kind::WASM_TABLE,
-        ExternDescriptor::Function { .. } => wasmer_import_export_kind::WASM_FUNCTION,
-        ExternDescriptor::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
-        ExternDescriptor::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
+        ExternType::Table(_) => wasmer_import_export_kind::WASM_TABLE,
+        ExternType::Function { .. } => wasmer_import_export_kind::WASM_FUNCTION,
+        ExternType::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
+        ExternType::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
     }
 }
 
@@ -291,7 +291,7 @@ pub unsafe extern "C" fn wasmer_export_func_params_arity(
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.extern_descriptor;
-    if let ExternDescriptor::Function(ref signature) = *export {
+    if let ExternType::Function(ref signature) = *export {
         *result = signature.params().len() as u32;
         wasmer_result_t::WASMER_OK
     } else {
@@ -317,7 +317,7 @@ pub unsafe extern "C" fn wasmer_export_func_params(
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.extern_descriptor;
-    if let ExternDescriptor::Function(ref signature) = *export {
+    if let ExternType::Function(ref signature) = *export {
         let params: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(params, params_len as usize);
         for (i, item) in signature.params().iter().enumerate() {
@@ -347,7 +347,7 @@ pub unsafe extern "C" fn wasmer_export_func_returns(
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.extern_descriptor;
-    if let ExternDescriptor::Function(ref signature) = *export {
+    if let ExternType::Function(ref signature) = *export {
         let returns: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(returns, returns_len as usize);
         for (i, item) in signature.returns().iter().enumerate() {
@@ -376,7 +376,7 @@ pub unsafe extern "C" fn wasmer_export_func_returns_arity(
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
     let export = &named_export.extern_descriptor;
-    if let ExternDescriptor::Function(ref signature) = *export {
+    if let ExternType::Function(ref signature) = *export {
         *result = signature.returns().len() as u32;
         wasmer_result_t::WASMER_OK
     } else {
@@ -521,10 +521,10 @@ pub unsafe extern "C" fn wasmer_export_func_call(
 impl<'a> From<ExportDescriptor<'a>> for NamedExportDescriptor {
     fn from(ed: ExportDescriptor) -> Self {
         let kind = match ed.ty {
-            ExternDescriptor::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
-            ExternDescriptor::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
-            ExternDescriptor::Table(_) => wasmer_import_export_kind::WASM_TABLE,
-            ExternDescriptor::Function(_) => wasmer_import_export_kind::WASM_FUNCTION,
+            ExternType::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
+            ExternType::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
+            ExternType::Table(_) => wasmer_import_export_kind::WASM_TABLE,
+            ExternType::Function(_) => wasmer_import_export_kind::WASM_FUNCTION,
         };
         NamedExportDescriptor {
             name: ed.name.to_string(),

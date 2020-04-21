@@ -2,7 +2,7 @@ use crate::error::GrowError;
 use crate::{
     error::CreationError,
     sys,
-    types::MemoryDescriptor,
+    types::MemoryType,
     units::{Bytes, Pages},
     vm,
 };
@@ -30,7 +30,7 @@ pub struct DynamicMemory {
 
 impl DynamicMemory {
     pub(super) fn new(
-        desc: MemoryDescriptor,
+        desc: MemoryType,
         local: &mut vm::LocalMemory,
     ) -> Result<Box<Self>, CreationError> {
         let min_bytes: Bytes = desc.minimum.into();

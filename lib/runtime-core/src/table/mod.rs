@@ -4,7 +4,7 @@ use crate::{
     error::CreationError,
     export::Export,
     import::IsExport,
-    types::{ElementType, TableDescriptor},
+    types::{ElementType, TableType},
     vm,
 };
 use std::{
@@ -98,23 +98,23 @@ pub enum TableStorage {
 
 /// Container with a descriptor and a reference to a table storage.
 pub struct Table {
-    desc: TableDescriptor,
+    desc: TableType,
     storage: Arc<Mutex<(TableStorage, vm::LocalTable)>>,
 }
 
 impl Table {
-    /// Create a new `Table` from a [`TableDescriptor`]
+    /// Create a new `Table` from a [`TableType`]
     ///
-    /// [`TableDescriptor`]: struct.TableDescriptor.html
+    /// [`TableType`]: struct.TableType.html
     ///
     /// Usage:
     ///
     /// ```
-    /// # use wasmer_runtime_core::types::{TableDescriptor, ElementType};
+    /// # use wasmer_runtime_core::types::{TableType, ElementType};
     /// # use wasmer_runtime_core::table::Table;
     /// # use wasmer_runtime_core::error::Result;
     /// # fn create_table() -> Result<()> {
-    /// let descriptor = TableDescriptor {
+    /// let descriptor = TableType {
     ///     element: ElementType::Anyfunc,
     ///     minimum: 10,
     ///     maximum: None,
@@ -124,7 +124,7 @@ impl Table {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(desc: TableDescriptor) -> Result<Self, CreationError> {
+    pub fn new(desc: TableType) -> Result<Self, CreationError> {
         if let Some(max) = desc.maximum {
             if max < desc.minimum {
                 return Err(CreationError::InvalidDescriptor(
@@ -149,8 +149,8 @@ impl Table {
         })
     }
 
-    /// Get the `TableDescriptor` used to create this `Table`.
-    pub fn descriptor(&self) -> TableDescriptor {
+    /// Get the `TableType` used to create this `Table`.
+    pub fn descriptor(&self) -> TableType {
         self.desc
     }
 
@@ -238,11 +238,11 @@ impl fmt::Debug for Table {
 #[cfg(test)]
 mod table_tests {
 
-    use super::{ElementType, Table, TableDescriptor};
+    use super::{ElementType, Table, TableType};
 
     #[test]
     fn test_initial_table_size() {
-        let table = Table::new(TableDescriptor {
+        let table = Table::new(TableType {
             element: ElementType::Anyfunc,
             minimum: 10,
             maximum: Some(20),

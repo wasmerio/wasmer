@@ -29,7 +29,7 @@ use wasmer_runtime_core::{
     codegen::*,
     fault::{self, raw::register_preservation_trampoline},
     loader::CodeMemory,
-    memory::MemoryType,
+    memory::BackingMemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{
         x64::new_machine_state, x64::X64Register, x64_decl::ArgumentRegisterAllocator,
@@ -2215,8 +2215,8 @@ impl X64FunctionCode {
         };
         let need_check = match config.memory_bound_check_mode {
             MemoryBoundCheckMode::Default => match mem_desc.memory_type() {
-                MemoryType::Dynamic => true,
-                MemoryType::Static | MemoryType::SharedStatic => false,
+                BackingMemoryType::Dynamic => true,
+                BackingMemoryType::Static | BackingMemoryType::SharedStatic => false,
             },
             MemoryBoundCheckMode::Enable => true,
             MemoryBoundCheckMode::Disable => false,

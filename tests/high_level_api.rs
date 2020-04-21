@@ -76,7 +76,7 @@ wasmer_backends! {
 
     #[test]
     fn module_exports_are_ordered() {
-        use wasmer::types::{ElementType, FuncSig, GlobalDescriptor, TableDescriptor, Type};
+        use wasmer::types::{ElementType, FuncSig, GlobalType, TableType, Type};
         use wasmer::{export, CompiledModule, Module};
 
         let wasm = wabt::wat2wasm(TEST_WAT).unwrap();
@@ -89,7 +89,7 @@ wasmer_backends! {
             vec![
                 export::ExportDescriptor {
                     name: "test-table",
-                    ty: export::ExternDescriptor::Table(TableDescriptor {
+                    ty: export::ExternType::Table(TableType {
                         element: ElementType::Anyfunc,
                         minimum: 2,
                         maximum: None,
@@ -97,26 +97,26 @@ wasmer_backends! {
                 },
                 export::ExportDescriptor {
                     name: "test-global",
-                    ty: export::ExternDescriptor::Global(GlobalDescriptor {
+                    ty: export::ExternType::Global(GlobalType {
                         mutable: true,
                         ty: Type::I32,
                     }),
                 },
                 export::ExportDescriptor {
                     name: "ret_2",
-                    ty: export::ExternDescriptor::Function(FuncSig::new(vec![], vec![Type::I32])),
+                    ty: export::ExternType::Function(FuncSig::new(vec![], vec![Type::I32])),
                 },
                 export::ExportDescriptor {
                     name: "ret_4",
-                    ty: export::ExternDescriptor::Function(FuncSig::new(vec![], vec![Type::I32])),
+                    ty: export::ExternType::Function(FuncSig::new(vec![], vec![Type::I32])),
                 },
                 export::ExportDescriptor {
                     name: "set_test_global",
-                    ty: export::ExternDescriptor::Function(FuncSig::new(vec![Type::I32], vec![])),
+                    ty: export::ExternType::Function(FuncSig::new(vec![Type::I32], vec![])),
                 },
                 export::ExportDescriptor {
                     name: "update_outside_global",
-                    ty: export::ExternDescriptor::Function(FuncSig::new(vec![], vec![])),
+                    ty: export::ExternType::Function(FuncSig::new(vec![], vec![])),
                 },
             ]
         );

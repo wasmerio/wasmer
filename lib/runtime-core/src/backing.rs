@@ -713,7 +713,7 @@ fn import_memories(
                     memories.push(memory.clone());
                     vm_memories.push(memory.vm_local_memory());
                 } else {
-                    link_errors.push(LinkError::IncorrectMemoryDescriptor {
+                    link_errors.push(LinkError::IncorrectMemoryType {
                         namespace: namespace.to_string(),
                         name: name.to_string(),
                         expected: *expected_memory_desc,
@@ -784,7 +784,7 @@ fn import_tables(
                     vm_tables.push(table.vm_local_table());
                     tables.push(table);
                 } else {
-                    link_errors.push(LinkError::IncorrectTableDescriptor {
+                    link_errors.push(LinkError::IncorrectTableType {
                         namespace: namespace.to_string(),
                         name: name.to_string(),
                         expected: *expected_table_desc,
@@ -854,7 +854,7 @@ fn import_globals(
                     vm_globals.push(global.vm_local_global());
                     globals.push(global);
                 } else {
-                    link_errors.push(LinkError::IncorrectGlobalDescriptor {
+                    link_errors.push(LinkError::IncorrectGlobalType {
                         namespace: namespace.to_string(),
                         name: name.to_string(),
                         expected: *imported_global_desc,

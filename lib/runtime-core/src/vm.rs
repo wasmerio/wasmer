@@ -4,7 +4,7 @@ pub use crate::backing::{ImportBacking, LocalBacking, INTERNALS_SIZE};
 use crate::{
     error::CallResult,
     instance::call_func_with_index_inner,
-    memory::{Memory, MemoryType},
+    memory::{Memory, BackingMemoryType},
     module::{ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
     structures::TypedIndex,
@@ -238,17 +238,17 @@ fn get_intrinsics_for_module(m: &ModuleInfo) -> *const Intrinsics {
             LocalOrImport::Local(local_mem_index) => {
                 let mem_desc = &m.memories[local_mem_index];
                 match mem_desc.memory_type() {
-                    MemoryType::Dynamic => &INTRINSICS_LOCAL_DYNAMIC_MEMORY,
-                    MemoryType::Static => &INTRINSICS_LOCAL_STATIC_MEMORY,
-                    MemoryType::SharedStatic => &INTRINSICS_LOCAL_STATIC_MEMORY,
+                    BackingMemoryType::Dynamic => &INTRINSICS_LOCAL_DYNAMIC_MEMORY,
+                    BackingMemoryType::Static => &INTRINSICS_LOCAL_STATIC_MEMORY,
+                    BackingMemoryType::SharedStatic => &INTRINSICS_LOCAL_STATIC_MEMORY,
                 }
             }
             LocalOrImport::Import(import_mem_index) => {
                 let mem_desc = &m.imported_memories[import_mem_index].1;
                 match mem_desc.memory_type() {
-                    MemoryType::Dynamic => &INTRINSICS_IMPORTED_DYNAMIC_MEMORY,
-                    MemoryType::Static => &INTRINSICS_IMPORTED_STATIC_MEMORY,
-                    MemoryType::SharedStatic => &INTRINSICS_IMPORTED_STATIC_MEMORY,
+                    BackingMemoryType::Dynamic => &INTRINSICS_IMPORTED_DYNAMIC_MEMORY,
+                    BackingMemoryType::Static => &INTRINSICS_IMPORTED_STATIC_MEMORY,
+                    BackingMemoryType::SharedStatic => &INTRINSICS_IMPORTED_STATIC_MEMORY,
                 }
             }
         }

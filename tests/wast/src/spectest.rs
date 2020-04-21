@@ -1,7 +1,7 @@
 use wasmer::import::ImportObject;
 use wasmer::types::ElementType;
 use wasmer::units::Pages;
-use wasmer::wasm::{Func, Global, Memory, MemoryDescriptor, Table, TableDescriptor, Value};
+use wasmer::wasm::{Func, Global, Memory, MemoryType, Table, TableType, Value};
 use wasmer::*;
 
 /// Return an instance implementing the "spectest" interface used in the
@@ -26,10 +26,10 @@ pub fn spectest_importobject() -> ImportObject {
     let global_f32 = Global::new(Value::F32(f32::from_bits(0x4426_8000)));
     let global_f64 = Global::new(Value::F64(f64::from_bits(0x4084_d000_0000_0000)));
 
-    let memory_desc = MemoryDescriptor::new(Pages(1), Some(Pages(2)), false).unwrap();
+    let memory_desc = MemoryType::new(Pages(1), Some(Pages(2)), false).unwrap();
     let memory = Memory::new(memory_desc).unwrap();
 
-    let table = Table::new(TableDescriptor {
+    let table = Table::new(TableType {
         element: ElementType::Anyfunc,
         minimum: 10,
         maximum: Some(20),

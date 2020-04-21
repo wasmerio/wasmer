@@ -1,7 +1,7 @@
 //! The runtime types modules represent type used within the wasm runtime and helper functions to
 //! convert to other represenations.
 
-use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::Pages};
+use crate::{memory::BackingMemoryType, module::ModuleInfo, structures::TypedIndex, units::Pages};
 use std::{borrow::Cow, convert::TryFrom};
 
 /// Represents a WebAssembly type.
@@ -255,7 +255,7 @@ pub enum ElementType {
 /// Describes the properties of a table including the element types, minimum and optional maximum,
 /// number of elements in the table.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TableDescriptor {
+pub struct TableType {
     /// Type of data stored in this table.
     pub element: ElementType,
     /// The minimum number of elements that must be stored in this table.
@@ -264,8 +264,8 @@ pub struct TableDescriptor {
     pub maximum: Option<u32>,
 }
 
-impl TableDescriptor {
-    pub(crate) fn fits_in_imported(&self, imported: TableDescriptor) -> bool {
+impl TableType {
+    pub(crate) fn fits_in_imported(&self, imported: TableType) -> bool {
         // TODO: We should define implementation limits.
         let imported_max = imported.maximum.unwrap_or(u32::max_value());
         let self_max = self.maximum.unwrap_or(u32::max_value());
@@ -288,7 +288,7 @@ pub enum Initializer {
 
 /// Describes the mutability and type of a Global
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GlobalDescriptor {
+pub struct GlobalType {
     /// Mutable flag.
     pub mutable: bool,
     /// Wasm type.
@@ -299,14 +299,14 @@ pub struct GlobalDescriptor {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GlobalInit {
     /// Global descriptor.
-    pub desc: GlobalDescriptor,
+    pub desc: GlobalType,
     /// Global initializer.
     pub init: Initializer,
 }
 
 /// A wasm memory descriptor.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MemoryDescriptor {
+pub struct MemoryType {
     /// The minimum number of allowed pages.
     pub minimum: Pages,
     /// The maximum number of allowed pages.
@@ -314,21 +314,21 @@ pub struct MemoryDescriptor {
     /// This memory can be shared between wasm threads.
     pub shared: bool,
     /// The type of the memory
-    pub memory_type: MemoryType,
+    pub memory_type: BackingMemoryType,
 }
 
-impl MemoryDescriptor {
+impl MemoryType {
     /// Create a new memory descriptor with the given min/max pages and shared flag.
     pub fn new(minimum: Pages, maximum: Option<Pages>, shared: bool) -> Result<Self, String> {
         let memory_type = match (maximum.is_some(), shared) {
-            (true, true) => MemoryType::SharedStatic,
-            (true, false) => MemoryType::Static,
-            (false, false) => MemoryType::Dynamic,
+            (true, true) => BackingMemoryType::SharedStatic,
+            (true, false) => BackingMemoryType::Static,
+            (false, false) => BackingMemoryType::Dynamic,
             (false, true) => {
                 return Err("Max number of pages is required for shared memory".to_string());
             }
         };
-        Ok(MemoryDescriptor {
+        Ok(MemoryType {
             minimum,
             maximum,
             shared,
@@ -337,11 +337,11 @@ impl MemoryDescriptor {
     }
 
     /// Returns the `MemoryType` for this descriptor.
-    pub fn memory_type(&self) -> MemoryType {
+    pub fn memory_type(&self) -> BackingMemoryType {
         self.memory_type
     }
 
-    pub(crate) fn fits_in_imported(&self, imported: MemoryDescriptor) -> bool {
+    pub(crate) fn fits_in_imported(&self, imported: MemoryType) -> bool {
         let imported_max = imported.maximum.unwrap_or(Pages(65_536));
         let self_max = self.maximum.unwrap_or(Pages(65_536));
 
@@ -360,7 +360,7 @@ pub struct FuncSig {
 }
 
 /// Information about a function.
-pub type FuncDescriptor = FuncSig;
+pub type FuncType = FuncSig;
 
 impl FuncSig {
     /// Creates a new function signatures with the given parameter and return types.
@@ -554,56 +554,56 @@ where
 
 /// Information about an import such as its type and metadata.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ExternDescriptor {
+pub enum ExternType {
     /// The import is a function.
-    Function(FuncDescriptor),
+    Function(FuncType),
     /// The import is a global variable.
-    Global(GlobalDescriptor),
+    Global(GlobalType),
     /// The import is a Wasm linear memory.
-    Memory(MemoryDescriptor),
+    Memory(MemoryType),
     /// The import is a Wasm table.
-    Table(TableDescriptor),
+    Table(TableType),
 }
 
-impl From<FuncDescriptor> for ExternDescriptor {
-    fn from(other: FuncDescriptor) -> Self {
-        ExternDescriptor::Function(other)
+impl From<FuncType> for ExternType {
+    fn from(other: FuncType) -> Self {
+        ExternType::Function(other)
     }
 }
-impl From<&FuncDescriptor> for ExternDescriptor {
-    fn from(other: &FuncDescriptor) -> Self {
-        ExternDescriptor::Function(other.clone())
+impl From<&FuncType> for ExternType {
+    fn from(other: &FuncType) -> Self {
+        ExternType::Function(other.clone())
     }
 }
-impl From<MemoryDescriptor> for ExternDescriptor {
-    fn from(other: MemoryDescriptor) -> Self {
-        ExternDescriptor::Memory(other)
+impl From<MemoryType> for ExternType {
+    fn from(other: MemoryType) -> Self {
+        ExternType::Memory(other)
     }
 }
-impl From<&MemoryDescriptor> for ExternDescriptor {
-    fn from(other: &MemoryDescriptor) -> Self {
-        ExternDescriptor::Memory(*other)
+impl From<&MemoryType> for ExternType {
+    fn from(other: &MemoryType) -> Self {
+        ExternType::Memory(*other)
     }
 }
 
-impl From<TableDescriptor> for ExternDescriptor {
-    fn from(other: TableDescriptor) -> Self {
-        ExternDescriptor::Table(other)
+impl From<TableType> for ExternType {
+    fn from(other: TableType) -> Self {
+        ExternType::Table(other)
     }
 }
-impl From<&TableDescriptor> for ExternDescriptor {
-    fn from(other: &TableDescriptor) -> Self {
-        ExternDescriptor::Table(*other)
+impl From<&TableType> for ExternType {
+    fn from(other: &TableType) -> Self {
+        ExternType::Table(*other)
     }
 }
-impl From<GlobalDescriptor> for ExternDescriptor {
-    fn from(other: GlobalDescriptor) -> Self {
-        ExternDescriptor::Global(other)
+impl From<GlobalType> for ExternType {
+    fn from(other: GlobalType) -> Self {
+        ExternType::Global(other)
     }
 }
-impl From<&GlobalDescriptor> for ExternDescriptor {
-    fn from(other: &GlobalDescriptor) -> Self {
-        ExternDescriptor::Global(*other)
+impl From<&GlobalType> for ExternType {
+    fn from(other: &GlobalType) -> Self {
+        ExternType::Global(*other)
     }
 }
 
@@ -615,7 +615,7 @@ pub struct ImportDescriptor {
     /// The name of the import.
     pub name: String,
     /// The type of the import and information about the import.
-    pub ty: ExternDescriptor,
+    pub ty: ExternType,
 }
 
 /// Type describing an export that the [`Module`] provides.
@@ -624,7 +624,7 @@ pub struct ExportDescriptor<'a> {
     /// The name identifying the export.
     pub name: &'a str,
     /// The type of the export.
-    pub ty: ExternDescriptor,
+    pub ty: ExternType,
 }
 
 #[cfg(test)]
