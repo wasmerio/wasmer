@@ -6,9 +6,7 @@ use wabt::wat2wasm;
 use wasmer::compiler::{compile_with, compiler_for_backend, Backend};
 use wasmer::error::RuntimeError;
 use wasmer::units::Pages;
-use wasmer::wasm::{
-    DynFunc, Func, FuncSig, Global, Instance, Memory, MemoryType, Type, Value,
-};
+use wasmer::wasm::{DynFunc, Func, FuncSig, Global, Instance, Memory, MemoryType, Type, Value};
 use wasmer::{imports, vm, DynamicFunc};
 
 fn runtime_core_new_api_works(backend: Backend) {

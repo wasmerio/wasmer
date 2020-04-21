@@ -4,7 +4,7 @@ pub use crate::backing::{ImportBacking, LocalBacking, INTERNALS_SIZE};
 use crate::{
     error::CallResult,
     instance::call_func_with_index_inner,
-    memory::{Memory, BackingMemoryType},
+    memory::{BackingMemoryType, Memory},
     module::{ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
     structures::TypedIndex,

@@ -11,9 +11,8 @@ use crate::{
     },
     structures::{Map, TypedIndex},
     types::{
-        ElementType, FuncIndex, FuncSig, GlobalType, GlobalIndex, GlobalInit,
-        ImportedGlobalIndex, Initializer, MemoryType, MemoryIndex, SigIndex, TableType,
-        TableIndex, Type, Value,
+        ElementType, FuncIndex, FuncSig, GlobalIndex, GlobalInit, GlobalType, ImportedGlobalIndex,
+        Initializer, MemoryIndex, MemoryType, SigIndex, TableIndex, TableType, Type, Value,
     },
     units::Pages,
 };

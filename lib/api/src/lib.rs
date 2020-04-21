@@ -46,13 +46,13 @@ pub mod module {
     //! ```
     //! # use wasmer::*;
     //! # fn get_exports(module: &Module) {
-    //! let exports: Vec<ExportDescriptor> = module.exports().collect();
+    //! let exports: Vec<ExportType> = module.exports().collect();
     //! # }
     //! ```
     // TODO: verify that this is the type we want to export, with extra methods on it
     pub use wasmer_runtime_core::module::Module;
     // should this be in here?
-    pub use wasmer_runtime_core::types::{ExportDescriptor, ExternType, ImportDescriptor};
+    pub use wasmer_runtime_core::types::{ExportType, ExternType, ImportType};
     // TODO: implement abstract module API
 }
 
@@ -76,10 +76,8 @@ pub mod wasm {
     pub use wasmer_runtime_core::memory::Memory;
     pub use wasmer_runtime_core::module::Module;
     pub use wasmer_runtime_core::table::Table;
-    pub use wasmer_runtime_core::types::{ExportDescriptor, ExternType, ImportDescriptor};
-    pub use wasmer_runtime_core::types::{
-        FuncSig, GlobalType, MemoryType, TableType, Type, Value,
-    };
+    pub use wasmer_runtime_core::types::{ExportType, ExternType, ImportType};
+    pub use wasmer_runtime_core::types::{FuncSig, GlobalType, MemoryType, TableType, Type, Value};
     pub use wasmer_runtime_core::Func;
 }
 
@@ -285,14 +283,14 @@ pub mod import {
     pub use wasmer_runtime_core::import::{
         ImportObject, ImportObjectIterator, LikeNamespace, Namespace,
     };
-    pub use wasmer_runtime_core::types::{ExternType, ImportDescriptor};
+    pub use wasmer_runtime_core::types::{ExternType, ImportType};
     pub use wasmer_runtime_core::{func, imports};
 }
 
 pub mod export {
     //! Types and functions for Wasm exports.
     pub use wasmer_runtime_core::export::Export;
-    pub use wasmer_runtime_core::types::{ExportDescriptor, ExternType};
+    pub use wasmer_runtime_core::types::{ExportType, ExternType};
 }
 
 pub mod units {
@@ -303,8 +301,8 @@ pub mod units {
 pub mod types {
     //! Types used in the Wasm runtime and conversion functions.
     pub use wasmer_runtime_core::types::{
-        ElementType, FuncType, FuncSig, GlobalType, GlobalInit, MemoryType,
-        TableType, Type, Value, ValueType,
+        ElementType, FuncSig, FuncType, GlobalInit, GlobalType, MemoryType, TableType, Type, Value,
+        ValueType,
     };
 }
 

@@ -483,8 +483,8 @@ impl FuncEnvironment for FunctionEnvironment {
                     index_type: ir::types::I32,
                 }))
             }
-            mem_type @ BackingMemoryType::Static | mem_type @ BackingMemoryType::SharedStatic => Ok(func
-                .create_heap(ir::HeapData {
+            mem_type @ BackingMemoryType::Static | mem_type @ BackingMemoryType::SharedStatic => {
+                Ok(func.create_heap(ir::HeapData {
                     base: local_memory_base,
                     min_size: (description.minimum.bytes().0 as u64).into(),
                     offset_guard_size: mem_type.guard_size().into(),
@@ -492,7 +492,8 @@ impl FuncEnvironment for FunctionEnvironment {
                         bound: mem_type.bounds().unwrap().into(),
                     },
                     index_type: ir::types::I32,
-                })),
+                }))
+            }
         }
     }
 

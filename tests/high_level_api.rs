@@ -87,7 +87,7 @@ wasmer_backends! {
         assert_eq!(
             exports,
             vec![
-                export::ExportDescriptor {
+                export::ExportType {
                     name: "test-table",
                     ty: export::ExternType::Table(TableType {
                         element: ElementType::Anyfunc,
@@ -95,26 +95,26 @@ wasmer_backends! {
                         maximum: None,
                     }),
                 },
-                export::ExportDescriptor {
+                export::ExportType {
                     name: "test-global",
                     ty: export::ExternType::Global(GlobalType {
                         mutable: true,
                         ty: Type::I32,
                     }),
                 },
-                export::ExportDescriptor {
+                export::ExportType {
                     name: "ret_2",
                     ty: export::ExternType::Function(FuncSig::new(vec![], vec![Type::I32])),
                 },
-                export::ExportDescriptor {
+                export::ExportType {
                     name: "ret_4",
                     ty: export::ExternType::Function(FuncSig::new(vec![], vec![Type::I32])),
                 },
-                export::ExportDescriptor {
+                export::ExportType {
                     name: "set_test_global",
                     ty: export::ExternType::Function(FuncSig::new(vec![Type::I32], vec![])),
                 },
-                export::ExportDescriptor {
+                export::ExportType {
                     name: "update_outside_global",
                     ty: export::ExternType::Function(FuncSig::new(vec![], vec![])),
                 },

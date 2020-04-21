@@ -127,9 +127,7 @@ pub mod wasm {
     //! Various types exposed by the Wasmer Runtime.
     pub use wasmer_runtime_core::global::Global;
     pub use wasmer_runtime_core::table::Table;
-    pub use wasmer_runtime_core::types::{
-        FuncSig, GlobalType, MemoryType, TableType, Type, Value,
-    };
+    pub use wasmer_runtime_core::types::{FuncSig, GlobalType, MemoryType, TableType, Type, Value};
 }
 
 pub mod error {

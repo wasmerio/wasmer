@@ -190,7 +190,9 @@ impl BackingMemoryType {
     pub fn guard_size(self) -> u64 {
         match self {
             BackingMemoryType::Dynamic => DYNAMIC_GUARD_SIZE as u64,
-            BackingMemoryType::Static | BackingMemoryType::SharedStatic => SAFE_STATIC_GUARD_SIZE as u64,
+            BackingMemoryType::Static | BackingMemoryType::SharedStatic => {
+                SAFE_STATIC_GUARD_SIZE as u64
+            }
         }
     }
 
@@ -198,7 +200,9 @@ impl BackingMemoryType {
     pub fn bounds(self) -> Option<u64> {
         match self {
             BackingMemoryType::Dynamic => None,
-            BackingMemoryType::Static | BackingMemoryType::SharedStatic => Some(SAFE_STATIC_HEAP_SIZE as u64),
+            BackingMemoryType::Static | BackingMemoryType::SharedStatic => {
+                Some(SAFE_STATIC_HEAP_SIZE as u64)
+            }
         }
     }
 }
@@ -363,7 +367,7 @@ impl Clone for SharedMemory {
 #[cfg(test)]
 mod memory_tests {
 
-    use super::{Memory, types, Pages};
+    use super::{types, Memory, Pages};
 
     #[test]
     fn test_initial_memory_size() {

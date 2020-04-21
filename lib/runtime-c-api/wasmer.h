@@ -159,14 +159,14 @@ typedef struct {
 } wasmer_import_object_t;
 
 /**
- * Opaque pointer to `NamedExportDescriptor`.
+ * Opaque pointer to `NamedExportType`.
  */
 typedef struct {
 
 } wasmer_export_descriptor_t;
 
 /**
- * Opaque pointer to `NamedExportDescriptors`.
+ * Opaque pointer to `NamedExportTypes`.
  */
 typedef struct {
 

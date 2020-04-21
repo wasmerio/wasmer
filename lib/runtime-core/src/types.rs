@@ -609,7 +609,7 @@ impl From<&GlobalType> for ExternType {
 
 /// A type describing an import that a [`Module`] needs to be instantiated.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ImportDescriptor {
+pub struct ImportType {
     /// The namespace that this import is in.
     pub namespace: String,
     /// The name of the import.
@@ -620,7 +620,7 @@ pub struct ImportDescriptor {
 
 /// Type describing an export that the [`Module`] provides.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExportDescriptor<'a> {
+pub struct ExportType<'a> {
     /// The name identifying the export.
     pub name: &'a str,
     /// The type of the export.
