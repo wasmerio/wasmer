@@ -49,6 +49,7 @@ members = [
     "lib/emscripten",
     "lib/win-exception-handler",
     "lib/runtime-c-api",
+    "lib/runtime-c-api/crates/wasm-c-api",
     "lib/llvm-backend",
     "lib/wasi",
     "lib/middleware-common",

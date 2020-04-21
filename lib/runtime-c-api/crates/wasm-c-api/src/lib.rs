@@ -15,9 +15,6 @@ use wasmer::module::Module;
 use wasmer::units;
 use wasmer::wasm;
 
-#[cfg(feature = "ignore-wasm-c-api")]
-compile_error!("SHOULD NOT BE PARSING THIS");
-
 // TODO: remove delete from macro generation, need to do that manually
 
 // TODO: investigate marking things like the C++ API does (does not work in return position)

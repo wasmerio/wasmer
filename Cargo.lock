@@ -2945,12 +2945,12 @@ version = "0.16.2"
 dependencies = [
  "cbindgen",
  "libc",
- "paste",
  "wasmer",
  "wasmer-emscripten",
  "wasmer-runtime",
  "wasmer-runtime-core",
  "wasmer-wasi",
+ "wasmer-wasm-c-api",
 ]
 
 [[package]]
@@ -3026,6 +3026,14 @@ dependencies = [
  "typetag",
  "wasmer-runtime-core",
  "wasmer-wasi",
+]
+
+[[package]]
+name = "wasmer-wasm-c-api"
+version = "0.16.2"
+dependencies = [
+ "paste",
+ "wasmer",
 ]
 
 [[package]]

@@ -92,9 +92,8 @@
 )]
 extern crate wasmer_runtime;
 extern crate wasmer_runtime_core;
+extern crate wasmer_wasm_c_api;
 
-#[cfg(not(feature = "ignore-wasm-c-api"))]
-pub mod c_api;
 pub mod error;
 pub mod export;
 pub mod global;
