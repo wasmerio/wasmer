@@ -5,11 +5,9 @@ use crate::{
     wasmer_limits_t, wasmer_result_t,
 };
 use std::{cell::Cell, ptr};
-use wasmer_runtime::Memory;
-use wasmer_runtime_core::{
-    types::MemoryDescriptor,
-    units::{Bytes, Pages},
-};
+use wasmer::types::MemoryDescriptor;
+use wasmer::units::{Bytes, Pages};
+use wasmer::wasm::Memory;
 
 /// Opaque pointer to a `wasmer_runtime::Memory` value in Rust.
 ///

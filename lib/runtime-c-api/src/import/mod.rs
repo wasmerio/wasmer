@@ -17,12 +17,12 @@ use std::{
     ptr, slice,
     sync::Arc,
 };
-use wasmer_runtime::{Ctx, Global, Memory, Module, Table};
+use wasmer::import::{ImportObject, ImportObjectIterator};
+use wasmer::vm::Ctx;
+use wasmer::wasm::{Export, FuncSig, Global, Memory, Module, Table, Type};
 use wasmer_runtime_core::{
-    export::{Context, Export, FuncPointer},
-    import::{ImportObject, ImportObjectIterator},
+    export::{Context, FuncPointer},
     module::ImportName,
-    types::{FuncSig, Type},
 };
 
 #[repr(C)]

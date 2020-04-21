@@ -10,11 +10,9 @@ use crate::{
 };
 use libc::{c_char, c_int, c_void};
 use std::{collections::HashMap, ffi::CStr, ptr, slice};
-use wasmer_runtime::{Ctx, Global, Instance, Memory, Table, Value};
-use wasmer_runtime_core::{
-    export::Export,
-    import::{ImportObject, Namespace},
-};
+use wasmer::import::{ImportObject, Namespace};
+use wasmer::vm::Ctx;
+use wasmer::wasm::{Export, Global, Instance, Memory, Table, Value};
 
 /// Opaque pointer to a `wasmer_runtime::Instance` value in Rust.
 ///
@@ -166,7 +164,15 @@ pub unsafe extern "C" fn wasmer_instantiate(
     }
 
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
-    let result = wasmer_runtime::instantiate(bytes, &import_object);
+    let module_result = wasmer::compiler::compile(bytes);
+    let module = match module_result {
+        Ok(module) => module,
+        Err(error) => {
+            update_last_error(error);
+            return wasmer_result_t::WASMER_ERROR;
+        }
+    };
+    let result = module.instantiate(&import_object);
     let new_instance = match result {
         Ok(instance) => instance,
         Err(error) => {
@@ -387,10 +393,10 @@ pub unsafe extern "C" fn wasmer_instance_exports(
     let instance_ref = &mut *(instance as *mut Instance);
     let mut exports_vec: Vec<NamedExport> = Vec::with_capacity(instance_ref.exports().count());
 
-    for (name, export) in instance_ref.exports() {
+    for export_descriptor in instance_ref.module.exports().into_iter() {
         exports_vec.push(NamedExport {
-            name: name.clone(),
-            export: export.clone(),
+            name: export_descriptor.name.to_string(),
+            extern_descriptor: export_descriptor.ty,
             instance: instance as *mut Instance,
         });
     }
