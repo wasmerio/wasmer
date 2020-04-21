@@ -266,6 +266,7 @@ impl<T: Copy, Ty> fmt::Debug for WasmPtr<T, Ty> {
 mod test {
     use super::*;
     use crate::memory;
+    use crate::types;
     use crate::units::Pages;
 
     /// Ensure that memory accesses work on the edges of memory and that out of
@@ -273,8 +274,7 @@ mod test {
     #[test]
     fn wasm_ptr_memory_bounds_checks_hold() {
         // create a memory
-        let memory_descriptor =
-            memory::MemoryDescriptor::new(Pages(1), Some(Pages(1)), false).unwrap();
+        let memory_descriptor = types::MemoryType::new(Pages(1), Some(Pages(1)), false).unwrap();
         let memory = memory::Memory::new(memory_descriptor).unwrap();
 
         // test that basic access works and that len = 0 works, but oob does not

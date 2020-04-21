@@ -172,9 +172,11 @@ impl fmt::Debug for Memory {
     }
 }
 
-// TODO: add legacy MemoryType typedef for now
+/// Legacy wrapper around [`BackingMemoryType`].
+#[deprecated(note = "Please use `BackingMemoryType` instead.")]
+pub type MemoryType = BackingMemoryType;
 
-/// A kind a memory.
+/// What the underlying memory should look like.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BackingMemoryType {
     /// A dynamic memory.

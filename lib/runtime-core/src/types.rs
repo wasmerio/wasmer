@@ -252,6 +252,10 @@ pub enum ElementType {
     Anyfunc,
 }
 
+/// Legacy wrapper around [`TableType`].
+#[deprecated(note = "Please use `TableType` instead.")]
+pub type TableDescriptor = TableType;
+
 /// Describes the properties of a table including the element types, minimum and optional maximum,
 /// number of elements in the table.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -286,6 +290,10 @@ pub enum Initializer {
     GetGlobal(ImportedGlobalIndex),
 }
 
+/// Legacy wrapper around [`GlobalType`].
+#[deprecated(note = "Please use `GlobalType` instead.")]
+pub type GlobalDescriptor = GlobalType;
+
 /// Describes the mutability and type of a Global
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GlobalType {
@@ -303,6 +311,10 @@ pub struct GlobalInit {
     /// Global initializer.
     pub init: Initializer,
 }
+
+/// Legacy wrapper around [`MemoryType`].
+#[deprecated(note = "Please use `MemoryType` instead.")]
+pub type MemoryDescriptor = MemoryType;
 
 /// A wasm memory descriptor.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,7 +1,7 @@
 use wabt::wat2wasm;
 use wasmer_runtime::{
     compile, error, func, imports,
-    types::{ElementType, MemoryDescriptor, TableDescriptor, Value},
+    types::{ElementType, MemoryType, TableType, Value},
     units::Pages,
     Ctx, Global, Memory, Table,
 };
@@ -13,12 +13,12 @@ fn main() -> error::Result<()> {
 
     let inner_module = compile(&wasm_binary)?;
 
-    let memory_desc = MemoryDescriptor::new(Pages(1), Some(Pages(1)), false).unwrap();
+    let memory_desc = MemoryType::new(Pages(1), Some(Pages(1)), false).unwrap();
     let memory = Memory::new(memory_desc).unwrap();
 
     let global = Global::new(Value::I32(42));
 
-    let table = Table::new(TableDescriptor {
+    let table = Table::new(TableType {
         element: ElementType::Anyfunc,
         minimum: 10,
         maximum: None,
