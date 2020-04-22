@@ -1,4 +1,4 @@
-//! Offsets and sizes of various structs in wasmtime-runtime's vmcontext
+//! Offsets and sizes of various structs in wasmer-runtime's vmcontext
 //! module.
 
 use crate::module::Module;

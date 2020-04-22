@@ -38,7 +38,7 @@ impl RuntimeError {
         let info = FRAME_INFO.read().unwrap();
         match jit {
             Trap::User(error) => {
-                // Since we're the only one using the wasmtime internals (in
+                // Since we're the only one using the internals (in
                 // theory) we should only see user errors which were originally
                 // created from our own `Trap` type (see the trampoline module
                 // with functions).
