@@ -1,0 +1,11 @@
+{
+  "output": "Test file exists: false\nDir exists: false\nDir exists: false\nDir exists: false\nSuccess\n",
+  "options": {
+    "mapdir": [],
+    "env": [],
+    "args": [],
+    "dir": [
+      "."
+    ]
+  }
+}

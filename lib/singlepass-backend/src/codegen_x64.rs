@@ -2978,8 +2978,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         );
                         let ty = type_to_wp_type(module_info.globals[local_index].desc.ty);
                         if ty.is_float() {
-                            self.fp_stack
-                                .push(FloatValue::new(self.value_stack.len() - 1));
+                            self.fp_stack.push(FloatValue::new(self.value_stack.len()));
                         }
                         self.machine.acquire_locations(
                             a,
@@ -3003,8 +3002,7 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                         );
                         let ty = type_to_wp_type(module_info.imported_globals[import_index].1.ty);
                         if ty.is_float() {
-                            self.fp_stack
-                                .push(FloatValue::new(self.value_stack.len() - 1));
+                            self.fp_stack.push(FloatValue::new(self.value_stack.len()));
                         }
                         self.machine.acquire_locations(
                             a,

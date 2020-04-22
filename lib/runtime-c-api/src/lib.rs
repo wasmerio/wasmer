@@ -90,8 +90,6 @@
     unused_unsafe,
     unreachable_patterns
 )]
-extern crate wasmer_runtime;
-extern crate wasmer_runtime_core;
 extern crate wasmer_wasm_c_api;
 
 pub mod error;

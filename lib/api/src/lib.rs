@@ -90,6 +90,7 @@ pub mod wasm {
     pub use wasmer_runtime_core::global::Global;
     pub use wasmer_runtime_core::instance::{DynFunc, Instance};
     pub use wasmer_runtime_core::memory::Memory;
+    pub use wasmer_runtime_core::module::Module;
     pub use wasmer_runtime_core::table::Table;
     pub use wasmer_runtime_core::types::{ExportDescriptor, ExternDescriptor, ImportDescriptor};
     pub use wasmer_runtime_core::types::{
@@ -299,13 +300,16 @@ pub mod codegen {
 // TODO: `import` or `imports`?
 pub mod import {
     //! Types and functions for Wasm imports.
-    pub use wasmer_runtime_core::import::{ImportObject, LikeNamespace, Namespace};
+    pub use wasmer_runtime_core::import::{
+        ImportObject, ImportObjectIterator, LikeNamespace, Namespace,
+    };
     pub use wasmer_runtime_core::types::{ExternDescriptor, ImportDescriptor};
     pub use wasmer_runtime_core::{func, imports};
 }
 
 pub mod export {
     //! Types and functions for Wasm exports.
+    pub use wasmer_runtime_core::export::Export;
     pub use wasmer_runtime_core::types::{ExportDescriptor, ExternDescriptor};
 }
 
@@ -369,6 +373,10 @@ pub mod error {
 /// Idea for generic trait; consider rename; it will need to be moved somewhere else
 pub trait CompiledModule {
     fn new(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module>;
+    fn new_with_compiler(
+        bytes: impl AsRef<[u8]>,
+        compiler: Box<dyn compiler::Compiler>,
+    ) -> error::CompileResult<Module>;
     fn from_binary(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module>;
     fn from_binary_unchecked(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module>;
     fn from_file(file: impl AsRef<std::path::Path>) -> Result<Module, error::CompileFromFileError>;
@@ -381,6 +389,14 @@ impl CompiledModule for Module {
     fn new(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {
         let bytes = bytes.as_ref();
         wasmer_runtime_core::compile_with(bytes, &compiler::default_compiler())
+    }
+
+    fn new_with_compiler(
+        bytes: impl AsRef<[u8]>,
+        compiler: Box<dyn compiler::Compiler>,
+    ) -> error::CompileResult<Module> {
+        let bytes = bytes.as_ref();
+        wasmer_runtime_core::compile_with(bytes, &*compiler)
     }
 
     fn from_binary(bytes: impl AsRef<[u8]>) -> error::CompileResult<Module> {

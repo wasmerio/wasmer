@@ -13,8 +13,9 @@ use crate::{
 };
 use libc::{c_int, c_uint};
 use std::{ptr, slice};
-use wasmer_runtime::{Instance, Module, Value};
-use wasmer_runtime_core::{export::Export, module::ExportIndex};
+use wasmer::export::{ExportDescriptor, ExternDescriptor};
+use wasmer::wasm::{Memory, Value};
+use wasmer::{Instance, Module};
 
 /// Intermediate representation of an `Export` instance that is
 /// exposed to C.
@@ -23,7 +24,7 @@ pub(crate) struct NamedExport {
     pub(crate) name: String,
 
     /// The export instance.
-    pub(crate) export: Export,
+    pub(crate) extern_descriptor: ExternDescriptor,
 
     /// The instance that holds the export.
     pub(crate) instance: *mut Instance,
@@ -145,7 +146,7 @@ pub unsafe extern "C" fn wasmer_export_descriptors(
     let module = &*(module as *const Module);
 
     let named_export_descriptors: Box<NamedExportDescriptors> = Box::new(NamedExportDescriptors(
-        module.info().exports.iter().map(|e| e.into()).collect(),
+        module.exports().into_iter().map(|e| e.into()).collect(),
     ));
     *export_descriptors =
         Box::into_raw(named_export_descriptors) as *mut wasmer_export_descriptors_t;
@@ -268,11 +269,11 @@ pub unsafe extern "C" fn wasmer_export_kind(
     export: *mut wasmer_export_t,
 ) -> wasmer_import_export_kind {
     let named_export = &*(export as *mut NamedExport);
-    match named_export.export {
-        Export::Table(_) => wasmer_import_export_kind::WASM_TABLE,
-        Export::Function { .. } => wasmer_import_export_kind::WASM_FUNCTION,
-        Export::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
-        Export::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
+    match named_export.extern_descriptor {
+        ExternDescriptor::Table(_) => wasmer_import_export_kind::WASM_TABLE,
+        ExternDescriptor::Function { .. } => wasmer_import_export_kind::WASM_FUNCTION,
+        ExternDescriptor::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
+        ExternDescriptor::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
     }
 }
 
@@ -289,8 +290,8 @@ pub unsafe extern "C" fn wasmer_export_func_params_arity(
     result: *mut u32,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
-    let export = &named_export.export;
-    if let Export::Function { ref signature, .. } = *export {
+    let export = &named_export.extern_descriptor;
+    if let ExternDescriptor::Function(ref signature) = *export {
         *result = signature.params().len() as u32;
         wasmer_result_t::WASMER_OK
     } else {
@@ -315,8 +316,8 @@ pub unsafe extern "C" fn wasmer_export_func_params(
     params_len: u32,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
-    let export = &named_export.export;
-    if let Export::Function { ref signature, .. } = *export {
+    let export = &named_export.extern_descriptor;
+    if let ExternDescriptor::Function(ref signature) = *export {
         let params: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(params, params_len as usize);
         for (i, item) in signature.params().iter().enumerate() {
@@ -345,8 +346,8 @@ pub unsafe extern "C" fn wasmer_export_func_returns(
     returns_len: u32,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
-    let export = &named_export.export;
-    if let Export::Function { ref signature, .. } = *export {
+    let export = &named_export.extern_descriptor;
+    if let ExternDescriptor::Function(ref signature) = *export {
         let returns: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(returns, returns_len as usize);
         for (i, item) in signature.returns().iter().enumerate() {
@@ -374,8 +375,8 @@ pub unsafe extern "C" fn wasmer_export_func_returns_arity(
     result: *mut u32,
 ) -> wasmer_result_t {
     let named_export = &*(func as *const NamedExport);
-    let export = &named_export.export;
-    if let Export::Function { ref signature, .. } = *export {
+    let export = &named_export.extern_descriptor;
+    if let ExternDescriptor::Function(ref signature) = *export {
         *result = signature.returns().len() as u32;
         wasmer_result_t::WASMER_OK
     } else {
@@ -408,9 +409,9 @@ pub unsafe extern "C" fn wasmer_export_to_memory(
     memory: *mut *mut wasmer_memory_t,
 ) -> wasmer_result_t {
     let named_export = &*(export as *const NamedExport);
-    let export = &named_export.export;
+    let instance = &*named_export.instance;
 
-    if let Export::Memory(exported_memory) = export {
+    if let Ok(exported_memory) = instance.exports.get::<Memory>(&named_export.name) {
         let mem = Box::new(exported_memory.clone());
         *memory = Box::into_raw(mem) as *mut wasmer_memory_t;
         wasmer_result_t::WASMER_OK
@@ -517,16 +518,16 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     }
 }
 
-impl From<(&std::string::String, &ExportIndex)> for NamedExportDescriptor {
-    fn from((name, export_index): (&String, &ExportIndex)) -> Self {
-        let kind = match *export_index {
-            ExportIndex::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
-            ExportIndex::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
-            ExportIndex::Table(_) => wasmer_import_export_kind::WASM_TABLE,
-            ExportIndex::Func(_) => wasmer_import_export_kind::WASM_FUNCTION,
+impl<'a> From<ExportDescriptor<'a>> for NamedExportDescriptor {
+    fn from(ed: ExportDescriptor) -> Self {
+        let kind = match ed.ty {
+            ExternDescriptor::Memory(_) => wasmer_import_export_kind::WASM_MEMORY,
+            ExternDescriptor::Global(_) => wasmer_import_export_kind::WASM_GLOBAL,
+            ExternDescriptor::Table(_) => wasmer_import_export_kind::WASM_TABLE,
+            ExternDescriptor::Function(_) => wasmer_import_export_kind::WASM_FUNCTION,
         };
         NamedExportDescriptor {
-            name: name.clone(),
+            name: ed.name.to_string(),
             kind,
         }
     }

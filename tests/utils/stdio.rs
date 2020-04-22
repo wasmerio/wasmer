@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use super::file_descriptor::FileDescriptor;
 use libc;
 use std::io;

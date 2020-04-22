@@ -1,0 +1,14 @@
+{
+  "output": "\"Hello, world!\\nGoodbye, world!\\n\"\n",
+  "options": {
+    "mapdir": [
+      [
+        ".",
+        "tests/wasi_test_resources/test_fs/temp"
+      ]
+    ],
+    "env": [],
+    "args": [],
+    "dir": []
+  }
+}

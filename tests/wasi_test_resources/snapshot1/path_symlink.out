@@ -1,0 +1,18 @@
+{
+  "output": "ACT III\nSCENE I. A room in the castle.\n\n    Enter KING CLAUDIUS,\n",
+  "options": {
+    "mapdir": [
+      [
+        "temp",
+        "tests/wasi_test_resources/test_fs/temp"
+      ],
+      [
+        "hamlet",
+        "tests/wasi_test_resources/test_fs/hamlet"
+      ]
+    ],
+    "env": [],
+    "args": [],
+    "dir": []
+  }
+}

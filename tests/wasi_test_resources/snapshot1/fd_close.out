@@ -1,0 +1,14 @@
+{
+  "output": "Successfully closed file!\nSuccessfully closed stderr!\nSuccessfully closed stdin!\n",
+  "options": {
+    "mapdir": [
+      [
+        ".",
+        "tests/wasi_test_resources/test_fs/hamlet"
+      ]
+    ],
+    "env": [],
+    "args": [],
+    "dir": []
+  }
+}

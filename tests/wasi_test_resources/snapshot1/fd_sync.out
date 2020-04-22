@@ -1,0 +1,14 @@
+{
+  "output": "170\n1404\n",
+  "options": {
+    "mapdir": [
+      [
+        ".",
+        "tests/wasi_test_resources/test_fs/temp"
+      ]
+    ],
+    "env": [],
+    "args": [],
+    "dir": []
+  }
+}

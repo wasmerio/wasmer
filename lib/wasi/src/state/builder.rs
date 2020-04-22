@@ -3,6 +3,7 @@
 use crate::state::{WasiFile, WasiFs, WasiFsError, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 /// Creates an empty [`WasiStateBuilder`].
 ///
@@ -56,15 +57,23 @@ impl std::fmt::Debug for WasiStateBuilder {
 }
 
 /// Error type returned when bad data is given to [`WasiStateBuilder`].
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum WasiStateCreationError {
+    #[error("bad environment variable format: `{0}`")]
     EnvironmentVariableFormatError(String),
+    #[error("argument contains null byte: `{0}`")]
     ArgumentContainsNulByte(String),
+    #[error("preopened directory not found: `{0}`")]
     PreopenedDirectoryNotFound(PathBuf),
+    #[error("preopened directory error: `{0}`")]
     PreopenedDirectoryError(String),
+    #[error("mapped dir alias has wrong format: `{0}`")]
     MappedDirAliasFormattingError(String),
+    #[error("wasi filesystem creation error: `{0}`")]
     WasiFsCreationError(String),
+    #[error("wasi filesystem setup error: `{0}`")]
     WasiFsSetupError(String),
+    #[error(transparent)]
     WasiFsError(WasiFsError),
 }
 

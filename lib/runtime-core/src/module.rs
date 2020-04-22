@@ -171,43 +171,9 @@ impl Module {
         &self.inner.info
     }
 
-    /// Iterate over the [`ExportDescriptor`]s of the exports that this module provides.
-    pub(crate) fn exports_iter(&self) -> impl Iterator<Item = ExportDescriptor> + '_ {
-        self.info()
-            .exports
-            .iter()
-            .map(move |(name, &ei)| ExportDescriptor {
-                name,
-                ty: match ei {
-                    ExportIndex::Func(f_idx) => {
-                        let sig_idx = self.info().func_assoc[f_idx].into();
-                        self.info().signatures[sig_idx].clone().into()
-                    }
-                    ExportIndex::Global(g_idx) => {
-                        let info = self.info();
-                        let local_global_idx =
-                            LocalGlobalIndex::new(g_idx.index() - info.imported_globals.len());
-                        info.globals[local_global_idx].desc.into()
-                    }
-                    ExportIndex::Memory(m_idx) => {
-                        let info = self.info();
-                        let local_memory_idx =
-                            LocalMemoryIndex::new(m_idx.index() - info.imported_memories.len());
-                        info.memories[local_memory_idx].into()
-                    }
-                    ExportIndex::Table(t_idx) => {
-                        let info = self.info();
-                        let local_table_idx =
-                            LocalTableIndex::new(t_idx.index() - info.imported_tables.len());
-                        info.tables[local_table_idx].into()
-                    }
-                },
-            })
-    }
-
     /// Get the [`ExportDescriptor`]s of the exports this [`Module`] provides.
     pub fn exports(&self) -> Vec<ExportDescriptor> {
-        self.exports_iter().collect()
+        self.inner.exports()
     }
 
     /// Get the [`ImportDescriptor`]s describing the imports this [`Module`]
@@ -304,7 +270,46 @@ impl Clone for Module {
     }
 }
 
-impl ModuleInner {}
+impl ModuleInner {
+    /// Iterate over the [`ExportDescriptor`]s of the exports that this module provides.
+    pub(crate) fn exports_iter(&self) -> impl Iterator<Item = ExportDescriptor> + '_ {
+        self.info
+            .exports
+            .iter()
+            .map(move |(name, &ei)| ExportDescriptor {
+                name,
+                ty: match ei {
+                    ExportIndex::Func(f_idx) => {
+                        let sig_idx = self.info.func_assoc[f_idx].into();
+                        self.info.signatures[sig_idx].clone().into()
+                    }
+                    ExportIndex::Global(g_idx) => {
+                        let info = &self.info;
+                        let local_global_idx =
+                            LocalGlobalIndex::new(g_idx.index() - info.imported_globals.len());
+                        info.globals[local_global_idx].desc.into()
+                    }
+                    ExportIndex::Memory(m_idx) => {
+                        let info = &self.info;
+                        let local_memory_idx =
+                            LocalMemoryIndex::new(m_idx.index() - info.imported_memories.len());
+                        info.memories[local_memory_idx].into()
+                    }
+                    ExportIndex::Table(t_idx) => {
+                        let info = &self.info;
+                        let local_table_idx =
+                            LocalTableIndex::new(t_idx.index() - info.imported_tables.len());
+                        info.tables[local_table_idx].into()
+                    }
+                },
+            })
+    }
+
+    /// Get the [`ExportDescriptor`]s of the exports this [`Module`] provides.
+    pub fn exports(&self) -> Vec<ExportDescriptor> {
+        self.exports_iter().collect()
+    }
+}
 
 #[doc(hidden)]
 #[derive(Serialize, Deserialize, Debug, Clone)]

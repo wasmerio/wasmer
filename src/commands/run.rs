@@ -474,7 +474,12 @@ impl LLVMCallbacks for LLVMCLIOptions {
 
 /// Execute a wasm/wat file
 fn execute_wasm(options: &Run) -> Result<(), String> {
-    if options.generate_debug_info && options.backend != Backend::Cranelift {
+    #[cfg(feature = "backend-cranelift")]
+    let in_cranelift = options.backend == Backend::Cranelift;
+    #[cfg(not(feature = "backend-cranelift"))]
+    let in_cranelift = false;
+
+    if options.generate_debug_info && !in_cranelift {
         return Err("Generating debug information is currently only available with the `cranelift` backend.".to_owned());
     }
 
