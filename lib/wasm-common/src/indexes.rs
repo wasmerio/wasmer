@@ -4,12 +4,6 @@ use core::u32;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
-/// Index type of a function (imported or defined) inside the WebAssembly module.
-#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct FuncIndex(u32);
-entity_impl!(FuncIndex);
-
 /// Index type of a function defined locally inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -34,25 +28,31 @@ entity_impl!(LocalMemoryIndex);
 pub struct LocalGlobalIndex(u32);
 entity_impl!(LocalGlobalIndex);
 
-/// Index type of a table (imported or defined) inside the WebAssembly module.
+/// Index type of a function (imported or local) inside the WebAssembly module.
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct FuncIndex(u32);
+entity_impl!(FuncIndex);
+
+/// Index type of a table (imported or local) inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct TableIndex(u32);
 entity_impl!(TableIndex);
 
-/// Index type of a global variable (imported or defined) inside the WebAssembly module.
+/// Index type of a global variable (imported or local) inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct GlobalIndex(u32);
 entity_impl!(GlobalIndex);
 
-/// Index type of a linear memory (imported or defined) inside the WebAssembly module.
+/// Index type of a linear memory (imported or local) inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct MemoryIndex(u32);
 entity_impl!(MemoryIndex);
 
-/// Index type of a signature (imported or defined) inside the WebAssembly module.
+/// Index type of a signature (imported or local) inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct SignatureIndex(u32);
