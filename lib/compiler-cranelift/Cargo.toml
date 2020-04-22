@@ -24,13 +24,6 @@ rayon = "1.3.0"
 serde = { version = "1.0.106", features = ["derive"] }
 more-asserts = "0.2.1"
 
-[target.'cfg(target_os = "windows")'.dependencies]
-winapi = "0.3.8"
-
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-libc = "0.2.69"
-errno = "0.2.5"
-
 [dev-dependencies]
 target-lexicon = { version = "0.10.0", default-features = false }
 cranelift-codegen = { version = "0.62.0", features = ["enable-serde", "all-arch"] }

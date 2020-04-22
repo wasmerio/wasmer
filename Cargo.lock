@@ -345,27 +345,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "errno"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b480f641ccf0faf324e20c1d3e53d81b7484c698b42ea677f6907ae4db195371"
-dependencies = [
- "errno-dragonfly",
- "libc",
- "winapi",
-]
-
-[[package]]
-name = "errno-dragonfly"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14ca354e36190500e1e1fb267c647932382b54053c50b14970856c0b00a35067"
-dependencies = [
- "gcc",
- "libc",
-]
-
-[[package]]
 name = "file-per-thread-logger"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -380,12 +359,6 @@ name = "fnv"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
-
-[[package]]
-name = "gcc"
-version = "0.3.55"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f5f3913fa0bfe7ee1fd8248b6b9f42a5af4b9d65ec2dd2c3c26132b950ecfc2"
 
 [[package]]
 name = "getrandom"
@@ -1060,10 +1033,8 @@ version = "0.16.2"
 dependencies = [
  "cranelift-codegen",
  "cranelift-frontend",
- "errno",
  "hashbrown",
  "lazy_static",
- "libc",
  "log",
  "more-asserts",
  "rayon",
@@ -1073,7 +1044,6 @@ dependencies = [
  "wasmer-compiler",
  "wasmer-runtime",
  "wasmparser",
- "winapi",
 ]
 
 [[package]]
