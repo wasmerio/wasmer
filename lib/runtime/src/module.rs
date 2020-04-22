@@ -32,7 +32,7 @@ pub struct TableElements {
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic,
-    /// Addresss space is allocated up front.
+    /// Address space is allocated up front.
     Static {
         /// The number of mapped and unmapped pages.
         bound: Pages,
