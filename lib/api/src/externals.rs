@@ -9,8 +9,8 @@ use std::slice;
 use wasm_common::{HostFunction, WasmTypeList, WithEnv, WithoutEnv, WASM_PAGE_SIZE};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
-    InstanceHandle, LinearMemory, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext,
-    VMFunctionBody, VMGlobalDefinition, VMMemoryDefinition, VMTrampoline,
+    Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMGlobalDefinition,
+    VMMemoryDefinition, VMTrampoline,
 };
 
 #[derive(Clone)]

@@ -12,9 +12,9 @@ use wasmer_runtime::Export;
 /// ```ignore
 /// # let my_instance = Instance::new(...);
 /// // This returns an Error since the imported is a funciton, not a global.
-/// let missing_import: Global = my_instance.exports.get("func")?;
+/// let missing_import: &Global = my_instance.exports.get("func")?;
 /// // This returns an Error since the import doesn't exist.
-/// let missing_import: Func = my_instance.exports.get("unknown")?;
+/// let missing_import: &Func = my_instance.exports.get("unknown")?;
 /// ```
 #[derive(Error, Debug)]
 pub enum ExportError {

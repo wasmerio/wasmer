@@ -1,6 +1,6 @@
 use crate::errors::{DirectiveError, DirectiveErrors};
 use crate::spectest::spectest_importobject;
-use anyhow::{anyhow, bail, Context as _, Error, Result};
+use anyhow::{anyhow, bail, Result};
 use std::collections::HashMap;
 use std::path::Path;
 use std::str;
@@ -251,8 +251,7 @@ impl Wast {
 
     /// Run a wast script from a file.
     pub fn run_file(&mut self, path: &Path) -> Result<()> {
-        let bytes =
-            std::fs::read(path).with_context(|| format!("failed to read `{}`", path.display()))?;
+        let bytes = std::fs::read(path)?;
         self.run_buffer(path.to_str().unwrap(), &bytes)
     }
 }

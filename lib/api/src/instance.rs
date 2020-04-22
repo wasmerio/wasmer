@@ -1,15 +1,10 @@
-use crate::exports::{Exportable, Exports};
+use crate::exports::Exports;
 use crate::externals::Extern;
-use crate::import_object::{ImportObject, LikeNamespace};
-use crate::imports;
 use crate::module::Module;
 use crate::store::Store;
-use crate::RuntimeError;
-use crate::{InstantiationError, LinkError};
-use std::collections::HashMap;
-use wasm_common::Features;
-use wasmer_jit::{CompiledModule, CompilerConfig, Resolver};
-use wasmer_runtime::{Export, InstanceHandle, SignatureRegistry};
+use crate::InstantiationError;
+use wasmer_jit::Resolver;
+use wasmer_runtime::InstanceHandle;
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].

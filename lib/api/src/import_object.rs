@@ -1,8 +1,6 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::exports::{ExportError, Exportable, Exports};
-use crate::externals::Extern;
 use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
 use std::{
@@ -10,9 +8,8 @@ use std::{
     ffi::c_void,
     sync::{Arc, Mutex},
 };
-use wasm_common::GlobalType;
 use wasmer_jit::Resolver;
-use wasmer_runtime::{Export, ExportGlobal};
+use wasmer_runtime::Export;
 
 /// The `LikeNamespace` trait represents objects that act as a namespace for imports.
 /// For example, an `Instance` or `Namespace` could be
@@ -184,7 +181,7 @@ impl IntoIterator for ImportObject {
 }
 
 impl Extend<((String, String), Export)> for ImportObject {
-    fn extend<T: IntoIterator<Item = ((String, String), Export)>>(&mut self, iter: T) {
+    fn extend<T: IntoIterator<Item = ((String, String), Export)>>(&mut self, _iter: T) {
         unimplemented!("Extend not yet implemented");
     }
 }
@@ -268,8 +265,8 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use crate::{Global, Store, Val, ValType};
-    use wasm_common::{GlobalType, Mutability, Type, Value};
+    use crate::{Global, Store, Val};
+    use wasm_common::Type;
     use wasmer_runtime::Export;
 
     #[test]
