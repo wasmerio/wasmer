@@ -40,11 +40,11 @@ pub struct VMOffsets {
     /// The number of imported globals in the module.
     pub num_imported_globals: u32,
     /// The number of defined tables in the module.
-    pub num_defined_tables: u32,
+    pub num_local_tables: u32,
     /// The number of defined memories in the module.
-    pub num_defined_memories: u32,
+    pub num_local_memories: u32,
     /// The number of defined globals in the module.
-    pub num_defined_globals: u32,
+    pub num_local_globals: u32,
 }
 
 impl VMOffsets {
@@ -57,9 +57,9 @@ impl VMOffsets {
             num_imported_tables: cast_to_u32(module.num_imported_tables),
             num_imported_memories: cast_to_u32(module.num_imported_memories),
             num_imported_globals: cast_to_u32(module.num_imported_globals),
-            num_defined_tables: cast_to_u32(module.tables.len()),
-            num_defined_memories: cast_to_u32(module.memories.len()),
-            num_defined_globals: cast_to_u32(module.globals.len()),
+            num_local_tables: cast_to_u32(module.tables.len()),
+            num_local_memories: cast_to_u32(module.memories.len()),
+            num_local_globals: cast_to_u32(module.globals.len()),
         }
     }
 }
@@ -308,7 +308,7 @@ impl VMOffsets {
     pub fn vmctx_memories_begin(&self) -> u32 {
         self.vmctx_tables_begin()
             .checked_add(
-                self.num_defined_tables
+                self.num_local_tables
                     .checked_mul(u32::from(self.size_of_vmtable_definition()))
                     .unwrap(),
             )
@@ -320,7 +320,7 @@ impl VMOffsets {
         let offset = self
             .vmctx_memories_begin()
             .checked_add(
-                self.num_defined_memories
+                self.num_local_memories
                     .checked_mul(u32::from(self.size_of_vmmemory_definition()))
                     .unwrap(),
             )
@@ -332,7 +332,7 @@ impl VMOffsets {
     pub fn vmctx_builtin_functions_begin(&self) -> u32 {
         self.vmctx_globals_begin()
             .checked_add(
-                self.num_defined_globals
+                self.num_local_globals
                     .checked_mul(u32::from(self.size_of_vmglobal_definition()))
                     .unwrap(),
             )
@@ -417,7 +417,7 @@ impl VMOffsets {
 
     /// Return the offset to `VMTableDefinition` index `index`.
     pub fn vmctx_vmtable_definition(&self, index: LocalTableIndex) -> u32 {
-        assert_lt!(index.as_u32(), self.num_defined_tables);
+        assert_lt!(index.as_u32(), self.num_local_tables);
         self.vmctx_tables_begin()
             .checked_add(
                 index
@@ -430,7 +430,7 @@ impl VMOffsets {
 
     /// Return the offset to `VMMemoryDefinition` index `index`.
     pub fn vmctx_vmmemory_definition(&self, index: LocalMemoryIndex) -> u32 {
-        assert_lt!(index.as_u32(), self.num_defined_memories);
+        assert_lt!(index.as_u32(), self.num_local_memories);
         self.vmctx_memories_begin()
             .checked_add(
                 index
@@ -443,7 +443,7 @@ impl VMOffsets {
 
     /// Return the offset to the `VMGlobalDefinition` index `index`.
     pub fn vmctx_vmglobal_definition(&self, index: LocalGlobalIndex) -> u32 {
-        assert_lt!(index.as_u32(), self.num_defined_globals);
+        assert_lt!(index.as_u32(), self.num_local_globals);
         self.vmctx_globals_begin()
             .checked_add(
                 index

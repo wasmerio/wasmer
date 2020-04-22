@@ -162,7 +162,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         } else {
             (
                 self.get_memory_grow_sig(func),
-                self.module.defined_memory_index(index).unwrap().index(),
+                self.module.local_memory_index(index).unwrap().index(),
                 VMBuiltinFunctionIndex::get_memory32_grow_index(),
             )
         }
@@ -199,7 +199,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         } else {
             (
                 self.get_memory32_size_sig(func),
-                self.module.defined_memory_index(index).unwrap().index(),
+                self.module.local_memory_index(index).unwrap().index(),
                 VMBuiltinFunctionIndex::get_memory32_size_index(),
             )
         }
@@ -331,11 +331,11 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         memory_index: MemoryIndex,
     ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
         let sig = self.get_memory_copy_sig(func);
-        if let Some(defined_memory_index) = self.module.defined_memory_index(memory_index) {
+        if let Some(local_memory_index) = self.module.local_memory_index(memory_index) {
             (
                 sig,
-                defined_memory_index.index(),
-                VMBuiltinFunctionIndex::get_defined_memory_copy_index(),
+                local_memory_index.index(),
+                VMBuiltinFunctionIndex::get_local_memory_copy_index(),
             )
         } else {
             (
@@ -374,10 +374,10 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         memory_index: MemoryIndex,
     ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
         let sig = self.get_memory_fill_sig(func);
-        if let Some(defined_memory_index) = self.module.defined_memory_index(memory_index) {
+        if let Some(local_memory_index) = self.module.local_memory_index(memory_index) {
             (
                 sig,
-                defined_memory_index.index(),
+                local_memory_index.index(),
                 VMBuiltinFunctionIndex::get_memory_fill_index(),
             )
         } else {
@@ -484,7 +484,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         let (ptr, base_offset, current_elements_offset) = {
             let vmctx = self.vmctx(func);
-            if let Some(def_index) = self.module.defined_table_index(index) {
+            if let Some(def_index) = self.module.local_table_index(index) {
                 let base_offset =
                     i32::try_from(self.offsets.vmctx_vmtable_definition_base(def_index)).unwrap();
                 let current_elements_offset = i32::try_from(
@@ -616,7 +616,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         let (ptr, base_offset, current_length_offset) = {
             let vmctx = self.vmctx(func);
-            if let Some(def_index) = self.module.defined_memory_index(index) {
+            if let Some(def_index) = self.module.local_memory_index(index) {
                 let base_offset =
                     i32::try_from(self.offsets.vmctx_vmmemory_definition_base(def_index)).unwrap();
                 let current_length_offset = i32::try_from(
@@ -699,7 +699,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         let (ptr, offset) = {
             let vmctx = self.vmctx(func);
-            if let Some(def_index) = self.module.defined_global_index(index) {
+            if let Some(def_index) = self.module.local_global_index(index) {
                 let offset =
                     i32::try_from(self.offsets.vmctx_vmglobal_definition(def_index)).unwrap();
                 (vmctx, offset)

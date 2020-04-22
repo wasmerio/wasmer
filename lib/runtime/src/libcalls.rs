@@ -219,7 +219,7 @@ pub unsafe extern "C" fn wasmer_elem_drop(vmctx: *mut VMContext, elem_index: u32
 }
 
 /// Implementation of `memory.copy` for locally defined memories.
-pub unsafe extern "C" fn wasmer_defined_memory_copy(
+pub unsafe extern "C" fn wasmer_local_memory_copy(
     vmctx: *mut VMContext,
     memory_index: u32,
     dst: u32,
@@ -229,7 +229,7 @@ pub unsafe extern "C" fn wasmer_defined_memory_copy(
     let result = {
         let memory_index = LocalMemoryIndex::from_u32(memory_index);
         let instance = (&mut *vmctx).instance();
-        instance.defined_memory_copy(memory_index, dst, src, len)
+        instance.local_memory_copy(memory_index, dst, src, len)
     };
     if let Err(trap) = result {
         raise_lib_trap(trap);
@@ -265,7 +265,7 @@ pub unsafe extern "C" fn wasmer_memory_fill(
     let result = {
         let memory_index = LocalMemoryIndex::from_u32(memory_index);
         let instance = (&mut *vmctx).instance();
-        instance.defined_memory_fill(memory_index, dst, val, len)
+        instance.local_memory_fill(memory_index, dst, val, len)
     };
     if let Err(trap) = result {
         raise_lib_trap(trap);

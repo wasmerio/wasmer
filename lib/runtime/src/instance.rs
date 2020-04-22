@@ -205,8 +205,8 @@ impl Instance {
 
     /// Get a locally defined or imported memory.
     pub(crate) fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
-        if let Some(defined_index) = self.module.defined_memory_index(index) {
-            self.memory(defined_index)
+        if let Some(local_index) = self.module.local_memory_index(index) {
+            self.memory(local_index)
         } else {
             let import = self.imported_memory(index);
             *unsafe { import.definition.as_ref().unwrap() }
@@ -290,16 +290,16 @@ impl Instance {
         match export {
             ExportIndex::Function(index) => {
                 let signature = self.signature_id(self.module.functions[*index]);
-                let (address, vmctx) =
-                    if let Some(def_index) = self.module.defined_func_index(*index) {
-                        (
-                            self.finished_functions[def_index] as *const _,
-                            self.vmctx_ptr(),
-                        )
-                    } else {
-                        let import = self.imported_function(*index);
-                        (import.body, import.vmctx)
-                    };
+                let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
+                {
+                    (
+                        self.finished_functions[def_index] as *const _,
+                        self.vmctx_ptr(),
+                    )
+                } else {
+                    let import = self.imported_function(*index);
+                    (import.body, import.vmctx)
+                };
                 ExportFunction {
                     address,
                     signature,
@@ -309,7 +309,7 @@ impl Instance {
             }
             ExportIndex::Table(index) => {
                 let (definition, from) =
-                    if let Some(def_index) = self.module.defined_table_index(*index) {
+                    if let Some(def_index) = self.module.local_table_index(*index) {
                         (
                             self.table_ptr(def_index),
                             self.tables[def_index].as_mut_ptr(),
@@ -322,7 +322,7 @@ impl Instance {
             }
             ExportIndex::Memory(index) => {
                 let (definition, from) =
-                    if let Some(def_index) = self.module.defined_memory_index(*index) {
+                    if let Some(def_index) = self.module.local_memory_index(*index) {
                         (
                             self.memory_ptr(def_index),
                             self.memories[def_index].as_mut_ptr(),
@@ -334,7 +334,7 @@ impl Instance {
                 ExportMemory { definition, from }.into()
             }
             ExportIndex::Global(index) => ExportGlobal {
-                definition: if let Some(def_index) = self.module.defined_global_index(*index) {
+                definition: if let Some(def_index) = self.module.local_global_index(*index) {
                     self.global_ptr(def_index)
                 } else {
                     self.imported_global(*index).definition
@@ -367,11 +367,11 @@ impl Instance {
             None => return Ok(()),
         };
 
-        let (callee_address, callee_vmctx) = match self.module.defined_func_index(start_index) {
-            Some(defined_index) => {
+        let (callee_address, callee_vmctx) = match self.module.local_func_index(start_index) {
+            Some(local_index) => {
                 let body = *self
                     .finished_functions
-                    .get(defined_index)
+                    .get(local_index)
                     .expect("function index is out of bounds");
                 (body as *const _, self.vmctx_ptr())
             }
@@ -543,7 +543,7 @@ impl Instance {
         let sig = self.module.functions[index];
         let type_index = self.signature_id(sig);
 
-        let (func_ptr, vmctx) = if let Some(def_index) = self.module.defined_func_index(index) {
+        let (func_ptr, vmctx) = if let Some(def_index) = self.module.local_func_index(index) {
             (
                 self.finished_functions[def_index] as *const _,
                 self.vmctx_ptr(),
@@ -617,7 +617,7 @@ impl Instance {
     ///
     /// Returns a `Trap` error when the source or destination ranges are out of
     /// bounds.
-    pub(crate) fn defined_memory_copy(
+    pub(crate) fn local_memory_copy(
         &self,
         memory_index: LocalMemoryIndex,
         dst: u32,
@@ -648,7 +648,7 @@ impl Instance {
     /// # Errors
     ///
     /// Returns a `Trap` error if the memory range is out of bounds.
-    pub(crate) fn defined_memory_fill(
+    pub(crate) fn local_memory_fill(
         &self,
         memory_index: LocalMemoryIndex,
         dst: u32,
@@ -729,15 +729,15 @@ impl Instance {
     /// Get a table by index regardless of whether it is locally-defined or an
     /// imported, foreign table.
     pub(crate) fn get_table(&self, table_index: TableIndex) -> &Table {
-        if let Some(defined_table_index) = self.module.defined_table_index(table_index) {
-            self.get_defined_table(defined_table_index)
+        if let Some(local_table_index) = self.module.local_table_index(table_index) {
+            self.get_local_table(local_table_index)
         } else {
             self.get_foreign_table(table_index)
         }
     }
 
     /// Get a locally-defined table.
-    pub(crate) fn get_defined_table(&self, index: LocalTableIndex) -> &Table {
+    pub(crate) fn get_local_table(&self, index: LocalTableIndex) -> &Table {
         &self.tables[index]
     }
 
@@ -1007,8 +1007,8 @@ impl InstanceHandle {
     }
 
     /// Get a table defined locally within this module.
-    pub fn get_defined_table(&self, index: LocalTableIndex) -> &Table {
-        self.instance().get_defined_table(index)
+    pub fn get_local_table(&self, index: LocalTableIndex) -> &Table {
+        self.instance().get_local_table(index)
     }
 
     /// Return a reference to the contained `Instance`.
@@ -1063,7 +1063,7 @@ fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usi
 
     if let Some(base) = init.location.base {
         let val = unsafe {
-            if let Some(def_index) = instance.module.defined_global_index(base) {
+            if let Some(def_index) = instance.module.local_global_index(base) {
                 *instance.global(def_index).as_u32()
             } else {
                 *(*instance.imported_global(base).definition).as_u32()
@@ -1080,11 +1080,11 @@ unsafe fn get_memory_slice<'instance>(
     init: &DataInitializer<'_>,
     instance: &'instance Instance,
 ) -> &'instance mut [u8] {
-    let memory = if let Some(defined_memory_index) = instance
+    let memory = if let Some(local_memory_index) = instance
         .module
-        .defined_memory_index(init.location.memory_index)
+        .local_memory_index(init.location.memory_index)
     {
-        instance.memory(defined_memory_index)
+        instance.memory(local_memory_index)
     } else {
         let import = instance.imported_memory(init.location.memory_index);
         *import.definition.as_ref().unwrap()
@@ -1115,7 +1115,7 @@ fn get_table_init_start(init: &TableElements, instance: &Instance) -> usize {
 
     if let Some(base) = init.base {
         let val = unsafe {
-            if let Some(def_index) = instance.module.defined_global_index(base) {
+            if let Some(def_index) = instance.module.local_global_index(base) {
                 *instance.global(def_index).as_u32()
             } else {
                 *(*instance.imported_global(base).definition).as_u32()
@@ -1211,7 +1211,7 @@ fn initialize_globals(instance: &Instance) {
     let module = Arc::clone(&instance.module);
     let num_imports = module.num_imported_globals;
     for (index, global) in module.globals.iter().skip(num_imports) {
-        let def_index = module.defined_global_index(index).unwrap();
+        let def_index = module.local_global_index(index).unwrap();
         unsafe {
             let to = instance.global_ptr(def_index);
             match global.initializer {
@@ -1221,7 +1221,7 @@ fn initialize_globals(instance: &Instance) {
                 GlobalInit::F64Const(x) => *(*to).as_f64_bits_mut() = x,
                 GlobalInit::V128Const(x) => *(*to).as_u128_bits_mut() = *x.bytes(),
                 GlobalInit::GetGlobal(x) => {
-                    let from = if let Some(def_x) = module.defined_global_index(x) {
+                    let from = if let Some(def_x) = module.local_global_index(x) {
                         instance.global(def_x)
                     } else {
                         *instance.imported_global(x).definition

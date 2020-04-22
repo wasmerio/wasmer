@@ -621,7 +621,7 @@ impl VMBuiltinFunctionIndex {
         Self(6)
     }
     /// Returns an index for wasm's `memory.copy` for locally defined memories.
-    pub const fn get_defined_memory_copy_index() -> Self {
+    pub const fn get_local_memory_copy_index() -> Self {
         Self(7)
     }
     /// Returns an index for wasm's `memory.copy` for imported memories.
@@ -690,8 +690,8 @@ impl VMBuiltinFunctionsArray {
         ptrs[VMBuiltinFunctionIndex::get_elem_drop_index().index() as usize] =
             wasmer_elem_drop as usize;
 
-        ptrs[VMBuiltinFunctionIndex::get_defined_memory_copy_index().index() as usize] =
-            wasmer_defined_memory_copy as usize;
+        ptrs[VMBuiltinFunctionIndex::get_local_memory_copy_index().index() as usize] =
+            wasmer_local_memory_copy as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_copy_index().index() as usize] =
             wasmer_imported_memory_copy as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as usize] =

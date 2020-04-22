@@ -8630,7 +8630,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::MemoryGrow { reserved } => {
                 let mem_index = MemoryIndex::from_u32(reserved);
                 let func_value = if let Some(local_mem_index) =
-                    module.local.defined_memory_index(mem_index)
+                    module.local.local_memory_index(mem_index)
                 {
                     match module
                         .local
@@ -8665,7 +8665,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::MemorySize { reserved } => {
                 let mem_index = MemoryIndex::from_u32(reserved);
                 let func_value = if let Some(local_mem_index) =
-                    module.local.defined_memory_index(mem_index)
+                    module.local.local_memory_index(mem_index)
                 {
                     match module
                         .local

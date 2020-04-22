@@ -255,13 +255,13 @@ impl Module {
     }
 
     /// Convert a `LocalFuncIndex` into a `FuncIndex`.
-    pub fn func_index(&self, defined_func: LocalFuncIndex) -> FuncIndex {
-        FuncIndex::new(self.num_imported_funcs + defined_func.index())
+    pub fn func_index(&self, local_func: LocalFuncIndex) -> FuncIndex {
+        FuncIndex::new(self.num_imported_funcs + local_func.index())
     }
 
     /// Convert a `FuncIndex` into a `LocalFuncIndex`. Returns None if the
     /// index is an imported function.
-    pub fn defined_func_index(&self, func: FuncIndex) -> Option<LocalFuncIndex> {
+    pub fn local_func_index(&self, func: FuncIndex) -> Option<LocalFuncIndex> {
         if func.index() < self.num_imported_funcs {
             None
         } else {
@@ -275,13 +275,13 @@ impl Module {
     }
 
     /// Convert a `LocalTableIndex` into a `TableIndex`.
-    pub fn table_index(&self, defined_table: LocalTableIndex) -> TableIndex {
-        TableIndex::new(self.num_imported_tables + defined_table.index())
+    pub fn table_index(&self, local_table: LocalTableIndex) -> TableIndex {
+        TableIndex::new(self.num_imported_tables + local_table.index())
     }
 
     /// Convert a `TableIndex` into a `LocalTableIndex`. Returns None if the
     /// index is an imported table.
-    pub fn defined_table_index(&self, table: TableIndex) -> Option<LocalTableIndex> {
+    pub fn local_table_index(&self, table: TableIndex) -> Option<LocalTableIndex> {
         if table.index() < self.num_imported_tables {
             None
         } else {
@@ -297,13 +297,13 @@ impl Module {
     }
 
     /// Convert a `LocalMemoryIndex` into a `MemoryIndex`.
-    pub fn memory_index(&self, defined_memory: LocalMemoryIndex) -> MemoryIndex {
-        MemoryIndex::new(self.num_imported_memories + defined_memory.index())
+    pub fn memory_index(&self, local_memory: LocalMemoryIndex) -> MemoryIndex {
+        MemoryIndex::new(self.num_imported_memories + local_memory.index())
     }
 
     /// Convert a `MemoryIndex` into a `LocalMemoryIndex`. Returns None if the
     /// index is an imported memory.
-    pub fn defined_memory_index(&self, memory: MemoryIndex) -> Option<LocalMemoryIndex> {
+    pub fn local_memory_index(&self, memory: MemoryIndex) -> Option<LocalMemoryIndex> {
         if memory.index() < self.num_imported_memories {
             None
         } else {
@@ -319,13 +319,13 @@ impl Module {
     }
 
     /// Convert a `LocalGlobalIndex` into a `GlobalIndex`.
-    pub fn global_index(&self, defined_global: LocalGlobalIndex) -> GlobalIndex {
-        GlobalIndex::new(self.num_imported_globals + defined_global.index())
+    pub fn global_index(&self, local_global: LocalGlobalIndex) -> GlobalIndex {
+        GlobalIndex::new(self.num_imported_globals + local_global.index())
     }
 
     /// Convert a `GlobalIndex` into a `LocalGlobalIndex`. Returns None if the
     /// index is an imported global.
-    pub fn defined_global_index(&self, global: GlobalIndex) -> Option<LocalGlobalIndex> {
+    pub fn local_global_index(&self, global: GlobalIndex) -> Option<LocalGlobalIndex> {
         if global.index() < self.num_imported_globals {
             None
         } else {
