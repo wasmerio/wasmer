@@ -31,10 +31,10 @@ pub enum Type {
 
 impl Type {
     /// Returns true if `Type` matches any of the numeric types. (e.g. `I32`,
-    /// `I64`, `F32`, `F64`).
+    /// `I64`, `F32`, `F64`, `V128`).
     pub fn is_num(&self) -> bool {
         match self {
-            Type::I32 | Type::I64 | Type::F32 | Type::F64 => true,
+            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::V128 => true,
             _ => false,
         }
     }
