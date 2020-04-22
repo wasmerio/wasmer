@@ -1,3 +1,5 @@
+# Wasmer Compiler
+
 This crate is the base for Compiler implementations.
 
 It performs the translation from a Wasm module into a basic Module,
