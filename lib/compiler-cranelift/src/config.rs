@@ -194,7 +194,7 @@ impl CompilerConfig for CraneliftConfig {
 }
 
 impl Default for CraneliftConfig {
-    fn default() -> CraneliftConfig {
-        CraneliftConfig::new()
+    fn default() -> Self {
+        Self::new()
     }
 }

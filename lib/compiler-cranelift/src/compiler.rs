@@ -12,7 +12,6 @@ use cranelift_codegen::ir::{self, ExternalName};
 use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{binemit, isa, Context};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::collections::HashMap;
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
     DefinedFuncIndex, Features, FuncIndex, FuncType, MemoryIndex, SignatureIndex, TableIndex,
@@ -152,9 +151,9 @@ pub struct CraneliftCompiler {
 
 impl CraneliftCompiler {
     /// Creates a new Cranelift compiler
-    pub fn new(config: &CraneliftConfig) -> CraneliftCompiler {
+    pub fn new(config: &CraneliftConfig) -> Self {
         let isa = config.isa();
-        CraneliftCompiler {
+        Self {
             isa,
             config: config.clone(),
         }
@@ -166,7 +165,7 @@ impl CraneliftCompiler {
     }
 
     /// Gets the WebAssembly features for this Compiler
-    fn config(&self) -> &CraneliftConfig {
+    pub fn config(&self) -> &CraneliftConfig {
         &self.config
     }
 }
