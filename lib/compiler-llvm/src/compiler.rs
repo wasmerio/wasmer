@@ -7,7 +7,7 @@ use crate::config::LLVMConfig;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
-use wasm_common::{DefinedFuncIndex, FuncIndex, FuncType};
+use wasm_common::{LocalFuncIndex, FuncIndex, FuncType};
 use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::Module;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler};
@@ -54,18 +54,18 @@ impl Compiler for LLVMCompiler {
         &self,
         module: &Module,
         _module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<DefinedFuncIndex, FunctionBodyData<'_>>,
+        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         let functions = function_body_inputs
             .into_iter()
-            .collect::<Vec<(DefinedFuncIndex, &FunctionBodyData<'_>)>>()
+            .collect::<Vec<(LocalFuncIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
                 func_translator.translate(module, i, input, self.config())
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<DefinedFuncIndex, _>>();
+            .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
         Ok(Compilation::new(functions))
     }

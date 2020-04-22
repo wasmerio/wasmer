@@ -10,29 +10,29 @@ use serde::{Deserialize, Serialize};
 pub struct FuncIndex(u32);
 entity_impl!(FuncIndex);
 
-/// Index type of a defined function inside the WebAssembly module.
+/// Index type of a function defined locally inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct DefinedFuncIndex(u32);
-entity_impl!(DefinedFuncIndex);
+pub struct LocalFuncIndex(u32);
+entity_impl!(LocalFuncIndex);
 
-/// Index type of a defined table inside the WebAssembly module.
+/// Index type of a table defined locally inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct DefinedTableIndex(u32);
-entity_impl!(DefinedTableIndex);
+pub struct LocalTableIndex(u32);
+entity_impl!(LocalTableIndex);
 
-/// Index type of a defined memory inside the WebAssembly module.
+/// Index type of a memory defined locally inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct DefinedMemoryIndex(u32);
-entity_impl!(DefinedMemoryIndex);
+pub struct LocalMemoryIndex(u32);
+entity_impl!(LocalMemoryIndex);
 
-/// Index type of a defined global inside the WebAssembly module.
+/// Index type of a global defined locally inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct DefinedGlobalIndex(u32);
-entity_impl!(DefinedGlobalIndex);
+pub struct LocalGlobalIndex(u32);
+entity_impl!(LocalGlobalIndex);
 
 /// Index type of a table (imported or defined) inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]

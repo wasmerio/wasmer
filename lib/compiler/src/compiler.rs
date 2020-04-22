@@ -8,7 +8,7 @@ use crate::std::vec::Vec;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{DefinedFuncIndex, Features, FuncType, MemoryIndex, TableIndex};
+use wasm_common::{LocalFuncIndex, Features, FuncType, MemoryIndex, TableIndex};
 use wasmer_runtime::Module;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
@@ -47,7 +47,7 @@ pub trait Compiler {
         module: &'module Module,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
-        function_body_inputs: PrimaryMap<DefinedFuncIndex, FunctionBodyData<'data>>,
+        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
         // The plans for the module memories (imported and local)
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         // The plans for the module tables (imported and local)

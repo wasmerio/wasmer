@@ -1,7 +1,7 @@
 use cranelift_codegen::isa::CallConv;
 use serde::{Deserialize, Serialize};
 use wasm_common::entity::PrimaryMap;
-use wasm_common::DefinedFuncIndex;
+use wasm_common::LocalFuncIndex;
 
 pub use cranelift_codegen::ir::FrameLayoutChange;
 
@@ -18,4 +18,4 @@ pub struct FrameLayout {
 }
 
 /// Functions frame layouts.
-pub type FrameLayouts = PrimaryMap<DefinedFuncIndex, FrameLayout>;
+pub type FrameLayouts = PrimaryMap<LocalFuncIndex, FrameLayout>;

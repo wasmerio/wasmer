@@ -38,7 +38,7 @@ use crate::trap::raise_lib_trap;
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use wasm_common::{DataIndex, DefinedMemoryIndex, ElemIndex, MemoryIndex, TableIndex};
+use wasm_common::{DataIndex, LocalMemoryIndex, ElemIndex, MemoryIndex, TableIndex};
 
 /// Implementation of f32.ceil
 pub extern "C" fn wasmer_f32_ceil(x: f32) -> f32 {
@@ -129,7 +129,7 @@ pub unsafe extern "C" fn wasmer_memory32_grow(
     memory_index: u32,
 ) -> u32 {
     let instance = (&mut *vmctx).instance();
-    let memory_index = DefinedMemoryIndex::from_u32(memory_index);
+    let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
     instance
         .memory_grow(memory_index, delta)
@@ -153,7 +153,7 @@ pub unsafe extern "C" fn wasmer_imported_memory32_grow(
 /// Implementation of memory.size for locally-defined 32-bit memories.
 pub unsafe extern "C" fn wasmer_memory32_size(vmctx: *mut VMContext, memory_index: u32) -> u32 {
     let instance = (&mut *vmctx).instance();
-    let memory_index = DefinedMemoryIndex::from_u32(memory_index);
+    let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
     instance.memory_size(memory_index)
 }
@@ -227,7 +227,7 @@ pub unsafe extern "C" fn wasmer_defined_memory_copy(
     len: u32,
 ) {
     let result = {
-        let memory_index = DefinedMemoryIndex::from_u32(memory_index);
+        let memory_index = LocalMemoryIndex::from_u32(memory_index);
         let instance = (&mut *vmctx).instance();
         instance.defined_memory_copy(memory_index, dst, src, len)
     };
@@ -263,7 +263,7 @@ pub unsafe extern "C" fn wasmer_memory_fill(
     len: u32,
 ) {
     let result = {
-        let memory_index = DefinedMemoryIndex::from_u32(memory_index);
+        let memory_index = LocalMemoryIndex::from_u32(memory_index);
         let instance = (&mut *vmctx).instance();
         instance.defined_memory_fill(memory_index, dst, val, len)
     };

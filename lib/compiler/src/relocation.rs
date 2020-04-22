@@ -14,7 +14,7 @@ use crate::{Addend, CodeOffset, JumpTable};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{DefinedFuncIndex, FuncIndex};
+use wasm_common::{LocalFuncIndex, FuncIndex};
 use wasmer_runtime::libcalls::LibCall;
 
 /// Relocation kinds for every ISA.
@@ -97,4 +97,4 @@ pub enum RelocationTarget {
 }
 
 /// Relocations to apply to function bodies.
-pub type Relocations = PrimaryMap<DefinedFuncIndex, Vec<Relocation>>;
+pub type Relocations = PrimaryMap<LocalFuncIndex, Vec<Relocation>>;

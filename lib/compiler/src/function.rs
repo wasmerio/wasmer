@@ -12,7 +12,7 @@ use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Re
 use serde::{Deserialize, Serialize};
 
 use wasm_common::entity::PrimaryMap;
-use wasm_common::DefinedFuncIndex;
+use wasm_common::LocalFuncIndex;
 
 type FunctionBody = Vec<u8>;
 
@@ -46,7 +46,7 @@ pub struct CompiledFunction {
 }
 
 /// The compiled functions map (index in the Wasm -> function)
-pub type Functions = PrimaryMap<DefinedFuncIndex, CompiledFunction>;
+pub type Functions = PrimaryMap<LocalFuncIndex, CompiledFunction>;
 
 /// The result of compiling a WebAssembly module's functions.
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
@@ -97,7 +97,7 @@ impl Compilation {
     }
 
     /// Gets the bytes of a single function
-    pub fn get(&self, func: DefinedFuncIndex) -> &CompiledFunction {
+    pub fn get(&self, func: LocalFuncIndex) -> &CompiledFunction {
         &self.functions[func]
     }
 
@@ -112,35 +112,35 @@ impl Compilation {
     }
 
     /// Gets functions jump table offsets.
-    pub fn get_jt_offsets(&self) -> PrimaryMap<DefinedFuncIndex, JumpTableOffsets> {
+    pub fn get_jt_offsets(&self) -> PrimaryMap<LocalFuncIndex, JumpTableOffsets> {
         self.functions
             .iter()
             .map(|(_, func)| func.jt_offsets.clone())
-            .collect::<PrimaryMap<DefinedFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFuncIndex, _>>()
     }
 
     /// Gets functions jump table offsets.
-    pub fn get_relocations(&self) -> PrimaryMap<DefinedFuncIndex, Vec<Relocation>> {
+    pub fn get_relocations(&self) -> PrimaryMap<LocalFuncIndex, Vec<Relocation>> {
         self.functions
             .iter()
             .map(|(_, func)| func.relocations.clone())
-            .collect::<PrimaryMap<DefinedFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFuncIndex, _>>()
     }
 
     /// Gets functions address maps.
-    pub fn get_address_maps(&self) -> PrimaryMap<DefinedFuncIndex, FunctionAddressMap> {
+    pub fn get_address_maps(&self) -> PrimaryMap<LocalFuncIndex, FunctionAddressMap> {
         self.functions
             .iter()
             .map(|(_, func)| func.address_map.clone())
-            .collect::<PrimaryMap<DefinedFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFuncIndex, _>>()
     }
 
     /// Gets functions jump table offsets.
-    pub fn get_traps(&self) -> PrimaryMap<DefinedFuncIndex, Vec<TrapInformation>> {
+    pub fn get_traps(&self) -> PrimaryMap<LocalFuncIndex, Vec<TrapInformation>> {
         self.functions
             .iter()
             .map(|(_, func)| func.traps.clone())
-            .collect::<PrimaryMap<DefinedFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFuncIndex, _>>()
     }
 }
 

@@ -24,8 +24,8 @@ use std::sync::Arc;
 use std::{mem, ptr, slice};
 use wasm_common::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataIndex, DataInitializer, DefinedFuncIndex, DefinedGlobalIndex, DefinedMemoryIndex,
-    DefinedTableIndex, ElemIndex, ExportIndex, FuncIndex, GlobalIndex, GlobalInit, MemoryIndex,
+    DataIndex, DataInitializer, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex,
+    LocalTableIndex, ElemIndex, ExportIndex, FuncIndex, GlobalIndex, GlobalInit, MemoryIndex,
     SignatureIndex, TableIndex,
 };
 
@@ -77,10 +77,10 @@ pub(crate) struct Instance {
     offsets: VMOffsets,
 
     /// WebAssembly linear memory data.
-    memories: BoxedSlice<DefinedMemoryIndex, LinearMemory>,
+    memories: BoxedSlice<LocalMemoryIndex, LinearMemory>,
 
     /// WebAssembly table data.
-    tables: BoxedSlice<DefinedTableIndex, Table>,
+    tables: BoxedSlice<LocalTableIndex, Table>,
 
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
     /// entries get removed. A missing entry is considered equivalent to an
@@ -92,7 +92,7 @@ pub(crate) struct Instance {
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
 
     /// Pointers to functions in executable memory.
-    finished_functions: BoxedSlice<DefinedFuncIndex, *mut [VMFunctionBody]>,
+    finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -181,19 +181,19 @@ impl Instance {
 
     /// Return the indexed `VMTableDefinition`.
     #[allow(dead_code)]
-    fn table(&self, index: DefinedTableIndex) -> VMTableDefinition {
+    fn table(&self, index: LocalTableIndex) -> VMTableDefinition {
         unsafe { *self.table_ptr(index) }
     }
 
     /// Updates the value for a defined table to `VMTableDefinition`.
-    fn set_table(&self, index: DefinedTableIndex, table: VMTableDefinition) {
+    fn set_table(&self, index: LocalTableIndex, table: VMTableDefinition) {
         unsafe {
             *self.table_ptr(index) = table;
         }
     }
 
     /// Return the indexed `VMTableDefinition`.
-    fn table_ptr(&self, index: DefinedTableIndex) -> *mut VMTableDefinition {
+    fn table_ptr(&self, index: LocalTableIndex) -> *mut VMTableDefinition {
         let index = usize::try_from(index.as_u32()).unwrap();
         unsafe { self.tables_ptr().add(index) }
     }
@@ -214,19 +214,19 @@ impl Instance {
     }
 
     /// Return the indexed `VMMemoryDefinition`.
-    fn memory(&self, index: DefinedMemoryIndex) -> VMMemoryDefinition {
+    fn memory(&self, index: LocalMemoryIndex) -> VMMemoryDefinition {
         unsafe { *self.memory_ptr(index) }
     }
 
     /// Set the indexed memory to `VMMemoryDefinition`.
-    fn set_memory(&self, index: DefinedMemoryIndex, mem: VMMemoryDefinition) {
+    fn set_memory(&self, index: LocalMemoryIndex, mem: VMMemoryDefinition) {
         unsafe {
             *self.memory_ptr(index) = mem;
         }
     }
 
     /// Return the indexed `VMMemoryDefinition`.
-    fn memory_ptr(&self, index: DefinedMemoryIndex) -> *mut VMMemoryDefinition {
+    fn memory_ptr(&self, index: LocalMemoryIndex) -> *mut VMMemoryDefinition {
         let index = usize::try_from(index.as_u32()).unwrap();
         unsafe { self.memories_ptr().add(index) }
     }
@@ -237,20 +237,20 @@ impl Instance {
     }
 
     /// Return the indexed `VMGlobalDefinition`.
-    fn global(&self, index: DefinedGlobalIndex) -> VMGlobalDefinition {
+    fn global(&self, index: LocalGlobalIndex) -> VMGlobalDefinition {
         unsafe { *self.global_ptr(index) }
     }
 
     /// Set the indexed global to `VMGlobalDefinition`.
     #[allow(dead_code)]
-    fn set_global(&self, index: DefinedGlobalIndex, global: VMGlobalDefinition) {
+    fn set_global(&self, index: LocalGlobalIndex, global: VMGlobalDefinition) {
         unsafe {
             *self.global_ptr(index) = global;
         }
     }
 
     /// Return the indexed `VMGlobalDefinition`.
-    fn global_ptr(&self, index: DefinedGlobalIndex) -> *mut VMGlobalDefinition {
+    fn global_ptr(&self, index: LocalGlobalIndex) -> *mut VMGlobalDefinition {
         let index = usize::try_from(index.as_u32()).unwrap();
         unsafe { self.globals_ptr().add(index) }
     }
@@ -400,7 +400,7 @@ impl Instance {
     }
 
     /// Return the table index for the given `VMTableDefinition`.
-    pub(crate) fn table_index(&self, table: &VMTableDefinition) -> DefinedTableIndex {
+    pub(crate) fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
         let offsets = &self.offsets;
         let begin = unsafe {
             (&self.vmctx as *const VMContext as *const u8)
@@ -408,7 +408,7 @@ impl Instance {
         } as *const VMTableDefinition;
         let end: *const VMTableDefinition = table;
         // TODO: Use `offset_from` once it stablizes.
-        let index = DefinedTableIndex::new(
+        let index = LocalTableIndex::new(
             (end as usize - begin as usize) / mem::size_of::<VMTableDefinition>(),
         );
         assert_lt!(index.index(), self.tables.len());
@@ -416,7 +416,7 @@ impl Instance {
     }
 
     /// Return the memory index for the given `VMMemoryDefinition`.
-    pub(crate) fn memory_index(&self, memory: &VMMemoryDefinition) -> DefinedMemoryIndex {
+    pub(crate) fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
         let offsets = &self.offsets;
         let begin = unsafe {
             (&self.vmctx as *const VMContext as *const u8)
@@ -424,7 +424,7 @@ impl Instance {
         } as *const VMMemoryDefinition;
         let end: *const VMMemoryDefinition = memory;
         // TODO: Use `offset_from` once it stablizes.
-        let index = DefinedMemoryIndex::new(
+        let index = LocalMemoryIndex::new(
             (end as usize - begin as usize) / mem::size_of::<VMMemoryDefinition>(),
         );
         assert_lt!(index.index(), self.memories.len());
@@ -435,7 +435,7 @@ impl Instance {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
-    pub(crate) fn memory_grow(&self, memory_index: DefinedMemoryIndex, delta: u32) -> Option<u32> {
+    pub(crate) fn memory_grow(&self, memory_index: LocalMemoryIndex, delta: u32) -> Option<u32> {
         let result = self
             .memories
             .get(memory_index)
@@ -467,7 +467,7 @@ impl Instance {
     }
 
     /// Returns the number of allocated wasm pages.
-    pub(crate) fn memory_size(&self, memory_index: DefinedMemoryIndex) -> u32 {
+    pub(crate) fn memory_size(&self, memory_index: LocalMemoryIndex) -> u32 {
         self.memories
             .get(memory_index)
             .unwrap_or_else(|| panic!("no memory for index {}", memory_index.index()))
@@ -489,7 +489,7 @@ impl Instance {
     ///
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements.
-    pub(crate) fn table_grow(&self, table_index: DefinedTableIndex, delta: u32) -> Option<u32> {
+    pub(crate) fn table_grow(&self, table_index: LocalTableIndex, delta: u32) -> Option<u32> {
         let result = self
             .tables
             .get(table_index)
@@ -505,7 +505,7 @@ impl Instance {
     // Get table element by index.
     fn table_get(
         &self,
-        table_index: DefinedTableIndex,
+        table_index: LocalTableIndex,
         index: u32,
     ) -> Option<VMCallerCheckedAnyfunc> {
         self.tables
@@ -516,7 +516,7 @@ impl Instance {
 
     fn table_set(
         &self,
-        table_index: DefinedTableIndex,
+        table_index: LocalTableIndex,
         index: u32,
         val: VMCallerCheckedAnyfunc,
     ) -> Result<(), Trap> {
@@ -619,7 +619,7 @@ impl Instance {
     /// bounds.
     pub(crate) fn defined_memory_copy(
         &self,
-        memory_index: DefinedMemoryIndex,
+        memory_index: LocalMemoryIndex,
         dst: u32,
         src: u32,
         len: u32,
@@ -650,7 +650,7 @@ impl Instance {
     /// Returns a `Trap` error if the memory range is out of bounds.
     pub(crate) fn defined_memory_fill(
         &self,
-        memory_index: DefinedMemoryIndex,
+        memory_index: LocalMemoryIndex,
         dst: u32,
         val: u32,
         len: u32,
@@ -737,7 +737,7 @@ impl Instance {
     }
 
     /// Get a locally-defined table.
-    pub(crate) fn get_defined_table(&self, index: DefinedTableIndex) -> &Table {
+    pub(crate) fn get_defined_table(&self, index: LocalTableIndex) -> &Table {
         &self.tables[index]
     }
 
@@ -773,10 +773,10 @@ impl InstanceHandle {
     /// safety.
     pub unsafe fn new(
         module: Arc<Module>,
-        finished_functions: BoxedSlice<DefinedFuncIndex, *mut [VMFunctionBody]>,
-        finished_memories: BoxedSlice<DefinedMemoryIndex, LinearMemory>,
-        finished_tables: BoxedSlice<DefinedTableIndex, Table>,
-        finished_globals: BoxedSlice<DefinedGlobalIndex, VMGlobalDefinition>,
+        finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
+        finished_memories: BoxedSlice<LocalMemoryIndex, LinearMemory>,
+        finished_tables: BoxedSlice<LocalTableIndex, Table>,
+        finished_globals: BoxedSlice<LocalGlobalIndex, VMGlobalDefinition>,
         imports: Imports,
         data_initializers: &[DataInitializer<'_>],
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
@@ -786,13 +786,13 @@ impl InstanceHandle {
         let vmctx_tables = finished_tables
             .values()
             .map(Table::vmtable)
-            .collect::<PrimaryMap<DefinedTableIndex, _>>()
+            .collect::<PrimaryMap<LocalTableIndex, _>>()
             .into_boxed_slice();
 
         let vmctx_memories = finished_memories
             .values()
             .map(LinearMemory::vmmemory)
-            .collect::<PrimaryMap<DefinedMemoryIndex, _>>()
+            .collect::<PrimaryMap<LocalMemoryIndex, _>>()
             .into_boxed_slice();
 
         let vmctx_globals = finished_globals;
@@ -958,7 +958,7 @@ impl InstanceHandle {
     }
 
     /// Return the memory index for the given `VMMemoryDefinition` in this instance.
-    pub fn memory_index(&self, memory: &VMMemoryDefinition) -> DefinedMemoryIndex {
+    pub fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
         self.instance().memory_index(memory)
     }
 
@@ -966,12 +966,12 @@ impl InstanceHandle {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
-    pub fn memory_grow(&self, memory_index: DefinedMemoryIndex, delta: u32) -> Option<u32> {
+    pub fn memory_grow(&self, memory_index: LocalMemoryIndex, delta: u32) -> Option<u32> {
         self.instance().memory_grow(memory_index, delta)
     }
 
     /// Return the table index for the given `VMTableDefinition` in this instance.
-    pub fn table_index(&self, table: &VMTableDefinition) -> DefinedTableIndex {
+    pub fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
         self.instance().table_index(table)
     }
 
@@ -979,7 +979,7 @@ impl InstanceHandle {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
-    pub fn table_grow(&self, table_index: DefinedTableIndex, delta: u32) -> Option<u32> {
+    pub fn table_grow(&self, table_index: LocalTableIndex, delta: u32) -> Option<u32> {
         self.instance().table_grow(table_index, delta)
     }
 
@@ -988,7 +988,7 @@ impl InstanceHandle {
     /// Returns `None` if index is out of bounds.
     pub fn table_get(
         &self,
-        table_index: DefinedTableIndex,
+        table_index: LocalTableIndex,
         index: u32,
     ) -> Option<VMCallerCheckedAnyfunc> {
         self.instance().table_get(table_index, index)
@@ -999,7 +999,7 @@ impl InstanceHandle {
     /// Returns an error if the index is out of bounds
     pub fn table_set(
         &self,
-        table_index: DefinedTableIndex,
+        table_index: LocalTableIndex,
         index: u32,
         val: VMCallerCheckedAnyfunc,
     ) -> Result<(), Trap> {
@@ -1007,7 +1007,7 @@ impl InstanceHandle {
     }
 
     /// Get a table defined locally within this module.
-    pub fn get_defined_table(&self, index: DefinedTableIndex) -> &Table {
+    pub fn get_defined_table(&self, index: LocalTableIndex) -> &Table {
         self.instance().get_defined_table(index)
     }
 

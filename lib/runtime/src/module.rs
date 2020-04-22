@@ -12,7 +12,7 @@ use std::sync::{
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::FuncType;
 use wasm_common::{
-    DataIndex, DefinedFuncIndex, DefinedGlobalIndex, DefinedMemoryIndex, DefinedTableIndex,
+    DataIndex, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
     ElemIndex, ExportIndex, ExternType, FuncIndex, GlobalIndex, GlobalType, ImportIndex,
     MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType,
 };
@@ -258,18 +258,18 @@ impl Module {
             })
     }
 
-    /// Convert a `DefinedFuncIndex` into a `FuncIndex`.
-    pub fn func_index(&self, defined_func: DefinedFuncIndex) -> FuncIndex {
+    /// Convert a `LocalFuncIndex` into a `FuncIndex`.
+    pub fn func_index(&self, defined_func: LocalFuncIndex) -> FuncIndex {
         FuncIndex::new(self.num_imported_funcs + defined_func.index())
     }
 
-    /// Convert a `FuncIndex` into a `DefinedFuncIndex`. Returns None if the
+    /// Convert a `FuncIndex` into a `LocalFuncIndex`. Returns None if the
     /// index is an imported function.
-    pub fn defined_func_index(&self, func: FuncIndex) -> Option<DefinedFuncIndex> {
+    pub fn defined_func_index(&self, func: FuncIndex) -> Option<LocalFuncIndex> {
         if func.index() < self.num_imported_funcs {
             None
         } else {
-            Some(DefinedFuncIndex::new(
+            Some(LocalFuncIndex::new(
                 func.index() - self.num_imported_funcs,
             ))
         }
@@ -280,18 +280,18 @@ impl Module {
         index.index() < self.num_imported_funcs
     }
 
-    /// Convert a `DefinedTableIndex` into a `TableIndex`.
-    pub fn table_index(&self, defined_table: DefinedTableIndex) -> TableIndex {
+    /// Convert a `LocalTableIndex` into a `TableIndex`.
+    pub fn table_index(&self, defined_table: LocalTableIndex) -> TableIndex {
         TableIndex::new(self.num_imported_tables + defined_table.index())
     }
 
-    /// Convert a `TableIndex` into a `DefinedTableIndex`. Returns None if the
+    /// Convert a `TableIndex` into a `LocalTableIndex`. Returns None if the
     /// index is an imported table.
-    pub fn defined_table_index(&self, table: TableIndex) -> Option<DefinedTableIndex> {
+    pub fn defined_table_index(&self, table: TableIndex) -> Option<LocalTableIndex> {
         if table.index() < self.num_imported_tables {
             None
         } else {
-            Some(DefinedTableIndex::new(
+            Some(LocalTableIndex::new(
                 table.index() - self.num_imported_tables,
             ))
         }
@@ -302,18 +302,18 @@ impl Module {
         index.index() < self.num_imported_tables
     }
 
-    /// Convert a `DefinedMemoryIndex` into a `MemoryIndex`.
-    pub fn memory_index(&self, defined_memory: DefinedMemoryIndex) -> MemoryIndex {
+    /// Convert a `LocalMemoryIndex` into a `MemoryIndex`.
+    pub fn memory_index(&self, defined_memory: LocalMemoryIndex) -> MemoryIndex {
         MemoryIndex::new(self.num_imported_memories + defined_memory.index())
     }
 
-    /// Convert a `MemoryIndex` into a `DefinedMemoryIndex`. Returns None if the
+    /// Convert a `MemoryIndex` into a `LocalMemoryIndex`. Returns None if the
     /// index is an imported memory.
-    pub fn defined_memory_index(&self, memory: MemoryIndex) -> Option<DefinedMemoryIndex> {
+    pub fn defined_memory_index(&self, memory: MemoryIndex) -> Option<LocalMemoryIndex> {
         if memory.index() < self.num_imported_memories {
             None
         } else {
-            Some(DefinedMemoryIndex::new(
+            Some(LocalMemoryIndex::new(
                 memory.index() - self.num_imported_memories,
             ))
         }
@@ -324,18 +324,18 @@ impl Module {
         index.index() < self.num_imported_memories
     }
 
-    /// Convert a `DefinedGlobalIndex` into a `GlobalIndex`.
-    pub fn global_index(&self, defined_global: DefinedGlobalIndex) -> GlobalIndex {
+    /// Convert a `LocalGlobalIndex` into a `GlobalIndex`.
+    pub fn global_index(&self, defined_global: LocalGlobalIndex) -> GlobalIndex {
         GlobalIndex::new(self.num_imported_globals + defined_global.index())
     }
 
-    /// Convert a `GlobalIndex` into a `DefinedGlobalIndex`. Returns None if the
+    /// Convert a `GlobalIndex` into a `LocalGlobalIndex`. Returns None if the
     /// index is an imported global.
-    pub fn defined_global_index(&self, global: GlobalIndex) -> Option<DefinedGlobalIndex> {
+    pub fn defined_global_index(&self, global: GlobalIndex) -> Option<LocalGlobalIndex> {
         if global.index() < self.num_imported_globals {
             None
         } else {
-            Some(DefinedGlobalIndex::new(
+            Some(LocalGlobalIndex::new(
                 global.index() - self.num_imported_globals,
             ))
         }

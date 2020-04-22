@@ -2,7 +2,7 @@
 
 use std::ptr::write_unaligned;
 use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::DefinedFuncIndex;
+use wasm_common::LocalFuncIndex;
 use wasmer_compiler::{JumpTable, JumpTableOffsets, RelocationKind, RelocationTarget, Relocations};
 use wasmer_runtime::Module;
 use wasmer_runtime::VMFunctionBody;
@@ -12,8 +12,8 @@ use wasmer_runtime::VMFunctionBody;
 /// Performs all required relocations inside the function code, provided the necessary metadata.
 pub fn link_module(
     module: &Module,
-    allocated_functions: &PrimaryMap<DefinedFuncIndex, *mut [VMFunctionBody]>,
-    jt_offsets: &PrimaryMap<DefinedFuncIndex, JumpTableOffsets>,
+    allocated_functions: &PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>,
+    jt_offsets: &PrimaryMap<LocalFuncIndex, JumpTableOffsets>,
     relocations: Relocations,
 ) {
     for (i, function_relocs) in relocations.into_iter() {

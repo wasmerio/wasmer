@@ -41,7 +41,7 @@ pub use crate::constants::*;
 pub use crate::data_initializer::{DataInitializer, DataInitializerLocation};
 pub use crate::features::Features;
 pub use crate::indexes::{
-    DataIndex, DefinedFuncIndex, DefinedGlobalIndex, DefinedMemoryIndex, DefinedTableIndex,
+    DataIndex, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
     ElemIndex, ExportIndex, FuncIndex, GlobalIndex, ImportIndex, MemoryIndex, SignatureIndex,
     TableIndex,
 };

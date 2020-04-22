@@ -14,7 +14,7 @@ use cranelift_codegen::{binemit, isa, Context};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
-    DefinedFuncIndex, Features, FuncIndex, FuncType, MemoryIndex, SignatureIndex, TableIndex,
+    LocalFuncIndex, Features, FuncIndex, FuncType, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::FunctionBodyData;
@@ -159,7 +159,7 @@ impl CraneliftCompiler {
         }
     }
 
-    /// Retrieves the target ISA
+    /// Retrieves the starget ISA
     fn isa(&self) -> &dyn isa::TargetIsa {
         &*self.isa
     }
@@ -187,7 +187,7 @@ impl Compiler for CraneliftCompiler {
         &self,
         module: &Module,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<DefinedFuncIndex, FunctionBodyData<'_>>,
+        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'_>>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
@@ -201,7 +201,7 @@ impl Compiler for CraneliftCompiler {
 
         let functions = function_body_inputs
             .into_iter()
-            .collect::<Vec<(DefinedFuncIndex, &FunctionBodyData<'_>)>>()
+            .collect::<Vec<(LocalFuncIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
                 let func_index = module.func_index(*i);
@@ -262,7 +262,7 @@ impl Compiler for CraneliftCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<DefinedFuncIndex, _>>();
+            .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
         Ok(Compilation::new(functions))
     }

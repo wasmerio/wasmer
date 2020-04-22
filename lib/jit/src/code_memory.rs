@@ -4,7 +4,7 @@ use region;
 use std::mem::ManuallyDrop;
 use std::{cmp, mem};
 use wasm_common::entity::PrimaryMap;
-use wasm_common::DefinedFuncIndex;
+use wasm_common::LocalFuncIndex;
 use wasmer_compiler::{Compilation, CompiledFunction};
 use wasmer_runtime::{Mmap, VMFunctionBody};
 
@@ -61,7 +61,7 @@ impl CodeMemory {
     pub fn allocate_functions(
         &mut self,
         compilation: &Compilation,
-    ) -> Result<PrimaryMap<DefinedFuncIndex, *mut [VMFunctionBody]>, String> {
+    ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, String> {
         let fat_ptrs = self.allocate_for_compilation(compilation)?;
 
         // Second, create a PrimaryMap from result vector of pointers.

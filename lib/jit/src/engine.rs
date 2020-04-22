@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{DefinedFuncIndex, FuncType, MemoryIndex, MemoryType, TableIndex, TableType};
+use wasm_common::{LocalFuncIndex, FuncType, MemoryIndex, MemoryType, TableIndex, TableType};
 use wasmer_compiler::{
     Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionAddressMap,
     FunctionBodyData, JumpTableOffsets, ModuleTranslationState, Relocations, TrapInformation,
@@ -156,7 +156,7 @@ impl JITEngineInner {
         &mut self,
         module: &Module,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<DefinedFuncIndex, FunctionBodyData<'data>>,
+        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
@@ -176,11 +176,11 @@ impl JITEngineInner {
         compilation: &Compilation,
     ) -> Result<
         (
-            PrimaryMap<DefinedFuncIndex, *mut [VMFunctionBody]>,
-            PrimaryMap<DefinedFuncIndex, JumpTableOffsets>,
+            PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>,
+            PrimaryMap<LocalFuncIndex, JumpTableOffsets>,
             Relocations,
-            PrimaryMap<DefinedFuncIndex, Vec<TrapInformation>>,
-            PrimaryMap<DefinedFuncIndex, FunctionAddressMap>,
+            PrimaryMap<LocalFuncIndex, Vec<TrapInformation>>,
+            PrimaryMap<LocalFuncIndex, FunctionAddressMap>,
         ),
         CompileError,
     > {

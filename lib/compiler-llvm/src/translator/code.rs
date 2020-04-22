@@ -32,7 +32,7 @@ use std::any::Any;
 use crate::config::LLVMConfig;
 use wasm_common::entity::SecondaryMap;
 use wasm_common::{
-    DefinedFuncIndex, FuncIndex, FuncType, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
+    LocalFuncIndex, FuncIndex, FuncType, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
     Type,
 };
 use wasmer_compiler::CompiledFunctionUnwindInfo;
@@ -86,7 +86,7 @@ impl FuncTranslator {
     pub fn translate(
         &mut self,
         wasm_module: &WasmerCompilerModule,
-        func_index: &DefinedFuncIndex,
+        func_index: &LocalFuncIndex,
         function_body: &FunctionBodyData,
         config: &LLVMConfig,
     ) -> Result<CompiledFunction, CompileError> {

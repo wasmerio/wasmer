@@ -9,7 +9,7 @@ use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::FuncType;
 use wasm_common::{
-    DataIndex, DataInitializer, DataInitializerLocation, DefinedFuncIndex, ElemIndex, ExportIndex,
+    DataIndex, DataInitializer, DataInitializerLocation, LocalFuncIndex, ElemIndex, ExportIndex,
     FuncIndex, GlobalIndex, GlobalType, ImportIndex, MemoryIndex, MemoryType, SignatureIndex,
     TableIndex, TableType,
 };
@@ -34,7 +34,7 @@ pub struct ModuleTranslation<'data> {
     pub module: Module,
 
     /// References to the function bodies.
-    pub function_body_inputs: PrimaryMap<DefinedFuncIndex, FunctionBodyData<'data>>,
+    pub function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
 
     /// References to the data initializers.
     pub data_initializers: Vec<DataInitializer<'data>>,

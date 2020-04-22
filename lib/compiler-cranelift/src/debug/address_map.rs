@@ -4,7 +4,7 @@
 use cranelift_codegen::ir;
 use serde::{Deserialize, Serialize};
 use wasm_common::entity::PrimaryMap;
-use wasm_common::DefinedFuncIndex;
+use wasm_common::LocalFuncIndex;
 use wasmer_compiler::SourceLoc;
 
 /// Single source location to generated address mapping.
@@ -41,13 +41,13 @@ pub struct FunctionAddressMap {
 }
 
 /// Module functions addresses mappings.
-pub type ModuleAddressMap = PrimaryMap<DefinedFuncIndex, FunctionAddressMap>;
+pub type ModuleAddressMap = PrimaryMap<LocalFuncIndex, FunctionAddressMap>;
 
 /// Value ranges for functions.
-pub type ValueLabelsRanges = PrimaryMap<DefinedFuncIndex, cranelift_codegen::ValueLabelsRanges>;
+pub type ValueLabelsRanges = PrimaryMap<LocalFuncIndex, cranelift_codegen::ValueLabelsRanges>;
 
 /// Stack slots for functions.
-pub type StackSlots = PrimaryMap<DefinedFuncIndex, ir::StackSlots>;
+pub type StackSlots = PrimaryMap<LocalFuncIndex, ir::StackSlots>;
 
 /// Memory definition offset in the VMContext structure.
 #[derive(Debug, Clone)]

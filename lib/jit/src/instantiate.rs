@@ -16,8 +16,8 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataInitializer, DataInitializerLocation, DefinedFuncIndex, DefinedGlobalIndex,
-    DefinedMemoryIndex, DefinedTableIndex, MemoryIndex, SignatureIndex, TableIndex,
+    DataInitializer, DataInitializerLocation, LocalFuncIndex, LocalGlobalIndex,
+    LocalMemoryIndex, LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{Compilation, CompileError, FunctionAddressMap, TrapInformation};
@@ -44,11 +44,11 @@ struct CacheRawCompiledModule {
 struct RawCompiledModule {
     compilation: Compilation,
     module: Module,
-    finished_functions: BoxedSlice<DefinedFuncIndex, *mut [VMFunctionBody]>,
+    finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
     data_initializers: Box<[OwnedDataInitializer]>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    traps: BoxedSlice<DefinedFuncIndex, Vec<TrapInformation>>,
-    address_transform: BoxedSlice<DefinedFuncIndex, FunctionAddressMap>,
+    traps: BoxedSlice<LocalFuncIndex, Vec<TrapInformation>>,
+    address_transform: BoxedSlice<LocalFuncIndex, FunctionAddressMap>,
     // Plans
     memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
     table_plans: PrimaryMap<TableIndex, TablePlan>,
@@ -145,11 +145,11 @@ impl RawCompiledModule {
 pub struct CompiledModule {
     compilation: Arc<Compilation>,
     module: Arc<Module>,
-    finished_functions: BoxedSlice<DefinedFuncIndex, *mut [VMFunctionBody]>,
+    finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
     data_initializers: Arc<Box<[OwnedDataInitializer]>>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    traps: BoxedSlice<DefinedFuncIndex, Vec<TrapInformation>>,
-    address_transform: BoxedSlice<DefinedFuncIndex, FunctionAddressMap>,
+    traps: BoxedSlice<LocalFuncIndex, Vec<TrapInformation>>,
+    address_transform: BoxedSlice<LocalFuncIndex, FunctionAddressMap>,
     frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
     memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
     table_plans: PrimaryMap<TableIndex, TablePlan>,
@@ -223,11 +223,11 @@ impl CompiledModule {
     pub fn from_parts(
         compilation: Compilation,
         module: Module,
-        finished_functions: BoxedSlice<DefinedFuncIndex, *mut [VMFunctionBody]>,
+        finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
         data_initializers: Box<[OwnedDataInitializer]>,
         signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-        traps: BoxedSlice<DefinedFuncIndex, Vec<TrapInformation>>,
-        address_transform: BoxedSlice<DefinedFuncIndex, FunctionAddressMap>,
+        traps: BoxedSlice<LocalFuncIndex, Vec<TrapInformation>>,
+        address_transform: BoxedSlice<LocalFuncIndex, FunctionAddressMap>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Self {
@@ -326,7 +326,7 @@ impl CompiledModule {
     }
 
     /// Returns the map of all finished JIT functions compiled for this module
-    pub fn finished_functions(&self) -> &BoxedSlice<DefinedFuncIndex, *mut [VMFunctionBody]> {
+    pub fn finished_functions(&self) -> &BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]> {
         &self.finished_functions
     }
 
@@ -342,12 +342,12 @@ impl CompiledModule {
     }
 
     /// Returns the a map for all traps in this module.
-    pub fn traps(&self) -> &BoxedSlice<DefinedFuncIndex, Vec<TrapInformation>> {
+    pub fn traps(&self) -> &BoxedSlice<LocalFuncIndex, Vec<TrapInformation>> {
         &self.traps
     }
 
     /// Returns a map of compiled addresses back to original bytecode offsets.
-    pub fn address_transform(&self) -> &BoxedSlice<DefinedFuncIndex, FunctionAddressMap> {
+    pub fn address_transform(&self) -> &BoxedSlice<LocalFuncIndex, FunctionAddressMap> {
         &self.address_transform
     }
 }
@@ -356,9 +356,9 @@ impl CompiledModule {
 fn create_memories(
     module: &Module,
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
-) -> Result<BoxedSlice<DefinedMemoryIndex, LinearMemory>, LinkError> {
+) -> Result<BoxedSlice<LocalMemoryIndex, LinearMemory>, LinkError> {
     let num_imports = module.num_imported_memories;
-    let mut memories: PrimaryMap<DefinedMemoryIndex, _> =
+    let mut memories: PrimaryMap<LocalMemoryIndex, _> =
         PrimaryMap::with_capacity(module.memories.len() - num_imports);
     for index in num_imports..module.memories.len() {
         let plan = memory_plans[MemoryIndex::new(index)].clone();
@@ -371,9 +371,9 @@ fn create_memories(
 fn create_tables(
     module: &Module,
     table_plans: &PrimaryMap<TableIndex, TablePlan>,
-) -> BoxedSlice<DefinedTableIndex, Table> {
+) -> BoxedSlice<LocalTableIndex, Table> {
     let num_imports = module.num_imported_tables;
-    let mut tables: PrimaryMap<DefinedTableIndex, _> =
+    let mut tables: PrimaryMap<LocalTableIndex, _> =
         PrimaryMap::with_capacity(module.tables.len() - num_imports);
     for index in num_imports..module.tables.len() {
         let plan = table_plans[TableIndex::new(index)].clone();
@@ -384,7 +384,7 @@ fn create_tables(
 
 /// Allocate memory for just the globals of the current module,
 /// with initializers applied.
-fn create_globals(module: &Module) -> BoxedSlice<DefinedGlobalIndex, VMGlobalDefinition> {
+fn create_globals(module: &Module) -> BoxedSlice<LocalGlobalIndex, VMGlobalDefinition> {
     let num_imports = module.num_imported_globals;
     let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
 

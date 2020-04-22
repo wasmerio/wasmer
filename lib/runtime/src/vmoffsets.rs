@@ -6,7 +6,7 @@ use crate::VMBuiltinFunctionIndex;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
 use wasm_common::{
-    DefinedGlobalIndex, DefinedMemoryIndex, DefinedTableIndex, FuncIndex, GlobalIndex, MemoryIndex,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, FuncIndex, GlobalIndex, MemoryIndex,
     SignatureIndex, TableIndex,
 };
 
@@ -416,7 +416,7 @@ impl VMOffsets {
     }
 
     /// Return the offset to `VMTableDefinition` index `index`.
-    pub fn vmctx_vmtable_definition(&self, index: DefinedTableIndex) -> u32 {
+    pub fn vmctx_vmtable_definition(&self, index: LocalTableIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_defined_tables);
         self.vmctx_tables_begin()
             .checked_add(
@@ -429,7 +429,7 @@ impl VMOffsets {
     }
 
     /// Return the offset to `VMMemoryDefinition` index `index`.
-    pub fn vmctx_vmmemory_definition(&self, index: DefinedMemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_definition(&self, index: LocalMemoryIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_defined_memories);
         self.vmctx_memories_begin()
             .checked_add(
@@ -442,7 +442,7 @@ impl VMOffsets {
     }
 
     /// Return the offset to the `VMGlobalDefinition` index `index`.
-    pub fn vmctx_vmglobal_definition(&self, index: DefinedGlobalIndex) -> u32 {
+    pub fn vmctx_vmglobal_definition(&self, index: LocalGlobalIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_defined_globals);
         self.vmctx_globals_begin()
             .checked_add(
@@ -476,14 +476,14 @@ impl VMOffsets {
     }
 
     /// Return the offset to the `base` field in `VMTableDefinition` index `index`.
-    pub fn vmctx_vmtable_definition_base(&self, index: DefinedTableIndex) -> u32 {
+    pub fn vmctx_vmtable_definition_base(&self, index: LocalTableIndex) -> u32 {
         self.vmctx_vmtable_definition(index)
             .checked_add(u32::from(self.vmtable_definition_base()))
             .unwrap()
     }
 
     /// Return the offset to the `current_elements` field in `VMTableDefinition` index `index`.
-    pub fn vmctx_vmtable_definition_current_elements(&self, index: DefinedTableIndex) -> u32 {
+    pub fn vmctx_vmtable_definition_current_elements(&self, index: LocalTableIndex) -> u32 {
         self.vmctx_vmtable_definition(index)
             .checked_add(u32::from(self.vmtable_definition_current_elements()))
             .unwrap()
@@ -504,14 +504,14 @@ impl VMOffsets {
     }
 
     /// Return the offset to the `base` field in `VMMemoryDefinition` index `index`.
-    pub fn vmctx_vmmemory_definition_base(&self, index: DefinedMemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_definition_base(&self, index: LocalMemoryIndex) -> u32 {
         self.vmctx_vmmemory_definition(index)
             .checked_add(u32::from(self.vmmemory_definition_base()))
             .unwrap()
     }
 
     /// Return the offset to the `current_length` field in `VMMemoryDefinition` index `index`.
-    pub fn vmctx_vmmemory_definition_current_length(&self, index: DefinedMemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_definition_current_length(&self, index: LocalMemoryIndex) -> u32 {
         self.vmctx_vmmemory_definition(index)
             .checked_add(u32::from(self.vmmemory_definition_current_length()))
             .unwrap()
