@@ -47,7 +47,6 @@ fn main() -> Result<()> {
             // 1. Shows the version twice when doing `wasmer -V`
             // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
             ErrorKind::VersionDisplayed | ErrorKind::HelpDisplayed => e.exit(),
-            ErrorKind::MissingArgumentOrSubcommand => e.exit(),
             _ => WasmerCLIOptions::Run(Run::from_args()),
         }
     });
