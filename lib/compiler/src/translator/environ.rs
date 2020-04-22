@@ -9,8 +9,8 @@ use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::FuncType;
 use wasm_common::{
-    DataIndex, DataInitializer, DataInitializerLocation, LocalFuncIndex, ElemIndex, ExportIndex,
-    FuncIndex, GlobalIndex, GlobalType, ImportIndex, MemoryIndex, MemoryType, SignatureIndex,
+    DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FuncIndex,
+    GlobalIndex, GlobalType, ImportIndex, LocalFuncIndex, MemoryIndex, MemoryType, SignatureIndex,
     TableIndex, TableType,
 };
 use wasmer_runtime::{Module, TableElements};

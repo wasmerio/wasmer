@@ -38,7 +38,7 @@ use crate::trap::raise_lib_trap;
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use wasm_common::{DataIndex, LocalMemoryIndex, ElemIndex, MemoryIndex, TableIndex};
+use wasm_common::{DataIndex, ElemIndex, LocalMemoryIndex, MemoryIndex, TableIndex};
 
 /// Implementation of f32.ceil
 pub extern "C" fn wasmer_f32_ceil(x: f32) -> f32 {

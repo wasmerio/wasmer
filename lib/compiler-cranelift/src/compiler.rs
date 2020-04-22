@@ -14,7 +14,7 @@ use cranelift_codegen::{binemit, isa, Context};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
-    LocalFuncIndex, Features, FuncIndex, FuncType, MemoryIndex, SignatureIndex, TableIndex,
+    Features, FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::FunctionBodyData;

@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{LocalFuncIndex, FuncType, MemoryIndex, MemoryType, TableIndex, TableType};
+use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, MemoryType, TableIndex, TableType};
 use wasmer_compiler::{
     Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionAddressMap,
     FunctionBodyData, JumpTableOffsets, ModuleTranslationState, Relocations, TrapInformation,

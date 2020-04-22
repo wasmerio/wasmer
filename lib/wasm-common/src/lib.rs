@@ -41,9 +41,8 @@ pub use crate::constants::*;
 pub use crate::data_initializer::{DataInitializer, DataInitializerLocation};
 pub use crate::features::Features;
 pub use crate::indexes::{
-    DataIndex, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-    ElemIndex, ExportIndex, FuncIndex, GlobalIndex, ImportIndex, MemoryIndex, SignatureIndex,
-    TableIndex,
+    DataIndex, ElemIndex, ExportIndex, FuncIndex, GlobalIndex, ImportIndex, LocalFuncIndex,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 pub use crate::native::{Func, HostFunction, NativeWasmType, WasmTypeList, WithEnv, WithoutEnv};
 pub use crate::r#ref::{AnyRef, HostInfo, HostRef};

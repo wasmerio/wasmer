@@ -6,7 +6,7 @@ use crate::VMBuiltinFunctionIndex;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
 use wasm_common::{
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, FuncIndex, GlobalIndex, MemoryIndex,
+    FuncIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     SignatureIndex, TableIndex,
 };
 

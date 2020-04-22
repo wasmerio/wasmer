@@ -24,8 +24,8 @@ use std::sync::Arc;
 use std::{mem, ptr, slice};
 use wasm_common::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataIndex, DataInitializer, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex,
-    LocalTableIndex, ElemIndex, ExportIndex, FuncIndex, GlobalIndex, GlobalInit, MemoryIndex,
+    DataIndex, DataInitializer, ElemIndex, ExportIndex, FuncIndex, GlobalIndex, GlobalInit,
+    LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     SignatureIndex, TableIndex,
 };
 

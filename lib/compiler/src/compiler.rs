@@ -8,7 +8,7 @@ use crate::std::vec::Vec;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{LocalFuncIndex, Features, FuncType, MemoryIndex, TableIndex};
+use wasm_common::{Features, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::Module;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};

@@ -5,18 +5,14 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{
-    atomic::{AtomicUsize, Ordering::SeqCst},
-    Arc,
-};
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::FuncType;
 use wasm_common::{
-    DataIndex, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-    ElemIndex, ExportIndex, ExternType, FuncIndex, GlobalIndex, GlobalType, ImportIndex,
-    MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType,
+    DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FuncIndex, FuncType, GlobalIndex,
+    GlobalType, ImportIndex, ImportType, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex,
+    LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType,
 };
-use wasm_common::{ExportType, ImportType};
 
 /// A WebAssembly table initializer.
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
@@ -269,9 +265,7 @@ impl Module {
         if func.index() < self.num_imported_funcs {
             None
         } else {
-            Some(LocalFuncIndex::new(
-                func.index() - self.num_imported_funcs,
-            ))
+            Some(LocalFuncIndex::new(func.index() - self.num_imported_funcs))
         }
     }
 

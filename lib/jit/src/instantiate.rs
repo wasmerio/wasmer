@@ -16,8 +16,8 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataInitializer, DataInitializerLocation, LocalFuncIndex, LocalGlobalIndex,
-    LocalMemoryIndex, LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
+    DataInitializer, DataInitializerLocation, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex,
+    LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{Compilation, CompileError, FunctionAddressMap, TrapInformation};
