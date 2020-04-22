@@ -172,13 +172,13 @@ impl CraneliftCompiler {
 
 impl Compiler for CraneliftCompiler {
     /// Gets the WebAssembly features for this Compiler
-    fn features(&self) -> Features {
-        self.config.features().clone()
+    fn features(&self) -> &Features {
+        self.config.features()
     }
 
     /// Gets the target associated to the Cranelift ISA.
-    fn target(&self) -> Target {
-        self.config.target().clone()
+    fn target(&self) -> &Target {
+        self.config.target()
     }
 
     /// Compile the module using Cranelift, producing a compilation result with

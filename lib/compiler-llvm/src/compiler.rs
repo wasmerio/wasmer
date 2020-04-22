@@ -39,13 +39,13 @@ impl LLVMCompiler {
 
 impl Compiler for LLVMCompiler {
     /// Gets the WebAssembly features for this Compiler
-    fn features(&self) -> Features {
-        self.config.features().clone()
+    fn features(&self) -> &Features {
+        self.config.features()
     }
 
     /// Gets the target associated to this Compiler.
-    fn target(&self) -> Target {
-        self.config.target().clone()
+    fn target(&self) -> &Target {
+        self.config.target()
     }
 
     /// Compile the module using LLVM, producing a compilation result with

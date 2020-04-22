@@ -16,10 +16,10 @@ use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
 pub trait Compiler {
     /// Gets the target associated with this compiler
-    fn target(&self) -> Target;
+    fn target(&self) -> &Target;
 
     /// Gets the WebAssembly features for this Compiler
-    fn features(&self) -> Features;
+    fn features(&self) -> &Features;
 
     /// Validates a module.
     ///
