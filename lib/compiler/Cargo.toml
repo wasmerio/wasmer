@@ -18,7 +18,7 @@ wasmer-runtime = { path = "../runtime", version = "0.16.2" }
 wasm-common = { path = "../wasm-common", version = "0.16.2" }
 hashbrown = { version = "0.7.1", optional = true }
 serde = { version = "1.0.106", features = ["derive"], optional = true }
-thiserror = "1.0.14"
+thiserror = "1.0.15"
 serde_bytes = { version = "0.11.3", optional = true }
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]

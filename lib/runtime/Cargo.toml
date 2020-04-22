@@ -16,14 +16,14 @@ region = "2.1.2"
 libc = { version = "0.2.68", default-features = false }
 memoffset = "0.5.4"
 indexmap = { version = "1.3.2", features = ["serde-1"] }
-thiserror = "1.0.14"
+thiserror = "1.0.15"
 more-asserts = "0.2.1"
 cfg-if = "0.1.10"
 backtrace = "0.3.46"
 serde = { version = "1.0.106", features = ["derive", "rc"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-winapi = { version = "0.3.7", features = ["winbase", "memoryapi", "errhandlingapi"] }
+winapi = { version = "0.3.8", features = ["winbase", "memoryapi", "errhandlingapi"] }
 
 [build-dependencies]
 cc = "1.0"
