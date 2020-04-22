@@ -85,6 +85,10 @@ impl Module {
             // going to be used in development mode.
             return unsafe { Module::from_binary_unchecked(store, bytes.as_ref()) };
         }
+
+        Err(CompileError::Validate(
+            "The module is not a valid WebAssembly file.".to_string(),
+        ))
     }
 
     pub fn from_file(store: &Store, file: impl AsRef<Path>) -> Result<Module, IoCompileError> {
