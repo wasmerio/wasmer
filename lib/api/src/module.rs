@@ -136,7 +136,7 @@ impl Module {
         store.engine().validate(binary)
     }
 
-    unsafe fn compile(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
+    fn compile(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
         let compiled = store.engine().compile(binary)?;
         Ok(Self::from_compiled_module(store, compiled))
     }
