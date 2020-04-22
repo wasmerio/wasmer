@@ -1,5 +1,5 @@
 use crate::indexes::{FuncIndex, GlobalIndex};
-use crate::pages::Pages;
+use crate::units::Pages;
 use crate::values::Value;
 
 #[cfg(feature = "enable-serde")]

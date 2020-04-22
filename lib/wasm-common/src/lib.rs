@@ -27,9 +27,9 @@ mod data_initializer;
 mod features;
 mod indexes;
 mod native;
-mod pages;
 mod r#ref;
 mod types;
+mod units;
 mod values;
 
 /// The entity module, with common helpers for Rust structures
@@ -44,8 +44,8 @@ pub use crate::indexes::{
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 pub use crate::native::{Func, HostFunction, NativeWasmType, WasmTypeList, WithEnv, WithoutEnv};
-pub use crate::pages::{Bytes, Pages};
 pub use crate::r#ref::{AnyRef, HostInfo, HostRef};
+pub use crate::units::{Bytes, Pages};
 pub use crate::values::Value;
 pub use types::{
     ExportType, ExternType, FuncType, GlobalInit, GlobalType, ImportType, MemoryType, Mutability,
