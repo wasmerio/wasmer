@@ -90,7 +90,7 @@ impl FuncTranslator {
         function_body: &FunctionBodyData,
         config: &LLVMConfig,
     ) -> Result<CompiledFunction, CompileError> {
-        let func_index = wasm_module.local.func_index(*func_index);
+        let func_index = wasm_module.func_index(*func_index);
         let func_name = wasm_module.func_names.get(&func_index).unwrap().as_str();
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {}", func_name),
@@ -105,7 +105,7 @@ impl FuncTranslator {
         let wasm_fn_type = wasm_module
             .local
             .signatures
-            .get(*wasm_module.local.functions.get(func_index).unwrap())
+            .get(*wasm_module.functions.get(func_index).unwrap())
             .unwrap();
 
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
@@ -2031,8 +2031,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::Call { function_index } => {
                 let func_index = FuncIndex::from_u32(function_index);
-                let sigindex = module.local.functions.get(func_index).unwrap();
-                let func_type = module.local.signatures.get(*sigindex).unwrap();
+                let sigindex = module.functions.get(func_index).unwrap();
+                let func_type = module.signatures.get(*sigindex).unwrap();
                 let func_name = module.func_names.get(&func_index).unwrap();
                 let llvm_func_type = func_type_to_llvm(&self.context, &intrinsics, func_type);
 
@@ -2125,7 +2125,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::CallIndirect { index, table_index } => {
                 let sigindex = SignatureIndex::from_u32(index);
-                let func_type = module.local.signatures.get(sigindex).unwrap();
+                let func_type = module.signatures.get(sigindex).unwrap();
                 let expected_dynamic_sigindex = ctx.dynamic_sigindex(sigindex, intrinsics);
                 let (table_base, table_bound) = ctx.table(
                     TableIndex::from_u32(table_index),
@@ -8630,12 +8630,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::MemoryGrow { reserved } => {
                 let mem_index = MemoryIndex::from_u32(reserved);
                 let func_value = if let Some(local_mem_index) =
-                    module.local.local_memory_index(mem_index)
+                    module.local_memory_index(mem_index)
                 {
                     match module
                         .local
                         .memory_plans
-                        .get(module.local.memory_index(local_mem_index))
+                        .get(module.memory_index(local_mem_index))
                         .unwrap()
                         .style
                     {
@@ -8643,7 +8643,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         MemoryStyle::Static { bound: _ } => intrinsics.memory_grow_static_local,
                     }
                 } else {
-                    match module.local.memory_plans.get(mem_index).unwrap().style {
+                    match module.memory_plans.get(mem_index).unwrap().style {
                         MemoryStyle::Dynamic => intrinsics.memory_grow_dynamic_import,
                         MemoryStyle::Static { bound: _ } => intrinsics.memory_grow_static_import,
                     }
@@ -8665,12 +8665,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::MemorySize { reserved } => {
                 let mem_index = MemoryIndex::from_u32(reserved);
                 let func_value = if let Some(local_mem_index) =
-                    module.local.local_memory_index(mem_index)
+                    module.local_memory_index(mem_index)
                 {
                     match module
                         .local
                         .memory_plans
-                        .get(module.local.memory_index(local_mem_index))
+                        .get(module.memory_index(local_mem_index))
                         .unwrap()
                         .style
                     {
@@ -8678,7 +8678,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         MemoryStyle::Static { bound: _ } => intrinsics.memory_size_static_local,
                     }
                 } else {
-                    match module.local.memory_plans.get(mem_index).unwrap().style {
+                    match module.memory_plans.get(mem_index).unwrap().style {
                         MemoryStyle::Dynamic => intrinsics.memory_size_dynamic_import,
                         MemoryStyle::Static { bound: _ } => intrinsics.memory_size_static_import,
                     }

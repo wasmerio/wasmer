@@ -703,8 +703,8 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
         *cached_memories.entry(index).or_insert_with(|| {
             let (memory_array_ptr_ptr, index, memory_type, minimum, maximum, field_name) = {
-                let desc = wasm_module.local.memory_plans.get(index).unwrap();
-                if let Some(local_mem_index) = wasm_module.local.local_memory_index(index) {
+                let desc = wasm_module.memory_plans.get(index).unwrap();
+                if let Some(local_mem_index) = wasm_module.local_memory_index(index) {
                     (
                         unsafe {
                             cache_builder.build_struct_gep(
@@ -832,7 +832,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             ptr_to_bounds,
         } = *cached_tables.entry(index).or_insert_with(|| {
             let (table_array_ptr_ptr, index, field_name) =
-                if let Some(local_table_index) = wasm_module.local.local_table_index(index) {
+                if let Some(local_table_index) = wasm_module.local_table_index(index) {
                     (
                         unsafe {
                             cache_builder.build_struct_gep(
@@ -985,8 +985,8 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
         *cached_globals.entry(index).or_insert_with(|| {
             let (globals_array_ptr_ptr, index, mutable, wasmer_ty, field_name) = {
-                let desc = wasm_module.local.globals.get(index).unwrap();
-                if let Some(_local_global_index) = wasm_module.local.local_global_index(index) {
+                let desc = wasm_module.globals.get(index).unwrap();
+                if let Some(_local_global_index) = wasm_module.local_global_index(index) {
                     (
                         unsafe {
                             cache_builder.build_struct_gep(
