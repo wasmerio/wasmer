@@ -29,7 +29,6 @@ mod features;
 mod indexes;
 mod native;
 mod r#ref;
-mod sourceloc;
 mod types;
 mod values;
 
@@ -48,7 +47,6 @@ pub use crate::indexes::{
 };
 pub use crate::native::{Func, HostFunction, NativeWasmType, WasmTypeList, WithEnv, WithoutEnv};
 pub use crate::r#ref::{AnyRef, HostInfo, HostRef};
-pub use crate::sourceloc::SourceLoc;
 pub use crate::values::Value;
 pub use types::{
     ExportType, ExternType, FuncType, GlobalInit, GlobalType, ImportType, MemoryType, Mutability,

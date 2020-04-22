@@ -4,7 +4,8 @@
 use cranelift_codegen::ir;
 use serde::{Deserialize, Serialize};
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{DefinedFuncIndex, SourceLoc};
+use wasm_common::DefinedFuncIndex;
+use wasmer_compiler::SourceLoc;
 
 /// Single source location to generated address mapping.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

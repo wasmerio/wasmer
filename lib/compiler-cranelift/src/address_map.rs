@@ -1,6 +1,5 @@
 use cranelift_codegen::{isa, Context};
-use wasm_common::SourceLoc;
-use wasmer_compiler::{FunctionAddressMap, FunctionBodyData, InstructionAddressMap};
+use wasmer_compiler::{FunctionAddressMap, FunctionBodyData, InstructionAddressMap, SourceLoc};
 
 pub fn get_function_address_map<'data>(
     context: &Context,

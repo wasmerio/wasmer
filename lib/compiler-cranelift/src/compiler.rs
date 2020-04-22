@@ -15,12 +15,13 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashMap;
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
-    DefinedFuncIndex, Features, FuncIndex, FuncType, MemoryIndex, SignatureIndex, SourceLoc,
-    TableIndex,
+    DefinedFuncIndex, Features, FuncIndex, FuncType, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::FunctionBodyData;
-use wasmer_compiler::{Compilation, CompiledFunction, Compiler, JumpTable, TrapInformation};
+use wasmer_compiler::{
+    Compilation, CompiledFunction, Compiler, JumpTable, SourceLoc, TrapInformation,
+};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{Relocation, RelocationTarget};
 use wasmer_runtime::TrapCode;

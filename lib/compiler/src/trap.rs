@@ -1,6 +1,6 @@
+use crate::sourceloc::SourceLoc;
 use crate::CodeOffset;
 use serde::{Deserialize, Serialize};
-use wasm_common::SourceLoc;
 use wasmer_runtime::TrapCode;
 
 /// Information about trap.

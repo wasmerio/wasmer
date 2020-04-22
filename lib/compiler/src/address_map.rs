@@ -1,9 +1,9 @@
 //! Data structures to provide transformation of the source
 // addresses of a WebAssembly module into the native code.
 
+use crate::sourceloc::SourceLoc;
 use crate::std::vec::Vec;
 use serde::{Deserialize, Serialize};
-use wasm_common::SourceLoc;
 
 /// Single source location to generated address mapping.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

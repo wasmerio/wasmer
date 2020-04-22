@@ -15,8 +15,8 @@ use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use wasm_common::entity::EntityRef;
-use wasm_common::{FuncIndex, SourceLoc};
-use wasmer_compiler::{FunctionAddressMap, TrapInformation};
+use wasm_common::FuncIndex;
+use wasmer_compiler::{FunctionAddressMap, SourceLoc, TrapInformation};
 use wasmer_runtime::Module;
 
 lazy_static::lazy_static! {
