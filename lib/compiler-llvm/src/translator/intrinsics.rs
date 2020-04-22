@@ -29,13 +29,12 @@ use wasmer_runtime_core::{
     vm::{Ctx, INTERNALS_SIZE},
 };
 */
-use wasm_common::entity::EntityRef;
+use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    FuncIndex, GlobalIndex, MemoryIndex, Mutability, SignatureIndex, TableIndex, Type,
+    FuncIndex, GlobalIndex, MemoryIndex, Mutability, Pages, SignatureIndex, TableIndex, Type,
 };
-use wasmer_runtime::MemoryStyle;
 use wasmer_runtime::Module as WasmerCompilerModule;
-use wasmer_runtime::VMOffsets;
+use wasmer_runtime::{MemoryPlan, MemoryStyle, VMOffsets};
 
 fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerType<'ctx> {
     match ty {
@@ -588,19 +587,15 @@ pub enum MemoryCache<'ctx> {
     Dynamic {
         ptr_to_base_ptr: PointerValue<'ctx>,
         ptr_to_bounds: PointerValue<'ctx>,
-        // In pages.
-        minimum: u32,
-        // In pages.
-        maximum: Option<u32>,
+        minimum: Pages,
+        maximum: Option<Pages>,
     },
     /// The memory is always in the same place.
     Static {
         base_ptr: PointerValue<'ctx>,
         bounds: IntValue<'ctx>,
-        // In pages.
-        minimum: u32,
-        // In pages.
-        maximum: Option<u32>,
+        minimum: Pages,
+        maximum: Option<Pages>,
     },
 }
 
@@ -691,6 +686,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
+        memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     ) -> MemoryCache<'ctx> {
         let (cached_memories, wasm_module, ctx_ptr_value, cache_builder) = (
             &mut self.cached_memories,
@@ -703,7 +699,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
         *cached_memories.entry(index).or_insert_with(|| {
             let (memory_array_ptr_ptr, index, memory_type, minimum, maximum, field_name) = {
-                let desc = wasm_module.memory_plans.get(index).unwrap();
+                let desc = memory_plans.get(index).unwrap();
                 if let Some(local_mem_index) = wasm_module.local_memory_index(index) {
                     (
                         unsafe {

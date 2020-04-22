@@ -30,7 +30,7 @@ use smallvec::SmallVec;
 use std::any::Any;
 
 use crate::config::LLVMConfig;
-use wasm_common::entity::SecondaryMap;
+use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasm_common::{
     FuncIndex, FuncType, GlobalIndex, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
 };
@@ -41,8 +41,8 @@ use wasmer_compiler::SourceLoc;
 use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, WasmResult,
 };
-use wasmer_runtime::MemoryStyle;
 use wasmer_runtime::Module as WasmerCompilerModule;
+use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan};
 use wasmparser::{BinaryReader, MemoryImmediate, Operator};
 
 // TODO
@@ -90,6 +90,8 @@ impl FuncTranslator {
         func_index: &LocalFuncIndex,
         function_body: &FunctionBodyData,
         config: &LLVMConfig,
+        memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
+        table_plans: &PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<CompiledFunction, CompileError> {
         let func_index = wasm_module.func_index(*func_index);
         let func_name = wasm_module.func_names.get(&func_index).unwrap().as_str();
@@ -143,6 +145,8 @@ impl FuncTranslator {
             locals: vec![],
             ctx: CtxType::new(wasm_module, &func, &cache_builder),
             unreachable_depth: 0,
+            memory_plans,
+            table_plans,
             module: &module,
         };
 
@@ -900,6 +904,7 @@ fn resolve_memory_ptr<'ctx, 'a>(
     intrinsics: &Intrinsics<'ctx>,
     context: &'ctx Context,
     module: &Module<'ctx>,
+    memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     function: &FunctionValue<'ctx>,
     state: &mut State<'ctx>,
     ctx: &mut CtxType<'ctx, 'a>,
@@ -908,7 +913,7 @@ fn resolve_memory_ptr<'ctx, 'a>(
     value_size: usize,
 ) -> Result<PointerValue<'ctx>, CompileError> {
     // Look up the memory base (as pointer) and bounds (as unsigned integer).
-    let memory_cache = ctx.memory(MemoryIndex::from_u32(0), intrinsics, module);
+    let memory_cache = ctx.memory(MemoryIndex::from_u32(0), intrinsics, module, &memory_plans);
     let (mem_base, mem_bound, minimum, _maximum) = match memory_cache {
         MemoryCache::Dynamic {
             ptr_to_base_ptr,
@@ -963,9 +968,7 @@ fn resolve_memory_ptr<'ctx, 'a>(
             let ptr_in_bounds = load_offset_end.const_int_compare(
                 IntPredicate::ULE,
                 // TODO: Pages to bytes conversion here
-                intrinsics
-                    .i64_ty
-                    .const_int(minimum as u64 * 65536u64, false),
+                intrinsics.i64_ty.const_int(minimum.bytes().0 as u64, false),
             );
             if ptr_in_bounds.get_zero_extended_constant() == Some(1) {
                 Some(ptr_in_bounds)
@@ -1223,6 +1226,8 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     locals: Vec<PointerValue<'ctx>>, // Contains params and locals
     ctx: CtxType<'ctx, 'a>,
     unreachable_depth: usize,
+    memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
+    table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
 
     // This is support for stackmaps:
     /*
@@ -5068,6 +5073,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5096,6 +5102,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5124,6 +5131,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5152,6 +5160,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5180,6 +5189,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5210,6 +5220,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5228,6 +5239,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5247,6 +5259,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5266,6 +5279,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5285,6 +5299,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5302,6 +5317,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5335,6 +5351,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5368,6 +5385,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5400,6 +5418,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5432,6 +5451,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5466,6 +5486,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5499,6 +5520,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5532,6 +5554,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5565,6 +5588,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5598,6 +5622,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5633,6 +5658,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5653,6 +5679,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -5673,6 +5700,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6040,6 +6068,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6075,6 +6104,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6110,6 +6140,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6145,6 +6176,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6189,6 +6221,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6218,6 +6251,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6247,6 +6281,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6280,6 +6315,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6313,6 +6349,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6346,6 +6383,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6379,6 +6417,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6413,6 +6452,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6442,6 +6482,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6471,6 +6512,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6503,6 +6545,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6534,6 +6577,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6565,6 +6609,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6607,6 +6652,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6649,6 +6695,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6688,6 +6735,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6730,6 +6778,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6772,6 +6821,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6814,6 +6864,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6853,6 +6904,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6895,6 +6947,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6937,6 +6990,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -6976,6 +7030,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7018,6 +7073,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7060,6 +7116,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7102,6 +7159,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7141,6 +7199,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7183,6 +7242,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7225,6 +7285,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7264,6 +7325,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7306,6 +7368,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7348,6 +7411,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7390,6 +7454,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7429,6 +7494,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7471,6 +7537,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7513,6 +7580,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7553,6 +7621,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7595,6 +7664,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7637,6 +7707,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7679,6 +7750,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7718,6 +7790,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7760,6 +7833,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7802,6 +7876,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7841,6 +7916,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7883,6 +7959,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7925,6 +8002,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -7967,6 +8045,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8006,6 +8085,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8048,6 +8128,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8090,6 +8171,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8129,6 +8211,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8171,6 +8254,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8213,6 +8297,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8255,6 +8340,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8297,6 +8383,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8349,6 +8436,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8401,6 +8489,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8445,6 +8534,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8497,6 +8587,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8549,6 +8640,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8601,6 +8693,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     intrinsics,
                     context,
                     self.module,
+                    &self.memory_plans,
                     &function,
                     &mut state,
                     &mut ctx,
@@ -8640,7 +8733,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let mem_index = MemoryIndex::from_u32(reserved);
                 let func_value = if let Some(local_mem_index) = module.local_memory_index(mem_index)
                 {
-                    match module
+                    match self
                         .memory_plans
                         .get(module.memory_index(local_mem_index))
                         .unwrap()
@@ -8650,7 +8743,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         MemoryStyle::Static { bound: _ } => intrinsics.memory_grow_static_local,
                     }
                 } else {
-                    match module.memory_plans.get(mem_index).unwrap().style {
+                    match self.memory_plans.get(mem_index).unwrap().style {
                         MemoryStyle::Dynamic => intrinsics.memory_grow_dynamic_import,
                         MemoryStyle::Static { bound: _ } => intrinsics.memory_grow_static_import,
                     }
@@ -8673,7 +8766,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let mem_index = MemoryIndex::from_u32(reserved);
                 let func_value = if let Some(local_mem_index) = module.local_memory_index(mem_index)
                 {
-                    match module
+                    match self
                         .memory_plans
                         .get(module.memory_index(local_mem_index))
                         .unwrap()
@@ -8683,7 +8776,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         MemoryStyle::Static { bound: _ } => intrinsics.memory_size_static_local,
                     }
                 } else {
-                    match module.memory_plans.get(mem_index).unwrap().style {
+                    match self.memory_plans.get(mem_index).unwrap().style {
                         MemoryStyle::Dynamic => intrinsics.memory_size_dynamic_import,
                         MemoryStyle::Static { bound: _ } => intrinsics.memory_size_static_import,
                     }

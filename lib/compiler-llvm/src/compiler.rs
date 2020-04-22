@@ -54,15 +54,22 @@ impl Compiler for LLVMCompiler {
         module: &'module Module,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
-        _memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        _table_plans: PrimaryMap<TableIndex, TablePlan>,
+        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
+        table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
         let functions = function_body_inputs
             .into_iter()
             .collect::<Vec<(LocalFuncIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
-                func_translator.translate(module, i, input, self.config())
+                func_translator.translate(
+                    module,
+                    i,
+                    input,
+                    self.config(),
+                    &memory_plans,
+                    &table_plans,
+                )
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
