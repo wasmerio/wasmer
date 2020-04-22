@@ -1,4 +1,5 @@
 use crate::indexes::{FuncIndex, GlobalIndex};
+use crate::pages::Pages;
 use crate::values::Value;
 
 #[cfg(feature = "enable-serde")]
@@ -435,9 +436,9 @@ impl TableType {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct MemoryType {
     /// The minimum number of pages in the memory.
-    pub minimum: u32,
+    pub minimum: Pages,
     /// The maximum number of pages in the memory.
-    pub maximum: Option<u32>,
+    pub maximum: Option<Pages>,
     /// Whether the memory may be shared between multiple threads.
     pub shared: bool,
 }
@@ -445,10 +446,14 @@ pub struct MemoryType {
 impl MemoryType {
     /// Creates a new descriptor for a WebAssembly memory given the specified
     /// limits of the memory.
-    pub fn new(minimum: u32, maximum: Option<u32>, shared: bool) -> MemoryType {
+    pub fn new<Min, Max>(minimum: Min, maximum: Option<Max>, shared: bool) -> MemoryType
+    where
+        Min: Into<Pages>,
+        Max: Into<Pages>,
+    {
         MemoryType {
-            minimum,
-            maximum,
+            minimum: minimum.into(),
+            maximum: maximum.map(|m| m.into()),
             shared,
         }
     }

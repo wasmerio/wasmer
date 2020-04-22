@@ -133,6 +133,7 @@ pub unsafe extern "C" fn wasmer_memory32_grow(
 
     instance
         .memory_grow(memory_index, delta)
+        .map(|pages| pages.0)
         .unwrap_or(u32::max_value())
 }
 
@@ -147,6 +148,7 @@ pub unsafe extern "C" fn wasmer_imported_memory32_grow(
 
     instance
         .imported_memory_grow(memory_index, delta)
+        .map(|pages| pages.0)
         .unwrap_or(u32::max_value())
 }
 
@@ -155,7 +157,7 @@ pub unsafe extern "C" fn wasmer_memory32_size(vmctx: *mut VMContext, memory_inde
     let instance = (&mut *vmctx).instance();
     let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-    instance.memory_size(memory_index)
+    instance.memory_size(memory_index).0
 }
 
 /// Implementation of memory.size for imported 32-bit memories.
@@ -166,7 +168,7 @@ pub unsafe extern "C" fn wasmer_imported_memory32_size(
     let instance = (&mut *vmctx).instance();
     let memory_index = MemoryIndex::from_u32(memory_index);
 
-    instance.imported_memory_size(memory_index)
+    instance.imported_memory_size(memory_index).0
 }
 
 /// Implementation of `table.copy`.

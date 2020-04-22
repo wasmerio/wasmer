@@ -11,9 +11,7 @@ use cranelift_codegen::isa::TargetFrontendConfig;
 use std::convert::TryFrom;
 use wasm_common::entity::EntityRef;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{
-    FuncIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WASM_PAGE_SIZE,
-};
+use wasm_common::{FuncIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_runtime::VMBuiltinFunctionIndex;
 use wasmer_runtime::VMOffsets;
@@ -669,7 +667,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             } => (
                 Uimm64::new(offset_guard_size),
                 ir::HeapStyle::Static {
-                    bound: Uimm64::new(u64::from(bound) * u64::from(WASM_PAGE_SIZE)),
+                    bound: Uimm64::new(bound.bytes().0 as u64),
                 },
                 true,
             ),

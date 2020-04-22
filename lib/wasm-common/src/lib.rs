@@ -23,11 +23,11 @@
     )
 )]
 
-mod constants;
 mod data_initializer;
 mod features;
 mod indexes;
 mod native;
+mod pages;
 mod r#ref;
 mod types;
 mod values;
@@ -37,7 +37,6 @@ pub mod entity {
     pub use cranelift_entity::*;
 }
 
-pub use crate::constants::*;
 pub use crate::data_initializer::{DataInitializer, DataInitializerLocation};
 pub use crate::features::Features;
 pub use crate::indexes::{
@@ -45,6 +44,7 @@ pub use crate::indexes::{
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 pub use crate::native::{Func, HostFunction, NativeWasmType, WasmTypeList, WithEnv, WithoutEnv};
+pub use crate::pages::{Bytes, Pages};
 pub use crate::r#ref::{AnyRef, HostInfo, HostRef};
 pub use crate::values::Value;
 pub use types::{

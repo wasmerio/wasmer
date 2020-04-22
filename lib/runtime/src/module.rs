@@ -11,7 +11,7 @@ use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
     DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FuncIndex, FuncType, GlobalIndex,
     GlobalType, ImportIndex, ImportType, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex,
-    LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType,
+    LocalTableIndex, MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType,
 };
 
 /// A WebAssembly table initializer.
@@ -35,7 +35,7 @@ pub enum MemoryStyle {
     /// Addresss space is allocated up front.
     Static {
         /// The number of mapped and unmapped pages.
-        bound: u32,
+        bound: Pages,
     },
 }
 

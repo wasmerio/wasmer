@@ -6,7 +6,7 @@ use crate::RuntimeError;
 use crate::{ExternType, FuncType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
 use std::slice;
-use wasm_common::{HostFunction, WasmTypeList, WithEnv, WithoutEnv, WASM_PAGE_SIZE};
+use wasm_common::{Bytes, HostFunction, Pages, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
     Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMGlobalDefinition,
@@ -386,11 +386,11 @@ impl Memory {
         self.definition().current_length
     }
 
-    pub fn size(&self) -> u32 {
-        (self.data_size() / WASM_PAGE_SIZE as usize) as u32
+    pub fn size(&self) -> Pages {
+        Bytes(self.data_size()).into()
     }
 
-    pub fn grow(&self, delta: u32) -> Result<u32, RuntimeError> {
+    pub fn grow(&self, delta: Pages) -> Result<Pages, RuntimeError> {
         Ok(unsafe { (&*self.exported.from) }.grow(delta).unwrap())
     }
 

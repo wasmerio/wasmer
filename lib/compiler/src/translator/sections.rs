@@ -18,7 +18,7 @@ use wasm_common::entity::packed_option::ReservedValue;
 use wasm_common::entity::EntityRef;
 use wasm_common::{
     DataIndex, ElemIndex, FuncIndex, FuncType, GlobalIndex, GlobalInit, GlobalType, MemoryIndex,
-    MemoryType, SignatureIndex, TableIndex, TableType, Type, V128,
+    MemoryType, Pages, SignatureIndex, TableIndex, TableType, Type, V128,
 };
 use wasmparser::{
     self, CodeSectionReader, Data, DataKind, DataSectionReader, Element, ElementItem, ElementItems,
@@ -116,8 +116,8 @@ pub fn parse_import_section<'data>(
             }) => {
                 environ.declare_memory_import(
                     MemoryType {
-                        minimum: memlimits.initial,
-                        maximum: memlimits.maximum,
+                        minimum: Pages(memlimits.initial),
+                        maximum: memlimits.maximum.map(Pages),
                         shared,
                     },
                     module_name,
@@ -203,8 +203,8 @@ pub fn parse_memory_section(
     for entry in memories {
         let memory = entry.map_err(to_wasm_error)?;
         environ.declare_memory(MemoryType {
-            minimum: memory.limits.initial,
-            maximum: memory.limits.maximum,
+            minimum: Pages(memory.limits.initial),
+            maximum: memory.limits.maximum.map(Pages),
             shared: memory.shared,
         })?;
     }

@@ -25,7 +25,7 @@ use std::{mem, ptr, slice};
 use wasm_common::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FuncIndex, GlobalIndex, GlobalInit,
-    LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
+    LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, Pages,
     SignatureIndex, TableIndex,
 };
 
@@ -435,7 +435,14 @@ impl Instance {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
-    pub(crate) fn memory_grow(&self, memory_index: LocalMemoryIndex, delta: u32) -> Option<u32> {
+    pub(crate) fn memory_grow<IntoPages>(
+        &self,
+        memory_index: LocalMemoryIndex,
+        delta: IntoPages,
+    ) -> Option<Pages>
+    where
+        IntoPages: Into<Pages>,
+    {
         let result = self
             .memories
             .get(memory_index)
@@ -456,18 +463,21 @@ impl Instance {
     /// # Safety
     /// This and `imported_memory_size` are currently unsafe because they
     /// dereference the memory import's pointers.
-    pub(crate) unsafe fn imported_memory_grow(
+    pub(crate) unsafe fn imported_memory_grow<IntoPages>(
         &self,
         memory_index: MemoryIndex,
-        delta: u32,
-    ) -> Option<u32> {
+        delta: IntoPages,
+    ) -> Option<Pages>
+    where
+        IntoPages: Into<Pages>,
+    {
         let import = self.imported_memory(memory_index);
         let from = &*import.from;
         from.grow(delta)
     }
 
     /// Returns the number of allocated wasm pages.
-    pub(crate) fn memory_size(&self, memory_index: LocalMemoryIndex) -> u32 {
+    pub(crate) fn memory_size(&self, memory_index: LocalMemoryIndex) -> Pages {
         self.memories
             .get(memory_index)
             .unwrap_or_else(|| panic!("no memory for index {}", memory_index.index()))
@@ -479,7 +489,7 @@ impl Instance {
     /// # Safety
     /// This and `imported_memory_grow` are currently unsafe because they
     /// dereference the memory import's pointers.
-    pub(crate) unsafe fn imported_memory_size(&self, memory_index: MemoryIndex) -> u32 {
+    pub(crate) unsafe fn imported_memory_size(&self, memory_index: MemoryIndex) -> Pages {
         let import = self.imported_memory(memory_index);
         let from = &mut *import.from;
         from.size()
@@ -966,7 +976,14 @@ impl InstanceHandle {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
-    pub fn memory_grow(&self, memory_index: LocalMemoryIndex, delta: u32) -> Option<u32> {
+    pub fn memory_grow<IntoPages>(
+        &self,
+        memory_index: LocalMemoryIndex,
+        delta: IntoPages,
+    ) -> Option<Pages>
+    where
+        IntoPages: Into<Pages>,
+    {
         self.instance().memory_grow(memory_index, delta)
     }
 

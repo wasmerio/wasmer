@@ -8,7 +8,7 @@ use crate::vmcontext::VMMemoryDefinition;
 use more_asserts::{assert_ge, assert_le};
 use std::cell::RefCell;
 use std::convert::TryFrom;
-use wasm_common::{WASM_MAX_PAGES, WASM_PAGE_SIZE};
+use wasm_common::Pages;
 
 /// A linear memory instance.
 #[derive(Debug)]
@@ -17,7 +17,7 @@ pub struct LinearMemory {
     mmap: RefCell<WasmMmap>,
 
     // The optional maximum size in wasm pages of this linear memory.
-    maximum: Option<u32>,
+    maximum: Option<Pages>,
 
     // Size in bytes of extra guard pages after the end to optimize loads and stores with
     // constant offsets.
@@ -36,15 +36,17 @@ struct WasmMmap {
     // Our OS allocation of mmap'd memory.
     alloc: Mmap,
     // The current logical size in wasm pages of this linear memory.
-    size: u32,
+    size: Pages,
 }
 
 impl LinearMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     pub fn new(plan: &MemoryPlan) -> Result<Self, String> {
         // `maximum` cannot be set to more than `65536` pages.
-        assert_le!(plan.memory.minimum, WASM_MAX_PAGES);
-        assert!(plan.memory.maximum.is_none() || plan.memory.maximum.unwrap() <= WASM_MAX_PAGES);
+        assert_le!(plan.memory.minimum, Pages::max_value());
+        assert!(
+            plan.memory.maximum.is_none() || plan.memory.maximum.unwrap() <= Pages::max_value()
+        );
 
         let offset_guard_bytes = plan.offset_guard_size as usize;
 
@@ -63,14 +65,14 @@ impl LinearMemory {
                 assert_ge!(bound, plan.memory.minimum);
                 bound
             }
-        } as usize;
-        let minimum_bytes = minimum_pages.checked_mul(WASM_PAGE_SIZE as usize).unwrap();
+        };
+        let minimum_bytes = minimum_pages.bytes().0;
         let request_bytes = minimum_bytes.checked_add(offset_guard_bytes).unwrap();
-        let mapped_pages = plan.memory.minimum as usize;
-        let mapped_bytes = mapped_pages * WASM_PAGE_SIZE as usize;
+        let mapped_pages = plan.memory.minimum;
+        let mapped_bytes = mapped_pages.bytes();
 
         let mmap = WasmMmap {
-            alloc: Mmap::accessible_reserved(mapped_bytes, request_bytes)?,
+            alloc: Mmap::accessible_reserved(mapped_bytes.0, request_bytes)?,
             size: plan.memory.minimum,
         };
 
@@ -89,7 +91,7 @@ impl LinearMemory {
     }
 
     /// Returns the number of allocated wasm pages.
-    pub fn size(&self) -> u32 {
+    pub fn size(&self) -> Pages {
         self.mmap.borrow().size
     }
 
@@ -97,10 +99,14 @@ impl LinearMemory {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
-    pub fn grow(&self, delta: u32) -> Option<u32> {
+    pub fn grow<IntoPages>(&self, delta: IntoPages) -> Option<Pages>
+    where
+        IntoPages: Into<Pages>,
+    {
         // Optimization of memory.grow 0 calls.
+        let delta: Pages = delta.into();
         let mut mmap = self.mmap.borrow_mut();
-        if delta == 0 {
+        if delta.0 == 0 {
             return Some(mmap.size);
         }
 
@@ -121,14 +127,14 @@ impl LinearMemory {
         // Wasm linear memories are never allowed to grow beyond what is
         // indexable. If the memory has no maximum, enforce the greatest
         // limit here.
-        if new_pages >= WASM_MAX_PAGES {
+        if new_pages >= Pages::max_value() {
             // Linear memory size would exceed the index range.
             return None;
         }
 
-        let delta_bytes = usize::try_from(delta).unwrap() * WASM_PAGE_SIZE as usize;
-        let prev_bytes = usize::try_from(prev_pages).unwrap() * WASM_PAGE_SIZE as usize;
-        let new_bytes = usize::try_from(new_pages).unwrap() * WASM_PAGE_SIZE as usize;
+        let delta_bytes = delta.bytes().0;
+        let prev_bytes = prev_pages.bytes().0;
+        let new_bytes = new_pages.bytes().0;
 
         if new_bytes > mmap.alloc.len() - self.offset_guard_size {
             // If the new size is within the declared maximum, but needs more memory than we
@@ -157,7 +163,7 @@ impl LinearMemory {
         let mut mmap = self.mmap.borrow_mut();
         VMMemoryDefinition {
             base: mmap.alloc.as_mut_ptr(),
-            current_length: mmap.size as usize * WASM_PAGE_SIZE as usize,
+            current_length: mmap.size.bytes().0,
         }
     }
 
