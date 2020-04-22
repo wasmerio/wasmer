@@ -5,7 +5,7 @@ use crate::export::Export;
 use crate::imports::Imports;
 use crate::memory::LinearMemory;
 use crate::table::Table;
-use crate::trap::{catch_traps, init_traphandlers, Trap, TrapCode, TrapRegistration};
+use crate::trap::{catch_traps, init_traphandlers, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
     VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex,

@@ -20,11 +20,11 @@ use wasm_common::{
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::FunctionBodyData;
-use wasmer_compiler::{Compilation, CompiledFunction, Compiler, JumpTable};
+use wasmer_compiler::{Compilation, CompiledFunction, Compiler, JumpTable, TrapInformation};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{Relocation, RelocationTarget};
+use wasmer_runtime::TrapCode;
 use wasmer_runtime::{MemoryPlan, Module, TablePlan};
-use wasmer_runtime::{TrapCode, TrapInformation};
 
 /// Implementation of a relocation sink that just saves all the information for later
 pub struct RelocSink {

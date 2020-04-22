@@ -7,9 +7,9 @@
 
 use crate::std::ops::Range;
 use crate::std::vec::Vec;
+use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
 use serde::{Deserialize, Serialize};
-use wasmer_runtime::TrapInformation;
 
 use wasm_common::entity::PrimaryMap;
 use wasm_common::DefinedFuncIndex;

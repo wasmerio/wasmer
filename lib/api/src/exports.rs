@@ -11,10 +11,10 @@ use wasmer_runtime::Export;
 ///
 /// ```ignore
 /// # let my_instance = Instance::new(...);
-/// 
+///
 /// // This results with an error: `ExportError::IncompatibleType`.
 /// let missing_import: &Global = my_instance.exports.get("func")?;
-/// 
+///
 /// // This results with an error: `ExportError::Missing`.
 /// let missing_import: &Func = my_instance.exports.get("unknown")?;
 /// ```

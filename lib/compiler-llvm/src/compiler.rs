@@ -12,7 +12,8 @@ use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::Module;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
-use wasmer_compiler::{TrapCode, TrapInformation};
+use wasmer_compiler::TrapInformation;
+use wasmer_runtime::TrapCode;
 
 use inkwell::targets::{InitializationConfig, Target as InkwellTarget};
 

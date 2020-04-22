@@ -44,6 +44,7 @@ mod errors;
 mod function;
 mod jump_table;
 mod relocation;
+mod trap;
 mod unwind;
 #[macro_use]
 mod translator;
@@ -59,6 +60,7 @@ pub use crate::translator::{
     to_wasm_error, translate_module, FunctionBodyData, ModuleEnvironment, ModuleTranslation,
     ModuleTranslationState, WasmError, WasmResult,
 };
+pub use crate::trap::TrapInformation;
 pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTableReloc};
 
 /// Offset in bytes from the beginning of the function.

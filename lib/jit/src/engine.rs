@@ -12,9 +12,8 @@ use wasm_common::entity::PrimaryMap;
 use wasm_common::{DefinedFuncIndex, FuncType, MemoryIndex, MemoryType, TableIndex, TableType};
 use wasmer_compiler::{
     Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionAddressMap,
-    FunctionBodyData, JumpTableOffsets, ModuleTranslationState, Relocations,
+    FunctionBodyData, JumpTableOffsets, ModuleTranslationState, Relocations, TrapInformation,
 };
-use wasmer_runtime::TrapInformation;
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, MemoryPlan, Module, SignatureRegistry, Table, TablePlan,
     VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,

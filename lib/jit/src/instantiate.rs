@@ -9,8 +9,8 @@ use crate::errors::{InstantiationError, LinkError};
 use crate::link::link_module;
 use crate::resolver::{resolve_imports, Resolver};
 use crate::trap::register as register_frame_info;
+use crate::trap::GlobalFrameInfoRegistration;
 use crate::trap::RuntimeError;
-use crate::trap::{GlobalFrameInfoRegistration, FRAME_INFO};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
@@ -20,11 +20,10 @@ use wasm_common::{
     DefinedMemoryIndex, DefinedTableIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{Compilation, CompileError, FunctionAddressMap};
-use wasmer_runtime::TrapInformation;
+use wasmer_compiler::{Compilation, CompileError, FunctionAddressMap, TrapInformation};
 use wasmer_runtime::{
-    InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, TrapRegistration,
-    VMFunctionBody, VMGlobalDefinition, VMSharedSignatureIndex, VMTrampoline,
+    InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
+    VMGlobalDefinition, VMSharedSignatureIndex,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};

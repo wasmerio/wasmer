@@ -14,12 +14,10 @@ use crate::CompiledModule;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
-use wasm_common::entity::{BoxedSlice, EntityRef};
-use wasm_common::{DefinedFuncIndex, FuncIndex, SourceLoc};
-use wasmer_compiler::FunctionAddressMap;
-use wasmer_runtime::{Module, TrapInformation, VMFunctionBody};
-
-type FinishedFunctions = BoxedSlice<DefinedFuncIndex, *mut [VMFunctionBody]>;
+use wasm_common::entity::EntityRef;
+use wasm_common::{FuncIndex, SourceLoc};
+use wasmer_compiler::{FunctionAddressMap, TrapInformation};
+use wasmer_runtime::Module;
 
 lazy_static::lazy_static! {
     /// This is a global cache of backtrace frame information for all active
