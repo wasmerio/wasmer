@@ -117,7 +117,7 @@ mod tests {
     use super::*;
 
     // Everything but user-defined codes.
-    const CODES: [TrapCode; 12] = [
+    const CODES: [TrapCode; 13] = [
         TrapCode::StackOverflow,
         TrapCode::HeapSetterOutOfBounds,
         TrapCode::HeapAccessOutOfBounds,
