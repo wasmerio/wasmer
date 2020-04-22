@@ -19,8 +19,8 @@ pub fn spectest_importobject(store: &Store) -> ImportObject {
 
     let global_i32 = Global::new(store, Val::I32(666));
     let global_i64 = Global::new(store, Val::I64(666));
-    let global_f32 = Global::new(store, Val::F32(0x4426_8000));
-    let global_f64 = Global::new(store, Val::F64(0x4084_d000_0000_0000));
+    let global_f32 = Global::new(store, Val::F32(f32::from_bits(0x4426_8000)));
+    let global_f64 = Global::new(store, Val::F64(f64::from_bits(0x4084_d000_0000_0000)));
 
     let ty = TableType::new(ValType::FuncRef, 10, Some(20));
     let table = Table::new(store, ty, Val::AnyRef(AnyRef::Null)).unwrap();

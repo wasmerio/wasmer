@@ -231,8 +231,8 @@ pub fn parse_global_section(
         let initializer = match init_expr_reader.read_operator().map_err(to_wasm_error)? {
             Operator::I32Const { value } => GlobalInit::I32Const(value),
             Operator::I64Const { value } => GlobalInit::I64Const(value),
-            Operator::F32Const { value } => GlobalInit::F32Const(value.bits()),
-            Operator::F64Const { value } => GlobalInit::F64Const(value.bits()),
+            Operator::F32Const { value } => GlobalInit::F32Const(f32::from_bits(value.bits())),
+            Operator::F64Const { value } => GlobalInit::F64Const(f64::from_bits(value.bits())),
             Operator::V128Const { value } => {
                 GlobalInit::V128Const(V128::from(value.bytes().to_vec().as_slice()))
             }

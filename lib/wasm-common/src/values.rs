@@ -6,7 +6,7 @@ use std::ptr;
 
 /// Possible runtime values that a WebAssembly module can either consume or
 /// produce.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq)]
 pub enum Value<T> {
     /// A 32-bit integer
     I32(i32),
@@ -15,16 +15,10 @@ pub enum Value<T> {
     I64(i64),
 
     /// A 32-bit float.
-    ///
-    /// Note that the raw bits of the float are stored here, and you can use
-    /// `f32::from_bits` to create an `f32` value.
-    F32(u32),
+    F32(f32),
 
     /// A 64-bit float.
-    ///
-    /// Note that the raw bits of the float are stored here, and you can use
-    /// `f64::from_bits` to create an `f64` value.
-    F64(u64),
+    F64(f64),
 
     /// An `anyref` value which can hold opaque data to the wasm instance itself.
     ///
@@ -86,8 +80,8 @@ impl<T> Value<T> {
         match self {
             Value::I32(i) => ptr::write(p as *mut i32, *i),
             Value::I64(i) => ptr::write(p as *mut i64, *i),
-            Value::F32(u) => ptr::write(p as *mut u32, *u),
-            Value::F64(u) => ptr::write(p as *mut u64, *u),
+            Value::F32(u) => ptr::write(p as *mut f32, *u),
+            Value::F64(u) => ptr::write(p as *mut f64, *u),
             Value::V128(b) => ptr::write(p as *mut u128, *b),
             _ => unimplemented!("Value::write_value_to"),
         }
@@ -98,8 +92,8 @@ impl<T> Value<T> {
         match ty {
             Type::I32 => Value::I32(ptr::read(p as *const i32)),
             Type::I64 => Value::I64(ptr::read(p as *const i64)),
-            Type::F32 => Value::F32(ptr::read(p as *const u32)),
-            Type::F64 => Value::F64(ptr::read(p as *const u64)),
+            Type::F32 => Value::F32(ptr::read(p as *const f32)),
+            Type::F64 => Value::F64(ptr::read(p as *const f64)),
             Type::V128 => Value::V128(ptr::read(p as *const u128)),
             _ => unimplemented!("Value::read_value_from"),
         }
@@ -109,8 +103,8 @@ impl<T> Value<T> {
         e
         (I32(i32) i32 unwrap_i32 *e)
         (I64(i64) i64 unwrap_i64 *e)
-        (F32(f32) f32 unwrap_f32 f32::from_bits(*e))
-        (F64(f64) f64 unwrap_f64 f64::from_bits(*e))
+        (F32(f32) f32 unwrap_f32 *e)
+        (F64(f64) f64 unwrap_f64 *e)
         (FuncRef(&T) funcref unwrap_funcref e)
         (V128(u128) v128 unwrap_v128 *e)
     }
@@ -165,13 +159,13 @@ impl<T> From<i64> for Value<T> {
 
 impl<T> From<f32> for Value<T> {
     fn from(val: f32) -> Value<T> {
-        Value::F32(val.to_bits())
+        Value::F32(val)
     }
 }
 
 impl<T> From<f64> for Value<T> {
     fn from(val: f64) -> Value<T> {
-        Value::F64(val.to_bits())
+        Value::F64(val)
     }
 }
 

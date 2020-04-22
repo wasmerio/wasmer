@@ -330,8 +330,8 @@ impl Wast {
         Ok(match &v.instrs[0] {
             I32Const(x) => Val::I32(*x),
             I64Const(x) => Val::I64(*x),
-            F32Const(x) => Val::F32(x.bits),
-            F64Const(x) => Val::F64(x.bits),
+            F32Const(x) => Val::F32(f32::from_bits(x.bits)),
+            F64Const(x) => Val::F64(f64::from_bits(x.bits)),
             V128Const(x) => Val::V128(u128::from_le_bytes(x.to_le_bytes())),
             other => bail!("couldn't convert {:?} to a runtime value", other),
         })
@@ -396,19 +396,19 @@ fn val_matches(actual: &Val, expected: &wast::AssertExpression) -> Result<bool> 
     })
 }
 
-fn f32_matches(actual: u32, expected: &wast::NanPattern<wast::Float32>) -> bool {
+fn f32_matches(actual: f32, expected: &wast::NanPattern<wast::Float32>) -> bool {
     match expected {
-        wast::NanPattern::CanonicalNan => f32::from_bits(actual).is_canonical_nan(),
-        wast::NanPattern::ArithmeticNan => f32::from_bits(actual).is_arithmetic_nan(),
-        wast::NanPattern::Value(expected_value) => actual == expected_value.bits,
+        wast::NanPattern::CanonicalNan => actual.is_canonical_nan(),
+        wast::NanPattern::ArithmeticNan => actual.is_arithmetic_nan(),
+        wast::NanPattern::Value(expected_value) => actual.to_bits() == expected_value.bits,
     }
 }
 
-fn f64_matches(actual: u64, expected: &wast::NanPattern<wast::Float64>) -> bool {
+fn f64_matches(actual: f64, expected: &wast::NanPattern<wast::Float64>) -> bool {
     match expected {
-        wast::NanPattern::CanonicalNan => f64::from_bits(actual).is_canonical_nan(),
-        wast::NanPattern::ArithmeticNan => f64::from_bits(actual).is_arithmetic_nan(),
-        wast::NanPattern::Value(expected_value) => actual == expected_value.bits,
+        wast::NanPattern::CanonicalNan => actual.is_canonical_nan(),
+        wast::NanPattern::ArithmeticNan => actual.is_arithmetic_nan(),
+        wast::NanPattern::Value(expected_value) => actual.to_bits() == expected_value.bits,
     }
 }
 
@@ -432,11 +432,11 @@ fn v128_matches(actual: u128, expected: &wast::V128Pattern) -> bool {
             .all(|(i, b)| *b == extract_lane_as_i64(actual, i)),
         wast::V128Pattern::F32x4(b) => b.iter().enumerate().all(|(i, b)| {
             let a = extract_lane_as_i32(actual, i) as u32;
-            f32_matches(a, b)
+            f32_matches(f32::from_bits(a), b)
         }),
         wast::V128Pattern::F64x2(b) => b.iter().enumerate().all(|(i, b)| {
             let a = extract_lane_as_i64(actual, i) as u64;
-            f64_matches(a, b)
+            f64_matches(f64::from_bits(a), b)
         }),
     }
 }

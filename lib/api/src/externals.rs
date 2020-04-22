@@ -126,8 +126,8 @@ impl Global {
             match val {
                 Val::I32(x) => *definition.as_i32_mut() = x,
                 Val::I64(x) => *definition.as_i64_mut() = x,
-                Val::F32(x) => *definition.as_f32_bits_mut() = x,
-                Val::F64(x) => *definition.as_f64_bits_mut() = x,
+                Val::F32(x) => *definition.as_f32_mut() = x,
+                Val::F64(x) => *definition.as_f64_mut() = x,
                 _ => return Err(RuntimeError::new(format!("create_global for {:?}", val))),
                 // Val::V128(x) => *definition.as_u128_bits_mut() = x,
             }
@@ -156,8 +156,8 @@ impl Global {
             match self.ty().ty {
                 ValType::I32 => Val::from(*definition.as_i32()),
                 ValType::I64 => Val::from(*definition.as_i64()),
-                ValType::F32 => Val::F32(*definition.as_u32()),
-                ValType::F64 => Val::F64(*definition.as_u64()),
+                ValType::F32 => Val::F32(*definition.as_f32()),
+                ValType::F64 => Val::F64(*definition.as_f64()),
                 _ => unimplemented!("Global::get for {:?}", self.ty().ty),
             }
         }
@@ -182,8 +182,8 @@ impl Global {
             match val {
                 Val::I32(i) => *definition.as_i32_mut() = i,
                 Val::I64(i) => *definition.as_i64_mut() = i,
-                Val::F32(f) => *definition.as_u32_mut() = f,
-                Val::F64(f) => *definition.as_u64_mut() = f,
+                Val::F32(f) => *definition.as_f32_mut() = f,
+                Val::F64(f) => *definition.as_f64_mut() = f,
                 _ => unimplemented!("Global::set for {:?}", val.ty()),
             }
         }

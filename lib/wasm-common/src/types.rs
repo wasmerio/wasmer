@@ -311,7 +311,7 @@ impl From<Mutability> for bool {
 }
 
 /// WebAssembly global.
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct GlobalType {
     /// The type of the value stored in the global.
@@ -350,7 +350,7 @@ impl GlobalType {
 }
 
 /// Globals are initialized via the `const` operators or by referring to another import.
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum GlobalInit {
     /// An `i32.const`.
@@ -358,9 +358,9 @@ pub enum GlobalInit {
     /// An `i64.const`.
     I64Const(i64),
     /// An `f32.const`.
-    F32Const(u32),
+    F32Const(f32),
     /// An `f64.const`.
-    F64Const(u64),
+    F64Const(f64),
     /// A `v128.const`.
     V128Const(V128),
     /// A `global.get` of another global.
