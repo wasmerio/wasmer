@@ -47,8 +47,7 @@ impl RuntimeError {
             Trap::Jit { pc, backtrace } => {
                 let code = info
                     .lookup_trap_info(pc)
-                    .map(|info| info.trap_code)
-                    .unwrap_or(TrapCode::StackOverflow);
+                    .map_or(TrapCode::StackOverflow, |info| info.trap_code);
                 Self::new_wasm(&info, Some(pc), code, backtrace)
             }
             Trap::Wasm {
@@ -116,7 +115,7 @@ impl RuntimeError {
                 wasm_trace.push(info);
             }
         }
-        RuntimeError {
+        Self {
             inner: Arc::new(RuntimeErrorInner {
                 message,
                 wasm_trace,
