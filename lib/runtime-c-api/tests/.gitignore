@@ -29,3 +29,6 @@ test-tables
 test-validate
 test-wasi-import-object
 test-emscripten-import-object
+
+# ignore wasm-c-api binaries
+wasm-c-api-*
