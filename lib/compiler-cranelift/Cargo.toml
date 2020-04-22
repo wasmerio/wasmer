@@ -7,7 +7,7 @@ license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
 repository = "https://github.com/wasmerio/wasmer"
 documentation = "https://docs.rs/wasmer-compiler-cranelift/"
 categories = ["wasm"]
-keywords = ["webassembly", "wasm"]
+keywords = ["webassembly", "wasm", "compiler", "cranelift"]
 readme = "README.md"
 edition = "2018"
 

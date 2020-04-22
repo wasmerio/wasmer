@@ -145,7 +145,7 @@ impl Default for Target {
 ///
 /// This options must have WebAssembly `Features` and a specific
 /// `Target` to compile to.
-pub trait CompilerConfig: Clone {
+pub trait CompilerConfig {
     /// Gets the WebAssembly features
     fn features(&self) -> &Features;
 

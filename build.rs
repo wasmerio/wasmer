@@ -33,7 +33,7 @@ fn main() -> anyhow::Result<()> {
         ignores: ignores.clone(),
     };
 
-    let backends = vec!["cranelift"];
+    let backends = vec!["singlepass", "cranelift"];
     with_backends(&mut spectests, &backends, |mut spectests| {
         with_test_module(&mut spectests, "spec", |spectests| {
             let _spec_tests = test_directory(spectests, "tests/wast/spec", wast_processor)?;

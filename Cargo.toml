@@ -23,6 +23,7 @@ autoexamples = false
 wasmer = { path = "lib/api" }
 wasmer-compiler = { path = "lib/compiler" }
 wasmer-compiler-cranelift = { path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { path = "lib/compiler-singlepass", optional = true }
 wasmer-jit = { path = "lib/jit" }
 atty = "0.2"
 anyhow = "1.0.28"
@@ -43,6 +44,7 @@ anyhow = "1.0.28"
 test-utils = { path = "tests/lib/test-utils" }
 wasmer = { path = "lib/api" }
 wasmer-compiler = { path = "lib/compiler" }
+wasmer-compiler-singlepass = { path = "lib/compiler-singlepass" }
 wasmer-compiler-cranelift = { path = "lib/compiler-cranelift" }
 wasmer-jit = { path = "lib/jit" }
 wasmer-wast = { path = "tests/lib/wast" }
@@ -52,6 +54,9 @@ wasmer-wast = { path = "tests/lib/wast" }
 # since we might want to autoconfigure them depending on the availability on the host.
 # default = ["wasi"]
 default = ["compiler-cranelift"]
+compiler-singlepass = [
+    "wasmer-compiler-singlepass",
+]
 compiler-cranelift = [
     "wasmer-compiler-cranelift",
 ]

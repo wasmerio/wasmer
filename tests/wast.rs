@@ -21,7 +21,7 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut compiler_config = get_compiler_config_from_str(compiler, try_nan_canonicalization);
     compiler_config.features_mut().multi_value(true);
-    let store = Store::new(&Engine::new(&compiler_config));
+    let store = Store::new(&Engine::new(&*compiler_config));
     let mut wast = Wast::new_with_spectest(store);
     let path = Path::new(wast_path);
     wast.run_file(path)

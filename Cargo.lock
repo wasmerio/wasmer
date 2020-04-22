@@ -887,6 +887,7 @@ version = "0.16.2"
 dependencies = [
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
+ "wasmer-compiler-singlepass",
 ]
 
 [[package]]
@@ -1007,6 +1008,7 @@ dependencies = [
  "wasmer",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
+ "wasmer-compiler-singlepass",
  "wasmer-jit",
  "wasmer-wast",
 ]
@@ -1040,6 +1042,21 @@ dependencies = [
  "rayon",
  "serde",
  "target-lexicon",
+ "wasm-common",
+ "wasmer-compiler",
+ "wasmer-runtime",
+ "wasmparser",
+]
+
+[[package]]
+name = "wasmer-compiler-singlepass"
+version = "0.16.2"
+dependencies = [
+ "hashbrown",
+ "log",
+ "more-asserts",
+ "rayon",
+ "serde",
  "wasm-common",
  "wasmer-compiler",
  "wasmer-runtime",

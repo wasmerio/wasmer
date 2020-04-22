@@ -1,0 +1,32 @@
+[package]
+name = "wasmer-compiler-singlepass"
+version = "0.16.2"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+description = "Standalone environment support for WebAsssembly code in Singlepass"
+license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
+repository = "https://github.com/wasmerio/wasmer"
+documentation = "https://docs.rs/wasmer-compiler-singlepass/"
+categories = ["wasm"]
+keywords = ["webassembly", "wasm", "compiler", "singlepass"]
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+hashbrown = { version = "0.7.1", optional = true }
+log = { version = "0.4.8", default-features = false }
+wasmer-compiler = { path = "../compiler", version = "0.16.2", default-features = false }
+wasmer-runtime = { path = "../runtime", version = "0.16.2" }
+wasm-common = { path = "../wasm-common", version = "0.16.2", default-features = false }
+wasmparser = "0.51.4"
+rayon = "1.3.0"
+serde = { version = "1.0.106", features = ["derive"] }
+more-asserts = "0.2.1"
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = ["std", "enable-serde"]
+enable-serde = ["wasmer-compiler/enable-serde", "wasm-common/enable-serde"]
+std = ["wasmer-compiler/std", "wasm-common/std"]
+core = ["hashbrown"]

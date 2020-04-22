@@ -30,7 +30,7 @@ impl Wast {
             store,
             import_object,
             instances: HashMap::new(),
-            fail_fast: false,
+            fail_fast: true,
         }
     }
 
