@@ -1,0 +1,48 @@
+[package]
+name = "wasmer-compiler-llvm"
+version = "0.16.2"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "compiler", "JIT", "llvm"]
+categories = ["wasm"]
+edition = "2018"
+readme = "README.md"
+
+[dependencies]
+wasmer-compiler = { path = "../compiler", version = "0.16.2" }
+wasm-common = { path = "../wasm-common", version = "0.16.2" }
+wasmparser = "0.51.4"
+target-lexicon = { version = "0.10.0", default-features = false }
+smallvec = "1"
+goblin = "0.2"
+libc = "0.2.69"
+byteorder = "1"
+itertools = "0.9.0"
+rayon = "1.3.0"
+
+[target.'cfg(target_arch = "x86_64")'.dependencies.inkwell]
+version = "0.1.0-llvm8sample"
+default-features = false
+features = ["llvm8-0", "target-x86"]
+
+[target.'cfg(target_arch = "aarch64")'.dependencies.inkwell]
+version = "0.1.0-llvm8sample"
+default-features = false
+features = ["llvm8-0", "target-aarch64"]
+
+[target.'cfg(unix)'.dependencies]
+nix = "0.17"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["memoryapi"] }
+
+[build-dependencies]
+cc = "1.0"
+lazy_static = "1.4"
+regex = "1.2"
+semver = "0.9"
+rustc_version = "0.2"
+
+[features]
+test = []

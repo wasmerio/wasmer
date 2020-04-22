@@ -1,0 +1,13 @@
+# Compilers
+
+# Frontends
+
+## WASI
+
+wasi::snapshot1::fd_read
+wasi::snapshot1::poll_oneoff
+wasi::snapshot1::fd_pread
+wasi::snapshot1::fd_close
+wasi::snapshot1::fd_allocate
+wasi::snapshot1::close_preopen_fd
+wasi::snapshot1::envvar

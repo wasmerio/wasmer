@@ -1,0 +1,9 @@
+[package]
+name = "test-generator"
+version = "0.1.0"
+edition = "2018"
+private = true
+
+[dependencies]
+anyhow = "1.0.28"
+target-lexicon = "0.10.0"

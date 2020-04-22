@@ -1,0 +1,25 @@
+# 
+src/                        @syrusakbary @MarkMcCaskey
+
+# Backends
+lib/compiler-singlepass   	@losfair @nlewycky
+lib/compiler-cranelift      @syrusakbary @nlewycky
+lib/compiler-llvm           @nlewycky @losfair
+
+# Runtime
+lib/runtime   	            @syrusakbary @Hywan
+lib/c-api        	        @Hywan
+
+# Frontend integrations
+
+## Emscripten
+lib/emscripten        	    @MarkMcCaskey @syrusakbary
+
+## WASI
+lib/wasi            	    @MarkMcCaskey
+
+# Examples
+examples                    @syrusakbary
+
+# Examples
+tests                       @syrusakbary @MarkMcCaskey

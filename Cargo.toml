@@ -1,0 +1,59 @@
+[package]
+name = "wasmer-bin"
+version = "1.0.0"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+description = "High-Performance WebAssembly Framework"
+license = "MIT"
+include = [
+    "src/**/*",
+    "Cargo.lock",
+    "Cargo.toml",
+    "LICENSE",
+    "Makefile",
+    "/README.md"
+]
+readme = "README.md"
+edition = "2018"
+default-run = "wasmer"
+publish = false
+autoexamples = false
+
+[dependencies]
+wasmer = { path = "lib/api" }
+wasmer-compiler = { path = "lib/compiler" }
+wasmer-compiler-cranelift = { path = "lib/compiler-cranelift", optional = true }
+wasmer-jit = { path = "lib/jit" }
+atty = "0.2"
+anyhow = "1.0.28"
+structopt = { version = "0.3.13", features = ["suggestions"] }
+
+[workspace]
+members = [
+]
+
+[build-dependencies]
+test-generator = { path = "tests/lib/test-generator" }
+anyhow = "1.0.28"
+glob = "0.3"
+rustc_version = "0.2"
+
+[dev-dependencies]
+anyhow = "1.0.28"
+test-utils = { path = "tests/lib/test-utils" }
+wasmer = { path = "lib/api" }
+wasmer-compiler = { path = "lib/compiler" }
+wasmer-compiler-cranelift = { path = "lib/compiler-cranelift" }
+wasmer-jit = { path = "lib/jit" }
+wasmer-wast = { path = "tests/lib/wast" }
+
+[features]
+# Don't add the backend features in default, please add them on the Makefile
+# since we might want to autoconfigure them depending on the availability on the host.
+# default = ["wasi"]
+default = ["compiler-cranelift"]
+compiler-cranelift = [
+    "wasmer-compiler-cranelift",
+]
+# wasi = ["wasmer-wasi"]
+# experimental-io-devices = ["wasmer-wasi-experimental-io-devices"]

@@ -1,0 +1,23 @@
+[package]
+name = "wasm-common"
+version = "0.16.2"
+description = "WebAssembly Common Types"
+license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+categories = ["no-std", "wasm"]
+readme = "README.md"
+keywords = ["webassembly", "wasm", "types"]
+edition = "2018"
+
+[dependencies]
+# The cranelift-entity is just useful structures, not anything about the
+# compiler itself, that's why we depend on it :)
+cranelift-entity = "0.62.0"
+serde = { version = "1.0.106", features = ["derive"], optional = true }
+
+[features]
+default = ["std", "enable-serde"]
+std = []
+core = []
+enable-serde = ["serde", "cranelift-entity/enable-serde"]

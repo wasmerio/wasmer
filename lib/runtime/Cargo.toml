@@ -1,0 +1,32 @@
+[package]
+name = "wasmer-runtime"
+version = "0.16.2"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+description = "Runtime library support for Wasmer"
+license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
+categories = ["wasm"]
+keywords = ["webassembly", "wasm"]
+repository = "https://github.com/wasmerio/wasmer"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasm-common = { path = "../wasm-common", version = "0.16.2", features = ["enable-serde"] }
+region = "2.1.2"
+libc = { version = "0.2.68", default-features = false }
+memoffset = "0.5.4"
+indexmap = { version = "1.3.2", features = ["serde-1"] }
+thiserror = "1.0.14"
+more-asserts = "0.2.1"
+cfg-if = "0.1.10"
+backtrace = "0.3.46"
+serde = { version = "1.0.106", features = ["derive", "rc"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3.7", features = ["winbase", "memoryapi", "errhandlingapi"] }
+
+[build-dependencies]
+cc = "1.0"
+
+[badges]
+maintenance = { status = "actively-developed" }

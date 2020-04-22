@@ -1,0 +1,34 @@
+[package]
+name = "wasmer-compiler"
+version = "0.16.2"
+description = "Base compiler abstraction for WebAssembly"
+license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+categories = ["no-std", "wasm"]
+readme = "README.md"
+keywords = ["webassembly", "wasm", "compiler"]
+edition = "2018"
+
+[dependencies]
+enumset = "1.0.0"
+target-lexicon = { version = "0.10.0", default-features = false }
+wasmparser = { version = "0.51.4", default-features = false }
+wasmer-runtime = { path = "../runtime", version = "0.16.2" }
+wasm-common = { path = "../wasm-common", version = "0.16.2" }
+hashbrown = { version = "0.7.1", optional = true }
+serde = { version = "1.0.106", features = ["derive"], optional = true }
+thiserror = "1.0.14"
+serde_bytes = { version = "0.11.3", optional = true }
+
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
+raw-cpuid = "7.0.3"
+
+[features]
+default = ["std", "enable-serde"]
+std = []
+core = ["hashbrown"]
+enable-serde = ["serde", "serde_bytes"]
+
+[badges]
+maintenance = { status = "experimental" }

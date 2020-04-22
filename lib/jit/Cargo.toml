@@ -1,0 +1,31 @@
+[package]
+name = "wasmer-jit"
+version = "0.16.2"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+description = "Wasmer JIT frontend"
+license = "(Apache-2.0 WITH LLVM-exception) or MIT"
+categories = ["wasm"]
+keywords = ["webassembly", "wasm"]
+repository = "https://github.com/wasmerio/wasmer"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasm-common = { path = "../wasm-common", version = "0.16.2" }
+wasmer-compiler = { path = "../compiler", version = "0.16.2", default-features = false }
+wasmer-runtime = { path = "../runtime", version = "0.16.2" }
+target-lexicon = { version = "0.10.0", default-features = false }
+backtrace = "0.3.46"
+rustc-demangle = "0.1.16"
+more-asserts = "0.2.1"
+thiserror = "1.0.15"
+region = "2.1.2"
+serde = { version = "1.0.106", sfeatures = ["derive", "rc"] }
+bincode = "1.2.1"
+lazy_static = "1.4"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3.8", features = ["winnt", "impl-default"] }
+
+[badges]
+maintenance = { status = "actively-developed" }
