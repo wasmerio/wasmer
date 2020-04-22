@@ -167,7 +167,7 @@ impl LinearMemory {
         }
     }
 
-    /// Get the memory host as mutable pointer
+    /// Get the host memory as mutable pointer
     ///
     /// This function is used in the `wasmer_runtime::Instance` to retrieve
     /// the host memory pointer and interact with the host memory directly.
