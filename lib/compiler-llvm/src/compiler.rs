@@ -2,18 +2,17 @@
 // Allow unused imports while developing.
 #![allow(unused_imports, dead_code)]
 
-use crate::code::FuncTranslator;
 use crate::config::LLVMConfig;
+use crate::translator::FuncTranslator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
-use wasm_common::{LocalFuncIndex, FuncIndex, FuncType};
+use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::FunctionBodyData;
-use wasmer_compiler::Module;
+use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
-use wasmer_compiler::TrapInformation;
-use wasmer_runtime::TrapCode;
+use wasmer_runtime::{MemoryPlan, Module, TablePlan, TrapCode};
 
 use inkwell::targets::{InitializationConfig, Target as InkwellTarget};
 
@@ -50,11 +49,13 @@ impl Compiler for LLVMCompiler {
 
     /// Compile the module using LLVM, producing a compilation result with
     /// associated relocations.
-    fn compile_module(
+    fn compile_module<'data, 'module>(
         &self,
-        module: &Module,
+        module: &'module Module,
         _module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'_>>,
+        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
+        _memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
+        _table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
         let functions = function_body_inputs
             .into_iter()

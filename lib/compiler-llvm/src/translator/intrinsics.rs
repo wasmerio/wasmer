@@ -33,9 +33,9 @@ use wasm_common::entity::EntityRef;
 use wasm_common::{
     FuncIndex, GlobalIndex, MemoryIndex, Mutability, SignatureIndex, TableIndex, Type,
 };
-use wasmer_compiler::MemoryStyle;
-use wasmer_compiler::Module as WasmerCompilerModule;
-use wasmer_compiler::VMOffsets;
+use wasmer_runtime::MemoryStyle;
+use wasmer_runtime::Module as WasmerCompilerModule;
+use wasmer_runtime::VMOffsets;
 
 fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerType<'ctx> {
     match ty {
@@ -699,7 +699,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
         );
         // TODO: pointer width
-        let offsets = VMOffsets::new(8, &self.wasm_module.local);
+        let offsets = VMOffsets::new(8, &self.wasm_module);
 
         *cached_memories.entry(index).or_insert_with(|| {
             let (memory_array_ptr_ptr, index, memory_type, minimum, maximum, field_name) = {
@@ -825,7 +825,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
         );
         // TODO: pointer width
-        let offsets = VMOffsets::new(8, &self.wasm_module.local);
+        let offsets = VMOffsets::new(8, &self.wasm_module);
 
         let TableCache {
             ptr_to_base_ptr,
@@ -939,7 +939,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
         );
         // TODO: pointer width
-        let offsets = VMOffsets::new(8, &self.wasm_module.local);
+        let offsets = VMOffsets::new(8, &self.wasm_module);
 
         *cached_sigindices.entry(index).or_insert_with(|| {
             let sigindex_array_ptr_ptr = unsafe {
@@ -981,7 +981,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
         );
         // TODO: pointer width
-        let offsets = VMOffsets::new(8, &self.wasm_module.local);
+        let offsets = VMOffsets::new(8, &self.wasm_module);
 
         *cached_globals.entry(index).or_insert_with(|| {
             let (globals_array_ptr_ptr, index, mutable, wasmer_ty, field_name) = {
@@ -1082,7 +1082,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
         );
         // TODO: pointer width
-        let offsets = VMOffsets::new(8, &self.wasm_module.local);
+        let offsets = VMOffsets::new(8, &self.wasm_module);
 
         let imported_func_cache = cached_imported_functions.entry(index).or_insert_with(|| {
             let func_array_ptr_ptr = unsafe {

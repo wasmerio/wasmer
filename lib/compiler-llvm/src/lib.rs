@@ -17,10 +17,10 @@
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
 mod compiler;
-mod translator;
 mod config;
-mod structs;
+mod translator;
+// mod structs;
 // mod trampoline;
 
 pub use crate::compiler::LLVMCompiler;
-pub use crate::config::{LLVMConfig, LLVMCallbacks, InkwellModule, InkwellMemoryBuffer};
+pub use crate::config::{InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVMConfig};

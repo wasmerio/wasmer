@@ -32,16 +32,17 @@ use std::any::Any;
 use crate::config::LLVMConfig;
 use wasm_common::entity::SecondaryMap;
 use wasm_common::{
-    LocalFuncIndex, FuncIndex, FuncType, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
-    Type,
+    FuncIndex, FuncType, GlobalIndex, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
 };
 use wasmer_compiler::CompiledFunctionUnwindInfo;
+use wasmer_compiler::FunctionAddressMap;
 use wasmer_compiler::FunctionBodyData;
-use wasmer_compiler::MemoryStyle;
-use wasmer_compiler::Module as WasmerCompilerModule;
+use wasmer_compiler::SourceLoc;
 use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, WasmResult,
 };
+use wasmer_runtime::MemoryStyle;
+use wasmer_runtime::Module as WasmerCompilerModule;
 use wasmparser::{BinaryReader, MemoryImmediate, Operator};
 
 // TODO
@@ -103,7 +104,6 @@ impl FuncTranslator {
         module.set_triple(&target_triple);
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let wasm_fn_type = wasm_module
-            .local
             .signatures
             .get(*wasm_module.functions.get(func_index).unwrap())
             .unwrap();
@@ -261,7 +261,16 @@ impl FuncTranslator {
 
         // TODO: grab text section, use it to fill in 'body'.
 
+        let address_map = FunctionAddressMap {
+            instructions: vec![],
+            start_srcloc: SourceLoc::default(),
+            end_srcloc: SourceLoc::default(),
+            body_offset: 0,
+            body_len: 0, // TODO
+        };
+
         Ok(CompiledFunction {
+            address_map,
             body: vec![],
             jt_offsets: SecondaryMap::new(),
             unwind_info: CompiledFunctionUnwindInfo::None,
@@ -8629,11 +8638,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             Operator::MemoryGrow { reserved } => {
                 let mem_index = MemoryIndex::from_u32(reserved);
-                let func_value = if let Some(local_mem_index) =
-                    module.local_memory_index(mem_index)
+                let func_value = if let Some(local_mem_index) = module.local_memory_index(mem_index)
                 {
                     match module
-                        .local
                         .memory_plans
                         .get(module.memory_index(local_mem_index))
                         .unwrap()
@@ -8664,11 +8671,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::MemorySize { reserved } => {
                 let mem_index = MemoryIndex::from_u32(reserved);
-                let func_value = if let Some(local_mem_index) =
-                    module.local_memory_index(mem_index)
+                let func_value = if let Some(local_mem_index) = module.local_memory_index(mem_index)
                 {
                     match module
-                        .local
                         .memory_plans
                         .get(module.memory_index(local_mem_index))
                         .unwrap()
