@@ -1,7 +1,7 @@
 //! Translation skeleton that traverses the whole WebAssembly module and call helper functions
 //! to deal with each part of it.
 use super::environ::ModuleEnvironment;
-use super::errors::{to_wasm_error, WasmResult};
+use super::error::{to_wasm_error, WasmResult};
 use super::sections::{
     parse_code_section, parse_data_section, parse_element_section, parse_export_section,
     parse_function_section, parse_global_section, parse_import_section, parse_memory_section,

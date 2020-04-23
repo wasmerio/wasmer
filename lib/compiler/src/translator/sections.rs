@@ -8,7 +8,7 @@
 //! is handled, according to the semantics of WebAssembly, to only specific expressions that are
 //! interpreted on the fly.
 use super::environ::ModuleEnvironment;
-use super::errors::{to_wasm_error, WasmError, WasmResult};
+use super::error::{to_wasm_error, WasmError, WasmResult};
 use super::state::ModuleTranslationState;
 use crate::{wasm_unsupported, HashMap};
 use core::convert::TryFrom;

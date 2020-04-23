@@ -1,7 +1,7 @@
 //! Define the `Resolver` trait, allowing custom resolution for external
 //! references.
 
-use crate::errors::{ImportError, LinkError};
+use crate::error::{ImportError, LinkError};
 use more_asserts::assert_ge;
 use std::collections::HashSet;
 use wasm_common::entity::PrimaryMap;

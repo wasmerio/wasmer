@@ -1,6 +1,6 @@
 //! JIT compilation.
 
-use crate::errors::InstantiationError;
+use crate::error::InstantiationError;
 use crate::resolver::Resolver;
 use crate::tunables::Tunables;
 use crate::CodeMemory;

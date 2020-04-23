@@ -27,7 +27,7 @@
 
 mod code_memory;
 mod engine;
-mod errors;
+mod error;
 mod function_table;
 mod instantiate;
 mod link;
@@ -37,7 +37,7 @@ mod tunables;
 
 pub use crate::code_memory::CodeMemory;
 pub use crate::engine::JITEngine;
-pub use crate::errors::{
+pub use crate::error::{
     DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
 };
 pub use crate::function_table::FunctionTable;

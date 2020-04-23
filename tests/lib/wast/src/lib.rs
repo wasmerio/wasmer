@@ -22,11 +22,11 @@
     )
 )]
 
-mod errors;
+mod error;
 mod spectest;
 mod wast;
 
-pub use crate::errors::{DirectiveError, DirectiveErrors};
+pub use crate::error::{DirectiveError, DirectiveErrors};
 pub use crate::spectest::spectest_importobject;
 pub use crate::wast::Wast;
 

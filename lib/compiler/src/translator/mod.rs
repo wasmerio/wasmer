@@ -9,10 +9,10 @@ mod environ;
 mod module;
 mod state;
 #[macro_use]
-mod errors;
+mod error;
 mod sections;
 
 pub use self::environ::{FunctionBodyData, ModuleEnvironment, ModuleTranslation};
-pub use self::errors::{to_wasm_error, WasmError, WasmResult};
+pub use self::error::{to_wasm_error, WasmError, WasmResult};
 pub use self::module::translate_module;
 pub use self::state::ModuleTranslationState;

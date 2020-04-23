@@ -1,4 +1,4 @@
-use crate::errors::{DirectiveError, DirectiveErrors};
+use crate::error::{DirectiveError, DirectiveErrors};
 use crate::spectest::spectest_importobject;
 use anyhow::{anyhow, bail, Result};
 use std::collections::HashMap;

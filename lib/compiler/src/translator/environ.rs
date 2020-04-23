@@ -1,4 +1,4 @@
-use super::errors::{WasmError, WasmResult};
+use super::error::{WasmError, WasmResult};
 use super::module::translate_module;
 use super::state::ModuleTranslationState;
 use crate::std::borrow::ToOwned;

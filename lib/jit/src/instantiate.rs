@@ -4,8 +4,8 @@
 //! steps.
 
 use crate::engine::JITEngineInner;
-use crate::errors::{DeserializeError, SerializeError};
-use crate::errors::{InstantiationError, LinkError};
+use crate::error::{DeserializeError, SerializeError};
+use crate::error::{InstantiationError, LinkError};
 use crate::link::link_module;
 use crate::resolver::{resolve_imports, Resolver};
 use crate::trap::register as register_frame_info;

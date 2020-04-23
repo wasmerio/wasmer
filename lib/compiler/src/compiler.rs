@@ -2,7 +2,7 @@
 //! compilers will need to implement.
 
 use crate::config::Target;
-use crate::errors::CompileError;
+use crate::error::CompileError;
 use crate::function::{Compilation, CompiledFunction};
 use crate::std::vec::Vec;
 use crate::FunctionBodyData;
