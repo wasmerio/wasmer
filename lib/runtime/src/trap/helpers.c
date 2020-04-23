@@ -26,3 +26,12 @@ void* GetPcFromUContext(ucontext_t *cx) {
   return (void*) cx->uc_mcontext->__ss.__rip;
 }
 #endif
+
+#if defined(__linux__) && defined(__aarch64__)
+#include <sys/ucontext.h>
+
+void* GetPcFromUContext(ucontext_t *cx) {
+    return (void*) cx->uc_mcontext.pc;
+}
+
+#endif  // __linux__ && __aarch64__

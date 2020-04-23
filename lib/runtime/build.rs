@@ -1,7 +1,7 @@
 fn main() {
-    println!("cargo:rerun-if-changed=src/helpers.c");
+    println!("cargo:rerun-if-changed=src/trap/helpers.c");
     cc::Build::new()
         .warnings(true)
-        .file("src/helpers.c")
+        .file("src/trap/helpers.c")
         .compile("helpers");
 }

@@ -157,6 +157,12 @@ cfg_if::cfg_if! {
                 if #[cfg(all(target_os = "linux", target_arch = "x86_64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.gregs[libc::REG_RIP as usize] as *const u8
+                } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
+                    // libc doesn't seem to support Linux/aarch64 at the moment?
+                    extern "C" {
+                        fn GetPcFromUContext(cx: *mut libc::c_void) -> *const u8;
+                    }
+                    GetPcFromUContext(cx)
                 } else if #[cfg(target_os = "macos")] {
                     // FIXME(rust-lang/libc#1702) - once that lands and is
                     // released we should inline the definition here
