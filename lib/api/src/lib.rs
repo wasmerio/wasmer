@@ -26,13 +26,13 @@ pub use wasmer_jit::{
 };
 
 #[cfg(feature = "compiler-singlepass")]
-pub use wasmer_compiler_cranelift::SinglepassConfig;
+pub use wasmer_compiler_singlepass::SinglepassConfig;
 
 #[cfg(feature = "compiler-cranelift")]
 pub use wasmer_compiler_cranelift::CraneliftConfig;
 
 #[cfg(feature = "compiler-llvm")]
-pub use wasmer_compiler_cranelift::LLVMConfig;
+pub use wasmer_compiler_llvm::LLVMConfig;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
