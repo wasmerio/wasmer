@@ -145,6 +145,20 @@ impl<T> fmt::Debug for Value<T> {
     }
 }
 
+impl<T> ToString for Value<T> {
+    fn to_string(&self) -> String {
+        match self {
+            Value::I32(v) => format!("{}", v),
+            Value::I64(v) => format!("{}", v),
+            Value::F32(v) => format!("{}", v),
+            Value::F64(v) => format!("{}", v),
+            Value::AnyRef(_) => format!("anyref"),
+            Value::FuncRef(_) => format!("funcref"),
+            Value::V128(v) => format!("{}", v),
+        }
+    }
+}
+
 impl<T> From<i32> for Value<T> {
     fn from(val: i32) -> Value<T> {
         Value::I32(val)
