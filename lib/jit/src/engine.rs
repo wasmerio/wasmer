@@ -117,7 +117,6 @@ impl Clone for JITEngine {
     }
 }
 
-
 /// The inner contents of `JITEngine`
 pub struct JITEngineInner {
     /// The compiler

@@ -262,11 +262,9 @@ impl Module {
     /// Convert a `FuncIndex` into a `LocalFuncIndex`. Returns None if the
     /// index is an imported function.
     pub fn local_func_index(&self, func: FuncIndex) -> Option<LocalFuncIndex> {
-        if func.index() < self.num_imported_funcs {
-            None
-        } else {
-            Some(LocalFuncIndex::new(func.index() - self.num_imported_funcs))
-        }
+        func.index()
+            .checked_sub(self.num_imported_funcs)
+            .map(LocalFuncIndex::new)
     }
 
     /// Test whether the given function index is for an imported function.
@@ -282,13 +280,10 @@ impl Module {
     /// Convert a `TableIndex` into a `LocalTableIndex`. Returns None if the
     /// index is an imported table.
     pub fn local_table_index(&self, table: TableIndex) -> Option<LocalTableIndex> {
-        if table.index() < self.num_imported_tables {
-            None
-        } else {
-            Some(LocalTableIndex::new(
-                table.index() - self.num_imported_tables,
-            ))
-        }
+        table
+            .index()
+            .checked_sub(self.num_imported_tables)
+            .map(LocalTableIndex::new)
     }
 
     /// Test whether the given table index is for an imported table.
@@ -304,13 +299,10 @@ impl Module {
     /// Convert a `MemoryIndex` into a `LocalMemoryIndex`. Returns None if the
     /// index is an imported memory.
     pub fn local_memory_index(&self, memory: MemoryIndex) -> Option<LocalMemoryIndex> {
-        if memory.index() < self.num_imported_memories {
-            None
-        } else {
-            Some(LocalMemoryIndex::new(
-                memory.index() - self.num_imported_memories,
-            ))
-        }
+        memory
+            .index()
+            .checked_sub(self.num_imported_memories)
+            .map(LocalMemoryIndex::new)
     }
 
     /// Test whether the given memory index is for an imported memory.
@@ -326,13 +318,10 @@ impl Module {
     /// Convert a `GlobalIndex` into a `LocalGlobalIndex`. Returns None if the
     /// index is an imported global.
     pub fn local_global_index(&self, global: GlobalIndex) -> Option<LocalGlobalIndex> {
-        if global.index() < self.num_imported_globals {
-            None
-        } else {
-            Some(LocalGlobalIndex::new(
-                global.index() - self.num_imported_globals,
-            ))
-        }
+        global
+            .index()
+            .checked_sub(self.num_imported_globals)
+            .map(LocalGlobalIndex::new)
     }
 
     /// Test whether the given global index is for an imported global.

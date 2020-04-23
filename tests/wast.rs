@@ -1,7 +1,6 @@
 use std::path::Path;
 use test_utils::get_compiler_config_from_str;
 use wasmer::{Engine, Store};
-use wasmer_compiler::CompilerConfig;
 use wasmer_wast::Wast;
 
 // The generated tests (from build.rs) look like:
