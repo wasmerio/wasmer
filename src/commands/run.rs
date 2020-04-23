@@ -117,16 +117,9 @@ impl Run {
         let func_ty = func.ty();
         let required_arguments = func_ty.params().len();
         let provided_arguments = args.len();
-        if required_arguments > provided_arguments {
+        if required_arguments != provided_arguments {
             bail!(
-                "Function expected {} arguments, but only {} were provided: \"{}\"",
-                required_arguments,
-                provided_arguments,
-                self.args.join(" ")
-            );
-        } else if required_arguments < provided_arguments {
-            bail!(
-                "Function expected {} arguments, but {} were provided: \"{}\"",
+                "Function expected {} arguments, but received {}: \"{}\"",
                 required_arguments,
                 provided_arguments,
                 self.args.join(" ")
@@ -138,22 +131,22 @@ impl Run {
             .map(|(arg, param_type)| match param_type {
                 ValType::I32 => {
                     Ok(Val::I32(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert of {} into a i32", arg)
+                        anyhow!("Can't convert `{}` into a i32", arg)
                     })?))
                 }
                 ValType::I64 => {
                     Ok(Val::I64(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert of {} into a i64", arg)
+                        anyhow!("Can't convert `{}` into a i64", arg)
                     })?))
                 }
                 ValType::F32 => {
                     Ok(Val::F32(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert of {} into a f32", arg)
+                        anyhow!("Can't convert `{}` into a f32", arg)
                     })?))
                 }
                 ValType::F64 => {
                     Ok(Val::F64(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert of {} into a f64", arg)
+                        anyhow!("Can't convert `{}` into a f64", arg)
                     })?))
                 }
                 _ => Err(anyhow!(
