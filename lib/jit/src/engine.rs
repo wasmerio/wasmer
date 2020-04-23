@@ -19,21 +19,21 @@ use wasmer_runtime::{
     VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
 
-/// The JIT Engine
+/// A WebAssembly `JIT` Engine.
 pub struct JITEngine {
     inner: Arc<RefCell<JITEngineInner>>,
 }
 
 impl JITEngine {
     /// Create a new JIT Engine given config
-    pub fn new<T: CompilerConfig>(config: &T) -> JITEngine
+    pub fn new<T: CompilerConfig>(config: &T) -> Self
     where
         T: ?Sized,
     {
         let compiler = config.compiler();
         let tunables = Tunables::for_target(compiler.target().triple());
 
-        JITEngine {
+        Self {
             inner: Arc::new(RefCell::new(JITEngineInner {
                 compiler,
                 tunables,
@@ -74,7 +74,7 @@ impl JITEngine {
         compiler.signatures().lookup(sig)
     }
 
-    /// Retrieves a trampoline givena signature
+    /// Retrieves a trampoline given a signature
     pub fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
         self.compiler().trampoline(sig)
     }
@@ -111,27 +111,26 @@ impl JITEngine {
 
 impl Clone for JITEngine {
     fn clone(&self) -> Self {
-        // unimplemented!("Clone not yet implemented");
-        JITEngine {
+        Self {
             inner: self.inner.clone(),
         }
     }
 }
 
-/// A WebAssembly code JIT compiler.
-///
-/// A `Compiler` instance owns the executable memory that it allocates.
-///
-/// TODO: Evolve this to support streaming rather than requiring a `&[u8]`
-/// containing a whole wasm module at once.
+
+/// The inner contents of `JITEngine`
 pub struct JITEngineInner {
+    /// The compiler
     compiler: Box<dyn BaseCompiler>,
     /// The tunable values
     tunables: Tunables,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
-
+    /// The code memory is responsible of publishing the compiled
+    /// functions to memory.
     code_memory: CodeMemory,
+    /// The signature registry is used mainly to operate with trampolines
+    /// performantly.
     signatures: SignatureRegistry,
 }
 
