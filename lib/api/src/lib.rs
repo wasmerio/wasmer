@@ -19,10 +19,20 @@ pub use crate::types::{
     AnyRef, ExportType, ExternType, FuncType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Val, ValType,
 };
-pub use wasmer_compiler_cranelift::CraneliftConfig as Config;
+
+pub use wasmer_compiler::CompilerConfig;
 pub use wasmer_jit::{
-    CompilerConfig, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
+    DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
+
+#[cfg(feature = "compiler-singlepass")]
+pub use wasmer_compiler_cranelift::SinglepassConfig;
+
+#[cfg(feature = "compiler-cranelift")]
+pub use wasmer_compiler_cranelift::CraneliftConfig;
+
+#[cfg(feature = "compiler-llvm")]
+pub use wasmer_compiler_cranelift::LLVMConfig;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

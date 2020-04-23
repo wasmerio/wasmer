@@ -2173,6 +2173,8 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
+ "wasmer-compiler-llvm",
+ "wasmer-compiler-singlepass",
  "wasmer-jit",
  "wasmer-runtime",
  "wat",

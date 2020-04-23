@@ -57,12 +57,15 @@ wasmer-wast = { path = "tests/lib/wast" }
 # default = ["wasi"]
 default = ["compiler-cranelift"]
 compiler-singlepass = [
+    "wasmer/compiler-singlepass",
     "wasmer-compiler-singlepass",
 ]
 compiler-cranelift = [
+    "wasmer/compiler-cranelift",
     "wasmer-compiler-cranelift",
 ]
 compiler-llvm = [
+    "wasmer/compiler-llvm",
     "wasmer-compiler-llvm",
 ]
 # wasi = ["wasmer-wasi"]

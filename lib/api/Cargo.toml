@@ -10,7 +10,9 @@ edition = "2018"
 
 [dependencies]
 wasmer-runtime = { path = "../runtime", version = "0.16.2" }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "0.16.2" }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "0.16.2", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "0.16.2", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "0.16.2", optional = true }
 wasmer-compiler = { path = "../compiler", version = "0.16.2" }
 wasmer-jit = { path = "../jit", version = "0.16.2" }
 wasm-common = { path = "../wasm-common", version = "0.16.2" }
@@ -36,4 +38,13 @@ anyhow = "1.0.28"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ['wat']
+default = ["wat"]
+compiler-singlepass = [
+    "wasmer-compiler-singlepass"
+]
+compiler-cranelift = [
+    "wasmer-compiler-cranelift"
+]
+compiler-llvm = [
+    "wasmer-compiler-llvm"
+]

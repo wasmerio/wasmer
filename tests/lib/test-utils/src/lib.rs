@@ -1,7 +1,7 @@
 use wasmer_compiler::CompilerConfig;
-use wasmer_compiler_singlepass::SinglepassConfig;
 use wasmer_compiler_cranelift::CraneliftConfig;
 use wasmer_compiler_llvm::LLVMConfig;
+use wasmer_compiler_singlepass::SinglepassConfig;
 
 pub fn get_compiler_config_from_str(
     compiler_name: &str,
