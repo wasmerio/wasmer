@@ -15,6 +15,7 @@
 
 pub mod commands;
 pub mod common;
+pub mod compiler;
 #[cfg(feature = "debug")]
 pub mod logging;
 pub mod utils;

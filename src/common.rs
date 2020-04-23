@@ -34,6 +34,25 @@ pub struct WasmFeatures {
     pub all: bool,
 }
 
+#[derive(Debug, Clone, StructOpt)]
+/// The compiler options
+pub struct Compiler {
+    /// Use Singlepass compiler
+    #[structopt(long, conflicts_with_all = &["cranelift", "llvm"])]
+    singlepass: bool,
+
+    /// Use Cranelift compiler
+    #[structopt(long, conflicts_with_all = &["singlepass", "llvm"])]
+    cranelift: bool,
+
+    /// Use LLVM compiler
+    #[structopt(long, conflicts_with_all = &["singlepass", "cranelifft"])]
+    llvm: bool,
+
+    #[structopt(flatten)]
+    features: WasmFeatures,
+}
+
 /// Get the cache dir
 pub fn get_cache_dir() -> PathBuf {
     match env::var("WASMER_CACHE_DIR") {
