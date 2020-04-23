@@ -1,6 +1,7 @@
 use anyhow::Result;
-use wasmer_bin::commands::Run;
-use wasmer_bin::commands::{Cache, SelfUpdate, Validate};
+#[cfg(feature = "wast")]
+use wasmer_bin::commands::Wast;
+use wasmer_bin::commands::{Cache, Run, SelfUpdate, Validate};
 
 use structopt::{clap::ErrorKind, StructOpt};
 
@@ -23,6 +24,11 @@ enum WasmerCLIOptions {
     /// Update wasmer to the latest version
     #[structopt(name = "self-update")]
     SelfUpdate(SelfUpdate),
+
+    /// Run spec testsuite
+    #[cfg(feature = "wast")]
+    #[structopt(name = "wast")]
+    Wast(Wast),
 }
 
 impl WasmerCLIOptions {
@@ -32,6 +38,8 @@ impl WasmerCLIOptions {
             Self::SelfUpdate(options) => options.execute(),
             Self::Cache(cache) => cache.execute(),
             Self::Validate(validate) => validate.execute(),
+            #[cfg(feature = "wast")]
+            Self::Wast(wast) => wast.execute(),
         }
     }
 }

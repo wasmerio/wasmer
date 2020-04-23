@@ -26,6 +26,7 @@ wasmer-compiler-cranelift = { path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { path = "lib/compiler-llvm", optional = true }
 wasmer-jit = { path = "lib/jit" }
+wasmer-wast = { path = "tests/lib/wast", optional = true}
 atty = "0.2"
 anyhow = "1.0.28"
 structopt = { version = "0.3.13", features = ["suggestions"] }
@@ -55,7 +56,8 @@ wasmer-wast = { path = "tests/lib/wast" }
 # Don't add the backend features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
 # default = ["wasi"]
-default = ["compiler-cranelift"]
+default = ["wast", "compiler-cranelift"]
+wast = ["wasmer-wast"]
 compiler-singlepass = [
     "wasmer/compiler-singlepass",
     "wasmer-compiler-singlepass",
