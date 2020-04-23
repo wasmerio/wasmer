@@ -209,7 +209,7 @@ impl Extend<((String, String), Export)> for ImportObject {
 /// ```
 #[macro_export]
 macro_rules! imports {
-    ( $( $ns_name:expr => $ns:tt, )* ) => {{
+    ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {{
         use $crate::ImportObject;
 
         let mut import_object = ImportObject::new();
@@ -243,7 +243,7 @@ macro_rules! imports {
 /// ```
 #[macro_export]
 macro_rules! namespace {
-    ($( $imp_name:expr => $import_item:expr, )*) => {
+    ($( $imp_name:expr => $import_item:expr ),* $(,)? ) => {
         $crate::import_namespace!({ $( $imp_name => $import_item, )* })
     };
 }
@@ -251,7 +251,7 @@ macro_rules! namespace {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! import_namespace {
-    ( { $( $imp_name:expr => $import_item:expr, )* } ) => {{
+    ( { $( $imp_name:expr => $import_item:expr ),* $(,)? } ) => {{
         let mut ns = $crate::Exports::new();
         $(
             ns.insert($imp_name, $import_item);
@@ -277,17 +277,17 @@ mod test {
 
         let mut imports1 = imports! {
             "dog" => {
-                "happy" => g.clone(),
-            },
+                "happy" => g.clone()
+            }
         };
 
         let imports2 = imports! {
             "dog" => {
-                "small" => g.clone(),
+                "small" => g.clone()
             },
             "cat" => {
-                "small" => g.clone(),
-            },
+                "small" => g.clone()
+            }
         };
 
         imports1.extend(imports2);
@@ -335,10 +335,10 @@ mod test {
         let store = Store::default();
         let g1 = Global::new(&store, Val::I32(0));
         let namespace = namespace! {
-            "happy" => g1,
+            "happy" => g1
         };
         let imports1 = imports! {
-            "dog" => namespace,
+            "dog" => namespace
         };
 
         let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();

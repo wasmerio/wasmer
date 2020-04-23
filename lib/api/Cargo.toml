@@ -38,7 +38,7 @@ anyhow = "1.0.28"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["wat"]
+default = ["wat", "default-compiler-cranelift"]
 compiler-singlepass = [
     "wasmer-compiler-singlepass"
 ]
@@ -47,4 +47,13 @@ compiler-cranelift = [
 ]
 compiler-llvm = [
     "wasmer-compiler-llvm"
+]
+default-compiler-singlepass = [
+    "compiler-singlepass"
+]
+default-compiler-cranelift = [
+    "compiler-cranelift"
+]
+default-compiler-llvm = [
+    "compiler-llvm"
 ]

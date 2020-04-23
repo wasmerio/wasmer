@@ -66,7 +66,7 @@ impl Store {
 ))]
 impl Default for Store {
     fn default() -> Store {
-        Store::new(&Engine::new(&self.default_compiler_config()))
+        Store::new(&Engine::new(&Self::default_compiler_config()))
     }
 }
 

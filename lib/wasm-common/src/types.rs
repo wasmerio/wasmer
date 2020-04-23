@@ -446,10 +446,13 @@ pub struct MemoryType {
 impl MemoryType {
     /// Creates a new descriptor for a WebAssembly memory given the specified
     /// limits of the memory.
-    pub fn new<Min, Max>(minimum: Min, maximum: Option<Max>, shared: bool) -> MemoryType
+    pub fn new<IntoPages>(
+        minimum: IntoPages,
+        maximum: Option<IntoPages>,
+        shared: bool,
+    ) -> MemoryType
     where
-        Min: Into<Pages>,
-        Max: Into<Pages>,
+        IntoPages: Into<Pages>,
     {
         MemoryType {
             minimum: minimum.into(),
