@@ -134,13 +134,13 @@ impl<T> Value<T> {
 impl<T> fmt::Debug for Value<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::I32(v) => write!(f, "i32:{:?}", v),
-            Value::I64(v) => write!(f, "i64:{:?}", v),
-            Value::F32(v) => write!(f, "f32:{:?}", v),
-            Value::F64(v) => write!(f, "f64:{:?}", v),
-            Value::AnyRef(v) => write!(f, "anyref:{:?}", v),
-            Value::FuncRef(_) => write!(f, "funcref"),
-            Value::V128(v) => write!(f, "v128:{:?}", v),
+            Value::I32(v) => write!(f, "I32({:?})", v),
+            Value::I64(v) => write!(f, "I64({:?})", v),
+            Value::F32(v) => write!(f, "F32({:?})", v),
+            Value::F64(v) => write!(f, "F64({:?})", v),
+            Value::AnyRef(v) => write!(f, "AnyRef({:?})", v),
+            Value::FuncRef(_) => write!(f, "FuncRef"),
+            Value::V128(v) => write!(f, "V128({:?})", v),
         }
     }
 }
