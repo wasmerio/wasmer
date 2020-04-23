@@ -5,7 +5,7 @@
 use crate::{
     backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
-    error::{CallResult, ResolveError, ResolveResult, Result, RuntimeError},
+    error::{CallResult, ResolveError, ResolveResult, Result, RuntimeError, InvokeError},
     export::{Context, Export, ExportIter, Exportable, FuncPointer},
     global::Global,
     import::{ImportObject, LikeNamespace},
@@ -584,10 +584,10 @@ pub(crate) fn call_func_with_index_inner(
         invoke_env,
     } = wasm;
 
-    let run_wasm = |result_space: *mut u64| unsafe {
+    let run_wasm = |result_space: *mut u64| -> CallResult<()> {
         let mut error_out = None;
 
-        let success = invoke(
+        let success = unsafe { invoke(
             trampoline,
             ctx_ptr,
             func_ptr,
@@ -595,14 +595,15 @@ pub(crate) fn call_func_with_index_inner(
             result_space,
             &mut error_out,
             invoke_env,
-        );
+        )};
 
         if success {
             Ok(())
         } else {
-            Err(error_out
-                .map(RuntimeError)
-                .unwrap_or_else(|| RuntimeError(Box::new("invoke(): Unknown error".to_string()))))
+            let error: RuntimeError = error_out
+                .map(RuntimeError::InvokeError)
+                .unwrap_or_else(|| RuntimeError::InvokeError(InvokeError::FailedWithNoError));
+            Err(error.into())
         }
     };
 

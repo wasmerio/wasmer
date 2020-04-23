@@ -1,7 +1,7 @@
 //! The typed func module implements a way of representing a wasm function
 //! with the correct types from rust. Function calls using a typed func have a low overhead.
 use crate::{
-    error::RuntimeError,
+    error::{RuntimeError, InvokeError},
     export::{Context, Export, FuncPointer},
     import::IsExport,
     types::{FuncSig, NativeWasmType, Type, WasmExternType},
@@ -37,7 +37,7 @@ pub type Invoke = unsafe extern "C" fn(
     func: NonNull<vm::Func>,
     args: *const u64,
     rets: *mut u64,
-    error_out: *mut Option<Box<dyn Any + Send>>,
+    error_out: *mut Option<InvokeError>,
     extra: Option<NonNull<c_void>>,
 ) -> bool;
 
@@ -340,7 +340,7 @@ impl<'a> DynamicFunc<'a> {
                 Err(e) => {
                     // At this point, there is an error that needs to be trapped.
                     drop(args); // Release the Vec which will leak otherwise.
-                    (&*vmctx.module).runnable_module.do_early_trap(e)
+                    (&*vmctx.module).runnable_module.do_early_trap(RuntimeError::User(e))
                 }
             }
         }
@@ -588,9 +588,7 @@ macro_rules! impl_traits {
                 ) {
                     Ok(Rets::from_ret_array(rets))
                 } else {
-                    Err(error_out.map(RuntimeError).unwrap_or_else(|| {
-                        RuntimeError(Box::new("invoke(): Unknown error".to_string()))
-                    }))
+                    Err(error_out.map_or_else(|| RuntimeError::InvokeError(InvokeError::FailedWithNoError), RuntimeError::InvokeError))
                 }
             }
         }
@@ -678,9 +676,10 @@ macro_rules! impl_traits {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => {
                             let b: Box<_> = err.into();
-                            b as Box<dyn Any + Send>
+                            RuntimeError::User(b as Box<dyn Any + Send>)
                         },
-                        Err(err) => err,
+                        // TODO(blocking): this line is wrong!
+                        Err(err) => RuntimeError::User(err),
                     };
 
                     // At this point, there is an error that needs to
@@ -791,9 +790,10 @@ macro_rules! impl_traits {
                         Ok(Ok(returns)) => return returns.into_c_struct(),
                         Ok(Err(err)) => {
                             let b: Box<_> = err.into();
-                            b as Box<dyn Any + Send>
+                            RuntimeError::User(b as Box<dyn Any + Send>)
                         },
-                        Err(err) => err,
+                        // TODO(blocking): this line is wrong!
+                        Err(err) => RuntimeError::User(err),
                     };
 
                     // At this point, there is an error that needs to

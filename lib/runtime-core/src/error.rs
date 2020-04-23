@@ -1,6 +1,6 @@
 //! The error module contains the data structures and helper functions used to implement errors that
 //! are produced and returned from the wasmer runtime core.
-use crate::backend::ExceptionCode;
+//use crate::backend::ExceptionCode;
 use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type};
 use core::borrow::Borrow;
 use std::any::Any;
@@ -173,6 +173,7 @@ impl std::fmt::Display for LinkError {
 
 impl std::error::Error for LinkError {}
 
+/*
 /// This is the error type returned when calling
 /// a WebAssembly function.
 ///
@@ -209,6 +210,68 @@ impl std::fmt::Debug for RuntimeError {
 }
 
 impl std::error::Error for RuntimeError {}
+
+*/
+
+/// An `InternalError` is an error that happened inside of Wasmer and is a
+/// catch-all for errors that would otherwise be returned as
+/// `RuntimeError(Box::new(<string>))`.
+///
+/// This type provides greater visibility into the kinds of things that may fail
+/// and improves the ability of users to handle them, though these errors may be
+/// extremely rare and impossible to handle.
+#[derive(Debug)]
+pub enum RuntimeError {
+    /// When an invoke returns an error (this is where exception codes come from?)
+    InvokeError(InvokeError),
+    /// A user triggered error value.
+    ///
+    /// An error returned from a host function.
+    User(Box<dyn Any + Send>)
+}
+
+/// TODO:
+#[derive(Debug)]
+pub enum InvokeError {
+    /// not yet handled error cases, ideally we should be able to handle them all
+    Misc(Box<dyn Any + Send>),
+    /// Indicates an exceptional circumstance such as a bug that should be reported or
+    /// a hardware failure.
+    FailedWithNoError,
+}
+
+impl std::error::Error for RuntimeError {}
+
+impl std::fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            // TODO: ideally improve the error type of invoke
+            RuntimeError::InvokeError(_) => write!(f, "Error when calling invoke"),
+            RuntimeError::User(user_error) => {
+                write!(f, "User supplied error: ")?;
+                if let Some(s) = user_error.downcast_ref::<String>() {
+                    write!(f, "\"{}\"", s)
+                } else if let Some(s) = user_error.downcast_ref::<&str>() {
+                    write!(f, "\"{}\"", s)
+                } else if let Some(n) = user_error.downcast_ref::<i32>() {
+                    write!(f, "{}", n)
+                } else {
+                    write!(f, "unknown error type")
+                }
+            },
+        }
+    }
+}
+
+/*
+impl From<InternalError> for RuntimeError {
+    fn from(other: InternalError) -> Self {
+        RuntimeError(Box::new(other))
+    }
+}
+ */
+    
+
 
 /// This error type is produced by resolving a wasm function
 /// given its name.

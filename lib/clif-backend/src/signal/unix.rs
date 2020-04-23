@@ -79,16 +79,16 @@ pub fn call_protected<T>(
             *jmp_buf = prev_jmp_buf;
 
             if let Some(data) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                Err(CallProtError(data))
+                Err(CallProtError::EarlyTrap(data))
             } else {
                 let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
                 if let Some(TrapData {
                     trapcode,
-                    srcloc: _,
+                    srcloc,
                 }) = handler_data.lookup(inst_ptr)
                 {
-                    Err(CallProtError(Box::new(match Signal::from_c_int(signum) {
+                    let code = match Signal::from_c_int(signum) {
                         Ok(SIGILL) => match trapcode {
                             TrapCode::StackOverflow => ExceptionCode::MemoryOutOfBounds,
                             TrapCode::HeapOutOfBounds => ExceptionCode::MemoryOutOfBounds,
@@ -101,9 +101,10 @@ pub fn call_protected<T>(
                             TrapCode::BadConversionToInteger => ExceptionCode::IllegalArithmetic,
                             TrapCode::UnreachableCodeReached => ExceptionCode::Unreachable,
                             _ => {
-                                return Err(CallProtError(Box::new(
-                                    "unknown clif trap code".to_string(),
-                                )))
+                                return Err(CallProtError::UnknownTrapCode {
+                                    trap_code: trapcode,
+                                    srcloc,
+                                })
                             }
                         },
                         Ok(SIGSEGV) | Ok(SIGBUS) => ExceptionCode::MemoryOutOfBounds,
@@ -112,7 +113,11 @@ pub fn call_protected<T>(
                             "ExceptionCode::Unknown signal:{:?}",
                             Signal::from_c_int(signum)
                         ),
-                    })))
+                    };
+                    Err(CallProtError::TrapCode {
+                        srcloc,
+                        code,
+                    })
                 } else {
                     let signal = match Signal::from_c_int(signum) {
                         Ok(SIGFPE) => "floating-point exception",
@@ -123,8 +128,10 @@ pub fn call_protected<T>(
                         _ => "unknown trapped signal",
                     };
                     // When the trap-handler is fully implemented, this will return more information.
-                    let s = format!("unknown trap at {:p} - {}", faulting_addr, signal);
-                    Err(CallProtError(Box::new(s)))
+                    Err(CallProtError::UnknownTrap {
+                        address: faulting_addr as usize,
+                        signal,
+                    })
                 }
             }
         } else {

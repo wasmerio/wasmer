@@ -1,12 +1,13 @@
 use crate::{
-    relocation::{TrapData, TrapSink},
+    relocation::{TrapData, TrapSink, TrapCode},
     resolver::FuncResolver,
     trampoline::Trampolines,
 };
 use libc::c_void;
 use std::{any::Any, cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
-    backend::RunnableModule,
+    backend::{RunnableModule, ExceptionCode},
+    error::{InvokeError, RuntimeError},
     module::ModuleInfo,
     typed_func::{Trampoline, Wasm},
     types::{LocalFuncIndex, SigIndex},
@@ -26,10 +27,25 @@ pub use self::unix::*;
 pub use self::windows::*;
 
 thread_local! {
-    pub static TRAP_EARLY_DATA: Cell<Option<Box<dyn Any + Send>>> = Cell::new(None);
+    pub static TRAP_EARLY_DATA: Cell<Option<RuntimeError>> = Cell::new(None);
 }
 
-pub struct CallProtError(pub Box<dyn Any + Send>);
+pub enum CallProtError {
+    UnknownTrap {
+        address: usize,
+        signal: &'static str,
+    },
+    TrapCode {
+        code: ExceptionCode,
+        srcloc: u32,
+    },
+    UnknownTrapCode {
+        trap_code: TrapCode,
+        srcloc: u32,
+    },
+    EarlyTrap(RuntimeError),
+    Misc(Box<dyn Any + Send>),
+}
 
 pub struct Caller {
     handler_data: HandlerData,
@@ -63,7 +79,7 @@ impl RunnableModule for Caller {
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            error_out: *mut Option<Box<dyn Any + Send>>,
+            error_out: *mut Option<InvokeError>,
             invoke_env: Option<NonNull<c_void>>,
         ) -> bool {
             let handler_data = &*invoke_env.unwrap().cast().as_ptr();
@@ -80,6 +96,9 @@ impl RunnableModule for Caller {
 
             match res {
                 Err(err) => {
+                    // probably makes the most sense to actually do a translation here to a
+                    // a generic type defined in runtime-core
+                    // TODO: figure out _this_ error return story
                     *error_out = Some(err.0);
                     false
                 }
@@ -101,7 +120,7 @@ impl RunnableModule for Caller {
         })
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
+    unsafe fn do_early_trap(&self, data: RuntimeError) -> ! {
         TRAP_EARLY_DATA.with(|cell| cell.set(Some(data)));
         trigger_trap()
     }
