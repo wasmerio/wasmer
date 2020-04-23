@@ -12,3 +12,4 @@ private = true
 wasmer-compiler = { path = "../../../lib/compiler", version = "0.16.2" }
 wasmer-compiler-singlepass = { path = "../../../lib/compiler-singlepass", version = "0.16.2" }
 wasmer-compiler-cranelift = { path = "../../../lib/compiler-cranelift", version = "0.16.2" }
+wasmer-compiler-llvm = { path = "../../../lib/compiler-llvm", version = "0.16.2" }
