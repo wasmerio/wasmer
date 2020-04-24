@@ -45,6 +45,10 @@ use wasmer_runtime::Module as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan};
 use wasmparser::{BinaryReader, MemoryImmediate, Operator};
 
+// TODO: debugging
+use std::fs;
+use std::io::Write;
+
 // TODO
 fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
     match ty {
@@ -222,6 +226,9 @@ impl FuncTranslator {
             }
         }
 
+        // TODO: debugging
+        //module.print_to_stderr();
+
         // TODO: llvm-callbacks pre-opt-ir
         let pass_manager = PassManager::create(());
 
@@ -267,6 +274,13 @@ impl FuncTranslator {
         let memory_buffer = target_machine
             .write_to_memory_buffer(&mut module, FileType::Object)
             .unwrap();
+
+        let mem_buf_slice = memory_buffer.as_slice();
+        let mut file = fs::File::create("/home/nicholas/x.o").unwrap();
+        let mut pos = 0;
+        while pos < mem_buf_slice.len() {
+            pos += file.write(&mem_buf_slice[pos..]).unwrap();
+        }
 
         let object = memory_buffer.create_object_file().map_err(|()| {
             CompileError::Codegen("failed to create object file from llvm ir".to_string())

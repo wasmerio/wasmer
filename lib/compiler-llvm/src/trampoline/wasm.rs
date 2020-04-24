@@ -1,4 +1,3 @@
-use crate::intrinsics::Intrinsics;
 use inkwell::{
     context::Context,
     module::{Linkage, Module},
@@ -6,12 +5,29 @@ use inkwell::{
     values::FunctionValue,
     AddressSpace,
 };
-use wasmer_runtime_core::{
-    module::ModuleInfo,
-    structures::{SliceMap, TypedIndex},
-    types::{FuncSig, SigIndex, Type},
-};
+use wasm_common::FuncType;
+use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler};
 
+pub struct FuncTrampoline {
+    ctx: Context,
+}
+
+impl FuncTrampoline {
+    pub fn new() -> Self {
+        Self {
+            ctx: Context::create(),
+        }
+    }
+
+    pub fn trampoline(&mut self, ty: &FuncType) -> Result<CompiledFunction, CompileError> {
+        // TODO: implement this
+        Err(CompileError::Codegen(
+            "Trampoline compilation not yet implemented.".to_string(),
+        ))
+    }
+}
+
+/*
 pub fn generate_trampolines<'ctx>(
     info: &ModuleInfo,
     signatures: &SliceMap<SigIndex, FunctionType<'ctx>>,
@@ -117,3 +133,4 @@ fn generate_trampoline<'ctx>(
     builder.build_return(None);
     Ok(())
 }
+ */
