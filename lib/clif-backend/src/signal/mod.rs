@@ -1,12 +1,12 @@
 use crate::{
-    relocation::{TrapData, TrapSink, TrapCode},
+    relocation::{TrapData, TrapSink},
     resolver::FuncResolver,
     trampoline::Trampolines,
 };
 use libc::c_void;
-use std::{any::Any, cell::Cell, ptr::NonNull, sync::Arc};
+use std::{cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
-    backend::{RunnableModule, ExceptionCode},
+    backend::RunnableModule,
     error::{InvokeError, RuntimeError},
     module::ModuleInfo,
     typed_func::{Trampoline, Wasm},
@@ -28,23 +28,6 @@ pub use self::windows::*;
 
 thread_local! {
     pub static TRAP_EARLY_DATA: Cell<Option<RuntimeError>> = Cell::new(None);
-}
-
-pub enum CallProtError {
-    UnknownTrap {
-        address: usize,
-        signal: &'static str,
-    },
-    TrapCode {
-        code: ExceptionCode,
-        srcloc: u32,
-    },
-    UnknownTrapCode {
-        trap_code: TrapCode,
-        srcloc: u32,
-    },
-    EarlyTrap(RuntimeError),
-    Misc(Box<dyn Any + Send>),
 }
 
 pub struct Caller {
@@ -99,7 +82,7 @@ impl RunnableModule for Caller {
                     // probably makes the most sense to actually do a translation here to a
                     // a generic type defined in runtime-core
                     // TODO: figure out _this_ error return story
-                    *error_out = Some(err.0);
+                    *error_out = Some(err);
                     false
                 }
                 Ok(()) => true,

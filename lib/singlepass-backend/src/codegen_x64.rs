@@ -10,7 +10,6 @@ use dynasmrt::x64::Assembler;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use smallvec::SmallVec;
 use std::{
-    any::Any,
     collections::{BTreeMap, HashMap},
     ffi::c_void,
     iter, mem,
@@ -29,6 +28,7 @@ use wasmer_runtime_core::{
     codegen::*,
     fault::{self, raw::register_preservation_trampoline},
     loader::CodeMemory,
+    error::{InvokeError, RuntimeError},
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{
@@ -214,7 +214,7 @@ pub struct X64FunctionCode {
     breakpoints: Option<
         HashMap<
             AssemblyOffset,
-            Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any + Send>> + Send + Sync + 'static>,
+            Box<dyn Fn(BreakpointInfo) -> Result<(), RuntimeError> + Send + Sync + 'static>,
         >,
     >,
     returns: SmallVec<[WpType; 1]>,
@@ -507,7 +507,7 @@ impl RunnableModule for X64ExecutionContext {
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            error_out: *mut Option<Box<dyn Any + Send>>,
+            error_out: *mut Option<InvokeError>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
             let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
@@ -655,7 +655,7 @@ impl RunnableModule for X64ExecutionContext {
                     true
                 }
                 Err(err) => {
-                    *error_out = Some(err);
+                    *error_out = Some(InvokeError::Breakpoint(Box::new(err)));
                     false
                 }
             };
@@ -680,7 +680,7 @@ impl RunnableModule for X64ExecutionContext {
         })
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
+    unsafe fn do_early_trap(&self, data: RuntimeError) -> ! {
         fault::begin_unsafe_unwind(data);
     }
 

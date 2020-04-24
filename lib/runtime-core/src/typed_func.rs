@@ -1,7 +1,7 @@
 //! The typed func module implements a way of representing a wasm function
 //! with the correct types from rust. Function calls using a typed func have a low overhead.
 use crate::{
-    error::{RuntimeError, InvokeError},
+    error::{InvokeError, RuntimeError},
     export::{Context, Export, FuncPointer},
     import::IsExport,
     types::{FuncSig, NativeWasmType, Type, WasmExternType},
@@ -340,7 +340,9 @@ impl<'a> DynamicFunc<'a> {
                 Err(e) => {
                     // At this point, there is an error that needs to be trapped.
                     drop(args); // Release the Vec which will leak otherwise.
-                    (&*vmctx.module).runnable_module.do_early_trap(RuntimeError::User(e))
+                    (&*vmctx.module)
+                        .runnable_module
+                        .do_early_trap(RuntimeError::User(e))
                 }
             }
         }

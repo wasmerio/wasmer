@@ -1,6 +1,6 @@
 //! The error module contains the data structures and helper functions used to implement errors that
 //! are produced and returned from the wasmer runtime core.
-//use crate::backend::ExceptionCode;
+use crate::backend::ExceptionCode;
 use crate::types::{FuncSig, GlobalDescriptor, MemoryDescriptor, TableDescriptor, Type};
 use core::borrow::Borrow;
 use std::any::Any;
@@ -222,31 +222,63 @@ impl std::error::Error for RuntimeError {}
 /// extremely rare and impossible to handle.
 #[derive(Debug)]
 pub enum RuntimeError {
-    /// When an invoke returns an error (this is where exception codes come from?)
+    /// When an invoke returns an error
     InvokeError(InvokeError),
+    /// A metering triggered error value.
+    ///
+    /// An error of this type indicates that it was returned by the metering system.
+    Metering(Box<dyn Any + Send>),
     /// A user triggered error value.
     ///
     /// An error returned from a host function.
-    User(Box<dyn Any + Send>)
+    User(Box<dyn Any + Send>),
 }
 
 /// TODO:
 #[derive(Debug)]
 pub enum InvokeError {
-    /// not yet handled error cases, ideally we should be able to handle them all
-    Misc(Box<dyn Any + Send>),
     /// Indicates an exceptional circumstance such as a bug that should be reported or
     /// a hardware failure.
     FailedWithNoError,
+
+    /// TODO:
+    UnknownTrap {
+        /// TODO:
+        address: usize,
+        /// TODO:
+        signal: &'static str,
+    },
+    /// TODO:
+    TrapCode {
+        /// TODO:
+        code: ExceptionCode,
+        /// TODO:
+        srcloc: u32,
+    },
+    /// TODO:
+    UnknownTrapCode {
+        /// TODO:
+        trap_code: String,
+        /// TODO:
+        srcloc: u32,
+    },
+    /// extra TODO: investigate if this can be a `Box<InvokeError>` instead (looks like probably no)
+    /// TODO:
+    EarlyTrap(Box<RuntimeError>),
+    /// Indicates an error that ocurred related to breakpoints. (currently Singlepass only)
+    Breakpoint(Box<RuntimeError>),
 }
+
+//impl std::error::Error for InvokeError {}
 
 impl std::error::Error for RuntimeError {}
 
 impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            // TODO: ideally improve the error type of invoke
+            // TODO: update invoke error formatting
             RuntimeError::InvokeError(_) => write!(f, "Error when calling invoke"),
+            RuntimeError::Metering(_) => write!(f, "unknown metering error type"),
             RuntimeError::User(user_error) => {
                 write!(f, "User supplied error: ")?;
                 if let Some(s) = user_error.downcast_ref::<String>() {
@@ -256,9 +288,9 @@ impl std::fmt::Display for RuntimeError {
                 } else if let Some(n) = user_error.downcast_ref::<i32>() {
                     write!(f, "{}", n)
                 } else {
-                    write!(f, "unknown error type")
+                    write!(f, "unknown user error type")
                 }
-            },
+            }
         }
     }
 }
@@ -270,8 +302,6 @@ impl From<InternalError> for RuntimeError {
     }
 }
  */
-    
-
 
 /// This error type is produced by resolving a wasm function
 /// given its name.

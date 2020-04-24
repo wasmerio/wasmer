@@ -29,14 +29,14 @@ pub mod raw {
 
 use crate::codegen::{BreakpointInfo, BreakpointMap};
 use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR};
-use crate::state::{CodeVersion, ExecutionStateImage};
+use crate::state::{CodeVersion, ExecutionStateImage, InstanceImage};
+use crate::error::{RuntimeError, InvokeError};
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
 use nix::sys::signal::{
     sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGINT,
     SIGSEGV, SIGTRAP,
 };
-use std::any::Any;
 use std::cell::{Cell, RefCell, UnsafeCell};
 use std::ffi::c_void;
 use std::process;
@@ -61,7 +61,7 @@ type SetJmpBuffer = [i32; SETJMP_BUFFER_LEN];
 struct UnwindInfo {
     jmpbuf: SetJmpBuffer, // in
     breakpoints: Option<BreakpointMap>,
-    payload: Option<Box<dyn Any + Send>>, // out
+    payload: Option<RuntimeError>, // out
 }
 
 /// A store for boundary register preservation.
@@ -182,7 +182,7 @@ pub unsafe fn clear_wasm_interrupt() {
 pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     f: F,
     breakpoints: Option<BreakpointMap>,
-) -> Result<R, Box<dyn Any + Send>> {
+) -> Result<R, RuntimeError> {
     let unwind = UNWIND.with(|x| x.get());
     let old = (*unwind).take();
     *unwind = Some(UnwindInfo {
@@ -205,7 +205,7 @@ pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
 }
 
 /// Begins an unsafe unwind.
-pub unsafe fn begin_unsafe_unwind(e: Box<dyn Any + Send>) -> ! {
+pub unsafe fn begin_unsafe_unwind(e: RuntimeError) -> ! {
     let unwind = UNWIND.with(|x| x.get());
     let inner = (*unwind)
         .as_mut()
@@ -279,7 +279,7 @@ extern "C" fn signal_trap_handler(
     static ARCH: Architecture = Architecture::Aarch64;
 
     let mut should_unwind = false;
-    let mut unwind_result: Box<dyn Any + Send> = Box::new(());
+    let mut unwind_result: Option<Result<InstanceImage, RuntimeError>> = None;
 
     unsafe {
         let fault = get_fault_info(siginfo as _, ucontext);
@@ -302,7 +302,7 @@ extern "C" fn signal_trap_handler(
                         ) {
                             match ib.ty {
                                 InlineBreakpointType::Middleware => {
-                                    let out: Option<Result<(), Box<dyn Any + Send>>> =
+                                    let out: Option<Result<(), RuntimeError>> =
                                         with_breakpoint_map(|bkpt_map| {
                                             bkpt_map.and_then(|x| x.get(&ip)).map(|x| {
                                                 x(BreakpointInfo {
@@ -313,7 +313,7 @@ extern "C" fn signal_trap_handler(
                                     if let Some(Ok(())) = out {
                                     } else if let Some(Err(e)) = out {
                                         should_unwind = true;
-                                        unwind_result = e;
+                                        unwind_result = Some(Err(e));
                                     }
                                 }
                             }
@@ -328,7 +328,7 @@ extern "C" fn signal_trap_handler(
             })
         });
         if should_unwind {
-            begin_unsafe_unwind(unwind_result);
+            begin_unsafe_unwind(unwind_result.unwrap().unwrap_err());
         }
         if early_return {
             return;
@@ -342,9 +342,9 @@ extern "C" fn signal_trap_handler(
             match Signal::from_c_int(signum) {
                 Ok(SIGTRAP) => {
                     // breakpoint
-                    let out: Option<Result<(), Box<dyn Any + Send>>> =
-                        with_breakpoint_map(|bkpt_map| {
-                            bkpt_map.and_then(|x| x.get(&(fault.ip.get()))).map(|x| {
+                    let out: Option<Result<(), RuntimeError>> =
+                        with_breakpoint_map(|bkpt_map| -> Option<Result<(), RuntimeError>> {
+                            bkpt_map.and_then(|x| x.get(&(fault.ip.get()))).map(|x| -> Result<(), RuntimeError> {
                                 x(BreakpointInfo {
                                     fault: Some(&fault),
                                 })
@@ -355,7 +355,7 @@ extern "C" fn signal_trap_handler(
                             return false;
                         }
                         Some(Err(e)) => {
-                            unwind_result = e;
+                            unwind_result = Some(Err(e));
                             return true;
                         }
                         None => {}
@@ -387,7 +387,7 @@ extern "C" fn signal_trap_handler(
             if is_suspend_signal {
                 // If this is a suspend signal, we parse the runtime state and return the resulting image.
                 let image = build_instance_image(ctx, es_image);
-                unwind_result = Box::new(image);
+                unwind_result = Some(Ok(image));
             } else {
                 // Otherwise, this is a real exception and we just throw it to the caller.
                 if !es_image.frames.is_empty() {
@@ -415,7 +415,11 @@ extern "C" fn signal_trap_handler(
                     None
                 });
                 if let Some(code) = exc_code {
-                    unwind_result = Box::new(code);
+                    unwind_result = Some(Err(RuntimeError::InvokeError(InvokeError::TrapCode {
+                        code,
+                        // TODO:
+                        srcloc: 0,
+                    })));
                 }
             }
 
@@ -423,7 +427,7 @@ extern "C" fn signal_trap_handler(
         });
 
         if should_unwind {
-            begin_unsafe_unwind(unwind_result);
+            begin_unsafe_unwind(unwind_result.unwrap().unwrap_err());
         }
     }
 }

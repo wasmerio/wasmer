@@ -5,7 +5,7 @@
 use crate::{
     backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
-    error::{CallResult, ResolveError, ResolveResult, Result, RuntimeError, InvokeError},
+    error::{CallResult, InvokeError, ResolveError, ResolveResult, Result, RuntimeError},
     export::{Context, Export, ExportIter, Exportable, FuncPointer},
     global::Global,
     import::{ImportObject, LikeNamespace},
@@ -587,15 +587,17 @@ pub(crate) fn call_func_with_index_inner(
     let run_wasm = |result_space: *mut u64| -> CallResult<()> {
         let mut error_out = None;
 
-        let success = unsafe { invoke(
-            trampoline,
-            ctx_ptr,
-            func_ptr,
-            raw_args.as_ptr(),
-            result_space,
-            &mut error_out,
-            invoke_env,
-        )};
+        let success = unsafe {
+            invoke(
+                trampoline,
+                ctx_ptr,
+                func_ptr,
+                raw_args.as_ptr(),
+                result_space,
+                &mut error_out,
+                invoke_env,
+            )
+        };
 
         if success {
             Ok(())

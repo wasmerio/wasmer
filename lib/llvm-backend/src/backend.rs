@@ -11,7 +11,6 @@ use inkwell::{
 };
 use libc::c_char;
 use std::{
-    any::Any,
     cell::RefCell,
     ffi::{c_void, CString},
     mem,
@@ -27,6 +26,7 @@ use wasmer_runtime_core::{
         CacheGen, ExceptionCode, RunnableModule,
     },
     cache::Error as CacheError,
+    error::{InvokeError, RuntimeError},
     module::ModuleInfo,
     state::ModuleStateMap,
     structures::TypedIndex,
@@ -56,7 +56,7 @@ extern "C" {
     /// but this is cleaner, I think?
     #[cfg_attr(nightly, unwind(allowed))]
     #[allow(improper_ctypes)]
-    fn throw_any(data: *mut dyn Any) -> !;
+    fn throw_runtime_error(data: RuntimeError) -> !;
 
     #[allow(improper_ctypes)]
     fn cxx_invoke_trampoline(
@@ -66,7 +66,7 @@ extern "C" {
         params: *const u64,
         results: *mut u64,
         trap_out: *mut i32,
-        error_out: *mut Option<Box<dyn Any + Send>>,
+        error_out: *mut Option<InvokeError>,
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
 }
@@ -79,7 +79,7 @@ unsafe extern "C" fn invoke_trampoline(
     func_ptr: NonNull<vm::Func>,
     params: *const u64,
     results: *mut u64,
-    error_out: *mut Option<Box<dyn Any + Send>>,
+    error_out: *mut Option<InvokeError>,
     invoke_env: Option<NonNull<c_void>>,
 ) -> bool {
     let mut trap_out: i32 = -1;
@@ -95,15 +95,22 @@ unsafe extern "C" fn invoke_trampoline(
     );
     // Translate trap code if an error occurred.
     if !ret && (*error_out).is_none() && trap_out != -1 {
-        *error_out = Some(Box::new(match trap_out {
-            0 => ExceptionCode::Unreachable,
-            1 => ExceptionCode::IncorrectCallIndirectSignature,
-            2 => ExceptionCode::MemoryOutOfBounds,
-            3 => ExceptionCode::CallIndirectOOB,
-            4 => ExceptionCode::IllegalArithmetic,
-            5 => ExceptionCode::MisalignedAtomicAccess,
-            _ => return ret,
-        }));
+        *error_out = {
+            let exception_code = match trap_out {
+                0 => ExceptionCode::Unreachable,
+                1 => ExceptionCode::IncorrectCallIndirectSignature,
+                2 => ExceptionCode::MemoryOutOfBounds,
+                3 => ExceptionCode::CallIndirectOOB,
+                4 => ExceptionCode::IllegalArithmetic,
+                5 => ExceptionCode::MisalignedAtomicAccess,
+                _ => return ret,
+            };
+            Some(InvokeError::TrapCode {
+                code: exception_code,
+                // TODO:
+                srcloc: 0,
+            })
+        };
     }
     ret
 }
@@ -467,8 +474,9 @@ impl RunnableModule for LLVMBackend {
         self.msm.clone()
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
-        throw_any(Box::leak(data))
+    unsafe fn do_early_trap(&self, data: RuntimeError) -> ! {
+        // maybe need to box leak it?
+        throw_runtime_error(data)
     }
 }
 

@@ -6,13 +6,12 @@ use crate::{
     backend::RunnableModule,
     backend::{CacheGen, Compiler, CompilerConfig, Features, Token},
     cache::{Artifact, Error as CacheError},
-    error::{CompileError, CompileResult},
+    error::{CompileError, CompileResult, RuntimeError},
     module::{ModuleInfo, ModuleInner},
     structures::Map,
     types::{FuncIndex, FuncSig, SigIndex},
 };
 use smallvec::SmallVec;
-use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
@@ -23,7 +22,7 @@ use wasmparser::{Operator, Type as WpType};
 
 /// A type that defines a function pointer, which is called when breakpoints occur.
 pub type BreakpointHandler =
-    Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any + Send>> + Send + Sync + 'static>;
+    Box<dyn Fn(BreakpointInfo) -> Result<(), RuntimeError> + Send + Sync + 'static>;
 
 /// Maps instruction pointers to their breakpoint handlers.
 pub type BreakpointMap = Arc<HashMap<usize, BreakpointHandler>>;
