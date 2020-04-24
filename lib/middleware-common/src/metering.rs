@@ -97,7 +97,9 @@ impl FunctionMiddleware for Metering {
                             ty: WpTypeOrFuncType::Type(WpType::EmptyBlockType),
                         }));
                         sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(|_| {
-                            Err(RuntimeError::Metering(Box::new(ExecutionLimitExceededError)))
+                            Err(RuntimeError::Metering(Box::new(
+                                ExecutionLimitExceededError,
+                            )))
                         }))));
                         sink.push(Event::WasmOwned(Operator::End));
                     }

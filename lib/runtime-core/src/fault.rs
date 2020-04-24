@@ -28,9 +28,9 @@ pub mod raw {
 }
 
 use crate::codegen::{BreakpointInfo, BreakpointMap};
+use crate::error::{InvokeError, RuntimeError};
 use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR};
 use crate::state::{CodeVersion, ExecutionStateImage, InstanceImage};
-use crate::error::{RuntimeError, InvokeError};
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
 use nix::sys::signal::{
@@ -344,11 +344,13 @@ extern "C" fn signal_trap_handler(
                     // breakpoint
                     let out: Option<Result<(), RuntimeError>> =
                         with_breakpoint_map(|bkpt_map| -> Option<Result<(), RuntimeError>> {
-                            bkpt_map.and_then(|x| x.get(&(fault.ip.get()))).map(|x| -> Result<(), RuntimeError> {
-                                x(BreakpointInfo {
-                                    fault: Some(&fault),
-                                })
-                            })
+                            bkpt_map.and_then(|x| x.get(&(fault.ip.get()))).map(
+                                |x| -> Result<(), RuntimeError> {
+                                    x(BreakpointInfo {
+                                        fault: Some(&fault),
+                                    })
+                                },
+                            )
                         });
                     match out {
                         Some(Ok(())) => {

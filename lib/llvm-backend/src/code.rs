@@ -35,6 +35,7 @@ use wasmer_runtime_core::{
     backend::{CacheGen, CompilerConfig, Token},
     cache::{Artifact, Error as CacheError},
     codegen::*,
+    error::RuntimeError,
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     parse::{wp_type_to_type, LoadError},
@@ -940,12 +941,11 @@ pub struct CodegenError {
 // prevents unused function elimination.
 #[no_mangle]
 pub unsafe extern "C" fn callback_trampoline(
-    b: *mut Option<Box<dyn std::any::Any>>,
+    b: *mut Option<RuntimeError>,
     callback: *mut BreakpointHandler,
 ) {
     let callback = Box::from_raw(callback);
-    let result: Result<(), Box<dyn std::any::Any + Send>> =
-        callback(BreakpointInfo { fault: None });
+    let result: Result<(), RuntimeError> = callback(BreakpointInfo { fault: None });
     match result {
         Ok(()) => *b = None,
         Err(e) => *b = Some(e),

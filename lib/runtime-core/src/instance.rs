@@ -603,7 +603,7 @@ pub(crate) fn call_func_with_index_inner(
             Ok(())
         } else {
             let error: RuntimeError = error_out
-                .map(RuntimeError::InvokeError)
+                .map(Into::into)
                 .unwrap_or_else(|| RuntimeError::InvokeError(InvokeError::FailedWithNoError));
             Err(error.into())
         }

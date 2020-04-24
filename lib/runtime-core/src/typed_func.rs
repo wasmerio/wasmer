@@ -590,7 +590,7 @@ macro_rules! impl_traits {
                 ) {
                     Ok(Rets::from_ret_array(rets))
                 } else {
-                    Err(error_out.map_or_else(|| RuntimeError::InvokeError(InvokeError::FailedWithNoError), RuntimeError::InvokeError))
+                    Err(error_out.map_or_else(|| RuntimeError::InvokeError(InvokeError::FailedWithNoError), Into::into))
                 }
             }
         }

@@ -26,9 +26,9 @@ use wasmer_runtime_core::{
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
+    error::{InvokeError, RuntimeError},
     fault::{self, raw::register_preservation_trampoline},
     loader::CodeMemory,
-    error::{InvokeError, RuntimeError},
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{

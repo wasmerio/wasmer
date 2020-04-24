@@ -265,8 +265,23 @@ pub enum InvokeError {
     /// extra TODO: investigate if this can be a `Box<InvokeError>` instead (looks like probably no)
     /// TODO:
     EarlyTrap(Box<RuntimeError>),
-    /// Indicates an error that ocurred related to breakpoints. (currently Singlepass only)
+    /// Indicates an error that ocurred related to breakpoints.
     Breakpoint(Box<RuntimeError>),
+}
+
+impl From<InvokeError> for RuntimeError {
+    fn from(other: InvokeError) -> RuntimeError {
+        match other {
+            InvokeError::EarlyTrap(re) | InvokeError::Breakpoint(re) => *re,
+            _ => RuntimeError::InvokeError(other),
+        }
+    }
+}
+
+impl PartialEq for RuntimeError {
+    fn eq(&self, _other: &RuntimeError) -> bool {
+        false
+    }
 }
 
 //impl std::error::Error for InvokeError {}

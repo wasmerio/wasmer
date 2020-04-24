@@ -56,7 +56,7 @@ extern "C" {
     /// but this is cleaner, I think?
     #[cfg_attr(nightly, unwind(allowed))]
     #[allow(improper_ctypes)]
-    fn throw_runtime_error(data: RuntimeError) -> !;
+    fn throw_runtime_error(data: *mut Option<RuntimeError>) -> !;
 
     #[allow(improper_ctypes)]
     fn cxx_invoke_trampoline(
@@ -475,8 +475,7 @@ impl RunnableModule for LLVMBackend {
     }
 
     unsafe fn do_early_trap(&self, data: RuntimeError) -> ! {
-        // maybe need to box leak it?
-        throw_runtime_error(data)
+        throw_runtime_error(Box::into_raw(Box::new(Some(data))))
     }
 }
 
