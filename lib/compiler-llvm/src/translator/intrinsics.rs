@@ -217,7 +217,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let f64x2_ty_basic = f64x2_ty.as_basic_type_enum();
         let i8_ptr_ty_basic = i8_ptr_ty.as_basic_type_enum();
 
-        let ctx_ty = context.opaque_struct_type("ctx");
+        let ctx_ty = i8_ty;
         let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::Generic);
 
         let local_memory_ty =
@@ -249,6 +249,7 @@ impl<'ctx> Intrinsics<'ctx> {
             false,
         );
 
+        /*
         ctx_ty.set_body(
             &[
                 local_memory_ty
@@ -305,6 +306,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ],
             false,
         );
+        */
 
         let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
         let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);
@@ -630,6 +632,8 @@ pub struct CtxType<'ctx, 'a> {
     cached_sigindices: HashMap<SignatureIndex, IntValue<'ctx>>,
     cached_globals: HashMap<GlobalIndex, GlobalCache<'ctx>>,
     cached_imported_functions: HashMap<FuncIndex, ImportedFuncCache<'ctx>>,
+
+    offsets: VMOffsets,
 }
 
 fn offset_to_index(offset: u32) -> u32 {
@@ -655,6 +659,9 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
             cached_imported_functions: HashMap::new(),
+
+            // TODO: pointer width
+            offsets: VMOffsets::new(8, &wasm_module),
         }
     }
 
@@ -690,25 +697,29 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         module: &Module<'ctx>,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     ) -> MemoryCache<'ctx> {
-        let (cached_memories, wasm_module, ctx_ptr_value, cache_builder) = (
+        let (cached_memories, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_memories,
             self.wasm_module,
             self.ctx_ptr_value,
             &self.cache_builder,
+            &self.offsets,
         );
-        // TODO: pointer width
-        let offsets = VMOffsets::new(8, &self.wasm_module);
-
         *cached_memories.entry(index).or_insert_with(|| {
             let (memory_array_ptr_ptr, index, memory_type, minimum, maximum, field_name) = {
                 let desc = memory_plans.get(index).unwrap();
                 if let Some(local_mem_index) = wasm_module.local_memory_index(index) {
+                    let byte_offset = intrinsics.i64_ty.const_int(
+                        offsets
+                            .vmctx_vmmemory_definition_base(local_mem_index)
+                            .into(),
+                        false,
+                    );
                     (
                         unsafe {
-                            cache_builder.build_struct_gep(
+                            cache_builder.build_gep(
                                 ctx_ptr_value,
-                                offset_to_index(offsets.vmctx_memories_begin()),
-                                "memory_array_ptr_ptr",
+                                &[byte_offset],
+                                "memory_base_ptr_ptr",
                             )
                         },
                         local_mem_index.index() as u64,
@@ -718,6 +729,10 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         "context_field_ptr_to_local_memory",
                     )
                 } else {
+                    let byte_offset = intrinsics.i64_ty.const_int(
+                        offsets.vmctx_vmmemory_import_definition(index).into(),
+                        false,
+                    );
                     (
                         unsafe {
                             cache_builder.build_struct_gep(
@@ -816,15 +831,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
-        let (cached_tables, wasm_module, ctx_ptr_value, cache_builder) = (
+        let (cached_tables, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_tables,
             self.wasm_module,
             self.ctx_ptr_value,
             &self.cache_builder,
+            &self.offsets,
         );
-        // TODO: pointer width
-        let offsets = VMOffsets::new(8, &self.wasm_module);
-
         let TableCache {
             ptr_to_base_ptr,
             ptr_to_bounds,
@@ -931,15 +944,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         index: SignatureIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> IntValue<'ctx> {
-        let (cached_sigindices, ctx_ptr_value, cache_builder) = (
+        let (cached_sigindices, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_sigindices,
             self.ctx_ptr_value,
             &self.cache_builder,
+            &self.offsets,
         );
-        // TODO: pointer width
-        let offsets = VMOffsets::new(8, &self.wasm_module);
-
         *cached_sigindices.entry(index).or_insert_with(|| {
+            /*
             let sigindex_array_ptr_ptr = unsafe {
                 cache_builder.build_struct_gep(
                     ctx_ptr_value,
@@ -959,6 +971,16 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     "sigindex_ptr",
                 )
             };
+             */
+            let byte_offset = intrinsics
+                .i64_ty
+                .const_int(offsets.vmctx_vmshared_signature_id(index).into(), false);
+            let sigindex_ptr = unsafe {
+                cache_builder.build_gep(ctx_ptr_value, &[byte_offset], "dynamic_sigindex")
+            };
+            let sigindex_ptr = cache_builder
+                .build_bitcast(sigindex_ptr, intrinsics.i32_ptr_ty, "")
+                .into_pointer_value();
 
             cache_builder
                 .build_load(sigindex_ptr, "sigindex")
@@ -972,15 +994,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> GlobalCache<'ctx> {
-        let (cached_globals, ctx_ptr_value, wasm_module, cache_builder) = (
+        let (cached_globals, ctx_ptr_value, wasm_module, cache_builder, offsets) = (
             &mut self.cached_globals,
             self.ctx_ptr_value,
             self.wasm_module,
             &self.cache_builder,
+            &self.offsets,
         );
-        // TODO: pointer width
-        let offsets = VMOffsets::new(8, &self.wasm_module);
-
         *cached_globals.entry(index).or_insert_with(|| {
             let (globals_array_ptr_ptr, index, mutable, wasmer_ty, field_name) = {
                 let desc = wasm_module.globals.get(index).unwrap();
@@ -1074,14 +1094,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
-        let (cached_imported_functions, ctx_ptr_value, cache_builder) = (
+        let (cached_imported_functions, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_imported_functions,
             self.ctx_ptr_value,
             &self.cache_builder,
+            &self.offsets,
         );
-        // TODO: pointer width
-        let offsets = VMOffsets::new(8, &self.wasm_module);
-
         let imported_func_cache = cached_imported_functions.entry(index).or_insert_with(|| {
             let func_array_ptr_ptr = unsafe {
                 cache_builder.build_struct_gep(

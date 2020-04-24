@@ -87,7 +87,9 @@ impl Compiler for LLVMCompiler {
         &self,
         _signatures: &[FuncType],
     ) -> Result<Vec<CompiledFunction>, CompileError> {
-        // Note: do not implement this yet
-        unimplemented!("Trampoline compilation not yet implemented.")
+        // TODO: implement this
+        Err(CompileError::Codegen(
+            "Trampoline compilation not yet implemented.".to_string(),
+        ))
     }
 }
