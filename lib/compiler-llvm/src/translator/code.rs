@@ -121,6 +121,7 @@ impl FuncTranslator {
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         // TODO: mark vmctx nofree
         func.set_personality_function(intrinsics.personality);
+        func.as_global_value().set_section("wasmer_function");
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
@@ -267,13 +268,17 @@ impl FuncTranslator {
             .write_to_memory_buffer(&mut module, FileType::Object)
             .unwrap();
 
-        //let _mem_buf_slice = memory_buffer.as_slice();
-
-        memory_buffer.create_object_file().map_err(|()| {
+        let object = memory_buffer.create_object_file().map_err(|()| {
             CompileError::Codegen("failed to create object file from llvm ir".to_string())
         })?;
 
-        // TODO: grab text section, use it to fill in 'body'.
+        let mut bytes = vec![];
+        for section in object.get_sections() {
+            if section.get_name().to_bytes() == "wasmer_function".as_bytes() {
+                bytes.extend(section.get_contents().to_bytes());
+                break;
+            }
+        }
 
         let address_map = FunctionAddressMap {
             instructions: vec![],
@@ -285,7 +290,7 @@ impl FuncTranslator {
 
         Ok(CompiledFunction {
             address_map,
-            body: vec![],
+            body: bytes,
             jt_offsets: SecondaryMap::new(),
             unwind_info: CompiledFunctionUnwindInfo::None,
             relocations: vec![],
