@@ -51,19 +51,10 @@ impl Table {
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements.
     pub fn grow(&self, delta: u32) -> Option<u32> {
-        let new_len = match self.size().checked_add(delta) {
-            Some(len) => {
-                if let Some(max) = self.maximum {
-                    if len > max {
-                        return None;
-                    }
-                }
-                len
-            }
-            None => {
-                return None;
-            }
-        };
+        let new_len = self.size().checked_add(delta)?;
+        if self.maximum.map_or(false, |max| new_len > max) {
+            return None;
+        }
         self.vec.borrow_mut().resize(
             usize::try_from(new_len).unwrap(),
             VMCallerCheckedAnyfunc::default(),
