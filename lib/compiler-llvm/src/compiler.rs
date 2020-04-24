@@ -91,7 +91,7 @@ impl Compiler for LLVMCompiler {
         signatures
             .par_iter()
             .map_init(FuncTrampoline::new, |func_trampoline, sig| {
-                func_trampoline.trampoline(sig)
+                func_trampoline.trampoline(sig, self.config())
             })
             .collect::<Result<Vec<_>, CompileError>>()
     }

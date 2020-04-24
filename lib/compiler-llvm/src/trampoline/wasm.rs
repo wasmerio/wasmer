@@ -1,3 +1,5 @@
+use crate::config::LLVMConfig;
+use crate::translator::intrinsics::{func_type_to_llvm, type_to_llvm, Intrinsics};
 use inkwell::{
     context::Context,
     module::{Linkage, Module},
@@ -19,7 +21,34 @@ impl FuncTrampoline {
         }
     }
 
-    pub fn trampoline(&mut self, ty: &FuncType) -> Result<CompiledFunction, CompileError> {
+    pub fn trampoline(
+        &mut self,
+        ty: &FuncType,
+        config: &LLVMConfig,
+    ) -> Result<CompiledFunction, CompileError> {
+        let mut module = self.ctx.create_module("");
+        let target_triple = config.target_triple();
+        let target_machine = config.target_machine();
+        module.set_triple(&target_triple);
+        module.set_data_layout(&target_machine.get_target_data().get_data_layout());
+        let intrinsics = Intrinsics::declare(&module, &self.ctx);
+
+        let callee_ty = func_type_to_llvm(&self.ctx, &intrinsics, ty);
+        let trampoline_ty = intrinsics.void_ty.fn_type(
+            &[
+                intrinsics.ctx_ptr_ty.as_basic_type_enum(), // vmctx ptr
+                callee_ty
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum(), // func ptr
+                intrinsics.i64_ptr_ty.as_basic_type_enum(), // args ptr
+                intrinsics.i64_ptr_ty.as_basic_type_enum(), // returns ptr
+            ],
+            false,
+        );
+
+        let trampoline_func = module.add_function("", trampoline_ty, Some(Linkage::External));
+        //generate_trampoline(trampoline_func, ty, self.ctx, intrinsics)?;
+
         // TODO: implement this
         Err(CompileError::Codegen(
             "Trampoline compilation not yet implemented.".to_string(),
@@ -60,7 +89,8 @@ pub fn generate_trampolines<'ctx>(
     }
     Ok(())
 }
-
+ */
+/*
 fn generate_trampoline<'ctx>(
     trampoline_func: FunctionValue,
     func_sig: &FuncSig,
@@ -133,4 +163,4 @@ fn generate_trampoline<'ctx>(
     builder.build_return(None);
     Ok(())
 }
- */
+*/

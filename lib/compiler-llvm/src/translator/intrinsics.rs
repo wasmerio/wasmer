@@ -9,7 +9,10 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
-    types::{BasicType, FloatType, IntType, PointerType, StructType, VectorType, VoidType},
+    types::{
+        BasicType, BasicTypeEnum, FloatType, FunctionType, IntType, PointerType, StructType,
+        VectorType, VoidType,
+    },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
         PointerValue, VectorValue,
@@ -31,7 +34,8 @@ use wasmer_runtime_core::{
 */
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    FuncIndex, GlobalIndex, MemoryIndex, Mutability, Pages, SignatureIndex, TableIndex, Type,
+    FuncIndex, FuncType, GlobalIndex, MemoryIndex, Mutability, Pages, SignatureIndex, TableIndex,
+    Type,
 };
 use wasmer_runtime::Module as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, VMOffsets};
@@ -1249,4 +1253,45 @@ pub fn tbaa_label<'ctx>(
     // Attach the access tag to the instruction.
     let tbaa_kind = context.get_kind_id("tbaa");
     instruction.set_metadata(type_tbaa, tbaa_kind);
+}
+
+pub fn func_type_to_llvm<'ctx>(
+    context: &'ctx Context,
+    intrinsics: &Intrinsics<'ctx>,
+    fntype: &FuncType,
+) -> FunctionType<'ctx> {
+    let user_param_types = fntype
+        .params()
+        .iter()
+        .map(|&ty| type_to_llvm(intrinsics, ty));
+    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+        .chain(user_param_types)
+        .collect();
+
+    match fntype.results() {
+        &[] => intrinsics.void_ty.fn_type(&param_types, false),
+        &[single_value] => type_to_llvm(intrinsics, single_value).fn_type(&param_types, false),
+        returns @ _ => {
+            let basic_types: Vec<_> = returns
+                .iter()
+                .map(|&ty| type_to_llvm(intrinsics, ty))
+                .collect();
+
+            context
+                .struct_type(&basic_types, false)
+                .fn_type(&param_types, false)
+        }
+    }
+}
+
+pub fn type_to_llvm<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
+    match ty {
+        Type::I32 => intrinsics.i32_ty.as_basic_type_enum(),
+        Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
+        Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
+        Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
+        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
+        Type::AnyRef => unimplemented!("anyref in the llvm backend"),
+        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+    }
 }

@@ -1,5 +1,7 @@
 use super::{
-    intrinsics::{tbaa_label, CtxType, GlobalCache, Intrinsics, MemoryCache},
+    intrinsics::{
+        func_type_to_llvm, tbaa_label, type_to_llvm, CtxType, GlobalCache, Intrinsics, MemoryCache,
+    },
     read_info::blocktype_to_type,
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State},
@@ -310,47 +312,6 @@ impl FuncTranslator {
             relocations: vec![],
             traps: vec![],
         })
-    }
-}
-
-fn func_type_to_llvm<'ctx>(
-    context: &'ctx Context,
-    intrinsics: &Intrinsics<'ctx>,
-    fntype: &FuncType,
-) -> FunctionType<'ctx> {
-    let user_param_types = fntype
-        .params()
-        .iter()
-        .map(|&ty| type_to_llvm(intrinsics, ty));
-    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
-        .chain(user_param_types)
-        .collect();
-
-    match fntype.results() {
-        &[] => intrinsics.void_ty.fn_type(&param_types, false),
-        &[single_value] => type_to_llvm(intrinsics, single_value).fn_type(&param_types, false),
-        returns @ _ => {
-            let basic_types: Vec<_> = returns
-                .iter()
-                .map(|&ty| type_to_llvm(intrinsics, ty))
-                .collect();
-
-            context
-                .struct_type(&basic_types, false)
-                .fn_type(&param_types, false)
-        }
-    }
-}
-
-fn type_to_llvm<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
-    match ty {
-        Type::I32 => intrinsics.i32_ty.as_basic_type_enum(),
-        Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
-        Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
-        Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
-        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
-        Type::AnyRef => unimplemented!("anyref in the llvm backend"),
-        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
     }
 }
 
