@@ -547,6 +547,8 @@ impl<'ctx> Intrinsics<'ctx> {
             ctx_ptr_ty,
         };
 
+        // TODO: mark vmctx args as nofree, align 16, dereferenceable(?)
+
         let readonly =
             context.create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0);
         intrinsics

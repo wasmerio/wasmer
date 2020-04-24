@@ -16,6 +16,8 @@ use wasmer_runtime::{MemoryPlan, Module, TablePlan, TrapCode};
 
 use inkwell::targets::{InitializationConfig, Target as InkwellTarget};
 
+use std::sync::{Arc, Mutex}; // TODO: remove
+
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
 pub struct LLVMCompiler {
@@ -57,11 +59,14 @@ impl Compiler for LLVMCompiler {
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
+        let data = Arc::new(Mutex::new(0));
         let functions = function_body_inputs
             .into_iter()
             .collect::<Vec<(LocalFuncIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
+                // TODO: remove (to serialize)
+                let mut data = data.lock().unwrap();
                 func_translator.translate(
                     module,
                     i,

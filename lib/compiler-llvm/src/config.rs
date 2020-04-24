@@ -100,8 +100,8 @@ impl LLVMConfig {
                 CpuFeature::SSE2 => Some("+sse2"),
                 CpuFeature::SSE3 => Some("+sse3"),
                 CpuFeature::SSSE3 => Some("+ssse3"),
-                CpuFeature::SSE41 => Some("+sse41"),
-                CpuFeature::SSE42 => Some("+sse42"),
+                CpuFeature::SSE41 => Some("+sse4.1"),
+                CpuFeature::SSE42 => Some("+sse4.2"),
                 CpuFeature::POPCNT => Some("+popcnt"),
                 CpuFeature::AVX => Some("+avx"),
                 CpuFeature::BMI1 => Some("+bmi"),
@@ -114,11 +114,11 @@ impl LLVMConfig {
             .join(",");
 
         let arch_string = triple.architecture.to_string();
-        let llvm_target = LLVMTarget::from_name(&arch_string).unwrap();
+        let llvm_target = LLVMTarget::from_triple(&self.target_triple()).unwrap();
         let target_machine = llvm_target
             .create_target_machine(
                 &self.target_triple(),
-                &arch_string,
+                "generic",
                 &llvm_cpu_features,
                 self.opt_level.clone(),
                 self.reloc_mode(),

@@ -30,7 +30,7 @@ use smallvec::SmallVec;
 use std::any::Any;
 
 use crate::config::LLVMConfig;
-use wasm_common::entity::{PrimaryMap, SecondaryMap};
+use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
     FuncIndex, FuncType, GlobalIndex, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
 };
@@ -94,7 +94,10 @@ impl FuncTranslator {
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<CompiledFunction, CompileError> {
         let func_index = wasm_module.func_index(*func_index);
-        let func_name = wasm_module.func_names.get(&func_index).unwrap().as_str();
+        let func_name = match wasm_module.func_names.get(&func_index) {
+            None => format!("fn{}", func_index.index()).to_string(),
+            Some(func_name) => func_name.clone(),
+        };
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {}", func_name),
             Some(module_name) => format!("module {} function {}", module_name, func_name),
@@ -113,8 +116,12 @@ impl FuncTranslator {
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
         let func_type = func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type);
 
-        let func = module.add_function(func_name, func_type, Some(Linkage::External));
+        let func = module.add_function(&func_name, func_type, Some(Linkage::External));
+        // TODO: mark vmctx align 16
+        // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
+        // TODO: mark vmctx nofree
         func.set_personality_function(intrinsics.personality);
+
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
         let return_ = self.ctx.append_basic_block(func, "return");
@@ -135,20 +142,6 @@ impl FuncTranslator {
             .collect();
         state.push_block(return_, phis);
         builder.position_at_end(start_of_code);
-
-        let mut fcg = LLVMFunctionCodeGenerator {
-            context: &self.ctx,
-            builder,
-            intrinsics: &intrinsics,
-            state,
-            function: func,
-            locals: vec![],
-            ctx: CtxType::new(wasm_module, &func, &cache_builder),
-            unreachable_depth: 0,
-            memory_plans,
-            table_plans,
-            module: &module,
-        };
 
         let mut reader =
             BinaryReader::new_with_offset(function_body.data, function_body.module_offset);
@@ -178,6 +171,23 @@ impl FuncTranslator {
             cache_builder.build_store(alloca, const_zero(ty));
             locals.push(alloca);
         }
+
+        let mut params_locals = params.clone();
+        params_locals.extend(locals.iter().cloned());
+
+        let mut fcg = LLVMFunctionCodeGenerator {
+            context: &self.ctx,
+            builder,
+            intrinsics: &intrinsics,
+            state,
+            function: func,
+            locals: params_locals,
+            ctx: CtxType::new(wasm_module, &func, &cache_builder),
+            unreachable_depth: 0,
+            memory_plans,
+            table_plans,
+            module: &module,
+        };
 
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
