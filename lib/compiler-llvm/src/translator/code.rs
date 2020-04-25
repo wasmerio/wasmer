@@ -277,12 +277,14 @@ impl FuncTranslator {
             .write_to_memory_buffer(&mut module, FileType::Object)
             .unwrap();
 
+        /*
         let mem_buf_slice = memory_buffer.as_slice();
         let mut file = fs::File::create("/home/nicholas/x.o").unwrap();
         let mut pos = 0;
         while pos < mem_buf_slice.len() {
             pos += file.write(&mem_buf_slice[pos..]).unwrap();
         }
+        */
 
         let object = memory_buffer.create_object_file().map_err(|()| {
             CompileError::Codegen("failed to create object file from llvm ir".to_string())
@@ -290,7 +292,9 @@ impl FuncTranslator {
 
         let mut bytes = vec![];
         for section in object.get_sections() {
-            if section.get_name().to_bytes() == "wasmer_function".as_bytes() {
+            if section.get_name().map(std::ffi::CStr::to_bytes)
+                == Some("wasmer_function".as_bytes())
+            {
                 bytes.extend(section.get_contents().to_bytes());
                 break;
             }

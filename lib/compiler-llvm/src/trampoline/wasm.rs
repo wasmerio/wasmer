@@ -3,12 +3,20 @@ use crate::translator::intrinsics::{func_type_to_llvm, type_to_llvm, Intrinsics}
 use inkwell::{
     context::Context,
     module::{Linkage, Module},
+    targets::FileType,
     types::{BasicType, FunctionType},
     values::FunctionValue,
     AddressSpace,
 };
-use wasm_common::FuncType;
-use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler};
+use wasm_common::entity::SecondaryMap;
+use wasm_common::{FuncType, Type};
+use wasmer_compiler::{
+    Compilation, CompileError, CompiledFunction, CompiledFunctionUnwindInfo, Compiler,
+    FunctionAddressMap, SourceLoc,
+};
+
+use std::fs;
+use std::io::Write;
 
 pub struct FuncTrampoline {
     ctx: Context,
@@ -47,12 +55,55 @@ impl FuncTrampoline {
         );
 
         let trampoline_func = module.add_function("", trampoline_ty, Some(Linkage::External));
-        //generate_trampoline(trampoline_func, ty, self.ctx, intrinsics)?;
+        trampoline_func
+            .as_global_value()
+            .set_section("wasmer_trampoline");
+        generate_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
-        // TODO: implement this
-        Err(CompileError::Codegen(
-            "Trampoline compilation not yet implemented.".to_string(),
-        ))
+        // TODO: remove debugging
+        //module.print_to_stderr();
+
+        let memory_buffer = target_machine
+            .write_to_memory_buffer(&mut module, FileType::Object)
+            .unwrap();
+
+        let mem_buf_slice = memory_buffer.as_slice();
+        let mut file = fs::File::create("/home/nicholas/x.o").unwrap();
+        let mut pos = 0;
+        while pos < mem_buf_slice.len() {
+            pos += file.write(&mem_buf_slice[pos..]).unwrap();
+        }
+
+        let object = memory_buffer.create_object_file().map_err(|()| {
+            CompileError::Codegen("failed to create object file from llvm ir".to_string())
+        })?;
+
+        let mut bytes = vec![];
+        for section in object.get_sections() {
+            if section.get_name().map(std::ffi::CStr::to_bytes)
+                == Some("wasmer_trampoline".as_bytes())
+            {
+                bytes.extend(section.get_contents().to_bytes());
+                break;
+            }
+        }
+
+        let address_map = FunctionAddressMap {
+            instructions: vec![],
+            start_srcloc: SourceLoc::default(),
+            end_srcloc: SourceLoc::default(),
+            body_offset: 0,
+            body_len: 0, // TODO
+        };
+
+        Ok(CompiledFunction {
+            address_map,
+            body: bytes,
+            jt_offsets: SecondaryMap::new(),
+            unwind_info: CompiledFunctionUnwindInfo::None,
+            relocations: vec![],
+            traps: vec![],
+        })
     }
 }
 
@@ -90,13 +141,13 @@ pub fn generate_trampolines<'ctx>(
     Ok(())
 }
  */
-/*
+
 fn generate_trampoline<'ctx>(
     trampoline_func: FunctionValue,
-    func_sig: &FuncSig,
+    func_sig: &FuncType,
     context: &'ctx Context,
     intrinsics: &Intrinsics<'ctx>,
-) -> Result<(), String> {
+) -> Result<(), CompileError> {
     let entry_block = context.append_basic_block(trampoline_func, "entry");
     let builder = context.create_builder();
     builder.position_at_end(entry_block);
@@ -109,7 +160,11 @@ fn generate_trampoline<'ctx>(
             args_ptr.into_pointer_value(),
             returns_ptr.into_pointer_value(),
         ),
-        _ => return Err("trampoline function unimplemented".to_string()),
+        _ => {
+            return Err(CompileError::Codegen(
+                "trampoline function unimplemented".to_string(),
+            ))
+        }
     };
 
     let cast_ptr_ty = |wasmer_ty| match wasmer_ty {
@@ -118,6 +173,8 @@ fn generate_trampoline<'ctx>(
         Type::I64 => intrinsics.i64_ptr_ty,
         Type::F64 => intrinsics.f64_ptr_ty,
         Type::V128 => intrinsics.i128_ptr_ty,
+        Type::AnyRef => unimplemented!("anyref unimplemented in trampoline"),
+        Type::FuncRef => unimplemented!("funcref unimplemented in trampoline"),
     };
 
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
@@ -143,7 +200,7 @@ fn generate_trampoline<'ctx>(
 
     let call_site = builder.build_call(func_ptr, &args_vec, "call");
 
-    match func_sig.returns() {
+    match func_sig.results() {
         &[] => {}
         &[one_ret] => {
             let ret_ptr_type = cast_ptr_ty(one_ret);
@@ -156,11 +213,12 @@ fn generate_trampoline<'ctx>(
             );
         }
         _ => {
-            return Err("trampoline function multi-value returns unimplemented".to_string());
+            return Err(CompileError::Codegen(
+                "trampoline function multi-value returns unimplemented".to_string(),
+            ));
         }
     }
 
     builder.build_return(None);
     Ok(())
 }
-*/
