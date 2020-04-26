@@ -66,7 +66,7 @@ extern "C" {
         params: *const u64,
         results: *mut u64,
         trap_out: *mut i32,
-        error_out: *mut Option<InvokeError>,
+        error_out: *mut Option<RuntimeError>,
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
 }
@@ -79,7 +79,7 @@ unsafe extern "C" fn invoke_trampoline(
     func_ptr: NonNull<vm::Func>,
     params: *const u64,
     results: *mut u64,
-    error_out: *mut Option<InvokeError>,
+    error_out: *mut Option<RuntimeError>,
     invoke_env: Option<NonNull<c_void>>,
 ) -> bool {
     let mut trap_out: i32 = -1;
@@ -105,11 +105,11 @@ unsafe extern "C" fn invoke_trampoline(
                 5 => ExceptionCode::MisalignedAtomicAccess,
                 _ => return ret,
             };
-            Some(InvokeError::TrapCode {
+            Some(RuntimeError::InvokeError(InvokeError::TrapCode {
                 code: exception_code,
                 // TODO:
                 srcloc: 0,
-            })
+            }))
         };
     }
     ret

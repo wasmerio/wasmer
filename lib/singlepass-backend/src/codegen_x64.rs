@@ -507,7 +507,7 @@ impl RunnableModule for X64ExecutionContext {
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            error_out: *mut Option<InvokeError>,
+            error_out: *mut Option<RuntimeError>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
             let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
@@ -655,7 +655,7 @@ impl RunnableModule for X64ExecutionContext {
                     true
                 }
                 Err(err) => {
-                    *error_out = Some(InvokeError::Breakpoint(Box::new(err)));
+                    *error_out = Some(InvokeError::Breakpoint(Box::new(err)).into());
                     false
                 }
             };
@@ -681,7 +681,7 @@ impl RunnableModule for X64ExecutionContext {
     }
 
     unsafe fn do_early_trap(&self, data: RuntimeError) -> ! {
-        fault::begin_unsafe_unwind(data);
+        fault::begin_unsafe_unwind(Box::new(data));
     }
 
     fn get_code(&self) -> Option<&[u8]> {

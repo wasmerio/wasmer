@@ -213,27 +213,6 @@ impl std::error::Error for RuntimeError {}
 
 */
 
-/// An `InternalError` is an error that happened inside of Wasmer and is a
-/// catch-all for errors that would otherwise be returned as
-/// `RuntimeError(Box::new(<string>))`.
-///
-/// This type provides greater visibility into the kinds of things that may fail
-/// and improves the ability of users to handle them, though these errors may be
-/// extremely rare and impossible to handle.
-#[derive(Debug)]
-pub enum RuntimeError {
-    /// When an invoke returns an error
-    InvokeError(InvokeError),
-    /// A metering triggered error value.
-    ///
-    /// An error of this type indicates that it was returned by the metering system.
-    Metering(Box<dyn Any + Send>),
-    /// A user triggered error value.
-    ///
-    /// An error returned from a host function.
-    User(Box<dyn Any + Send>),
-}
-
 /// TODO:
 #[derive(Debug)]
 pub enum InvokeError {
@@ -278,13 +257,38 @@ impl From<InvokeError> for RuntimeError {
     }
 }
 
+//impl std::error::Error for InvokeError {}
+
+/// An `InternalError` is an error that happened inside of Wasmer and is a
+/// catch-all for errors that would otherwise be returned as
+/// `RuntimeError(Box::new(<string>))`.
+///
+/// This type provides greater visibility into the kinds of things that may fail
+/// and improves the ability of users to handle them, though these errors may be
+/// extremely rare and impossible to handle.
+#[derive(Debug)]
+pub enum RuntimeError {
+    /// When an invoke returns an error
+    InvokeError(InvokeError),
+    /// A metering triggered error value.
+    ///
+    /// An error of this type indicates that it was returned by the metering system.
+    Metering(Box<dyn Any + Send>),
+    /// A frozen state of Wasm used to pause and resume execution.  Not strictly an
+    /// "error", but this happens while executing and therefore is a `RuntimeError`
+    /// from the persective of the caller that expected the code to fully execute.
+    InstanceImage(Box<dyn Any + Send>),
+    /// A user triggered error value.
+    ///
+    /// An error returned from a host function.
+    User(Box<dyn Any + Send>),
+}
+
 impl PartialEq for RuntimeError {
     fn eq(&self, _other: &RuntimeError) -> bool {
         false
     }
 }
-
-//impl std::error::Error for InvokeError {}
 
 impl std::error::Error for RuntimeError {}
 
@@ -294,6 +298,10 @@ impl std::fmt::Display for RuntimeError {
             // TODO: update invoke error formatting
             RuntimeError::InvokeError(_) => write!(f, "Error when calling invoke"),
             RuntimeError::Metering(_) => write!(f, "unknown metering error type"),
+            RuntimeError::InstanceImage(_) => write!(
+                f,
+                "Execution interrupted by a suspend signal: instance image returned"
+            ),
             RuntimeError::User(user_error) => {
                 write!(f, "User supplied error: ")?;
                 if let Some(s) = user_error.downcast_ref::<String>() {

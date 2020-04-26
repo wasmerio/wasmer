@@ -268,7 +268,18 @@ wasmer_backends! {
 
         let result = foo.call();
 
+        dbg!(&result);
+        if let Err(e) = &result {
+            dbg!(&e);
+            eprintln!("{}", &e);
+        }
+        match &result {
+            Err(RuntimeError::User(e)) => { dbg!("USER", &e); } ,
+            Err(e) => {dbg!("GENERIC",&e); } ,
+            _ => { dbg!("OKaY!"); },
+        }
         if let Err(RuntimeError::User(e)) = result {
+            dbg!("WAT");
             let exit_code = e.downcast::<ExitCode>().unwrap();
             assert_eq!(exit_code.code, 42);
         } else {

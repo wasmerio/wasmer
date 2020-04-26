@@ -7,7 +7,7 @@ use libc::c_void;
 use std::{cell::Cell, ptr::NonNull, sync::Arc};
 use wasmer_runtime_core::{
     backend::RunnableModule,
-    error::{InvokeError, RuntimeError},
+    error::RuntimeError,
     module::ModuleInfo,
     typed_func::{Trampoline, Wasm},
     types::{LocalFuncIndex, SigIndex},
@@ -62,7 +62,7 @@ impl RunnableModule for Caller {
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            error_out: *mut Option<InvokeError>,
+            error_out: *mut Option<RuntimeError>,
             invoke_env: Option<NonNull<c_void>>,
         ) -> bool {
             let handler_data = &*invoke_env.unwrap().cast().as_ptr();
@@ -82,7 +82,7 @@ impl RunnableModule for Caller {
                     // probably makes the most sense to actually do a translation here to a
                     // a generic type defined in runtime-core
                     // TODO: figure out _this_ error return story
-                    *error_out = Some(err);
+                    *error_out = Some(err.into());
                     false
                 }
                 Ok(()) => true,

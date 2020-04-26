@@ -30,7 +30,7 @@ pub mod raw {
 use crate::codegen::{BreakpointInfo, BreakpointMap};
 use crate::error::{InvokeError, RuntimeError};
 use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR};
-use crate::state::{CodeVersion, ExecutionStateImage, InstanceImage};
+use crate::state::{CodeVersion, ExecutionStateImage};
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
 use nix::sys::signal::{
@@ -61,7 +61,7 @@ type SetJmpBuffer = [i32; SETJMP_BUFFER_LEN];
 struct UnwindInfo {
     jmpbuf: SetJmpBuffer, // in
     breakpoints: Option<BreakpointMap>,
-    payload: Option<RuntimeError>, // out
+    payload: Option<Box<RuntimeError>>, // out
 }
 
 /// A store for boundary register preservation.
@@ -195,7 +195,7 @@ pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
         // error
         let ret = (*unwind).as_mut().unwrap().payload.take().unwrap();
         *unwind = old;
-        Err(ret)
+        Err(*ret)
     } else {
         let ret = f();
         // implicit control flow to the error case...
@@ -205,7 +205,7 @@ pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
 }
 
 /// Begins an unsafe unwind.
-pub unsafe fn begin_unsafe_unwind(e: RuntimeError) -> ! {
+pub unsafe fn begin_unsafe_unwind(e: Box<RuntimeError>) -> ! {
     let unwind = UNWIND.with(|x| x.get());
     let inner = (*unwind)
         .as_mut()
@@ -279,7 +279,11 @@ extern "C" fn signal_trap_handler(
     static ARCH: Architecture = Architecture::Aarch64;
 
     let mut should_unwind = false;
-    let mut unwind_result: Option<Result<InstanceImage, RuntimeError>> = None;
+    let mut unwind_result: Option<Box<RuntimeError>> = None;
+    let get_unwind_result = |uw_result: Option<Box<RuntimeError>>| -> Box<RuntimeError> {
+        uw_result
+            .unwrap_or_else(|| Box::new(RuntimeError::InvokeError(InvokeError::FailedWithNoError)))
+    };
 
     unsafe {
         let fault = get_fault_info(siginfo as _, ucontext);
@@ -313,7 +317,7 @@ extern "C" fn signal_trap_handler(
                                     if let Some(Ok(())) = out {
                                     } else if let Some(Err(e)) = out {
                                         should_unwind = true;
-                                        unwind_result = Some(Err(e));
+                                        unwind_result = Some(Box::new(e));
                                     }
                                 }
                             }
@@ -328,7 +332,7 @@ extern "C" fn signal_trap_handler(
             })
         });
         if should_unwind {
-            begin_unsafe_unwind(unwind_result.unwrap().unwrap_err());
+            begin_unsafe_unwind(get_unwind_result(unwind_result));
         }
         if early_return {
             return;
@@ -357,7 +361,7 @@ extern "C" fn signal_trap_handler(
                             return false;
                         }
                         Some(Err(e)) => {
-                            unwind_result = Some(Err(e));
+                            unwind_result = Some(Box::new(e));
                             return true;
                         }
                         None => {}
@@ -389,7 +393,7 @@ extern "C" fn signal_trap_handler(
             if is_suspend_signal {
                 // If this is a suspend signal, we parse the runtime state and return the resulting image.
                 let image = build_instance_image(ctx, es_image);
-                unwind_result = Some(Ok(image));
+                unwind_result = Some(Box::new(RuntimeError::InstanceImage(Box::new(image))));
             } else {
                 // Otherwise, this is a real exception and we just throw it to the caller.
                 if !es_image.frames.is_empty() {
@@ -417,11 +421,12 @@ extern "C" fn signal_trap_handler(
                     None
                 });
                 if let Some(code) = exc_code {
-                    unwind_result = Some(Err(RuntimeError::InvokeError(InvokeError::TrapCode {
-                        code,
-                        // TODO:
-                        srcloc: 0,
-                    })));
+                    unwind_result =
+                        Some(Box::new(RuntimeError::InvokeError(InvokeError::TrapCode {
+                            code,
+                            // TODO:
+                            srcloc: 0,
+                        })));
                 }
             }
 
@@ -429,7 +434,7 @@ extern "C" fn signal_trap_handler(
         });
 
         if should_unwind {
-            begin_unsafe_unwind(unwind_result.unwrap().unwrap_err());
+            begin_unsafe_unwind(get_unwind_result(unwind_result));
         }
     }
 }

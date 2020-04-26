@@ -37,7 +37,7 @@ pub type Invoke = unsafe extern "C" fn(
     func: NonNull<vm::Func>,
     args: *const u64,
     rets: *mut u64,
-    error_out: *mut Option<InvokeError>,
+    error_out: *mut Option<RuntimeError>,
     extra: Option<NonNull<c_void>>,
 ) -> bool;
 
