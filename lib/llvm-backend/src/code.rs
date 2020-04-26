@@ -944,8 +944,10 @@ pub unsafe extern "C" fn callback_trampoline(
     b: *mut Option<RuntimeError>,
     callback: *mut BreakpointHandler,
 ) {
+    dbg!("In llvm's callback_trampoline");
     let callback = Box::from_raw(callback);
     let result: Result<(), RuntimeError> = callback(BreakpointInfo { fault: None });
+    dbg!(&*b);
     match result {
         Ok(()) => *b = None,
         Err(e) => *b = Some(e),

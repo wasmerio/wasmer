@@ -52,8 +52,6 @@ extern "C" {
     fn throw_trap(ty: i32) -> !;
     fn throw_breakpoint(ty: i64) -> !;
 
-    /// This should be the same as spliting up the fat pointer into two arguments,
-    /// but this is cleaner, I think?
     #[cfg_attr(nightly, unwind(allowed))]
     #[allow(improper_ctypes)]
     fn throw_runtime_error(data: *mut Option<RuntimeError>) -> !;

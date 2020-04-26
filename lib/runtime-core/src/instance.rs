@@ -602,9 +602,9 @@ pub(crate) fn call_func_with_index_inner(
         if success {
             Ok(())
         } else {
-            let error: RuntimeError = error_out
-                .map(Into::into)
-                .unwrap_or_else(|| RuntimeError::InvokeError(InvokeError::FailedWithNoError));
+            let error: RuntimeError = dbg!(error_out)
+                .map_or_else(|| RuntimeError::InvokeError(InvokeError::FailedWithNoError), Into::into);
+            dbg!(&error);
             Err(error.into())
         }
     };

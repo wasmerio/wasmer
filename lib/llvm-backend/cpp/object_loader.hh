@@ -49,9 +49,7 @@ typedef struct {
   visit_fde_t visit_fde;
 } callbacks_t;
 
-typedef struct {
-  size_t data;
-} runtime_error_t;
+using runtime_error_t = void*;
 
 enum WasmTrapType {
   Unreachable = 0,
@@ -121,7 +119,7 @@ private:
 
 struct WasmErrorSink {
   WasmTrapType *trap_out;
-  runtime_error_t *user_error;
+  runtime_error_t user_error;
 };
 
 struct WasmException : std::exception {
@@ -149,7 +147,9 @@ public:
 
 struct UserException : UncatchableException {
 public:
-  UserException(size_t data) : error_data({data}) {}
+  UserException(size_t data) {
+      error_data = reinterpret_cast<runtime_error_t>(data);
+  }
 
   virtual std::string description() const noexcept override {
     return "user exception";
@@ -159,7 +159,7 @@ public:
   runtime_error_t error_data;
 
   virtual void write_error(WasmErrorSink &out) const noexcept override {
-    *out.user_error = error_data;
+    out.user_error = error_data;
   }
 };
 
@@ -274,7 +274,7 @@ result_t module_load(const uint8_t *mem_ptr, size_t mem_size,
 
 void module_delete(WasmModule *module) { delete module; }
 
-// Throw a pointer that's assumed to be `*mut RuntimeError` on the rust
+// Throw a pointer that's assumed to be `*mut Option<RuntimeError>` on the rust
 // side.
 [[noreturn]] void throw_runtime_error(size_t data) {
   unsafe_unwind(new UserException(data));
@@ -288,7 +288,7 @@ void module_delete(WasmModule *module) { delete module; }
 
 bool cxx_invoke_trampoline(trampoline_t trampoline, void *ctx, void *func,
                        void *params, void *results, WasmTrapType *trap_out,
-                       runtime_error_t *user_error, void *invoke_env) noexcept {
+                       runtime_error_t user_error, void *invoke_env) noexcept {
   try {
     catch_unwind([trampoline, ctx, func, params, results]() {
       trampoline(ctx, func, params, results);

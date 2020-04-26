@@ -296,7 +296,7 @@ impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             // TODO: update invoke error formatting
-            RuntimeError::InvokeError(_) => write!(f, "Error when calling invoke"),
+            RuntimeError::InvokeError(ie) => write!(f, "Error when calling invoke: {:?}", ie),
             RuntimeError::Metering(_) => write!(f, "unknown metering error type"),
             RuntimeError::InstanceImage(_) => write!(
                 f,
