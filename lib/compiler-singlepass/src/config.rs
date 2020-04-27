@@ -12,6 +12,15 @@ pub struct SinglepassConfig {
     /// deterministically across different architectures.
     pub enable_nan_canonicalization: bool,
 
+    /// Enable stack check.
+    /// 
+    /// When enabled, an explicit stack depth check will be performed on entry
+    /// to each function to prevent stack overflow.
+    /// 
+    /// Note that this doesn't guarantee deterministic execution across
+    /// different platforms.
+    pub enable_stack_check: bool,
+
     features: Features,
     target: Target,
 }
@@ -22,6 +31,7 @@ impl SinglepassConfig {
     pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: true,
+            enable_stack_check: false,
             features: Default::default(),
             target: Default::default(),
         }

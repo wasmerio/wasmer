@@ -46,7 +46,7 @@ impl Compiler for SinglepassCompiler {
         self.config.target()
     }
 
-    /// Compile the module using LLVM, producing a compilation result with
+    /// Compile the module using Singlepass, producing a compilation result with
     /// associated relocations.
     fn compile_module(
         &self,
