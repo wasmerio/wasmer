@@ -24,7 +24,7 @@ pub enum Export {
 }
 
 /// A function export value.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExportFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,

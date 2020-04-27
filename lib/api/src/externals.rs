@@ -425,20 +425,20 @@ impl Drop for Memory {
 }
 
 /// A function defined in the Wasm module
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct WasmFunc {
     // The trampoline to do the call
     trampoline: VMTrampoline,
 }
 
 /// A function defined in the Host
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct HostFunc {
     // func: wasm_common::Func<Args, Rets>,
 }
 
 /// The inner helper
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum InnerFunc {
     /// A function defined in the Wasm side
     Wasm(WasmFunc),
@@ -447,12 +447,12 @@ pub enum InnerFunc {
 }
 
 /// A WebAssembly `function`.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Func {
     store: Store,
     // If the Function is owned by the Store, not the instance
-    owned_by_store: bool,
     inner: InnerFunc,
+    owned_by_store: bool,
     exported: ExportFunction,
 }
 
