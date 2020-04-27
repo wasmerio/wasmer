@@ -173,78 +173,38 @@ impl std::fmt::Display for LinkError {
 
 impl std::error::Error for LinkError {}
 
-/*
-/// This is the error type returned when calling
-/// a WebAssembly function.
-///
-/// The main way to do this is `Instance.call`.
-///
-/// Comparing two `RuntimeError`s always evaluates to false.
-pub struct RuntimeError(pub Box<dyn Any + Send>);
-
-impl PartialEq for RuntimeError {
-    fn eq(&self, _other: &RuntimeError) -> bool {
-        false
-    }
-}
-
-impl std::fmt::Display for RuntimeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let data = &*self.0;
-        if let Some(s) = data.downcast_ref::<String>() {
-            write!(f, "\"{}\"", s)
-        } else if let Some(s) = data.downcast_ref::<&str>() {
-            write!(f, "\"{}\"", s)
-        } else if let Some(exc_code) = data.downcast_ref::<ExceptionCode>() {
-            write!(f, "Caught exception of type \"{:?}\".", exc_code)
-        } else {
-            write!(f, "unknown error")
-        }
-    }
-}
-
-impl std::fmt::Debug for RuntimeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl std::error::Error for RuntimeError {}
-
-*/
-
-/// TODO:
+/// An error that happened while invoking a Wasm function.
 #[derive(Debug)]
 pub enum InvokeError {
-    /// Indicates an exceptional circumstance such as a bug that should be reported or
-    /// a hardware failure.
+    /// Indicates an exceptional circumstance such as a bug in Wasmer (please file an issue!)
+    /// or a hardware failure.
     FailedWithNoError,
-
-    /// TODO:
+    /// Indicates that a trap occurred that is not known to Wasmer.
     UnknownTrap {
-        /// TODO:
+        /// The address that the trap occured at.
         address: usize,
-        /// TODO:
+        /// The name of the signal.
         signal: &'static str,
     },
-    /// TODO:
+    /// A trap that Wasmer knows about occurred.
     TrapCode {
-        /// TODO:
+        /// The type of exception.
         code: ExceptionCode,
-        /// TODO:
+        /// Where in the Wasm file this trap orginated from.
         srcloc: u32,
     },
-    /// TODO:
+    /// A trap occurred that Wasmer knows about but it had a trap code that
+    /// we weren't expecting or that we do not handle.  This error may be backend-specific.
     UnknownTrapCode {
-        /// TODO:
+        /// The trap code we saw but did not recognize.
         trap_code: String,
-        /// TODO:
+        /// Where in the Wasm file this trap orginated from.
         srcloc: u32,
     },
-    /// extra TODO: investigate if this can be a `Box<InvokeError>` instead (looks like probably no)
-    /// TODO:
+    /// An "early trap" occurred.  TODO: document this properly
     EarlyTrap(Box<RuntimeError>),
-    /// Indicates an error that ocurred related to breakpoints.
+    /// Indicates that a breakpoint was hit. The inner value is dependent upon
+    /// the middleware or backend being used.
     Breakpoint(Box<RuntimeError>),
 }
 
@@ -257,7 +217,30 @@ impl From<InvokeError> for RuntimeError {
     }
 }
 
-//impl std::error::Error for InvokeError {}
+impl std::error::Error for InvokeError {}
+
+impl std::fmt::Display for InvokeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            InvokeError::FailedWithNoError => write!(f, "Invoke failed with no error"),
+            InvokeError::UnknownTrap { address, signal } => write!(
+                f,
+                "An unknown trap (`{}`) occured at 0x{:X}",
+                signal, address
+            ),
+            InvokeError::TrapCode { code, srcloc } => {
+                write!(f, "A `{}` trap was thrown at code offset {}", code, srcloc)
+            }
+            InvokeError::UnknownTrapCode { trap_code, srcloc } => write!(
+                f,
+                "A trap with an unknown trap code (`{}`) was thrown at code offset {}",
+                trap_code, srcloc
+            ),
+            InvokeError::EarlyTrap(rte) => write!(f, "Early trap: {}", rte),
+            InvokeError::Breakpoint(rte) => write!(f, "Breakpoint hit: {}", rte),
+        }
+    }
+}
 
 /// An `InternalError` is an error that happened inside of Wasmer and is a
 /// catch-all for errors that would otherwise be returned as
@@ -295,8 +278,7 @@ impl std::error::Error for RuntimeError {}
 impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            // TODO: update invoke error formatting
-            RuntimeError::InvokeError(ie) => write!(f, "Error when calling invoke: {:?}", ie),
+            RuntimeError::InvokeError(ie) => write!(f, "Error when calling invoke: {}", ie),
             RuntimeError::Metering(_) => write!(f, "unknown metering error type"),
             RuntimeError::InstanceImage(_) => write!(
                 f,
@@ -317,14 +299,6 @@ impl std::fmt::Display for RuntimeError {
         }
     }
 }
-
-/*
-impl From<InternalError> for RuntimeError {
-    fn from(other: InternalError) -> Self {
-        RuntimeError(Box::new(other))
-    }
-}
- */
 
 /// This error type is produced by resolving a wasm function
 /// given its name.
