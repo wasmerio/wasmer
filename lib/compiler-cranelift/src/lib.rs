@@ -58,7 +58,7 @@ pub use crate::compiler::{transform_jump_table, CraneliftCompiler};
 pub use crate::config::CraneliftConfig;
 pub use crate::debug::{FrameLayout, FrameLayoutChange, FrameLayouts};
 pub use crate::debug::{
-    FunctionAddressMap, InstructionAddressMap, ModuleAddressMap, ModuleMemoryOffset,
+    ModuleMemoryOffset,
     ModuleVmctxInfo, ValueLabelsRanges,
 };
 pub use crate::trampoline::make_wasm_trampoline;
