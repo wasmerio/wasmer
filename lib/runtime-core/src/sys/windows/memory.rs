@@ -4,6 +4,7 @@ use crate::sys::{round_down_to_page_size, round_up_to_page_size};
 use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{ptr, slice};
+use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::memoryapi::{VirtualAlloc, VirtualFree};
 use winapi::um::winnt::{
     MEM_COMMIT, MEM_DECOMMIT, MEM_RESERVE, PAGE_EXECUTE_READ, PAGE_NOACCESS, PAGE_READONLY,
@@ -45,7 +46,10 @@ impl Memory {
         let ptr = unsafe { VirtualAlloc(ptr::null_mut(), size, flags, protect) };
 
         if ptr.is_null() {
-            Err("unable to allocate memory".to_string())
+            Err(format!(
+                "unable to allocate memory (error code: %d)",
+                unsafe { GetLastError() }
+            ))
         } else {
             Ok(Self {
                 ptr: ptr as *mut u8,
@@ -72,7 +76,9 @@ impl Memory {
         if ptr.is_null() {
             Err(MemoryCreationError::VirtualMemoryAllocationFailed(
                 size,
-                "unable to allocate memory".to_string(),
+                format!("unable to allocate memory (error code: %d)", unsafe {
+                    GetLastError()
+                }),
             ))
         } else {
             Ok(Self {
@@ -110,13 +116,6 @@ impl Memory {
         let size = round_up_to_page_size(range_end - range_start, page_size);
         assert!(size <= self.size);
 
-        // Allocating a memory of size 0 raises an error on Windows.
-        if size == 0 {
-            self.protection = Protect::None;
-
-            return Ok(());
-        }
-
         // Commit the virtual memory.
         let ptr = VirtualAlloc(start as _, size, MEM_COMMIT, protect_const);
 
@@ -124,7 +123,9 @@ impl Memory {
             Err(MemoryProtectionError::ProtectionFailed(
                 start as usize,
                 size,
-                "unable to protect memory".to_string(),
+                format!("unable to protect memory (error code: %d)", unsafe {
+                    GetLastError()
+                }),
             ))
         } else {
             self.protection = protect;
