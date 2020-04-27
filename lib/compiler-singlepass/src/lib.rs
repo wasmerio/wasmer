@@ -14,11 +14,12 @@
 
 mod compiler;
 mod config;
-//mod codegen_x64;
+mod codegen_x64;
 mod common_decl;
 mod emitter_x64;
 mod machine;
 mod x64_decl;
+mod exception;
 
 pub use crate::compiler::SinglepassCompiler;
 pub use crate::config::SinglepassConfig;
