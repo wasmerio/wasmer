@@ -13,7 +13,7 @@ MemoryManager::~MemoryManager() {
   callbacks.dealloc_memory(read_section.base, read_section.size);
   callbacks.dealloc_memory(readwrite_section.base, readwrite_section.size);
 }
-void unwinding_setjmp(jmp_buf stack_out, void (*func)(void *), void *userdata) {
+void unwinding_setjmp(jmp_buf &stack_out, void (*func)(void *), void *userdata) {
   if (setjmp(stack_out)) {
 
   } else {

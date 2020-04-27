@@ -69,6 +69,16 @@ extern "C" {
     ) -> bool;
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn copy_runtime_error(
+    src: *mut Option<RuntimeError>,
+    dst: *mut Option<RuntimeError>,
+) {
+    assert_eq!(src as usize % mem::align_of::<Option<RuntimeError>>(), 0);
+    assert_eq!(dst as usize % mem::align_of::<Option<RuntimeError>>(), 0);
+    ptr::copy::<Option<RuntimeError>>(src, dst, 1);
+}
+
 /// `invoke_trampoline` is a wrapper around `cxx_invoke_trampoline`, for fixing up the obsoleted
 /// `trap_out` in the C++ part.
 unsafe extern "C" fn invoke_trampoline(

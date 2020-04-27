@@ -63,6 +63,8 @@ enum WasmTrapType {
 
 extern "C" void callback_trampoline(void *, void *);
 
+extern "C" void copy_runtime_error(runtime_error_t src, runtime_error_t dst);
+
 struct MemoryManager : llvm::RuntimeDyld::MemoryManager {
 public:
   MemoryManager(callbacks_t callbacks) : callbacks(callbacks) {}
@@ -159,7 +161,7 @@ public:
   runtime_error_t error_data;
 
   virtual void write_error(WasmErrorSink &out) const noexcept override {
-    out.user_error = error_data;
+    copy_runtime_error(error_data, out.user_error);
   }
 };
 

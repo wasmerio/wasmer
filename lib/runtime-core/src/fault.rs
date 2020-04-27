@@ -281,7 +281,7 @@ extern "C" fn signal_trap_handler(
     let mut should_unwind = false;
     let mut unwind_result: Option<Box<RuntimeError>> = None;
     let get_unwind_result = |uw_result: Option<Box<RuntimeError>>| -> Box<RuntimeError> {
-        dbg!(uw_result)
+        uw_result
             .unwrap_or_else(|| Box::new(RuntimeError::InvokeError(InvokeError::FailedWithNoError)))
     };
 
