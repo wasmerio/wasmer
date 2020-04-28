@@ -99,7 +99,7 @@ impl CpuFeature {
     /// Retrieves the features for the current Host
     pub fn for_host() -> EnumSet<Self> {
         // We default to an empty hash set
-        EnumSet::new();
+        EnumSet::new()
     }
 }
 
