@@ -2,7 +2,7 @@
 
 ## **[Unreleased]**
 
-- [#1401](https://github.com/wasmerio/wasmer/pull/1401) Make breaking change to `RuntimeError`: `RuntimeError` is now more explicit about its possible error values allowing for better insight into why a call may have failed.
+- [#1401](https://github.com/wasmerio/wasmer/pull/1401) Make breaking change to `RuntimeError`: `RuntimeError` is now more explicit about its possible error values allowing for better insight into why a call into Wasm failed.
 - [#1382](https://github.com/wasmerio/wasmer/pull/1382) Refactored test infranstructure (part 2)
 - [#1380](https://github.com/wasmerio/wasmer/pull/1380) Refactored test infranstructure (part 1)
 - [#1357](https://github.com/wasmerio/wasmer/pull/1357) Refactored bin commands into separate files

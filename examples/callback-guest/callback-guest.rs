@@ -4,6 +4,7 @@ extern "C" {
     fn host_callback() -> u32;
 }
 
+#[no_mangle]
 fn test_callback() -> u32 {
     42
 }

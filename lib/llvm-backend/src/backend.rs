@@ -11,6 +11,7 @@ use inkwell::{
 };
 use libc::c_char;
 use std::{
+    alloc,
     cell::RefCell,
     ffi::{c_void, CString},
     mem,
@@ -69,6 +70,22 @@ extern "C" {
     ) -> bool;
 }
 
+/// Unsafe copy of `RuntimeError`. For use from C++.
+///
+/// This copy is unsafe because `RuntimeError` contains non-`Clone` types such as
+/// `Box<dyn Any>`.
+///
+/// This function should only be used when the ownership can be manually tracked.
+///
+/// For example, this is safe* when used indirectly through the C++ API with a pointer
+/// from `do_early_trap` because `do_early_trap` fully owns the `RuntimeError` and
+/// creates and leaks the `Box` itself.
+///
+/// *: it is only safe provided the following invariants are upheld:
+/// 1. The versions of memory that these 2 pointers point to is only dropped once;
+///    the memory itself can be freed provided the inner type is not dropped.
+/// 2. The duplicated memory is not brought back into Rust to violate standard
+///    mutable aliasing/ownership rules.
 #[no_mangle]
 pub unsafe extern "C" fn copy_runtime_error(
     src: *mut Option<RuntimeError>,
@@ -77,6 +94,18 @@ pub unsafe extern "C" fn copy_runtime_error(
     assert_eq!(src as usize % mem::align_of::<Option<RuntimeError>>(), 0);
     assert_eq!(dst as usize % mem::align_of::<Option<RuntimeError>>(), 0);
     ptr::copy::<Option<RuntimeError>>(src, dst, 1);
+}
+
+/// Frees the memory of a `Option<RuntimeError>` without calling its destructor.
+/// For use from C++ to safely clean up after `copy_runtime_error`.
+#[no_mangle]
+pub unsafe extern "C" fn free_runtime_error_without_drop(rte: *mut Option<RuntimeError>) {
+    let rte_layout = alloc::Layout::from_size_align(
+        mem::size_of::<Option<RuntimeError>>(),
+        mem::align_of::<Option<RuntimeError>>(),
+    )
+    .expect("layout of `Option<RuntimeError>`");
+    alloc::dealloc(rte as *mut u8, rte_layout)
 }
 
 /// `invoke_trampoline` is a wrapper around `cxx_invoke_trampoline`, for fixing up the obsoleted

@@ -49,7 +49,7 @@ typedef struct {
   visit_fde_t visit_fde;
 } callbacks_t;
 
-using runtime_error_t = void*;
+typedef struct runtime_error_t_privdecl runtime_error_t;
 
 enum WasmTrapType {
   Unreachable = 0,
@@ -63,7 +63,8 @@ enum WasmTrapType {
 
 extern "C" void callback_trampoline(void *, void *);
 
-extern "C" void copy_runtime_error(runtime_error_t src, runtime_error_t dst);
+extern "C" void copy_runtime_error(runtime_error_t *src, runtime_error_t *dst);
+extern "C" void free_runtime_error_without_drop(runtime_error_t*);
 
 struct MemoryManager : llvm::RuntimeDyld::MemoryManager {
 public:
@@ -121,7 +122,7 @@ private:
 
 struct WasmErrorSink {
   WasmTrapType *trap_out;
-  runtime_error_t user_error;
+  runtime_error_t *user_error;
 };
 
 struct WasmException : std::exception {
@@ -150,7 +151,13 @@ public:
 struct UserException : UncatchableException {
 public:
   UserException(size_t data) {
-      error_data = reinterpret_cast<runtime_error_t>(data);
+      error_data = reinterpret_cast<runtime_error_t*>(data);
+  }
+
+  UserException(const UserException &) = delete;
+
+  ~UserException() {
+    free_runtime_error_without_drop(error_data);
   }
 
   virtual std::string description() const noexcept override {
@@ -158,7 +165,7 @@ public:
   }
 
   // The pointer to `Option<RuntimeError>`.
-  runtime_error_t error_data;
+  runtime_error_t *error_data;
 
   virtual void write_error(WasmErrorSink &out) const noexcept override {
     copy_runtime_error(error_data, out.user_error);
@@ -290,7 +297,7 @@ void module_delete(WasmModule *module) { delete module; }
 
 bool cxx_invoke_trampoline(trampoline_t trampoline, void *ctx, void *func,
                        void *params, void *results, WasmTrapType *trap_out,
-                       runtime_error_t user_error, void *invoke_env) noexcept {
+                       runtime_error_t *user_error, void *invoke_env) noexcept {
   try {
     catch_unwind([trampoline, ctx, func, params, results]() {
       trampoline(ctx, func, params, results);

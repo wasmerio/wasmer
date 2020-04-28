@@ -79,9 +79,6 @@ impl RunnableModule for Caller {
 
             match res {
                 Err(err) => {
-                    // probably makes the most sense to actually do a translation here to a
-                    // a generic type defined in runtime-core
-                    // TODO: figure out _this_ error return story
                     *error_out = Some(err.into());
                     false
                 }

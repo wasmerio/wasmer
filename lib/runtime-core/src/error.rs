@@ -181,7 +181,7 @@ pub enum InvokeError {
     FailedWithNoError,
     /// Indicates that a trap occurred that is not known to Wasmer.
     UnknownTrap {
-        /// The address that the trap occured at.
+        /// The address that the trap occurred at.
         address: usize,
         /// The name of the signal.
         signal: &'static str,
@@ -251,7 +251,7 @@ impl std::fmt::Display for InvokeError {
 /// extremely rare and impossible to handle.
 #[derive(Debug)]
 pub enum RuntimeError {
-    /// When an invoke returns an error
+    /// An error relating to the invocation of a Wasm function.
     InvokeError(InvokeError),
     /// A metering triggered error value.
     ///
