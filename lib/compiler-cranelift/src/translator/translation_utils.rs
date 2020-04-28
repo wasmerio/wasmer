@@ -9,10 +9,10 @@ use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
 use wasm_common::{FuncType, Type};
 use wasmer_compiler::wasm_unsupported;
+use wasmer_compiler::wasmparser;
 use wasmer_compiler::RelocationKind;
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_runtime::libcalls::LibCall;
-use wasmparser;
 
 /// Helper function translate a Funciton signature into Cranelift Ir
 pub fn signature_to_cranelift_ir(

@@ -65,6 +65,11 @@ pub use crate::translator::{
 pub use crate::trap::TrapInformation;
 pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTableReloc};
 
+/// wasmparser is exported as a module to slim compiler dependencies
+pub mod wasmparser {
+    pub use wasmparser::*;
+}
+
 /// Offset in bytes from the beginning of the function.
 pub type CodeOffset = u32;
 

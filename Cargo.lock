@@ -1186,7 +1186,6 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-runtime",
- "wasmparser",
 ]
 
 [[package]]
@@ -1209,7 +1208,6 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-runtime",
- "wasmparser",
 ]
 
 [[package]]
@@ -1224,7 +1222,6 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-runtime",
- "wasmparser",
 ]
 
 [[package]]

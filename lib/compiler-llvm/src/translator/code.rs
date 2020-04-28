@@ -36,6 +36,7 @@ use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
     FuncIndex, FuncType, GlobalIndex, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
 };
+use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 use wasmer_compiler::FunctionAddressMap;
 use wasmer_compiler::FunctionBodyData;
@@ -45,7 +46,6 @@ use wasmer_compiler::{
 };
 use wasmer_runtime::Module as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan};
-use wasmparser::{BinaryReader, MemoryImmediate, Operator};
 
 // TODO: debugging
 use std::fs;

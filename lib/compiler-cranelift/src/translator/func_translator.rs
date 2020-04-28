@@ -13,8 +13,8 @@ use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use log::info;
+use wasmer_compiler::wasmparser::{self, BinaryReader};
 use wasmer_compiler::{to_wasm_error, wasm_unsupported, ModuleTranslationState, WasmResult};
-use wasmparser::{self, BinaryReader};
 
 /// WebAssembly to Cranelift IR function translator.
 ///
