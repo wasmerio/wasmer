@@ -985,6 +985,10 @@
 <span id="985">985</span>
 <span id="986">986</span>
 <span id="987">987</span>
+<span id="988">988</span>
+<span id="989">989</span>
+<span id="990">990</span>
+<span id="991">991</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">common</span>::{<span class="ident">get_cache_dir</span>, <span class="ident">PrestandardFeatures</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">utils</span>::<span class="ident">read_file_contents</span>;
@@ -1009,6 +1013,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{
     <span class="self">self</span>,
     <span class="ident">backend</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">MemoryBoundCheckMode</span>},
+    <span class="ident">error</span>::<span class="ident">RuntimeError</span>,
     <span class="ident">loader</span>::{<span class="ident">Instance</span> <span class="kw">as</span> <span class="ident">LoadedInstance</span>, <span class="ident">LocalLoader</span>},
     <span class="ident">Module</span>,
 };
@@ -1425,9 +1430,12 @@
         }
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="kw-2">ref</span> <span class="ident">err</span>) <span class="op">=</span> <span class="ident">result</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">error_code</span>) <span class="op">=</span> <span class="ident">err</span>.<span class="number">0</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">wasmer_wasi</span>::<span class="ident">ExitCode</span><span class="op">&gt;</span>() {
-                <span class="ident">std</span>::<span class="ident">process</span>::<span class="ident">exit</span>(<span class="ident">error_code</span>.<span class="ident">code</span> <span class="kw">as</span> <span class="ident">i32</span>)
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">RuntimeError</span>::<span class="ident">User</span>(<span class="ident">user_error</span>) <span class="op">=</span> <span class="ident">err</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">error_code</span>) <span class="op">=</span> <span class="ident">user_error</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">wasmer_wasi</span>::<span class="ident">ExitCode</span><span class="op">&gt;</span>() {
+                    <span class="ident">std</span>::<span class="ident">process</span>::<span class="ident">exit</span>(<span class="ident">error_code</span>.<span class="ident">code</span> <span class="kw">as</span> <span class="ident">i32</span>)
+                }
             }
+
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;error: {:?}&quot;</span>, <span class="ident">err</span>));
         }
     }

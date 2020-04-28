@@ -141,7 +141,6 @@
 <span id="141">141</span>
 <span id="142">142</span>
 <span id="143">143</span>
-<span id="144">144</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">relocation</span>::{<span class="ident">TrapData</span>, <span class="ident">TrapSink</span>},
@@ -149,9 +148,10 @@
     <span class="ident">trampoline</span>::<span class="ident">Trampolines</span>,
 };
 <span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">c_void</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">any</span>::<span class="ident">Any</span>, <span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">ptr</span>::<span class="ident">NonNull</span>, <span class="ident">sync</span>::<span class="ident">Arc</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">ptr</span>::<span class="ident">NonNull</span>, <span class="ident">sync</span>::<span class="ident">Arc</span>};
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{
     <span class="ident">backend</span>::<span class="ident">RunnableModule</span>,
+    <span class="ident">error</span>::<span class="ident">RuntimeError</span>,
     <span class="ident">module</span>::<span class="ident">ModuleInfo</span>,
     <span class="ident">typed_func</span>::{<span class="ident">Trampoline</span>, <span class="ident">Wasm</span>},
     <span class="ident">types</span>::{<span class="ident">LocalFuncIndex</span>, <span class="ident">SigIndex</span>},
@@ -171,10 +171,8 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">windows</span>::<span class="kw-2">*</span>;
 
 <span class="macro">thread_local</span><span class="macro">!</span> {
-    <span class="kw">pub</span> <span class="kw">static</span> <span class="ident">TRAP_EARLY_DATA</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="prelude-val">None</span>);
+    <span class="kw">pub</span> <span class="kw">static</span> <span class="ident">TRAP_EARLY_DATA</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="prelude-val">None</span>);
 }
-
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CallProtError</span>(<span class="kw">pub</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>);
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Caller</span> {
     <span class="ident">handler_data</span>: <span class="ident">HandlerData</span>,
@@ -208,7 +206,7 @@
             <span class="ident">func</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
             <span class="ident">args</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u64</span>,
             <span class="ident">rets</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span>,
-            <span class="ident">error_out</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+            <span class="ident">error_out</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span>,
             <span class="ident">invoke_env</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
             <span class="kw">let</span> <span class="ident">handler_data</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">invoke_env</span>.<span class="ident">unwrap</span>().<span class="ident">cast</span>().<span class="ident">as_ptr</span>();
@@ -225,7 +223,7 @@
 
             <span class="kw">match</span> <span class="ident">res</span> {
                 <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="kw-2">*</span><span class="ident">error_out</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="number">0</span>);
+                    <span class="kw-2">*</span><span class="ident">error_out</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="ident">into</span>());
                     <span class="bool-val">false</span>
                 }
                 <span class="prelude-val">Ok</span>(()) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
@@ -246,7 +244,7 @@
         })
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">do_early_trap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">do_early_trap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data</span>: <span class="ident">RuntimeError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
         <span class="ident">TRAP_EARLY_DATA</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">cell</span><span class="op">|</span> <span class="ident">cell</span>.<span class="ident">set</span>(<span class="prelude-val">Some</span>(<span class="ident">data</span>)));
         <span class="ident">trigger_trap</span>()
     }

@@ -1030,6 +1030,17 @@
 <span id="1030">1030</span>
 <span id="1031">1031</span>
 <span id="1032">1032</span>
+<span id="1033">1033</span>
+<span id="1034">1034</span>
+<span id="1035">1035</span>
+<span id="1036">1036</span>
+<span id="1037">1037</span>
+<span id="1038">1038</span>
+<span id="1039">1039</span>
+<span id="1040">1040</span>
+<span id="1041">1041</span>
+<span id="1042">1042</span>
+<span id="1043">1043</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The fault module contains the implementation for handling breakpoints, traps, and signals</span>
 <span class="doccomment">//! for wasm code.</span>
@@ -1061,6 +1072,7 @@
 }
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">codegen</span>::{<span class="ident">BreakpointInfo</span>, <span class="ident">BreakpointMap</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::{<span class="ident">InvokeError</span>, <span class="ident">RuntimeError</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">state</span>::<span class="ident">x64</span>::{<span class="ident">build_instance_image</span>, <span class="ident">read_stack</span>, <span class="ident">X64Register</span>, <span class="ident">GPR</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">state</span>::{<span class="ident">CodeVersion</span>, <span class="ident">ExecutionStateImage</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vm</span>;
@@ -1069,7 +1081,6 @@
     <span class="ident">sigaction</span>, <span class="ident">SaFlags</span>, <span class="ident">SigAction</span>, <span class="ident">SigHandler</span>, <span class="ident">SigSet</span>, <span class="ident">Signal</span>, <span class="ident">SIGBUS</span>, <span class="ident">SIGFPE</span>, <span class="ident">SIGILL</span>, <span class="ident">SIGINT</span>,
     <span class="ident">SIGSEGV</span>, <span class="ident">SIGTRAP</span>,
 };
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::{<span class="ident">Cell</span>, <span class="ident">RefCell</span>, <span class="ident">UnsafeCell</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">process</span>;
@@ -1094,7 +1105,7 @@
 <span class="kw">struct</span> <span class="ident">UnwindInfo</span> {
     <span class="ident">jmpbuf</span>: <span class="ident">SetJmpBuffer</span>, <span class="comment">// in</span>
     <span class="ident">breakpoints</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BreakpointMap</span><span class="op">&gt;</span>,
-    <span class="ident">payload</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="comment">// out</span>
+    <span class="ident">payload</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="comment">// out</span>
 }
 
 <span class="doccomment">/// A store for boundary register preservation.</span>
@@ -1215,7 +1226,7 @@
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">catch_unsafe_unwind</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">F</span>: <span class="ident">FnOnce</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">R</span><span class="op">&gt;</span>(
     <span class="ident">f</span>: <span class="ident">F</span>,
     <span class="ident">breakpoints</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BreakpointMap</span><span class="op">&gt;</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">unwind</span> <span class="op">=</span> <span class="ident">UNWIND</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">get</span>());
     <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">unwind</span>).<span class="ident">take</span>();
     <span class="kw-2">*</span><span class="ident">unwind</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">UnwindInfo</span> {
@@ -1228,7 +1239,7 @@
         <span class="comment">// error</span>
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">unwind</span>).<span class="ident">as_mut</span>().<span class="ident">unwrap</span>().<span class="ident">payload</span>.<span class="ident">take</span>().<span class="ident">unwrap</span>();
         <span class="kw-2">*</span><span class="ident">unwind</span> <span class="op">=</span> <span class="ident">old</span>;
-        <span class="prelude-val">Err</span>(<span class="ident">ret</span>)
+        <span class="prelude-val">Err</span>(<span class="kw-2">*</span><span class="ident">ret</span>)
     } <span class="kw">else</span> {
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">f</span>();
         <span class="comment">// implicit control flow to the error case...</span>
@@ -1238,7 +1249,7 @@
 }
 
 <span class="doccomment">/// Begins an unsafe unwind.</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">begin_unsafe_unwind</span>(<span class="ident">e</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">begin_unsafe_unwind</span>(<span class="ident">e</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
     <span class="kw">let</span> <span class="ident">unwind</span> <span class="op">=</span> <span class="ident">UNWIND</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">get</span>());
     <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">unwind</span>)
         .<span class="ident">as_mut</span>()
@@ -1312,7 +1323,11 @@
     <span class="kw">static</span> <span class="ident">ARCH</span>: <span class="ident">Architecture</span> <span class="op">=</span> <span class="ident">Architecture</span>::<span class="ident">Aarch64</span>;
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">should_unwind</span> <span class="op">=</span> <span class="bool-val">false</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">unwind_result</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(());
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">unwind_result</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+    <span class="kw">let</span> <span class="ident">get_unwind_result</span> <span class="op">=</span> <span class="op">|</span><span class="ident">uw_result</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span> {
+        <span class="ident">uw_result</span>
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">RuntimeError</span>::<span class="ident">InvokeError</span>(<span class="ident">InvokeError</span>::<span class="ident">FailedWithNoError</span>)))
+    };
 
     <span class="kw">unsafe</span> {
         <span class="kw">let</span> <span class="ident">fault</span> <span class="op">=</span> <span class="ident">get_fault_info</span>(<span class="ident">siginfo</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">ucontext</span>);
@@ -1335,7 +1350,7 @@
                         ) {
                             <span class="kw">match</span> <span class="ident">ib</span>.<span class="ident">ty</span> {
                                 <span class="ident">InlineBreakpointType</span>::<span class="ident">Middleware</span> <span class="op">=</span><span class="op">&gt;</span> {
-                                    <span class="kw">let</span> <span class="ident">out</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span>
+                                    <span class="kw">let</span> <span class="ident">out</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span>
                                         <span class="ident">with_breakpoint_map</span>(<span class="op">|</span><span class="ident">bkpt_map</span><span class="op">|</span> {
                                             <span class="ident">bkpt_map</span>.<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">ip</span>)).<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> {
                                                 <span class="ident">x</span>(<span class="ident">BreakpointInfo</span> {
@@ -1346,7 +1361,7 @@
                                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(())) <span class="op">=</span> <span class="ident">out</span> {
                                     } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="ident">e</span>)) <span class="op">=</span> <span class="ident">out</span> {
                                         <span class="ident">should_unwind</span> <span class="op">=</span> <span class="bool-val">true</span>;
-                                        <span class="ident">unwind_result</span> <span class="op">=</span> <span class="ident">e</span>;
+                                        <span class="ident">unwind_result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">e</span>));
                                     }
                                 }
                             }
@@ -1361,7 +1376,7 @@
             })
         });
         <span class="kw">if</span> <span class="ident">should_unwind</span> {
-            <span class="ident">begin_unsafe_unwind</span>(<span class="ident">unwind_result</span>);
+            <span class="ident">begin_unsafe_unwind</span>(<span class="ident">get_unwind_result</span>(<span class="ident">unwind_result</span>));
         }
         <span class="kw">if</span> <span class="ident">early_return</span> {
             <span class="kw">return</span>;
@@ -1375,20 +1390,22 @@
             <span class="kw">match</span> <span class="ident">Signal</span>::<span class="ident">from_c_int</span>(<span class="ident">signum</span>) {
                 <span class="prelude-val">Ok</span>(<span class="ident">SIGTRAP</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="comment">// breakpoint</span>
-                    <span class="kw">let</span> <span class="ident">out</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span>
-                        <span class="ident">with_breakpoint_map</span>(<span class="op">|</span><span class="ident">bkpt_map</span><span class="op">|</span> {
-                            <span class="ident">bkpt_map</span>.<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span>(<span class="ident">fault</span>.<span class="ident">ip</span>.<span class="ident">get</span>()))).<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> {
-                                <span class="ident">x</span>(<span class="ident">BreakpointInfo</span> {
-                                    <span class="ident">fault</span>: <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">fault</span>),
-                                })
-                            })
+                    <span class="kw">let</span> <span class="ident">out</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span>
+                        <span class="ident">with_breakpoint_map</span>(<span class="op">|</span><span class="ident">bkpt_map</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+                            <span class="ident">bkpt_map</span>.<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span>(<span class="ident">fault</span>.<span class="ident">ip</span>.<span class="ident">get</span>()))).<span class="ident">map</span>(
+                                <span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
+                                    <span class="ident">x</span>(<span class="ident">BreakpointInfo</span> {
+                                        <span class="ident">fault</span>: <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">fault</span>),
+                                    })
+                                },
+                            )
                         });
                     <span class="kw">match</span> <span class="ident">out</span> {
                         <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(())) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="kw">return</span> <span class="bool-val">false</span>;
                         }
                         <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="ident">e</span>)) <span class="op">=</span><span class="op">&gt;</span> {
-                            <span class="ident">unwind_result</span> <span class="op">=</span> <span class="ident">e</span>;
+                            <span class="ident">unwind_result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">e</span>));
                             <span class="kw">return</span> <span class="bool-val">true</span>;
                         }
                         <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> {}
@@ -1420,7 +1437,7 @@
             <span class="kw">if</span> <span class="ident">is_suspend_signal</span> {
                 <span class="comment">// If this is a suspend signal, we parse the runtime state and return the resulting image.</span>
                 <span class="kw">let</span> <span class="ident">image</span> <span class="op">=</span> <span class="ident">build_instance_image</span>(<span class="ident">ctx</span>, <span class="ident">es_image</span>);
-                <span class="ident">unwind_result</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">image</span>);
+                <span class="ident">unwind_result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">RuntimeError</span>::<span class="ident">InstanceImage</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">image</span>))));
             } <span class="kw">else</span> {
                 <span class="comment">// Otherwise, this is a real exception and we just throw it to the caller.</span>
                 <span class="kw">if</span> <span class="op">!</span><span class="ident">es_image</span>.<span class="ident">frames</span>.<span class="ident">is_empty</span>() {
@@ -1448,7 +1465,12 @@
                     <span class="prelude-val">None</span>
                 });
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">code</span>) <span class="op">=</span> <span class="ident">exc_code</span> {
-                    <span class="ident">unwind_result</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">code</span>);
+                    <span class="ident">unwind_result</span> <span class="op">=</span>
+                        <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">RuntimeError</span>::<span class="ident">InvokeError</span>(<span class="ident">InvokeError</span>::<span class="ident">TrapCode</span> {
+                            <span class="ident">code</span>,
+                            <span class="comment">// TODO:</span>
+                            <span class="ident">srcloc</span>: <span class="number">0</span>,
+                        })));
                 }
             }
 
@@ -1456,7 +1478,7 @@
         });
 
         <span class="kw">if</span> <span class="ident">should_unwind</span> {
-            <span class="ident">begin_unsafe_unwind</span>(<span class="ident">unwind_result</span>);
+            <span class="ident">begin_unsafe_unwind</span>(<span class="ident">get_unwind_result</span>(<span class="ident">unwind_result</span>));
         }
     }
 }

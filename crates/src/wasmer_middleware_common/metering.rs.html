@@ -129,9 +129,13 @@
 <span id="129">129</span>
 <span id="130">130</span>
 <span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{
     <span class="ident">codegen</span>::{<span class="ident">Event</span>, <span class="ident">EventSink</span>, <span class="ident">FunctionMiddleware</span>, <span class="ident">InternalEvent</span>},
+    <span class="ident">error</span>::<span class="ident">RuntimeError</span>,
     <span class="ident">module</span>::<span class="ident">ModuleInfo</span>,
     <span class="ident">vm</span>::{<span class="ident">Ctx</span>, <span class="ident">InternalField</span>},
     <span class="ident">wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>},
@@ -228,7 +232,9 @@
                             <span class="ident">ty</span>: <span class="ident">WpTypeOrFuncType</span>::<span class="ident">Type</span>(<span class="ident">WpType</span>::<span class="ident">EmptyBlockType</span>),
                         }));
                         <span class="ident">sink</span>.<span class="ident">push</span>(<span class="ident">Event</span>::<span class="ident">Internal</span>(<span class="ident">InternalEvent</span>::<span class="ident">Breakpoint</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
-                            <span class="prelude-val">Err</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">ExecutionLimitExceededError</span>))
+                            <span class="prelude-val">Err</span>(<span class="ident">RuntimeError</span>::<span class="ident">Metering</span>(<span class="ident">Box</span>::<span class="ident">new</span>(
+                                <span class="ident">ExecutionLimitExceededError</span>,
+                            )))
                         }))));
                         <span class="ident">sink</span>.<span class="ident">push</span>(<span class="ident">Event</span>::<span class="ident">WasmOwned</span>(<span class="ident">Operator</span>::<span class="ident">End</span>));
                     }

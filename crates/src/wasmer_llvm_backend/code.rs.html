@@ -9081,6 +9081,7 @@
     <span class="ident">backend</span>::{<span class="ident">CacheGen</span>, <span class="ident">CompilerConfig</span>, <span class="ident">Token</span>},
     <span class="ident">cache</span>::{<span class="ident">Artifact</span>, <span class="ident">Error</span> <span class="kw">as</span> <span class="ident">CacheError</span>},
     <span class="ident">codegen</span>::<span class="kw-2">*</span>,
+    <span class="ident">error</span>::<span class="ident">RuntimeError</span>,
     <span class="ident">memory</span>::<span class="ident">MemoryType</span>,
     <span class="ident">module</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">ModuleInner</span>},
     <span class="ident">parse</span>::{<span class="ident">wp_type_to_type</span>, <span class="ident">LoadError</span>},
@@ -9986,12 +9987,11 @@
 <span class="comment">// prevents unused function elimination.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">callback_trampoline</span>(
-    <span class="ident">b</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">b</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span>,
     <span class="ident">callback</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">BreakpointHandler</span>,
 ) {
     <span class="kw">let</span> <span class="ident">callback</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">from_raw</span>(<span class="ident">callback</span>);
-    <span class="kw">let</span> <span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span>
-        <span class="ident">callback</span>(<span class="ident">BreakpointInfo</span> { <span class="ident">fault</span>: <span class="prelude-val">None</span> });
+    <span class="kw">let</span> <span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">callback</span>(<span class="ident">BreakpointInfo</span> { <span class="ident">fault</span>: <span class="prelude-val">None</span> });
     <span class="kw">match</span> <span class="ident">result</span> {
         <span class="prelude-val">Ok</span>(()) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">b</span> <span class="op">=</span> <span class="prelude-val">None</span>,
         <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">b</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">e</span>),

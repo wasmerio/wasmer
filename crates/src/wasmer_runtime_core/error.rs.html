@@ -568,6 +568,96 @@
 <span id="568">568</span>
 <span id="569">569</span>
 <span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
+<span id="657">657</span>
+<span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The error module contains the data structures and helper functions used to implement errors that</span>
 <span class="doccomment">//! are produced and returned from the wasmer runtime core.</span>
@@ -744,13 +834,99 @@
 
 <span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span> <span class="kw">for</span> <span class="ident">LinkError</span> {}
 
-<span class="doccomment">/// This is the error type returned when calling</span>
-<span class="doccomment">/// a WebAssembly function.</span>
+<span class="doccomment">/// An error that happened while invoking a Wasm function.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">InvokeError</span> {
+    <span class="doccomment">/// Indicates an exceptional circumstance such as a bug in Wasmer (please file an issue!)</span>
+    <span class="doccomment">/// or a hardware failure.</span>
+    <span class="ident">FailedWithNoError</span>,
+    <span class="doccomment">/// Indicates that a trap occurred that is not known to Wasmer.</span>
+    <span class="ident">UnknownTrap</span> {
+        <span class="doccomment">/// The address that the trap occurred at.</span>
+        <span class="ident">address</span>: <span class="ident">usize</span>,
+        <span class="doccomment">/// The name of the signal.</span>
+        <span class="ident">signal</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>,
+    },
+    <span class="doccomment">/// A trap that Wasmer knows about occurred.</span>
+    <span class="ident">TrapCode</span> {
+        <span class="doccomment">/// The type of exception.</span>
+        <span class="ident">code</span>: <span class="ident">ExceptionCode</span>,
+        <span class="doccomment">/// Where in the Wasm file this trap orginated from.</span>
+        <span class="ident">srcloc</span>: <span class="ident">u32</span>,
+    },
+    <span class="doccomment">/// A trap occurred that Wasmer knows about but it had a trap code that</span>
+    <span class="doccomment">/// we weren&#39;t expecting or that we do not handle.  This error may be backend-specific.</span>
+    <span class="ident">UnknownTrapCode</span> {
+        <span class="doccomment">/// The trap code we saw but did not recognize.</span>
+        <span class="ident">trap_code</span>: <span class="ident">String</span>,
+        <span class="doccomment">/// Where in the Wasm file this trap orginated from.</span>
+        <span class="ident">srcloc</span>: <span class="ident">u32</span>,
+    },
+    <span class="doccomment">/// An &quot;early trap&quot; occurred.  TODO: document this properly</span>
+    <span class="ident">EarlyTrap</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span>),
+    <span class="doccomment">/// Indicates that a breakpoint was hit. The inner value is dependent upon</span>
+    <span class="doccomment">/// the middleware or backend being used.</span>
+    <span class="ident">Breakpoint</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span>),
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">InvokeError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">InvokeError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RuntimeError</span> {
+        <span class="kw">match</span> <span class="ident">other</span> {
+            <span class="ident">InvokeError</span>::<span class="ident">EarlyTrap</span>(<span class="ident">re</span>) <span class="op">|</span> <span class="ident">InvokeError</span>::<span class="ident">Breakpoint</span>(<span class="ident">re</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">re</span>,
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RuntimeError</span>::<span class="ident">InvokeError</span>(<span class="ident">other</span>),
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span> <span class="kw">for</span> <span class="ident">InvokeError</span> {}
+
+<span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">InvokeError</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">InvokeError</span>::<span class="ident">FailedWithNoError</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Invoke failed with no error&quot;</span>),
+            <span class="ident">InvokeError</span>::<span class="ident">UnknownTrap</span> { <span class="ident">address</span>, <span class="ident">signal</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
+                <span class="ident">f</span>,
+                <span class="string">&quot;An unknown trap (`{}`) occured at 0x{:X}&quot;</span>,
+                <span class="ident">signal</span>, <span class="ident">address</span>
+            ),
+            <span class="ident">InvokeError</span>::<span class="ident">TrapCode</span> { <span class="ident">code</span>, <span class="ident">srcloc</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;A `{}` trap was thrown at code offset {}&quot;</span>, <span class="ident">code</span>, <span class="ident">srcloc</span>)
+            }
+            <span class="ident">InvokeError</span>::<span class="ident">UnknownTrapCode</span> { <span class="ident">trap_code</span>, <span class="ident">srcloc</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
+                <span class="ident">f</span>,
+                <span class="string">&quot;A trap with an unknown trap code (`{}`) was thrown at code offset {}&quot;</span>,
+                <span class="ident">trap_code</span>, <span class="ident">srcloc</span>
+            ),
+            <span class="ident">InvokeError</span>::<span class="ident">EarlyTrap</span>(<span class="ident">rte</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Early trap: {}&quot;</span>, <span class="ident">rte</span>),
+            <span class="ident">InvokeError</span>::<span class="ident">Breakpoint</span>(<span class="ident">rte</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Breakpoint hit: {}&quot;</span>, <span class="ident">rte</span>),
+        }
+    }
+}
+
+<span class="doccomment">/// An `InternalError` is an error that happened inside of Wasmer and is a</span>
+<span class="doccomment">/// catch-all for errors that would otherwise be returned as</span>
+<span class="doccomment">/// `RuntimeError(Box::new(&lt;string&gt;))`.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// The main way to do this is `Instance.call`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Comparing two `RuntimeError`s always evaluates to false.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RuntimeError</span>(<span class="kw">pub</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>);
+<span class="doccomment">/// This type provides greater visibility into the kinds of things that may fail</span>
+<span class="doccomment">/// and improves the ability of users to handle them, though these errors may be</span>
+<span class="doccomment">/// extremely rare and impossible to handle.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RuntimeError</span> {
+    <span class="doccomment">/// An error relating to the invocation of a Wasm function.</span>
+    <span class="ident">InvokeError</span>(<span class="ident">InvokeError</span>),
+    <span class="doccomment">/// A metering triggered error value.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// An error of this type indicates that it was returned by the metering system.</span>
+    <span class="ident">Metering</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>),
+    <span class="doccomment">/// A frozen state of Wasm used to pause and resume execution.  Not strictly an</span>
+    <span class="doccomment">/// &quot;error&quot;, but this happens while executing and therefore is a `RuntimeError`</span>
+    <span class="doccomment">/// from the persective of the caller that expected the code to fully execute.</span>
+    <span class="ident">InstanceImage</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>),
+    <span class="doccomment">/// A user triggered error value.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// An error returned from a host function.</span>
+    <span class="ident">User</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>),
+}
 
 <span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {
     <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_other</span>: <span class="kw-2">&amp;</span><span class="ident">RuntimeError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
@@ -758,28 +934,32 @@
     }
 }
 
+<span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {}
+
 <span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="number">0</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">data</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>() {
-            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;\&quot;{}\&quot;&quot;</span>, <span class="ident">s</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">data</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>() {
-            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;\&quot;{}\&quot;&quot;</span>, <span class="ident">s</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">exc_code</span>) <span class="op">=</span> <span class="ident">data</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">ExceptionCode</span><span class="op">&gt;</span>() {
-            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Caught exception of type \&quot;{:?}\&quot;.&quot;</span>, <span class="ident">exc_code</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;unknown error&quot;</span>)
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">RuntimeError</span>::<span class="ident">InvokeError</span>(<span class="ident">ie</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Error when calling invoke: {}&quot;</span>, <span class="ident">ie</span>),
+            <span class="ident">RuntimeError</span>::<span class="ident">Metering</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;unknown metering error type&quot;</span>),
+            <span class="ident">RuntimeError</span>::<span class="ident">InstanceImage</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(
+                <span class="ident">f</span>,
+                <span class="string">&quot;Execution interrupted by a suspend signal: instance image returned&quot;</span>
+            ),
+            <span class="ident">RuntimeError</span>::<span class="ident">User</span>(<span class="ident">user_error</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;User supplied error: &quot;</span>)<span class="question-mark">?</span>;
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">user_error</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>() {
+                    <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;\&quot;{}\&quot;&quot;</span>, <span class="ident">s</span>)
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">user_error</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>() {
+                    <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;\&quot;{}\&quot;&quot;</span>, <span class="ident">s</span>)
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">n</span>) <span class="op">=</span> <span class="ident">user_error</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>() {
+                    <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">n</span>)
+                } <span class="kw">else</span> {
+                    <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;unknown user error type&quot;</span>)
+                }
+            }
         }
     }
 }
-
-<span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {}
 
 <span class="doccomment">/// This error type is produced by resolving a wasm function</span>
 <span class="doccomment">/// given its name.</span>

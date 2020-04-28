@@ -950,6 +950,11 @@
 <span id="950">950</span>
 <span id="951">951</span>
 <span id="952">952</span>
+<span id="953">953</span>
+<span id="954">954</span>
+<span id="955">955</span>
+<span id="956">956</span>
+<span id="957">957</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This module contains types for manipulating and accessing Wasm instances.</span>
 <span class="doccomment">//!</span>
@@ -958,7 +963,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">backend</span>::<span class="ident">RunnableModule</span>,
     <span class="ident">backing</span>::{<span class="ident">ImportBacking</span>, <span class="ident">LocalBacking</span>},
-    <span class="ident">error</span>::{<span class="ident">CallResult</span>, <span class="ident">ResolveError</span>, <span class="ident">ResolveResult</span>, <span class="prelude-ty">Result</span>, <span class="ident">RuntimeError</span>},
+    <span class="ident">error</span>::{<span class="ident">CallResult</span>, <span class="ident">InvokeError</span>, <span class="ident">ResolveError</span>, <span class="ident">ResolveResult</span>, <span class="prelude-ty">Result</span>, <span class="ident">RuntimeError</span>},
     <span class="ident">export</span>::{<span class="ident">Context</span>, <span class="ident">Export</span>, <span class="ident">ExportIter</span>, <span class="ident">Exportable</span>, <span class="ident">FuncPointer</span>},
     <span class="ident">global</span>::<span class="ident">Global</span>,
     <span class="ident">import</span>::{<span class="ident">ImportObject</span>, <span class="ident">LikeNamespace</span>},
@@ -1537,25 +1542,30 @@
         <span class="ident">invoke_env</span>,
     } <span class="op">=</span> <span class="ident">wasm</span>;
 
-    <span class="kw">let</span> <span class="ident">run_wasm</span> <span class="op">=</span> <span class="op">|</span><span class="ident">result_space</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span><span class="op">|</span> <span class="kw">unsafe</span> {
+    <span class="kw">let</span> <span class="ident">run_wasm</span> <span class="op">=</span> <span class="op">|</span><span class="ident">result_space</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CallResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">error_out</span> <span class="op">=</span> <span class="prelude-val">None</span>;
 
-        <span class="kw">let</span> <span class="ident">success</span> <span class="op">=</span> <span class="ident">invoke</span>(
-            <span class="ident">trampoline</span>,
-            <span class="ident">ctx_ptr</span>,
-            <span class="ident">func_ptr</span>,
-            <span class="ident">raw_args</span>.<span class="ident">as_ptr</span>(),
-            <span class="ident">result_space</span>,
-            <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">error_out</span>,
-            <span class="ident">invoke_env</span>,
-        );
+        <span class="kw">let</span> <span class="ident">success</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+            <span class="ident">invoke</span>(
+                <span class="ident">trampoline</span>,
+                <span class="ident">ctx_ptr</span>,
+                <span class="ident">func_ptr</span>,
+                <span class="ident">raw_args</span>.<span class="ident">as_ptr</span>(),
+                <span class="ident">result_space</span>,
+                <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">error_out</span>,
+                <span class="ident">invoke_env</span>,
+            )
+        };
 
         <span class="kw">if</span> <span class="ident">success</span> {
             <span class="prelude-val">Ok</span>(())
         } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">error_out</span>
-                .<span class="ident">map</span>(<span class="ident">RuntimeError</span>)
-                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="string">&quot;invoke(): Unknown error&quot;</span>.<span class="ident">to_string</span>()))))
+            <span class="kw">let</span> <span class="ident">error</span>: <span class="ident">RuntimeError</span> <span class="op">=</span> <span class="ident">error_out</span>.<span class="ident">map_or_else</span>(
+                <span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError</span>::<span class="ident">InvokeError</span>(<span class="ident">InvokeError</span>::<span class="ident">FailedWithNoError</span>),
+                <span class="ident">Into</span>::<span class="ident">into</span>,
+            );
+            <span class="macro">dbg</span><span class="macro">!</span>(<span class="kw-2">&amp;</span><span class="ident">error</span>);
+            <span class="prelude-val">Err</span>(<span class="ident">error</span>.<span class="ident">into</span>())
         }
     };
 

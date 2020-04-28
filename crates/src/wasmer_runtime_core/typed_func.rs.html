@@ -1039,11 +1039,13 @@
 <span id="1039">1039</span>
 <span id="1040">1040</span>
 <span id="1041">1041</span>
+<span id="1042">1042</span>
+<span id="1043">1043</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The typed func module implements a way of representing a wasm function</span>
 <span class="doccomment">//! with the correct types from rust. Function calls using a typed func have a low overhead.</span>
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">error</span>::<span class="ident">RuntimeError</span>,
+    <span class="ident">error</span>::{<span class="ident">InvokeError</span>, <span class="ident">RuntimeError</span>},
     <span class="ident">export</span>::{<span class="ident">Context</span>, <span class="ident">Export</span>, <span class="ident">FuncPointer</span>},
     <span class="ident">import</span>::<span class="ident">IsExport</span>,
     <span class="ident">types</span>::{<span class="ident">FuncSig</span>, <span class="ident">NativeWasmType</span>, <span class="ident">Type</span>, <span class="ident">WasmExternType</span>},
@@ -1079,7 +1081,7 @@
     <span class="ident">func</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">vm</span>::<span class="ident">Func</span><span class="op">&gt;</span>,
     <span class="ident">args</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u64</span>,
     <span class="ident">rets</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span>,
-    <span class="ident">error_out</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">error_out</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RuntimeError</span><span class="op">&gt;</span>,
     <span class="ident">extra</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_void</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
 
@@ -1382,7 +1384,9 @@
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="comment">// At this point, there is an error that needs to be trapped.</span>
                     <span class="ident">drop</span>(<span class="ident">args</span>); <span class="comment">// Release the Vec which will leak otherwise.</span>
-                    (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>.<span class="ident">module</span>).<span class="ident">runnable_module</span>.<span class="ident">do_early_trap</span>(<span class="ident">e</span>)
+                    (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>.<span class="ident">module</span>)
+                        .<span class="ident">runnable_module</span>
+                        .<span class="ident">do_early_trap</span>(<span class="ident">RuntimeError</span>::<span class="ident">User</span>(<span class="ident">e</span>))
                 }
             }
         }
@@ -1630,9 +1634,7 @@
                 ) {
                     <span class="prelude-val">Ok</span>(<span class="ident">Rets</span>::<span class="ident">from_ret_array</span>(<span class="ident">rets</span>))
                 } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">error_out</span>.<span class="ident">map</span>(<span class="ident">RuntimeError</span>).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                        <span class="ident">RuntimeError</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="string">&quot;invoke(): Unknown error&quot;</span>.<span class="ident">to_string</span>()))
-                    }))
+                    <span class="prelude-val">Err</span>(<span class="ident">error_out</span>.<span class="ident">map_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError</span>::<span class="ident">InvokeError</span>(<span class="ident">InvokeError</span>::<span class="ident">FailedWithNoError</span>), <span class="ident">Into</span>::<span class="ident">into</span>))
                 }
             }
         }
@@ -1720,9 +1722,10 @@
                         <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">returns</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="ident">returns</span>.<span class="ident">into_c_struct</span>(),
                         <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="kw">let</span> <span class="ident">b</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">into</span>();
-                            <span class="ident">b</span> <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>
+                            <span class="ident">RuntimeError</span>::<span class="ident">User</span>(<span class="ident">b</span> <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>)
                         },
-                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">err</span>,
+                        <span class="comment">// TODO(blocking): this line is wrong!</span>
+                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RuntimeError</span>::<span class="ident">User</span>(<span class="ident">err</span>),
                     };
 
                     <span class="comment">// At this point, there is an error that needs to</span>
@@ -1833,9 +1836,10 @@
                         <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">returns</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="ident">returns</span>.<span class="ident">into_c_struct</span>(),
                         <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="kw">let</span> <span class="ident">b</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">into</span>();
-                            <span class="ident">b</span> <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>
+                            <span class="ident">RuntimeError</span>::<span class="ident">User</span>(<span class="ident">b</span> <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>)
                         },
-                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">err</span>,
+                        <span class="comment">// TODO(blocking): this line is wrong!</span>
+                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RuntimeError</span>::<span class="ident">User</span>(<span class="ident">err</span>),
                     };
 
                     <span class="comment">// At this point, there is an error that needs to</span>
