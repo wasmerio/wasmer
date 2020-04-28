@@ -11,4 +11,4 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
 paste = "0.1"
-wasmer = { version = "0.16.2", path = "../../../api" }
+wasmer = { version = "0.16.2", path = "../../../api", default-features = false }
