@@ -309,7 +309,7 @@ where
         self.env
     }
 
-    /// Get the type of the Func
+    /// Get the address of the Func
     pub fn address(&self) -> *const FunctionBody {
         self.address
     }
