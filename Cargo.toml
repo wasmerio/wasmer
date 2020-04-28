@@ -56,7 +56,7 @@ wasmer-wast = { path = "tests/lib/wast" }
 # Don't add the backend features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
 # default = ["wasi"]
-default = ["wast", "compiler-llvm"]
+default = ["wast", "compiler-cranelift"]
 wast = ["wasmer-wast"]
 compiler-singlepass = [
     "wasmer/compiler-singlepass",
