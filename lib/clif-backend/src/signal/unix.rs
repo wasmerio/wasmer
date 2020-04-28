@@ -10,7 +10,7 @@
 //! unless you have memory unsafety elsewhere in your code.
 //!
 use crate::relocation::{TrapCode, TrapData};
-use crate::signal::{CallProtError, HandlerData};
+use crate::signal::HandlerData;
 use libc::{c_int, c_void, siginfo_t};
 use nix::sys::signal::{
     sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
@@ -19,6 +19,7 @@ use std::cell::{Cell, UnsafeCell};
 use std::ptr;
 use std::sync::Once;
 use wasmer_runtime_core::backend::ExceptionCode;
+use wasmer_runtime_core::error::InvokeError;
 
 extern "C" fn signal_trap_handler(
     signum: ::nix::libc::c_int,
@@ -65,7 +66,7 @@ pub unsafe fn trigger_trap() -> ! {
 pub fn call_protected<T>(
     handler_data: &HandlerData,
     f: impl FnOnce() -> T,
-) -> Result<T, CallProtError> {
+) -> Result<T, InvokeError> {
     unsafe {
         let jmp_buf = SETJMP_BUFFER.with(|buf| buf.get());
         let prev_jmp_buf = *jmp_buf;
@@ -79,16 +80,12 @@ pub fn call_protected<T>(
             *jmp_buf = prev_jmp_buf;
 
             if let Some(data) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
-                Err(CallProtError(data))
+                Err(InvokeError::EarlyTrap(Box::new(data)))
             } else {
                 let (faulting_addr, inst_ptr) = CAUGHT_ADDRESSES.with(|cell| cell.get());
 
-                if let Some(TrapData {
-                    trapcode,
-                    srcloc: _,
-                }) = handler_data.lookup(inst_ptr)
-                {
-                    Err(CallProtError(Box::new(match Signal::from_c_int(signum) {
+                if let Some(TrapData { trapcode, srcloc }) = handler_data.lookup(inst_ptr) {
+                    let code = match Signal::from_c_int(signum) {
                         Ok(SIGILL) => match trapcode {
                             TrapCode::StackOverflow => ExceptionCode::MemoryOutOfBounds,
                             TrapCode::HeapOutOfBounds => ExceptionCode::MemoryOutOfBounds,
@@ -101,9 +98,10 @@ pub fn call_protected<T>(
                             TrapCode::BadConversionToInteger => ExceptionCode::IllegalArithmetic,
                             TrapCode::UnreachableCodeReached => ExceptionCode::Unreachable,
                             _ => {
-                                return Err(CallProtError(Box::new(
-                                    "unknown clif trap code".to_string(),
-                                )))
+                                return Err(InvokeError::UnknownTrapCode {
+                                    trap_code: format!("{:?}", trapcode),
+                                    srcloc,
+                                })
                             }
                         },
                         Ok(SIGSEGV) | Ok(SIGBUS) => ExceptionCode::MemoryOutOfBounds,
@@ -112,7 +110,8 @@ pub fn call_protected<T>(
                             "ExceptionCode::Unknown signal:{:?}",
                             Signal::from_c_int(signum)
                         ),
-                    })))
+                    };
+                    Err(InvokeError::TrapCode { srcloc, code })
                 } else {
                     let signal = match Signal::from_c_int(signum) {
                         Ok(SIGFPE) => "floating-point exception",
@@ -123,8 +122,10 @@ pub fn call_protected<T>(
                         _ => "unknown trapped signal",
                     };
                     // When the trap-handler is fully implemented, this will return more information.
-                    let s = format!("unknown trap at {:p} - {}", faulting_addr, signal);
-                    Err(CallProtError(Box::new(s)))
+                    Err(InvokeError::UnknownTrap {
+                        address: faulting_addr as usize,
+                        signal,
+                    })
                 }
             }
         } else {

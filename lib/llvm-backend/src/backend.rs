@@ -11,7 +11,7 @@ use inkwell::{
 };
 use libc::c_char;
 use std::{
-    any::Any,
+    alloc,
     cell::RefCell,
     ffi::{c_void, CString},
     mem,
@@ -27,6 +27,7 @@ use wasmer_runtime_core::{
         CacheGen, ExceptionCode, RunnableModule,
     },
     cache::Error as CacheError,
+    error::{InvokeError, RuntimeError},
     module::ModuleInfo,
     state::ModuleStateMap,
     structures::TypedIndex,
@@ -52,11 +53,9 @@ extern "C" {
     fn throw_trap(ty: i32) -> !;
     fn throw_breakpoint(ty: i64) -> !;
 
-    /// This should be the same as spliting up the fat pointer into two arguments,
-    /// but this is cleaner, I think?
     #[cfg_attr(nightly, unwind(allowed))]
     #[allow(improper_ctypes)]
-    fn throw_any(data: *mut dyn Any) -> !;
+    fn throw_runtime_error(data: *mut Option<RuntimeError>) -> !;
 
     #[allow(improper_ctypes)]
     fn cxx_invoke_trampoline(
@@ -66,9 +65,47 @@ extern "C" {
         params: *const u64,
         results: *mut u64,
         trap_out: *mut i32,
-        error_out: *mut Option<Box<dyn Any + Send>>,
+        error_out: *mut Option<RuntimeError>,
         invoke_env: Option<NonNull<c_void>>,
     ) -> bool;
+}
+
+/// Unsafe copy of `RuntimeError`. For use from C++.
+///
+/// This copy is unsafe because `RuntimeError` contains non-`Clone` types such as
+/// `Box<dyn Any>`.
+///
+/// This function should only be used when the ownership can be manually tracked.
+///
+/// For example, this is safe* when used indirectly through the C++ API with a pointer
+/// from `do_early_trap` because `do_early_trap` fully owns the `RuntimeError` and
+/// creates and leaks the `Box` itself.
+///
+/// *: it is only safe provided the following invariants are upheld:
+/// 1. The versions of memory that these 2 pointers point to is only dropped once;
+///    the memory itself can be freed provided the inner type is not dropped.
+/// 2. The duplicated memory is not brought back into Rust to violate standard
+///    mutable aliasing/ownership rules.
+#[no_mangle]
+pub unsafe extern "C" fn copy_runtime_error(
+    src: *mut Option<RuntimeError>,
+    dst: *mut Option<RuntimeError>,
+) {
+    assert_eq!(src as usize % mem::align_of::<Option<RuntimeError>>(), 0);
+    assert_eq!(dst as usize % mem::align_of::<Option<RuntimeError>>(), 0);
+    ptr::copy::<Option<RuntimeError>>(src, dst, 1);
+}
+
+/// Frees the memory of a `Option<RuntimeError>` without calling its destructor.
+/// For use from C++ to safely clean up after `copy_runtime_error`.
+#[no_mangle]
+pub unsafe extern "C" fn free_runtime_error_without_drop(rte: *mut Option<RuntimeError>) {
+    let rte_layout = alloc::Layout::from_size_align(
+        mem::size_of::<Option<RuntimeError>>(),
+        mem::align_of::<Option<RuntimeError>>(),
+    )
+    .expect("layout of `Option<RuntimeError>`");
+    alloc::dealloc(rte as *mut u8, rte_layout)
 }
 
 /// `invoke_trampoline` is a wrapper around `cxx_invoke_trampoline`, for fixing up the obsoleted
@@ -79,7 +116,7 @@ unsafe extern "C" fn invoke_trampoline(
     func_ptr: NonNull<vm::Func>,
     params: *const u64,
     results: *mut u64,
-    error_out: *mut Option<Box<dyn Any + Send>>,
+    error_out: *mut Option<RuntimeError>,
     invoke_env: Option<NonNull<c_void>>,
 ) -> bool {
     let mut trap_out: i32 = -1;
@@ -95,15 +132,22 @@ unsafe extern "C" fn invoke_trampoline(
     );
     // Translate trap code if an error occurred.
     if !ret && (*error_out).is_none() && trap_out != -1 {
-        *error_out = Some(Box::new(match trap_out {
-            0 => ExceptionCode::Unreachable,
-            1 => ExceptionCode::IncorrectCallIndirectSignature,
-            2 => ExceptionCode::MemoryOutOfBounds,
-            3 => ExceptionCode::CallIndirectOOB,
-            4 => ExceptionCode::IllegalArithmetic,
-            5 => ExceptionCode::MisalignedAtomicAccess,
-            _ => return ret,
-        }));
+        *error_out = {
+            let exception_code = match trap_out {
+                0 => ExceptionCode::Unreachable,
+                1 => ExceptionCode::IncorrectCallIndirectSignature,
+                2 => ExceptionCode::MemoryOutOfBounds,
+                3 => ExceptionCode::CallIndirectOOB,
+                4 => ExceptionCode::IllegalArithmetic,
+                5 => ExceptionCode::MisalignedAtomicAccess,
+                _ => return ret,
+            };
+            Some(RuntimeError::InvokeError(InvokeError::TrapCode {
+                code: exception_code,
+                // TODO:
+                srcloc: 0,
+            }))
+        };
     }
     ret
 }
@@ -467,8 +511,8 @@ impl RunnableModule for LLVMBackend {
         self.msm.clone()
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
-        throw_any(Box::leak(data))
+    unsafe fn do_early_trap(&self, data: RuntimeError) -> ! {
+        throw_runtime_error(Box::into_raw(Box::new(Some(data))))
     }
 }
 

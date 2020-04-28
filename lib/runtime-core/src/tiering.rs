@@ -2,6 +2,7 @@
 //! as runtime.
 use crate::backend::{Compiler, CompilerConfig};
 use crate::compile_with_config;
+use crate::error::RuntimeError;
 use crate::fault::{
     catch_unsafe_unwind, ensure_sighandler, pop_code_version, push_code_version, with_ctx,
 };
@@ -223,23 +224,26 @@ pub unsafe fn run_tiering<F: Fn(InteractiveShellContext) -> ShellExitOperation>(
             }
         });
         if let Err(e) = ret {
-            if let Ok(new_image) = e.downcast::<InstanceImage>() {
+            match e {
                 // Tier switch event
-                if !was_sigint_triggered_fault() && opt_state.outcome.lock().unwrap().is_some() {
-                    resume_image = Some(*new_image);
-                    continue;
-                }
-                let op = interactive_shell(InteractiveShellContext {
-                    image: Some(*new_image),
-                    patched: n_versions.get() > 1,
-                });
-                match op {
-                    ShellExitOperation::ContinueWith(new_image) => {
-                        resume_image = Some(new_image);
+                RuntimeError::InstanceImage(ii_value) => {
+                    let new_image = ii_value.downcast::<InstanceImage>().unwrap();
+                    if !was_sigint_triggered_fault() && opt_state.outcome.lock().unwrap().is_some()
+                    {
+                        resume_image = Some(*new_image);
+                        continue;
+                    }
+                    let op = interactive_shell(InteractiveShellContext {
+                        image: Some(*new_image),
+                        patched: n_versions.get() > 1,
+                    });
+                    match op {
+                        ShellExitOperation::ContinueWith(new_image) => {
+                            resume_image = Some(new_image);
+                        }
                     }
                 }
-            } else {
-                return Err("Error while executing WebAssembly".into());
+                _ => return Err("Error while executing WebAssembly".into()),
             }
         } else {
             return Ok(());

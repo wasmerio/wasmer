@@ -1,5 +1,6 @@
 use wasmer_runtime_core::{
     codegen::{Event, EventSink, FunctionMiddleware, InternalEvent},
+    error::RuntimeError,
     module::ModuleInfo,
     vm::{Ctx, InternalField},
     wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType},
@@ -96,7 +97,9 @@ impl FunctionMiddleware for Metering {
                             ty: WpTypeOrFuncType::Type(WpType::EmptyBlockType),
                         }));
                         sink.push(Event::Internal(InternalEvent::Breakpoint(Box::new(|_| {
-                            Err(Box::new(ExecutionLimitExceededError))
+                            Err(RuntimeError::Metering(Box::new(
+                                ExecutionLimitExceededError,
+                            )))
                         }))));
                         sink.push(Event::WasmOwned(Operator::End));
                     }

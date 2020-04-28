@@ -69,7 +69,7 @@ int main()
     wasmer_last_error_message(error_str, error_len);
     printf("Error str: `%s`\n", error_str);
 
-    assert(0 == strcmp(error_str, "Call error: \"Hello\""));
+    assert(0 == strcmp(error_str, "Call error: User supplied error: \"Hello\""));
 
     printf("Destroying func\n");
     wasmer_import_func_destroy(func);

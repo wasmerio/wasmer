@@ -71,8 +71,11 @@ fn main() -> Result<(), error::Error> {
     println!("result: {:?}", result);
 
     if let Err(e) = result {
-        if let Ok(exit_code) = e.0.downcast::<ExitCode>() {
+        if let RuntimeError::User(ue) = e {
+            let exit_code = ue.downcast_ref::<ExitCode>().unwrap();
             println!("exit code: {:?}", exit_code);
+        } else {
+            panic!("Found error that wasn't a user error!: {}", e)
         }
     }
 

@@ -21,6 +21,7 @@ use wasmer_runtime::{
 use wasmer_runtime_core::{
     self,
     backend::{Compiler, CompilerConfig, MemoryBoundCheckMode},
+    error::RuntimeError,
     loader::{Instance as LoadedInstance, LocalLoader},
     Module,
 };
@@ -437,9 +438,12 @@ fn execute_wasi(
         }
 
         if let Err(ref err) = result {
-            if let Some(error_code) = err.0.downcast_ref::<wasmer_wasi::ExitCode>() {
-                std::process::exit(error_code.code as i32)
+            if let RuntimeError::User(user_error) = err {
+                if let Some(error_code) = user_error.downcast_ref::<wasmer_wasi::ExitCode>() {
+                    std::process::exit(error_code.code as i32)
+                }
             }
+
             return Err(format!("error: {:?}", err));
         }
     }
