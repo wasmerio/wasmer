@@ -29,7 +29,7 @@ wasmer-jit = { path = "lib/jit" }
 wasmer-wast = { path = "tests/lib/wast", optional = true}
 atty = "0.2"
 anyhow = "1.0.28"
-structopt = { version = "0.3.13", features = ["suggestions"] }
+structopt = { version = "0.3", features = ["suggestions"] }
 
 [workspace]
 members = [
@@ -56,7 +56,7 @@ wasmer-wast = { path = "tests/lib/wast" }
 # Don't add the backend features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
 # default = ["wasi"]
-default = ["wast", "compiler-cranelift"]
+default = ["wast", "compiler-llvm"]
 wast = ["wasmer-wast"]
 compiler-singlepass = [
     "wasmer/compiler-singlepass",

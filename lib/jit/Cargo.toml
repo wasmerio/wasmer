@@ -18,7 +18,7 @@ target-lexicon = { version = "0.10.0", default-features = false }
 backtrace = "0.3.46"
 rustc-demangle = "0.1.16"
 more-asserts = "0.2.1"
-thiserror = "1.0.15"
+thiserror = "1.0.16"
 region = "2.1.2"
 serde = { version = "1.0.106", sfeatures = ["derive", "rc"] }
 bincode = "1.2.1"
