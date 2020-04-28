@@ -16,12 +16,12 @@ wasmparser = "0.51.3"
 parking_lot = "0.10.0"
 lazy_static = "1.4"
 errno = "0.2"
-libc = "0.2.60"
+libc = "0.2.68"
 hex = "0.4"
-smallvec = "0.6"
+smallvec = "1"
 bincode = "1.1"
-wasm-debug = { optional = true, version = "0.1.0" }
-target-lexicon = "0.9"
+wasm-debug = { optional = true, version = "0.2.0" }
+target-lexicon = "0.10"
 
 [dependencies.indexmap]
 version = "1.2"
@@ -39,7 +39,7 @@ version = "0.11"
 [dependencies.serde-bench]
 version = "0.0.7"
 [dependencies.blake3]
-version = "0.2.0"
+version = "0.3.1"
 [dependencies.digest]
 version = "0.8"
 
@@ -47,7 +47,7 @@ version = "0.8"
 winapi = { version = "0.3", features = ["memoryapi"] }
 
 [build-dependencies]
-blake3 = "0.2.0"
+blake3 = "0.3.1"
 rustc_version = "0.2"
 cc = "1.0"
 

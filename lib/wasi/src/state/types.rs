@@ -9,60 +9,84 @@ use std::{
     path::PathBuf,
     time::SystemTime,
 };
+use thiserror::Error;
 
 /// Error type for external users
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
 #[allow(dead_code)]
 // dead code beacuse this is for external use
 pub enum WasiFsError {
     /// The fd given as a base was not a directory so the operation was not possible
+    #[error("fd not a directory")]
     BaseNotDirectory,
     /// Expected a file but found not a file
+    #[error("fd not a file")]
     NotAFile,
     /// The fd given was not usable
+    #[error("invalid fd")]
     InvalidFd,
     /// File exists
+    #[error("file exists")]
     AlreadyExists,
     /// Something failed when doing IO. These errors can generally not be handled.
     /// It may work if tried again.
+    #[error("io error")]
     IOError,
     /// The address was in use
+    #[error("address is in use")]
     AddressInUse,
     /// The address could not be found
+    #[error("address could not be found")]
     AddressNotAvailable,
     /// A pipe was closed
+    #[error("broken pipe (was closed)")]
     BrokenPipe,
     /// The connection was aborted
+    #[error("connection aborted")]
     ConnectionAborted,
     /// The connection request was refused
+    #[error("connection refused")]
     ConnectionRefused,
     /// The connection was reset
+    #[error("connection reset")]
     ConnectionReset,
     /// The operation was interrupted before it could finish
+    #[error("operation interrupted")]
     Interrupted,
     /// Invalid internal data, if the argument data is invalid, use `InvalidInput`
+    #[error("invalid internal data")]
     InvalidData,
     /// The provided data is invalid
+    #[error("invalid input")]
     InvalidInput,
     /// Could not perform the operation because there was not an open connection
+    #[error("connection is not open")]
     NotConnected,
     /// The requested file or directory could not be found
+    #[error("entity not found")]
     EntityNotFound,
     /// The requested device couldn't be accessed
+    #[error("can't access device")]
     NoDevice,
     /// Caller was not allowed to perform this operation
+    #[error("permission denied")]
     PermissionDenied,
     /// The operation did not complete within the given amount of time
+    #[error("time out")]
     TimedOut,
     /// Found EOF when EOF was not expected
+    #[error("unexpected eof")]
     UnexpectedEof,
     /// Operation would block, this error lets the caller know that they can try again
+    #[error("blocking operation. try again")]
     WouldBlock,
     /// A call to write returned 0
+    #[error("write returned 0")]
     WriteZero,
     /// A WASI error without an external name.  If you encounter this it means
     /// that there's probably a bug on our side (maybe as simple as forgetting to wrap
     /// this error, but perhaps something broke)
+    #[error("unknown error: {0}")]
     UnknownError(__wasi_errno_t),
 }
 

@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use super::values::{InterfaceType, InterfaceValue};
+use crate::{ast, types::InterfaceType, values::InterfaceValue};
 use std::{cell::Cell, ops::Deref};
 
 pub trait TypedIndex: Copy + Clone {
@@ -74,6 +74,7 @@ where
     fn export(&self, export_name: &str) -> Option<&E>;
     fn local_or_import<I: TypedIndex + LocalImportIndex>(&mut self, index: I) -> Option<&LI>;
     fn memory(&self, index: usize) -> Option<&M>;
+    fn wit_type(&self, index: u32) -> Option<&ast::Type>;
 }
 
 impl Export for () {
@@ -154,6 +155,10 @@ where
     }
 
     fn local_or_import<I: TypedIndex + LocalImportIndex>(&mut self, _index: I) -> Option<&LI> {
+        None
+    }
+
+    fn wit_type(&self, _index: u32) -> Option<&ast::Type> {
         None
     }
 }

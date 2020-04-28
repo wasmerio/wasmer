@@ -1,67 +1,44 @@
 //! Represents the WIT language as a tree. This is the central
 //! representation of the language.
 
-use crate::interpreter::Instruction;
+use crate::{
+    interpreter::Instruction,
+    types::{InterfaceType, RecordType},
+};
 use std::str;
 
-/// Represents the types supported by WIT.
-#[derive(PartialEq, Debug, Clone)]
-pub enum InterfaceType {
-    /// A 8-bits signed integer.
-    S8,
+/// Represents the kind of type.
+#[derive(PartialEq, Debug)]
+pub enum TypeKind {
+    /// A function type.
+    Function,
 
-    /// A 16-bits signed integer.
-    S16,
-
-    /// A 32-bits signed integer.
-    S32,
-
-    /// A 64-bits signed integer.
-    S64,
-
-    /// A 8-bits unsigned integer.
-    U8,
-
-    /// A 16-bits unsigned integer.
-    U16,
-
-    /// A 32-bits unsigned integer.
-    U32,
-
-    /// A 64-bits unsigned integer.
-    U64,
-
-    /// A 32-bits float.
-    F32,
-
-    /// A 64-bits float.
-    F64,
-
-    /// A string.
-    String,
-
-    /// An `any` reference.
-    Anyref,
-
-    /// A 32-bits integer (as defined in WebAssembly core).
-    I32,
-
-    /// A 64-bits integer (as defiend in WebAssembly core).
-    I64,
+    /// A record type.
+    Record,
 }
 
-/// Represents a type signature.
-///
-/// ```wasm,ignore
-/// (@interface type (param i32 i32) (result string))
-/// ```
+/// Represents a type.
 #[derive(PartialEq, Debug)]
-pub struct Type {
-    /// Types for the parameters (`(param …)`).
-    pub inputs: Vec<InterfaceType>,
+pub enum Type {
+    /// A function type, like:
+    ///
+    /// ```wasm,ignore
+    /// (@interface type (func (param i32 i32) (result string)))
+    /// ```
+    Function {
+        /// Types for the parameters (`(param …)`).
+        inputs: Vec<InterfaceType>,
 
-    /// Types for the results (`(result …)`).
-    pub outputs: Vec<InterfaceType>,
+        /// Types for the results (`(result …)`).
+        outputs: Vec<InterfaceType>,
+    },
+
+    /// A record type, like:
+    ///
+    /// ```wasm,ignore
+    /// (@interface type (record string i32))
+    /// ```
+    Record(RecordType),
 }
 
 /// Represents an imported function.

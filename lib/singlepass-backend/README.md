@@ -44,7 +44,7 @@ wasmer run program.wasm --backend=singlepass
 ### Usage in Wasmer Embedded
 
 If you are using Wasmer Embedded, you can specify
-the LLVM backend to the [`compile_with` function](https://docs.rs/wasmer-runtime-core/*/wasmer_runtime_core/fn.compile_with.html):
+the singlepass backend to the [`compile_with` function](https://docs.rs/wasmer-runtime-core/*/wasmer_runtime_core/fn.compile_with.html):
 
 ```rust
 use wasmer_singlepass_backend::SinglepassCompiler;

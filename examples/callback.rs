@@ -1,6 +1,6 @@
 /// This example demonstrates the use of callbacks: calling functions (Host and Wasm)
 /// passed to us from the Wasm via hostcall
-use wasmer_runtime::{compile_with, compiler_for_backend, func, imports, Backend, Ctx};
+use wasmer::{compiler::compile, func, imports, vm::Ctx, Func};
 use wasmer_runtime_core::{structures::TypedIndex, types::TableIndex};
 
 static WASM: &'static str = "examples/callback-guest/callback-guest.wasm";
@@ -34,13 +34,12 @@ fn main() {
         },
     };
 
-    let compiler = compiler_for_backend(Backend::default()).unwrap();
-    let module = compile_with(&wasm_bytes[..], compiler.as_ref()).unwrap();
+    let module = compile(&wasm_bytes[..]).unwrap();
     let instance = module
         .instantiate(&imports)
         .expect("failed to instantiate wasm module");
 
-    let entry_point = instance.func::<(u32, u32), u32>("main").unwrap();
+    let entry_point: Func<(u32, u32), u32> = instance.exports.get("main").unwrap();
 
     entry_point.call(0, 0).expect("START");
 }

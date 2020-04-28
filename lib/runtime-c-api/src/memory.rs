@@ -5,11 +5,9 @@ use crate::{
     wasmer_limits_t, wasmer_result_t,
 };
 use std::{cell::Cell, ptr};
-use wasmer_runtime::Memory;
-use wasmer_runtime_core::{
-    types::MemoryDescriptor,
-    units::{Bytes, Pages},
-};
+use wasmer::types::MemoryDescriptor;
+use wasmer::units::{Bytes, Pages};
+use wasmer::wasm::Memory;
 
 /// Opaque pointer to a `wasmer_runtime::Memory` value in Rust.
 ///
@@ -198,7 +196,7 @@ pub extern "C" fn wasmer_memory_data(memory: *const wasmer_memory_t) -> *mut u8 
 /// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_memory_data_length(memory: *mut wasmer_memory_t) -> u32 {
+pub extern "C" fn wasmer_memory_data_length(memory: *const wasmer_memory_t) -> u32 {
     if memory.is_null() {
         return 0;
     }

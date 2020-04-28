@@ -1,0 +1,14 @@
+{
+  "output": "The original file does not still exist!\n柴犬\n",
+  "options": {
+    "mapdir": [
+      [
+        "temp",
+        "tests/wasi_test_resources/test_fs/temp"
+      ]
+    ],
+    "env": [],
+    "args": [],
+    "dir": []
+  }
+}

@@ -9,10 +9,11 @@ use crate::{
 };
 use libc::c_int;
 use std::{collections::HashMap, slice};
-use wasmer_runtime::{
-    compile, default_compiler, Global, ImportObject, Instance, Memory, Module, Table,
-};
-use wasmer_runtime_core::{cache::Artifact, export::Export, import::Namespace, load_cache_with};
+use wasmer::compiler::{compile, default_compiler};
+use wasmer::import::{ImportObject, Namespace};
+use wasmer::wasm::{Export, Global, Table};
+use wasmer::{Instance, Memory, Module};
+use wasmer_runtime_core::{cache::Artifact, load_cache_with};
 
 #[repr(C)]
 pub struct wasmer_module_t;

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use wasmer_runtime::{compile, func, imports};
-use wasmer_runtime_core::vm::Ctx;
+use wasmer::compiler::compile;
+use wasmer::{func, imports, vm::Ctx, Func};
 use wasmer_wasi::{
     generate_import_object_for_version,
     state::{self, WasiFile, WasiFsError},
@@ -159,7 +159,7 @@ fn main() {
     initialize(instance.context_mut());
 
     // get a reference to the function "plugin_entrypoint" which takes an i32 and returns an i32
-    let entry_point = instance.func::<(i32), i32>("plugin_entrypoint").unwrap();
+    let entry_point: Func<i32, i32> = instance.exports.get("plugin_entrypoint").unwrap();
     // call the "entry_point" function in WebAssembly with the number "2" as the i32 argument
     let result = entry_point.call(2).expect("failed to execute plugin");
     println!("result: {}", result);

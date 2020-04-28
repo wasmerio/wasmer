@@ -1,23 +1,21 @@
 use crate::{
     errors::{InstructionError, InstructionErrorKind},
-    interpreter::wasm::{
-        structures::{FunctionIndex, TypedIndex},
-        values::InterfaceType,
-    },
+    interpreter::wasm::structures::{FunctionIndex, TypedIndex},
     interpreter::Instruction,
+    types::InterfaceType,
 };
 
 executable_instruction!(
-    call_core(function_index: usize, instruction: Instruction) -> _ {
+    call_core(function_index: u32, instruction: Instruction) -> _ {
         move |runtime| -> _ {
             let instance = &mut runtime.wasm_instance;
-            let index = FunctionIndex::new(function_index);
+            let index = FunctionIndex::new(function_index as usize);
 
             let local_or_import = instance.local_or_import(index).ok_or_else(|| {
                 InstructionError::new(
                     instruction,
                     InstructionErrorKind::LocalOrImportIsMissing {
-                        function_index: function_index as u32,
+                        function_index: function_index,
                     },
                 )
             })?;
@@ -40,7 +38,7 @@ executable_instruction!(
                 return Err(InstructionError::new(
                     instruction,
                     InstructionErrorKind::LocalOrImportSignatureMismatch {
-                        function_index: function_index as u32,
+                        function_index: function_index,
                         expected: (local_or_import.inputs().to_vec(), vec![]),
                         received: (input_types, vec![]),
                     },
@@ -51,13 +49,13 @@ executable_instruction!(
                 InstructionError::new(
                     instruction,
                     InstructionErrorKind::LocalOrImportCall {
-                        function_index: function_index as u32,
+                        function_index: function_index,
                     },
                 )
             })?;
 
-            for output in outputs.iter() {
-                runtime.stack.push(output.clone());
+            for output in outputs.into_iter() {
+                runtime.stack.push(output)
             }
 
             Ok(())
@@ -70,8 +68,8 @@ mod tests {
     test_executable_instruction!(
         test_call_core =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
@@ -113,8 +111,8 @@ mod tests {
     test_executable_instruction!(
         test_call_core__invalid_types_in_the_stack =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
@@ -129,8 +127,8 @@ mod tests {
     test_executable_instruction!(
         test_call_core__failure_when_calling =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [
@@ -160,8 +158,8 @@ mod tests {
     test_executable_instruction!(
         test_call_core__void =
             instructions: [
-                Instruction::ArgumentGet { index: 1 },
                 Instruction::ArgumentGet { index: 0 },
+                Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 42 },
             ],
             invocation_inputs: [

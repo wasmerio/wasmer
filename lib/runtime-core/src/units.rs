@@ -1,4 +1,4 @@
-//! The units module provides common WebAssembly units like [`Pages`] and conversion functions into
+//! This module provides common WebAssembly units like [`Pages`] and conversion functions into
 //! other units.
 use crate::error::PageError;
 use std::{
@@ -45,6 +45,12 @@ impl fmt::Debug for Pages {
     }
 }
 
+impl From<u32> for Pages {
+    fn from(other: u32) -> Self {
+        Pages(other)
+    }
+}
+
 /// Units of WebAssembly memory in terms of 8-bit bytes.
 #[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Bytes(pub usize);
@@ -58,6 +64,12 @@ impl fmt::Debug for Bytes {
 impl From<Pages> for Bytes {
     fn from(pages: Pages) -> Bytes {
         Bytes((pages.0 as usize) * WASM_PAGE_SIZE)
+    }
+}
+
+impl From<usize> for Bytes {
+    fn from(other: usize) -> Self {
+        Bytes(other)
     }
 }
 

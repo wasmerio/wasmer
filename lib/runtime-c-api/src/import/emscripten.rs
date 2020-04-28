@@ -4,8 +4,8 @@ use super::*;
 use crate::{get_slice_checked, instance::wasmer_instance_t, module::wasmer_module_t};
 
 use std::ptr;
+use wasmer::wasm::{Instance, Module};
 use wasmer_emscripten::{EmscriptenData, EmscriptenGlobals};
-use wasmer_runtime::{Instance, Module};
 
 /// Type used to construct an import_object_t with Emscripten imports.
 #[repr(C)]

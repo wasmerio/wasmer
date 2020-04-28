@@ -1,3 +1,30 @@
+//! Collection of helpful macros.
+
+/// This macro creates a `Vec1` by checking at compile-time that its
+/// invariant holds.
+#[macro_export]
+macro_rules! vec1 {
+    ($item:expr; 0) => {
+        compile_error!("Cannot create an empty `Vec1`, it violates its invariant.")
+    };
+
+    () => {
+        compile_error!("Cannot create an empty `Vec1`, it violates its invariant.")
+    };
+
+    ($item:expr; $length:expr) => {
+        {
+            crate::vec1::Vec1::new(vec![$item; $length]).unwrap()
+        }
+    };
+
+    ($($item:expr),+ $(,)?) => {
+        {
+            crate::vec1::Vec1::new(vec![$($item),*]).unwrap()
+        }
+    };
+}
+
 /// This macro runs a parser, extracts the next input and the parser
 /// output, and positions the next input on `$input`.
 macro_rules! consume {
@@ -71,11 +98,14 @@ macro_rules! test_executable_instruction {
         #[test]
         #[allow(non_snake_case, unused)]
         fn $test_name() {
-            use crate::interpreter::{
-                instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
-                stack::Stackable,
-                wasm::values::{InterfaceType, InterfaceValue},
-                Instruction, Interpreter,
+            use crate::{
+                interpreter::{
+                    instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
+                    stack::Stackable,
+                    Instruction, Interpreter,
+                },
+                types::InterfaceType,
+                values::InterfaceValue,
             };
             use std::{cell::Cell, collections::HashMap, convert::TryInto};
 
@@ -86,7 +116,12 @@ macro_rules! test_executable_instruction {
             let mut instance = $instance;
             let run = interpreter.run(&invocation_inputs, &mut instance);
 
-            assert!(run.is_ok());
+            let err = match &run {
+                Ok(_) => "".to_string(),
+                Err(e) => e.to_string(),
+            };
+
+            assert!(run.is_ok(), err);
 
             let stack = run.unwrap();
 
@@ -105,11 +140,14 @@ macro_rules! test_executable_instruction {
         #[test]
         #[allow(non_snake_case, unused)]
         fn $test_name() {
-            use crate::interpreter::{
-                instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
-                stack::Stackable,
-                wasm::values::{InterfaceType, InterfaceValue},
-                Instruction, Interpreter,
+            use crate::{
+                interpreter::{
+                    instructions::tests::{Export, Instance, LocalImport, Memory, MemoryView},
+                    stack::Stackable,
+                    Instruction, Interpreter,
+                },
+                types::InterfaceType,
+                values::InterfaceValue,
             };
             use std::{cell::Cell, collections::HashMap, convert::TryInto};
 

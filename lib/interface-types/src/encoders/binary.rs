@@ -1,6 +1,6 @@
 //! Writes the AST into bytes representing WIT with its binary format.
 
-use crate::{ast::*, interpreter::Instruction};
+use crate::{ast::*, interpreter::Instruction, types::*};
 use std::io::{self, Write};
 
 /// A trait for converting a value to bytes.
@@ -108,6 +108,33 @@ where
             InterfaceType::Anyref => 0x0b_u8.to_bytes(writer),
             InterfaceType::I32 => 0x0c_u8.to_bytes(writer),
             InterfaceType::I64 => 0x0d_u8.to_bytes(writer),
+            InterfaceType::Record(record_type) => {
+                0x0e_u8.to_bytes(writer)?;
+                record_type.to_bytes(writer)
+            }
+        }
+    }
+}
+
+/// Encode a `RecordType` into bytes.
+impl<W> ToBytes<W> for RecordType
+where
+    W: Write,
+{
+    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
+        self.fields.to_bytes(writer)
+    }
+}
+
+/// Encode a `TypeKind` into bytes.
+impl<W> ToBytes<W> for TypeKind
+where
+    W: Write,
+{
+    fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            TypeKind::Function => 0x00_u8.to_bytes(writer),
+            TypeKind::Record => 0x01_u8.to_bytes(writer),
         }
     }
 }
@@ -136,8 +163,18 @@ where
     W: Write,
 {
     fn to_bytes(&self, writer: &mut W) -> io::Result<()> {
-        self.inputs.to_bytes(writer)?;
-        self.outputs.to_bytes(writer)?;
+        match self {
+            Type::Function { inputs, outputs } => {
+                TypeKind::Function.to_bytes(writer)?;
+                inputs.to_bytes(writer)?;
+                outputs.to_bytes(writer)?;
+            }
+
+            Type::Record(record_type) => {
+                TypeKind::Record.to_bytes(writer)?;
+                record_type.to_bytes(writer)?;
+            }
+        }
 
         Ok(())
     }
@@ -260,52 +297,51 @@ where
                 (*function_index as u64).to_bytes(writer)?;
             }
 
-            Instruction::MemoryToString => 0x03_u8.to_bytes(writer)?,
+            Instruction::S8FromI32 => 0x02_u8.to_bytes(writer)?,
+            Instruction::S8FromI64 => 0x03_u8.to_bytes(writer)?,
+            Instruction::S16FromI32 => 0x04_u8.to_bytes(writer)?,
+            Instruction::S16FromI64 => 0x05_u8.to_bytes(writer)?,
+            Instruction::S32FromI32 => 0x06_u8.to_bytes(writer)?,
+            Instruction::S32FromI64 => 0x07_u8.to_bytes(writer)?,
+            Instruction::S64FromI32 => 0x08_u8.to_bytes(writer)?,
+            Instruction::S64FromI64 => 0x09_u8.to_bytes(writer)?,
+            Instruction::I32FromS8 => 0x0a_u8.to_bytes(writer)?,
+            Instruction::I32FromS16 => 0x0b_u8.to_bytes(writer)?,
+            Instruction::I32FromS32 => 0x0c_u8.to_bytes(writer)?,
+            Instruction::I32FromS64 => 0x0d_u8.to_bytes(writer)?,
+            Instruction::I64FromS8 => 0x0e_u8.to_bytes(writer)?,
+            Instruction::I64FromS16 => 0x0f_u8.to_bytes(writer)?,
+            Instruction::I64FromS32 => 0x10_u8.to_bytes(writer)?,
+            Instruction::I64FromS64 => 0x11_u8.to_bytes(writer)?,
+            Instruction::U8FromI32 => 0x12_u8.to_bytes(writer)?,
+            Instruction::U8FromI64 => 0x13_u8.to_bytes(writer)?,
+            Instruction::U16FromI32 => 0x14_u8.to_bytes(writer)?,
+            Instruction::U16FromI64 => 0x15_u8.to_bytes(writer)?,
+            Instruction::U32FromI32 => 0x16_u8.to_bytes(writer)?,
+            Instruction::U32FromI64 => 0x17_u8.to_bytes(writer)?,
+            Instruction::U64FromI32 => 0x18_u8.to_bytes(writer)?,
+            Instruction::U64FromI64 => 0x19_u8.to_bytes(writer)?,
+            Instruction::I32FromU8 => 0x1a_u8.to_bytes(writer)?,
+            Instruction::I32FromU16 => 0x1b_u8.to_bytes(writer)?,
+            Instruction::I32FromU32 => 0x1c_u8.to_bytes(writer)?,
+            Instruction::I32FromU64 => 0x1d_u8.to_bytes(writer)?,
+            Instruction::I64FromU8 => 0x1e_u8.to_bytes(writer)?,
+            Instruction::I64FromU16 => 0x1f_u8.to_bytes(writer)?,
+            Instruction::I64FromU32 => 0x20_u8.to_bytes(writer)?,
+            Instruction::I64FromU64 => 0x21_u8.to_bytes(writer)?,
 
-            Instruction::StringToMemory { allocator_index } => {
-                0x04_u8.to_bytes(writer)?;
-                (*allocator_index as u64).to_bytes(writer)?;
+            Instruction::StringLiftMemory => 0x22_u8.to_bytes(writer)?,
+            Instruction::StringLowerMemory => 0x23_u8.to_bytes(writer)?,
+            Instruction::StringSize => 0x24_u8.to_bytes(writer)?,
+
+            Instruction::RecordLift { type_index } => {
+                0x25_u8.to_bytes(writer)?;
+                (*type_index as u64).to_bytes(writer)?
             }
-
-            Instruction::I32ToS8 => 0x07_u8.to_bytes(writer)?,
-            Instruction::I32ToS8X => 0x08_u8.to_bytes(writer)?,
-            Instruction::I32ToU8 => 0x09_u8.to_bytes(writer)?,
-            Instruction::I32ToS16 => 0x0a_u8.to_bytes(writer)?,
-            Instruction::I32ToS16X => 0x0b_u8.to_bytes(writer)?,
-            Instruction::I32ToU16 => 0x0c_u8.to_bytes(writer)?,
-            Instruction::I32ToS32 => 0x0d_u8.to_bytes(writer)?,
-            Instruction::I32ToU32 => 0x0e_u8.to_bytes(writer)?,
-            Instruction::I32ToS64 => 0x0f_u8.to_bytes(writer)?,
-            Instruction::I32ToU64 => 0x10_u8.to_bytes(writer)?,
-            Instruction::I64ToS8 => 0x11_u8.to_bytes(writer)?,
-            Instruction::I64ToS8X => 0x12_u8.to_bytes(writer)?,
-            Instruction::I64ToU8 => 0x13_u8.to_bytes(writer)?,
-            Instruction::I64ToS16 => 0x14_u8.to_bytes(writer)?,
-            Instruction::I64ToS16X => 0x15_u8.to_bytes(writer)?,
-            Instruction::I64ToU16 => 0x16_u8.to_bytes(writer)?,
-            Instruction::I64ToS32 => 0x17_u8.to_bytes(writer)?,
-            Instruction::I64ToS32X => 0x18_u8.to_bytes(writer)?,
-            Instruction::I64ToU32 => 0x19_u8.to_bytes(writer)?,
-            Instruction::I64ToS64 => 0x1a_u8.to_bytes(writer)?,
-            Instruction::I64ToU64 => 0x1b_u8.to_bytes(writer)?,
-            Instruction::S8ToI32 => 0x1c_u8.to_bytes(writer)?,
-            Instruction::U8ToI32 => 0x1d_u8.to_bytes(writer)?,
-            Instruction::S16ToI32 => 0x1e_u8.to_bytes(writer)?,
-            Instruction::U16ToI32 => 0x1f_u8.to_bytes(writer)?,
-            Instruction::S32ToI32 => 0x20_u8.to_bytes(writer)?,
-            Instruction::U32ToI32 => 0x21_u8.to_bytes(writer)?,
-            Instruction::S64ToI32 => 0x22_u8.to_bytes(writer)?,
-            Instruction::S64ToI32X => 0x23_u8.to_bytes(writer)?,
-            Instruction::U64ToI32 => 0x24_u8.to_bytes(writer)?,
-            Instruction::U64ToI32X => 0x25_u8.to_bytes(writer)?,
-            Instruction::S8ToI64 => 0x26_u8.to_bytes(writer)?,
-            Instruction::U8ToI64 => 0x27_u8.to_bytes(writer)?,
-            Instruction::S16ToI64 => 0x28_u8.to_bytes(writer)?,
-            Instruction::U16ToI64 => 0x29_u8.to_bytes(writer)?,
-            Instruction::S32ToI64 => 0x2a_u8.to_bytes(writer)?,
-            Instruction::U32ToI64 => 0x2b_u8.to_bytes(writer)?,
-            Instruction::S64ToI64 => 0x2c_u8.to_bytes(writer)?,
-            Instruction::U64ToI64 => 0x2d_u8.to_bytes(writer)?,
+            Instruction::RecordLower { type_index } => {
+                0x26_u8.to_bytes(writer)?;
+                (*type_index as u64).to_bytes(writer)?
+            }
         }
 
         Ok(())
@@ -404,6 +440,55 @@ mod tests {
         assert_to_bytes!(InterfaceType::Anyref, &[0x0b]);
         assert_to_bytes!(InterfaceType::I32, &[0x0c]);
         assert_to_bytes!(InterfaceType::I64, &[0x0d]);
+        assert_to_bytes!(
+            InterfaceType::Record(RecordType {
+                fields: vec1![InterfaceType::String]
+            }),
+            &[0x0e, 0x01, 0x0a]
+        );
+    }
+
+    #[test]
+    fn test_record_type() {
+        assert_to_bytes!(
+            RecordType {
+                fields: vec1![InterfaceType::String]
+            },
+            &[
+                0x01, // 1 field
+                0x0a, // String
+            ]
+        );
+        assert_to_bytes!(
+            RecordType {
+                fields: vec1![InterfaceType::String, InterfaceType::I32]
+            },
+            &[
+                0x02, // 2 fields
+                0x0a, // String
+                0x0c, // I32
+            ]
+        );
+        assert_to_bytes!(
+            RecordType {
+                fields: vec1![
+                    InterfaceType::String,
+                    InterfaceType::Record(RecordType {
+                        fields: vec1![InterfaceType::I32, InterfaceType::I32],
+                    }),
+                    InterfaceType::F64,
+                ],
+            },
+            &[
+                0x03, // 3 fields
+                0x0a, // String
+                0x0e, // Record
+                0x02, // 2 fields
+                0x0c, // I32
+                0x0c, // I32
+                0x09, // F64
+            ]
+        );
     }
 
     #[test]
@@ -433,18 +518,34 @@ mod tests {
     }
 
     #[test]
-    fn test_type() {
+    fn test_type_function() {
         assert_to_bytes!(
-            Type {
+            Type::Function {
                 inputs: vec![InterfaceType::I32, InterfaceType::I64],
                 outputs: vec![InterfaceType::S32],
             },
             &[
+                0x00, // function type
                 0x02, // list of 2 items
                 0x0c, // I32
                 0x0d, // I64
                 0x01, // list of 1 items
                 0x02, // I64
+            ]
+        );
+    }
+
+    #[test]
+    fn test_type_record() {
+        assert_to_bytes!(
+            Type::Record(RecordType {
+                fields: vec1![InterfaceType::I32, InterfaceType::I64],
+            }),
+            &[
+                0x01, // record type
+                0x02, // list of 2 items
+                0x0c, // I32
+                0x0d, // I64
             ]
         );
     }
@@ -486,7 +587,7 @@ mod tests {
     fn test_interfaces() {
         assert_to_bytes!(
             Interfaces {
-                types: vec![Type {
+                types: vec![Type::Function {
                     inputs: vec![InterfaceType::S8],
                     outputs: vec![InterfaceType::S16],
                 }],
@@ -511,6 +612,7 @@ mod tests {
             &[
                 0x00, // type section
                 0x01, // 1 type
+                0x00, // function type
                 0x01, // list of 1 item
                 0x00, // S8
                 0x01, // list of 1 item
@@ -550,93 +652,85 @@ mod tests {
             vec![
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 1 },
-                Instruction::MemoryToString,
-                Instruction::StringToMemory { allocator_index: 1 },
-                Instruction::I32ToS8,
-                Instruction::I32ToS8X,
-                Instruction::I32ToU8,
-                Instruction::I32ToS16,
-                Instruction::I32ToS16X,
-                Instruction::I32ToU16,
-                Instruction::I32ToS32,
-                Instruction::I32ToU32,
-                Instruction::I32ToS64,
-                Instruction::I32ToU64,
-                Instruction::I64ToS8,
-                Instruction::I64ToS8X,
-                Instruction::I64ToU8,
-                Instruction::I64ToS16,
-                Instruction::I64ToS16X,
-                Instruction::I64ToU16,
-                Instruction::I64ToS32,
-                Instruction::I64ToS32X,
-                Instruction::I64ToU32,
-                Instruction::I64ToS64,
-                Instruction::I64ToU64,
-                Instruction::S8ToI32,
-                Instruction::U8ToI32,
-                Instruction::S16ToI32,
-                Instruction::U16ToI32,
-                Instruction::S32ToI32,
-                Instruction::U32ToI32,
-                Instruction::S64ToI32,
-                Instruction::S64ToI32X,
-                Instruction::U64ToI32,
-                Instruction::U64ToI32X,
-                Instruction::S8ToI64,
-                Instruction::U8ToI64,
-                Instruction::S16ToI64,
-                Instruction::U16ToI64,
-                Instruction::S32ToI64,
-                Instruction::U32ToI64,
-                Instruction::S64ToI64,
-                Instruction::U64ToI64,
+                Instruction::S8FromI32,
+                Instruction::S8FromI64,
+                Instruction::S16FromI32,
+                Instruction::S16FromI64,
+                Instruction::S32FromI32,
+                Instruction::S32FromI64,
+                Instruction::S64FromI32,
+                Instruction::S64FromI64,
+                Instruction::I32FromS8,
+                Instruction::I32FromS16,
+                Instruction::I32FromS32,
+                Instruction::I32FromS64,
+                Instruction::I64FromS8,
+                Instruction::I64FromS16,
+                Instruction::I64FromS32,
+                Instruction::I64FromS64,
+                Instruction::U8FromI32,
+                Instruction::U8FromI64,
+                Instruction::U16FromI32,
+                Instruction::U16FromI64,
+                Instruction::U32FromI32,
+                Instruction::U32FromI64,
+                Instruction::U64FromI32,
+                Instruction::U64FromI64,
+                Instruction::I32FromU8,
+                Instruction::I32FromU16,
+                Instruction::I32FromU32,
+                Instruction::I32FromU64,
+                Instruction::I64FromU8,
+                Instruction::I64FromU16,
+                Instruction::I64FromU32,
+                Instruction::I64FromU64,
+                Instruction::StringLiftMemory,
+                Instruction::StringLowerMemory,
+                Instruction::StringSize,
+                Instruction::RecordLift { type_index: 1 },
+                Instruction::RecordLower { type_index: 1 },
             ],
             &[
-                0x2b, // list of 43 items
+                0x27, // list of 39 items
                 0x00, 0x01, // ArgumentGet { index: 1 }
                 0x01, 0x01, // CallCore { function_index: 1 }
-                0x03, // MemoryToString
-                0x04, 0x01, // StringToMemory { allocator_index: 1 }
-                0x07, // I32ToS8
-                0x08, // I32ToS8X
-                0x09, // I32ToU8
-                0x0a, // I32ToS16
-                0x0b, // I32ToS16X
-                0x0c, // I32ToU16
-                0x0d, // I32ToS32
-                0x0e, // I32ToU32
-                0x0f, // I32ToS64
-                0x10, // I32ToU64
-                0x11, // I64ToS8
-                0x12, // I64ToS8X
-                0x13, // I64ToU8
-                0x14, // I64ToS16
-                0x15, // I64ToS16X
-                0x16, // I64ToU16
-                0x17, // I64ToS32
-                0x18, // I64ToS32X
-                0x19, // I64ToU32
-                0x1a, // I64ToS64
-                0x1b, // I64ToU64
-                0x1c, // S8ToI32
-                0x1d, // U8ToI32
-                0x1e, // S16ToI32
-                0x1f, // U16ToI32
-                0x20, // S32ToI32
-                0x21, // U32ToI32
-                0x22, // S64ToI32
-                0x23, // S64ToI32X
-                0x24, // U64ToI32
-                0x25, // U64ToI32X
-                0x26, // S8ToI64
-                0x27, // U8ToI64
-                0x28, // S16ToI64
-                0x29, // U16ToI64
-                0x2a, // S32ToI64
-                0x2b, // U32ToI64
-                0x2c, // S64ToI64
-                0x2d, // U64ToI64
+                0x02, // S8FromI32
+                0x03, // S8FromI64
+                0x04, // S16FromI32
+                0x05, // S16FromI64
+                0x06, // S32FromI32
+                0x07, // S32FromI64
+                0x08, // S64FromI32
+                0x09, // S64FromI64
+                0x0a, // I32FromS8
+                0x0b, // I32FromS16
+                0x0c, // I32FromS32
+                0x0d, // I32FromS64
+                0x0e, // I64FromS8
+                0x0f, // I64FromS16
+                0x10, // I64FromS32
+                0x11, // I64FromS64
+                0x12, // U8FromI32
+                0x13, // U8FromI64
+                0x14, // U16FromI32
+                0x15, // U16FromI64
+                0x16, // U32FromI32
+                0x17, // U32FromI64
+                0x18, // U64FromI32
+                0x19, // U64FromI64
+                0x1a, // I32FromU8
+                0x1b, // I32FromU16
+                0x1c, // I32FromU32
+                0x1d, // I32FromU64
+                0x1e, // I64FromU8
+                0x1f, // I64FromU16
+                0x20, // I64FromU32
+                0x21, // I64FromU64
+                0x22, // StringLiftMemory
+                0x23, // StringLowerMemory
+                0x24, // StringSize
+                0x025, 0x01, // RecordLift { type_index: 1 }
+                0x026, 0x01, // RecordLower { type_index: 1 }
             ]
         );
     }

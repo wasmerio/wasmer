@@ -40,7 +40,7 @@
 //!
 //! compiled into wasm bytecode, we can call the exported "add_one" function:
 //!
-//! ```
+//! ```ignore
 //! static WASM: &'static [u8] = &[
 //!     // The module above compiled to bytecode goes here.
 //!     // ...
@@ -66,7 +66,7 @@
 //!
 //!     let mut instance = instantiate(WASM, &import_object)?;
 //!
-//!     let add_one: Func<i32, i32> = instance.func("add_one")?;
+//!     let add_one: Func<i32, i32> = instance.exports.get("add_one")?;
 //!
 //!     let value = add_one.call(42)?;
 //!
@@ -208,6 +208,13 @@ impl Default for Backend {
 
         #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
         return Backend::LLVM;
+
+        #[cfg(not(any(
+            feature = "default-backend-singlepass",
+            feature = "default-backend-cranelift",
+            feature = "default-backend-llvm",
+        )))]
+        panic!("There is no default-backend set.");
     }
 }
 
@@ -240,12 +247,28 @@ impl std::str::FromStr for Backend {
 ///   binary code of the wasm module you want to compile.
 /// # Errors:
 /// If the operation fails, the function returns `Err(error::CompileError::...)`.
+///
+/// This function only exists if one of `default-backend-llvm`, `default-backend-cranelift`,
+/// or `default-backend-singlepass` is set.
+#[cfg(any(
+    feature = "default-backend-singlepass",
+    feature = "default-backend-cranelift",
+    feature = "default-backend-llvm",
+))]
 pub fn compile(wasm: &[u8]) -> error::CompileResult<Module> {
     wasmer_runtime_core::compile_with(&wasm[..], &default_compiler())
 }
 
 /// The same as `compile` but takes a `CompilerConfig` for the purpose of
 /// changing the compiler's behavior
+///
+/// This function only exists if one of `default-backend-llvm`, `default-backend-cranelift`,
+/// or `default-backend-singlepass` is set.
+#[cfg(any(
+    feature = "default-backend-singlepass",
+    feature = "default-backend-cranelift",
+    feature = "default-backend-llvm",
+))]
 pub fn compile_with_config(
     wasm: &[u8],
     compiler_config: CompilerConfig,
@@ -281,6 +304,14 @@ pub fn compile_with_config_with(
 /// `error::CompileError`, `error::LinkError`, or
 /// `error::RuntimeError` (all combined into an `error::Error`),
 /// depending on the cause of the failure.
+///
+/// This function only exists if one of `default-backend-llvm`, `default-backend-cranelift`,
+/// or `default-backend-singlepass` is set.
+#[cfg(any(
+    feature = "default-backend-singlepass",
+    feature = "default-backend-cranelift",
+    feature = "default-backend-llvm",
+))]
 pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<Instance> {
     let module = compile(wasm)?;
     module.instantiate(import_object)
@@ -291,6 +322,14 @@ pub fn instantiate(wasm: &[u8], import_object: &ImportObject) -> error::Result<I
 /// The output of this function can be controlled by the mutually
 /// exclusive `default-backend-llvm`, `default-backend-singlepass`,
 /// and `default-backend-cranelift` feature flags.
+///
+/// This function only exists if one of `default-backend-llvm`, `default-backend-cranelift`,
+/// or `default-backend-singlepass` is set.
+#[cfg(any(
+    feature = "default-backend-singlepass",
+    feature = "default-backend-cranelift",
+    feature = "default-backend-llvm",
+))]
 pub fn default_compiler() -> impl Compiler {
     #[cfg(any(
         all(
@@ -320,7 +359,7 @@ pub fn default_compiler() -> impl Compiler {
     #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
     use wasmer_clif_backend::CraneliftCompiler as DefaultCompiler;
 
-    DefaultCompiler::new()
+    return DefaultCompiler::new();
 }
 
 /// Get the `Compiler` as a trait object for the given `Backend`.
@@ -350,6 +389,13 @@ pub fn compiler_for_backend(backend: Backend) -> Option<Box<dyn Compiler>> {
             return Some(Box::new(wasmer_clif_backend::CraneliftCompiler::new()));
             #[cfg(feature = "default-backend-llvm")]
             return Some(Box::new(wasmer_llvm_backend::LLVMCompiler::new()));
+
+            #[cfg(not(any(
+                feature = "default-backend-singlepass",
+                feature = "default-backend-cranelift",
+                feature = "default-backend-llvm",
+            )))]
+            panic!("There is no default-compiler set.");
         }
     }
 }

@@ -1,33 +1,21 @@
 //! Parse the WIT binary representation into an [AST](crate::ast).
 
-use crate::{ast::*, interpreter::Instruction};
+use crate::{ast::*, interpreter::Instruction, types::*, vec1::Vec1};
 use nom::{
     error::{make_error, ErrorKind, ParseError},
     Err, IResult,
 };
 use std::{convert::TryFrom, str};
 
-/// Parse an `InterfaceType`.
-impl TryFrom<u8> for InterfaceType {
+/// Parse a type kind.
+impl TryFrom<u8> for TypeKind {
     type Error = &'static str;
 
     fn try_from(code: u8) -> Result<Self, Self::Error> {
         Ok(match code {
-            0 => Self::S8,
-            1 => Self::S16,
-            2 => Self::S32,
-            3 => Self::S64,
-            4 => Self::U8,
-            5 => Self::U16,
-            6 => Self::U32,
-            7 => Self::U64,
-            8 => Self::F32,
-            9 => Self::F64,
-            10 => Self::String,
-            11 => Self::Anyref,
-            12 => Self::I32,
-            13 => Self::I64,
-            _ => return Err("Unknown interface type code."),
+            0x00 => Self::Function,
+            0x01 => Self::Record,
+            _ => return Err("Unknown type kind code."),
         })
     }
 }
@@ -82,6 +70,56 @@ fn uleb<'input, E: ParseError<&'input [u8]>>(input: &'input [u8]) -> IResult<&'i
     ))
 }
 
+/// Parse an interface type.
+fn ty<'input, E: ParseError<&'input [u8]>>(
+    mut input: &'input [u8],
+) -> IResult<&'input [u8], InterfaceType, E> {
+    if input.is_empty() {
+        return Err(Err::Error(make_error(input, ErrorKind::Eof)));
+    }
+
+    consume!((input, opcode) = byte(input)?);
+
+    let ty = match opcode {
+        0x00 => InterfaceType::S8,
+        0x01 => InterfaceType::S16,
+        0x02 => InterfaceType::S32,
+        0x03 => InterfaceType::S64,
+        0x04 => InterfaceType::U8,
+        0x05 => InterfaceType::U16,
+        0x06 => InterfaceType::U32,
+        0x07 => InterfaceType::U64,
+        0x08 => InterfaceType::F32,
+        0x09 => InterfaceType::F64,
+        0x0a => InterfaceType::String,
+        0x0b => InterfaceType::Anyref,
+        0x0c => InterfaceType::I32,
+        0x0d => InterfaceType::I64,
+        0x0e => {
+            consume!((input, record_type) = record_type(input)?);
+
+            InterfaceType::Record(record_type)
+        }
+        _ => return Err(Err::Error(make_error(input, ErrorKind::ParseTo))),
+    };
+
+    Ok((input, ty))
+}
+
+/// Parse a record type.
+fn record_type<'input, E: ParseError<&'input [u8]>>(
+    input: &'input [u8],
+) -> IResult<&'input [u8], RecordType, E> {
+    let (output, fields) = list(input, ty)?;
+
+    Ok((
+        output,
+        RecordType {
+            fields: Vec1::new(fields).expect("Record must have at least one field, zero given."),
+        },
+    ))
+}
+
 /// Parse a UTF-8 string.
 fn string<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
@@ -131,22 +169,6 @@ fn list<'input, I, E: ParseError<&'input [u8]>>(
     Ok((input, items))
 }
 
-/// Parse a type.
-fn ty<'input, E: ParseError<&'input [u8]>>(
-    input: &'input [u8],
-) -> IResult<&'input [u8], InterfaceType, E> {
-    if input.is_empty() {
-        return Err(Err::Error(make_error(input, ErrorKind::Eof)));
-    }
-
-    let (output, ty) = byte(input)?;
-
-    match InterfaceType::try_from(ty) {
-        Ok(ty) => Ok((output, ty)),
-        Err(_) => Err(Err::Error(make_error(input, ErrorKind::ParseTo))),
-    }
-}
-
 /// Parse an instruction with its arguments.
 fn instruction<'input, E: ParseError<&'input [u8]>>(
     input: &'input [u8],
@@ -156,6 +178,7 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
     Ok(match opcode {
         0x00 => {
             consume!((input, argument_0) = uleb(input)?);
+
             (
                 input,
                 Instruction::ArgumentGet {
@@ -166,65 +189,72 @@ fn instruction<'input, E: ParseError<&'input [u8]>>(
 
         0x01 => {
             consume!((input, argument_0) = uleb(input)?);
+
             (
                 input,
                 Instruction::CallCore {
-                    function_index: argument_0 as usize,
+                    function_index: argument_0 as u32,
                 },
             )
         }
 
-        0x03 => (input, Instruction::MemoryToString),
+        0x02 => (input, Instruction::S8FromI32),
+        0x03 => (input, Instruction::S8FromI64),
+        0x04 => (input, Instruction::S16FromI32),
+        0x05 => (input, Instruction::S16FromI64),
+        0x06 => (input, Instruction::S32FromI32),
+        0x07 => (input, Instruction::S32FromI64),
+        0x08 => (input, Instruction::S64FromI32),
+        0x09 => (input, Instruction::S64FromI64),
+        0x0a => (input, Instruction::I32FromS8),
+        0x0b => (input, Instruction::I32FromS16),
+        0x0c => (input, Instruction::I32FromS32),
+        0x0d => (input, Instruction::I32FromS64),
+        0x0e => (input, Instruction::I64FromS8),
+        0x0f => (input, Instruction::I64FromS16),
+        0x10 => (input, Instruction::I64FromS32),
+        0x11 => (input, Instruction::I64FromS64),
+        0x12 => (input, Instruction::U8FromI32),
+        0x13 => (input, Instruction::U8FromI64),
+        0x14 => (input, Instruction::U16FromI32),
+        0x15 => (input, Instruction::U16FromI64),
+        0x16 => (input, Instruction::U32FromI32),
+        0x17 => (input, Instruction::U32FromI64),
+        0x18 => (input, Instruction::U64FromI32),
+        0x19 => (input, Instruction::U64FromI64),
+        0x1a => (input, Instruction::I32FromU8),
+        0x1b => (input, Instruction::I32FromU16),
+        0x1c => (input, Instruction::I32FromU32),
+        0x1d => (input, Instruction::I32FromU64),
+        0x1e => (input, Instruction::I64FromU8),
+        0x1f => (input, Instruction::I64FromU16),
+        0x20 => (input, Instruction::I64FromU32),
+        0x21 => (input, Instruction::I64FromU64),
 
-        0x04 => {
+        0x22 => (input, Instruction::StringLiftMemory),
+        0x23 => (input, Instruction::StringLowerMemory),
+        0x24 => (input, Instruction::StringSize),
+
+        0x25 => {
             consume!((input, argument_0) = uleb(input)?);
+
             (
                 input,
-                Instruction::StringToMemory {
-                    allocator_index: argument_0 as u32,
+                Instruction::RecordLift {
+                    type_index: argument_0 as u32,
                 },
             )
         }
+        0x26 => {
+            consume!((input, argument_0) = uleb(input)?);
 
-        0x07 => (input, Instruction::I32ToS8),
-        0x08 => (input, Instruction::I32ToS8X),
-        0x09 => (input, Instruction::I32ToU8),
-        0x0a => (input, Instruction::I32ToS16),
-        0x0b => (input, Instruction::I32ToS16X),
-        0x0c => (input, Instruction::I32ToU16),
-        0x0d => (input, Instruction::I32ToS32),
-        0x0e => (input, Instruction::I32ToU32),
-        0x0f => (input, Instruction::I32ToS64),
-        0x10 => (input, Instruction::I32ToU64),
-        0x11 => (input, Instruction::I64ToS8),
-        0x12 => (input, Instruction::I64ToS8X),
-        0x13 => (input, Instruction::I64ToU8),
-        0x14 => (input, Instruction::I64ToS16),
-        0x15 => (input, Instruction::I64ToS16X),
-        0x16 => (input, Instruction::I64ToU16),
-        0x17 => (input, Instruction::I64ToS32),
-        0x18 => (input, Instruction::I64ToS32X),
-        0x19 => (input, Instruction::I64ToU32),
-        0x1a => (input, Instruction::I64ToS64),
-        0x1b => (input, Instruction::I64ToU64),
-        0x1c => (input, Instruction::S8ToI32),
-        0x1d => (input, Instruction::U8ToI32),
-        0x1e => (input, Instruction::S16ToI32),
-        0x1f => (input, Instruction::U16ToI32),
-        0x20 => (input, Instruction::S32ToI32),
-        0x21 => (input, Instruction::U32ToI32),
-        0x22 => (input, Instruction::S64ToI32),
-        0x23 => (input, Instruction::S64ToI32X),
-        0x24 => (input, Instruction::U64ToI32),
-        0x25 => (input, Instruction::U64ToI32X),
-        0x26 => (input, Instruction::S8ToI64),
-        0x27 => (input, Instruction::U8ToI64),
-        0x28 => (input, Instruction::S16ToI64),
-        0x29 => (input, Instruction::U16ToI64),
-        0x2a => (input, Instruction::S32ToI64),
-        0x2b => (input, Instruction::U32ToI64),
-        0x2c => (input, Instruction::S64ToI64),
-        0x2d => (input, Instruction::U64ToI64),
+            (
+                input,
+                Instruction::RecordLower {
+                    type_index: argument_0 as u32,
+                },
+            )
+        }
 
         _ => return Err(Err::Error(make_error(input, ErrorKind::ParseTo))),
     })
@@ -239,10 +269,25 @@ fn types<'input, E: ParseError<&'input [u8]>>(
     let mut types = Vec::with_capacity(number_of_types as usize);
 
     for _ in 0..number_of_types {
-        consume!((input, inputs) = list(input, ty)?);
-        consume!((input, outputs) = list(input, ty)?);
+        consume!((input, type_kind) = byte(input)?);
 
-        types.push(Type { inputs, outputs });
+        let type_kind = TypeKind::try_from(type_kind)
+            .map_err(|_| Err::Error(make_error(input, ErrorKind::ParseTo)))?;
+
+        match type_kind {
+            TypeKind::Function => {
+                consume!((input, inputs) = list(input, ty)?);
+                consume!((input, outputs) = list(input, ty)?);
+
+                types.push(Type::Function { inputs, outputs });
+            }
+
+            TypeKind::Record => {
+                consume!((input, record_type) = record_type(input)?);
+
+                types.push(Type::Record(record_type));
+            }
+        }
     }
 
     Ok((input, types))
@@ -400,14 +445,16 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 ///
 /// ```rust
 /// use wasmer_interface_types::{
-///     ast::*,
+///     ast::{Adapter, Export, Implementation, Import, Interfaces, Type},
 ///     decoders::binary::parse,
 ///     interpreter::Instruction,
+///     types::InterfaceType,
 /// };
 ///
 /// let input = &[
 ///     0x00, // type section
 ///     0x01, // 1 type
+///     0x00, // function type
 ///     0x01, // list of 1 item
 ///     0x00, // S8
 ///     0x01, // list of 1 item
@@ -441,7 +488,7 @@ fn interfaces<'input, E: ParseError<&'input [u8]>>(
 /// let output = Ok((
 ///     &[] as &[u8],
 ///     Interfaces {
-///         types: vec![Type {
+///         types: vec![Type::Function {
 ///             inputs: vec![InterfaceType::S8],
 ///             outputs: vec![InterfaceType::S16],
 ///         }],
@@ -552,6 +599,95 @@ mod tests {
     }
 
     #[test]
+    fn test_ty() {
+        let input = &[
+            0x0f, // list of 15 items
+            0x00, // S8
+            0x01, // S16
+            0x02, // S32
+            0x03, // S64
+            0x04, // U8
+            0x05, // U16
+            0x06, // U32
+            0x07, // U64
+            0x08, // F32
+            0x09, // F64
+            0x0a, // String
+            0x0b, // Anyref
+            0x0c, // I32
+            0x0d, // I64
+            0x0e, 0x01, 0x02, // Record
+            0x01,
+        ];
+        let output = Ok((
+            &[0x01][..],
+            vec![
+                InterfaceType::S8,
+                InterfaceType::S16,
+                InterfaceType::S32,
+                InterfaceType::S64,
+                InterfaceType::U8,
+                InterfaceType::U16,
+                InterfaceType::U32,
+                InterfaceType::U64,
+                InterfaceType::F32,
+                InterfaceType::F64,
+                InterfaceType::String,
+                InterfaceType::Anyref,
+                InterfaceType::I32,
+                InterfaceType::I64,
+                InterfaceType::Record(RecordType {
+                    fields: vec1![InterfaceType::S32],
+                }),
+            ],
+        ));
+
+        assert_eq!(list::<_, ()>(input, ty), output);
+    }
+
+    #[test]
+    fn test_record_type() {
+        let input = &[
+            0x03, // list of 3 items
+            0x01, // 1 field
+            0x0a, // String
+            0x02, // 2 fields
+            0x0a, // String
+            0x0c, // I32
+            0x03, // 3 fields
+            0x0a, // String
+            0x0e, // Record
+            0x02, // 2 fields
+            0x0c, // I32
+            0x0c, // I32
+            0x09, // F64
+            0x01,
+        ];
+        let output = Ok((
+            &[0x01][..],
+            vec![
+                RecordType {
+                    fields: vec1![InterfaceType::String],
+                },
+                RecordType {
+                    fields: vec1![InterfaceType::String, InterfaceType::I32],
+                },
+                RecordType {
+                    fields: vec1![
+                        InterfaceType::String,
+                        InterfaceType::Record(RecordType {
+                            fields: vec1![InterfaceType::I32, InterfaceType::I32],
+                        }),
+                        InterfaceType::F64,
+                    ],
+                },
+            ],
+        ));
+
+        assert_eq!(list::<_, ()>(input, record_type), output);
+    }
+
+    #[test]
     fn test_string() {
         let input = &[
             0x03, // string of 3 bytes
@@ -578,99 +714,52 @@ mod tests {
         ];
         let output = Ok((&[0x07][..], vec!["a", "bc"]));
 
-        assert_eq!(list::<&str, ()>(input, string), output);
-    }
-
-    #[test]
-    fn test_ty() {
-        let input = &[
-            0x0e, // list of 14 items
-            0x00, // S8
-            0x01, // S16
-            0x02, // S32
-            0x03, // S64
-            0x04, // U8
-            0x05, // U16
-            0x06, // U32
-            0x07, // U64
-            0x08, // F32
-            0x09, // F64
-            0x0a, // String
-            0x0b, // Anyref
-            0x0c, // I32
-            0x0d, // I64
-            0x01,
-        ];
-        let output = Ok((
-            &[0x01][..],
-            vec![
-                InterfaceType::S8,
-                InterfaceType::S16,
-                InterfaceType::S32,
-                InterfaceType::S64,
-                InterfaceType::U8,
-                InterfaceType::U16,
-                InterfaceType::U32,
-                InterfaceType::U64,
-                InterfaceType::F32,
-                InterfaceType::F64,
-                InterfaceType::String,
-                InterfaceType::Anyref,
-                InterfaceType::I32,
-                InterfaceType::I64,
-            ],
-        ));
-
-        assert_eq!(list::<InterfaceType, ()>(input, ty), output);
+        assert_eq!(list::<_, ()>(input, string), output);
     }
 
     #[test]
     fn test_instructions() {
         let input = &[
-            0x2b, // list of 43 items
+            0x27, // list of 39 items
             0x00, 0x01, // ArgumentGet { index: 1 }
             0x01, 0x01, // CallCore { function_index: 1 }
-            0x03, // MemoryToString
-            0x04, 0x01, // StringToMemory { allocator_index: 1 }
-            0x07, // I32ToS8
-            0x08, // I32ToS8X
-            0x09, // I32ToU8
-            0x0a, // I32ToS16
-            0x0b, // I32ToS16X
-            0x0c, // I32ToU16
-            0x0d, // I32ToS32
-            0x0e, // I32ToU32
-            0x0f, // I32ToS64
-            0x10, // I32ToU64
-            0x11, // I64ToS8
-            0x12, // I64ToS8X
-            0x13, // I64ToU8
-            0x14, // I64ToS16
-            0x15, // I64ToS16X
-            0x16, // I64ToU16
-            0x17, // I64ToS32
-            0x18, // I64ToS32X
-            0x19, // I64ToU32
-            0x1a, // I64ToS64
-            0x1b, // I64ToU64
-            0x1c, // S8ToI32
-            0x1d, // U8ToI32
-            0x1e, // S16ToI32
-            0x1f, // U16ToI32
-            0x20, // S32ToI32
-            0x21, // U32ToI32
-            0x22, // S64ToI32
-            0x23, // S64ToI32X
-            0x24, // U64ToI32
-            0x25, // U64ToI32X
-            0x26, // S8ToI64
-            0x27, // U8ToI64
-            0x28, // S16ToI64
-            0x29, // U16ToI64
-            0x2a, // S32ToI64
-            0x2b, // U32ToI64
-            0x2c, // S64ToI64
-            0x2d, // U64ToI64
+            0x02, // S8FromI32
+            0x03, // S8FromI64
+            0x04, // S16FromI32
+            0x05, // S16FromI64
+            0x06, // S32FromI32
+            0x07, // S32FromI64
+            0x08, // S64FromI32
+            0x09, // S64FromI64
+            0x0a, // I32FromS8
+            0x0b, // I32FromS16
+            0x0c, // I32FromS32
+            0x0d, // I32FromS64
+            0x0e, // I64FromS8
+            0x0f, // I64FromS16
+            0x10, // I64FromS32
+            0x11, // I64FromS64
+            0x12, // U8FromI32
+            0x13, // U8FromI64
+            0x14, // U16FromI32
+            0x15, // U16FromI64
+            0x16, // U32FromI32
+            0x17, // U32FromI64
+            0x18, // U64FromI32
+            0x19, // U64FromI64
+            0x1a, // I32FromU8
+            0x1b, // I32FromU16
+            0x1c, // I32FromU32
+            0x1d, // I32FromU64
+            0x1e, // I64FromU8
+            0x1f, // I64FromU16
+            0x20, // I64FromU32
+            0x21, // I64FromU64
+            0x22, // StringLiftMemory
+            0x23, // StringLowerMemory
+            0x24, // StringSize
+            0x25, 0x01, // RecordLift { type_index: 1 },
+            0x26, 0x01, // RecordLower { type_index: 1 },
             0x0a,
         ];
         let output = Ok((
@@ -678,51 +767,47 @@ mod tests {
             vec![
                 Instruction::ArgumentGet { index: 1 },
                 Instruction::CallCore { function_index: 1 },
-                Instruction::MemoryToString,
-                Instruction::StringToMemory { allocator_index: 1 },
-                Instruction::I32ToS8,
-                Instruction::I32ToS8X,
-                Instruction::I32ToU8,
-                Instruction::I32ToS16,
-                Instruction::I32ToS16X,
-                Instruction::I32ToU16,
-                Instruction::I32ToS32,
-                Instruction::I32ToU32,
-                Instruction::I32ToS64,
-                Instruction::I32ToU64,
-                Instruction::I64ToS8,
-                Instruction::I64ToS8X,
-                Instruction::I64ToU8,
-                Instruction::I64ToS16,
-                Instruction::I64ToS16X,
-                Instruction::I64ToU16,
-                Instruction::I64ToS32,
-                Instruction::I64ToS32X,
-                Instruction::I64ToU32,
-                Instruction::I64ToS64,
-                Instruction::I64ToU64,
-                Instruction::S8ToI32,
-                Instruction::U8ToI32,
-                Instruction::S16ToI32,
-                Instruction::U16ToI32,
-                Instruction::S32ToI32,
-                Instruction::U32ToI32,
-                Instruction::S64ToI32,
-                Instruction::S64ToI32X,
-                Instruction::U64ToI32,
-                Instruction::U64ToI32X,
-                Instruction::S8ToI64,
-                Instruction::U8ToI64,
-                Instruction::S16ToI64,
-                Instruction::U16ToI64,
-                Instruction::S32ToI64,
-                Instruction::U32ToI64,
-                Instruction::S64ToI64,
-                Instruction::U64ToI64,
+                Instruction::S8FromI32,
+                Instruction::S8FromI64,
+                Instruction::S16FromI32,
+                Instruction::S16FromI64,
+                Instruction::S32FromI32,
+                Instruction::S32FromI64,
+                Instruction::S64FromI32,
+                Instruction::S64FromI64,
+                Instruction::I32FromS8,
+                Instruction::I32FromS16,
+                Instruction::I32FromS32,
+                Instruction::I32FromS64,
+                Instruction::I64FromS8,
+                Instruction::I64FromS16,
+                Instruction::I64FromS32,
+                Instruction::I64FromS64,
+                Instruction::U8FromI32,
+                Instruction::U8FromI64,
+                Instruction::U16FromI32,
+                Instruction::U16FromI64,
+                Instruction::U32FromI32,
+                Instruction::U32FromI64,
+                Instruction::U64FromI32,
+                Instruction::U64FromI64,
+                Instruction::I32FromU8,
+                Instruction::I32FromU16,
+                Instruction::I32FromU32,
+                Instruction::I32FromU64,
+                Instruction::I64FromU8,
+                Instruction::I64FromU16,
+                Instruction::I64FromU32,
+                Instruction::I64FromU64,
+                Instruction::StringLiftMemory,
+                Instruction::StringLowerMemory,
+                Instruction::StringSize,
+                Instruction::RecordLift { type_index: 1 },
+                Instruction::RecordLower { type_index: 1 },
             ],
         ));
 
-        assert_eq!(list::<Instruction, ()>(input, instruction), output);
+        assert_eq!(list::<_, ()>(input, instruction), output);
     }
 
     #[test]
@@ -756,19 +841,29 @@ mod tests {
     #[test]
     fn test_types() {
         let input = &[
-            0x01, // 1 type
+            0x02, // 2 type
+            0x00, // function type
             0x02, // list of 2 items
             0x02, // S32
             0x02, // S32
             0x01, // list of 2 items
             0x02, // S32
+            0x01, // record type
+            0x02, // list of 2 items
+            0x02, // S32
+            0x02, // S32
         ];
         let output = Ok((
             &[] as &[u8],
-            vec![Type {
-                inputs: vec![InterfaceType::S32, InterfaceType::S32],
-                outputs: vec![InterfaceType::S32],
-            }],
+            vec![
+                Type::Function {
+                    inputs: vec![InterfaceType::S32, InterfaceType::S32],
+                    outputs: vec![InterfaceType::S32],
+                },
+                Type::Record(RecordType {
+                    fields: vec1![InterfaceType::S32, InterfaceType::S32],
+                }),
+            ],
         ));
 
         assert_eq!(types::<()>(input), output);
@@ -832,6 +927,7 @@ mod tests {
         let input = &[
             0x00, // type section
             0x01, // 1 type
+            0x00, // function type
             0x01, // list of 1 item
             0x00, // S8
             0x01, // list of 1 item
@@ -865,7 +961,7 @@ mod tests {
         let output = Ok((
             &[] as &[u8],
             Interfaces {
-                types: vec![Type {
+                types: vec![Type::Function {
                     inputs: vec![InterfaceType::S8],
                     outputs: vec![InterfaceType::S16],
                 }],

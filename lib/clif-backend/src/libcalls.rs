@@ -78,7 +78,7 @@ pub extern "C" fn nearbyintf64(x: f64) -> f64 {
 
 // FIXME: Is there a replacement on AArch64?
 #[cfg(all(
-    any(target_os = "freebsd", target_os = "linux"),
+    any(target_os = "freebsd", target_os = "linux", target_os = "android"),
     target_arch = "aarch64"
 ))]
 #[no_mangle]

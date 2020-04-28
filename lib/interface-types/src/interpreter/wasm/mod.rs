@@ -3,4 +3,3 @@
 //! take a look to use the `wasmer-interface-types` crate—.
 
 pub mod structures;
-pub mod values;

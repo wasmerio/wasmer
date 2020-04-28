@@ -1,7 +1,7 @@
 //! Create and map Rust to WebAssembly values.
 
-use wasmer_runtime::Value;
-use wasmer_runtime_core::types::Type;
+use wasmer::types::Type;
+use wasmer::wasm::Value;
 
 /// Represents all possibles WebAssembly value types.
 ///
@@ -146,7 +146,7 @@ impl From<wasmer_value_tag> for Type {
     }
 }
 
-impl From<&wasmer_runtime::wasm::Type> for wasmer_value_tag {
+impl From<&wasmer::wasm::Type> for wasmer_value_tag {
     fn from(ty: &Type) -> Self {
         match *ty {
             Type::I32 => wasmer_value_tag::WASM_I32,

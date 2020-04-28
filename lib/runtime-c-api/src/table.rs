@@ -1,8 +1,8 @@
 //! Create, grow, destroy tables of an instance.
 
 use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
-use wasmer_runtime::Table;
-use wasmer_runtime_core::types::{ElementType, TableDescriptor};
+use wasmer::types::{ElementType, TableDescriptor};
+use wasmer::wasm::Table;
 
 #[repr(C)]
 #[derive(Clone)]

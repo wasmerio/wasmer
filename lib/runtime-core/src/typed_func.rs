@@ -257,6 +257,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
+    // TODO: document the invariants `unsafe` requires here
     pub(crate) unsafe fn from_raw_parts(
         inner: Wasm,
         func: NonNull<vm::Func>,
@@ -343,6 +344,15 @@ impl<'a> DynamicFunc<'a> {
                 }
             }
         }
+
+        #[cfg(not(all(unix, target_arch = "x86_64")))]
+        pub fn new<F>(_signature: Arc<FuncSig>, _func: F) -> Self
+        where
+            F: Fn(&mut vm::Ctx, &[crate::types::Value]) -> Vec<crate::types::Value> + 'static,
+        {
+            unimplemented!("The DynamicFunc::new is not yet implemented in your architecture.");
+        }
+
         unsafe extern "C" fn enter_host_polymorphic_i(
             ctx: *const CallContext,
             args: *const u64,
@@ -1014,6 +1024,7 @@ mod tests {
         };
     }
 
+    #[cfg(all(unix, target_arch = "x86_64"))]
     #[test]
     fn test_many_new_dynamics() {
         use crate::types::{FuncSig, Type};

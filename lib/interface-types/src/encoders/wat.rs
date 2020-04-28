@@ -4,13 +4,14 @@
 //!
 //! ```rust
 //! use wasmer_interface_types::{
-//!     ast::*,
+//!     ast::{Adapter, Export, Implementation, Import, Interfaces, Type},
 //!     encoders::wat::*,
 //!     interpreter::Instruction,
+//!     types::InterfaceType,
 //! };
 //!
 //! let input: String = (&Interfaces {
-//!     types: vec![Type {
+//!     types: vec![Type::Function {
 //!         inputs: vec![InterfaceType::I32],
 //!         outputs: vec![InterfaceType::S8],
 //!     }],
@@ -54,28 +55,45 @@
 //! assert_eq!(input, output);
 //! ```
 
-use crate::{ast::*, interpreter::Instruction};
+use crate::{ast::*, interpreter::Instruction, types::*};
 use std::string::ToString;
 
 /// Encode an `InterfaceType` into a string.
 impl ToString for &InterfaceType {
     fn to_string(&self) -> String {
         match self {
-            InterfaceType::S8 => "s8".into(),
-            InterfaceType::S16 => "s16".into(),
-            InterfaceType::S32 => "s32".into(),
-            InterfaceType::S64 => "s64".into(),
-            InterfaceType::U8 => "u8".into(),
-            InterfaceType::U16 => "u16".into(),
-            InterfaceType::U32 => "u32".into(),
-            InterfaceType::U64 => "u64".into(),
-            InterfaceType::F32 => "f32".into(),
-            InterfaceType::F64 => "f64".into(),
-            InterfaceType::String => "string".into(),
-            InterfaceType::Anyref => "anyref".into(),
-            InterfaceType::I32 => "i32".into(),
-            InterfaceType::I64 => "i64".into(),
+            InterfaceType::S8 => "s8".to_string(),
+            InterfaceType::S16 => "s16".to_string(),
+            InterfaceType::S32 => "s32".to_string(),
+            InterfaceType::S64 => "s64".to_string(),
+            InterfaceType::U8 => "u8".to_string(),
+            InterfaceType::U16 => "u16".to_string(),
+            InterfaceType::U32 => "u32".to_string(),
+            InterfaceType::U64 => "u64".to_string(),
+            InterfaceType::F32 => "f32".to_string(),
+            InterfaceType::F64 => "f64".to_string(),
+            InterfaceType::String => "string".to_string(),
+            InterfaceType::Anyref => "anyref".to_string(),
+            InterfaceType::I32 => "i32".to_string(),
+            InterfaceType::I64 => "i64".to_string(),
+            InterfaceType::Record(record_type) => record_type.to_string(),
         }
+    }
+}
+
+impl ToString for &RecordType {
+    fn to_string(&self) -> String {
+        format!(
+            "record{fields}",
+            fields = self
+                .fields
+                .iter()
+                .fold(String::new(), |mut accumulator, interface_type| {
+                    accumulator.push(' ');
+                    accumulator.push_str(&format!("(field {})", &interface_type.to_string()));
+                    accumulator
+                }),
+        )
     }
 }
 
@@ -85,49 +103,43 @@ impl ToString for &Instruction {
         match self {
             Instruction::ArgumentGet { index } => format!("arg.get {}", index),
             Instruction::CallCore { function_index } => format!("call-core {}", function_index),
-            Instruction::MemoryToString => "memory-to-string".into(),
-            Instruction::StringToMemory { allocator_index } => {
-                format!(r#"string-to-memory {}"#, allocator_index)
-            }
-            Instruction::I32ToS8 => "i32-to-s8".into(),
-            Instruction::I32ToS8X => "i32-to-s8x".into(),
-            Instruction::I32ToU8 => "i32-to-u8".into(),
-            Instruction::I32ToS16 => "i32-to-s16".into(),
-            Instruction::I32ToS16X => "i32-to-s16x".into(),
-            Instruction::I32ToU16 => "i32-to-u16".into(),
-            Instruction::I32ToS32 => "i32-to-s32".into(),
-            Instruction::I32ToU32 => "i32-to-u32".into(),
-            Instruction::I32ToS64 => "i32-to-s64".into(),
-            Instruction::I32ToU64 => "i32-to-u64".into(),
-            Instruction::I64ToS8 => "i64-to-s8".into(),
-            Instruction::I64ToS8X => "i64-to-s8x".into(),
-            Instruction::I64ToU8 => "i64-to-u8".into(),
-            Instruction::I64ToS16 => "i64-to-s16".into(),
-            Instruction::I64ToS16X => "i64-to-s16x".into(),
-            Instruction::I64ToU16 => "i64-to-u16".into(),
-            Instruction::I64ToS32 => "i64-to-s32".into(),
-            Instruction::I64ToS32X => "i64-to-s32x".into(),
-            Instruction::I64ToU32 => "i64-to-u32".into(),
-            Instruction::I64ToS64 => "i64-to-s64".into(),
-            Instruction::I64ToU64 => "i64-to-u64".into(),
-            Instruction::S8ToI32 => "s8-to-i32".into(),
-            Instruction::U8ToI32 => "u8-to-i32".into(),
-            Instruction::S16ToI32 => "s16-to-i32".into(),
-            Instruction::U16ToI32 => "u16-to-i32".into(),
-            Instruction::S32ToI32 => "s32-to-i32".into(),
-            Instruction::U32ToI32 => "u32-to-i32".into(),
-            Instruction::S64ToI32 => "s64-to-i32".into(),
-            Instruction::S64ToI32X => "s64-to-i32x".into(),
-            Instruction::U64ToI32 => "u64-to-i32".into(),
-            Instruction::U64ToI32X => "u64-to-i32x".into(),
-            Instruction::S8ToI64 => "s8-to-i64".into(),
-            Instruction::U8ToI64 => "u8-to-i64".into(),
-            Instruction::S16ToI64 => "s16-to-i64".into(),
-            Instruction::U16ToI64 => "u16-to-i64".into(),
-            Instruction::S32ToI64 => "s32-to-i64".into(),
-            Instruction::U32ToI64 => "u32-to-i64".into(),
-            Instruction::S64ToI64 => "s64-to-i64".into(),
-            Instruction::U64ToI64 => "u64-to-i64".into(),
+            Instruction::S8FromI32 => "s8.from_i32".into(),
+            Instruction::S8FromI64 => "s8.from_i64".into(),
+            Instruction::S16FromI32 => "s16.from_i32".into(),
+            Instruction::S16FromI64 => "s16.from_i64".into(),
+            Instruction::S32FromI32 => "s32.from_i32".into(),
+            Instruction::S32FromI64 => "s32.from_i64".into(),
+            Instruction::S64FromI32 => "s64.from_i32".into(),
+            Instruction::S64FromI64 => "s64.from_i64".into(),
+            Instruction::I32FromS8 => "i32.from_s8".into(),
+            Instruction::I32FromS16 => "i32.from_s16".into(),
+            Instruction::I32FromS32 => "i32.from_s32".into(),
+            Instruction::I32FromS64 => "i32.from_s64".into(),
+            Instruction::I64FromS8 => "i64.from_s8".into(),
+            Instruction::I64FromS16 => "i64.from_s16".into(),
+            Instruction::I64FromS32 => "i64.from_s32".into(),
+            Instruction::I64FromS64 => "i64.from_s64".into(),
+            Instruction::U8FromI32 => "u8.from_i32".into(),
+            Instruction::U8FromI64 => "u8.from_i64".into(),
+            Instruction::U16FromI32 => "u16.from_i32".into(),
+            Instruction::U16FromI64 => "u16.from_i64".into(),
+            Instruction::U32FromI32 => "u32.from_i32".into(),
+            Instruction::U32FromI64 => "u32.from_i64".into(),
+            Instruction::U64FromI32 => "u64.from_i32".into(),
+            Instruction::U64FromI64 => "u64.from_i64".into(),
+            Instruction::I32FromU8 => "i32.from_u8".into(),
+            Instruction::I32FromU16 => "i32.from_u16".into(),
+            Instruction::I32FromU32 => "i32.from_u32".into(),
+            Instruction::I32FromU64 => "i32.from_u64".into(),
+            Instruction::I64FromU8 => "i64.from_u8".into(),
+            Instruction::I64FromU16 => "i64.from_u16".into(),
+            Instruction::I64FromU32 => "i64.from_u32".into(),
+            Instruction::I64FromU64 => "i64.from_u64".into(),
+            Instruction::StringLiftMemory => "string.lift_memory".into(),
+            Instruction::StringLowerMemory => "string.lower_memory".into(),
+            Instruction::StringSize => "string.size".into(),
+            Instruction::RecordLift { type_index } => format!("record.lift {}", type_index),
+            Instruction::RecordLower { type_index } => format!("record.lower {}", type_index),
         }
     }
 }
@@ -173,11 +185,18 @@ fn output_types_to_result(output_types: &[InterfaceType]) -> String {
 /// Encode a `Type` into a string.
 impl<'input> ToString for &Type {
     fn to_string(&self) -> String {
-        format!(
-            r#"(@interface type (func{inputs}{outputs}))"#,
-            inputs = input_types_to_param(&self.inputs),
-            outputs = output_types_to_result(&self.outputs),
-        )
+        match self {
+            Type::Function { inputs, outputs } => format!(
+                r#"(@interface type (func{inputs}{outputs}))"#,
+                inputs = input_types_to_param(&inputs),
+                outputs = output_types_to_result(&outputs),
+            ),
+
+            Type::Record(record_type) => format!(
+                r#"(@interface type ({record_type}))"#,
+                record_type = record_type.to_string(),
+            ),
+        }
     }
 }
 
@@ -328,7 +347,7 @@ impl<'input> ToString for &Interfaces<'input> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::*, interpreter::Instruction};
+    use super::*;
 
     #[test]
     fn test_interface_types() {
@@ -347,10 +366,58 @@ mod tests {
             (&InterfaceType::Anyref).to_string(),
             (&InterfaceType::I32).to_string(),
             (&InterfaceType::I64).to_string(),
+            (&InterfaceType::Record(RecordType {
+                fields: vec1![InterfaceType::String],
+            }))
+                .to_string(),
         ];
         let outputs = vec![
-            "s8", "s16", "s32", "s64", "u8", "u16", "u32", "u64", "f32", "f64", "string", "anyref",
-            "i32", "i64",
+            "s8",
+            "s16",
+            "s32",
+            "s64",
+            "u8",
+            "u16",
+            "u32",
+            "u64",
+            "f32",
+            "f64",
+            "string",
+            "anyref",
+            "i32",
+            "i64",
+            "record (field string)",
+        ];
+
+        assert_eq!(inputs, outputs);
+    }
+
+    #[test]
+    fn test_record_type() {
+        let inputs = vec![
+            (&RecordType {
+                fields: vec1![InterfaceType::String],
+            })
+                .to_string(),
+            (&RecordType {
+                fields: vec1![InterfaceType::String, InterfaceType::I32],
+            })
+                .to_string(),
+            (&RecordType {
+                fields: vec1![
+                    InterfaceType::String,
+                    InterfaceType::Record(RecordType {
+                        fields: vec1![InterfaceType::I32, InterfaceType::I32],
+                    }),
+                    InterfaceType::F64,
+                ],
+            })
+                .to_string(),
+        ];
+        let outputs = vec![
+            "record (field string)",
+            "record (field string) (field i32)",
+            "record (field string) (field record (field i32) (field i32)) (field f64)",
         ];
 
         assert_eq!(inputs, outputs);
@@ -361,95 +428,84 @@ mod tests {
         let inputs: Vec<String> = vec![
             (&Instruction::ArgumentGet { index: 7 }).to_string(),
             (&Instruction::CallCore { function_index: 7 }).to_string(),
-            (&Instruction::MemoryToString).to_string(),
-            (&Instruction::StringToMemory {
-                allocator_index: 42,
-            })
-                .to_string(),
-            (&Instruction::I32ToS8).to_string(),
-            (&Instruction::I32ToS8X).to_string(),
-            (&Instruction::I32ToU8).to_string(),
-            (&Instruction::I32ToS16).to_string(),
-            (&Instruction::I32ToS16X).to_string(),
-            (&Instruction::I32ToU16).to_string(),
-            (&Instruction::I32ToS32).to_string(),
-            (&Instruction::I32ToU32).to_string(),
-            (&Instruction::I32ToS64).to_string(),
-            (&Instruction::I32ToU64).to_string(),
-            (&Instruction::I64ToS8).to_string(),
-            (&Instruction::I64ToS8X).to_string(),
-            (&Instruction::I64ToU8).to_string(),
-            (&Instruction::I64ToS16).to_string(),
-            (&Instruction::I64ToS16X).to_string(),
-            (&Instruction::I64ToU16).to_string(),
-            (&Instruction::I64ToS32).to_string(),
-            (&Instruction::I64ToS32X).to_string(),
-            (&Instruction::I64ToU32).to_string(),
-            (&Instruction::I64ToS64).to_string(),
-            (&Instruction::I64ToU64).to_string(),
-            (&Instruction::S8ToI32).to_string(),
-            (&Instruction::U8ToI32).to_string(),
-            (&Instruction::S16ToI32).to_string(),
-            (&Instruction::U16ToI32).to_string(),
-            (&Instruction::S32ToI32).to_string(),
-            (&Instruction::U32ToI32).to_string(),
-            (&Instruction::S64ToI32).to_string(),
-            (&Instruction::S64ToI32X).to_string(),
-            (&Instruction::U64ToI32).to_string(),
-            (&Instruction::U64ToI32X).to_string(),
-            (&Instruction::S8ToI64).to_string(),
-            (&Instruction::U8ToI64).to_string(),
-            (&Instruction::S16ToI64).to_string(),
-            (&Instruction::U16ToI64).to_string(),
-            (&Instruction::S32ToI64).to_string(),
-            (&Instruction::U32ToI64).to_string(),
-            (&Instruction::S64ToI64).to_string(),
-            (&Instruction::U64ToI64).to_string(),
+            (&Instruction::S8FromI32).to_string(),
+            (&Instruction::S8FromI64).to_string(),
+            (&Instruction::S16FromI32).to_string(),
+            (&Instruction::S16FromI64).to_string(),
+            (&Instruction::S32FromI32).to_string(),
+            (&Instruction::S32FromI64).to_string(),
+            (&Instruction::S64FromI32).to_string(),
+            (&Instruction::S64FromI64).to_string(),
+            (&Instruction::I32FromS8).to_string(),
+            (&Instruction::I32FromS16).to_string(),
+            (&Instruction::I32FromS32).to_string(),
+            (&Instruction::I32FromS64).to_string(),
+            (&Instruction::I64FromS8).to_string(),
+            (&Instruction::I64FromS16).to_string(),
+            (&Instruction::I64FromS32).to_string(),
+            (&Instruction::I64FromS64).to_string(),
+            (&Instruction::U8FromI32).to_string(),
+            (&Instruction::U8FromI64).to_string(),
+            (&Instruction::U16FromI32).to_string(),
+            (&Instruction::U16FromI64).to_string(),
+            (&Instruction::U32FromI32).to_string(),
+            (&Instruction::U32FromI64).to_string(),
+            (&Instruction::U64FromI32).to_string(),
+            (&Instruction::U64FromI64).to_string(),
+            (&Instruction::I32FromU8).to_string(),
+            (&Instruction::I32FromU16).to_string(),
+            (&Instruction::I32FromU32).to_string(),
+            (&Instruction::I32FromU64).to_string(),
+            (&Instruction::I64FromU8).to_string(),
+            (&Instruction::I64FromU16).to_string(),
+            (&Instruction::I64FromU32).to_string(),
+            (&Instruction::I64FromU64).to_string(),
+            (&Instruction::StringLiftMemory).to_string(),
+            (&Instruction::StringLowerMemory).to_string(),
+            (&Instruction::StringSize).to_string(),
+            (&Instruction::RecordLift { type_index: 42 }).to_string(),
+            (&Instruction::RecordLower { type_index: 42 }).to_string(),
         ];
         let outputs = vec![
             "arg.get 7",
             "call-core 7",
-            "memory-to-string",
-            "string-to-memory 42",
-            "i32-to-s8",
-            "i32-to-s8x",
-            "i32-to-u8",
-            "i32-to-s16",
-            "i32-to-s16x",
-            "i32-to-u16",
-            "i32-to-s32",
-            "i32-to-u32",
-            "i32-to-s64",
-            "i32-to-u64",
-            "i64-to-s8",
-            "i64-to-s8x",
-            "i64-to-u8",
-            "i64-to-s16",
-            "i64-to-s16x",
-            "i64-to-u16",
-            "i64-to-s32",
-            "i64-to-s32x",
-            "i64-to-u32",
-            "i64-to-s64",
-            "i64-to-u64",
-            "s8-to-i32",
-            "u8-to-i32",
-            "s16-to-i32",
-            "u16-to-i32",
-            "s32-to-i32",
-            "u32-to-i32",
-            "s64-to-i32",
-            "s64-to-i32x",
-            "u64-to-i32",
-            "u64-to-i32x",
-            "s8-to-i64",
-            "u8-to-i64",
-            "s16-to-i64",
-            "u16-to-i64",
-            "s32-to-i64",
-            "u32-to-i64",
-            "s64-to-i64",
-            "u64-to-i64",
+            "s8.from_i32",
+            "s8.from_i64",
+            "s16.from_i32",
+            "s16.from_i64",
+            "s32.from_i32",
+            "s32.from_i64",
+            "s64.from_i32",
+            "s64.from_i64",
+            "i32.from_s8",
+            "i32.from_s16",
+            "i32.from_s32",
+            "i32.from_s64",
+            "i64.from_s8",
+            "i64.from_s16",
+            "i64.from_s32",
+            "i64.from_s64",
+            "u8.from_i32",
+            "u8.from_i64",
+            "u16.from_i32",
+            "u16.from_i64",
+            "u32.from_i32",
+            "u32.from_i64",
+            "u64.from_i32",
+            "u64.from_i64",
+            "i32.from_u8",
+            "i32.from_u16",
+            "i32.from_u32",
+            "i32.from_u64",
+            "i64.from_u8",
+            "i64.from_u16",
+            "i64.from_u32",
+            "i64.from_u64",
+            "string.lift_memory",
+            "string.lower_memory",
+            "string.size",
+            "record.lift 42",
+            "record.lower 42",
         ];
 
         assert_eq!(inputs, outputs);
@@ -458,25 +514,29 @@ mod tests {
     #[test]
     fn test_types() {
         let inputs: Vec<String> = vec![
-            (&Type {
+            (&Type::Function {
                 inputs: vec![InterfaceType::I32, InterfaceType::F32],
                 outputs: vec![InterfaceType::I32],
             })
                 .to_string(),
-            (&Type {
+            (&Type::Function {
                 inputs: vec![InterfaceType::I32],
                 outputs: vec![],
             })
                 .to_string(),
-            (&Type {
+            (&Type::Function {
                 inputs: vec![],
                 outputs: vec![InterfaceType::I32],
             })
                 .to_string(),
-            (&Type {
+            (&Type::Function {
                 inputs: vec![],
                 outputs: vec![],
             })
+                .to_string(),
+            (&Type::Record(RecordType {
+                fields: vec1![InterfaceType::String, InterfaceType::I32],
+            }))
                 .to_string(),
         ];
         let outputs = vec![
@@ -488,6 +548,7 @@ mod tests {
             r#"(@interface type (func
   (result i32)))"#,
             r#"(@interface type (func))"#,
+            r#"(@interface type (record (field string) (field i32)))"#,
         ];
 
         assert_eq!(inputs, outputs);
@@ -534,7 +595,7 @@ mod tests {
     #[test]
     fn test_interfaces() {
         let input: String = (&Interfaces {
-            types: vec![Type {
+            types: vec![Type::Function {
                 inputs: vec![InterfaceType::I32],
                 outputs: vec![InterfaceType::S8],
             }],
