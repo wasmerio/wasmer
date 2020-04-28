@@ -2,11 +2,11 @@
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
 use crate::export::Export;
-use std::collections::VecDeque;
-use std::collections::{hash_map::Entry, HashMap};
 use std::{
     borrow::{Borrow, BorrowMut},
+    collections::{hash_map::Entry, HashMap, VecDeque},
     ffi::c_void,
+    iterator::ExactSizeIterator,
     sync::{Arc, Mutex},
 };
 
@@ -201,6 +201,12 @@ impl Iterator for ImportObjectIterator {
         let len = self.elements.len();
 
         (len, Some(len))
+    }
+}
+
+impl ExactSizeIterator for ImportObjectIterator {
+    fn len(&self) -> usize {
+        self.elements.len()
     }
 }
 
