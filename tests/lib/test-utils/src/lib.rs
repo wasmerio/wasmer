@@ -1,25 +1,25 @@
 use wasmer_compiler::CompilerConfig;
-use wasmer_compiler_cranelift::CraneliftConfig;
-use wasmer_compiler_llvm::LLVMConfig;
-use wasmer_compiler_singlepass::SinglepassConfig;
 
 pub fn get_compiler_config_from_str(
     compiler_name: &str,
     try_nan_canonicalization: bool,
 ) -> Box<dyn CompilerConfig> {
     match compiler_name {
+        #[cfg(feature = "compiler-singlepass")]
         "singlepass" => {
-            let mut singlepass_config = SinglepassConfig::default();
+            let mut singlepass_config = wasmer_compiler_singlepass::SinglepassConfig::default();
             singlepass_config.enable_nan_canonicalization = try_nan_canonicalization;
             Box::new(singlepass_config)
         }
+        #[cfg(feature = "compiler-cranelift")]
         "cranelift" => {
-            let mut cranelift_config = CraneliftConfig::default();
+            let mut cranelift_config = wasmer_compiler_cranelift::CraneliftConfig::default();
             cranelift_config.enable_nan_canonicalization = try_nan_canonicalization;
             Box::new(cranelift_config)
         }
+        #[cfg(feature = "compiler-llvm")]
         "llvm" => {
-            let mut llvm_config = LLVMConfig::default();
+            let mut llvm_config = wasmer_compiler_llvm::LLVMConfig::default();
             llvm_config.enable_nan_canonicalization = try_nan_canonicalization;
             Box::new(llvm_config)
         }
