@@ -46,9 +46,6 @@ anyhow = "1.0.28"
 test-utils = { path = "tests/lib/test-utils" }
 wasmer = { path = "lib/api" }
 wasmer-compiler = { path = "lib/compiler" }
-wasmer-compiler-singlepass = { path = "lib/compiler-singlepass" }
-wasmer-compiler-cranelift = { path = "lib/compiler-cranelift" }
-wasmer-compiler-llvm = { path = "lib/compiler-llvm" }
 wasmer-jit = { path = "lib/jit" }
 wasmer-wast = { path = "tests/lib/wast" }
 
