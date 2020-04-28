@@ -1,4 +1,5 @@
 use crate::exports::{ExportError, Exportable};
+use crate::memory_view::MemoryView;
 use crate::store::{Store, StoreObject};
 use crate::types::{Val, ValAnyFunc};
 use crate::Mutability;
@@ -6,7 +7,7 @@ use crate::RuntimeError;
 use crate::{ExternType, FuncType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
 use std::slice;
-use wasm_common::{Bytes, HostFunction, Pages, WasmTypeList, WithEnv, WithoutEnv};
+use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
     Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMGlobalDefinition,
@@ -392,6 +393,44 @@ impl Memory {
 
     pub fn grow(&self, delta: Pages) -> Result<Pages, RuntimeError> {
         Ok(unsafe { (&*self.exported.from) }.grow(delta).unwrap())
+    }
+    /// Return a "view" of the currently accessible memory. By
+    /// default, the view is unsynchronized, using regular memory
+    /// accesses. You can force a memory view to use atomic accesses
+    /// by calling the [`MemoryView::atomically`] method.
+    ///
+    /// # Notes:
+    ///
+    /// This method is safe (as in, it won't cause the host to crash or have UB),
+    /// but it doesn't obey rust's rules involving data races, especially concurrent ones.
+    /// Therefore, if this memory is shared between multiple threads, a single memory
+    /// location can be mutated concurrently without synchronization.
+    ///
+    /// # Usage:
+    ///
+    /// ```
+    /// # use wasmer::{Memory, MemoryView};
+    /// # use std::{cell::Cell, sync::atomic::Ordering};
+    /// # fn view_memory(memory: Memory) {
+    /// // Without synchronization.
+    /// let view: MemoryView<u8> = memory.view();
+    /// for byte in view[0x1000 .. 0x1010].iter().map(Cell::get) {
+    ///     println!("byte: {}", byte);
+    /// }
+    ///
+    /// // With synchronization.
+    /// let atomic_view = view.atomically();
+    /// for byte in atomic_view[0x1000 .. 0x1010].iter().map(|atom| atom.load(Ordering::SeqCst)) {
+    ///     println!("byte: {}", byte);
+    /// }
+    /// # }
+    /// ```
+    pub fn view<T: ValueType>(&self) -> MemoryView<T> {
+        let base = self.data_ptr();
+
+        let length = self.size().bytes().0 / std::mem::size_of::<T>();
+
+        unsafe { MemoryView::new(base as _, length as u32) }
     }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportMemory) -> Memory {

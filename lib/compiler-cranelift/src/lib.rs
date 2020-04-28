@@ -57,10 +57,7 @@ mod unwind;
 pub use crate::compiler::{transform_jump_table, CraneliftCompiler};
 pub use crate::config::CraneliftConfig;
 pub use crate::debug::{FrameLayout, FrameLayoutChange, FrameLayouts};
-pub use crate::debug::{
-    ModuleMemoryOffset,
-    ModuleVmctxInfo, ValueLabelsRanges,
-};
+pub use crate::debug::{ModuleMemoryOffset, ModuleVmctxInfo, ValueLabelsRanges};
 pub use crate::trampoline::make_wasm_trampoline;
 pub use crate::unwind::compiled_function_unwind_info;
 
