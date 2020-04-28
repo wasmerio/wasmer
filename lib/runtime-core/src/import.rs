@@ -192,8 +192,15 @@ pub struct ImportObjectIterator {
 
 impl Iterator for ImportObjectIterator {
     type Item = (String, String, Export);
+
     fn next(&mut self) -> Option<Self::Item> {
         self.elements.pop_front()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.elements.len();
+
+        (len, Some(len))
     }
 }
 
