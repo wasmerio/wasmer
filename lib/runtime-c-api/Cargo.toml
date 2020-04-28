@@ -17,7 +17,6 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 [dependencies]
 libc = "0.2.60"
 # for generating code in the same way thot the wasm-c-api does
-wasmer = { version = "0.16.2", path = "../api" }
 wasmer-wasm-c-api = { version = "0.16.2", path = "crates/wasm-c-api" }
 
 [dependencies.wasmer]

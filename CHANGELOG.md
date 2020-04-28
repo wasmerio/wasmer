@@ -5,6 +5,7 @@
 - [#1382](https://github.com/wasmerio/wasmer/pull/1382) Refactored test infranstructure (part 2)
 - [#1380](https://github.com/wasmerio/wasmer/pull/1380) Refactored test infranstructure (part 1)
 - [#1357](https://github.com/wasmerio/wasmer/pull/1357) Refactored bin commands into separate files
+- [#1381](https://github.com/wasmerio/wasmer/pull/1381) Add basic support in `libwasmer` for the standard Wasm C API
 - [#1331](https://github.com/wasmerio/wasmer/pull/1331) Implement the `record` type and instrutions for WIT
 - [#1345](https://github.com/wasmerio/wasmer/pull/1345) Adding ARM testing in Azure Pipelines
 - [#1335](https://github.com/wasmerio/wasmer/pull/1335) Change mutability of `memory` to `const` in `wasmer_memory_data_length` in the C API
