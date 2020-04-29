@@ -1,0 +1,44 @@
+on: [push]
+
+name: build
+
+jobs:
+  lint:
+    name: Code lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+
+  test:
+    name: Tests
+    runs-on: ${{ matrix.os }} - Rust ${{ matrix.rust }}
+    strategy:
+      matrix:
+        build: [linux, windows, macos]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            rust: nightly
+          - build: macos
+            os: macos-latest
+            rust: nightly
+          - build: windows
+            os: windows-latest
+            rust: nightly
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - run: cargo test --release
+        env:
+          RUST_BACKTRACE: 1
