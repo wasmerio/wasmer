@@ -53,7 +53,7 @@
                 <span class="kw">if</span> <span class="ident">cache_dir</span>.<span class="ident">exists</span>() {
                     <span class="ident">fs</span>::<span class="ident">remove_dir_all</span>(<span class="ident">cache_dir</span>.<span class="ident">clone</span>()).<span class="ident">expect</span>(<span class="string">&quot;Can&#39;t remove cache dir&quot;</span>);
                 }
-                <span class="ident">fs</span>::<span class="ident">create_dir_all</span>(<span class="ident">cache_dir</span>.<span class="ident">clone</span>()).<span class="ident">expect</span>(<span class="string">&quot;Can&#39;t create cache dir&quot;</span>);
+                <span class="ident">fs</span>::<span class="ident">create_dir_all</span>(<span class="ident">cache_dir</span>).<span class="ident">expect</span>(<span class="string">&quot;Can&#39;t create cache dir&quot;</span>);
             }
             <span class="ident">Cache</span>::<span class="ident">Dir</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">get_cache_dir</span>().<span class="ident">to_string_lossy</span>());

@@ -333,14 +333,6 @@
 <span id="333">333</span>
 <span id="334">334</span>
 <span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The import module contains the implementation data structures and helper functions used to</span>
 <span class="doccomment">//! manipulate and access a wasm module&#39;s imports including memories, tables, globals, and</span>
@@ -398,6 +390,7 @@
 <span class="doccomment">///     n</span>
 <span class="doccomment">/// }</span>
 <span class="doccomment">/// ```</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ImportObject</span> {
     <span class="ident">map</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LikeNamespace</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">state_creator</span>:
@@ -500,15 +493,6 @@
             .<span class="ident">get</span>(<span class="ident">namespace</span>)
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">ns</span><span class="op">|</span> <span class="ident">ns</span>.<span class="ident">as_ref</span>())
             .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">ns</span><span class="op">|</span> <span class="ident">f</span>(<span class="ident">ns</span>))
-    }
-
-    <span class="doccomment">/// Create a clone ref of this namespace.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clone_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">map</span>: <span class="ident">Arc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">map</span>),
-            <span class="ident">state_creator</span>: <span class="self">self</span>.<span class="ident">state_creator</span>.<span class="ident">clone</span>(),
-            <span class="ident">allow_missing_functions</span>: <span class="bool-val">false</span>,
-        }
     }
 
     <span class="kw">fn</span> <span class="ident">get_objects</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">VecDeque</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>, <span class="ident">Export</span>)<span class="op">&gt;</span> {
