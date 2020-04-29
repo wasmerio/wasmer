@@ -2496,10 +2496,12 @@ pub fn poll_oneoff(
     __WASI_ESUCCESS
 }
 
-pub fn proc_exit(env: &mut WasiEnv, code: __wasi_exitcode_t) -> Result<Infallible, ExitCode> {
+pub fn proc_exit(env: &mut WasiEnv, code: __wasi_exitcode_t) {
     debug!("wasi::proc_exit, {}", code);
-    Err(ExitCode { code })
+    panic!("Proc exit");
+    // ExitCode { code }
 }
+
 pub fn proc_raise(env: &mut WasiEnv, sig: __wasi_signal_t) -> __wasi_errno_t {
     debug!("wasi::proc_raise");
     unimplemented!("wasi::proc_raise")
