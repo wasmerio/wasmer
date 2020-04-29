@@ -255,13 +255,16 @@ install:
 
 # Checks
 check-bench-singlepass:
-	cargo check --benches --all singlepass \
+	cargo check --benches --all --no-default-features \
+	--features backend-singlepass \
 	--exclude wasmer-clif-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 check-bench-clif:
-	cargo check --benches --all cranelift \
+	cargo check --benches --all --no-default-features \
+	--features backend-cranelift \
 	--exclude wasmer-singlepass-backend --exclude wasmer-llvm-backend --exclude wasmer-kernel-loader
 check-bench-llvm:
-	cargo check --benches --all llvm \
+	cargo check --benches --all --no-default-features \
+	--features backend-llvm \
 	--exclude wasmer-singlepass-backend --exclude wasmer-clif-backend --exclude wasmer-kernel-loader
 
 check-bench: check-bench-singlepass check-bench-llvm
