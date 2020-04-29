@@ -1,5 +1,6 @@
 //! Common module with common used structures across different
 //! commands.
+
 use crate::common::WasmFeatures;
 use anyhow::{bail, Result};
 use structopt::StructOpt;
@@ -43,14 +44,13 @@ impl CompilerOptions {
             // Auto mode, we choose the best compiler for that platform
             if cfg!(feature = "compiler-cranelift") && cfg!(target_arch = "x86_64") {
                 return Ok(Compiler::Cranelift);
-            }
-            if cfg!(feature = "compiler-singlepass") && cfg!(target_arch = "x86_64") {
+            } else if cfg!(feature = "compiler-singlepass") && cfg!(target_arch = "x86_64") {
                 return Ok(Compiler::Singlepass);
-            }
-            if cfg!(feature = "compiler-llvm") {
+            } else if cfg!(feature = "compiler-llvm") {
                 return Ok(Compiler::LLVM);
+            } else {
+                bail!("There are no available compilers for your architecture")
             }
-            bail!("There are no available compilers for your architecture");
         }
     }
 
@@ -73,6 +73,11 @@ impl CompilerOptions {
                 let config = LLVMConfig::default();
                 return Ok(Box::new(config));
             }
+            #[cfg(not(all(
+                feature = "compiler-singlepass",
+                feature = "compiler-cranelift",
+                feature = "compiler-llvm",
+            )))]
             compiler => bail!(
                 "The compiler {:?} is not included in this binary.",
                 compiler
