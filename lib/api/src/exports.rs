@@ -9,7 +9,7 @@ use wasmer_runtime::Export;
 /// The `ExportError` can happen when trying to get a specific
 /// export [`Extern`] from the [`Instance`] exports.
 ///
-/// [`Instance`]: wasmer_runtime::instance::Instance
+/// [`Instance`]: crate::Instance
 ///
 /// ```ignore
 /// # let my_instance = Instance::new(...);
@@ -149,7 +149,7 @@ impl LikeNamespace for Exports {
 
 /// This trait is used to mark types as gettable from an [`Instance`].
 ///
-/// [`Instance`]: wasmer_runtime::instance::Instance
+/// [`Instance`]: crate::Instance
 pub trait Exportable<'a>: Sized {
     /// This function is used when providedd the [`Extern`] as exportable, so it
     /// can be used while instantiating the [`Module`].
@@ -160,6 +160,6 @@ pub trait Exportable<'a>: Sized {
     /// Implementation of how to get the export corresponding to the implementing type
     /// from an [`Instance`] by name.
     ///
-    /// [`Instance`]: wasmer_runtime::instance::Instance
+    /// [`Instance`]: crate::Instance
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
 }
