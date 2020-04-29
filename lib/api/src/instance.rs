@@ -29,6 +29,8 @@ impl Instance {
     ///
     /// The [`ImportObject`] is the easiest way to provide imports to the instance.
     ///
+    /// [`ImportObject`]: crate::ImportObject
+    ///
     /// ```
     /// # use wasmer::{imports, Store, Module, Global, Instance};
     /// let store = Store::default();
@@ -43,7 +45,7 @@ impl Instance {
     ///
     /// ## Errors
     ///
-    /// The function can return [`InstantiationErrors`].
+    /// The function can return [`InstantiationError`]s.
     ///
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance

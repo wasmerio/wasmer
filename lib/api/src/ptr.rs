@@ -205,7 +205,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// Get a UTF-8 string from the `WasmPtr`, where the string is nul-terminated.
     ///
     /// Note that this does not account for UTF-8 strings that _contain_ nul themselves,
-    /// [`get_utf8_string`] has to be used for those.
+    /// [`WasmPtr::get_utf8_string`] has to be used for those.
     ///
     /// Also note that this method returns a reference to Wasm linear memory. The
     /// underlying data can be mutated if the Wasm is allowed to execute or
