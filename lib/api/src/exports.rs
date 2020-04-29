@@ -154,7 +154,7 @@ pub trait Exportable<'a>: Sized {
     /// This function is used when providedd the [`Extern`] as exportable, so it
     /// can be used while instantiating the [`Module`].
     ///
-    /// [`Module`]: wasmer_runtime::Module
+    /// [`Module`]: crate::Module
     fn to_export(&self) -> Export;
 
     /// Implementation of how to get the export corresponding to the implementing type
