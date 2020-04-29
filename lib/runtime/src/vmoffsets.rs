@@ -20,7 +20,7 @@ fn cast_to_u32(sz: usize) -> u32 {
 }
 
 /// Align an offset used in this module to a specific byte-width by rounding up
-fn align(offset: u32, width: u32) -> u32 {
+const fn align(offset: u32, width: u32) -> u32 {
     (offset + (width - 1)) / width * width
 }
 
@@ -88,7 +88,7 @@ impl VMOffsets {
 impl VMOffsets {
     /// The size of the `current_elements` field.
     #[allow(clippy::identity_op)]
-    pub fn size_of_vmfunction_body_ptr(&self) -> u8 {
+    pub const fn size_of_vmfunction_body_ptr(&self) -> u8 {
         1 * self.pointer_size
     }
 }
@@ -97,18 +97,18 @@ impl VMOffsets {
 impl VMOffsets {
     /// The offset of the `from` field.
     #[allow(clippy::erasing_op)]
-    pub fn vmtable_import_definition(&self) -> u8 {
+    pub const fn vmtable_import_definition(&self) -> u8 {
         0 * self.pointer_size
     }
 
     /// The offset of the `vmctx` field.
     #[allow(clippy::identity_op)]
-    pub fn vmtable_import_from(&self) -> u8 {
+    pub const fn vmtable_import_from(&self) -> u8 {
         1 * self.pointer_size
     }
 
     /// Return the size of `VMTableImport`.
-    pub fn size_of_vmtable_import(&self) -> u8 {
+    pub const fn size_of_vmtable_import(&self) -> u8 {
         2 * self.pointer_size
     }
 }
@@ -117,23 +117,23 @@ impl VMOffsets {
 impl VMOffsets {
     /// The offset of the `base` field.
     #[allow(clippy::erasing_op)]
-    pub fn vmtable_definition_base(&self) -> u8 {
+    pub const fn vmtable_definition_base(&self) -> u8 {
         0 * self.pointer_size
     }
 
     /// The offset of the `current_elements` field.
     #[allow(clippy::identity_op)]
-    pub fn vmtable_definition_current_elements(&self) -> u8 {
+    pub const fn vmtable_definition_current_elements(&self) -> u8 {
         1 * self.pointer_size
     }
 
     /// The size of the `current_elements` field.
-    pub fn size_of_vmtable_definition_current_elements(&self) -> u8 {
+    pub const fn size_of_vmtable_definition_current_elements(&self) -> u8 {
         4
     }
 
     /// Return the size of `VMTableDefinition`.
-    pub fn size_of_vmtable_definition(&self) -> u8 {
+    pub const fn size_of_vmtable_definition(&self) -> u8 {
         2 * self.pointer_size
     }
 }
@@ -142,18 +142,18 @@ impl VMOffsets {
 impl VMOffsets {
     /// The offset of the `from` field.
     #[allow(clippy::erasing_op)]
-    pub fn vmmemory_import_definition(&self) -> u8 {
+    pub const fn vmmemory_import_definition(&self) -> u8 {
         0 * self.pointer_size
     }
 
     /// The offset of the `vmctx` field.
     #[allow(clippy::identity_op)]
-    pub fn vmmemory_import_from(&self) -> u8 {
+    pub const fn vmmemory_import_from(&self) -> u8 {
         1 * self.pointer_size
     }
 
     /// Return the size of `VMMemoryImport`.
-    pub fn size_of_vmmemory_import(&self) -> u8 {
+    pub const fn size_of_vmmemory_import(&self) -> u8 {
         2 * self.pointer_size
     }
 }
@@ -162,23 +162,23 @@ impl VMOffsets {
 impl VMOffsets {
     /// The offset of the `base` field.
     #[allow(clippy::erasing_op)]
-    pub fn vmmemory_definition_base(&self) -> u8 {
+    pub const fn vmmemory_definition_base(&self) -> u8 {
         0 * self.pointer_size
     }
 
     /// The offset of the `current_length` field.
     #[allow(clippy::identity_op)]
-    pub fn vmmemory_definition_current_length(&self) -> u8 {
+    pub const fn vmmemory_definition_current_length(&self) -> u8 {
         1 * self.pointer_size
     }
 
     /// The size of the `current_length` field.
-    pub fn size_of_vmmemory_definition_current_length(&self) -> u8 {
+    pub const fn size_of_vmmemory_definition_current_length(&self) -> u8 {
         4
     }
 
     /// Return the size of `VMMemoryDefinition`.
-    pub fn size_of_vmmemory_definition(&self) -> u8 {
+    pub const fn size_of_vmmemory_definition(&self) -> u8 {
         2 * self.pointer_size
     }
 }
@@ -187,13 +187,13 @@ impl VMOffsets {
 impl VMOffsets {
     /// The offset of the `from` field.
     #[allow(clippy::erasing_op)]
-    pub fn vmglobal_import_definition(&self) -> u8 {
+    pub const fn vmglobal_import_definition(&self) -> u8 {
         0 * self.pointer_size
     }
 
     /// Return the size of `VMGlobalImport`.
     #[allow(clippy::identity_op)]
-    pub fn size_of_vmglobal_import(&self) -> u8 {
+    pub const fn size_of_vmglobal_import(&self) -> u8 {
         1 * self.pointer_size
     }
 }
@@ -202,7 +202,7 @@ impl VMOffsets {
 impl VMOffsets {
     /// Return the size of `VMGlobalDefinition`; this is the size of the largest value type (i.e. a
     /// V128).
-    pub fn size_of_vmglobal_definition(&self) -> u8 {
+    pub const fn size_of_vmglobal_definition(&self) -> u8 {
         16
     }
 }
@@ -210,7 +210,7 @@ impl VMOffsets {
 /// Offsets for `VMSharedSignatureIndex`.
 impl VMOffsets {
     /// Return the size of `VMSharedSignatureIndex`.
-    pub fn size_of_vmshared_signature_index(&self) -> u8 {
+    pub const fn size_of_vmshared_signature_index(&self) -> u8 {
         4
     }
 }
@@ -219,23 +219,23 @@ impl VMOffsets {
 impl VMOffsets {
     /// The offset of the `func_ptr` field.
     #[allow(clippy::erasing_op)]
-    pub fn vmcaller_checked_anyfunc_func_ptr(&self) -> u8 {
+    pub const fn vmcaller_checked_anyfunc_func_ptr(&self) -> u8 {
         0 * self.pointer_size
     }
 
     /// The offset of the `type_index` field.
     #[allow(clippy::identity_op)]
-    pub fn vmcaller_checked_anyfunc_type_index(&self) -> u8 {
+    pub const fn vmcaller_checked_anyfunc_type_index(&self) -> u8 {
         1 * self.pointer_size
     }
 
     /// The offset of the `vmctx` field.
-    pub fn vmcaller_checked_anyfunc_vmctx(&self) -> u8 {
+    pub const fn vmcaller_checked_anyfunc_vmctx(&self) -> u8 {
         2 * self.pointer_size
     }
 
     /// Return the size of `VMCallerCheckedAnyfunc`.
-    pub fn size_of_vmcaller_checked_anyfunc(&self) -> u8 {
+    pub const fn size_of_vmcaller_checked_anyfunc(&self) -> u8 {
         3 * self.pointer_size
     }
 }
@@ -543,12 +543,12 @@ pub struct TargetSharedSignatureIndex(u32);
 
 impl TargetSharedSignatureIndex {
     /// Constructs `TargetSharedSignatureIndex`.
-    pub fn new(value: u32) -> Self {
+    pub const fn new(value: u32) -> Self {
         Self(value)
     }
 
     /// Returns index value.
-    pub fn index(self) -> u32 {
+    pub const fn index(self) -> u32 {
         self.0
     }
 }
