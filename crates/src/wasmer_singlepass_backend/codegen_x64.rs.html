@@ -10929,6 +10929,12 @@
 <span id="10929">10929</span>
 <span id="10930">10930</span>
 <span id="10931">10931</span>
+<span id="10932">10932</span>
+<span id="10933">10933</span>
+<span id="10934">10934</span>
+<span id="10935">10935</span>
+<span id="10936">10936</span>
+<span id="10937">10937</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">forget_copy</span>)]</span> <span class="comment">// Used by dynasm.</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">unused_imports</span>)]</span>
@@ -12874,7 +12880,10 @@
 
     <span class="doccomment">/// Emits a System V call sequence.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// This function must not use RAX before `cb` is called.</span>
+    <span class="doccomment">/// This function will not use RAX before `cb` is called.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling</span>
+    <span class="doccomment">/// this function.</span>
     <span class="kw">fn</span> <span class="ident">emit_call_sysv</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Location</span><span class="op">&gt;</span>, <span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Assembler</span>)<span class="op">&gt;</span>(
         <span class="ident">a</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Assembler</span>,
         <span class="ident">m</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Machine</span>,
@@ -12995,14 +13004,17 @@
                             <span class="comment">// Dummy value slot to be filled with `mov`.</span>
                             <span class="ident">a</span>.<span class="ident">emit_push</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>));
 
-                            <span class="comment">// Use R10 as the temporary register here, since it is callee-saved and not</span>
-                            <span class="comment">// used by the callback `cb`.</span>
-                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R10</span>));
+                            <span class="comment">// Use RCX as the temporary register here, since:</span>
+                            <span class="comment">// - It is a temporary register that is not used for any persistent value.</span>
+                            <span class="comment">// - This register as an argument location is only written to after `sort_call_movs`.</span>
+                            <span class="ident">m</span>.<span class="ident">reserve_unused_temp_gpr</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>);
+                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>));
                             <span class="ident">a</span>.<span class="ident">emit_mov</span>(
                                 <span class="ident">Size</span>::<span class="ident">S64</span>,
-                                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R10</span>),
+                                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>),
                                 <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>, <span class="number">0</span>),
                             );
+                            <span class="ident">m</span>.<span class="ident">release_temp_gpr</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>);
                         }
                         <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="comment">// Dummy value slot to be filled with `mov`.</span>
