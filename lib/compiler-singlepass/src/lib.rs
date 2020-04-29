@@ -19,7 +19,6 @@ mod common_decl;
 mod emitter_x64;
 mod machine;
 mod x64_decl;
-mod exception;
 mod vm;
 
 pub use crate::compiler::SinglepassCompiler;

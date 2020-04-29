@@ -2,21 +2,20 @@ use wasm_common::{
     FuncType,
     entity::{PrimaryMap, EntityRef},
 };
-use wasmer_runtime::{Module, MemoryPlan, TablePlan, MemoryStyle, TableStyle};
+use wasmer_runtime::{Module, MemoryPlan, TablePlan, MemoryStyle, TableStyle, TrapCode};
+use wasmer_compiler::wasmparser::{
+    Type as WpType,
+    TypeOrFuncType as WpTypeOrFuncType,
+    Operator,
+    MemoryImmediate,
+};
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use crate::{
-    exception::{ExceptionTable, ExceptionCode},
     machine::Machine,
     config::SinglepassConfig,
     common_decl::*,
     x64_decl::*,
     emitter_x64::*,
-};
-use wasmparser::{
-    Type as WpType,
-    TypeOrFuncType as WpTypeOrFuncType,
-    Operator,
-    MemoryImmediate,
 };
 use smallvec::{smallvec, SmallVec};
 use wasm_common::{
@@ -25,6 +24,7 @@ use wasm_common::{
     TableIndex, TableType, Type,
 };
 use std::iter;
+use std::collections::HashMap;
 
 // Placeholder
 use crate::vm::{self, LocalTable};
@@ -80,8 +80,15 @@ pub struct FuncGen<'a> {
     /// Function state map. Not yet used in the reborn version but let's keep it.
     fsm: FunctionStateMap,
 
-    /// Exception table.
-    exception_table: ExceptionTable,
+    /// Trap table.
+    trap_table: TrapTable,
+}
+
+/// A trap table for a `RunnableModule`.
+#[derive(Clone, Debug, Default)]
+pub struct TrapTable {
+    /// Mappings from offsets in generated machine code to the corresponding trap code.
+    pub offset_to_code: HashMap<usize, TrapCode>,
 }
 
 /// Metadata about a floating-point value.
@@ -281,17 +288,17 @@ impl<'a> FuncGen<'a> {
             .insert(self.machine.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
     }
 
-    /// Marks each address in the code range emitted by `f` with the exception code `code`.
-    fn mark_range_with_exception_code<F: FnOnce(&mut Self) -> R, R>(
+    /// Marks each address in the code range emitted by `f` with the trap code `code`.
+    fn mark_range_with_trap_code<F: FnOnce(&mut Self) -> R, R>(
         &mut self,
-        code: ExceptionCode,
+        code: TrapCode,
         f: F,
     ) -> R {
         let begin = self.assembler.get_offset().0;
         let ret = f(self);
         let end = self.assembler.get_offset().0;
         for i in begin..end {
-            self.exception_table.offset_to_code.insert(i, code);
+            self.trap_table.offset_to_code.insert(i, code);
         }
         ret
     }
@@ -354,16 +361,16 @@ impl<'a> FuncGen<'a> {
             Location::Imm64(_) | Location::Imm32(_) => {
                 self.assembler.emit_mov(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
                 self.mark_trappable();
-                self.exception_table
+                self.trap_table
                     .offset_to_code
-                    .insert(self.assembler.get_offset().0, ExceptionCode::IllegalArithmetic);
+                    .insert(self.assembler.get_offset().0, TrapCode::IntegerDivisionByZero);
                 op(&mut self.assembler, sz, Location::GPR(GPR::RCX));
             }
             _ => {
                 self.mark_trappable();
-                self.exception_table
+                self.trap_table
                     .offset_to_code
-                    .insert(self.assembler.get_offset().0, ExceptionCode::IllegalArithmetic);
+                    .insert(self.assembler.get_offset().0, TrapCode::IntegerDivisionByZero);
                 op(&mut self.assembler, sz, loc);
             }
         }
@@ -1034,14 +1041,14 @@ impl<'a> FuncGen<'a> {
                             // Use RCX as the temporary register here, since:
                             // - It is a temporary register that is not used for any persistent value.
                             // - This register as an argument location is only written to after `sort_call_movs`.'
-                            m.reserve_unused_temp_gpr(GPR::RCX);
-                            a.emit_mov(Size::S64, *param, Location::GPR(GPR::RCX));
-                            a.emit_mov(
+                            self.machine.reserve_unused_temp_gpr(GPR::RCX);
+                            self.assembler.emit_mov(Size::S64, *param, Location::GPR(GPR::RCX));
+                            self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(GPR::RCX),
                                 Location::Memory(GPR::RSP, 0),
                             );
-                            m.release_temp_gpr(GPR::RCX);
+                            self.machine.release_temp_gpr(GPR::RCX);
                         }
                         Location::XMM(_) => {
                             // Dummy value slot to be filled with `mov`.
@@ -1229,8 +1236,8 @@ impl<'a> FuncGen<'a> {
             self.assembler.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
             self.assembler.emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
 
-            self.mark_range_with_exception_code(
-                ExceptionCode::MemoryOutOfBounds,
+            self.mark_range_with_trap_code(
+                TrapCode::HeapAccessOutOfBounds,
                 |this| this.assembler.emit_conditional_trap(Condition::Above),
             );
 
@@ -1272,14 +1279,14 @@ impl<'a> FuncGen<'a> {
                 Location::Imm32(align - 1),
                 Location::GPR(tmp_aligncheck),
             );
-            self.mark_range_with_exception_code(
-                ExceptionCode::MemoryOutOfBounds,
+            self.mark_range_with_trap_code(
+                TrapCode::HeapAccessOutOfBounds,
                 |this| this.assembler.emit_conditional_trap(Condition::NotEqual),
             );
             self.machine.release_temp_gpr(tmp_aligncheck);
         }
 
-        self.mark_range_with_exception_code(ExceptionCode::MemoryOutOfBounds, |this| {
+        self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
             cb(this, tmp_addr)
         })?;
 
@@ -1400,9 +1407,9 @@ impl<'a> FuncGen<'a> {
 
         self.emit_f32_int_conv_check(reg, lower_bound, upper_bound, trap, trap, trap, end);
         self.assembler.emit_label(trap);
-        self.exception_table
+        self.trap_table
             .offset_to_code
-            .insert(self.assembler.get_offset().0, ExceptionCode::IllegalArithmetic);
+            .insert(self.assembler.get_offset().0, TrapCode::BadConversionToInteger);
         self.assembler.emit_ud2();
         self.assembler.emit_label(end);
     }
@@ -1522,9 +1529,9 @@ impl<'a> FuncGen<'a> {
 
         self.emit_f64_int_conv_check(reg, lower_bound, upper_bound, trap, trap, trap, end);
         self.assembler.emit_label(trap);
-        self.exception_table
+        self.trap_table
             .offset_to_code
-            .insert(self.assembler.get_offset().0, ExceptionCode::IllegalArithmetic);
+            .insert(self.assembler.get_offset().0, TrapCode::BadConversionToInteger);
         self.assembler.emit_ud2();
         self.assembler.emit_label(end);
     }
@@ -4998,8 +5005,8 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(table_base),
                 );
                 self.assembler.emit_cmp(Size::S32, func_index, Location::GPR(table_count));
-                self.mark_range_with_exception_code(
-                    ExceptionCode::CallIndirectOOB,
+                self.mark_range_with_trap_code(
+                    TrapCode::TableAccessOutOfBounds,
                     |this| this.assembler.emit_conditional_trap(Condition::BelowEqual),
                 );
                 self.assembler.emit_mov(Size::S32, func_index, Location::GPR(table_count));
@@ -5027,8 +5034,8 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(sigidx),
                     Location::Memory(table_count, (vm::Anyfunc::offset_sig_id() as usize) as i32),
                 );
-                self.mark_range_with_exception_code(
-                    ExceptionCode::IncorrectCallIndirectSignature,
+                self.mark_range_with_trap_code(
+                    TrapCode::BadSignature,
                     |this| this.assembler.emit_conditional_trap(Condition::NotEqual),
                 );
 
@@ -6042,9 +6049,9 @@ impl<'a> FuncGen<'a> {
             }
             Operator::Unreachable => {
                 self.mark_trappable();
-                self.exception_table
+                self.trap_table
                     .offset_to_code
-                    .insert(self.assembler.get_offset().0, ExceptionCode::Unreachable);
+                    .insert(self.assembler.get_offset().0, TrapCode::UnreachableCodeReached);
                 self.assembler.emit_ud2();
                 self.unreachable_depth = 1;
             }

@@ -4,7 +4,7 @@ use crate::x64_decl::{new_machine_state, X64Register};
 use smallvec::smallvec;
 use smallvec::SmallVec;
 use std::collections::HashSet;
-use wasmparser::Type as WpType;
+use wasmer_compiler::wasmparser::Type as WpType;
 
 struct MachineStackOffset(usize);
 
