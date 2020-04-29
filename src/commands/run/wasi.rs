@@ -1,8 +1,6 @@
 use wasmer_wasi;
 
 
-
-
 #[derive(Debug, StructOpt, Clone)]
 /// WASI Options
 pub struct WasiOptions {

@@ -1,4 +1,4 @@
-use wasmer_runtime_core::module::Module;
+use wasmer::{ExternType, ImportType, Module};
 
 #[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.
@@ -43,19 +43,19 @@ const SNAPSHOT1_NAMESPACE: &str = "wasi_snapshot_preview1";
 /// namespace exits to detect the version. Note that the strict
 /// detection is faster than the non-strict one.
 pub fn get_wasi_version(module: &Module, strict: bool) -> Option<WasiVersion> {
-    let module_info = &module.info();
-    let mut imports = module_info.imported_functions.iter();
+    let mut imports = module.imports().filter_map(|extern_| match extern_ {
+        ImportType {
+            module,
+            name,
+            ty: ExternType::Func(f),
+        } => Some(module),
+        _ => None,
+    });
 
     if strict {
-        let mut imports = imports.map(|(_, import_name)| import_name.namespace_index);
-
-        // Returns `None` if empty.
-        let first = imports.next()?;
-
-        // If there is only one namespace…
-        if imports.all(|index| index == first) {
-            // … and that this namespace is a WASI one.
-            match module_info.namespace_table.get(first) {
+        let first_module = imports.next()?;
+        if imports.all(|module| module == first_module) {
+            match first_module.as_str() {
                 SNAPSHOT0_NAMESPACE => Some(WasiVersion::Snapshot0),
                 SNAPSHOT1_NAMESPACE => Some(WasiVersion::Snapshot1),
                 _ => None,
@@ -64,18 +64,12 @@ pub fn get_wasi_version(module: &Module, strict: bool) -> Option<WasiVersion> {
             None
         }
     } else {
-        let namespace_table = &module_info.namespace_table;
-
         // Check that at least a WASI namespace exists, and use the
         // first one in the list to detect the WASI version.
-        imports.find_map(|(_, import_name)| {
-            let namespace_index = import_name.namespace_index;
-
-            match namespace_table.get(namespace_index) {
-                SNAPSHOT0_NAMESPACE => Some(WasiVersion::Snapshot0),
-                SNAPSHOT1_NAMESPACE => Some(WasiVersion::Snapshot1),
-                _ => None,
-            }
+        imports.find_map(|module| match module.as_str() {
+            SNAPSHOT0_NAMESPACE => Some(WasiVersion::Snapshot0),
+            SNAPSHOT1_NAMESPACE => Some(WasiVersion::Snapshot1),
+            _ => None,
         })
     }
 }
