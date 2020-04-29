@@ -11,7 +11,7 @@ jobs:
       - name: Install Rust nightly
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: nightly-2019-12-19
           override: true
           components: rustfmt, clippy
       - run: cargo fmt --all -- --check
@@ -26,13 +26,13 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: nightly
+            rust: nightly-2019-12-19
           - build: macos
             os: macos-latest
-            rust: nightly
+            rust: nightly-2019-12-19
           - build: windows
             os: windows-latest
-            rust: nightly
+            rust: nightly-2019-12-19
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust ${{ matrix.rust }}
