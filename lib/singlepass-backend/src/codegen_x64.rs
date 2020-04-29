@@ -2068,7 +2068,7 @@ impl X64FunctionCode {
 
                             // Use RCX as the temporary register here, since:
                             // - It is a temporary register that is not used for any persistent value.
-                            // - This register as an argument location is only written to after `sort_call_movs`.'
+                            // - This register as an argument location is only written to after `sort_call_movs`.
                             m.reserve_unused_temp_gpr(GPR::RCX);
                             a.emit_mov(Size::S64, *param, Location::GPR(GPR::RCX));
                             a.emit_mov(
