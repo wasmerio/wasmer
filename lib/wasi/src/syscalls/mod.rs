@@ -1981,10 +1981,8 @@ pub fn path_remove_directory(
         Kind::Dir { entries, path, .. } => {
             if !entries.is_empty() {
                 return __WASI_ENOTEMPTY;
-            } else {
-                if wasi_try!(std::fs::read_dir(path).ok(), __WASI_EIO).count() != 0 {
-                    return __WASI_ENOTEMPTY;
-                }
+            } else if wasi_try!(std::fs::read_dir(path).ok(), __WASI_EIO).count() != 0 {
+                return __WASI_ENOTEMPTY;
             }
             path.clone()
         }
