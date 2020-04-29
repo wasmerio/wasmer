@@ -5,10 +5,7 @@ use crate::error::{ImportError, LinkError};
 use more_asserts::assert_ge;
 use std::collections::HashSet;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{
-    ExternType, GlobalInit, GlobalType, ImportIndex, MemoryIndex, MemoryType, TableIndex,
-    TableType, Type,
-};
+use wasm_common::{ExternType, ImportIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::{
     Export, Imports, SignatureRegistry, VMFunctionImport, VMGlobalImport, VMMemoryImport,
     VMTableImport,
@@ -63,7 +60,7 @@ fn get_extern_from_import(module: &Module, import_index: &ImportIndex) -> Extern
 
 /// Get an `ExternType` given an export (and signatures in case is a function).
 fn get_extern_from_export(
-    module: &Module,
+    _module: &Module,
     signatures: &SignatureRegistry,
     export: &Export,
 ) -> ExternType {
@@ -96,7 +93,7 @@ pub fn resolve_imports(
     signatures: &SignatureRegistry,
     resolver: &dyn Resolver,
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
-    table_plans: &PrimaryMap<TableIndex, TablePlan>,
+    _table_plans: &PrimaryMap<TableIndex, TablePlan>,
 ) -> Result<Imports, LinkError> {
     let dependencies = HashSet::new();
 

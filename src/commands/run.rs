@@ -1,8 +1,6 @@
-use crate::common::get_cache_dir;
+// use crate::common::get_cache_dir;
 use crate::compiler::CompilerOptions;
 use anyhow::{anyhow, bail, Context, Result};
-use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
 use wasmer::*;
 

@@ -10,8 +10,8 @@ use std::slice;
 use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
-    Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMGlobalDefinition,
-    VMMemoryDefinition, VMTrampoline,
+    LinearMemory, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
+    VMGlobalDefinition, VMMemoryDefinition, VMTrampoline,
 };
 
 #[derive(Clone)]
@@ -249,7 +249,7 @@ impl Table {
     }
 
     fn table(&self) -> &RuntimeTable {
-        unsafe { (&*self.exported.from) }
+        unsafe { &*self.exported.from }
     }
 
     pub fn ty(&self) -> &TableType {
@@ -391,9 +391,14 @@ impl Memory {
         Bytes(self.data_size()).into()
     }
 
-    pub fn grow(&self, delta: Pages) -> Result<Pages, RuntimeError> {
-        Ok(unsafe { (&*self.exported.from) }.grow(delta).unwrap())
+    fn memory(&self) -> &LinearMemory {
+        unsafe { &*self.exported.from }
     }
+
+    pub fn grow(&self, delta: Pages) -> Option<Pages> {
+        self.memory().grow(delta)
+    }
+
     /// Return a "view" of the currently accessible memory. By
     /// default, the view is unsynchronized, using regular memory
     /// accesses. You can force a memory view to use atomic accesses

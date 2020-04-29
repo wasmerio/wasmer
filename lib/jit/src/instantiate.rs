@@ -63,7 +63,6 @@ impl RawCompiledModule {
             .translate(data)
             .map_err(|error| CompileError::Wasm(error))?;
 
-        let tunables = jit.tunables();
         let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
             .module
             .memories
