@@ -17,11 +17,11 @@ jobs:
       - run: cargo fmt --all -- --check
 
   test:
-    name: Tests
+    name: Test
     runs-on: ${{ matrix.os }} - Rust ${{ matrix.rust }}
     strategy:
       matrix:
-        build: [linux, windows, macos]
+        build: [linux, macos, windows]
         include:
           - build: linux
             os: ubuntu-latest
