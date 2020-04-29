@@ -43,12 +43,8 @@ const SNAPSHOT1_NAMESPACE: &str = "wasi_snapshot_preview1";
 /// namespace exits to detect the version. Note that the strict
 /// detection is faster than the non-strict one.
 pub fn get_wasi_version(module: &Module, strict: bool) -> Option<WasiVersion> {
-    let mut imports = module.imports().filter_map(|extern_| match extern_ {
-        ImportType {
-            module,
-            name,
-            ty: ExternType::Func(f),
-        } => Some(module),
+    let mut imports = module.imports().filter_map(|extern_| match extern_.ty() {
+        ExternType::Func(_f) => Some(extern_.module().to_owned()),
         _ => None,
     });
 
