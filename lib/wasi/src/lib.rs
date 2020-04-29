@@ -70,7 +70,16 @@ impl<'a> WasiEnv<'a> {
 
     /// Get a reference to the memory
     pub fn memory(&self) -> &Memory {
-        &self.memory.as_ref().unwrap()
+        self.memory.as_ref().unwrap()
+    }
+
+    pub(crate) fn get_memory_and_wasi_state(
+        &mut self,
+        _mem_index: u32,
+    ) -> (&Memory, &mut WasiState) {
+        let memory = self.memory.as_ref().unwrap();
+        let state = &mut self.state;
+        (memory, state)
     }
 }
 
