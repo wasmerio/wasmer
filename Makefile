@@ -175,38 +175,38 @@ llvm: wasitests-setup
 
 # All tests
 capi-singlepass:
-	cargo build --manifest-path lib/runtime-c-api/Cargo.toml --release \
+	cargo build --manifest-path lib/runtime-c-api/Cargo.toml -Z unstable-options --profile release-capi \
 		--no-default-features --features singlepass-backend,wasi
 
 capi-cranelift:
-	cargo build --manifest-path lib/runtime-c-api/Cargo.toml --release \
+	cargo build --manifest-path lib/runtime-c-api/Cargo.toml -Z unstable-options --profile release-capi \
 		--no-default-features --features cranelift-backend,wasi
 
 capi-llvm:
-	cargo build --manifest-path lib/runtime-c-api/Cargo.toml --release \
+	cargo build --manifest-path lib/runtime-c-api/Cargo.toml -Z unstable-options --profile release-capi \
 		--no-default-features --features llvm-backend,wasi
 
 capi-emscripten:
-	cargo build --manifest-path lib/runtime-c-api/Cargo.toml --release \
+	cargo build --manifest-path lib/runtime-c-api/Cargo.toml -Z unstable-options --profile release-capi \
 		--no-default-features --features singlepass-backend,emscripten
 
 # We use cranelift as the default backend for the capi for now
 capi: capi-cranelift
 
 test-capi-singlepass: capi-singlepass
-	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
+	cargo test --manifest-path lib/runtime-c-api/Cargo.toml -Z unstable-options --profile release-capi \
 		--no-default-features --features singlepass-backend,wasi
 
 test-capi-cranelift: capi-cranelift
-	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
+	cargo test --manifest-path lib/runtime-c-api/Cargo.toml -Z unstable-options --profile release-capi \
 		--no-default-features --features cranelift-backend,wasi
 
 test-capi-llvm: capi-llvm
-	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
+	cargo test --manifest-path lib/runtime-c-api/Cargo.toml -Z unstable-options --profile release-capi \
 		--no-default-features --features llvm-backend,wasi
 
 test-capi-emscripten: capi-emscripten
-	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
+	cargo test --manifest-path lib/runtime-c-api/Cargo.toml -Z unstable-options --profile release-capi \
 		--no-default-features --features singlepass-backend,emscripten
 
 test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-emscripten

@@ -203,7 +203,7 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: 10.10
         windows:
           imageName: "vs2017-win2016"
-          rust_toolchain: '1.41.1'
+          rust_toolchain: nightly-2019-12-19
           # RUSTFLAGS: -Ctarget-feature=+crt-static
     pool:
       vmImage: $(imageName)

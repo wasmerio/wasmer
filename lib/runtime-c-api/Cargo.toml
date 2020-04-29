@@ -12,12 +12,13 @@ edition = "2018"
 readme = "README.md"
 
 [lib]
-crate-type = ["cdylib", "rlib", "staticlib"]
+crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 libc = "0.2.60"
 # for generating code in the same way thot the wasm-c-api does
-wasmer-wasm-c-api = { version = "0.16.2", path = "crates/wasm-c-api" }
+# Commented out for now until we can find a solution to the exported function problem
+# wasmer-wasm-c-api = { version = "0.16.2", path = "crates/wasm-c-api" }
 
 [dependencies.wasmer]
 default-features = false
