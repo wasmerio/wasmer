@@ -909,7 +909,10 @@ impl<'a> FuncGen<'a> {
 
     /// Emits a System V call sequence.
     ///
-    /// This function must not use RAX before `cb` is called.
+    /// This function will not use RAX before `cb` is called.
+    ///
+    /// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling
+    /// this function.
     fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Self)>(
         &mut self,
         cb: F,
@@ -1028,14 +1031,17 @@ impl<'a> FuncGen<'a> {
                             // Dummy value slot to be filled with `mov`.
                             self.assembler.emit_push(Size::S64, Location::GPR(GPR::RAX));
 
-                            // Use R10 as the temporary register here, since it is callee-saved and not
-                            // used by the callback `cb`.
-                            self.assembler.emit_mov(Size::S64, *param, Location::GPR(GPR::R10));
-                            self.assembler.emit_mov(
+                            // Use RCX as the temporary register here, since:
+                            // - It is a temporary register that is not used for any persistent value.
+                            // - This register as an argument location is only written to after `sort_call_movs`.'
+                            m.reserve_unused_temp_gpr(GPR::RCX);
+                            a.emit_mov(Size::S64, *param, Location::GPR(GPR::RCX));
+                            a.emit_mov(
                                 Size::S64,
-                                Location::GPR(GPR::R10),
+                                Location::GPR(GPR::RCX),
                                 Location::Memory(GPR::RSP, 0),
                             );
+                            m.release_temp_gpr(GPR::RCX);
                         }
                         Location::XMM(_) => {
                             // Dummy value slot to be filled with `mov`.
