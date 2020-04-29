@@ -23,6 +23,7 @@ cfg_if::cfg_if! {
         extern "C" {
             pub fn __chkstk();
         }
+        /// The probestack for Windows when compiled with MSVC
         pub const PROBESTACK: unsafe extern "C" fn() = __chkstk;
     } else if #[cfg(all(target_os = "windows", target_env = "gnu"))] {
         extern "C" {
@@ -31,6 +32,7 @@ cfg_if::cfg_if! {
             #[cfg(all(target_os = "windows", target_env = "gnu"))]
             pub fn ___chkstk();
         }
+        /// The probestack for Windows when compiled with GNU
         pub const PROBESTACK: unsafe extern "C" fn() = ___chkstk;
     } else if #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))] {
         // As per
@@ -38,11 +40,13 @@ cfg_if::cfg_if! {
         // LLVM only has stack-probe support on x86-64 and x86. Thus, on any other CPU
         // architecture, we simply use an empty stack-probe function.
         extern "C" fn empty_probestack() {}
+        /// A default probestack for other architectures
         pub const PROBESTACK: unsafe extern "C" fn() = empty_probestack;
     } else {
         extern "C" {
             pub fn __rust_probestack();
         }
+        /// The probestack based on the Rust probestack
         pub static PROBESTACK: unsafe extern "C" fn() = __rust_probestack;
     }
 }
