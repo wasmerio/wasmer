@@ -21,7 +21,7 @@ impl Cache {
                 if cache_dir.exists() {
                     fs::remove_dir_all(cache_dir.clone()).expect("Can't remove cache dir");
                 }
-                fs::create_dir_all(cache_dir.clone()).expect("Can't create cache dir");
+                fs::create_dir_all(cache_dir).expect("Can't create cache dir");
             }
             Cache::Dir => {
                 println!("{}", get_cache_dir().to_string_lossy());
