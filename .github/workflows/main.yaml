@@ -17,8 +17,8 @@ jobs:
       - run: cargo fmt --all -- --check
 
   test:
-    name: Test
-    runs-on: ${{ matrix.os }} - Rust ${{ matrix.rust }}
+    name: Test in ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         build: [linux, macos, windows]
