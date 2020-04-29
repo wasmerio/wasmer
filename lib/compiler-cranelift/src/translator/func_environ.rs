@@ -10,8 +10,8 @@ use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
 use wasm_common::{FuncIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasmer_compiler::wasmparser::Operator;
 use wasmer_compiler::WasmResult;
-use wasmparser::Operator;
 
 /// The value of a WebAssembly global variable.
 #[derive(Clone, Copy)]

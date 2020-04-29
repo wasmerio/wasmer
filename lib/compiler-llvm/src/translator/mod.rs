@@ -1,5 +1,5 @@
 mod code;
-mod intrinsics;
+pub mod intrinsics;
 mod read_info;
 //mod stackmap;
 mod state;

@@ -18,9 +18,8 @@
 
 mod compiler;
 mod config;
+mod trampoline;
 mod translator;
-// mod structs;
-// mod trampoline;
 
 pub use crate::compiler::LLVMCompiler;
 pub use crate::config::{InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVMConfig};

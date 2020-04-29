@@ -70,6 +70,96 @@ mod test_native_type {
     }
 }
 
+/// A trait to represent a wasm extern type.
+pub unsafe trait WasmExternType: Copy
+where
+    Self: Sized,
+{
+    /// Native wasm type for this `WasmExternType`.
+    type Native: NativeWasmType;
+
+    /// Convert from given `Native` type to self.
+    fn from_native(native: Self::Native) -> Self;
+
+    /// Convert self to `Native` type.
+    fn to_native(self) -> Self::Native;
+}
+
+macro_rules! wasm_extern_type {
+    ($type:ty => $native_type:ty) => {
+        unsafe impl WasmExternType for $type {
+            type Native = $native_type;
+
+            fn from_native(native: Self::Native) -> Self {
+                native as _
+            }
+
+            fn to_native(self) -> Self::Native {
+                self as _
+            }
+        }
+    };
+}
+
+wasm_extern_type!(i8 => i32);
+wasm_extern_type!(u8 => i32);
+wasm_extern_type!(i16 => i32);
+wasm_extern_type!(u16 => i32);
+wasm_extern_type!(i32 => i32);
+wasm_extern_type!(u32 => i32);
+wasm_extern_type!(i64 => i64);
+wasm_extern_type!(u64 => i64);
+wasm_extern_type!(f32 => f32);
+wasm_extern_type!(f64 => f64);
+// wasm_extern_type!(u128 => i128);
+// wasm_extern_type!(i128 => i128);
+
+// pub trait IntegerAtomic
+// where
+//     Self: Sized
+// {
+//     type Primitive;
+
+//     fn add(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn sub(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn and(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn or(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn xor(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn load(&self) -> Self::Primitive;
+//     fn store(&self, other: Self::Primitive) -> Self::Primitive;
+//     fn compare_exchange(&self, expected: Self::Primitive, new: Self::Primitive) -> Self::Primitive;
+//     fn swap(&self, other: Self::Primitive) -> Self::Primitive;
+// }
+
+/// Trait for a Value type. A Value type is a type that is always valid and may
+/// be safely copied.
+///
+/// That is, for all possible bit patterns a valid Value type can be constructed
+/// from those bits.
+///
+/// Concretely a `u32` is a Value type because every combination of 32 bits is
+/// a valid `u32`. However a `bool` is _not_ a Value type because any bit patterns
+/// other than `0` and `1` are invalid in Rust and may cause undefined behavior if
+/// a `bool` is constructed from those bytes.
+pub unsafe trait ValueType: Copy
+where
+    Self: Sized,
+{
+}
+
+macro_rules! convert_value_impl {
+    ($t:ty) => {
+        unsafe impl ValueType for $t {}
+    };
+    ( $($t:ty),* ) => {
+        $(
+            convert_value_impl!($t);
+        )*
+    };
+}
+
+convert_value_impl!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+
 /// Represents a list of WebAssembly values.
 pub trait WasmTypeList {
     /// CStruct type.
@@ -219,7 +309,7 @@ where
         self.env
     }
 
-    /// Get the type of the Func
+    /// Get the address of the Func
     pub fn address(&self) -> *const FunctionBody {
         self.address
     }

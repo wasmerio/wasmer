@@ -52,7 +52,10 @@ mod sourceloc;
 
 pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
 pub use crate::compiler::Compiler;
-pub use crate::config::{CompilerConfig, CpuFeature, Features, Target};
+pub use crate::config::{
+    Architecture, CallingConvention, CompilerConfig, CpuFeature, Features, OperatingSystem, Target,
+    Triple,
+};
 pub use crate::error::CompileError;
 pub use crate::function::{Compilation, CompiledFunction, Functions};
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
@@ -64,6 +67,11 @@ pub use crate::translator::{
 };
 pub use crate::trap::TrapInformation;
 pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTableReloc};
+
+/// wasmparser is exported as a module to slim compiler dependencies
+pub mod wasmparser {
+    pub use wasmparser::*;
+}
 
 /// Offset in bytes from the beginning of the function.
 pub type CodeOffset = u32;

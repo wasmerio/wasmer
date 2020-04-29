@@ -3,6 +3,7 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::config::LLVMConfig;
+use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
@@ -85,9 +86,13 @@ impl Compiler for LLVMCompiler {
 
     fn compile_wasm_trampolines(
         &self,
-        _signatures: &[FuncType],
+        signatures: &[FuncType],
     ) -> Result<Vec<CompiledFunction>, CompileError> {
-        // Note: do not implement this yet
-        unimplemented!("Trampoline compilation not yet implemented.")
+        signatures
+            .par_iter()
+            .map_init(FuncTrampoline::new, |func_trampoline, sig| {
+                func_trampoline.trampoline(sig, self.config())
+            })
+            .collect::<Result<Vec<_>, CompileError>>()
     }
 }

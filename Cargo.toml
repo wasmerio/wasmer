@@ -29,7 +29,7 @@ wasmer-jit = { path = "lib/jit" }
 wasmer-wast = { path = "tests/lib/wast", optional = true}
 atty = "0.2"
 anyhow = "1.0.28"
-structopt = { version = "0.3.13", features = ["suggestions"] }
+structopt = { version = "0.3", features = ["suggestions"] }
 
 [workspace]
 members = [
@@ -46,9 +46,6 @@ anyhow = "1.0.28"
 test-utils = { path = "tests/lib/test-utils" }
 wasmer = { path = "lib/api" }
 wasmer-compiler = { path = "lib/compiler" }
-wasmer-compiler-singlepass = { path = "lib/compiler-singlepass" }
-wasmer-compiler-cranelift = { path = "lib/compiler-cranelift" }
-wasmer-compiler-llvm = { path = "lib/compiler-llvm" }
 wasmer-jit = { path = "lib/jit" }
 wasmer-wast = { path = "tests/lib/wast" }
 
@@ -59,14 +56,17 @@ wasmer-wast = { path = "tests/lib/wast" }
 default = ["wast", "compiler-cranelift"]
 wast = ["wasmer-wast"]
 compiler-singlepass = [
+    "test-utils/compiler-singlepass",
     "wasmer/compiler-singlepass",
     "wasmer-compiler-singlepass",
 ]
 compiler-cranelift = [
+    "test-utils/compiler-cranelift",
     "wasmer/compiler-cranelift",
     "wasmer-compiler-cranelift",
 ]
 compiler-llvm = [
+    "test-utils/compiler-llvm",
     "wasmer/compiler-llvm",
     "wasmer-compiler-llvm",
 ]

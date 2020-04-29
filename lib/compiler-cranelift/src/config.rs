@@ -1,7 +1,7 @@
 use crate::compiler::CraneliftCompiler;
 use cranelift_codegen::isa::{lookup, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable};
-use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, Features, Target};
+use wasmer_compiler::{Architecture, Compiler, CompilerConfig, CpuFeature, Features, Target};
 
 // Runtime Environment
 
@@ -65,7 +65,9 @@ impl CraneliftConfig {
         // Cpu Features
 
         let cpu_features = target.cpu_features();
-        if !cpu_features.contains(CpuFeature::SSE2) {
+        if target.triple().architecture == Architecture::X86_64
+            && !cpu_features.contains(CpuFeature::SSE2)
+        {
             panic!("x86 support requires SSE2");
         }
         if cpu_features.contains(CpuFeature::SSE3) {

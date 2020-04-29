@@ -1,5 +1,7 @@
 use super::{
-    intrinsics::{tbaa_label, CtxType, GlobalCache, Intrinsics, MemoryCache},
+    intrinsics::{
+        func_type_to_llvm, tbaa_label, type_to_llvm, CtxType, GlobalCache, Intrinsics, MemoryCache,
+    },
     read_info::blocktype_to_type,
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State},
@@ -34,6 +36,7 @@ use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
     FuncIndex, FuncType, GlobalIndex, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
 };
+use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 use wasmer_compiler::FunctionAddressMap;
 use wasmer_compiler::FunctionBodyData;
@@ -43,7 +46,10 @@ use wasmer_compiler::{
 };
 use wasmer_runtime::Module as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan};
-use wasmparser::{BinaryReader, MemoryImmediate, Operator};
+
+// TODO: debugging
+use std::fs;
+use std::io::Write;
 
 // TODO
 fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
@@ -121,6 +127,7 @@ impl FuncTranslator {
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         // TODO: mark vmctx nofree
         func.set_personality_function(intrinsics.personality);
+        func.as_global_value().set_section("wasmer_function");
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
@@ -221,6 +228,9 @@ impl FuncTranslator {
             }
         }
 
+        // TODO: debugging
+        //module.print_to_stderr();
+
         // TODO: llvm-callbacks pre-opt-ir
         let pass_manager = PassManager::create(());
 
@@ -267,13 +277,28 @@ impl FuncTranslator {
             .write_to_memory_buffer(&mut module, FileType::Object)
             .unwrap();
 
-        //let _mem_buf_slice = memory_buffer.as_slice();
+        /*
+        let mem_buf_slice = memory_buffer.as_slice();
+        let mut file = fs::File::create("/home/nicholas/x.o").unwrap();
+        let mut pos = 0;
+        while pos < mem_buf_slice.len() {
+            pos += file.write(&mem_buf_slice[pos..]).unwrap();
+        }
+        */
 
-        memory_buffer.create_object_file().map_err(|()| {
+        let object = memory_buffer.create_object_file().map_err(|()| {
             CompileError::Codegen("failed to create object file from llvm ir".to_string())
         })?;
 
-        // TODO: grab text section, use it to fill in 'body'.
+        let mut bytes = vec![];
+        for section in object.get_sections() {
+            if section.get_name().map(std::ffi::CStr::to_bytes)
+                == Some("wasmer_function".as_bytes())
+            {
+                bytes.extend(section.get_contents().to_bytes());
+                break;
+            }
+        }
 
         let address_map = FunctionAddressMap {
             instructions: vec![],
@@ -285,53 +310,12 @@ impl FuncTranslator {
 
         Ok(CompiledFunction {
             address_map,
-            body: vec![],
+            body: bytes,
             jt_offsets: SecondaryMap::new(),
             unwind_info: CompiledFunctionUnwindInfo::None,
             relocations: vec![],
             traps: vec![],
         })
-    }
-}
-
-fn func_type_to_llvm<'ctx>(
-    context: &'ctx Context,
-    intrinsics: &Intrinsics<'ctx>,
-    fntype: &FuncType,
-) -> FunctionType<'ctx> {
-    let user_param_types = fntype
-        .params()
-        .iter()
-        .map(|&ty| type_to_llvm(intrinsics, ty));
-    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
-        .chain(user_param_types)
-        .collect();
-
-    match fntype.results() {
-        &[] => intrinsics.void_ty.fn_type(&param_types, false),
-        &[single_value] => type_to_llvm(intrinsics, single_value).fn_type(&param_types, false),
-        returns @ _ => {
-            let basic_types: Vec<_> = returns
-                .iter()
-                .map(|&ty| type_to_llvm(intrinsics, ty))
-                .collect();
-
-            context
-                .struct_type(&basic_types, false)
-                .fn_type(&param_types, false)
-        }
-    }
-}
-
-fn type_to_llvm<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
-    match ty {
-        Type::I32 => intrinsics.i32_ty.as_basic_type_enum(),
-        Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
-        Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
-        Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
-        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
-        Type::AnyRef => unimplemented!("anyref in the llvm backend"),
-        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
     }
 }
 

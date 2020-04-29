@@ -30,6 +30,7 @@ impl Instance {
     /// The [`ImportObject`] is the easiest way to provide imports to the instance.
     ///
     /// ```
+    /// # use wasmer::{imports, Store, Module, Global, Instance};
     /// let store = Store::default();
     /// let module = Module::new(store, "(module)");
     /// let imports = imports!{

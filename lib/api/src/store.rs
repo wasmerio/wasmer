@@ -58,6 +58,12 @@ impl Store {
     }
 }
 
+impl PartialEq for Store {
+    fn eq(&self, other: &Self) -> bool {
+        Store::same(self, other)
+    }
+}
+
 // We only implement default if we have assigned a default compiler
 #[cfg(any(
     feature = "default-compiler-singlepass",

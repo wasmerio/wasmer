@@ -13,7 +13,6 @@ readme = "README.md"
 wasmer-compiler = { path = "../compiler", version = "0.16.2" }
 wasmer-runtime = { path = "../runtime", version = "0.16.2" }
 wasm-common = { path = "../wasm-common", version = "0.16.2" }
-wasmparser = "0.51.4"
 target-lexicon = { version = "0.10.0", default-features = false }
 smallvec = "1"
 goblin = "0.2"
@@ -23,19 +22,24 @@ itertools = "0.9.0"
 rayon = "1.3.0"
 
 [target.'cfg(target_arch = "x86_64")'.dependencies.inkwell]
-version = "0.1.0-llvm8sample"
+#version = "0.1.0-llvm8sample"
+git = "https://github.com/theDan64/inkwell"
+rev = "3c4498ff64bf148a1d58c388ac557a6a26e7ceea"
 default-features = false
-features = ["llvm8-0", "target-x86"]
+features = ["llvm10-0", "target-x86"]
 
 [target.'cfg(target_arch = "aarch64")'.dependencies.inkwell]
-version = "0.1.0-llvm8sample"
+#version = "0.1.0-llvm8sample"
+git = "https://github.com/theDan64/inkwell"
+rev = "3c4498ff64bf148a1d58c388ac557a6a26e7ceea"
+# path = "/home/nicholas/inkwell"
 default-features = false
-features = ["llvm8-0", "target-aarch64"]
+features = ["llvm10-0", "target-aarch64"]
 
 [build-dependencies]
 cc = "1.0"
 lazy_static = "1.4"
-regex = "1.2"
+regex = "1.3"
 semver = "0.9"
 rustc_version = "0.2"
 

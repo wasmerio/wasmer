@@ -2,7 +2,7 @@
 use crate::compiler::Compiler;
 use crate::std::boxed::Box;
 use enumset::{EnumSet, EnumSetType};
-use target_lexicon::Triple;
+pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple};
 pub use wasm_common::Features;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -99,7 +99,7 @@ impl CpuFeature {
     /// Retrieves the features for the current Host
     pub fn for_host() -> EnumSet<Self> {
         // We default to an empty hash set
-        EnumSet::new();
+        EnumSet::new()
     }
 }
 

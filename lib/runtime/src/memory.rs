@@ -7,7 +7,6 @@ use crate::module::{MemoryPlan, MemoryStyle};
 use crate::vmcontext::VMMemoryDefinition;
 use more_asserts::{assert_ge, assert_le};
 use std::cell::RefCell;
-use std::convert::TryFrom;
 use wasm_common::Pages;
 
 /// A linear memory instance.

@@ -1,70 +1,153 @@
-use crate::intrinsics::Intrinsics;
+use crate::config::LLVMConfig;
+use crate::translator::intrinsics::{func_type_to_llvm, type_to_llvm, Intrinsics};
 use inkwell::{
     context::Context,
     module::{Linkage, Module},
+    passes::PassManager,
+    targets::FileType,
     types::{BasicType, FunctionType},
     values::FunctionValue,
     AddressSpace,
 };
-use wasmer_runtime_core::{
-    module::ModuleInfo,
-    structures::{SliceMap, TypedIndex},
-    types::{FuncSig, SigIndex, Type},
+use wasm_common::entity::SecondaryMap;
+use wasm_common::{FuncType, Type};
+use wasmer_compiler::{
+    Compilation, CompileError, CompiledFunction, CompiledFunctionUnwindInfo, Compiler,
+    FunctionAddressMap, SourceLoc,
 };
 
-pub fn generate_trampolines<'ctx>(
-    info: &ModuleInfo,
-    signatures: &SliceMap<SigIndex, FunctionType<'ctx>>,
-    module: &Module<'ctx>,
-    context: &'ctx Context,
-    intrinsics: &Intrinsics<'ctx>,
-) -> Result<(), String> {
-    for (sig_index, sig) in info.signatures.iter() {
-        let func_type = signatures[sig_index];
+use std::fs;
+use std::io::Write;
 
-        let trampoline_sig = intrinsics.void_ty.fn_type(
+pub struct FuncTrampoline {
+    ctx: Context,
+}
+
+impl FuncTrampoline {
+    pub fn new() -> Self {
+        Self {
+            ctx: Context::create(),
+        }
+    }
+
+    pub fn trampoline(
+        &mut self,
+        ty: &FuncType,
+        config: &LLVMConfig,
+    ) -> Result<CompiledFunction, CompileError> {
+        let mut module = self.ctx.create_module("");
+        let target_triple = config.target_triple();
+        let target_machine = config.target_machine();
+        module.set_triple(&target_triple);
+        module.set_data_layout(&target_machine.get_target_data().get_data_layout());
+        let intrinsics = Intrinsics::declare(&module, &self.ctx);
+
+        let callee_ty = func_type_to_llvm(&self.ctx, &intrinsics, ty);
+        let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
-                intrinsics.ctx_ptr_ty.as_basic_type_enum(), // vmctx ptr
-                func_type
+                intrinsics.ctx_ptr_ty.as_basic_type_enum(), // callee_vmctx ptr
+                intrinsics.ctx_ptr_ty.as_basic_type_enum(), // caller_vmctx ptr
+                callee_ty
                     .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(), // func ptr
-                intrinsics.i64_ptr_ty.as_basic_type_enum(), // args ptr
-                intrinsics.i64_ptr_ty.as_basic_type_enum(), // returns ptr
+                    .as_basic_type_enum(), // callee function address
+                intrinsics.i128_ptr_ty.as_basic_type_enum(), // in/out values ptr
             ],
             false,
         );
 
-        let trampoline_func = module.add_function(
-            &format!("trmp{}", sig_index.index()),
-            trampoline_sig,
-            Some(Linkage::External),
-        );
+        let trampoline_func = module.add_function("", trampoline_ty, Some(Linkage::External));
+        trampoline_func
+            .as_global_value()
+            .set_section("wasmer_trampoline");
+        generate_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
-        generate_trampoline(trampoline_func, sig, context, intrinsics)?;
+        // TODO: remove debugging
+        //module.print_to_stderr();
+
+        let pass_manager = PassManager::create(());
+
+        if config.enable_verifier {
+            pass_manager.add_verifier_pass();
+        }
+
+        pass_manager.add_early_cse_pass();
+
+        pass_manager.run_on(&mut module);
+
+        // TODO: remove debugging
+        //module.print_to_stderr();
+
+        let memory_buffer = target_machine
+            .write_to_memory_buffer(&mut module, FileType::Object)
+            .unwrap();
+
+        // TODO: remove debugging
+        /*
+        let mem_buf_slice = memory_buffer.as_slice();
+        let mut file = fs::File::create("/home/nicholas/trampoline.o").unwrap();
+        let mut pos = 0;
+        while pos < mem_buf_slice.len() {
+            pos += file.write(&mem_buf_slice[pos..]).unwrap();
+        }
+        */
+
+        let object = memory_buffer.create_object_file().map_err(|()| {
+            CompileError::Codegen("failed to create object file from llvm ir".to_string())
+        })?;
+
+        let mut bytes = vec![];
+        for section in object.get_sections() {
+            if section.get_name().map(std::ffi::CStr::to_bytes)
+                == Some("wasmer_trampoline".as_bytes())
+            {
+                bytes.extend(section.get_contents().to_bytes());
+                break;
+            }
+        }
+
+        let address_map = FunctionAddressMap {
+            instructions: vec![],
+            start_srcloc: SourceLoc::default(),
+            end_srcloc: SourceLoc::default(),
+            body_offset: 0,
+            body_len: 0, // TODO
+        };
+
+        Ok(CompiledFunction {
+            address_map,
+            body: bytes,
+            jt_offsets: SecondaryMap::new(),
+            unwind_info: CompiledFunctionUnwindInfo::None,
+            relocations: vec![],
+            traps: vec![],
+        })
     }
-    Ok(())
 }
 
 fn generate_trampoline<'ctx>(
     trampoline_func: FunctionValue,
-    func_sig: &FuncSig,
+    func_sig: &FuncType,
     context: &'ctx Context,
     intrinsics: &Intrinsics<'ctx>,
-) -> Result<(), String> {
+) -> Result<(), CompileError> {
     let entry_block = context.append_basic_block(trampoline_func, "entry");
     let builder = context.create_builder();
     builder.position_at_end(entry_block);
 
-    let (vmctx_ptr, func_ptr, args_ptr, returns_ptr) = match trampoline_func.get_params().as_slice()
-    {
-        &[vmctx_ptr, func_ptr, args_ptr, returns_ptr] => (
-            vmctx_ptr,
-            func_ptr.into_pointer_value(),
-            args_ptr.into_pointer_value(),
-            returns_ptr.into_pointer_value(),
-        ),
-        _ => return Err("trampoline function unimplemented".to_string()),
-    };
+    let (callee_vmctx_ptr, caller_vmctx_ptr, func_ptr, args_rets_ptr) =
+        match trampoline_func.get_params().as_slice() {
+            &[callee_vmctx_ptr, caller_vmctx_ptr, func_ptr, args_rets_ptr] => (
+                callee_vmctx_ptr,
+                caller_vmctx_ptr,
+                func_ptr.into_pointer_value(),
+                args_rets_ptr.into_pointer_value(),
+            ),
+            _ => {
+                return Err(CompileError::Codegen(
+                    "trampoline function unimplemented".to_string(),
+                ))
+            }
+        };
 
     let cast_ptr_ty = |wasmer_ty| match wasmer_ty {
         Type::I32 => intrinsics.i32_ptr_ty,
@@ -72,15 +155,18 @@ fn generate_trampoline<'ctx>(
         Type::I64 => intrinsics.i64_ptr_ty,
         Type::F64 => intrinsics.f64_ptr_ty,
         Type::V128 => intrinsics.i128_ptr_ty,
+        Type::AnyRef => unimplemented!("anyref unimplemented in trampoline"),
+        Type::FuncRef => unimplemented!("funcref unimplemented in trampoline"),
     };
 
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
-    args_vec.push(vmctx_ptr);
+    args_vec.push(callee_vmctx_ptr);
 
     let mut i = 0;
     for param_ty in func_sig.params().iter() {
         let index = intrinsics.i32_ty.const_int(i as _, false);
-        let item_pointer = unsafe { builder.build_in_bounds_gep(args_ptr, &[index], "arg_ptr") };
+        let item_pointer =
+            unsafe { builder.build_in_bounds_gep(args_rets_ptr, &[index], "arg_ptr") };
 
         let casted_pointer_type = cast_ptr_ty(*param_ty);
 
@@ -97,20 +183,22 @@ fn generate_trampoline<'ctx>(
 
     let call_site = builder.build_call(func_ptr, &args_vec, "call");
 
-    match func_sig.returns() {
+    match func_sig.results() {
         &[] => {}
         &[one_ret] => {
             let ret_ptr_type = cast_ptr_ty(one_ret);
 
             let typed_ret_ptr =
-                builder.build_pointer_cast(returns_ptr, ret_ptr_type, "typed_ret_ptr");
+                builder.build_pointer_cast(args_rets_ptr, ret_ptr_type, "typed_ret_ptr");
             builder.build_store(
                 typed_ret_ptr,
                 call_site.try_as_basic_value().left().unwrap(),
             );
         }
         _ => {
-            return Err("trampoline function multi-value returns unimplemented".to_string());
+            return Err(CompileError::Codegen(
+                "trampoline function multi-value returns unimplemented".to_string(),
+            ));
         }
     }
 
