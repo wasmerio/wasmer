@@ -2,7 +2,7 @@
 use crate::compiler::Compiler;
 use crate::std::boxed::Box;
 use enumset::{EnumSet, EnumSetType};
-use target_lexicon::Triple;
+pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple};
 pub use wasm_common::Features;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]

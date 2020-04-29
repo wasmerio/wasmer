@@ -11,7 +11,6 @@
 //!
 //! [The Stack Clash]: https://blog.qualys.com/securitylabs/2017/06/19/the-stack-clash
 
-
 // A declaration for the stack probe function in Rust's standard library, for
 // catching callstack overflow.
 cfg_if::cfg_if! {
