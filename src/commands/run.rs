@@ -78,9 +78,12 @@ impl Run {
         let (compiler_config, compiler_name) = self.compiler.get_config()?;
         let engine = Engine::new(&*compiler_config);
         let store = Store::new(&engine);
+        // We try to get it from cache, in case is enabled
         let module = if cfg!(feature = "cache") && !self.disable_cache {
             let mut cache = self.get_cache(compiler_name)?;
             let contents = std::fs::read(self.path.clone())?;
+            // Try to get the hash from the provided `--cache-key`, otherwise
+            // generate one from the provided file `.wasm` contents.
             let hash = self
                 .cache_key
                 .and_then(|key| WasmHash::from_str(&key).ok())
@@ -89,7 +92,7 @@ impl Run {
                 Ok(module) => module,
                 Err(_e) => {
                     let module = Module::from_binary(&store, &contents)?;
-                    // Store the compiled in cache
+                    // Store the compiled Module in cache
                     cache.store(hash, module.clone());
                     module
                 }
@@ -99,6 +102,7 @@ impl Run {
             Module::from_file(&store, &self.path.clone())?
         };
 
+        // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
             let instance = Instance::new(&module, &imports)?;
@@ -115,8 +119,9 @@ impl Run {
             );
             return Ok(());
         }
-        #[cfg(feature = "wasi")]
-        {
+
+        // If WASI is enabled, try to execute it with it
+        if cfg!(feature = "wasi") {
             let wasi_version = Wasi::get_version(&module);
             if let Some(version) = wasi_version {
                 let program_name = self
@@ -131,10 +136,13 @@ impl Run {
                 self.wasi
                     .execute(module, version, program_name, self.args.clone())?;
             }
+        } else {
+            // Try to instantiate the wasm file, with no provided imports
+            let imports = imports! {};
+            let instance = Instance::new(&module, &imports)?;
+            let start: &Func = instance.exports.get("_start")?;
+            start.call(&[])?;
         }
-
-        // let start: &Func = instance.exports.get("_start")?;
-        // start.call(&[])?;
 
         Ok(())
     }
