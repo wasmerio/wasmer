@@ -37,7 +37,7 @@ impl RuntimeError {
     /// Create a new RuntimeError from a Trap.
     pub fn from_trap(trap: Trap) -> Self {
         let info = FRAME_INFO.read().unwrap();
-        match jit {
+        match trap {
             Trap::User(error) => {
                 // Since we're the only one using the internals (in
                 // theory) we should only see user errors which were originally
