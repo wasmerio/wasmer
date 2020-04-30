@@ -310,7 +310,7 @@ impl Table {
             src_index,
             len,
         )
-        .map_err(|e| RuntimeError::from_jit(e))?;
+        .map_err(|e| RuntimeError::from_trap(e))?;
         Ok(())
     }
 
@@ -620,7 +620,7 @@ impl Func {
                 values_vec.as_mut_ptr() as *mut u8,
             )
         } {
-            return Err(RuntimeError::from_jit(error));
+            return Err(RuntimeError::from_trap(error));
         }
 
         // Load the return values out of `values_vec`.

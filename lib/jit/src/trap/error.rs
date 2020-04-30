@@ -26,7 +26,7 @@ impl RuntimeError {
     /// Creates a new `Trap` with `message`.
     /// # Example
     /// ```
-    /// let trap = wasmer_runtime::RuntimeError::new("unexpected error");
+    /// let trap = wasmer_jit::RuntimeError::new("unexpected error");
     /// assert_eq!("unexpected error", trap.message());
     /// ```
     pub fn new<I: Into<String>>(message: I) -> Self {
@@ -35,7 +35,7 @@ impl RuntimeError {
     }
 
     /// Create a new RuntimeError from a Trap.
-    pub fn from_jit(jit: Trap) -> Self {
+    pub fn from_trap(trap: Trap) -> Self {
         let info = FRAME_INFO.read().unwrap();
         match jit {
             Trap::User(error) => {
@@ -43,6 +43,7 @@ impl RuntimeError {
                 // theory) we should only see user errors which were originally
                 // created from our own `Trap` type (see the trampoline module
                 // with functions).
+                // Self::new(format!("{}", error))
                 *error.downcast().expect("only `Trap` errors are supported")
             }
             Trap::Jit { pc, backtrace } => {
@@ -187,6 +188,6 @@ impl std::error::Error for RuntimeError {}
 
 impl From<Trap> for RuntimeError {
     fn from(trap: Trap) -> Self {
-        Self::from_jit(trap)
+        Self::from_trap(trap)
     }
 }

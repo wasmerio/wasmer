@@ -306,7 +306,7 @@ impl CompiledModule {
             is_bulk_memory,
             host_state,
         )
-        .map_err(|trap| InstantiationError::Start(RuntimeError::from_jit(trap)))
+        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 
     /// Return a reference-counting pointer to a module.
