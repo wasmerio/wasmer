@@ -3,14 +3,10 @@
 
 use crate::syscalls::types::{__wasi_errno_t, __WASI_EFAULT};
 use std::{cell::Cell, fmt};
-pub use wasmer_runtime_core::memory::ptr::Array;
-use wasmer_runtime_core::{
-    memory::{ptr, Memory},
-    types::{ValueType, WasmExternType},
-};
+pub use wasmer::{Array, Item, Memory, ValueType, WasmExternType, WasmPtr as BaseWasmPtr};
 
 #[repr(transparent)]
-pub struct WasmPtr<T: Copy, Ty = ptr::Item>(ptr::WasmPtr<T, Ty>);
+pub struct WasmPtr<T: Copy, Ty = Item>(BaseWasmPtr<T, Ty>);
 
 unsafe impl<T: Copy, Ty> ValueType for WasmPtr<T, Ty> {}
 impl<T: Copy, Ty> Copy for WasmPtr<T, Ty> {}
@@ -28,13 +24,13 @@ impl<T: Copy, Ty> fmt::Debug for WasmPtr<T, Ty> {
 }
 
 unsafe impl<T: Copy, Ty> WasmExternType for WasmPtr<T, Ty> {
-    type Native = <ptr::WasmPtr<T, Ty> as WasmExternType>::Native;
+    type Native = <BaseWasmPtr<T, Ty> as WasmExternType>::Native;
 
     fn to_native(self) -> Self::Native {
         self.0.to_native()
     }
     fn from_native(n: Self::Native) -> Self {
-        Self(ptr::WasmPtr::from_native(n))
+        Self(BaseWasmPtr::from_native(n))
     }
 }
 
@@ -49,7 +45,7 @@ impl<T: Copy, Ty> Eq for WasmPtr<T, Ty> {}
 impl<T: Copy, Ty> WasmPtr<T, Ty> {
     #[inline(always)]
     pub fn new(offset: u32) -> Self {
-        Self(ptr::WasmPtr::new(offset))
+        Self(BaseWasmPtr::new(offset))
     }
 
     #[inline(always)]
@@ -58,14 +54,14 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
     }
 }
 
-impl<T: Copy + ValueType> WasmPtr<T, ptr::Item> {
+impl<T: Copy + ValueType> WasmPtr<T, Item> {
     #[inline(always)]
     pub fn deref<'a>(self, memory: &'a Memory) -> Result<&'a Cell<T>, __wasi_errno_t> {
         self.0.deref(memory).ok_or(__WASI_EFAULT)
     }
 }
 
-impl<T: Copy + ValueType> WasmPtr<T, ptr::Array> {
+impl<T: Copy + ValueType> WasmPtr<T, Array> {
     #[inline(always)]
     pub fn deref<'a>(
         self,

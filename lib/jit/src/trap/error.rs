@@ -1,8 +1,9 @@
 use super::frame_info::{FrameInfo, GlobalFrameInfo, FRAME_INFO};
 use backtrace::Backtrace;
+use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_runtime::{Trap, TrapCode};
+use wasmer_runtime::{raise_user_trap, Trap, TrapCode};
 
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.
@@ -58,6 +59,11 @@ impl RuntimeError {
                 Self::new_with_trace(&info, None, "out of memory".to_string(), backtrace)
             }
         }
+    }
+
+    /// Raises a custom user Error
+    pub fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
+        unsafe { raise_user_trap(error) }
     }
 
     fn new_wasm(
