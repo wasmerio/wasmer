@@ -20,13 +20,13 @@ use crate::{
         InodeVal, Kind, PollEvent, PollEventBuilder, WasiFile, WasiFsError, WasiState,
         MAX_SYMLINKS,
     },
-    ExitCode, WasiEnv,
+    WasiEnv, WasiError,
 };
 use std::borrow::Borrow;
 use std::cell::Cell;
 use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
-use wasmer::Memory;
+use wasmer::{Memory, RuntimeError};
 
 #[cfg(any(
     target_os = "freebsd",
@@ -2498,8 +2498,8 @@ pub fn poll_oneoff(
 
 pub fn proc_exit(env: &mut WasiEnv, code: __wasi_exitcode_t) {
     debug!("wasi::proc_exit, {}", code);
-    panic!("Proc exit");
-    // ExitCode { code }
+    RuntimeError::raise(Box::new(WasiError::Exit(code)));
+    unreachable!();
 }
 
 pub fn proc_raise(env: &mut WasiEnv, sig: __wasi_signal_t) -> __wasi_errno_t {

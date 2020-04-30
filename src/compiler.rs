@@ -23,6 +23,8 @@ pub struct CompilerOptions {
 
     #[structopt(flatten)]
     features: WasmFeatures,
+    // #[structopt(flatten)]
+    // llvm_options: LLVMCLIOptions,
 }
 
 #[derive(Debug)]

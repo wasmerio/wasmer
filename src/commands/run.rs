@@ -6,6 +6,12 @@ use wasmer::*;
 
 use structopt::StructOpt;
 
+#[cfg(feature = "wasi")]
+mod wasi;
+
+#[cfg(feature = "wasi")]
+use wasi::Wasi;
+
 #[derive(Debug, StructOpt, Clone)]
 /// The options for the `wasmer run` subcommand
 pub struct Run {
@@ -36,11 +42,10 @@ pub struct Run {
     #[structopt(flatten)]
     compiler: CompilerOptions,
 
-    // #[structopt(flatten)]
-    // llvm: LLVMCLIOptions,
+    #[cfg(feature = "wasi")]
+    #[structopt(flatten)]
+    wasi: Wasi,
 
-    // #[structopt(flatten)]
-    // wasi: WasiOptions,
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "io-devices")]
     #[structopt(long = "enable-io-devices")]
@@ -63,10 +68,10 @@ impl Run {
         let engine = Engine::new(&*compiler_config);
         let store = Store::new(&engine);
         let module = Module::from_file(&store, &self.path)?;
-        let imports = imports! {};
-        let instance = Instance::new(&module, &imports)?;
 
         if let Some(ref invoke) = self.invoke {
+            let imports = imports! {};
+            let instance = Instance::new(&module, &imports)?;
             let result = self
                 .invoke_function(&instance, &invoke, &self.args)
                 .with_context(|| format!("Failed to invoke `{}`", invoke))?;
@@ -80,9 +85,26 @@ impl Run {
             );
             return Ok(());
         }
+        #[cfg(feature = "wasi")]
+        {
+            let wasi_version = Wasi::get_version(&module);
+            if let Some(version) = wasi_version {
+                let program_name = self
+                    .command_name
+                    .clone()
+                    .or_else(|| {
+                        self.path
+                            .file_name()
+                            .map(|f| f.to_string_lossy().to_string())
+                    })
+                    .unwrap_or("".to_string());
+                self.wasi
+                    .execute(module, version, program_name, self.args.clone())?;
+            }
+        }
 
-        let start: &Func = instance.exports.get("_start")?;
-        start.call(&[])?;
+        // let start: &Func = instance.exports.get("_start")?;
+        // start.call(&[])?;
 
         Ok(())
     }

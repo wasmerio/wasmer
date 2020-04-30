@@ -12,30 +12,31 @@
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
-#[cfg(target = "windows")]
-extern crate winapi;
 #[macro_use]
 extern crate log;
 
 #[macro_use]
 mod macros;
 mod ptr;
-pub mod state;
+mod state;
 mod syscalls;
 mod utils;
 
-use self::state::{WasiFs, WasiState};
+pub use self::state::WasiState;
 pub use self::syscalls::types;
 use self::syscalls::*;
 
 pub use self::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 
+use thiserror::Error;
 use wasmer::{imports, Func, ImportObject, Memory, Store};
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
-pub struct ExitCode {
-    pub code: syscalls::types::__wasi_exitcode_t,
+#[derive(Error, Debug)]
+pub enum WasiError {
+    #[error("WASI exited with code: {0}")]
+    Exit(syscalls::types::__wasi_exitcode_t),
 }
 
 /// The environment provided to the WASI imports.
@@ -70,7 +71,7 @@ impl<'a> WasiEnv<'a> {
 
     /// Get a reference to the memory
     pub fn memory(&self) -> &Memory {
-        self.memory.as_ref().unwrap()
+        self.memory.as_ref().expect("The expected Memory is not attached to the `WasiEnv`. Did you forgot to call wasi_env.set_memory(...)?")
     }
 
     pub(crate) fn get_memory_and_wasi_state(
@@ -102,6 +103,7 @@ pub fn generate_import_object_from_env(
 fn generate_import_object_snapshot0(store: &Store, env: &mut WasiEnv) -> ImportObject {
     imports! {
         "wasi_unstable" => {
+            "args_get" => Func::new_env(store, env, args_get),
             "args_sizes_get" => Func::new_env(store, env, args_sizes_get),
             "clock_res_get" => Func::new_env(store, env, clock_res_get),
             "clock_time_get" => Func::new_env(store, env, clock_time_get),
