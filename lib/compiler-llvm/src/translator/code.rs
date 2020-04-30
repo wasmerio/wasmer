@@ -37,12 +37,12 @@ use wasm_common::{
     FuncIndex, FuncType, GlobalIndex, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
-use wasmer_compiler::CompiledFunctionUnwindInfo;
-use wasmer_compiler::FunctionAddressMap;
-use wasmer_compiler::FunctionBodyData;
-use wasmer_compiler::SourceLoc;
 use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, WasmResult,
+};
+use wasmer_compiler::{
+    CompiledFunctionUnwindInfo, FunctionAddressMap, FunctionBodyData, Relocation, RelocationKind,
+    RelocationTarget, SourceLoc,
 };
 use wasmer_runtime::Module as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan};
@@ -98,12 +98,10 @@ impl FuncTranslator {
         config: &LLVMConfig,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
+        func_names: &SecondaryMap<FuncIndex, String>,
     ) -> Result<CompiledFunction, CompileError> {
         let func_index = wasm_module.func_index(*func_index);
-        let func_name = match wasm_module.func_names.get(&func_index) {
-            None => format!("fn{}", func_index.index()).to_string(),
-            Some(func_name) => func_name.clone(),
-        };
+        let func_name = func_names.get(func_index).unwrap();
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {}", func_name),
             Some(module_name) => format!("module {} function {}", module_name, func_name),
@@ -277,27 +275,68 @@ impl FuncTranslator {
             .write_to_memory_buffer(&mut module, FileType::Object)
             .unwrap();
 
-        /*
+        // TODO: remove debugging.
         let mem_buf_slice = memory_buffer.as_slice();
-        let mut file = fs::File::create("/home/nicholas/x.o").unwrap();
+        let mut file = fs::File::create(format!("/home/nicholas/code{}.o", func_name)).unwrap();
         let mut pos = 0;
         while pos < mem_buf_slice.len() {
             pos += file.write(&mem_buf_slice[pos..]).unwrap();
         }
-        */
 
         let object = memory_buffer.create_object_file().map_err(|()| {
             CompileError::Codegen("failed to create object file from llvm ir".to_string())
         })?;
 
         let mut bytes = vec![];
+        let mut relocations = vec![];
         for section in object.get_sections() {
-            if section.get_name().map(std::ffi::CStr::to_bytes)
-                == Some("wasmer_function".as_bytes())
-            {
-                bytes.extend(section.get_contents().to_bytes());
-                break;
-            }
+            match section.get_name().map(std::ffi::CStr::to_bytes) {
+                Some(b"wasmer_function") => {
+                    bytes.extend(section.get_contents().to_vec());
+                }
+                Some(b".relawasmer_function") | Some(b".relwasmer_function") => {
+                    for rel in section.get_relocations() {
+                        let (i, cs) = rel.get_type();
+                        let kind = match (i, cs.to_bytes()) {
+                            (1, b"R_X86_64_64") => RelocationKind::Abs8,
+                            _ => unimplemented!("unknown relocation kind {:?}", rel.get_type()),
+                        };
+                        let mut reloc_target = None;
+                        let mut target = None;
+                        // TODO: fix inkwell API so we don't have a for loop
+                        // which always breaks after the first entry.
+                        for symbol in rel.get_symbols() {
+                            target = symbol
+                                .get_name()
+                                .map(|cs| String::from(cs.to_str().unwrap()));
+                            break;
+                        }
+                        // TODO: use a lookup table instead of a linear scan
+                        if let Some(ref target) = &target {
+                            if let Some((index, _)) =
+                                func_names.iter().find(|(_, name)| *name == target)
+                            {
+                                reloc_target = Some(RelocationTarget::UserFunc(index));
+                            }
+                        }
+                        if reloc_target.is_none() {
+                            unimplemented!("reference to non-user function {:?}", &target);
+                        }
+                        let reloc_target = reloc_target.unwrap();
+
+                        let relocation = Relocation {
+                            kind,
+                            reloc_target,
+                            offset: rel.get_offset() as u32,
+                            // TODO: it appears the LLVM C API has no way to
+                            // retrieve the addend.
+                            addend: 0,
+                        };
+                        relocations.push(relocation);
+                    }
+                }
+                _ => {}
+            };
         }
 
         let address_map = FunctionAddressMap {
@@ -313,7 +352,7 @@ impl FuncTranslator {
             body: bytes,
             jt_offsets: SecondaryMap::new(),
             unwind_info: CompiledFunctionUnwindInfo::None,
-            relocations: vec![],
+            relocations,
             traps: vec![],
         })
     }
@@ -2163,17 +2202,23 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     (
                         builder
                             .build_load(
-                                builder.build_struct_gep(anyfunc_struct_ptr, 0, "func_ptr_ptr"),
+                                builder
+                                    .build_struct_gep(anyfunc_struct_ptr, 0, "func_ptr_ptr")
+                                    .unwrap(),
                                 "func_ptr",
                             )
                             .into_pointer_value(),
                         builder.build_load(
-                            builder.build_struct_gep(anyfunc_struct_ptr, 1, "ctx_ptr_ptr"),
+                            builder
+                                .build_struct_gep(anyfunc_struct_ptr, 1, "ctx_ptr_ptr")
+                                .unwrap(),
                             "ctx_ptr",
                         ),
                         builder
                             .build_load(
-                                builder.build_struct_gep(anyfunc_struct_ptr, 2, "sigindex_ptr"),
+                                builder
+                                    .build_struct_gep(anyfunc_struct_ptr, 2, "sigindex_ptr")
+                                    .unwrap(),
                                 "sigindex",
                             )
                             .into_int_value(),

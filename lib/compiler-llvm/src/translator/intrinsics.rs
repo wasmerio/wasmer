@@ -100,6 +100,7 @@ pub struct Intrinsics<'ctx> {
 
     pub expect_i1: FunctionValue<'ctx>,
     pub trap: FunctionValue<'ctx>,
+    pub debug_trap: FunctionValue<'ctx>,
 
     pub personality: FunctionValue<'ctx>,
 
@@ -416,6 +417,7 @@ impl<'ctx> Intrinsics<'ctx> {
 
             expect_i1: module.add_function("llvm.expect.i1", ret_i1_take_i1_i1, None),
             trap: module.add_function("llvm.trap", void_ty.fn_type(&[], false), None),
+            debug_trap: module.add_function("llvm.debugtrap", void_ty.fn_type(&[], false), None),
             personality: module.add_function(
                 "__gxx_personality_v0",
                 i32_ty.fn_type(&[], false),
@@ -739,11 +741,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     );
                     (
                         unsafe {
-                            cache_builder.build_struct_gep(
-                                ctx_ptr_value,
-                                offset_to_index(offsets.vmctx_imported_memories_begin()),
-                                "memory_array_ptr_ptr",
-                            )
+                            cache_builder
+                                .build_struct_gep(
+                                    ctx_ptr_value,
+                                    offset_to_index(offsets.vmctx_imported_memories_begin()),
+                                    "memory_array_ptr_ptr",
+                                )
+                                .unwrap()
                         },
                         index.index() as u64,
                         desc.style.clone(),
@@ -785,8 +789,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
             let (ptr_to_base_ptr, ptr_to_bounds) = unsafe {
                 (
-                    cache_builder.build_struct_gep(memory_ptr, 0, "base_ptr"),
-                    cache_builder.build_struct_gep(memory_ptr, 1, "bounds_ptr"),
+                    cache_builder
+                        .build_struct_gep(memory_ptr, 0, "base_ptr")
+                        .unwrap(),
+                    cache_builder
+                        .build_struct_gep(memory_ptr, 1, "bounds_ptr")
+                        .unwrap(),
                 )
             };
 
@@ -850,11 +858,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 if let Some(local_table_index) = wasm_module.local_table_index(index) {
                     (
                         unsafe {
-                            cache_builder.build_struct_gep(
-                                ctx_ptr_value,
-                                offset_to_index(offsets.vmctx_tables_begin()),
-                                "table_array_ptr_ptr",
-                            )
+                            cache_builder
+                                .build_struct_gep(
+                                    ctx_ptr_value,
+                                    offset_to_index(offsets.vmctx_tables_begin()),
+                                    "table_array_ptr_ptr",
+                                )
+                                .unwrap()
                         },
                         local_table_index.index() as u64,
                         "context_field_ptr_to_local_table",
@@ -862,11 +872,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 } else {
                     (
                         unsafe {
-                            cache_builder.build_struct_gep(
-                                ctx_ptr_value,
-                                offset_to_index(offsets.vmctx_imported_tables_begin()),
-                                "table_array_ptr_ptr",
-                            )
+                            cache_builder
+                                .build_struct_gep(
+                                    ctx_ptr_value,
+                                    offset_to_index(offsets.vmctx_imported_tables_begin()),
+                                    "table_array_ptr_ptr",
+                                )
+                                .unwrap()
                         },
                         index.index() as u64,
                         "context_field_ptr_to_import_table",
@@ -900,8 +912,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
             let (ptr_to_base_ptr, ptr_to_bounds) = unsafe {
                 (
-                    cache_builder.build_struct_gep(table_ptr, 0, "base_ptr"),
-                    cache_builder.build_struct_gep(table_ptr, 1, "bounds_ptr"),
+                    cache_builder
+                        .build_struct_gep(table_ptr, 0, "base_ptr")
+                        .unwrap(),
+                    cache_builder
+                        .build_struct_gep(table_ptr, 1, "bounds_ptr")
+                        .unwrap(),
                 )
             };
 
@@ -1011,11 +1027,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 if let Some(_local_global_index) = wasm_module.local_global_index(index) {
                     (
                         unsafe {
-                            cache_builder.build_struct_gep(
-                                ctx_ptr_value,
-                                offset_to_index(offsets.vmctx_globals_begin()),
-                                "globals_array_ptr_ptr",
-                            )
+                            cache_builder
+                                .build_struct_gep(
+                                    ctx_ptr_value,
+                                    offset_to_index(offsets.vmctx_globals_begin()),
+                                    "globals_array_ptr_ptr",
+                                )
+                                .unwrap()
                         },
                         index.index() as u64,
                         desc.mutability,
@@ -1025,11 +1043,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 } else {
                     (
                         unsafe {
-                            cache_builder.build_struct_gep(
-                                ctx_ptr_value,
-                                offset_to_index(offsets.vmctx_imported_globals_begin()),
-                                "globals_array_ptr_ptr",
-                            )
+                            cache_builder
+                                .build_struct_gep(
+                                    ctx_ptr_value,
+                                    offset_to_index(offsets.vmctx_imported_globals_begin()),
+                                    "globals_array_ptr_ptr",
+                                )
+                                .unwrap()
                         },
                         index.index() as u64,
                         desc.mutability,
@@ -1106,11 +1126,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         );
         let imported_func_cache = cached_imported_functions.entry(index).or_insert_with(|| {
             let func_array_ptr_ptr = unsafe {
-                cache_builder.build_struct_gep(
-                    ctx_ptr_value,
-                    offset_to_index(offsets.vmctx_imported_functions_begin()),
-                    "imported_func_array_ptr_ptr",
-                )
+                cache_builder
+                    .build_struct_gep(
+                        ctx_ptr_value,
+                        offset_to_index(offsets.vmctx_imported_functions_begin()),
+                        "imported_func_array_ptr_ptr",
+                    )
+                    .unwrap()
             };
             let func_array_ptr = cache_builder
                 .build_load(func_array_ptr_ptr, "func_array_ptr")
@@ -1132,8 +1154,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             };
             let (func_ptr_ptr, func_ctx_ptr_ptr) = unsafe {
                 (
-                    cache_builder.build_struct_gep(imported_func_ptr, 0, "func_ptr_ptr"),
-                    cache_builder.build_struct_gep(imported_func_ptr, 1, "func_ctx_ptr_ptr"),
+                    cache_builder
+                        .build_struct_gep(imported_func_ptr, 0, "func_ptr_ptr")
+                        .unwrap(),
+                    cache_builder
+                        .build_struct_gep(imported_func_ptr, 1, "func_ctx_ptr_ptr")
+                        .unwrap(),
                 )
             };
 
@@ -1143,7 +1169,11 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             let func_ctx_ptr = cache_builder
                 .build_load(func_ctx_ptr_ptr, "func_ctx_ptr")
                 .into_pointer_value();
-            let ctx_ptr_ptr = unsafe { cache_builder.build_struct_gep(func_ctx_ptr, 0, "ctx_ptr") };
+            let ctx_ptr_ptr = unsafe {
+                cache_builder
+                    .build_struct_gep(func_ctx_ptr, 0, "ctx_ptr")
+                    .unwrap()
+            };
             let ctx_ptr = cache_builder
                 .build_load(ctx_ptr_ptr, "ctx_ptr")
                 .into_pointer_value();

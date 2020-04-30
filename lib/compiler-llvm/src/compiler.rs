@@ -6,7 +6,7 @@ use crate::config::LLVMConfig;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use wasm_common::entity::{EntityRef, PrimaryMap};
+use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::Features;
 use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::FunctionBodyData;
@@ -60,14 +60,22 @@ impl Compiler for LLVMCompiler {
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
-        let data = Arc::new(Mutex::new(0));
+        //let data = Arc::new(Mutex::new(0));
+        let mut func_names = SecondaryMap::new();
+        for (func_index, _) in &module.functions {
+            func_names[func_index] = module
+                .func_names
+                .get(&func_index)
+                .cloned()
+                .unwrap_or_else(|| format!("fn{}", func_index.index()));
+        }
         let functions = function_body_inputs
             .into_iter()
             .collect::<Vec<(LocalFuncIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
                 // TODO: remove (to serialize)
-                let mut data = data.lock().unwrap();
+                //let mut data = data.lock().unwrap();
                 func_translator.translate(
                     module,
                     i,
@@ -75,6 +83,7 @@ impl Compiler for LLVMCompiler {
                     self.config(),
                     &memory_plans,
                     &table_plans,
+                    &func_names,
                 )
             })
             .collect::<Result<Vec<_>, CompileError>>()?

@@ -81,8 +81,8 @@ impl FuncTrampoline {
             .write_to_memory_buffer(&mut module, FileType::Object)
             .unwrap();
 
-        // TODO: remove debugging
         /*
+        // TODO: remove debugging
         let mem_buf_slice = memory_buffer.as_slice();
         let mut file = fs::File::create("/home/nicholas/trampoline.o").unwrap();
         let mut pos = 0;
@@ -100,10 +100,12 @@ impl FuncTrampoline {
             if section.get_name().map(std::ffi::CStr::to_bytes)
                 == Some("wasmer_trampoline".as_bytes())
             {
-                bytes.extend(section.get_contents().to_bytes());
+                bytes.extend(section.get_contents().to_vec());
                 break;
             }
         }
+        // TODO: remove debugging
+        //dbg!(&bytes);
 
         let address_map = FunctionAddressMap {
             instructions: vec![],
@@ -133,6 +135,14 @@ fn generate_trampoline<'ctx>(
     let entry_block = context.append_basic_block(trampoline_func, "entry");
     let builder = context.create_builder();
     builder.position_at_end(entry_block);
+
+    /*
+    // TODO: remove debugging
+    builder.build_call(
+        intrinsics.debug_trap,
+        &[],
+        "");
+    */
 
     let (callee_vmctx_ptr, caller_vmctx_ptr, func_ptr, args_rets_ptr) =
         match trampoline_func.get_params().as_slice() {
