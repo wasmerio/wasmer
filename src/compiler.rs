@@ -57,7 +57,7 @@ impl FromStr for Compiler {
             "singlepass" => Ok(Self::Singlepass),
             "cranelift" => Ok(Self::Cranelift),
             "llvm" => Ok(Self::LLVM),
-            backend => bail!("The backend {} does not exist", backend),
+            backend => bail!("The `{}` compiler does not exist.", backend),
         }
     }
 }
@@ -115,8 +115,8 @@ impl CompilerOptions {
                 feature = "compiler-llvm",
             )))]
             compiler => bail!(
-                "The compiler {:?} is not included in this binary.",
-                compiler
+                "The `{}` compiler is not included in this binary.",
+                compiler.to_string()
             ),
         };
         return Ok((config, compiler.to_string()));
