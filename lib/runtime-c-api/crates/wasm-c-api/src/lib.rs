@@ -71,7 +71,7 @@ pub extern "C" fn wasm_engine_new_with_config(
 
 #[repr(C)]
 pub struct wasm_instance_t {
-    real_instance: Arc<wasm::Instance>,
+    inner: Arc<wasm::Instance>,
 }
 
 #[no_mangle]
@@ -82,7 +82,7 @@ pub unsafe extern "C" fn wasm_instance_new(
     // own
     _traps: *mut *mut wasm_trap_t,
 ) -> *mut wasm_instance_t {
-    let module = &(&*module).real_module;
+    let module = &(&*module).inner;
     let module_imports = module.imports();
     let module_import_count = module_imports.len();
     let imports = argument_import_iter(imports);
@@ -154,9 +154,7 @@ pub unsafe extern "C" fn wasm_instance_new(
             .instantiate(&import_object)
             .expect("failed to instantiate: TODO handle this error"),
     );
-    Box::into_raw(Box::new(wasm_instance_t {
-        real_instance: instance,
-    }))
+    Box::into_raw(Box::new(wasm_instance_t { inner: instance }))
 }
 
 #[no_mangle]
@@ -209,7 +207,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
     // TODO: review types on wasm_declare_vec, handle the optional pointer part properly
     out: *mut wasm_extern_vec_t,
 ) {
-    let instance = &(&*instance).real_instance;
+    let instance = &(&*instance).inner;
     // TODO: review name, does `into_iter` imply taking ownership?
     let mut extern_vec = instance
         .exports
@@ -241,7 +239,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
 
 #[repr(C)]
 pub struct wasm_module_t {
-    real_module: Arc<Module>,
+    inner: Arc<Module>,
 }
 
 #[no_mangle]
@@ -262,7 +260,7 @@ pub unsafe extern "C" fn wasm_module_new(
     };
 
     Box::into_raw(Box::new(wasm_module_t {
-        real_module: Arc::new(module),
+        inner: Arc::new(module),
     }))
 }
 
@@ -301,7 +299,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
     };
 
     Box::into_raw(Box::new(wasm_module_t {
-        real_module: Arc::new(module),
+        inner: Arc::new(module),
     }))
 }
 
@@ -311,7 +309,7 @@ pub unsafe extern "C" fn wasm_module_serialize(
     out_ptr: *mut wasm_byte_vec_t,
 ) {
     let module = &*module_ptr;
-    let artifact = match module.real_module.cache() {
+    let artifact = match module.inner.cache() {
         Ok(artifact) => artifact,
         Err(_) => return,
     };
