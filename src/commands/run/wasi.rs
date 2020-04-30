@@ -70,6 +70,8 @@ impl Wasi {
 
     /// Gets the WASI version (if any) for the provided module
     pub fn get_version(module: &Module) -> Option<WasiVersion> {
+        // Get the wasi version on strict mode, so no other imports are
+        // allowed.
         get_wasi_version(&module, true)
     }
 
@@ -81,9 +83,6 @@ impl Wasi {
         program_name: String,
         args: Vec<String>,
     ) -> Result<()> {
-        // Get the wasi version on strict mode, so no other imports are
-        // allowed.
-        // let wasi_version: WasiVersion = get_wasi_version(&module, true);
         let mut wasi_state_builder = WasiState::new(&program_name);
 
         let args = args.iter().cloned().map(|arg| arg.into_bytes());

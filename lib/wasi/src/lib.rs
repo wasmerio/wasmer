@@ -22,11 +22,11 @@ mod state;
 mod syscalls;
 mod utils;
 
-pub use self::state::WasiState;
-pub use self::syscalls::types;
-use self::syscalls::*;
+use crate::syscalls::*;
 
-pub use self::utils::{get_wasi_version, is_wasi_module, WasiVersion};
+pub use crate::state::{Fd, WasiFile, WasiFs, WasiFsError, WasiState, ALL_RIGHTS, VIRTUAL_ROOT_FD};
+pub use crate::syscalls::types;
+pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 
 use thiserror::Error;
 use wasmer::{imports, Func, ImportObject, Memory, Store};
