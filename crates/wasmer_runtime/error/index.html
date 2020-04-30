@@ -22,9 +22,8 @@ correctly link the module with the provided imports.</p>
 </td></tr><tr class='module-item'><td><a class="enum" href="enum.ParseError.html" title='wasmer_runtime::error::ParseError enum'>ParseError</a></td><td class='docblock-short'><p>Parse Error.</p>
 </td></tr><tr class='module-item'><td><a class="enum" href="enum.ResolveError.html" title='wasmer_runtime::error::ResolveError enum'>ResolveError</a></td><td class='docblock-short'><p>This error type is produced by resolving a wasm function
 given its name.</p>
-</td></tr><tr class='module-item'><td><a class="enum" href="enum.RuntimeError.html" title='wasmer_runtime::error::RuntimeError enum'>RuntimeError</a></td><td class='docblock-short'><p>An <code>InternalError</code> is an error that happened inside of Wasmer and is a
-catch-all for errors that would otherwise be returned as
-<code>RuntimeError(Box::new(&lt;string&gt;))</code>.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.RuntimeError.html" title='wasmer_runtime::error::RuntimeError enum'>RuntimeError</a></td><td class='docblock-short'><p>A <code>RuntimeError</code> is an error that describes why the attempt to fully execute
+some Wasm has failed.</p>
 </td></tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
 <table><tr class='module-item'><td><a class="type" href="type.CallResult.html" title='wasmer_runtime::error::CallResult type'>CallResult</a></td><td class='docblock-short'><p>Result of an attempt to call the provided WebAssembly instance.
 Aliases the standard <code>Result</code> with <code>CallError</code> as the default error type.</p>

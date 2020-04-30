@@ -657,7 +657,6 @@
 <span id="657">657</span>
 <span id="658">658</span>
 <span id="659">659</span>
-<span id="660">660</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The error module contains the data structures and helper functions used to implement errors that</span>
 <span class="doccomment">//! are produced and returned from the wasmer runtime core.</span>
@@ -903,13 +902,12 @@
     }
 }
 
-<span class="doccomment">/// An `InternalError` is an error that happened inside of Wasmer and is a</span>
-<span class="doccomment">/// catch-all for errors that would otherwise be returned as</span>
-<span class="doccomment">/// `RuntimeError(Box::new(&lt;string&gt;))`.</span>
+<span class="doccomment">/// A `RuntimeError` is an error that describes why the attempt to fully execute</span>
+<span class="doccomment">/// some Wasm has failed.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// This type provides greater visibility into the kinds of things that may fail</span>
-<span class="doccomment">/// and improves the ability of users to handle them, though these errors may be</span>
-<span class="doccomment">/// extremely rare and impossible to handle.</span>
+<span class="doccomment">/// These reasons vary from the Wasm trapping or otherwise failing directly to user</span>
+<span class="doccomment">/// controlled conditions such as metering running out of gas or a user host function</span>
+<span class="doccomment">/// returning a custom error type directly.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RuntimeError</span> {
     <span class="doccomment">/// An error relating to the invocation of a Wasm function.</span>
