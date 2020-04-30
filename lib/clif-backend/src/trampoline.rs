@@ -8,7 +8,7 @@ use cranelift_codegen::{
 use std::{collections::HashMap, iter, mem};
 use wasmer_runtime_core::{
     backend::sys::{Memory, Protect},
-    module::{ExportIndex, ModuleInfo},
+    module::ModuleInfo,
     typed_func::Trampoline,
     types::{FuncSig, SigIndex, Type},
 };
@@ -69,22 +69,12 @@ impl Trampolines {
     }
 
     pub fn new(isa: &dyn isa::TargetIsa, module: &ModuleInfo) -> Self {
-        let func_index_iter = module
-            .exports
-            .values()
-            .filter_map(|export| match export {
-                ExportIndex::Func(func_index) => Some(func_index),
-                _ => None,
-            })
-            .chain(module.start_func.iter());
-
         let mut compiled_functions = Vec::new();
         let mut ctx = Context::new();
         let mut total_size = 0;
 
-        for exported_func_index in func_index_iter {
-            let sig_index = module.func_assoc[*exported_func_index];
-            let func_sig = &module.signatures[sig_index];
+        for (_, sig_index) in module.func_assoc.iter() {
+            let func_sig = &module.signatures[*sig_index];
 
             let trampoline_func = generate_func(isa, &func_sig);
 
@@ -126,7 +116,7 @@ impl Trampolines {
                 memory.as_slice_mut()[previous_end..previous_end + compiled.len()]
                     .copy_from_slice(&compiled[..]);
             }
-            trampolines.insert(*sig_index, previous_end);
+            trampolines.insert(**sig_index, previous_end);
             previous_end = new_end;
         }
 
