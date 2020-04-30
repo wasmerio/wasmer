@@ -67,19 +67,17 @@ struct ModuleFrameInfo {
 }
 
 impl ModuleFrameInfo {
-    fn instr_map(&self, index: FuncIndex) -> &FunctionAddressMap {
-        let local_index = self.module.local_func_index(index).unwrap();
+    fn instr_map(&self, local_index: LocalFuncIndex) -> &FunctionAddressMap {
         &self.debug.functions.get(local_index).unwrap().instr_map
     }
-    fn traps(&self, index: FuncIndex) -> &Vec<TrapInformation> {
-        let local_index = self.module.local_func_index(index).unwrap();
+    fn traps(&self, local_index: LocalFuncIndex) -> &Vec<TrapInformation> {
         &self.debug.functions.get(local_index).unwrap().traps
     }
 }
 
 struct FunctionInfo {
     start: usize,
-    index: FuncIndex,
+    local_index: LocalFuncIndex,
 }
 
 impl GlobalFrameInfo {
@@ -94,7 +92,7 @@ impl GlobalFrameInfo {
         // machine instruction that corresponds to `pc`, which then allows us to
         // map that to a wasm original source location.
         let rel_pos = pc - func.start;
-        let instr_map = module.instr_map(func.index);
+        let instr_map = module.instr_map(func.local_index);
         let pos = match instr_map
             .instructions
             .binary_search_by_key(&rel_pos, |map| map.code_offset)
@@ -131,10 +129,11 @@ impl GlobalFrameInfo {
             Some(pos) => instr_map.instructions[pos].srcloc,
             None => instr_map.start_srcloc,
         };
+        let func_index = module.module.func_index(func.local_index);
         Some(FrameInfo {
             module_name: module.module.name(),
-            func_index: func.index.index() as u32,
-            func_name: module.module.func_names.get(&func.index).cloned(),
+            func_index: func_index.index() as u32,
+            func_name: module.module.func_names.get(&func_index).cloned(),
             instr,
             func_start: instr_map.start_srcloc,
         })
@@ -143,7 +142,7 @@ impl GlobalFrameInfo {
     /// Fetches trap information about a program counter in a backtrace.
     pub fn lookup_trap_info(&self, pc: usize) -> Option<&TrapInformation> {
         let (module, func) = self.func(pc)?;
-        let traps = module.traps(func.index);
+        let traps = module.traps(func.local_index);
         let idx = traps
             .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
             .ok()?;
@@ -191,7 +190,7 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
         max = cmp::max(max, end);
         let func = FunctionInfo {
             start,
-            index: module.module().func_index(i),
+            local_index: i,
         };
         assert!(functions.insert(end, func).is_none());
     }
