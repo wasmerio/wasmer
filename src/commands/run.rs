@@ -86,6 +86,7 @@ impl Run {
             // generate one from the provided file `.wasm` contents.
             let hash = self
                 .cache_key
+                .as_ref()
                 .and_then(|key| WasmHash::from_str(&key).ok())
                 .unwrap_or(WasmHash::generate(&contents));
             let module = match unsafe { cache.load(&store, hash) } {
