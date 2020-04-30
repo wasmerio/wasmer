@@ -268,7 +268,7 @@ wasmer_backends! {
 
         let result = foo.call();
 
-        if let Err(RuntimeError(e)) = result {
+        if let Err(RuntimeError::User(e)) = result {
             let exit_code = e.downcast::<ExitCode>().unwrap();
             assert_eq!(exit_code.code, 42);
         } else {

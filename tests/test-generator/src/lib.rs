@@ -70,7 +70,7 @@ pub fn build_ignores_from_textfile(path: PathBuf) -> anyhow::Result<Ignores> {
         } else {
             (line, None)
         };
-        if line.len() == 0 {
+        if line.is_empty() {
             continue;
         }
 

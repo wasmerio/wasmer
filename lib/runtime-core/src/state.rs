@@ -699,13 +699,13 @@ pub mod x64 {
     pub use super::x64_decl::*;
     use super::*;
     use crate::codegen::BreakpointMap;
+    use crate::error::RuntimeError;
     use crate::fault::{
         catch_unsafe_unwind, get_boundary_register_preservation, run_on_alternative_stack,
     };
     use crate::structures::TypedIndex;
     use crate::types::LocalGlobalIndex;
     use crate::vm::Ctx;
-    use std::any::Any;
 
     #[allow(clippy::cast_ptr_alignment)]
     unsafe fn compute_vmctx_deref(vmctx: *const Ctx, seq: &[usize]) -> u64 {
@@ -738,7 +738,7 @@ pub mod x64 {
         image: InstanceImage,
         vmctx: &mut Ctx,
         breakpoints: Option<BreakpointMap>,
-    ) -> Result<u64, Box<dyn Any + Send>> {
+    ) -> Result<u64, RuntimeError> {
         let mut stack: Vec<u64> = vec![0; 1048576 * 8 / 8]; // 8MB stack
         let mut stack_offset: usize = stack.len();
 

@@ -1079,10 +1079,10 @@ mod vm_ctx_tests {
         use super::Func;
         use crate::backend::{sys::Memory, CacheGen, RunnableModule};
         use crate::cache::Error as CacheError;
+        use crate::error::RuntimeError;
         use crate::typed_func::Wasm;
         use crate::types::{LocalFuncIndex, SigIndex};
         use indexmap::IndexMap;
-        use std::any::Any;
         use std::collections::HashMap;
         use std::ptr::NonNull;
         struct Placeholder;
@@ -1098,7 +1098,7 @@ mod vm_ctx_tests {
             fn get_trampoline(&self, _module: &ModuleInfo, _sig_index: SigIndex) -> Option<Wasm> {
                 unimplemented!("generate_module::get_trampoline")
             }
-            unsafe fn do_early_trap(&self, _: Box<dyn Any + Send>) -> ! {
+            unsafe fn do_early_trap(&self, _: RuntimeError) -> ! {
                 unimplemented!("generate_module::do_early_trap")
             }
         }

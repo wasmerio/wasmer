@@ -1,5 +1,5 @@
 use crate::{
-    error::CompileResult,
+    error::{CompileResult, RuntimeError},
     module::ModuleInner,
     state::ModuleStateMap,
     typed_func::Wasm,
@@ -282,7 +282,7 @@ pub trait RunnableModule: Send + Sync {
     fn get_trampoline(&self, info: &ModuleInfo, sig_index: SigIndex) -> Option<Wasm>;
 
     /// Trap an error.
-    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> !;
+    unsafe fn do_early_trap(&self, data: RuntimeError) -> !;
 
     /// Returns the machine code associated with this module.
     fn get_code(&self) -> Option<&[u8]> {

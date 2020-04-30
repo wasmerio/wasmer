@@ -173,13 +173,99 @@ impl std::fmt::Display for LinkError {
 
 impl std::error::Error for LinkError {}
 
-/// This is the error type returned when calling
-/// a WebAssembly function.
+/// An error that happened while invoking a Wasm function.
+#[derive(Debug)]
+pub enum InvokeError {
+    /// Indicates an exceptional circumstance such as a bug in Wasmer (please file an issue!)
+    /// or a hardware failure.
+    FailedWithNoError,
+    /// Indicates that a trap occurred that is not known to Wasmer.
+    UnknownTrap {
+        /// The address that the trap occurred at.
+        address: usize,
+        /// The name of the signal.
+        signal: &'static str,
+    },
+    /// A trap that Wasmer knows about occurred.
+    TrapCode {
+        /// The type of exception.
+        code: ExceptionCode,
+        /// Where in the Wasm file this trap orginated from.
+        srcloc: u32,
+    },
+    /// A trap occurred that Wasmer knows about but it had a trap code that
+    /// we weren't expecting or that we do not handle.  This error may be backend-specific.
+    UnknownTrapCode {
+        /// The trap code we saw but did not recognize.
+        trap_code: String,
+        /// Where in the Wasm file this trap orginated from.
+        srcloc: u32,
+    },
+    /// An "early trap" occurred.  TODO: document this properly
+    EarlyTrap(Box<RuntimeError>),
+    /// Indicates that a breakpoint was hit. The inner value is dependent upon
+    /// the middleware or backend being used.
+    Breakpoint(Box<RuntimeError>),
+}
+
+impl From<InvokeError> for RuntimeError {
+    fn from(other: InvokeError) -> RuntimeError {
+        match other {
+            InvokeError::EarlyTrap(re) | InvokeError::Breakpoint(re) => *re,
+            _ => RuntimeError::InvokeError(other),
+        }
+    }
+}
+
+impl std::error::Error for InvokeError {}
+
+impl std::fmt::Display for InvokeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            InvokeError::FailedWithNoError => write!(f, "Invoke failed with no error"),
+            InvokeError::UnknownTrap { address, signal } => write!(
+                f,
+                "An unknown trap (`{}`) occured at 0x{:X}",
+                signal, address
+            ),
+            InvokeError::TrapCode { code, srcloc } => {
+                write!(f, "A `{}` trap was thrown at code offset {}", code, srcloc)
+            }
+            InvokeError::UnknownTrapCode { trap_code, srcloc } => write!(
+                f,
+                "A trap with an unknown trap code (`{}`) was thrown at code offset {}",
+                trap_code, srcloc
+            ),
+            InvokeError::EarlyTrap(rte) => write!(f, "Early trap: {}", rte),
+            InvokeError::Breakpoint(rte) => write!(f, "Breakpoint hit: {}", rte),
+        }
+    }
+}
+
+/// An `InternalError` is an error that happened inside of Wasmer and is a
+/// catch-all for errors that would otherwise be returned as
+/// `RuntimeError(Box::new(<string>))`.
 ///
-/// The main way to do this is `Instance.call`.
-///
-/// Comparing two `RuntimeError`s always evaluates to false.
-pub struct RuntimeError(pub Box<dyn Any + Send>);
+/// This type provides greater visibility into the kinds of things that may fail
+/// and improves the ability of users to handle them, though these errors may be
+/// extremely rare and impossible to handle.
+#[derive(Debug)]
+pub enum RuntimeError {
+    /// An error relating to the invocation of a Wasm function.
+    InvokeError(InvokeError),
+    /// A metering triggered error value.
+    ///
+    /// An error of this type indicates that it was returned by the metering system.
+    Metering(Box<dyn Any + Send>),
+    /// A frozen state of Wasm used to pause and resume execution.  Not strictly an
+    /// "error", but this happens while executing and therefore is a `RuntimeError`
+    /// from the persective of the caller that expected the code to fully execute.
+    InstanceImage(Box<dyn Any + Send>),
+    /// A user triggered error value.
+    ///
+    /// An error returned from a host function.
+    User(Box<dyn Any + Send>),
+}
 
 impl PartialEq for RuntimeError {
     fn eq(&self, _other: &RuntimeError) -> bool {
@@ -187,28 +273,32 @@ impl PartialEq for RuntimeError {
     }
 }
 
+impl std::error::Error for RuntimeError {}
+
 impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let data = &*self.0;
-        if let Some(s) = data.downcast_ref::<String>() {
-            write!(f, "\"{}\"", s)
-        } else if let Some(s) = data.downcast_ref::<&str>() {
-            write!(f, "\"{}\"", s)
-        } else if let Some(exc_code) = data.downcast_ref::<ExceptionCode>() {
-            write!(f, "Caught exception of type \"{:?}\".", exc_code)
-        } else {
-            write!(f, "unknown error")
+        match self {
+            RuntimeError::InvokeError(ie) => write!(f, "Error when calling invoke: {}", ie),
+            RuntimeError::Metering(_) => write!(f, "unknown metering error type"),
+            RuntimeError::InstanceImage(_) => write!(
+                f,
+                "Execution interrupted by a suspend signal: instance image returned"
+            ),
+            RuntimeError::User(user_error) => {
+                write!(f, "User supplied error: ")?;
+                if let Some(s) = user_error.downcast_ref::<String>() {
+                    write!(f, "\"{}\"", s)
+                } else if let Some(s) = user_error.downcast_ref::<&str>() {
+                    write!(f, "\"{}\"", s)
+                } else if let Some(n) = user_error.downcast_ref::<i32>() {
+                    write!(f, "{}", n)
+                } else {
+                    write!(f, "unknown user error type")
+                }
+            }
         }
     }
 }
-
-impl std::fmt::Debug for RuntimeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl std::error::Error for RuntimeError {}
 
 /// This error type is produced by resolving a wasm function
 /// given its name.

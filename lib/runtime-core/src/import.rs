@@ -54,6 +54,7 @@ impl IsExport for Export {
 ///     n
 /// }
 /// ```
+#[derive(Clone)]
 pub struct ImportObject {
     map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace + Send>>>>,
     pub(crate) state_creator:
@@ -156,15 +157,6 @@ impl ImportObject {
             .get(namespace)
             .map(|ns| ns.as_ref())
             .and_then(|ns| f(ns))
-    }
-
-    /// Create a clone ref of this namespace.
-    pub fn clone_ref(&self) -> Self {
-        Self {
-            map: Arc::clone(&self.map),
-            state_creator: self.state_creator.clone(),
-            allow_missing_functions: false,
-        }
     }
 
     fn get_objects(&self) -> VecDeque<(String, String, Export)> {

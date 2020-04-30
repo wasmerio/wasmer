@@ -6,6 +6,7 @@ use wasmer::wasm::Func;
 use wasmer_middleware_common::metering::*;
 use wasmer_runtime_core::codegen::ModuleCodeGenerator;
 use wasmer_runtime_core::codegen::{MiddlewareChain, StreamingCompiler};
+use wasmer_runtime_core::error::RuntimeError;
 use wasmer_runtime_core::fault::{pop_code_version, push_code_version};
 use wasmer_runtime_core::state::CodeVersion;
 
@@ -179,10 +180,13 @@ fn middleware_test_traps_after_costly_call(backend: &'static str, compiler: impl
     }
 
     let err = result.unwrap_err();
-    assert!(err
-        .0
-        .downcast_ref::<ExecutionLimitExceededError>()
-        .is_some());
+    if let RuntimeError::Metering(metering_err) = err {
+        assert!(metering_err
+            .downcast_ref::<ExecutionLimitExceededError>()
+            .is_some());
+    } else {
+        assert!(false, "metering error not found");
+    }
 
     // verify it used the correct number of points
     assert_eq!(get_points_used(&instance), 109); // Used points will be slightly more than `limit` because of the way we do gas checking.

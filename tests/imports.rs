@@ -52,7 +52,7 @@ macro_rules! call_and_assert {
                 expected_value,
                 concat!("Expected right when calling `", stringify!($function), "`.")
             ),
-            (Err(RuntimeError(data)), Err(RuntimeError(expected_data))) => {
+            (Err(RuntimeError::User(data)), Err(RuntimeError::User(expected_data))) => {
                 if let (Some(data), Some(expected_data)) = (
                     data.downcast_ref::<&str>(),
                     expected_data.downcast_ref::<&str>(),
@@ -406,7 +406,7 @@ wasmer_backends! {
     test!( test_fn, function_fn(i32) -> i32, (1) == Ok(2));
     test!( test_closure, function_closure(i32) -> i32, (1) == Ok(2));
     test!( test_fn_dynamic, function_fn_dynamic(i32) -> i32, (1) == Ok(2));
-    test!( test_fn_dynamic_panic, function_fn_dynamic_panic(i32) -> i32, (1) == Err(RuntimeError(Box::new("test"))));
+    test!( test_fn_dynamic_panic, function_fn_dynamic_panic(i32) -> i32, (1) == Err(RuntimeError::User(Box::new("test"))));
     test!(
 
         test_closure_dynamic_0,
@@ -460,31 +460,31 @@ wasmer_backends! {
 
         test_fn_trap,
         function_fn_trap(i32) -> i32,
-        (1) == Err(RuntimeError(Box::new(format!("foo {}", 2))))
+        (1) == Err(RuntimeError::User(Box::new(format!("foo {}", 2))))
     );
     test!(
 
         test_closure_trap,
         function_closure_trap(i32) -> i32,
-        (1) == Err(RuntimeError(Box::new(format!("bar {}", 2))))
+        (1) == Err(RuntimeError::User(Box::new(format!("bar {}", 2))))
     );
     test!(
 
         test_fn_trap_with_vmctx,
         function_fn_trap_with_vmctx(i32) -> i32,
-        (1) == Err(RuntimeError(Box::new(format!("baz {}", 2 + SHIFT))))
+        (1) == Err(RuntimeError::User(Box::new(format!("baz {}", 2 + SHIFT))))
     );
     test!(
 
         test_closure_trap_with_vmctx,
         function_closure_trap_with_vmctx(i32) -> i32,
-        (1) == Err(RuntimeError(Box::new(format!("qux {}", 2 + SHIFT))))
+        (1) == Err(RuntimeError::User(Box::new(format!("qux {}", 2 + SHIFT))))
     );
     test!(
 
         test_closure_trap_with_vmctx_and_env,
         function_closure_trap_with_vmctx_and_env(i32) -> i32,
-        (1) == Err(RuntimeError(Box::new(format!("! {}", 2 + shift + SHIFT))))
+        (1) == Err(RuntimeError::User(Box::new(format!("! {}", 2 + shift + SHIFT))))
     );
 
     #[test]

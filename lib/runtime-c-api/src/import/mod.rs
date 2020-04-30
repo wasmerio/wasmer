@@ -21,6 +21,7 @@ use wasmer::import::{ImportObject, ImportObjectIterator};
 use wasmer::vm::Ctx;
 use wasmer::wasm::{Export, FuncSig, Global, Memory, Module, Table, Type};
 use wasmer_runtime_core::{
+    error::RuntimeError,
     export::{Context, FuncPointer},
     module::ImportName,
 };
@@ -205,7 +206,7 @@ pub unsafe extern "C" fn wasmer_import_object_iterate_functions(
         return std::ptr::null_mut();
     }
     let import_object: &ImportObject = &*(import_object as *const ImportObject);
-    let iter_inner = Box::new(import_object.clone_ref().into_iter().filter(|(_, _, e)| {
+    let iter_inner = Box::new(import_object.clone().into_iter().filter(|(_, _, e)| {
         if let Export::Function { .. } = e {
             true
         } else {
@@ -723,7 +724,7 @@ pub unsafe extern "C" fn wasmer_trap(
 
     (&*ctx.module)
         .runnable_module
-        .do_early_trap(Box::new(error_message)); // never returns
+        .do_early_trap(RuntimeError::User(Box::new(error_message))); // never returns
 
     // cbindgen does not generate a binding for a function that
     // returns `!`. Since we also need to error in some cases, the

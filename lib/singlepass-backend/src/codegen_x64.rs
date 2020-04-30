@@ -10,7 +10,6 @@ use dynasmrt::x64::Assembler;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use smallvec::SmallVec;
 use std::{
-    any::Any,
     collections::{BTreeMap, HashMap},
     ffi::c_void,
     iter, mem,
@@ -27,6 +26,7 @@ use wasmer_runtime_core::{
     },
     cache::{Artifact, Error as CacheError},
     codegen::*,
+    error::{InvokeError, RuntimeError},
     fault::{self, raw::register_preservation_trampoline},
     loader::CodeMemory,
     memory::MemoryType,
@@ -214,7 +214,7 @@ pub struct X64FunctionCode {
     breakpoints: Option<
         HashMap<
             AssemblyOffset,
-            Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any + Send>> + Send + Sync + 'static>,
+            Box<dyn Fn(BreakpointInfo) -> Result<(), RuntimeError> + Send + Sync + 'static>,
         >,
     >,
     returns: SmallVec<[WpType; 1]>,
@@ -507,7 +507,7 @@ impl RunnableModule for X64ExecutionContext {
             func: NonNull<vm::Func>,
             args: *const u64,
             rets: *mut u64,
-            error_out: *mut Option<Box<dyn Any + Send>>,
+            error_out: *mut Option<RuntimeError>,
             num_params_plus_one: Option<NonNull<c_void>>,
         ) -> bool {
             let rm: &Box<dyn RunnableModule> = &(&*(*ctx).module).runnable_module;
@@ -655,7 +655,7 @@ impl RunnableModule for X64ExecutionContext {
                     true
                 }
                 Err(err) => {
-                    *error_out = Some(err);
+                    *error_out = Some(InvokeError::Breakpoint(Box::new(err)).into());
                     false
                 }
             };
@@ -680,8 +680,8 @@ impl RunnableModule for X64ExecutionContext {
         })
     }
 
-    unsafe fn do_early_trap(&self, data: Box<dyn Any + Send>) -> ! {
-        fault::begin_unsafe_unwind(data);
+    unsafe fn do_early_trap(&self, data: RuntimeError) -> ! {
+        fault::begin_unsafe_unwind(Box::new(data));
     }
 
     fn get_code(&self) -> Option<&[u8]> {
@@ -1942,7 +1942,10 @@ impl X64FunctionCode {
 
     /// Emits a System V call sequence.
     ///
-    /// This function must not use RAX before `cb` is called.
+    /// This function will not use RAX before `cb` is called.
+    ///
+    /// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling
+    /// this function.
     fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Assembler)>(
         a: &mut Assembler,
         m: &mut Machine,
@@ -2063,14 +2066,17 @@ impl X64FunctionCode {
                             // Dummy value slot to be filled with `mov`.
                             a.emit_push(Size::S64, Location::GPR(GPR::RAX));
 
-                            // Use R10 as the temporary register here, since it is callee-saved and not
-                            // used by the callback `cb`.
-                            a.emit_mov(Size::S64, *param, Location::GPR(GPR::R10));
+                            // Use RCX as the temporary register here, since:
+                            // - It is a temporary register that is not used for any persistent value.
+                            // - This register as an argument location is only written to after `sort_call_movs`.
+                            m.reserve_unused_temp_gpr(GPR::RCX);
+                            a.emit_mov(Size::S64, *param, Location::GPR(GPR::RCX));
                             a.emit_mov(
                                 Size::S64,
-                                Location::GPR(GPR::R10),
+                                Location::GPR(GPR::RCX),
                                 Location::Memory(GPR::RSP, 0),
                             );
+                            m.release_temp_gpr(GPR::RCX);
                         }
                         Location::XMM(_) => {
                             // Dummy value slot to be filled with `mov`.

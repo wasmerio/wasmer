@@ -1,6 +1,6 @@
 use crate::{
     relocation::{TrapCode, TrapData},
-    signal::{CallProtError, HandlerData},
+    signal::HandlerData,
 };
 use std::{
     cell::Cell,
@@ -9,6 +9,7 @@ use std::{
 };
 use wasmer_runtime_core::{
     backend::ExceptionCode,
+    error::InvokeError,
     typed_func::Trampoline,
     vm::{Ctx, Func},
 };
@@ -32,6 +33,34 @@ thread_local! {
     pub static CURRENT_EXECUTABLE_BUFFER: Cell<*const c_void> = Cell::new(ptr::null());
 }
 
+fn get_signal_name(code: DWORD) -> &'static str {
+    match code {
+        EXCEPTION_FLT_DENORMAL_OPERAND
+        | EXCEPTION_FLT_DIVIDE_BY_ZERO
+        | EXCEPTION_FLT_INEXACT_RESULT
+        | EXCEPTION_FLT_INVALID_OPERATION
+        | EXCEPTION_FLT_OVERFLOW
+        | EXCEPTION_FLT_STACK_CHECK
+        | EXCEPTION_FLT_UNDERFLOW => "floating-point exception",
+        EXCEPTION_ILLEGAL_INSTRUCTION => "illegal instruction",
+        EXCEPTION_ACCESS_VIOLATION => "segmentation violation",
+        EXCEPTION_DATATYPE_MISALIGNMENT => "datatype misalignment",
+        EXCEPTION_BREAKPOINT => "breakpoint",
+        EXCEPTION_SINGLE_STEP => "single step",
+        EXCEPTION_ARRAY_BOUNDS_EXCEEDED => "array bounds exceeded",
+        EXCEPTION_INT_DIVIDE_BY_ZERO => "integer division by zero",
+        EXCEPTION_INT_OVERFLOW => "integer overflow",
+        EXCEPTION_PRIV_INSTRUCTION => "privileged instruction",
+        EXCEPTION_IN_PAGE_ERROR => "in page error",
+        EXCEPTION_NONCONTINUABLE_EXCEPTION => "non continuable exception",
+        EXCEPTION_STACK_OVERFLOW => "stack overflow",
+        EXCEPTION_GUARD_PAGE => "guard page",
+        EXCEPTION_INVALID_HANDLE => "invalid handle",
+        EXCEPTION_POSSIBLE_DEADLOCK => "possible deadlock",
+        _ => "unknown exception code",
+    }
+}
+
 pub fn call_protected(
     handler_data: &HandlerData,
     trampoline: Trampoline,
@@ -39,7 +68,7 @@ pub fn call_protected(
     func: NonNull<Func>,
     param_vec: *const u64,
     return_vec: *mut u64,
-) -> Result<(), CallProtError> {
+) -> Result<(), InvokeError> {
     // TODO: trap early
     // user code error
     //    if let Some(msg) = super::TRAP_EARLY_DATA.with(|cell| cell.replace(None)) {
@@ -58,12 +87,8 @@ pub fn call_protected(
         instruction_pointer,
     } = result.unwrap_err();
 
-    if let Some(TrapData {
-        trapcode,
-        srcloc: _,
-    }) = handler_data.lookup(instruction_pointer as _)
-    {
-        Err(CallProtError(Box::new(match code as DWORD {
+    if let Some(TrapData { trapcode, srcloc }) = handler_data.lookup(instruction_pointer as _) {
+        let exception_code = match code as DWORD {
             EXCEPTION_ACCESS_VIOLATION => ExceptionCode::MemoryOutOfBounds,
             EXCEPTION_ILLEGAL_INSTRUCTION => match trapcode {
                 TrapCode::BadSignature => ExceptionCode::IncorrectCallIndirectSignature,
@@ -71,51 +96,36 @@ pub fn call_protected(
                 TrapCode::HeapOutOfBounds => ExceptionCode::MemoryOutOfBounds,
                 TrapCode::TableOutOfBounds => ExceptionCode::CallIndirectOOB,
                 TrapCode::UnreachableCodeReached => ExceptionCode::Unreachable,
-                _ => return Err(CallProtError(Box::new("unknown trap code".to_string()))),
+                _ => {
+                    return Err(InvokeError::UnknownTrapCode {
+                        trap_code: format!("{}", code as DWORD),
+                        srcloc,
+                    })
+                }
             },
             EXCEPTION_STACK_OVERFLOW => ExceptionCode::MemoryOutOfBounds,
             EXCEPTION_INT_DIVIDE_BY_ZERO | EXCEPTION_INT_OVERFLOW => {
                 ExceptionCode::IllegalArithmetic
             }
             _ => {
-                return Err(CallProtError(Box::new(
-                    "unknown exception code".to_string(),
-                )))
+                let signal = get_signal_name(code as DWORD);
+                return Err(InvokeError::UnknownTrap {
+                    address: exception_address as usize,
+                    signal,
+                });
             }
-        })))
-    } else {
-        let signal = match code as DWORD {
-            EXCEPTION_FLT_DENORMAL_OPERAND
-            | EXCEPTION_FLT_DIVIDE_BY_ZERO
-            | EXCEPTION_FLT_INEXACT_RESULT
-            | EXCEPTION_FLT_INVALID_OPERATION
-            | EXCEPTION_FLT_OVERFLOW
-            | EXCEPTION_FLT_STACK_CHECK
-            | EXCEPTION_FLT_UNDERFLOW => "floating-point exception",
-            EXCEPTION_ILLEGAL_INSTRUCTION => "illegal instruction",
-            EXCEPTION_ACCESS_VIOLATION => "segmentation violation",
-            EXCEPTION_DATATYPE_MISALIGNMENT => "datatype misalignment",
-            EXCEPTION_BREAKPOINT => "breakpoint",
-            EXCEPTION_SINGLE_STEP => "single step",
-            EXCEPTION_ARRAY_BOUNDS_EXCEEDED => "array bounds exceeded",
-            EXCEPTION_INT_DIVIDE_BY_ZERO => "int div by zero",
-            EXCEPTION_INT_OVERFLOW => "int overflow",
-            EXCEPTION_PRIV_INSTRUCTION => "priv instruction",
-            EXCEPTION_IN_PAGE_ERROR => "in page error",
-            EXCEPTION_NONCONTINUABLE_EXCEPTION => "non continuable exception",
-            EXCEPTION_STACK_OVERFLOW => "stack overflow",
-            EXCEPTION_GUARD_PAGE => "guard page",
-            EXCEPTION_INVALID_HANDLE => "invalid handle",
-            EXCEPTION_POSSIBLE_DEADLOCK => "possible deadlock",
-            _ => "unknown exception code",
         };
+        return Err(InvokeError::TrapCode {
+            srcloc,
+            code: exception_code,
+        });
+    } else {
+        let signal = get_signal_name(code as DWORD);
 
-        let s = format!(
-            "unhandled trap at {:x} - code #{:x}: {}",
-            exception_address, code, signal,
-        );
-
-        Err(CallProtError(Box::new(s)))
+        Err(InvokeError::UnknownTrap {
+            address: exception_address as usize,
+            signal,
+        })
     }
 }
 

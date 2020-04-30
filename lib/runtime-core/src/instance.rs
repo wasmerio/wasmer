@@ -5,7 +5,7 @@
 use crate::{
     backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
-    error::{CallResult, ResolveError, ResolveResult, Result, RuntimeError},
+    error::{CallResult, InvokeError, ResolveError, ResolveResult, Result, RuntimeError},
     export::{Context, Export, ExportIter, Exportable, FuncPointer},
     global::Global,
     import::{ImportObject, LikeNamespace},
@@ -103,7 +103,7 @@ impl Instance {
             module,
             inner,
             exports,
-            import_object: imports.clone_ref(),
+            import_object: imports.clone(),
         };
 
         if let Some(start_index) = instance.module.info.start_func {
@@ -584,25 +584,30 @@ pub(crate) fn call_func_with_index_inner(
         invoke_env,
     } = wasm;
 
-    let run_wasm = |result_space: *mut u64| unsafe {
+    let run_wasm = |result_space: *mut u64| -> CallResult<()> {
         let mut error_out = None;
 
-        let success = invoke(
-            trampoline,
-            ctx_ptr,
-            func_ptr,
-            raw_args.as_ptr(),
-            result_space,
-            &mut error_out,
-            invoke_env,
-        );
+        let success = unsafe {
+            invoke(
+                trampoline,
+                ctx_ptr,
+                func_ptr,
+                raw_args.as_ptr(),
+                result_space,
+                &mut error_out,
+                invoke_env,
+            )
+        };
 
         if success {
             Ok(())
         } else {
-            Err(error_out
-                .map(RuntimeError)
-                .unwrap_or_else(|| RuntimeError(Box::new("invoke(): Unknown error".to_string()))))
+            let error: RuntimeError = error_out.map_or_else(
+                || RuntimeError::InvokeError(InvokeError::FailedWithNoError),
+                Into::into,
+            );
+            dbg!(&error);
+            Err(error.into())
         }
     };
 
