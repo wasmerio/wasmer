@@ -95,7 +95,7 @@ impl Run {
                 Err(_e) => {
                     let module = Module::new(&store, &contents)?;
                     // Store the compiled Module in cache
-                    cache.store(hash, module.clone());
+                    cache.store(hash, module.clone())?;
                     module
                 }
             };
