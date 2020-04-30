@@ -1,6 +1,5 @@
 use crate::common::get_cache_dir;
 use crate::compiler::CompilerOptions;
-use crate::VERSION;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::PathBuf;
 use wasmer::*;
@@ -69,7 +68,6 @@ impl Run {
     /// Get the Compiler Filesystem cache
     fn get_cache(&self, compiler_name: String) -> Result<FileSystemCache> {
         let mut cache_dir_root = get_cache_dir();
-        cache_dir_root.push(VERSION);
         cache_dir_root.push(compiler_name);
         Ok(FileSystemCache::new(cache_dir_root)?)
     }
@@ -79,7 +77,7 @@ impl Run {
         let (compiler_config, compiler_name) = self.compiler.get_config()?;
         let engine = Engine::new(&*compiler_config);
         let store = Store::new(&engine);
-        let module = if cfg!(feature = "cache") {
+        let module = if cfg!(feature = "cache") && !self.disable_cache {
             let mut cache = self.get_cache(compiler_name)?;
             let contents = std::fs::read(self.path.clone())?;
             let hash = WasmHash::generate(&contents);

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-bin"
-version = "1.0.0"
+version = "0.16.2"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 description = "High-Performance WebAssembly Framework"

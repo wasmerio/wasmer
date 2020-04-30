@@ -1,9 +1,9 @@
 //! Common module with common used structures across different
 //! commands.
+use crate::VERSION;
 use std::env;
 use std::path::PathBuf;
 use structopt::StructOpt;
-use wasmer::VERSION;
 
 #[derive(Debug, StructOpt, Clone)]
 /// The WebAssembly features that can be passed through the
