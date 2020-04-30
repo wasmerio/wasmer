@@ -58,7 +58,6 @@ pub struct FileSystemCache {
 
 impl FileSystemCache {
     /// Construct a new `FileSystemCache` around the specified directory.
-    /// The contents of the cache are stored in sub-versioned directories.
     pub fn new<P: Into<PathBuf>>(path: P) -> io::Result<Self> {
         let path: PathBuf = path.into();
         if path.exists() {

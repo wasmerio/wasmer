@@ -78,10 +78,11 @@ impl Run {
         let (compiler_config, compiler_name) = self.compiler.get_config()?;
         let engine = Engine::new(&*compiler_config);
         let store = Store::new(&engine);
+
+        let contents = std::fs::read(self.path.clone())?;
         // We try to get it from cache, in case is enabled
-        let module = if cfg!(feature = "cache") && !self.disable_cache {
+        let mut module = if cfg!(feature = "cache") && !self.disable_cache {
             let mut cache = self.get_cache(compiler_name)?;
-            let contents = std::fs::read(self.path.clone())?;
             // Try to get the hash from the provided `--cache-key`, otherwise
             // generate one from the provided file `.wasm` contents.
             let hash = self
@@ -92,7 +93,7 @@ impl Run {
             let module = match unsafe { cache.load(&store, hash) } {
                 Ok(module) => module,
                 Err(_e) => {
-                    let module = Module::from_binary(&store, &contents)?;
+                    let module = Module::new(&store, &contents)?;
                     // Store the compiled Module in cache
                     cache.store(hash, module.clone());
                     module
@@ -100,8 +101,10 @@ impl Run {
             };
             module
         } else {
-            Module::from_file(&store, &self.path.clone())?
+            Module::new(&store, &contents)?
         };
+        // We set the name outside the cache, to make sure we dont cache the name
+        module.set_name(self.path.canonicalize()?.as_path().to_str().unwrap());
 
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
@@ -134,16 +137,17 @@ impl Run {
                             .map(|f| f.to_string_lossy().to_string())
                     })
                     .unwrap_or("".to_string());
-                self.wasi
-                    .execute(module, version, program_name, self.args.clone())?;
+                return self
+                    .wasi
+                    .execute(module, version, program_name, self.args.clone());
             }
-        } else {
-            // Try to instantiate the wasm file, with no provided imports
-            let imports = imports! {};
-            let instance = Instance::new(&module, &imports)?;
-            let start: &Func = instance.exports.get("_start")?;
-            start.call(&[])?;
         }
+
+        // Try to instantiate the wasm file, with no provided imports
+        let imports = imports! {};
+        let instance = Instance::new(&module, &imports)?;
+        let start: &Func = instance.exports.get("_start")?;
+        start.call(&[])?;
 
         Ok(())
     }
