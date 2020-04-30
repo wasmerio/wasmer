@@ -14,8 +14,8 @@ use crate::CompiledModule;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
-use wasm_common::entity::EntityRef;
-use wasm_common::FuncIndex;
+use wasm_common::entity::{EntityRef, PrimaryMap};
+use wasm_common::{FuncIndex, LocalFuncIndex};
 use wasmer_compiler::{FunctionAddressMap, SourceLoc, TrapInformation};
 use wasmer_runtime::Module;
 
@@ -50,17 +50,36 @@ pub struct GlobalFrameInfoRegistration {
     key: usize,
 }
 
+struct FunctionDebugInfo {
+    traps: Vec<TrapInformation>,
+    instr_map: FunctionAddressMap,
+}
+
+struct ModuleDebugInfo {
+    functions: PrimaryMap<LocalFuncIndex, FunctionDebugInfo>,
+}
+
 struct ModuleFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<Module>,
+    debug: ModuleDebugInfo,
+}
+
+impl ModuleFrameInfo {
+    fn instr_map(&self, index: FuncIndex) -> &FunctionAddressMap {
+        let local_index = self.module.local_func_index(index).unwrap();
+        &self.debug.functions.get(local_index).unwrap().instr_map
+    }
+    fn traps(&self, index: FuncIndex) -> &Vec<TrapInformation> {
+        let local_index = self.module.local_func_index(index).unwrap();
+        &self.debug.functions.get(local_index).unwrap().traps
+    }
 }
 
 struct FunctionInfo {
     start: usize,
     index: FuncIndex,
-    traps: Vec<TrapInformation>,
-    instr_map: FunctionAddressMap,
 }
 
 impl GlobalFrameInfo {
@@ -75,8 +94,8 @@ impl GlobalFrameInfo {
         // machine instruction that corresponds to `pc`, which then allows us to
         // map that to a wasm original source location.
         let rel_pos = pc - func.start;
-        let pos = match func
-            .instr_map
+        let instr_map = module.instr_map(func.index);
+        let pos = match instr_map
             .instructions
             .binary_search_by_key(&rel_pos, |map| map.code_offset)
         {
@@ -93,7 +112,7 @@ impl GlobalFrameInfo {
             // always get called with a `pc` that's an exact instruction
             // boundary.
             Err(n) => {
-                let instr = &func.instr_map.instructions[n - 1];
+                let instr = &instr_map.instructions[n - 1];
                 if instr.code_offset <= rel_pos && rel_pos < instr.code_offset + instr.code_len {
                     Some(n - 1)
                 } else {
@@ -109,26 +128,26 @@ impl GlobalFrameInfo {
         debug_assert!(pos.is_some(), "failed to find instruction for {:x}", pc);
 
         let instr = match pos {
-            Some(pos) => func.instr_map.instructions[pos].srcloc,
-            None => func.instr_map.start_srcloc,
+            Some(pos) => instr_map.instructions[pos].srcloc,
+            None => instr_map.start_srcloc,
         };
         Some(FrameInfo {
             module_name: module.module.name(),
             func_index: func.index.index() as u32,
             func_name: module.module.func_names.get(&func.index).cloned(),
             instr,
-            func_start: func.instr_map.start_srcloc,
+            func_start: instr_map.start_srcloc,
         })
     }
 
     /// Fetches trap information about a program counter in a backtrace.
     pub fn lookup_trap_info(&self, pc: usize) -> Option<&TrapInformation> {
-        let (_module, func) = self.func(pc)?;
-        let idx = func
-            .traps
+        let (module, func) = self.func(pc)?;
+        let traps = module.traps(func.index);
+        let idx = traps
             .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
             .ok()?;
-        Some(&func.traps[idx])
+        Some(&traps[idx])
     }
 
     fn func(&self, pc: usize) -> Option<(&ModuleFrameInfo, &FunctionInfo)> {
@@ -162,12 +181,7 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
     let mut min = usize::max_value();
     let mut max = 0;
     let mut functions = BTreeMap::new();
-    for (((i, allocated), traps), instrs) in module
-        .finished_functions()
-        .iter()
-        .zip(module.traps().values())
-        .zip(module.address_transform().values())
-    {
+    for (i, allocated) in module.finished_functions().iter() {
         let (start, end) = unsafe {
             let ptr = (**allocated).as_ptr();
             let len = (**allocated).len();
@@ -178,8 +192,6 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
         let func = FunctionInfo {
             start,
             index: module.module().func_index(i),
-            traps: traps.to_vec(),
-            instr_map: (*instrs).clone(),
         };
         assert!(functions.insert(end, func).is_none());
     }
@@ -197,6 +209,20 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
         assert!(*prev_end < min);
     }
 
+    let debug_functions = module
+        .traps()
+        .values()
+        .zip(module.address_transform().values())
+        .map(|(traps, instrs)| FunctionDebugInfo {
+            traps: traps.to_vec(),
+            instr_map: (*instrs).clone(),
+        })
+        .collect::<PrimaryMap<LocalFuncIndex, _>>();
+
+    let debug = ModuleDebugInfo {
+        functions: debug_functions,
+    };
+
     // ... then insert our range and assert nothing was there previously
     let prev = info.ranges.insert(
         max,
@@ -204,6 +230,7 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
             start: min,
             functions,
             module: module.module().clone(),
+            debug,
         },
     );
     assert!(prev.is_none());

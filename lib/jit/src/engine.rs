@@ -183,7 +183,6 @@ impl JITEngineInner {
         CompileError,
     > {
         let relocations = compilation.get_relocations();
-        let traps = compilation.get_traps();
 
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
@@ -229,6 +228,7 @@ impl JITEngineInner {
         }
 
         let jt_offsets = compilation.get_jt_offsets();
+        let traps = compilation.get_traps();
         let address_maps = compilation.get_address_maps();
 
         Ok((
