@@ -2,7 +2,8 @@
 //! commands.
 
 use crate::common::WasmFeatures;
-use anyhow::{bail, Result};
+use anyhow::{bail, Error, Result};
+use std::str::FromStr;
 use std::string::ToString;
 use structopt::StructOpt;
 use wasmer::*;
@@ -11,16 +12,20 @@ use wasmer::*;
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler
-    #[structopt(long, conflicts_with_all = &["cranelift", "llvm"])]
+    #[structopt(long, conflicts_with_all = &["cranelift", "llvm", "backend"])]
     singlepass: bool,
 
     /// Use Cranelift compiler
-    #[structopt(long, conflicts_with_all = &["singlepass", "llvm"])]
+    #[structopt(long, conflicts_with_all = &["singlepass", "llvm", "backend"])]
     cranelift: bool,
 
     /// Use LLVM compiler
-    #[structopt(long, conflicts_with_all = &["singlepass", "cranelifft"])]
+    #[structopt(long, conflicts_with_all = &["singlepass", "cranelift", "backend"])]
     llvm: bool,
+
+    /// The deprecated backend flag - Please not use
+    #[structopt(long = "backend", hidden = true, conflicts_with_all = &["singlepass", "cranelift", "llvm"])]
+    backend: Option<String>,
 
     #[structopt(flatten)]
     features: WasmFeatures,
@@ -45,6 +50,18 @@ impl ToString for Compiler {
     }
 }
 
+impl FromStr for Compiler {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "singlepass" => Ok(Self::Singlepass),
+            "cranelift" => Ok(Self::Cranelift),
+            "llvm" => Ok(Self::LLVM),
+            backend => bail!("The backend {} does not exist", backend),
+        }
+    }
+}
+
 impl CompilerOptions {
     fn get_compiler(&self) -> Result<Compiler> {
         if self.cranelift {
@@ -53,6 +70,12 @@ impl CompilerOptions {
             return Ok(Compiler::LLVM);
         } else if self.singlepass {
             return Ok(Compiler::Singlepass);
+        } else if let Some(backend) = self.backend.clone() {
+            eprintln!(
+                "warning: the `--backend={0}` flag is deprecated, please use `--{0}` instead",
+                backend
+            );
+            return Compiler::from_str(&backend);
         } else {
             // Auto mode, we choose the best compiler for that platform
             if cfg!(feature = "compiler-cranelift") && cfg!(target_arch = "x86_64") {
