@@ -1979,12 +1979,10 @@ pub fn path_remove_directory(
 
     let host_path_to_remove = match &state.fs.inodes[inode].kind {
         Kind::Dir { entries, path, .. } => {
-            if !entries.is_empty() {
+            if !entries.is_empty()
+                || wasi_try!(std::fs::read_dir(path).ok(), __WASI_EIO).count() != 0
+            {
                 return __WASI_ENOTEMPTY;
-            } else {
-                if wasi_try!(std::fs::read_dir(path).ok(), __WASI_EIO).count() != 0 {
-                    return __WASI_ENOTEMPTY;
-                }
             }
             path.clone()
         }

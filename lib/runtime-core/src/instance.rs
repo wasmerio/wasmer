@@ -103,7 +103,7 @@ impl Instance {
             module,
             inner,
             exports,
-            import_object: imports.clone_ref(),
+            import_object: imports.clone(),
         };
 
         if let Some(start_index) = instance.module.info.start_func {

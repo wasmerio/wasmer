@@ -292,7 +292,7 @@ impl Wast {
         let compiler = compiler_for_backend(self.backend).expect("backend not found");
         let module = compile_with_config_with(module, config, &*compiler)?;
 
-        let mut imports = self.import_object.clone_ref();
+        let mut imports = self.import_object.clone();
 
         for import in module.imports() {
             let module_name = import.namespace;
