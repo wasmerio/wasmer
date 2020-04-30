@@ -137,8 +137,7 @@ impl Run {
                 self.wasi
                     .execute(module, version, program_name, self.args.clone())?;
             }
-        }
-        else {
+        } else {
             // Try to instantiate the wasm file, with no provided imports
             let imports = imports! {};
             let instance = Instance::new(&module, &imports)?;
