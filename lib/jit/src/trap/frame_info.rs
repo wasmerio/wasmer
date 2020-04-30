@@ -15,7 +15,7 @@ use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::{FuncIndex, LocalFuncIndex};
+use wasm_common::LocalFuncIndex;
 use wasmer_compiler::{FunctionAddressMap, SourceLoc, TrapInformation};
 use wasmer_runtime::Module;
 
