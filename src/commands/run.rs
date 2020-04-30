@@ -80,29 +80,33 @@ impl Run {
         let store = Store::new(&engine);
 
         let contents = std::fs::read(self.path.clone())?;
-        // We try to get it from cache, in case is enabled
-        let mut module = if cfg!(feature = "cache") && !self.disable_cache {
-            let mut cache = self.get_cache(compiler_name)?;
-            // Try to get the hash from the provided `--cache-key`, otherwise
-            // generate one from the provided file `.wasm` contents.
-            let hash = self
-                .cache_key
-                .as_ref()
-                .and_then(|key| WasmHash::from_str(&key).ok())
-                .unwrap_or(WasmHash::generate(&contents));
-            let module = match unsafe { cache.load(&store, hash) } {
-                Ok(module) => module,
-                Err(_e) => {
-                    let module = Module::new(&store, &contents)?;
-                    // Store the compiled Module in cache
-                    cache.store(hash, module.clone())?;
-                    module
-                }
+        // We try to get it from cache, in case caching is enabled
+        // and the file length is greater than 4KB.
+        // For files smaller than 4KB caching is not worth,
+        // as it takes space and the speedup is minimal.
+        let mut module =
+            if cfg!(feature = "cache") && !self.disable_cache && contents.len() > 0x1000 {
+                let mut cache = self.get_cache(compiler_name)?;
+                // Try to get the hash from the provided `--cache-key`, otherwise
+                // generate one from the provided file `.wasm` contents.
+                let hash = self
+                    .cache_key
+                    .as_ref()
+                    .and_then(|key| WasmHash::from_str(&key).ok())
+                    .unwrap_or(WasmHash::generate(&contents));
+                let module = match unsafe { cache.load(&store, hash) } {
+                    Ok(module) => module,
+                    Err(_e) => {
+                        let module = Module::new(&store, &contents)?;
+                        // Store the compiled Module in cache
+                        cache.store(hash, module.clone())?;
+                        module
+                    }
+                };
+                module
+            } else {
+                Module::new(&store, &contents)?
             };
-            module
-        } else {
-            Module::new(&store, &contents)?
-        };
         // We set the name outside the cache, to make sure we dont cache the name
         module.set_name(self.path.canonicalize()?.as_path().to_str().unwrap());
 
