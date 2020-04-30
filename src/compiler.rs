@@ -70,7 +70,7 @@ impl CompilerOptions {
     /// Get the Compiler Config for the current options
     pub fn get_config(&self) -> Result<(Box<dyn CompilerConfig>, String)> {
         let compiler = self.get_compiler()?;
-        let config = match compiler {
+        let config: Box<dyn CompilerConfig> = match compiler {
             #[cfg(feature = "compiler-singlepass")]
             Compiler::Singlepass => {
                 let config = SinglepassConfig::default();
