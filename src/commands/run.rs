@@ -2,6 +2,7 @@ use crate::common::get_cache_dir;
 use crate::compiler::CompilerOptions;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::PathBuf;
+use std::str::FromStr;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, WasmHash};
@@ -80,11 +81,14 @@ impl Run {
         let module = if cfg!(feature = "cache") && !self.disable_cache {
             let mut cache = self.get_cache(compiler_name)?;
             let contents = std::fs::read(self.path.clone())?;
-            let hash = WasmHash::generate(&contents);
+            let hash = self
+                .cache_key
+                .and_then(|key| WasmHash::from_str(&key).ok())
+                .unwrap_or(WasmHash::generate(&contents));
             let module = match unsafe { cache.load(&store, hash) } {
                 Ok(module) => module,
                 Err(_e) => {
-                    let module = Module::from_file(&store, &self.path)?;
+                    let module = Module::from_binary(&store, &contents)?;
                     // Store the compiled in cache
                     cache.store(hash, module.clone());
                     module

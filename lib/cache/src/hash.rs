@@ -1,3 +1,5 @@
+use crate::DeserializeError;
+use std::str::FromStr;
 use std::string::ToString;
 
 /// The hash of a wasm module.
@@ -23,25 +25,6 @@ impl WasmHash {
         WasmHash::new(hash.into())
     }
 
-    // /// Create hash from hexadecimal representation
-    // pub fn decode(hex_str: &str) -> Result<Self, Error> {
-    //     let bytes = hex::decode(hex_str).map_err(|e| {
-    //         Error::DeserializeError(format!(
-    //             "Could not decode prehashed key as hexadecimal: {}",
-    //             e
-    //         ))
-    //     })?;
-    //     if bytes.len() != 32 {
-    //         return Err(Error::DeserializeError(
-    //             "Prehashed keys must deserialze into exactly 32 bytes".to_string(),
-    //         ));
-    //     }
-    //     use std::convert::TryInto;
-    //     Ok(WasmHash(bytes[0..32].try_into().map_err(|e| {
-    //         Error::DeserializeError(format!("Could not get first 32 bytes: {}", e))
-    //     })?))
-    // }
-
     pub(crate) fn into_array(self) -> [u8; 32] {
         let mut total = [0u8; 32];
         total[0..32].copy_from_slice(&self.0);
@@ -57,5 +40,24 @@ impl ToString for WasmHash {
     }
 }
 
-// impl FromStr for Point {
-// }
+impl FromStr for WasmHash {
+    type Err = DeserializeError;
+    /// Create hash from hexadecimal representation
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = hex::decode(s).map_err(|e| {
+            DeserializeError::Generic(format!(
+                "Could not decode prehashed key as hexadecimal: {}",
+                e
+            ))
+        })?;
+        if bytes.len() != 32 {
+            return Err(DeserializeError::Generic(
+                "Prehashed keys must deserialze into exactly 32 bytes".to_string(),
+            ));
+        }
+        use std::convert::TryInto;
+        Ok(WasmHash(bytes[0..32].try_into().map_err(|e| {
+            DeserializeError::Generic(format!("Could not get first 32 bytes: {}", e))
+        })?))
+    }
+}
