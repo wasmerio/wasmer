@@ -1,8 +1,11 @@
-// use crate::common::get_cache_dir;
+use crate::common::get_cache_dir;
 use crate::compiler::CompilerOptions;
+use crate::VERSION;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::PathBuf;
 use wasmer::*;
+#[cfg(feature = "cache")]
+use wasmer_cache::{Cache, FileSystemCache, WasmHash};
 
 use structopt::StructOpt;
 
@@ -62,12 +65,37 @@ pub struct Run {
 }
 
 impl Run {
+    #[cfg(feature = "cache")]
+    /// Get the Compiler Filesystem cache
+    fn get_cache(&self, compiler_name: String) -> Result<FileSystemCache> {
+        let mut cache_dir_root = get_cache_dir();
+        cache_dir_root.push(VERSION);
+        cache_dir_root.push(compiler_name);
+        Ok(FileSystemCache::new(cache_dir_root)?)
+    }
+
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
-        let compiler_config = self.compiler.get_config()?;
+        let (compiler_config, compiler_name) = self.compiler.get_config()?;
         let engine = Engine::new(&*compiler_config);
         let store = Store::new(&engine);
-        let module = Module::from_file(&store, &self.path)?;
+        let module = if cfg!(feature = "cache") {
+            let mut cache = self.get_cache(compiler_name)?;
+            let contents = std::fs::read(self.path.clone())?;
+            let hash = WasmHash::generate(&contents);
+            let module = match unsafe { cache.load(&store, hash) } {
+                Ok(module) => module,
+                Err(_e) => {
+                    let module = Module::from_file(&store, &self.path)?;
+                    // Store the compiled in cache
+                    cache.store(hash, module.clone());
+                    module
+                }
+            };
+            module
+        } else {
+            Module::from_file(&store, &self.path.clone())?
+        };
 
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};

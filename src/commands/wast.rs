@@ -24,7 +24,7 @@ pub struct Wast {
 impl Wast {
     /// Runs logic for the `validate` subcommand
     pub fn execute(&self) -> Result<()> {
-        let compiler_config = self.compiler.get_config()?;
+        let (compiler_config, _compiler_name) = self.compiler.get_config()?;
         let engine = Engine::new(&*compiler_config);
         let store = Store::new(&engine);
         let mut wast = WastSpectest::new_with_spectest(store);

@@ -3,6 +3,7 @@
 
 use crate::common::WasmFeatures;
 use anyhow::{bail, Result};
+use std::string::ToString;
 use structopt::StructOpt;
 use wasmer::*;
 
@@ -34,6 +35,16 @@ enum Compiler {
     LLVM,
 }
 
+impl ToString for Compiler {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Singlepass => "singlepass".to_string(),
+            Self::Cranelift => "cranelift".to_string(),
+            Self::LLVM => "llvm".to_string(),
+        }
+    }
+}
+
 impl CompilerOptions {
     fn get_compiler(&self) -> Result<Compiler> {
         if self.cranelift {
@@ -57,23 +68,23 @@ impl CompilerOptions {
     }
 
     /// Get the Compiler Config for the current options
-    pub fn get_config(&self) -> Result<Box<dyn CompilerConfig>> {
+    pub fn get_config(&self) -> Result<(Box<dyn CompilerConfig>, String)> {
         let compiler = self.get_compiler()?;
-        match compiler {
+        let config = match compiler {
             #[cfg(feature = "compiler-singlepass")]
             Compiler::Singlepass => {
                 let config = SinglepassConfig::default();
-                return Ok(Box::new(config));
+                Box::new(config)
             }
             #[cfg(feature = "compiler-cranelift")]
             Compiler::Cranelift => {
                 let config = CraneliftConfig::default();
-                return Ok(Box::new(config));
+                Box::new(config)
             }
             #[cfg(feature = "compiler-llvm")]
             Compiler::LLVM => {
                 let config = LLVMConfig::default();
-                return Ok(Box::new(config));
+                Box::new(config)
             }
             #[cfg(not(all(
                 feature = "compiler-singlepass",
@@ -84,6 +95,7 @@ impl CompilerOptions {
                 "The compiler {:?} is not included in this binary.",
                 compiler
             ),
-        }
+        };
+        return Ok((config, compiler.to_string()));
     }
 }
