@@ -73,24 +73,7 @@ impl RuntimeError {
         code: TrapCode,
         backtrace: Backtrace,
     ) -> Self {
-        let desc = match code {
-            TrapCode::StackOverflow => "call stack exhausted",
-            TrapCode::HeapSetterOutOfBounds => "memory out of bounds: data segment does not fit",
-            TrapCode::HeapAccessOutOfBounds => "out of bounds memory access",
-            TrapCode::TableSetterOutOfBounds => {
-                "table out of bounds: elements segment does not fit"
-            }
-            TrapCode::TableAccessOutOfBounds => "undefined element: out of bounds table access",
-            TrapCode::OutOfBounds => "out of bounds",
-            TrapCode::IndirectCallToNull => "uninitialized element",
-            TrapCode::BadSignature => "indirect call type mismatch",
-            TrapCode::IntegerOverflow => "integer overflow",
-            TrapCode::IntegerDivisionByZero => "integer divide by zero",
-            TrapCode::BadConversionToInteger => "invalid conversion to integer",
-            TrapCode::UnreachableCodeReached => "unreachable",
-            TrapCode::Interrupt => "interrupt",
-            TrapCode::User(_) => unreachable!(),
-        };
+        let desc = code.message();
         let msg = format!("{}", desc);
         Self::new_with_trace(info, trap_pc, msg, backtrace)
     }
