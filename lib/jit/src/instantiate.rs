@@ -21,9 +21,7 @@ use wasm_common::{
     MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{
-    Compilation, CompileError, CompiledFunctionFrameInfo, FunctionAddressMap, TrapInformation,
-};
+use wasmer_compiler::{CompileError, CompiledFunctionFrameInfo};
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
     VMGlobalDefinition, VMSharedSignatureIndex,
