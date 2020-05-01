@@ -68,6 +68,7 @@ impl Compiler for LLVMCompiler {
         // We're going to "link" the sections by simply appending all compatible
         // sections, then building the new relocations.
         // TODO: merge constants.
+        let mut used_readonly_section = false;
         let mut readonly_section = CustomSection {
             protection: CustomSectionProtection::Read,
             bytes: Vec::new(),
@@ -106,14 +107,16 @@ impl Compiler for LLVMCompiler {
                     // TODO: these section numbers are potentially wrong, if there's
                     // no Read and only a ReadExecute then ReadExecute is 0.
                     let (ref mut section, section_num) = match &custom_section.protection {
-                        CustomSectionProtection::Read => (&mut readonly_section, SectionIndex::from_u32(0)),
-                        //ReadExecute => (&mut readexecute_section, 1),
+                        CustomSectionProtection::Read => {
+                            (&mut readonly_section, SectionIndex::from_u32(0))
+                        }
                     };
                     let offset = section.bytes.len() as i64;
                     section.bytes.extend(&custom_section.bytes);
                     // TODO: we're needlessly rescanning the whole list.
                     for local_relocation in &local_relocations {
                         if local_relocation.local_section_index == local_idx {
+                            used_readonly_section = true;
                             function.relocations.push(Relocation {
                                 kind: local_relocation.kind,
                                 reloc_target: RelocationTarget::CustomSection(section_num),
@@ -130,7 +133,9 @@ impl Compiler for LLVMCompiler {
             .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
         let mut custom_sections = PrimaryMap::new();
-        custom_sections.push(readonly_section);
+        if used_readonly_section {
+            custom_sections.push(readonly_section);
+        }
         Ok(Compilation::new(functions, custom_sections))
     }
 
