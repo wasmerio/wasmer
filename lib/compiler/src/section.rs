@@ -14,29 +14,30 @@ use wasm_common::entity::entity_impl;
 pub struct SectionIndex(u32);
 entity_impl!(SectionIndex);
 
-/// The kind of section
+/// Custom section Protection.
+///
+/// Determines how a custom section may be used.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub enum CustomSectionKind {
+pub enum CustomSectionProtection {
     /// A custom section with read permissions,
     Read,
-    // We are skipping `ReadWrite` because, in the future, we would need
-    // to freeze/resume execution of Modules. And for that we need
-    // immutable state on the emited code.
-    /// A compiledd section that is also executable.
+    // We don't include `ReadWrite` here because it would complicate freeze
+    // and resumption of executing Modules.
+    /// A compiled section that is also executable.
     ReadExecute,
 }
 
 /// A Section for a `Compilation`.
 ///
 /// This is used so compilers can store arbitrary information
-/// in the emited module.
+/// in the emitted module.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct CustomSection {
-    /// The kind of Section
-    pub kind: CustomSectionKind,
+    /// The protection
+    pub protection: CustomSectionProtection,
     /// The bytes corresponding to this section.
     ///
-    /// > Note: This bytes have to be at-least 8-byte aligned
+    /// > Note: These bytes have to be at-least 8-byte aligned
     /// > (the start of the memory pointer).
     /// > We might need to create another field for alignment in case it's
     /// > needed in the future.

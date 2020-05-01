@@ -54,8 +54,8 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 pub struct Compilation {
     /// Compiled code for the function bodies.
     functions: Functions,
-    /// This is the custom sections associated to the compiled function
-    /// It will hold the data, for example, for constants used in that
+    /// Custom sections for the module.
+    /// It will hold the data, for example, for constants used in a
     /// function, global variables, rodata_64, hot/cold function partitioning, ...
     custom_sections: CustomSections,
 }
