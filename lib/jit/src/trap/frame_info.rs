@@ -51,13 +51,13 @@ pub struct GlobalFrameInfoRegistration {
 }
 
 /// The function debug info, processed (with all structures in memory)
-pub struct FunctionDebugInfoProcessed {
+pub struct ExtraFunctionInfoProcessed {
     traps: Vec<TrapInformation>,
     instr_map: FunctionAddressMap,
 }
 
 /// The function debug info, but unprocessed
-pub struct FunctionDebugInfoUnprocessed {
+pub struct ExtraFunctionInfoUnprocessed {
     content: Vec<u8>
 }
 
@@ -72,9 +72,9 @@ pub struct FunctionDebugInfoUnprocessed {
 /// of compiling at the same time that emiting the JIT.
 /// In that case, we don't need to deserialize/process anything
 /// as the data is already in memory.
-pub enum FunctionDebugInfo {
-    Processed(FunctionDebugInfoProcessed),
-    Unprocessed(FunctionDebugInfoUnprocessed),
+pub enum ExtraFunctionInfo {
+    Processed(ExtraFunctionInfoProcessed),
+    Unprocessed(ExtraFunctionInfoUnprocessed),
 }
 
 
@@ -82,23 +82,23 @@ struct ModuleFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<Module>,
-    debug_functions: PrimaryMap<LocalFuncIndex, FunctionDebugInfo>,
+    extra_functions: PrimaryMap<LocalFuncIndex, ExtraFunctionInfo>,
 }
 
 impl ModuleFrameInfo {
-    fn function_debug_info(&self, local_index: LocalFuncIndex) -> &FunctionDebugInfo {
-        &self.debug_functions.get(local_index).unwrap()
+    fn function_debug_info(&self, local_index: LocalFuncIndex) -> &ExtraFunctionInfo {
+        &self.extra_functions.get(local_index).unwrap()
     }
 
     fn instr_map(&self, local_index: LocalFuncIndex) -> &FunctionAddressMap {
         match self.function_debug_info(local_index) {
-            FunctionDebugInfo::Processed(di) => &di.instr_map,
+            ExtraFunctionInfo::Processed(di) => &di.instr_map,
             _ => unimplemented!()
         }
     }
     fn traps(&self, local_index: LocalFuncIndex) -> &Vec<TrapInformation> {
         match self.function_debug_info(local_index) {
-            FunctionDebugInfo::Processed(di) => &di.traps,
+            ExtraFunctionInfo::Processed(di) => &di.traps,
             _ => unimplemented!()
         }
     }
@@ -256,11 +256,11 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
         assert!(*prev_end < min);
     }
 
-    let debug_functions = module
+    let extra_functions = module
         .traps()
         .values()
         .zip(module.address_transform().values())
-        .map(|(traps, instrs)| FunctionDebugInfo::Processed(FunctionDebugInfoProcessed {
+        .map(|(traps, instrs)| ExtraFunctionInfo::Processed(ExtraFunctionInfoProcessed {
             traps: traps.to_vec(),
             instr_map: (*instrs).clone(),
         }))
@@ -273,7 +273,7 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
             start: min,
             functions,
             module: module.module().clone(),
-            debug_functions,
+            extra_functions,
         },
     );
     assert!(prev.is_none());
