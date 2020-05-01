@@ -67,28 +67,18 @@ impl Module {
     /// let module = Module::new(&store, bytes)?;
     /// ```
     pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Module, CompileError> {
-        // We try to parse it with WAT: it will be a no-op on
-        // wasm files.
-        if bytes.as_ref().starts_with(b"\0asm") {
+        #[cfg(feature = "wat")]
+        {
+            let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+                CompileError::Wasm(WasmError::Generic(format!(
+                    "Error when converting wat: {}",
+                    e
+                )))
+            })?;
             return Module::from_binary(store, bytes.as_ref());
         }
 
-        #[cfg(feature = "wat")]
-        {
-            let bytes = wat::parse_bytes(bytes.as_ref())
-                .map_err(|e| CompileError::Wasm(WasmError::Generic(format!("{}", e))))?;
-            // We can assume the binary is valid WebAssembly if returned
-            // without errors from from wat. However, by skipping validation
-            // we are not checking if it's using WebAssembly features not enabled
-            // in the store.
-            // This is a good tradeoff, as we can assume the "wat" feature is only
-            // going to be used in development mode.
-            return unsafe { Module::from_binary_unchecked(store, bytes.as_ref()) };
-        }
-
-        Err(CompileError::Validate(
-            "The module is not a valid WebAssembly file.".to_string(),
-        ))
+        Module::from_binary(store, bytes.as_ref())
     }
 
     pub fn from_file(store: &Store, file: impl AsRef<Path>) -> Result<Module, IoCompileError> {
