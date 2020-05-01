@@ -12,7 +12,8 @@ use wasm_common::entity::PrimaryMap;
 use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, MemoryType, TableIndex, TableType};
 use wasmer_compiler::{
     Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionAddressMap,
-    FunctionBodyData, JumpTableOffsets, ModuleTranslationState, Relocations, TrapInformation,
+    FunctionBody, FunctionBodyData, JumpTableOffsets, ModuleTranslationState, Relocations,
+    TrapInformation,
 };
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, MemoryPlan, Module, SignatureRegistry, Table, TablePlan,
@@ -171,13 +172,13 @@ impl JITEngineInner {
     pub(crate) fn compile<'data>(
         &mut self,
         module: &Module,
-        compilation: &Compilation,
+        functions: &PrimaryMap<LocalFuncIndex, FunctionBody>,
     ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, CompileError> {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
         let allocated_functions =
             self.code_memory
-                .allocate_functions(&compilation)
+                .allocate_functions(&functions)
                 .map_err(|message| {
                     CompileError::Resource(format!(
                         "failed to allocate memory for functions: {}",
@@ -208,7 +209,7 @@ impl JITEngineInner {
         {
             let ptr = self
                 .code_memory
-                .allocate_for_function(compiled_function)
+                .allocate_for_function(&compiled_function.body)
                 .map_err(|message| CompileError::Resource(message))?
                 .as_ptr();
             let trampoline =

@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use wasm_common::{DataInitializer, DataInitializerLocation};
 
-
 /// Similar to `DataInitializer`, but owns its own copy of the data rather
 /// than holding a slice of the original module.
 #[derive(Clone, Serialize, Deserialize)]

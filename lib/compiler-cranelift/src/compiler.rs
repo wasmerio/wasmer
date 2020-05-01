@@ -19,8 +19,8 @@ use wasm_common::{
 use wasmer_compiler::CompileError;
 use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::{
-    Compilation, CompiledFunction, CompiledFunctionFrameInfo, Compiler, JumpTable, SourceLoc,
-    TrapInformation,
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, Compiler, FunctionBody, JumpTable,
+    SourceLoc, TrapInformation,
 };
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{Relocation, RelocationTarget};
@@ -253,9 +253,11 @@ impl Compiler for CraneliftCompiler {
                 let func_jt_offsets = transform_jump_table(context.func.jt_offsets);
 
                 Ok(CompiledFunction {
-                    body: code_buf,
+                    body: FunctionBody {
+                        body: code_buf,
+                        unwind_info,
+                    },
                     jt_offsets: func_jt_offsets,
-                    unwind_info,
                     relocations: reloc_sink.func_relocs,
                     frame_info: CompiledFunctionFrameInfo {
                         address_map,

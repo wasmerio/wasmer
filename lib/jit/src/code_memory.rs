@@ -5,7 +5,7 @@ use std::mem::ManuallyDrop;
 use std::{cmp, mem};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::LocalFuncIndex;
-use wasmer_compiler::{Compilation, CompiledFunction};
+use wasmer_compiler::FunctionBody;
 use wasmer_runtime::{Mmap, VMFunctionBody};
 
 struct CodeMemoryEntry {
@@ -60,12 +60,12 @@ impl CodeMemory {
     /// Allocate a continuous memory blocks for a single compiled function.
     pub fn allocate_functions(
         &mut self,
-        compilation: &Compilation,
+        functions: &PrimaryMap<LocalFuncIndex, FunctionBody>,
     ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, String> {
-        let fat_ptrs = self.allocate_for_compilation(compilation)?;
+        let fat_ptrs = self.allocate_for_compilation(functions)?;
 
         // Second, create a PrimaryMap from result vector of pointers.
-        let mut result = PrimaryMap::with_capacity(compilation.len());
+        let mut result = PrimaryMap::with_capacity(functions.len());
         for i in 0..fat_ptrs.len() {
             let fat_ptr: *mut [VMFunctionBody] = fat_ptrs[i];
             result.push(fat_ptr);
@@ -78,7 +78,7 @@ impl CodeMemory {
     /// mmap region rather than into a Vec that we need to copy in.
     pub fn allocate_for_function(
         &mut self,
-        func: &CompiledFunction,
+        func: &FunctionBody,
     ) -> Result<&mut [VMFunctionBody], String> {
         let size = Self::function_allocation_size(func);
 
@@ -94,17 +94,17 @@ impl CodeMemory {
     /// Allocates memory for both the function bodies as well as function unwind data.
     pub fn allocate_for_compilation(
         &mut self,
-        compilation: &Compilation,
+        compilation: &PrimaryMap<LocalFuncIndex, FunctionBody>,
     ) -> Result<Box<[&mut [VMFunctionBody]]>, String> {
         let total_len = compilation
-            .into_iter()
+            .values()
             .fold(0, |acc, func| acc + Self::function_allocation_size(func));
 
         let (mut buf, mut table, start) = self.allocate(total_len)?;
         let mut result = Vec::with_capacity(compilation.len());
         let mut start = start as u32;
 
-        for func in compilation.into_iter() {
+        for func in compilation.values() {
             let (next_start, next_buf, next_table, vmfunc) =
                 Self::copy_function(func, start, buf, table);
 
@@ -167,7 +167,7 @@ impl CodeMemory {
     }
 
     /// Calculates the allocation size of the given compiled function.
-    fn function_allocation_size(func: &CompiledFunction) -> usize {
+    fn function_allocation_size(func: &FunctionBody) -> usize {
         if func.unwind_info.is_empty() {
             func.body.len()
         } else {
@@ -180,7 +180,7 @@ impl CodeMemory {
     ///
     /// This will also add the function to the current function table.
     fn copy_function<'a>(
-        func: &CompiledFunction,
+        func: &FunctionBody,
         func_start: u32,
         buf: &'a mut [u8],
         table: &'a mut FunctionTable,

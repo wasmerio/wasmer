@@ -105,7 +105,8 @@ impl CompiledModule {
         jit: &mut JITEngineInner,
         serializable: SerializedModule,
     ) -> Result<Self, CompileError> {
-        let finished_functions = jit.compile(&serializable.module, &serializable.compilation)?;
+        let function_bodies = serializable.compilation.get_function_bodies();
+        let finished_functions = jit.compile(&serializable.module, &function_bodies)?;
 
         let relocations = serializable.compilation.get_relocations();
         let jt_offsets = serializable.compilation.get_jt_offsets();

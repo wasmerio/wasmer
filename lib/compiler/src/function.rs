@@ -27,6 +27,17 @@ pub struct CompiledFunctionFrameInfo {
     pub address_map: FunctionAddressMap,
 }
 
+/// The function body.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct FunctionBody {
+    /// The function body bytes.
+    #[serde(with = "serde_bytes")]
+    pub body: Vec<u8>,
+
+    /// The function unwind info
+    pub unwind_info: CompiledFunctionUnwindInfo,
+}
+
 /// The result of compiling a WebAssembly function.
 ///
 /// This structure only have the compiled information data
@@ -35,17 +46,13 @@ pub struct CompiledFunctionFrameInfo {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct CompiledFunction {
     /// The function body.
-    #[serde(with = "serde_bytes")]
-    pub body: Vec<u8>,
+    pub body: FunctionBody,
 
     /// The relocations (in the body)
     pub relocations: Vec<Relocation>,
 
     /// The jump tables offsets (in the body).
     pub jt_offsets: JumpTableOffsets,
-
-    /// The unwind information.
-    pub unwind_info: CompiledFunctionUnwindInfo,
 
     /// The frame information.
     pub frame_info: CompiledFunctionFrameInfo,
@@ -97,6 +104,14 @@ impl Compilation {
         self.functions
             .iter()
             .map(|(_, func)| func.relocations.clone())
+            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+    }
+
+    /// Gets functions jump table offsets.
+    pub fn get_function_bodies(&self) -> PrimaryMap<LocalFuncIndex, FunctionBody> {
+        self.functions
+            .iter()
+            .map(|(_, func)| func.body.clone())
             .collect::<PrimaryMap<LocalFuncIndex, _>>()
     }
 

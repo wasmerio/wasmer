@@ -59,7 +59,8 @@ pub use crate::config::{
 };
 pub use crate::error::CompileError;
 pub use crate::function::{
-    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Functions,
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, FunctionBody,
+    Functions,
 };
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
 pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};

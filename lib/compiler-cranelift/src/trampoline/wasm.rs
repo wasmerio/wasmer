@@ -15,8 +15,7 @@ use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use wasm_common::FuncType;
-use wasmer_compiler::FunctionAddressMap;
-use wasmer_compiler::{CompileError, CompiledFunction, CompiledFunctionFrameInfo};
+use wasmer_compiler::{CompileError, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_wasm_trampoline(
@@ -123,9 +122,11 @@ pub fn make_wasm_trampoline(
     let unwind_info = compiled_function_unwind_info(isa, &context);
 
     Ok(CompiledFunction {
-        body: code_buf,
+        body: FunctionBody {
+            body: code_buf,
+            unwind_info,
+        },
         jt_offsets: transform_jump_table(context.func.jt_offsets),
-        unwind_info,
         relocations: vec![],
         frame_info: CompiledFunctionFrameInfo::default(),
     })
