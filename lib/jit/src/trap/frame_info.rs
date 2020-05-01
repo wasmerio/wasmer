@@ -75,6 +75,17 @@ impl ModuleFrameInfo {
     }
 }
 
+impl ModuleFrameInfo {
+    /// Gets a function given a pc
+    fn function(&self, pc: usize) -> Option<&FunctionInfo> {
+        let (end, func) = self.functions.range(pc..).next()?;
+        if pc < func.start || *end < pc {
+            return None;
+        }
+        Some(func)
+    }
+}
+
 struct FunctionInfo {
     start: usize,
     local_index: LocalFuncIndex,
@@ -86,7 +97,8 @@ impl GlobalFrameInfo {
     /// Returns an object if this `pc` is known to some previously registered
     /// module, or returns `None` if no information can be found.
     pub fn lookup_frame_info(&self, pc: usize) -> Option<FrameInfo> {
-        let (module, func) = self.func(pc)?;
+        let module = self.module(pc)?;
+        let func = module.function(pc)?;
 
         // Use our relative position from the start of the function to find the
         // machine instruction that corresponds to `pc`, which then allows us to
@@ -141,7 +153,8 @@ impl GlobalFrameInfo {
 
     /// Fetches trap information about a program counter in a backtrace.
     pub fn lookup_trap_info(&self, pc: usize) -> Option<&TrapInformation> {
-        let (module, func) = self.func(pc)?;
+        let module = self.module(pc)?;
+        let func = module.function(pc)?;
         let traps = module.traps(func.local_index);
         let idx = traps
             .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
@@ -149,16 +162,13 @@ impl GlobalFrameInfo {
         Some(&traps[idx])
     }
 
-    fn func(&self, pc: usize) -> Option<(&ModuleFrameInfo, &FunctionInfo)> {
-        let (end, info) = self.ranges.range(pc..).next()?;
-        if pc < info.start || *end < pc {
+    /// Gets a module given a pc
+    fn module(&self, pc: usize) -> Option<&ModuleFrameInfo> {
+        let (end, module_info) = self.ranges.range(pc..).next()?;
+        if pc < module_info.start || *end < pc {
             return None;
         }
-        let (end, func) = info.functions.range(pc..).next()?;
-        if pc < func.start || *end < pc {
-            return None;
-        }
-        Some((info, func))
+        Some(module_info)
     }
 }
 
