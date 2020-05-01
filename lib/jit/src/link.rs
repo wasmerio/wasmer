@@ -27,6 +27,9 @@ pub fn link_module(
                     None => panic!("direct call to import"),
                 },
                 RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
+                RelocationTarget::CustomSection(_custom_section) => {
+                    unimplemented!("Custom Sections not yet implemented");
+                }
                 RelocationTarget::JumpTable(func_index, jt) => {
                     match module.local_func_index(func_index) {
                         Some(f) => {
