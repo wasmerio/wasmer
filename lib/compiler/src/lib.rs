@@ -48,6 +48,7 @@ mod trap;
 mod unwind;
 #[macro_use]
 mod translator;
+mod section;
 mod sourceloc;
 
 pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
@@ -57,9 +58,12 @@ pub use crate::config::{
     Triple,
 };
 pub use crate::error::CompileError;
-pub use crate::function::{Compilation, CompiledFunction, CompiledFunctionFrameInfo, Functions};
+pub use crate::function::{
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Functions,
+};
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
 pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};
+pub use crate::section::{CustomSection, CustomSectionProtection, SectionIndex};
 pub use crate::sourceloc::SourceLoc;
 pub use crate::translator::{
     to_wasm_error, translate_module, FunctionBodyData, ModuleEnvironment, ModuleTranslation,

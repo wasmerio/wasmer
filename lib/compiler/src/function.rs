@@ -5,7 +5,7 @@
 //! * `jit`: to generate a JIT
 //! * `obj`: to generate a native object
 
-use crate::std::ops::Range;
+use crate::section::{CustomSection, SectionIndex};
 use crate::std::vec::Vec;
 use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
@@ -38,7 +38,7 @@ pub struct CompiledFunctionFrameInfo {
 pub struct CompiledFunction {
     /// The function body.
     #[serde(with = "serde_bytes")]
-    pub body: FunctionBody,
+    pub body: Vec<u8>,
 
     /// The relocations (in the body)
     pub relocations: Vec<Relocation>,
@@ -56,51 +56,27 @@ pub struct CompiledFunction {
 /// The compiled functions map (index in the Wasm -> function)
 pub type Functions = PrimaryMap<LocalFuncIndex, CompiledFunction>;
 
+/// The custom sections for a Compilation.
+pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
+
 /// The result of compiling a WebAssembly module's functions.
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct Compilation {
     /// Compiled code for the function bodies.
     functions: Functions,
+    /// Custom sections for the module.
+    /// It will hold the data, for example, for constants used in a
+    /// function, global variables, rodata_64, hot/cold function partitioning, ...
+    custom_sections: CustomSections,
 }
 
 impl Compilation {
     /// Creates a compilation artifact from a contiguous function buffer and a set of ranges
-    pub fn new(functions: Functions) -> Self {
-        Self { functions }
-    }
-
-    /// Allocates the compilation result with the given function bodies.
-    pub fn from_buffer(
-        buffer: Vec<u8>,
-        functions: impl IntoIterator<
-            Item = (
-                Range<usize>,
-                JumpTableOffsets,
-                Range<usize>,
-                Vec<Relocation>,
-                Vec<TrapInformation>,
-                FunctionAddressMap,
-            ),
-        >,
-    ) -> Self {
-        Self::new(
-            functions
-                .into_iter()
-                .map(
-                    |(body_range, jt_offsets, unwind_range, relocations, traps, address_map)| {
-                        CompiledFunction {
-                            body: buffer[body_range].to_vec(),
-                            jt_offsets,
-                            unwind_info: CompiledFunctionUnwindInfo::Windows(
-                                buffer[unwind_range].to_vec(),
-                            ),
-                            relocations,
-                            frame_info: CompiledFunctionFrameInfo { address_map, traps },
-                        }
-                    },
-                )
-                .collect(),
-        )
+    pub fn new(functions: Functions, custom_sections: CustomSections) -> Self {
+        Self {
+            functions,
+            custom_sections,
+        }
     }
 
     /// Gets the bytes of a single function
