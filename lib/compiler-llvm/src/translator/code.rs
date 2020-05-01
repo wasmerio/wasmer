@@ -30,6 +30,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 use std::any::Any;
+use std::collections::HashMap;
 
 use crate::config::LLVMConfig;
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
@@ -45,7 +46,7 @@ use wasmer_compiler::{
     RelocationTarget, SourceLoc,
 };
 use wasmer_runtime::Module as WasmerCompilerModule;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan};
+use wasmer_runtime::{libcalls::LibCall, MemoryPlan, MemoryStyle, TablePlan};
 
 // TODO: debugging
 use std::fs;
@@ -200,6 +201,17 @@ impl FuncTranslator {
             fcg.translate_operator(op, wasm_module, pos)?;
         }
 
+        // TODO: use phf?
+        let mut libcalls = HashMap::new();
+        libcalls.insert("truncf".to_string(), LibCall::TruncF32);
+        libcalls.insert("trunc".to_string(), LibCall::TruncF64);
+        libcalls.insert("ceilf".to_string(), LibCall::CeilF32);
+        libcalls.insert("ceil".to_string(), LibCall::CeilF64);
+        libcalls.insert("floorf".to_string(), LibCall::FloorF32);
+        libcalls.insert("floor".to_string(), LibCall::FloorF64);
+        libcalls.insert("nearbyintf".to_string(), LibCall::NearestF32);
+        libcalls.insert("nearbyint".to_string(), LibCall::NearestF64);
+
         let results = fcg.state.popn_save_extra(wasm_fn_type.results().len())?;
         match results.as_slice() {
             [] => {
@@ -317,6 +329,10 @@ impl FuncTranslator {
                                 func_names.iter().find(|(_, name)| *name == target)
                             {
                                 reloc_target = Some(RelocationTarget::UserFunc(index));
+                            } else {
+                                if let Some(libcall) = libcalls.get(&target.to_string()) {
+                                    reloc_target = Some(RelocationTarget::LibCall(*libcall));
+                                }
                             }
                         }
                         if reloc_target.is_none() {
