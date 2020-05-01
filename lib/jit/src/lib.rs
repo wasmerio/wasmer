@@ -32,6 +32,7 @@ mod function_table;
 mod instantiate;
 mod link;
 mod resolver;
+mod serialize;
 mod trap;
 mod tunables;
 

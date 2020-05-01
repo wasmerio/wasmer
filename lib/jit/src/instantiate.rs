@@ -8,9 +8,10 @@ use crate::error::{DeserializeError, SerializeError};
 use crate::error::{InstantiationError, LinkError};
 use crate::link::link_module;
 use crate::resolver::{resolve_imports, Resolver};
-use crate::trap::register as register_frame_info;
+use crate::serialize::CacheRawCompiledModule;
 use crate::trap::GlobalFrameInfoRegistration;
 use crate::trap::RuntimeError;
+use crate::trap::{register as register_frame_info, ExtraFunctionInfo};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
@@ -20,24 +21,15 @@ use wasm_common::{
     LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{Compilation, CompileError, FunctionAddressMap, TrapInformation};
+use wasmer_compiler::{
+    Compilation, CompileError, CompiledFunctionFrameInfo, FunctionAddressMap, TrapInformation,
+};
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
     VMGlobalDefinition, VMSharedSignatureIndex,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
-
-/// Structure to cache the content ot the compilation
-#[derive(Serialize, Deserialize)]
-struct CacheRawCompiledModule {
-    compilation: Arc<Compilation>,
-    module: Arc<Module>,
-    data_initializers: Arc<Box<[OwnedDataInitializer]>>,
-    // Plans for that module
-    memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-    table_plans: PrimaryMap<TableIndex, TablePlan>,
-}
 
 /// This is similar to `CompiledModule`, but references the data initializers
 /// from the wasm buffer rather than holding its own copy.
@@ -337,7 +329,20 @@ impl CompiledModule {
         if info.is_some() {
             return;
         }
-        *info = Some(register_frame_info(&self));
+
+        let extra_functions = self
+            .traps()
+            .values()
+            .zip(self.address_transform().values())
+            .map(|(traps, instrs)| {
+                ExtraFunctionInfo::Processed(CompiledFunctionFrameInfo {
+                    traps: traps.to_vec(),
+                    address_map: (*instrs).clone(),
+                })
+            })
+            .collect::<PrimaryMap<LocalFuncIndex, _>>();
+
+        *info = Some(register_frame_info(&self, extra_functions));
     }
 
     /// Returns the a map for all traps in this module.

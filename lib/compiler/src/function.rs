@@ -14,15 +14,13 @@ use serde::{Deserialize, Serialize};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::LocalFuncIndex;
 
-type FunctionBody = Vec<u8>;
-
 /// The frame info for a Compiled function.
 ///
 /// This structure is only used for reconstructing
 /// the frame information after a `Trap`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct CompiledFunctionFrameInfo {
-    /// The traps (in the body)
+    /// The traps (in the function body)
     pub traps: Vec<TrapInformation>,
 
     /// The address map.

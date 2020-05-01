@@ -52,7 +52,7 @@ pub struct GlobalFrameInfoRegistration {
 }
 
 /// The function debug info, but unprocessed
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ExtraFunctionInfoUnprocessed {
     #[serde(with = "serde_bytes")]
     bytes: Vec<u8>,
@@ -85,9 +85,23 @@ impl Into<CompiledFunctionFrameInfo> for ExtraFunctionInfoUnprocessed {
 /// of compiling at the same time that emiting the JIT.
 /// In that case, we don't need to deserialize/process anything
 /// as the data is already in memory.
+#[derive(Clone)]
 pub enum ExtraFunctionInfo {
+    /// the processed function
     Processed(CompiledFunctionFrameInfo),
+    /// the unprocessed
     Unprocessed(ExtraFunctionInfoUnprocessed),
+}
+
+impl ExtraFunctionInfo {
+    /// Returns true if the extra function info is not yet
+    /// processed
+    pub fn is_unprocessed(&self) -> bool {
+        match self {
+            Self::Unprocessed(_) => true,
+            _ => false,
+        }
+    }
 }
 
 struct ModuleFrameInfo {
@@ -102,6 +116,19 @@ impl ModuleFrameInfo {
         &self.extra_functions.get(local_index).unwrap()
     }
 
+    fn process_function_debug_info(&mut self, local_index: LocalFuncIndex) {
+        let mut func = self.extra_functions.get_mut(local_index).unwrap();
+        let processed: CompiledFunctionFrameInfo = match func {
+            ExtraFunctionInfo::Processed(_) => {
+                // This should be a no-op on processed info
+                return;
+            }
+            ExtraFunctionInfo::Unprocessed(unprocessed) => {
+                bincode::deserialize(&unprocessed.bytes).expect("Can't deserialize the info")
+            }
+        };
+        *func = ExtraFunctionInfo::Processed(processed)
+    }
     fn instr_map(&self, local_index: LocalFuncIndex) -> &FunctionAddressMap {
         match self.function_debug_info(local_index) {
             ExtraFunctionInfo::Processed(di) => &di.address_map,
@@ -138,8 +165,7 @@ impl GlobalFrameInfo {
     /// Returns an object if this `pc` is known to some previously registered
     /// module, or returns `None` if no information can be found.
     pub fn lookup_frame_info(&self, pc: usize) -> Option<FrameInfo> {
-        let module = self.module_info(pc)?;
-        let func = module.function_info(pc)?;
+        let (module, func) = self.maybe_process_frame(pc)?;
 
         // Use our relative position from the start of the function to find the
         // machine instruction that corresponds to `pc`, which then allows us to
@@ -194,13 +220,27 @@ impl GlobalFrameInfo {
 
     /// Fetches trap information about a program counter in a backtrace.
     pub fn lookup_trap_info(&self, pc: usize) -> Option<&TrapInformation> {
-        let module = self.module_info(pc)?;
-        let func = module.function_info(pc)?;
+        let (module, func) = self.maybe_process_frame(pc)?;
         let traps = module.traps(func.local_index);
         let idx = traps
             .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
             .ok()?;
         Some(&traps[idx])
+    }
+
+    /// Get an process a Frame in case is not yet processed
+    fn maybe_process_frame(&self, pc: usize) -> Option<(&ModuleFrameInfo, &FunctionInfo)> {
+        let module = self.module_info(pc)?;
+        let func = module.function_info(pc)?;
+        let extra_func_info = module.function_debug_info(func.local_index);
+        if extra_func_info.is_unprocessed() {
+            let mut mutable_info = FRAME_INFO.write().unwrap();
+            let mut mutable_module = mutable_info.module_info_mut(pc)?;
+            mutable_module.process_function_debug_info(func.local_index);
+            let module = self.module_info(pc)?;
+            return Some((module, func));
+        }
+        Some((module, func))
     }
 
     /// Gets a module given a pc
@@ -236,7 +276,10 @@ impl Drop for GlobalFrameInfoRegistration {
 /// compiled functions within `module`. If the `module` has no functions
 /// then `None` will be returned. Otherwise the returned object, when
 /// dropped, will be used to unregister all name information from this map.
-pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> {
+pub fn register(
+    module: &CompiledModule,
+    extra_functions: PrimaryMap<LocalFuncIndex, ExtraFunctionInfo>,
+) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::max_value();
     let mut max = 0;
     let mut functions = BTreeMap::new();
@@ -267,18 +310,6 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
     if let Some((prev_end, _)) = info.ranges.range(..=min).next_back() {
         assert!(*prev_end < min);
     }
-
-    let extra_functions = module
-        .traps()
-        .values()
-        .zip(module.address_transform().values())
-        .map(|(traps, instrs)| {
-            ExtraFunctionInfo::Processed(CompiledFunctionFrameInfo {
-                traps: traps.to_vec(),
-                address_map: (*instrs).clone(),
-            })
-        })
-        .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
     // ... then insert our range and assert nothing was there previously
     let prev = info.ranges.insert(
