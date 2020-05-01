@@ -31,18 +31,18 @@ use wasmer_runtime::{
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
-/// This is similar to `CompiledModule`, but references the data initializers
-/// from the wasm buffer rather than holding its own copy.
-struct RawCompiledModule {
+/// A compiled wasm module, ready to be instantiated.
+pub struct CompiledModule {
     serializable: SerializedModule,
 
     finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
 }
 
-impl RawCompiledModule {
-    /// Create a new `RawCompiledModule` by compiling the wasm module in `data` and instatiating it.
-    fn new(jit: &mut JITEngineInner, data: &[u8]) -> Result<Self, CompileError> {
+impl CompiledModule {
+    /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
+    pub fn new(jit: &mut JITEngineInner, data: &[u8]) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
 
         let translation = environ
@@ -82,11 +82,28 @@ impl RawCompiledModule {
             memory_plans,
             table_plans,
         };
-        RawCompiledModule::from_parts(jit, serializable)
+        Self::from_parts(jit, serializable)
     }
 
-    /// Construct a `RawCompiledModule` from the most basic component parts.
-    fn from_parts(
+    /// Serialize a CompiledModule
+    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        bincode::serialize(&self.serializable)
+            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))
+    }
+
+    /// Deserialize a CompiledModule
+    pub fn deserialize(
+        jit: &mut JITEngineInner,
+        bytes: &[u8],
+    ) -> Result<CompiledModule, DeserializeError> {
+        let serializable: SerializedModule = bincode::deserialize(bytes)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+
+        Self::from_parts(jit, serializable).map_err(|e| DeserializeError::Compiler(e))
+    }
+
+    /// Construct a `CompiledModule` from component parts.
+    pub fn from_parts(
         jit: &mut JITEngineInner,
         serializable: SerializedModule,
     ) -> Result<Self, CompileError> {
@@ -118,67 +135,8 @@ impl RawCompiledModule {
             serializable,
             finished_functions: finished_functions.into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
-        })
-    }
-}
-
-/// A compiled wasm module, ready to be instantiated.
-pub struct CompiledModule {
-    serializable: SerializedModule,
-
-    finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
-    signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
-}
-
-impl CompiledModule {
-    /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
-    pub fn new(jit: &mut JITEngineInner, data: &[u8]) -> Result<Self, CompileError> {
-        let raw = RawCompiledModule::new(jit, data)?;
-
-        Ok(Self::from_parts(
-            raw.serializable,
-            raw.finished_functions,
-            raw.signatures.clone(),
-        ))
-    }
-
-    /// Serialize a CompiledModule
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        bincode::serialize(&self.serializable)
-            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))
-    }
-
-    /// Deserialize a CompiledModule
-    pub fn deserialize(
-        jit: &mut JITEngineInner,
-        bytes: &[u8],
-    ) -> Result<CompiledModule, DeserializeError> {
-        let serializable: SerializedModule = bincode::deserialize(bytes)
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-
-        let raw = RawCompiledModule::from_parts(jit, serializable)
-            .map_err(|e| DeserializeError::Compiler(e))?;
-
-        return Ok(Self::from_parts(
-            raw.serializable,
-            raw.finished_functions,
-            raw.signatures.clone(),
-        ));
-    }
-
-    /// Construct a `CompiledModule` from component parts.
-    pub fn from_parts(
-        serializable: SerializedModule,
-        finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
-        signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    ) -> Self {
-        Self {
-            serializable,
-            finished_functions,
-            signatures,
             frame_info_registration: Mutex::new(None),
-        }
+        })
     }
 
     fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
