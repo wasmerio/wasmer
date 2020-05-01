@@ -3,6 +3,7 @@
 //! `CompiledModule` to allow compiling and instantiating to be done as separate
 //! steps.
 
+use crate::data::OwnedDataInitializer;
 use crate::engine::JITEngineInner;
 use crate::error::{DeserializeError, SerializeError};
 use crate::error::{InstantiationError, LinkError};
@@ -11,14 +12,13 @@ use crate::resolver::{resolve_imports, Resolver};
 use crate::serialize::SerializedModule;
 use crate::trap::GlobalFrameInfoRegistration;
 use crate::trap::RuntimeError;
-use crate::data::OwnedDataInitializer;
 use crate::trap::{register as register_frame_info, ExtraFunctionInfo};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataInitializer, DataInitializerLocation, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex,
-    LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
+    DataInitializer, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
+    MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{
@@ -34,16 +34,10 @@ use wasmer_runtime::{MemoryPlan, TablePlan};
 /// This is similar to `CompiledModule`, but references the data initializers
 /// from the wasm buffer rather than holding its own copy.
 struct RawCompiledModule {
-    compilation: Compilation,
-    module: Module,
+    serializable: SerializedModule,
+
     finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
-    data_initializers: Box<[OwnedDataInitializer]>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    traps: BoxedSlice<LocalFuncIndex, Vec<TrapInformation>>,
-    address_transform: BoxedSlice<LocalFuncIndex, FunctionAddressMap>,
-    // Plans
-    memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-    table_plans: PrimaryMap<TableIndex, TablePlan>,
 }
 
 impl RawCompiledModule {
@@ -81,34 +75,36 @@ impl RawCompiledModule {
             .map(OwnedDataInitializer::new)
             .collect::<Vec<_>>()
             .into_boxed_slice();
-        RawCompiledModule::from_parts(
-            jit,
+        let serializable = SerializedModule {
             compilation,
-            translation.module,
+            module: Arc::new(translation.module),
             data_initializers,
             memory_plans,
             table_plans,
-        )
+        };
+        RawCompiledModule::from_parts(jit, serializable)
     }
 
     /// Construct a `RawCompiledModule` from the most basic component parts.
     fn from_parts(
         jit: &mut JITEngineInner,
-        compilation: Compilation,
-        module: Module,
-        data_initializers: Box<[OwnedDataInitializer]>,
-        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: PrimaryMap<TableIndex, TablePlan>,
+        serializable: SerializedModule,
     ) -> Result<Self, CompileError> {
-        let (finished_functions, jt_offsets, relocations, traps, address_transforms) =
-            jit.compile(&module, &compilation)?;
+        let (finished_functions, jt_offsets, relocations) =
+            jit.compile(&serializable.module, &serializable.compilation)?;
 
-        link_module(&module, &finished_functions, &jt_offsets, relocations);
+        link_module(
+            &serializable.module,
+            &finished_functions,
+            &jt_offsets,
+            relocations,
+        );
 
         // Compute indices into the shared signature table.
         let signatures = {
             let signature_registry = jit.signatures();
-            module
+            serializable
+                .module
                 .signatures
                 .values()
                 .map(|sig| signature_registry.register(sig))
@@ -119,31 +115,20 @@ impl RawCompiledModule {
         jit.publish_compiled_code();
 
         Ok(Self {
-            module: module,
+            serializable,
             finished_functions: finished_functions.into_boxed_slice(),
-            compilation,
-            data_initializers: data_initializers,
             signatures: signatures.into_boxed_slice(),
-            traps: traps.into_boxed_slice(),
-            address_transform: address_transforms.into_boxed_slice(),
-            memory_plans,
-            table_plans,
         })
     }
 }
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct CompiledModule {
-    compilation: Arc<Compilation>,
-    module: Arc<Module>,
+    serializable: SerializedModule,
+
     finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
-    data_initializers: Arc<Box<[OwnedDataInitializer]>>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    traps: BoxedSlice<LocalFuncIndex, Vec<TrapInformation>>,
-    address_transform: BoxedSlice<LocalFuncIndex, FunctionAddressMap>,
     frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
-    memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-    table_plans: PrimaryMap<TableIndex, TablePlan>,
 }
 
 impl CompiledModule {
@@ -152,28 +137,16 @@ impl CompiledModule {
         let raw = RawCompiledModule::new(jit, data)?;
 
         Ok(Self::from_parts(
-            raw.compilation,
-            raw.module,
+            raw.serializable,
             raw.finished_functions,
-            raw.data_initializers,
             raw.signatures.clone(),
-            raw.traps,
-            raw.address_transform,
-            raw.memory_plans,
-            raw.table_plans,
         ))
     }
 
     /// Serialize a CompiledModule
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let cached = SerializedModule {
-            compilation: self.compilation.clone(),
-            module: self.module.clone(),
-            data_initializers: self.data_initializers.clone(),
-            memory_plans: self.memory_plans.clone(),
-            table_plans: self.table_plans.clone(),
-        };
-        bincode::serialize(&cached).map_err(|e| SerializeError::Generic(format!("{:?}", e)))
+        bincode::serialize(&self.serializable)
+            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))
     }
 
     /// Deserialize a CompiledModule
@@ -181,67 +154,39 @@ impl CompiledModule {
         jit: &mut JITEngineInner,
         bytes: &[u8],
     ) -> Result<CompiledModule, DeserializeError> {
-        let cached: SerializedModule = bincode::deserialize(bytes)
+        let serializable: SerializedModule = bincode::deserialize(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-        let compilation = Arc::try_unwrap(cached.compilation);
-        let module = Arc::try_unwrap(cached.module);
-        let data_initializers = Arc::try_unwrap(cached.data_initializers);
-        let memory_plans = cached.memory_plans;
-        let table_plans = cached.table_plans;
 
-        if let (Ok(c), Ok(m), Ok(d)) = (compilation, module, data_initializers) {
-            let raw = RawCompiledModule::from_parts(jit, c, m, d, memory_plans, table_plans)
-                .map_err(|e| DeserializeError::Compiler(e))?;
+        let raw = RawCompiledModule::from_parts(jit, serializable)
+            .map_err(|e| DeserializeError::Compiler(e))?;
 
-            return Ok(Self::from_parts(
-                raw.compilation,
-                raw.module,
-                raw.finished_functions,
-                raw.data_initializers,
-                raw.signatures.clone(),
-                raw.traps,
-                raw.address_transform,
-                raw.memory_plans,
-                raw.table_plans,
-            ));
-        }
-        Err(DeserializeError::Generic(
-            "Can't deserialize the data".to_string(),
-        ))
+        return Ok(Self::from_parts(
+            raw.serializable,
+            raw.finished_functions,
+            raw.signatures.clone(),
+        ));
     }
 
     /// Construct a `CompiledModule` from component parts.
     pub fn from_parts(
-        compilation: Compilation,
-        module: Module,
+        serializable: SerializedModule,
         finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
-        data_initializers: Box<[OwnedDataInitializer]>,
         signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-        traps: BoxedSlice<LocalFuncIndex, Vec<TrapInformation>>,
-        address_transform: BoxedSlice<LocalFuncIndex, FunctionAddressMap>,
-        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Self {
         Self {
-            compilation: Arc::new(compilation),
-            module: Arc::new(module),
+            serializable,
             finished_functions,
-            data_initializers: Arc::new(data_initializers),
             signatures,
-            traps,
-            address_transform,
             frame_info_registration: Mutex::new(None),
-            memory_plans,
-            table_plans,
         }
     }
 
     fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
-        &self.memory_plans
+        &self.serializable.memory_plans
     }
 
     fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
-        &self.table_plans
+        &self.serializable.table_plans
     }
 
     /// Crate an `Instance` from this `CompiledModule`.
@@ -262,6 +207,7 @@ impl CompiledModule {
         let is_bulk_memory: bool = jit.compiler().features().bulk_memory;
         let sig_registry: &SignatureRegistry = jit.signatures();
         let data_initializers = self
+            .serializable
             .data_initializers
             .iter()
             .map(|init| DataInitializer {
@@ -270,7 +216,7 @@ impl CompiledModule {
             })
             .collect::<Vec<_>>();
         let imports = resolve_imports(
-            &self.module,
+            &self.serializable.module,
             &sig_registry,
             resolver,
             self.memory_plans(),
@@ -278,16 +224,16 @@ impl CompiledModule {
         )
         .map_err(InstantiationError::Link)?;
 
-        let finished_memories =
-            create_memories(&self.module, self.memory_plans()).map_err(InstantiationError::Link)?;
-        let finished_tables = create_tables(&self.module, self.table_plans());
-        let finished_globals = create_globals(&self.module);
+        let finished_memories = create_memories(&self.serializable.module, self.memory_plans())
+            .map_err(InstantiationError::Link)?;
+        let finished_tables = create_tables(&self.serializable.module, self.table_plans());
+        let finished_globals = create_globals(&self.serializable.module);
 
         // Register the frame info for the module
         self.register_frame_info();
 
         InstanceHandle::new(
-            Arc::clone(&self.module),
+            self.serializable.module.clone(),
             self.finished_functions.clone(),
             finished_memories,
             finished_tables,
@@ -303,17 +249,17 @@ impl CompiledModule {
 
     /// Return a reference-counting pointer to a module.
     pub fn module(&self) -> &Arc<Module> {
-        &self.module
+        &self.serializable.module
     }
 
     /// Return a reference-counting pointer to a module.
     pub fn module_mut(&mut self) -> &mut Arc<Module> {
-        &mut self.module
+        &mut self.serializable.module
     }
 
     /// Return a reference to a module.
     pub fn module_ref(&self) -> &Module {
-        &self.module
+        &self.serializable.module
     }
 
     /// Returns the map of all finished JIT functions compiled for this module
@@ -329,11 +275,12 @@ impl CompiledModule {
         if info.is_some() {
             return;
         }
+        let traps = self.serializable.compilation.get_traps();
+        let address_maps = self.serializable.compilation.get_address_maps();
 
-        let extra_functions = self
-            .traps()
+        let extra_functions = traps
             .values()
-            .zip(self.address_transform().values())
+            .zip(address_maps.values())
             .map(|(traps, instrs)| {
                 ExtraFunctionInfo::Processed(CompiledFunctionFrameInfo {
                     traps: traps.to_vec(),
@@ -343,16 +290,6 @@ impl CompiledModule {
             .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
         *info = Some(register_frame_info(&self, extra_functions));
-    }
-
-    /// Returns the a map for all traps in this module.
-    pub fn traps(&self) -> &BoxedSlice<LocalFuncIndex, Vec<TrapInformation>> {
-        &self.traps
-    }
-
-    /// Returns a map of compiled addresses back to original bytecode offsets.
-    pub fn address_transform(&self) -> &BoxedSlice<LocalFuncIndex, FunctionAddressMap> {
-        &self.address_transform
     }
 }
 

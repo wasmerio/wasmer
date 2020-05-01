@@ -177,8 +177,6 @@ impl JITEngineInner {
             PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>,
             PrimaryMap<LocalFuncIndex, JumpTableOffsets>,
             Relocations,
-            PrimaryMap<LocalFuncIndex, Vec<TrapInformation>>,
-            PrimaryMap<LocalFuncIndex, FunctionAddressMap>,
         ),
         CompileError,
     > {
@@ -228,16 +226,8 @@ impl JITEngineInner {
         }
 
         let jt_offsets = compilation.get_jt_offsets();
-        let traps = compilation.get_traps();
-        let address_maps = compilation.get_address_maps();
 
-        Ok((
-            allocated_functions,
-            jt_offsets,
-            relocations,
-            traps,
-            address_maps,
-        ))
+        Ok((allocated_functions, jt_offsets, relocations))
     }
 
     /// Make a memory plan given a memory type
