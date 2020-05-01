@@ -50,34 +50,63 @@ pub struct GlobalFrameInfoRegistration {
     key: usize,
 }
 
-struct FunctionDebugInfo {
+/// The function debug info, processed (with all structures in memory)
+pub struct FunctionDebugInfoProcessed {
     traps: Vec<TrapInformation>,
     instr_map: FunctionAddressMap,
 }
 
-struct ModuleDebugInfo {
-    functions: PrimaryMap<LocalFuncIndex, FunctionDebugInfo>,
+/// The function debug info, but unprocessed
+pub struct FunctionDebugInfoUnprocessed {
+    content: Vec<u8>
 }
+
+/// We hold the debug info in two states, mainly because we want to
+/// process it lazily to speed up execution.
+/// 
+/// When a Trap occurs, we process the debug info lazily for each
+/// function in the frame. That way we minimize as much as we can
+/// the upfront effort.
+/// 
+/// The data can also be processed upfront. This will happen in the case
+/// of compiling at the same time that emiting the JIT.
+/// In that case, we don't need to deserialize/process anything
+/// as the data is already in memory.
+pub enum FunctionDebugInfo {
+    Processed(FunctionDebugInfoProcessed),
+    Unprocessed(FunctionDebugInfoUnprocessed),
+}
+
 
 struct ModuleFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<Module>,
-    debug: ModuleDebugInfo,
+    debug_functions: PrimaryMap<LocalFuncIndex, FunctionDebugInfo>,
 }
 
 impl ModuleFrameInfo {
+    fn function_debug_info(&self, local_index: LocalFuncIndex) -> &FunctionDebugInfo {
+        &self.debug_functions.get(local_index).unwrap()
+    }
+
     fn instr_map(&self, local_index: LocalFuncIndex) -> &FunctionAddressMap {
-        &self.debug.functions.get(local_index).unwrap().instr_map
+        match self.function_debug_info(local_index) {
+            FunctionDebugInfo::Processed(di) => &di.instr_map,
+            _ => unimplemented!()
+        }
     }
     fn traps(&self, local_index: LocalFuncIndex) -> &Vec<TrapInformation> {
-        &self.debug.functions.get(local_index).unwrap().traps
+        match self.function_debug_info(local_index) {
+            FunctionDebugInfo::Processed(di) => &di.traps,
+            _ => unimplemented!()
+        }
     }
 }
 
 impl ModuleFrameInfo {
     /// Gets a function given a pc
-    fn function(&self, pc: usize) -> Option<&FunctionInfo> {
+    fn function_info(&self, pc: usize) -> Option<&FunctionInfo> {
         let (end, func) = self.functions.range(pc..).next()?;
         if pc < func.start || *end < pc {
             return None;
@@ -97,8 +126,8 @@ impl GlobalFrameInfo {
     /// Returns an object if this `pc` is known to some previously registered
     /// module, or returns `None` if no information can be found.
     pub fn lookup_frame_info(&self, pc: usize) -> Option<FrameInfo> {
-        let module = self.module(pc)?;
-        let func = module.function(pc)?;
+        let module = self.module_info(pc)?;
+        let func = module.function_info(pc)?;
 
         // Use our relative position from the start of the function to find the
         // machine instruction that corresponds to `pc`, which then allows us to
@@ -153,8 +182,8 @@ impl GlobalFrameInfo {
 
     /// Fetches trap information about a program counter in a backtrace.
     pub fn lookup_trap_info(&self, pc: usize) -> Option<&TrapInformation> {
-        let module = self.module(pc)?;
-        let func = module.function(pc)?;
+        let module = self.module_info(pc)?;
+        let func = module.function_info(pc)?;
         let traps = module.traps(func.local_index);
         let idx = traps
             .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
@@ -163,7 +192,7 @@ impl GlobalFrameInfo {
     }
 
     /// Gets a module given a pc
-    fn module(&self, pc: usize) -> Option<&ModuleFrameInfo> {
+    fn module_info(&self, pc: usize) -> Option<&ModuleFrameInfo> {
         let (end, module_info) = self.ranges.range(pc..).next()?;
         if pc < module_info.start || *end < pc {
             return None;
@@ -172,7 +201,7 @@ impl GlobalFrameInfo {
     }
 
     /// Gets a module given a pc
-    fn module_mut(&mut self, pc: usize) -> Option<&mut ModuleFrameInfo> {
+    fn module_info_mut(&mut self, pc: usize) -> Option<&mut ModuleFrameInfo> {
         let (end, module_info) = self.ranges.range_mut(pc..).next()?;
         if pc < module_info.start || *end < pc {
             return None;
@@ -231,15 +260,11 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
         .traps()
         .values()
         .zip(module.address_transform().values())
-        .map(|(traps, instrs)| FunctionDebugInfo {
+        .map(|(traps, instrs)| FunctionDebugInfo::Processed(FunctionDebugInfoProcessed {
             traps: traps.to_vec(),
             instr_map: (*instrs).clone(),
-        })
+        }))
         .collect::<PrimaryMap<LocalFuncIndex, _>>();
-
-    let debug = ModuleDebugInfo {
-        functions: debug_functions,
-    };
 
     // ... then insert our range and assert nothing was there previously
     let prev = info.ranges.insert(
@@ -248,7 +273,7 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
             start: min,
             functions,
             module: module.module().clone(),
-            debug,
+            debug_functions,
         },
     );
     assert!(prev.is_none());
