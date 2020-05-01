@@ -264,7 +264,9 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
-        Ok(Compilation::new(functions))
+        let custom_sections = PrimaryMap::new();
+
+        Ok(Compilation::new(functions, custom_sections))
     }
 
     fn compile_wasm_trampolines(

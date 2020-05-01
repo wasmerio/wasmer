@@ -62,6 +62,8 @@ impl Compiler for LLVMCompiler {
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
         let mut func_names = SecondaryMap::new();
+        let custom_sections = PrimaryMap::new();
+
         for (func_index, _) in &module.functions {
             func_names[func_index] = module
                 .func_names
@@ -90,7 +92,7 @@ impl Compiler for LLVMCompiler {
             .into_iter()
             .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
-        Ok(Compilation::new(functions))
+        Ok(Compilation::new(functions, custom_sections))
     }
 
     fn compile_wasm_trampolines(
