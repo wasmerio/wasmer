@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::LocalFuncIndex;
-use wasmer_compiler::{FunctionAddressMap, SourceLoc, TrapInformation};
+use wasmer_compiler::{CompiledFunctionFrameInfo, FunctionAddressMap, SourceLoc, TrapInformation};
 use wasmer_runtime::Module;
 
 lazy_static::lazy_static! {
@@ -51,13 +51,6 @@ pub struct GlobalFrameInfoRegistration {
     key: usize,
 }
 
-/// The function debug info, processed (with all structures in memory)
-#[derive(Serialize, Deserialize)]
-pub struct ExtraFunctionInfoProcessed {
-    traps: Vec<TrapInformation>,
-    instr_map: FunctionAddressMap,
-}
-
 /// The function debug info, but unprocessed
 #[derive(Serialize, Deserialize)]
 pub struct ExtraFunctionInfoUnprocessed {
@@ -65,19 +58,19 @@ pub struct ExtraFunctionInfoUnprocessed {
     bytes: Vec<u8>,
 }
 
-impl From<ExtraFunctionInfoProcessed> for ExtraFunctionInfoUnprocessed {
+impl From<CompiledFunctionFrameInfo> for ExtraFunctionInfoUnprocessed {
     /// We serialize the content
-    fn from(processed: ExtraFunctionInfoProcessed) -> ExtraFunctionInfoUnprocessed {
+    fn from(processed: CompiledFunctionFrameInfo) -> ExtraFunctionInfoUnprocessed {
         ExtraFunctionInfoUnprocessed {
             bytes: bincode::serialize(&processed).expect("Can't serialize the info"),
         }
     }
 }
 
-impl From<ExtraFunctionInfoUnprocessed> for ExtraFunctionInfoProcessed {
-    /// We serialize the content
-    fn from(unprocessed: ExtraFunctionInfoUnprocessed) -> ExtraFunctionInfoProcessed {
-        bincode::deserialize(&unprocessed.bytes).expect("Can't deserialize the info")
+impl Into<CompiledFunctionFrameInfo> for ExtraFunctionInfoUnprocessed {
+    /// We deserialize the content
+    fn into(self) -> CompiledFunctionFrameInfo {
+        bincode::deserialize(&self.bytes).expect("Can't deserialize the info")
     }
 }
 
@@ -93,7 +86,7 @@ impl From<ExtraFunctionInfoUnprocessed> for ExtraFunctionInfoProcessed {
 /// In that case, we don't need to deserialize/process anything
 /// as the data is already in memory.
 pub enum ExtraFunctionInfo {
-    Processed(ExtraFunctionInfoProcessed),
+    Processed(CompiledFunctionFrameInfo),
     Unprocessed(ExtraFunctionInfoUnprocessed),
 }
 
@@ -111,7 +104,7 @@ impl ModuleFrameInfo {
 
     fn instr_map(&self, local_index: LocalFuncIndex) -> &FunctionAddressMap {
         match self.function_debug_info(local_index) {
-            ExtraFunctionInfo::Processed(di) => &di.instr_map,
+            ExtraFunctionInfo::Processed(di) => &di.address_map,
             _ => unimplemented!(),
         }
     }
@@ -280,9 +273,9 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
         .values()
         .zip(module.address_transform().values())
         .map(|(traps, instrs)| {
-            ExtraFunctionInfo::Processed(ExtraFunctionInfoProcessed {
+            ExtraFunctionInfo::Processed(CompiledFunctionFrameInfo {
                 traps: traps.to_vec(),
-                instr_map: (*instrs).clone(),
+                address_map: (*instrs).clone(),
             })
         })
         .collect::<PrimaryMap<LocalFuncIndex, _>>();
