@@ -36,6 +36,7 @@ structopt = { version = "0.3", features = ["suggestions"] }
 
 [workspace]
 members = [
+    "lib/runtime-c-api",
 ]
 
 [build-dependencies]

@@ -24,7 +24,7 @@ pub use crate::types::{
     MemoryType, Mutability, TableType, Val, ValType,
 };
 
-pub use wasm_common::{ValueType, WasmExternType, WasmTypeList};
+pub use wasm_common::{Bytes, Pages, ValueType, WasmExternType, WasmTypeList};
 pub use wasmer_compiler::CompilerConfig;
 pub use wasmer_jit::{
     DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
