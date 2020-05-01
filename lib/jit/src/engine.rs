@@ -172,16 +172,7 @@ impl JITEngineInner {
         &mut self,
         module: &Module,
         compilation: &Compilation,
-    ) -> Result<
-        (
-            PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>,
-            PrimaryMap<LocalFuncIndex, JumpTableOffsets>,
-            Relocations,
-        ),
-        CompileError,
-    > {
-        let relocations = compilation.get_relocations();
-
+    ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, CompileError> {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
         let allocated_functions =
@@ -224,10 +215,7 @@ impl JITEngineInner {
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
             self.trampolines.insert(*index, trampoline);
         }
-
-        let jt_offsets = compilation.get_jt_offsets();
-
-        Ok((allocated_functions, jt_offsets, relocations))
+        Ok(allocated_functions)
     }
 
     /// Make a memory plan given a memory type
