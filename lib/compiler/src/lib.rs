@@ -57,7 +57,7 @@ pub use crate::config::{
     Triple,
 };
 pub use crate::error::CompileError;
-pub use crate::function::{Compilation, CompiledFunction, Functions};
+pub use crate::function::{Compilation, CompiledFunction, CompiledFunctionFrameInfo, Functions};
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
 pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};
 pub use crate::sourceloc::SourceLoc;

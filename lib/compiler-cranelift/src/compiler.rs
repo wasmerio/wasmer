@@ -19,7 +19,8 @@ use wasm_common::{
 use wasmer_compiler::CompileError;
 use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::{
-    Compilation, CompiledFunction, Compiler, JumpTable, SourceLoc, TrapInformation,
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, Compiler, JumpTable, SourceLoc,
+    TrapInformation,
 };
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{Relocation, RelocationTarget};
@@ -255,9 +256,11 @@ impl Compiler for CraneliftCompiler {
                     body: code_buf,
                     jt_offsets: func_jt_offsets,
                     unwind_info,
-                    address_map,
                     relocations: reloc_sink.func_relocs,
-                    traps: trap_sink.traps,
+                    frame_info: CompiledFunctionFrameInfo {
+                        address_map,
+                        traps: trap_sink.traps,
+                    },
                 })
             })
             .collect::<Result<Vec<_>, CompileError>>()?
