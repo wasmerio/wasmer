@@ -8,11 +8,11 @@ use crate::error::{DeserializeError, SerializeError};
 use crate::error::{InstantiationError, LinkError};
 use crate::link::link_module;
 use crate::resolver::{resolve_imports, Resolver};
-use crate::serialize::CacheRawCompiledModule;
+use crate::serialize::SerializedModule;
 use crate::trap::GlobalFrameInfoRegistration;
 use crate::trap::RuntimeError;
+use crate::data::OwnedDataInitializer;
 use crate::trap::{register as register_frame_info, ExtraFunctionInfo};
-use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
@@ -166,7 +166,7 @@ impl CompiledModule {
 
     /// Serialize a CompiledModule
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let cached = CacheRawCompiledModule {
+        let cached = SerializedModule {
             compilation: self.compilation.clone(),
             module: self.module.clone(),
             data_initializers: self.data_initializers.clone(),
@@ -181,7 +181,7 @@ impl CompiledModule {
         jit: &mut JITEngineInner,
         bytes: &[u8],
     ) -> Result<CompiledModule, DeserializeError> {
-        let cached: CacheRawCompiledModule = bincode::deserialize(bytes)
+        let cached: SerializedModule = bincode::deserialize(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         let compilation = Arc::try_unwrap(cached.compilation);
         let module = Arc::try_unwrap(cached.module);
@@ -397,24 +397,4 @@ fn create_globals(module: &Module) -> BoxedSlice<LocalGlobalIndex, VMGlobalDefin
     }
 
     vmctx_globals.into_boxed_slice()
-}
-
-/// Similar to `DataInitializer`, but owns its own copy of the data rather
-/// than holding a slice of the original module.
-#[derive(Clone, Serialize, Deserialize)]
-pub struct OwnedDataInitializer {
-    /// The location where the initialization is to be performed.
-    location: DataInitializerLocation,
-
-    /// The initialization data.
-    data: Box<[u8]>,
-}
-
-impl OwnedDataInitializer {
-    fn new(borrowed: &DataInitializer<'_>) -> Self {
-        Self {
-            location: borrowed.location.clone(),
-            data: borrowed.data.to_vec().into_boxed_slice(),
-        }
-    }
 }

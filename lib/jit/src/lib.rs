@@ -27,6 +27,7 @@
 
 mod code_memory;
 mod engine;
+mod data;
 mod error;
 mod function_table;
 mod instantiate;
