@@ -11,6 +11,7 @@
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
 use crate::CompiledModule;
+use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
@@ -51,23 +52,42 @@ pub struct GlobalFrameInfoRegistration {
 }
 
 /// The function debug info, processed (with all structures in memory)
+#[derive(Serialize, Deserialize)]
 pub struct ExtraFunctionInfoProcessed {
     traps: Vec<TrapInformation>,
     instr_map: FunctionAddressMap,
 }
 
 /// The function debug info, but unprocessed
+#[derive(Serialize, Deserialize)]
 pub struct ExtraFunctionInfoUnprocessed {
-    content: Vec<u8>
+    #[serde(with = "serde_bytes")]
+    bytes: Vec<u8>,
+}
+
+impl From<ExtraFunctionInfoProcessed> for ExtraFunctionInfoUnprocessed {
+    /// We serialize the content
+    fn from(processed: ExtraFunctionInfoProcessed) -> ExtraFunctionInfoUnprocessed {
+        ExtraFunctionInfoUnprocessed {
+            bytes: bincode::serialize(&processed).expect("Can't serialize the info"),
+        }
+    }
+}
+
+impl From<ExtraFunctionInfoUnprocessed> for ExtraFunctionInfoProcessed {
+    /// We serialize the content
+    fn from(unprocessed: ExtraFunctionInfoUnprocessed) -> ExtraFunctionInfoProcessed {
+        bincode::deserialize(&unprocessed.bytes).expect("Can't deserialize the info")
+    }
 }
 
 /// We hold the debug info in two states, mainly because we want to
 /// process it lazily to speed up execution.
-/// 
+///
 /// When a Trap occurs, we process the debug info lazily for each
 /// function in the frame. That way we minimize as much as we can
 /// the upfront effort.
-/// 
+///
 /// The data can also be processed upfront. This will happen in the case
 /// of compiling at the same time that emiting the JIT.
 /// In that case, we don't need to deserialize/process anything
@@ -76,7 +96,6 @@ pub enum ExtraFunctionInfo {
     Processed(ExtraFunctionInfoProcessed),
     Unprocessed(ExtraFunctionInfoUnprocessed),
 }
-
 
 struct ModuleFrameInfo {
     start: usize,
@@ -93,13 +112,13 @@ impl ModuleFrameInfo {
     fn instr_map(&self, local_index: LocalFuncIndex) -> &FunctionAddressMap {
         match self.function_debug_info(local_index) {
             ExtraFunctionInfo::Processed(di) => &di.instr_map,
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
     fn traps(&self, local_index: LocalFuncIndex) -> &Vec<TrapInformation> {
         match self.function_debug_info(local_index) {
             ExtraFunctionInfo::Processed(di) => &di.traps,
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 }
@@ -260,10 +279,12 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
         .traps()
         .values()
         .zip(module.address_transform().values())
-        .map(|(traps, instrs)| ExtraFunctionInfo::Processed(ExtraFunctionInfoProcessed {
-            traps: traps.to_vec(),
-            instr_map: (*instrs).clone(),
-        }))
+        .map(|(traps, instrs)| {
+            ExtraFunctionInfo::Processed(ExtraFunctionInfoProcessed {
+                traps: traps.to_vec(),
+                instr_map: (*instrs).clone(),
+            })
+        })
         .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
     // ... then insert our range and assert nothing was there previously
