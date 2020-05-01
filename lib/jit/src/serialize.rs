@@ -11,6 +11,10 @@ use wasm_common::entity::PrimaryMap;
 use wasm_common::{LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
+/// The function body.
+/// 
+/// Note: We separate it into it's own struct to make it serializable
+/// with `serde_bytes`.s
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct FunctionBody {
@@ -19,21 +23,20 @@ pub struct FunctionBody {
     pub body: Vec<u8>,
 }
 
-// /// The compiled functions map (index in the Wasm -> function)
-// pub type Functions = PrimaryMap<LocalFuncIndex, CompiledFunction>;
-
+#[derive(Serialize, Deserialize)]
 pub struct SerializedCompilation {
-    function_bodies: PrimaryMap<LocalFuncIndex, FunctionBody>,
-    function_relocations: PrimaryMap<LocalFuncIndex, Vec<Relocation>>,
-    function_jt_offsets: PrimaryMap<LocalFuncIndex, JumpTableOffsets>,
-    function_unwind_info: PrimaryMap<LocalFuncIndex, CompiledFunctionUnwindInfo>,
-    function_frame_info: PrimaryMap<LocalFuncIndex, CompiledFunctionFrameInfo>,
+    pub function_bodies: PrimaryMap<LocalFuncIndex, FunctionBody>,
+    pub function_relocations: PrimaryMap<LocalFuncIndex, Vec<Relocation>>,
+    pub function_jt_offsets: PrimaryMap<LocalFuncIndex, JumpTableOffsets>,
+    pub function_unwind_info: PrimaryMap<LocalFuncIndex, CompiledFunctionUnwindInfo>,
+    pub function_frame_info: PrimaryMap<LocalFuncIndex, CompiledFunctionFrameInfo>,
 }
 
 /// Structure to cache the content ot the compilation
 #[derive(Serialize, Deserialize)]
 pub struct SerializedModule {
     pub compilation: Compilation,
+    // pub compilation: SerializedCompilation,
     pub module: Arc<Module>,
     pub data_initializers: Box<[OwnedDataInitializer]>,
     // Plans for that module
