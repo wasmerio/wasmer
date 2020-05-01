@@ -409,7 +409,7 @@ where
 {
     // Ensure that we have our sigaltstack installed.
     #[cfg(unix)]
-    setup_unix_sigaltstack()?;
+    setup_unix_signalstack()?;
 
     return CallThreadState::new(vmctx).with(|cx| {
         RegisterSetjmp(
@@ -628,7 +628,7 @@ mod tls {
 /// and registering our own alternate stack that is large enough and has a guard
 /// page.
 #[cfg(unix)]
-fn setup_unix_sigaltstack() -> Result<(), Trap> {
+fn setup_unix_signalstack() -> Result<(), Trap> {
     use std::cell::RefCell;
     use std::convert::TryInto;
     use std::ptr::null_mut;
