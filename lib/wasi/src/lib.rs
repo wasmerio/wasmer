@@ -13,9 +13,6 @@
 //! for an example of how to extend WASI using the WASI FS API.
 
 #[macro_use]
-extern crate log;
-
-#[macro_use]
 mod macros;
 mod ptr;
 mod state;

@@ -13,7 +13,7 @@ edition = "2018"
 
 [dependencies]
 hashbrown = { version = "0.7.2", optional = true }
-log = { version = "0.4.8", default-features = false }
+tracing = "0.1"
 cranelift-codegen = { version = "0.62.0", default-features = false }
 cranelift-frontend = { version = "0.62.0", default-features = false }
 wasmer-compiler = { path = "../compiler", version = "0.16.2", default-features = false }
