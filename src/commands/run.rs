@@ -75,10 +75,7 @@ impl Run {
 
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
-        let (compiler_config, compiler_name) = self.compiler.get_config()?;
-        let engine = Engine::new(&*compiler_config);
-        let store = Store::new(&engine);
-
+        let (store, compiler_name) = self.compiler.get_store()?;
         let contents = std::fs::read(self.path.clone())?;
         // We try to get it from cache, in case caching is enabled
         // and the file length is greater than 4KB.

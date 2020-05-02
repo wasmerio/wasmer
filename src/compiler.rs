@@ -91,8 +91,7 @@ impl CompilerOptions {
     }
 
     /// Get the Compiler Config for the current options
-    pub fn get_config(&self) -> Result<(Box<dyn CompilerConfig>, String)> {
-        let compiler = self.get_compiler()?;
+    fn get_config(&self, compiler: Compiler) -> Result<Box<dyn CompilerConfig>> {
         let config: Box<dyn CompilerConfig> = match compiler {
             #[cfg(feature = "compiler-singlepass")]
             Compiler::Singlepass => {
@@ -119,6 +118,17 @@ impl CompilerOptions {
                 compiler.to_string()
             ),
         };
-        return Ok((config, compiler.to_string()));
+        return Ok(config);
+    }
+
+    /// Get's the store
+    pub fn get_store(&self) -> Result<(Store, String)> {
+        let compiler = self.get_compiler()?;
+        let compiler_name = compiler.to_string();
+        let compiler_config = self.get_config(compiler)?;
+        let tunables = Tunables::for_target(compiler_config.target().triple());
+        let engine = Engine::new(&*compiler_config, tunables);
+        let store = Store::new(&engine);
+        Ok((store, compiler_name))
     }
 }

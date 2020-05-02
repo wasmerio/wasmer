@@ -1456,6 +1456,8 @@ dependencies = [
  "cfg-if",
  "indexmap",
  "libc",
+ "more-asserts",
+ "target-lexicon",
  "tempfile",
  "thiserror",
  "wasm-common",

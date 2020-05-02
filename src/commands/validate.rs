@@ -18,9 +18,7 @@ pub struct Validate {
 impl Validate {
     /// Runs logic for the `validate` subcommand
     pub fn execute(&self) -> Result<()> {
-        let (compiler_config, _compiler_name) = self.compiler.get_config()?;
-        let engine = Engine::new(&*compiler_config);
-        let store = Store::new(&engine);
+        let (store, _compiler_name) = self.compiler.get_store()?;
         let module_contents = std::fs::read(&self.path)?;
         Module::validate(&store, &module_contents)
             .with_context(|| "Unable to validate the file")?;

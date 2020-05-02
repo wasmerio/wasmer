@@ -47,13 +47,13 @@ pub struct CraneliftConfig {
 impl CraneliftConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new() -> Self {
+    pub fn new(features: Features, target: Target) -> Self {
         Self {
             enable_nan_canonicalization: false,
             enable_verifier: false,
             opt_level: OptLevel::Speed,
-            features: Default::default(),
-            target: Default::default(),
+            features,
+            target,
         }
     }
 
@@ -172,21 +172,10 @@ impl CompilerConfig for CraneliftConfig {
         &self.features
     }
 
-    /// Gets the WebAssembly features, mutable
-    fn features_mut(&mut self) -> &mut Features {
-        &mut self.features
-    }
-
     /// Gets the target that we will use for compiling
     /// the WebAssembly module
     fn target(&self) -> &Target {
         &self.target
-    }
-
-    /// Gets the target that we will use for compiling
-    /// the WebAssembly module, mutable
-    fn target_mut(&mut self) -> &mut Target {
-        &mut self.target
     }
 
     /// Transform it into the compiler
@@ -197,6 +186,6 @@ impl CompilerConfig for CraneliftConfig {
 
 impl Default for CraneliftConfig {
     fn default() -> Self {
-        Self::new()
+        Self::new(Default::default(), Default::default())
     }
 }
