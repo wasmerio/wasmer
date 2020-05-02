@@ -77,13 +77,13 @@ impl ModuleFrameInfo {
     fn instr_map(&self, local_index: LocalFuncIndex) -> &FunctionAddressMap {
         match self.function_debug_info(local_index) {
             SerializableFunctionFrameInfo::Processed(di) => &di.address_map,
-            _ => unimplemented!(),
+            _ => unreachable!("frame info should already be processed"),
         }
     }
     fn traps(&self, local_index: LocalFuncIndex) -> &Vec<TrapInformation> {
         match self.function_debug_info(local_index) {
             SerializableFunctionFrameInfo::Processed(di) => &di.traps,
-            _ => unimplemented!(),
+            _ => unreachable!("traps should already be processed"),
         }
     }
 }
@@ -110,7 +110,8 @@ impl GlobalFrameInfo {
     /// Returns an object if this `pc` is known to some previously registered
     /// module, or returns `None` if no information can be found.
     pub fn lookup_frame_info(&self, pc: usize) -> Option<FrameInfo> {
-        let (module, func) = self.maybe_process_frame(pc)?;
+        let module = self.module_info(pc)?;
+        let func = module.function_info(pc)?;
 
         // Use our relative position from the start of the function to find the
         // machine instruction that corresponds to `pc`, which then allows us to
@@ -165,7 +166,8 @@ impl GlobalFrameInfo {
 
     /// Fetches trap information about a program counter in a backtrace.
     pub fn lookup_trap_info(&self, pc: usize) -> Option<&TrapInformation> {
-        let (module, func) = self.maybe_process_frame(pc)?;
+        let module = self.module_info(pc)?;
+        let func = module.function_info(pc)?;
         let traps = module.traps(func.local_index);
         let idx = traps
             .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
@@ -173,19 +175,20 @@ impl GlobalFrameInfo {
         Some(&traps[idx])
     }
 
-    /// Get an process a Frame in case is not yet processed
-    fn maybe_process_frame(&self, pc: usize) -> Option<(&ModuleFrameInfo, &FunctionInfo)> {
+    /// Should process the frame before anything?
+    pub fn should_process_frame(&self, pc: usize) -> Option<bool> {
         let module = self.module_info(pc)?;
         let func = module.function_info(pc)?;
         let extra_func_info = module.function_debug_info(func.local_index);
-        if extra_func_info.is_unprocessed() {
-            let mut mutable_info = FRAME_INFO.write().unwrap();
-            let mut mutable_module = mutable_info.module_info_mut(pc)?;
-            mutable_module.process_function_debug_info(func.local_index);
-            let module = self.module_info(pc)?;
-            return Some((module, func));
-        }
-        Some((module, func))
+        Some(extra_func_info.is_unprocessed())
+    }
+
+    /// Process the frame info in case is not yet processed
+    pub fn maybe_process_frame(&mut self, pc: usize) -> Option<()> {
+        let module = self.module_info_mut(pc)?;
+        let func = module.function_info(pc)?;
+        module.process_function_debug_info(func.local_index);
+        Some(())
     }
 
     /// Gets a module given a pc

@@ -111,7 +111,7 @@ impl<'de> Visitor<'de> for FunctionFrameInfoVisitor {
         formatter.write_str("bytes")
     }
     fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> {
-        Ok(bincode::deserialize(&v).expect("Can't deserialize the info"))
+        Ok(UnprocessedFunctionFrameInfo { bytes: v.to_vec() })
     }
 }
 
