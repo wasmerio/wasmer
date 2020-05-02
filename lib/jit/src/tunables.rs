@@ -104,6 +104,6 @@ impl Tunables {
 
 impl Default for Tunables {
     fn default() -> Self {
-        Tunables::for_target(&HOST)
+        Self::for_target(&HOST)
     }
 }
