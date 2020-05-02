@@ -9,10 +9,12 @@ use crate::error::{DeserializeError, SerializeError};
 use crate::error::{InstantiationError, LinkError};
 use crate::link::link_module;
 use crate::resolver::{resolve_imports, Resolver};
-use crate::serialize::{SerializableCompilation, SerializableModule};
+use crate::serialize::{
+    SerializableCompilation, SerializableFunctionFrameInfo, SerializableModule,
+};
+use crate::trap::register as register_frame_info;
 use crate::trap::GlobalFrameInfoRegistration;
 use crate::trap::RuntimeError;
-use crate::trap::{register as register_frame_info, ExtraFunctionInfo};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
@@ -250,7 +252,7 @@ impl CompiledModule {
         let frame_infos = &self.serializable.compilation.function_frame_info;
         let extra_functions = frame_infos
             .values()
-            .map(|frame_info| ExtraFunctionInfo::Processed(frame_info.clone()))
+            .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
             .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
         *info = Some(register_frame_info(&self, extra_functions));

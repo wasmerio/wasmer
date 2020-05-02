@@ -10,8 +10,8 @@
 //! let module: Module = ...;
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
+use crate::serialize::SerializableFunctionFrameInfo;
 use crate::CompiledModule;
-use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
@@ -51,102 +51,38 @@ pub struct GlobalFrameInfoRegistration {
     key: usize,
 }
 
-/// The function debug info, but unprocessed
-#[derive(Clone, Serialize, Deserialize)]
-pub struct UnprocessedFunctionFrameInfo {
-    #[serde(with = "serde_bytes")]
-    bytes: Vec<u8>,
-}
-
-impl UnprocessedFunctionFrameInfo {
-    fn deserialize(&self) -> CompiledFunctionFrameInfo {
-        bincode::deserialize(&self.bytes).expect("Can't deserialize the info")
-    }
-    fn serialize(processed: CompiledFunctionFrameInfo) -> Self {
-        Self {
-            bytes: bincode::serialize(&processed).expect("Can't serialize the info"),
-        }
-    }
-}
-
-impl From<CompiledFunctionFrameInfo> for UnprocessedFunctionFrameInfo {
-    /// We serialize the content
-    fn from(processed: CompiledFunctionFrameInfo) -> Self {
-        Self::serialize(processed)
-    }
-}
-
-impl Into<CompiledFunctionFrameInfo> for UnprocessedFunctionFrameInfo {
-    /// We deserialize the content
-    fn into(self) -> CompiledFunctionFrameInfo {
-        self.deserialize()
-    }
-}
-
-/// We hold the debug info in two states, mainly because we want to
-/// process it lazily to speed up execution.
-///
-/// When a Trap occurs, we process the debug info lazily for each
-/// function in the frame. That way we minimize as much as we can
-/// the upfront effort.
-///
-/// The data can also be processed upfront. This will happen in the case
-/// of compiling at the same time that emiting the JIT.
-/// In that case, we don't need to deserialize/process anything
-/// as the data is already in memory.
-#[derive(Clone)]
-pub enum ExtraFunctionInfo {
-    /// the processed function
-    Processed(CompiledFunctionFrameInfo),
-    /// the unprocessed
-    Unprocessed(UnprocessedFunctionFrameInfo),
-}
-
-impl ExtraFunctionInfo {
-    /// Returns true if the extra function info is not yet
-    /// processed
-    pub fn is_unprocessed(&self) -> bool {
-        match self {
-            Self::Unprocessed(_) => true,
-            _ => false,
-        }
-    }
-}
-
 struct ModuleFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<Module>,
-    extra_functions: PrimaryMap<LocalFuncIndex, ExtraFunctionInfo>,
+    frame_infos: PrimaryMap<LocalFuncIndex, SerializableFunctionFrameInfo>,
 }
 
 impl ModuleFrameInfo {
-    fn function_debug_info(&self, local_index: LocalFuncIndex) -> &ExtraFunctionInfo {
-        &self.extra_functions.get(local_index).unwrap()
+    fn function_debug_info(&self, local_index: LocalFuncIndex) -> &SerializableFunctionFrameInfo {
+        &self.frame_infos.get(local_index).unwrap()
     }
 
     fn process_function_debug_info(&mut self, local_index: LocalFuncIndex) {
-        let mut func = self.extra_functions.get_mut(local_index).unwrap();
+        let mut func = self.frame_infos.get_mut(local_index).unwrap();
         let processed: CompiledFunctionFrameInfo = match func {
-            ExtraFunctionInfo::Processed(_) => {
+            SerializableFunctionFrameInfo::Processed(_) => {
                 // This should be a no-op on processed info
                 return;
             }
-            ExtraFunctionInfo::Unprocessed(unprocessed) => {
-                bincode::deserialize(&unprocessed.bytes).expect("Can't deserialize the info")
-            }
+            SerializableFunctionFrameInfo::Unprocessed(unprocessed) => unprocessed.deserialize(),
         };
-        *func = ExtraFunctionInfo::Processed(processed)
+        *func = SerializableFunctionFrameInfo::Processed(processed)
     }
     fn instr_map(&self, local_index: LocalFuncIndex) -> &FunctionAddressMap {
         match self.function_debug_info(local_index) {
-            ExtraFunctionInfo::Processed(di) => &di.address_map,
+            SerializableFunctionFrameInfo::Processed(di) => &di.address_map,
             _ => unimplemented!(),
         }
     }
     fn traps(&self, local_index: LocalFuncIndex) -> &Vec<TrapInformation> {
         match self.function_debug_info(local_index) {
-            ExtraFunctionInfo::Processed(di) => &di.traps,
+            SerializableFunctionFrameInfo::Processed(di) => &di.traps,
             _ => unimplemented!(),
         }
     }
@@ -287,7 +223,7 @@ impl Drop for GlobalFrameInfoRegistration {
 /// dropped, will be used to unregister all name information from this map.
 pub fn register(
     module: &CompiledModule,
-    extra_functions: PrimaryMap<LocalFuncIndex, ExtraFunctionInfo>,
+    frame_infos: PrimaryMap<LocalFuncIndex, SerializableFunctionFrameInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::max_value();
     let mut max = 0;
@@ -327,7 +263,7 @@ pub fn register(
             start: min,
             functions,
             module: module.module().clone(),
-            extra_functions,
+            frame_infos,
         },
     );
     assert!(prev.is_none());

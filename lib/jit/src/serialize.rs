@@ -28,3 +28,54 @@ pub struct SerializableModule {
     pub memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
     pub table_plans: PrimaryMap<TableIndex, TablePlan>,
 }
+
+/// This is the unserialized verison of `CompiledFunctionFrameInfo`.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct UnprocessedFunctionFrameInfo {
+    #[serde(with = "serde_bytes")]
+    bytes: Vec<u8>,
+}
+
+impl UnprocessedFunctionFrameInfo {
+    /// Converts the `UnprocessedFunctionFrameInfo` to a `CompiledFunctionFrameInfo`
+    pub fn deserialize(&self) -> CompiledFunctionFrameInfo {
+        bincode::deserialize(&self.bytes).expect("Can't deserialize the info")
+    }
+
+    /// Converts the `CompiledFunctionFrameInfo` to a `UnprocessedFunctionFrameInfo`
+    pub fn serialize(processed: CompiledFunctionFrameInfo) -> Self {
+        Self {
+            bytes: bincode::serialize(&processed).expect("Can't serialize the info"),
+        }
+    }
+}
+
+/// We hold the frame info in two states, mainly because we want to
+/// process it lazily to speed up execution.
+///
+/// When a Trap occurs, we process the frame info lazily for each
+/// function in the frame. That way we minimize as much as we can
+/// the upfront effort.
+///
+/// The data can also be processed upfront. This will happen in the case
+/// of compiling at the same time that emiting the JIT.
+/// In that case, we don't need to deserialize/process anything
+/// as the data is already in memory.
+#[derive(Clone)]
+pub enum SerializableFunctionFrameInfo {
+    /// The unprocessed frame info (binary)
+    Unprocessed(UnprocessedFunctionFrameInfo),
+    /// The processed frame info (memory struct)
+    Processed(CompiledFunctionFrameInfo),
+}
+
+impl SerializableFunctionFrameInfo {
+    /// Returns true if the extra function info is not yet
+    /// processed
+    pub fn is_unprocessed(&self) -> bool {
+        match self {
+            Self::Unprocessed(_) => true,
+            _ => false,
+        }
+    }
+}
