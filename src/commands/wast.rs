@@ -3,7 +3,6 @@ use crate::compiler::CompilerOptions;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use structopt::StructOpt;
-use wasmer::*;
 use wasmer_wast::Wast as WastSpectest;
 
 #[derive(Debug, StructOpt)]
@@ -24,9 +23,7 @@ pub struct Wast {
 impl Wast {
     /// Runs logic for the `validate` subcommand
     pub fn execute(&self) -> Result<()> {
-        let (compiler_config, _compiler_name) = self.compiler.get_config()?;
-        let engine = Engine::new(&*compiler_config);
-        let store = Store::new(&engine);
+        let (store, _compiler_name) = self.compiler.get_store()?;
         let mut wast = WastSpectest::new_with_spectest(store);
         wast.fail_fast = self.fail_fast;
         wast.run_file(&self.path)

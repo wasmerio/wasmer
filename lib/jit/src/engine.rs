@@ -12,7 +12,7 @@ use wasm_common::entity::PrimaryMap;
 use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
     Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionBody,
-    FunctionBodyData, ModuleTranslationState,
+    FunctionBodyData, ModuleTranslationState, Target,
 };
 use wasmer_runtime::{
     InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
@@ -23,18 +23,16 @@ use wasmer_runtime::{
 #[derive(Clone)]
 pub struct JITEngine {
     inner: Arc<RefCell<JITEngineInner>>,
-    tunables: Arc<Tunables>,
+    tunables: Arc<Box<dyn Tunables>>,
 }
 
 impl JITEngine {
     /// Create a new JIT Engine given config
-    pub fn new<T: CompilerConfig>(config: &T) -> Self
+    pub fn new<C: CompilerConfig>(config: &C, tunables: impl Tunables + 'static) -> Self
     where
-        T: ?Sized,
+        C: ?Sized,
     {
         let compiler = config.compiler();
-        let tunables = Tunables::for_target(compiler.target().triple());
-
         Self {
             inner: Arc::new(RefCell::new(JITEngineInner {
                 compiler,
@@ -42,13 +40,13 @@ impl JITEngine {
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
             })),
-            tunables: Arc::new(tunables),
+            tunables: Arc::new(Box::new(tunables)),
         }
     }
 
     /// Get the tunables
-    pub fn tunables(&self) -> &Tunables {
-        &self.tunables
+    pub fn tunables(&self) -> &dyn Tunables {
+        &**self.tunables
     }
 
     pub(crate) fn compiler(&self) -> std::cell::Ref<'_, JITEngineInner> {
@@ -133,7 +131,7 @@ impl JITEngineInner {
 
     /// Compile the given function bodies.
     pub(crate) fn compile_module<'data>(
-        &mut self,
+        &self,
         module: &Module,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,

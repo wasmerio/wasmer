@@ -1,3 +1,4 @@
+use crate::tunables::Tunables;
 use std::sync::Arc;
 use wasmer_compiler::CompilerConfig;
 use wasmer_jit::JITEngine;
@@ -72,7 +73,9 @@ impl PartialEq for Store {
 ))]
 impl Default for Store {
     fn default() -> Store {
-        Store::new(&Engine::new(&Self::default_compiler_config()))
+        let config = Self::default_compiler_config();
+        let tunables = Tunables::for_target(config.target().triple());
+        Store::new(&Engine::new(&config, tunables))
     }
 }
 
