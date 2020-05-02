@@ -254,7 +254,7 @@ cfg_if::cfg_if! {
 /// function needs to be called at the end of the startup process, after other
 /// handlers have been installed. This function can thus be called multiple
 /// times, having no effect after the first call.
-pub fn init() {
+pub fn init_traps() {
     static INIT: Once = Once::new();
     INIT.call_once(real_init);
 }
