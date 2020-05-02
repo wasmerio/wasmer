@@ -17,10 +17,9 @@ use wasm_common::{
     Features, FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
-use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::{
-    Compilation, CompiledFunction, CompiledFunctionFrameInfo, Compiler, FunctionBody, JumpTable,
-    SourceLoc, TrapInformation,
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, Compiler, FunctionBody,
+    FunctionBodyData, JumpTable, SourceLoc, TrapInformation,
 };
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{Relocation, RelocationTarget};
@@ -277,7 +276,7 @@ impl Compiler for CraneliftCompiler {
     fn compile_wasm_trampolines(
         &self,
         signatures: &[FuncType],
-    ) -> Result<Vec<CompiledFunction>, CompileError> {
+    ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, sig| {

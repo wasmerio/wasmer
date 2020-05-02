@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use wasmer::*;
 #[cfg(feature = "cache")]
-use wasmer_cache::{Cache, FileSystemCache, WasmHash, IoDeserializeError};
+use wasmer_cache::{Cache, FileSystemCache, IoDeserializeError, WasmHash};
 
 use structopt::StructOpt;
 

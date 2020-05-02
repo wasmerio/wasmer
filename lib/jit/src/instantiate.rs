@@ -13,6 +13,7 @@ use crate::serialize::{SerializedCompilation, SerializedModule};
 use crate::trap::GlobalFrameInfoRegistration;
 use crate::trap::RuntimeError;
 use crate::trap::{register as register_frame_info, ExtraFunctionInfo};
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
@@ -20,9 +21,8 @@ use wasm_common::{
     DataInitializer, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
     MemoryIndex, SignatureIndex, TableIndex,
 };
-use serde::{Serialize, Deserialize};
-use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::CompileError;
+use wasmer_compiler::ModuleEnvironment;
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
     VMGlobalDefinition, VMSharedSignatureIndex,

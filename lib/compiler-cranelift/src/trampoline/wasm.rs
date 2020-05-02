@@ -23,7 +23,7 @@ pub fn make_wasm_trampoline(
     fn_builder_ctx: &mut FunctionBuilderContext,
     func_type: &FuncType,
     value_size: usize,
-) -> Result<CompiledFunction, CompileError> {
+) -> Result<FunctionBody, CompileError> {
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
     let signature = signature_to_cranelift_ir(func_type, &frontend_config);
@@ -121,13 +121,9 @@ pub fn make_wasm_trampoline(
 
     let unwind_info = compiled_function_unwind_info(isa, &context);
 
-    Ok(CompiledFunction {
-        body: FunctionBody {
-            body: code_buf,
-            unwind_info,
-        },
-        jt_offsets: transform_jump_table(context.func.jt_offsets),
-        relocations: vec![],
-        frame_info: CompiledFunctionFrameInfo::default(),
+    Ok(FunctionBody {
+        body: code_buf,
+        unwind_info,
+        // jt_offsets: transform_jump_table(context.func.jt_offsets),
     })
 }

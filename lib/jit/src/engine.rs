@@ -11,8 +11,8 @@ use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, MemoryType, TableIndex, TableType};
 use wasmer_compiler::{
-    Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig,
-    FunctionBody, FunctionBodyData, ModuleTranslationState,
+    Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionBody,
+    FunctionBodyData, ModuleTranslationState,
 };
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, MemoryPlan, Module, SignatureRegistry, Table, TablePlan,
@@ -208,7 +208,7 @@ impl JITEngineInner {
         {
             let ptr = self
                 .code_memory
-                .allocate_for_function(&compiled_function.body)
+                .allocate_for_function(&compiled_function)
                 .map_err(|message| CompileError::Resource(message))?
                 .as_ptr();
             let trampoline =
