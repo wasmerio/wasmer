@@ -31,7 +31,7 @@ pub struct RelocSink<'a> {
     module: &'a Module,
 
     /// Current function index.
-    func_index: FuncIndex,
+    local_func_index: LocalFuncIndex,
 
     /// Relocations recorded for the function.
     pub func_relocs: Vec<Relocation>,
@@ -87,7 +87,10 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
     fn reloc_jt(&mut self, offset: binemit::CodeOffset, reloc: binemit::Reloc, jt: ir::JumpTable) {
         self.func_relocs.push(Relocation {
             kind: irreloc_to_relocationkind(reloc),
-            reloc_target: RelocationTarget::JumpTable(self.func_index, JumpTable::new(jt.index())),
+            reloc_target: RelocationTarget::JumpTable(
+                self.local_func_index,
+                JumpTable::new(jt.index()),
+            ),
             offset,
             addend: 0,
         });
@@ -97,9 +100,12 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
 impl<'a> RelocSink<'a> {
     /// Return a new `RelocSink` instance.
     pub fn new(module: &'a Module, func_index: FuncIndex) -> Self {
+        let local_func_index = module
+            .local_func_index(func_index)
+            .expect("The provided function should be local");
         Self {
             module,
-            func_index,
+            local_func_index,
             func_relocs: Vec::new(),
         }
     }

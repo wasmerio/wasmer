@@ -28,17 +28,12 @@ pub fn link_module(
                     unimplemented!("Custom Sections not yet implemented");
                 }
                 RelocationTarget::JumpTable(func_index, jt) => {
-                    match module.local_func_index(func_index) {
-                        Some(f) => {
-                            let offset = *jt_offsets
-                                .get(f)
-                                .and_then(|ofs| ofs.get(JumpTable::new(jt.index())))
-                                .expect("func jump table");
-                            let fatptr: *const [VMFunctionBody] = allocated_functions[f];
-                            fatptr as *const VMFunctionBody as usize + offset as usize
-                        }
-                        None => panic!("func index of jump table"),
-                    }
+                    let offset = *jt_offsets
+                        .get(func_index)
+                        .and_then(|ofs| ofs.get(JumpTable::new(jt.index())))
+                        .expect("func jump table");
+                    let fatptr: *const [VMFunctionBody] = allocated_functions[func_index];
+                    fatptr as *const VMFunctionBody as usize + offset as usize
                 }
             };
 
