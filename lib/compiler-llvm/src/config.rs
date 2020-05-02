@@ -135,21 +135,10 @@ impl CompilerConfig for LLVMConfig {
         &self.features
     }
 
-    /// Gets the WebAssembly features, mutable
-    fn features_mut(&mut self) -> &mut Features {
-        &mut self.features
-    }
-
     /// Gets the target that we will use for compiling
     /// the WebAssembly module
     fn target(&self) -> &Target {
         &self.target
-    }
-
-    /// Gets the target that we will use for compiling
-    /// the WebAssembly module, mutable
-    fn target_mut(&mut self) -> &mut Target {
-        &mut self.target
     }
 
     /// Transform it into the compiler

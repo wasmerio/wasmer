@@ -149,16 +149,9 @@ pub trait CompilerConfig {
     /// Gets the WebAssembly features
     fn features(&self) -> &Features;
 
-    /// Gets the WebAssembly features, mutable
-    fn features_mut(&mut self) -> &mut Features;
-
     /// Gets the target that we will use for compiling
     /// the WebAssembly module
     fn target(&self) -> &Target;
-
-    /// Gets the target that we will use for compiling
-    /// the WebAssembly module, mutable
-    fn target_mut(&mut self) -> &mut Target;
 
     /// Gets the custom compiler config
     fn compiler(&self) -> Box<dyn Compiler>;
