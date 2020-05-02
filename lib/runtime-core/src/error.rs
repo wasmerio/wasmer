@@ -242,13 +242,12 @@ impl std::fmt::Display for InvokeError {
     }
 }
 
-/// An `InternalError` is an error that happened inside of Wasmer and is a
-/// catch-all for errors that would otherwise be returned as
-/// `RuntimeError(Box::new(<string>))`.
+/// A `RuntimeError` is an error that describes why the attempt to fully execute
+/// some Wasm has failed.
 ///
-/// This type provides greater visibility into the kinds of things that may fail
-/// and improves the ability of users to handle them, though these errors may be
-/// extremely rare and impossible to handle.
+/// These reasons vary from the Wasm trapping or otherwise failing directly to user
+/// controlled conditions such as metering running out of gas or a user host function
+/// returning a custom error type directly.
 #[derive(Debug)]
 pub enum RuntimeError {
     /// An error relating to the invocation of a Wasm function.
