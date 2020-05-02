@@ -9,7 +9,7 @@ use crate::error::{DeserializeError, SerializeError};
 use crate::error::{InstantiationError, LinkError};
 use crate::link::link_module;
 use crate::resolver::{resolve_imports, Resolver};
-use crate::serialize::SerializedModule;
+use crate::serialize::{SerializedCompilation, SerializedModule};
 use crate::trap::GlobalFrameInfoRegistration;
 use crate::trap::RuntimeError;
 use crate::trap::{register as register_frame_info, ExtraFunctionInfo};
@@ -73,8 +73,15 @@ impl CompiledModule {
             .map(OwnedDataInitializer::new)
             .collect::<Vec<_>>()
             .into_boxed_slice();
+
+        let serializable_compilation = SerializedCompilation {
+            function_bodies: compilation.get_function_bodies(),
+            function_relocations: compilation.get_relocations(),
+            function_jt_offsets: compilation.get_jt_offsets(),
+            function_frame_info: compilation.get_frame_info(),
+        };
         let serializable = SerializedModule {
-            compilation,
+            compilation: serializable_compilation,
             module: Arc::new(translation.module),
             data_initializers,
             memory_plans,
@@ -105,17 +112,16 @@ impl CompiledModule {
         jit: &mut JITEngineInner,
         serializable: SerializedModule,
     ) -> Result<Self, CompileError> {
-        let function_bodies = serializable.compilation.get_function_bodies();
-        let finished_functions = jit.compile(&serializable.module, &function_bodies)?;
-
-        let relocations = serializable.compilation.get_relocations();
-        let jt_offsets = serializable.compilation.get_jt_offsets();
+        let finished_functions = jit.compile(
+            &serializable.module,
+            &serializable.compilation.function_bodies,
+        )?;
 
         link_module(
             &serializable.module,
             &finished_functions,
-            &jt_offsets,
-            relocations,
+            &serializable.compilation.function_jt_offsets,
+            serializable.compilation.function_relocations.clone(),
         );
 
         // Compute indices into the shared signature table.
@@ -234,18 +240,10 @@ impl CompiledModule {
         if info.is_some() {
             return;
         }
-        let traps = self.serializable.compilation.get_traps();
-        let address_maps = self.serializable.compilation.get_address_maps();
-
-        let extra_functions = traps
+        let frame_infos = &self.serializable.compilation.function_frame_info;
+        let extra_functions = frame_infos
             .values()
-            .zip(address_maps.values())
-            .map(|(traps, instrs)| {
-                ExtraFunctionInfo::Processed(CompiledFunctionFrameInfo {
-                    traps: traps.to_vec(),
-                    address_map: (*instrs).clone(),
-                })
-            })
+            .map(|frame_info| ExtraFunctionInfo::Processed(frame_info.clone()))
             .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
         *info = Some(register_frame_info(&self, extra_functions));

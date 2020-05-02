@@ -123,19 +123,11 @@ impl Compilation {
             .collect::<PrimaryMap<LocalFuncIndex, _>>()
     }
 
-    /// Gets functions address maps.
-    pub fn get_address_maps(&self) -> PrimaryMap<LocalFuncIndex, FunctionAddressMap> {
-        self.functions
-            .iter()
-            .map(|(_, func)| func.frame_info.address_map.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
-    }
-
     /// Gets functions jump table offsets.
-    pub fn get_traps(&self) -> PrimaryMap<LocalFuncIndex, Vec<TrapInformation>> {
+    pub fn get_frame_info(&self) -> PrimaryMap<LocalFuncIndex, CompiledFunctionFrameInfo> {
         self.functions
             .iter()
-            .map(|(_, func)| func.frame_info.traps.clone())
+            .map(|(_, func)| func.frame_info.clone())
             .collect::<PrimaryMap<LocalFuncIndex, _>>()
     }
 }

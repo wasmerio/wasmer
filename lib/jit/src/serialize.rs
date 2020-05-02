@@ -1,10 +1,7 @@
 use crate::data::OwnedDataInitializer;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use wasmer_compiler::{
-    Compilation, CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, FunctionBody,
-    JumpTableOffsets, Relocation,
-};
+use wasmer_compiler::{CompiledFunctionFrameInfo, FunctionBody, JumpTableOffsets, Relocation};
 use wasmer_runtime::Module;
 
 use wasm_common::entity::PrimaryMap;
@@ -22,8 +19,7 @@ pub struct SerializedCompilation {
 /// Structure to cache the content ot the compilation
 #[derive(Serialize, Deserialize)]
 pub struct SerializedModule {
-    pub compilation: Compilation,
-    // pub compilation: SerializedCompilation,
+    pub compilation: SerializedCompilation,
     pub module: Arc<Module>,
     pub data_initializers: Box<[OwnedDataInitializer]>,
     // Plans for that module
