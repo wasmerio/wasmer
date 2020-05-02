@@ -11,8 +11,8 @@ use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, MemoryType, TableIndex, TableType};
 use wasmer_compiler::{
-    Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionAddressMap,
-    FunctionBodyData, JumpTableOffsets, ModuleTranslationState, Relocations, TrapInformation,
+    Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionBody,
+    FunctionBodyData, ModuleTranslationState,
 };
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, MemoryPlan, Module, SignatureRegistry, Table, TablePlan,
@@ -171,25 +171,13 @@ impl JITEngineInner {
     pub(crate) fn compile<'data>(
         &mut self,
         module: &Module,
-        compilation: &Compilation,
-    ) -> Result<
-        (
-            PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>,
-            PrimaryMap<LocalFuncIndex, JumpTableOffsets>,
-            Relocations,
-            PrimaryMap<LocalFuncIndex, Vec<TrapInformation>>,
-            PrimaryMap<LocalFuncIndex, FunctionAddressMap>,
-        ),
-        CompileError,
-    > {
-        let relocations = compilation.get_relocations();
-        let traps = compilation.get_traps();
-
+        functions: &PrimaryMap<LocalFuncIndex, FunctionBody>,
+    ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, CompileError> {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
         let allocated_functions =
             self.code_memory
-                .allocate_functions(&compilation)
+                .allocate_functions(&functions)
                 .map_err(|message| {
                     CompileError::Resource(format!(
                         "failed to allocate memory for functions: {}",
@@ -220,24 +208,14 @@ impl JITEngineInner {
         {
             let ptr = self
                 .code_memory
-                .allocate_for_function(compiled_function)
+                .allocate_for_function(&compiled_function)
                 .map_err(|message| CompileError::Resource(message))?
                 .as_ptr();
             let trampoline =
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
             self.trampolines.insert(*index, trampoline);
         }
-
-        let jt_offsets = compilation.get_jt_offsets();
-        let address_maps = compilation.get_address_maps();
-
-        Ok((
-            allocated_functions,
-            jt_offsets,
-            relocations,
-            traps,
-            address_maps,
-        ))
+        Ok(allocated_functions)
     }
 
     /// Make a memory plan given a memory type

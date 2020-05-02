@@ -26,12 +26,14 @@
 )]
 
 mod code_memory;
+mod data;
 mod engine;
 mod error;
 mod function_table;
-mod instantiate;
 mod link;
+mod module;
 mod resolver;
+mod serialize;
 mod trap;
 mod tunables;
 
@@ -41,8 +43,8 @@ pub use crate::error::{
     DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
 };
 pub use crate::function_table::FunctionTable;
-pub use crate::instantiate::CompiledModule;
 pub use crate::link::link_module;
+pub use crate::module::CompiledModule;
 pub use crate::resolver::{resolve_imports, NullResolver, Resolver};
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;

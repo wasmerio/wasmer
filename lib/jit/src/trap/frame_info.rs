@@ -10,13 +10,14 @@
 //! let module: Module = ...;
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
+use crate::serialize::SerializableFunctionFrameInfo;
 use crate::CompiledModule;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
-use wasm_common::entity::EntityRef;
-use wasm_common::FuncIndex;
-use wasmer_compiler::{FunctionAddressMap, SourceLoc, TrapInformation};
+use wasm_common::entity::{EntityRef, PrimaryMap};
+use wasm_common::LocalFuncIndex;
+use wasmer_compiler::{CompiledFunctionFrameInfo, FunctionAddressMap, SourceLoc, TrapInformation};
 use wasmer_runtime::Module;
 
 lazy_static::lazy_static! {
@@ -54,13 +55,49 @@ struct ModuleFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<Module>,
+    frame_infos: PrimaryMap<LocalFuncIndex, SerializableFunctionFrameInfo>,
+}
+
+impl ModuleFrameInfo {
+    fn function_debug_info(&self, local_index: LocalFuncIndex) -> &SerializableFunctionFrameInfo {
+        &self.frame_infos.get(local_index).unwrap()
+    }
+
+    fn process_function_debug_info(&mut self, local_index: LocalFuncIndex) {
+        let mut func = self.frame_infos.get_mut(local_index).unwrap();
+        let processed: CompiledFunctionFrameInfo = match func {
+            SerializableFunctionFrameInfo::Processed(_) => {
+                // This should be a no-op on processed info
+                return;
+            }
+            SerializableFunctionFrameInfo::Unprocessed(unprocessed) => unprocessed.deserialize(),
+        };
+        *func = SerializableFunctionFrameInfo::Processed(processed)
+    }
+
+    fn processed_function_frame_info(
+        &self,
+        local_index: LocalFuncIndex,
+    ) -> &CompiledFunctionFrameInfo {
+        match self.function_debug_info(local_index) {
+            SerializableFunctionFrameInfo::Processed(di) => &di,
+            _ => unreachable!("frame info should already be processed"),
+        }
+    }
+
+    /// Gets a function given a pc
+    fn function_info(&self, pc: usize) -> Option<&FunctionInfo> {
+        let (end, func) = self.functions.range(pc..).next()?;
+        if pc < func.start || *end < pc {
+            return None;
+        }
+        Some(func)
+    }
 }
 
 struct FunctionInfo {
     start: usize,
-    index: FuncIndex,
-    traps: Vec<TrapInformation>,
-    instr_map: FunctionAddressMap,
+    local_index: LocalFuncIndex,
 }
 
 impl GlobalFrameInfo {
@@ -69,14 +106,17 @@ impl GlobalFrameInfo {
     /// Returns an object if this `pc` is known to some previously registered
     /// module, or returns `None` if no information can be found.
     pub fn lookup_frame_info(&self, pc: usize) -> Option<FrameInfo> {
-        let (module, func) = self.func(pc)?;
+        let module = self.module_info(pc)?;
+        let func = module.function_info(pc)?;
 
         // Use our relative position from the start of the function to find the
         // machine instruction that corresponds to `pc`, which then allows us to
         // map that to a wasm original source location.
         let rel_pos = pc - func.start;
-        let pos = match func
-            .instr_map
+        let instr_map = &module
+            .processed_function_frame_info(func.local_index)
+            .address_map;
+        let pos = match instr_map
             .instructions
             .binary_search_by_key(&rel_pos, |map| map.code_offset)
         {
@@ -93,7 +133,7 @@ impl GlobalFrameInfo {
             // always get called with a `pc` that's an exact instruction
             // boundary.
             Err(n) => {
-                let instr = &func.instr_map.instructions[n - 1];
+                let instr = &instr_map.instructions[n - 1];
                 if instr.code_offset <= rel_pos && rel_pos < instr.code_offset + instr.code_len {
                     Some(n - 1)
                 } else {
@@ -109,38 +149,62 @@ impl GlobalFrameInfo {
         debug_assert!(pos.is_some(), "failed to find instruction for {:x}", pc);
 
         let instr = match pos {
-            Some(pos) => func.instr_map.instructions[pos].srcloc,
-            None => func.instr_map.start_srcloc,
+            Some(pos) => instr_map.instructions[pos].srcloc,
+            None => instr_map.start_srcloc,
         };
+        let func_index = module.module.func_index(func.local_index);
         Some(FrameInfo {
             module_name: module.module.name(),
-            func_index: func.index.index() as u32,
-            func_name: module.module.func_names.get(&func.index).cloned(),
+            func_index: func_index.index() as u32,
+            func_name: module.module.func_names.get(&func_index).cloned(),
             instr,
-            func_start: func.instr_map.start_srcloc,
+            func_start: instr_map.start_srcloc,
         })
     }
 
     /// Fetches trap information about a program counter in a backtrace.
     pub fn lookup_trap_info(&self, pc: usize) -> Option<&TrapInformation> {
-        let (_module, func) = self.func(pc)?;
-        let idx = func
-            .traps
+        let module = self.module_info(pc)?;
+        let func = module.function_info(pc)?;
+        let traps = &module.processed_function_frame_info(func.local_index).traps;
+        let idx = traps
             .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
             .ok()?;
-        Some(&func.traps[idx])
+        Some(&traps[idx])
     }
 
-    fn func(&self, pc: usize) -> Option<(&ModuleFrameInfo, &FunctionInfo)> {
-        let (end, info) = self.ranges.range(pc..).next()?;
-        if pc < info.start || *end < pc {
+    /// Should process the frame before anything?
+    pub fn should_process_frame(&self, pc: usize) -> Option<bool> {
+        let module = self.module_info(pc)?;
+        let func = module.function_info(pc)?;
+        let extra_func_info = module.function_debug_info(func.local_index);
+        Some(extra_func_info.is_unprocessed())
+    }
+
+    /// Process the frame info in case is not yet processed
+    pub fn maybe_process_frame(&mut self, pc: usize) -> Option<()> {
+        let module = self.module_info_mut(pc)?;
+        let func = module.function_info(pc)?;
+        module.process_function_debug_info(func.local_index);
+        Some(())
+    }
+
+    /// Gets a module given a pc
+    fn module_info(&self, pc: usize) -> Option<&ModuleFrameInfo> {
+        let (end, module_info) = self.ranges.range(pc..).next()?;
+        if pc < module_info.start || *end < pc {
             return None;
         }
-        let (end, func) = info.functions.range(pc..).next()?;
-        if pc < func.start || *end < pc {
+        Some(module_info)
+    }
+
+    /// Gets a module given a pc
+    fn module_info_mut(&mut self, pc: usize) -> Option<&mut ModuleFrameInfo> {
+        let (end, module_info) = self.ranges.range_mut(pc..).next()?;
+        if pc < module_info.start || *end < pc {
             return None;
         }
-        Some((info, func))
+        Some(module_info)
     }
 }
 
@@ -158,16 +222,14 @@ impl Drop for GlobalFrameInfoRegistration {
 /// compiled functions within `module`. If the `module` has no functions
 /// then `None` will be returned. Otherwise the returned object, when
 /// dropped, will be used to unregister all name information from this map.
-pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> {
+pub fn register(
+    module: &CompiledModule,
+    frame_infos: PrimaryMap<LocalFuncIndex, SerializableFunctionFrameInfo>,
+) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::max_value();
     let mut max = 0;
     let mut functions = BTreeMap::new();
-    for (((i, allocated), traps), instrs) in module
-        .finished_functions()
-        .iter()
-        .zip(module.traps().values())
-        .zip(module.address_transform().values())
-    {
+    for (i, allocated) in module.finished_functions().iter() {
         let (start, end) = unsafe {
             let ptr = (**allocated).as_ptr();
             let len = (**allocated).len();
@@ -177,9 +239,7 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
         max = cmp::max(max, end);
         let func = FunctionInfo {
             start,
-            index: module.module().func_index(i),
-            traps: traps.to_vec(),
-            instr_map: (*instrs).clone(),
+            local_index: i,
         };
         assert!(functions.insert(end, func).is_none());
     }
@@ -204,6 +264,7 @@ pub fn register(module: &CompiledModule) -> Option<GlobalFrameInfoRegistration> 
             start: min,
             functions,
             module: module.module().clone(),
+            frame_infos,
         },
     );
     assert!(prev.is_none());

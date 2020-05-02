@@ -14,6 +14,30 @@ use serde::{Deserialize, Serialize};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::LocalFuncIndex;
 
+/// The frame info for a Compiled function.
+///
+/// This structure is only used for reconstructing
+/// the frame information after a `Trap`.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+pub struct CompiledFunctionFrameInfo {
+    /// The traps (in the function body)
+    pub traps: Vec<TrapInformation>,
+
+    /// The address map.
+    pub address_map: FunctionAddressMap,
+}
+
+/// The function body.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct FunctionBody {
+    /// The function body bytes.
+    #[serde(with = "serde_bytes")]
+    pub body: Vec<u8>,
+
+    /// The function unwind info
+    pub unwind_info: CompiledFunctionUnwindInfo,
+}
+
 /// The result of compiling a WebAssembly function.
 ///
 /// This structure only have the compiled information data
@@ -22,25 +46,16 @@ use wasm_common::LocalFuncIndex;
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct CompiledFunction {
     /// The function body.
-    #[serde(with = "serde_bytes")]
-    pub body: Vec<u8>,
+    pub body: FunctionBody,
 
     /// The relocations (in the body)
     pub relocations: Vec<Relocation>,
 
-    /// The traps (in the body)
-    pub traps: Vec<TrapInformation>,
-
     /// The jump tables offsets (in the body).
     pub jt_offsets: JumpTableOffsets,
 
-    /// The unwind information.
-    pub unwind_info: CompiledFunctionUnwindInfo,
-
-    /// The address map.
-    ///
-    /// TODO: Make it optional as it's not required for trampoline generation.
-    pub address_map: FunctionAddressMap,
+    /// The frame information.
+    pub frame_info: CompiledFunctionFrameInfo,
 }
 
 /// The compiled functions map (index in the Wasm -> function)
@@ -85,6 +100,22 @@ impl Compilation {
     }
 
     /// Gets functions jump table offsets.
+    pub fn get_relocations(&self) -> PrimaryMap<LocalFuncIndex, Vec<Relocation>> {
+        self.functions
+            .iter()
+            .map(|(_, func)| func.relocations.clone())
+            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+    }
+
+    /// Gets functions jump table offsets.
+    pub fn get_function_bodies(&self) -> PrimaryMap<LocalFuncIndex, FunctionBody> {
+        self.functions
+            .iter()
+            .map(|(_, func)| func.body.clone())
+            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+    }
+
+    /// Gets functions jump table offsets.
     pub fn get_jt_offsets(&self) -> PrimaryMap<LocalFuncIndex, JumpTableOffsets> {
         self.functions
             .iter()
@@ -93,26 +124,10 @@ impl Compilation {
     }
 
     /// Gets functions jump table offsets.
-    pub fn get_relocations(&self) -> PrimaryMap<LocalFuncIndex, Vec<Relocation>> {
+    pub fn get_frame_info(&self) -> PrimaryMap<LocalFuncIndex, CompiledFunctionFrameInfo> {
         self.functions
             .iter()
-            .map(|(_, func)| func.relocations.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
-    }
-
-    /// Gets functions address maps.
-    pub fn get_address_maps(&self) -> PrimaryMap<LocalFuncIndex, FunctionAddressMap> {
-        self.functions
-            .iter()
-            .map(|(_, func)| func.address_map.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
-    }
-
-    /// Gets functions jump table offsets.
-    pub fn get_traps(&self) -> PrimaryMap<LocalFuncIndex, Vec<TrapInformation>> {
-        self.functions
-            .iter()
-            .map(|(_, func)| func.traps.clone())
+            .map(|(_, func)| func.frame_info.clone())
             .collect::<PrimaryMap<LocalFuncIndex, _>>()
     }
 }

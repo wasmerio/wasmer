@@ -11,7 +11,7 @@ use wasm_common::Features;
 use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
     Compilation, CompileError, CompiledFunction, Compiler, CompilerConfig, CustomSection,
-    CustomSectionProtection, FunctionBodyData, ModuleTranslationState, Relocation,
+    CustomSectionProtection, FunctionBody, FunctionBodyData, ModuleTranslationState, Relocation,
     RelocationTarget, SectionIndex, Target, TrapInformation,
 };
 use wasmer_runtime::{MemoryPlan, Module, TablePlan, TrapCode};
@@ -142,7 +142,7 @@ impl Compiler for LLVMCompiler {
     fn compile_wasm_trampolines(
         &self,
         signatures: &[FuncType],
-    ) -> Result<Vec<CompiledFunction>, CompileError> {
+    ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()
             .map_init(FuncTrampoline::new, |func_trampoline, sig| {

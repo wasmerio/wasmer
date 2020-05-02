@@ -3,7 +3,7 @@
 
 use crate::config::Target;
 use crate::error::CompileError;
-use crate::function::{Compilation, CompiledFunction};
+use crate::function::{Compilation, FunctionBody};
 use crate::std::vec::Vec;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
@@ -66,5 +66,5 @@ pub trait Compiler {
     fn compile_wasm_trampolines(
         &self,
         signatures: &[FuncType],
-    ) -> Result<Vec<CompiledFunction>, CompileError>;
+    ) -> Result<Vec<FunctionBody>, CompileError>;
 }

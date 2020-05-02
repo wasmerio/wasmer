@@ -17,9 +17,9 @@ use wasm_common::{
     Features, FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
-use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::{
-    Compilation, CompiledFunction, Compiler, JumpTable, SourceLoc, TrapInformation,
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, Compiler, FunctionBody,
+    FunctionBodyData, JumpTable, SourceLoc, TrapInformation,
 };
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{Relocation, RelocationTarget};
@@ -252,12 +252,16 @@ impl Compiler for CraneliftCompiler {
                 let func_jt_offsets = transform_jump_table(context.func.jt_offsets);
 
                 Ok(CompiledFunction {
-                    body: code_buf,
+                    body: FunctionBody {
+                        body: code_buf,
+                        unwind_info,
+                    },
                     jt_offsets: func_jt_offsets,
-                    unwind_info,
-                    address_map,
                     relocations: reloc_sink.func_relocs,
-                    traps: trap_sink.traps,
+                    frame_info: CompiledFunctionFrameInfo {
+                        address_map,
+                        traps: trap_sink.traps,
+                    },
                 })
             })
             .collect::<Result<Vec<_>, CompileError>>()?
@@ -272,7 +276,7 @@ impl Compiler for CraneliftCompiler {
     fn compile_wasm_trampolines(
         &self,
         signatures: &[FuncType],
-    ) -> Result<Vec<CompiledFunction>, CompileError> {
+    ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, sig| {

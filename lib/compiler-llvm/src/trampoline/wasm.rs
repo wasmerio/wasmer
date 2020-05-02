@@ -1,23 +1,11 @@
 use crate::config::LLVMConfig;
-use crate::translator::intrinsics::{func_type_to_llvm, type_to_llvm, Intrinsics};
+use crate::translator::intrinsics::{func_type_to_llvm, Intrinsics};
 use inkwell::{
-    context::Context,
-    module::{Linkage, Module},
-    passes::PassManager,
-    targets::FileType,
-    types::{BasicType, FunctionType},
-    values::FunctionValue,
-    AddressSpace,
+    context::Context, module::Linkage, passes::PassManager, targets::FileType, types::BasicType,
+    values::FunctionValue, AddressSpace,
 };
-use wasm_common::entity::SecondaryMap;
 use wasm_common::{FuncType, Type};
-use wasmer_compiler::{
-    Compilation, CompileError, CompiledFunction, CompiledFunctionUnwindInfo, Compiler,
-    FunctionAddressMap, SourceLoc,
-};
-
-use std::fs;
-use std::io::Write;
+use wasmer_compiler::{CompileError, CompiledFunctionUnwindInfo, FunctionBody};
 
 pub struct FuncTrampoline {
     ctx: Context,
@@ -34,7 +22,7 @@ impl FuncTrampoline {
         &mut self,
         ty: &FuncType,
         config: &LLVMConfig,
-    ) -> Result<CompiledFunction, CompileError> {
+    ) -> Result<FunctionBody, CompileError> {
         let mut module = self.ctx.create_module("");
         let target_triple = config.target_triple();
         let target_machine = config.target_machine();
@@ -107,21 +95,9 @@ impl FuncTrampoline {
         // TODO: remove debugging
         //dbg!(&bytes);
 
-        let address_map = FunctionAddressMap {
-            instructions: vec![],
-            start_srcloc: SourceLoc::default(),
-            end_srcloc: SourceLoc::default(),
-            body_offset: 0,
-            body_len: 0, // TODO
-        };
-
-        Ok(CompiledFunction {
-            address_map,
+        Ok(FunctionBody {
             body: bytes,
-            jt_offsets: SecondaryMap::new(),
             unwind_info: CompiledFunctionUnwindInfo::None,
-            relocations: vec![],
-            traps: vec![],
         })
     }
 }

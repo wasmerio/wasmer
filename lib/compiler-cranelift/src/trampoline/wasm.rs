@@ -15,8 +15,7 @@ use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use wasm_common::FuncType;
-use wasmer_compiler::FunctionAddressMap;
-use wasmer_compiler::{CompileError, CompiledFunction};
+use wasmer_compiler::{CompileError, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_wasm_trampoline(
@@ -24,7 +23,7 @@ pub fn make_wasm_trampoline(
     fn_builder_ctx: &mut FunctionBuilderContext,
     func_type: &FuncType,
     value_size: usize,
-) -> Result<CompiledFunction, CompileError> {
+) -> Result<FunctionBody, CompileError> {
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
     let signature = signature_to_cranelift_ir(func_type, &frontend_config);
@@ -121,15 +120,10 @@ pub fn make_wasm_trampoline(
         .map_err(|error| CompileError::Codegen(pretty_error(&context.func, Some(isa), error)))?;
 
     let unwind_info = compiled_function_unwind_info(isa, &context);
-    // let address_map = get_function_address_map(&context, input, code_buf.len(), isa);
-    let address_map = FunctionAddressMap::default(); // get_function_address_map(&context, input, code_buf.len(), isa);
 
-    Ok(CompiledFunction {
+    Ok(FunctionBody {
         body: code_buf,
-        jt_offsets: transform_jump_table(context.func.jt_offsets),
         unwind_info,
-        address_map,
-        relocations: vec![],
-        traps: vec![],
+        // jt_offsets: transform_jump_table(context.func.jt_offsets),
     })
 }
