@@ -337,7 +337,10 @@ impl FuncTranslator {
                             if let Some((index, _)) =
                                 func_names.iter().find(|(_, name)| *name == target)
                             {
-                                reloc_target = Some(RelocationTarget::LocalFunc(index));
+                                let local_index = wasm_module
+                                    .local_func_index(index)
+                                    .expect("Only local functions should be relocated");
+                                reloc_target = Some(RelocationTarget::LocalFunc(local_index));
                             } else {
                                 if let Some(libcall) = libcalls.get(&target.to_string()) {
                                     reloc_target = Some(RelocationTarget::LibCall(*libcall));
