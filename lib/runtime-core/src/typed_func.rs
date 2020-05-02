@@ -216,6 +216,7 @@ pub struct DynamicFunc<'a> {
 unsafe impl<'a> Send for DynamicFunc<'a> {}
 
 /// Represents a function that can be used by WebAssembly.
+#[derive(Clone)]
 pub struct Func<'a, Args = (), Rets = (), Inner: Kind = Wasm> {
     inner: Inner,
 
