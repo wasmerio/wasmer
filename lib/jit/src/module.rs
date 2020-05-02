@@ -242,11 +242,6 @@ impl CompiledModule {
         &self.serializable.module
     }
 
-    /// Returns the map of all finished JIT functions compiled for this module
-    pub fn finished_functions(&self) -> &BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]> {
-        &self.finished_functions
-    }
-
     /// Register this module's stack frame information into the global scope.
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
@@ -256,7 +251,12 @@ impl CompiledModule {
             return;
         }
         let frame_infos = &self.serializable.compilation.function_frame_info;
-        *info = Some(register_frame_info(&self, frame_infos.clone()));
+        let finished_functions = &self.finished_functions;
+        *info = Some(register_frame_info(
+            &self.module(),
+            finished_functions,
+            frame_infos.clone(),
+        ));
     }
 }
 

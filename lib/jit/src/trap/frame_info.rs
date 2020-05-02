@@ -11,14 +11,13 @@
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
 use crate::serialize::SerializableFunctionFrameInfo;
-use crate::CompiledModule;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
-use wasm_common::entity::{EntityRef, PrimaryMap};
+use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::LocalFuncIndex;
-use wasmer_compiler::{CompiledFunctionFrameInfo, FunctionAddressMap, SourceLoc, TrapInformation};
-use wasmer_runtime::Module;
+use wasmer_compiler::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
+use wasmer_runtime::{Module, VMFunctionBody};
 
 lazy_static::lazy_static! {
     /// This is a global cache of backtrace frame information for all active
@@ -223,13 +222,14 @@ impl Drop for GlobalFrameInfoRegistration {
 /// then `None` will be returned. Otherwise the returned object, when
 /// dropped, will be used to unregister all name information from this map.
 pub fn register(
-    module: &CompiledModule,
+    module: &Arc<Module>,
+    finished_functions: &BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
     frame_infos: PrimaryMap<LocalFuncIndex, SerializableFunctionFrameInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::max_value();
     let mut max = 0;
     let mut functions = BTreeMap::new();
-    for (i, allocated) in module.finished_functions().iter() {
+    for (i, allocated) in finished_functions.iter() {
         let (start, end) = unsafe {
             let ptr = (**allocated).as_ptr();
             let len = (**allocated).len();
@@ -263,7 +263,7 @@ pub fn register(
         ModuleFrameInfo {
             start: min,
             functions,
-            module: module.module().clone(),
+            module: module.clone(),
             frame_infos,
         },
     );
