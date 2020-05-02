@@ -337,7 +337,7 @@ impl FuncTranslator {
                             if let Some((index, _)) =
                                 func_names.iter().find(|(_, name)| *name == target)
                             {
-                                reloc_target = Some(RelocationTarget::UserFunc(index));
+                                reloc_target = Some(RelocationTarget::ImportedFunc(index));
                             } else {
                                 if let Some(libcall) = libcalls.get(&target.to_string()) {
                                     reloc_target = Some(RelocationTarget::LibCall(*libcall));

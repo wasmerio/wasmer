@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 /// that can't be given a real source location.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
+#[repr(transparent)]
 pub struct SourceLoc(u32);
 
 impl SourceLoc {

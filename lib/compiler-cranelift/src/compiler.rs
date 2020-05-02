@@ -54,7 +54,7 @@ impl binemit::RelocSink for RelocSink {
     ) {
         let reloc_target = if let ExternalName::User { namespace, index } = *name {
             debug_assert_eq!(namespace, 0);
-            RelocationTarget::UserFunc(FuncIndex::from_u32(index))
+            RelocationTarget::ImportedFunc(FuncIndex::from_u32(index))
         } else if let ExternalName::LibCall(libcall) = *name {
             RelocationTarget::LibCall(irlibcall_to_libcall(libcall))
         } else {
