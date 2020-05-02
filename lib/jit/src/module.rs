@@ -9,7 +9,7 @@ use crate::error::{DeserializeError, SerializeError};
 use crate::error::{InstantiationError, LinkError};
 use crate::link::link_module;
 use crate::resolver::{resolve_imports, Resolver};
-use crate::serialize::{SerializedCompilation, SerializedModule};
+use crate::serialize::{SerializableCompilation, SerializableModule};
 use crate::trap::GlobalFrameInfoRegistration;
 use crate::trap::RuntimeError;
 use crate::trap::{register as register_frame_info, ExtraFunctionInfo};
@@ -32,7 +32,7 @@ use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct CompiledModule {
-    serializable: SerializedModule,
+    serializable: SerializableModule,
 
     finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
@@ -75,13 +75,13 @@ impl CompiledModule {
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let serializable_compilation = SerializedCompilation {
+        let serializable_compilation = SerializableCompilation {
             function_bodies: compilation.get_function_bodies(),
             function_relocations: compilation.get_relocations(),
             function_jt_offsets: compilation.get_jt_offsets(),
             function_frame_info: compilation.get_frame_info(),
         };
-        let serializable = SerializedModule {
+        let serializable = SerializableModule {
             compilation: serializable_compilation,
             module: Arc::new(translation.module),
             data_initializers,
@@ -106,9 +106,9 @@ impl CompiledModule {
         bytes: &[u8],
     ) -> Result<CompiledModule, DeserializeError> {
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-        // let serializable = SerializedModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+        // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        let serializable: SerializedModule = bincode::deserialize(bytes)
+        let serializable: SerializableModule = bincode::deserialize(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
         Self::from_parts(jit, serializable).map_err(|e| DeserializeError::Compiler(e))
@@ -117,7 +117,7 @@ impl CompiledModule {
     /// Construct a `CompiledModule` from component parts.
     pub fn from_parts(
         jit: &mut JITEngineInner,
-        serializable: SerializedModule,
+        serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
         let finished_functions = jit.compile(
             &serializable.module,
