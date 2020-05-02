@@ -1,11 +1,13 @@
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
+use crate::InstantiationError;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::{CompileError, WasmError};
-use wasmer_jit::{CompiledModule, DeserializeError, SerializeError};
+use wasmer_jit::{CompiledModule, DeserializeError, Resolver, SerializeError};
+use wasmer_runtime::InstanceHandle;
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -143,7 +145,7 @@ impl Module {
     /// let serialized = module.serialize()?;
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.store.engine().serialize(self.compiled_module())
+        self.store.engine().serialize(&self.compiled)
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
@@ -178,8 +180,11 @@ impl Module {
         }
     }
 
-    pub(crate) fn compiled_module(&self) -> &CompiledModule {
-        &self.compiled
+    pub(crate) fn instantiate(
+        &self,
+        resolver: &dyn Resolver,
+    ) -> Result<InstanceHandle, InstantiationError> {
+        self.store.engine().instantiate(&self.compiled, resolver)
     }
 
     /// Returns the name of the current module.
@@ -237,7 +242,7 @@ impl Module {
     /// }
     /// ```
     pub fn imports<'a>(&'a self) -> impl Iterator<Item = ImportType> + 'a {
-        self.compiled.module_ref().imports()
+        self.compiled.module().imports()
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -260,7 +265,7 @@ impl Module {
     /// }
     /// ```
     pub fn exports<'a>(&'a self) -> impl Iterator<Item = ExportType> + 'a {
-        self.compiled.module_ref().exports()
+        self.compiled.module().exports()
     }
 
     pub fn store(&self) -> &Store {

@@ -53,9 +53,7 @@ impl Instance {
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Instance, InstantiationError> {
         let store = module.store();
 
-        let handle = store
-            .engine()
-            .instantiate(module.compiled_module(), resolver)?;
+        let handle = module.instantiate(resolver)?;
 
         let exports = module
             .exports()
