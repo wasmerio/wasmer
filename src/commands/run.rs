@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use wasmer::*;
 #[cfg(feature = "cache")]
-use wasmer_cache::{Cache, FileSystemCache, WasmHash};
+use wasmer_cache::{Cache, FileSystemCache, WasmHash, IoDeserializeError};
 
 use structopt::StructOpt;
 
@@ -96,7 +96,15 @@ impl Run {
                     .unwrap_or(WasmHash::generate(&contents));
                 let module = match unsafe { cache.load(&store, hash) } {
                     Ok(module) => module,
-                    Err(_e) => {
+                    Err(e) => {
+                        match e {
+                            IoDeserializeError::Deserialize(e) => {
+                                eprintln!("Warning: Error while getting module from cache: {}", e);
+                            }
+                            IoDeserializeError::Io(_) => {
+                                // Do not notify on IO errors
+                            }
+                        }
                         let module = Module::new(&store, &contents)?;
                         // Store the compiled Module in cache
                         cache.store(hash, module.clone())?;
