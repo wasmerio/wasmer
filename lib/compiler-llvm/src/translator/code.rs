@@ -14,9 +14,7 @@ use inkwell::{
     passes::PassManager,
     //targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
     targets::FileType,
-    types::{
-        BasicType, BasicTypeEnum, FloatMathType, FunctionType, IntType, PointerType, VectorType,
-    },
+    types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
         VectorValue,
@@ -39,7 +37,8 @@ use wasm_common::{
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
-    to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, WasmResult,
+    to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, CompiledFunctionFrameInfo,
+    FunctionBody, WasmResult,
 };
 use wasmer_compiler::{
     CompiledFunctionUnwindInfo, FunctionAddressMap, FunctionBodyData, Relocation, RelocationKind,
@@ -364,12 +363,16 @@ impl FuncTranslator {
         };
 
         Ok(CompiledFunction {
-            address_map,
-            body: bytes,
+            body: FunctionBody {
+                body: bytes,
+                unwind_info: CompiledFunctionUnwindInfo::None,
+            },
             jt_offsets: SecondaryMap::new(),
-            unwind_info: CompiledFunctionUnwindInfo::None,
             relocations,
-            traps: vec![],
+            frame_info: CompiledFunctionFrameInfo {
+                address_map,
+                traps: vec![],
+            },
         })
     }
 }

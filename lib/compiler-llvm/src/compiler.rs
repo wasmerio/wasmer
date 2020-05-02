@@ -9,10 +9,10 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::Features;
 use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
-use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
+use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_runtime::{MemoryPlan, Module, TablePlan, TrapCode};
 
 use inkwell::targets::{InitializationConfig, Target as InkwellTarget};
@@ -98,7 +98,7 @@ impl Compiler for LLVMCompiler {
     fn compile_wasm_trampolines(
         &self,
         signatures: &[FuncType],
-    ) -> Result<Vec<CompiledFunction>, CompileError> {
+    ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()
             .map_init(FuncTrampoline::new, |func_trampoline, sig| {
