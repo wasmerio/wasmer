@@ -11,9 +11,8 @@ use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, MemoryType, TableIndex, TableType};
 use wasmer_compiler::{
-    Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionAddressMap,
-    FunctionBody, FunctionBodyData, JumpTableOffsets, ModuleTranslationState, Relocations,
-    TrapInformation,
+    Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig,
+    FunctionBody, FunctionBodyData, ModuleTranslationState,
 };
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, MemoryPlan, Module, SignatureRegistry, Table, TablePlan,

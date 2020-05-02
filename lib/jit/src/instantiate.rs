@@ -20,8 +20,9 @@ use wasm_common::{
     DataInitializer, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
     MemoryIndex, SignatureIndex, TableIndex,
 };
+use serde::{Serialize, Deserialize};
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{CompileError, CompiledFunctionFrameInfo};
+use wasmer_compiler::CompileError;
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
     VMGlobalDefinition, VMSharedSignatureIndex,
@@ -92,6 +93,9 @@ impl CompiledModule {
 
     /// Serialize a CompiledModule
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        // let mut s = flexbuffers::FlexbufferSerializer::new();
+        // self.serializable.serialize(&mut s).map_err(|e| SerializeError::Generic(format!("{:?}", e)));
+        // Ok(s.take_buffer())
         bincode::serialize(&self.serializable)
             .map_err(|e| SerializeError::Generic(format!("{:?}", e)))
     }
@@ -101,6 +105,9 @@ impl CompiledModule {
         jit: &mut JITEngineInner,
         bytes: &[u8],
     ) -> Result<CompiledModule, DeserializeError> {
+        // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+        // let serializable = SerializedModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+
         let serializable: SerializedModule = bincode::deserialize(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 

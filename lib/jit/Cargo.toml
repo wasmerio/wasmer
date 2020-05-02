@@ -15,6 +15,7 @@ wasm-common = { path = "../wasm-common", version = "0.16.2" }
 wasmer-compiler = { path = "../compiler", version = "0.16.2", default-features = false }
 wasmer-runtime = { path = "../runtime", version = "0.16.2" }
 target-lexicon = { version = "0.10.0", default-features = false }
+# flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 backtrace = "0.3.46"
 rustc-demangle = "0.1.16"
 more-asserts = "0.2.1"
