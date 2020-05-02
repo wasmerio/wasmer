@@ -53,24 +53,33 @@ pub struct GlobalFrameInfoRegistration {
 
 /// The function debug info, but unprocessed
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ExtraFunctionInfoUnprocessed {
+pub struct UnprocessedFunctionFrameInfo {
     #[serde(with = "serde_bytes")]
     bytes: Vec<u8>,
 }
 
-impl From<CompiledFunctionFrameInfo> for ExtraFunctionInfoUnprocessed {
-    /// We serialize the content
-    fn from(processed: CompiledFunctionFrameInfo) -> ExtraFunctionInfoUnprocessed {
-        ExtraFunctionInfoUnprocessed {
+impl UnprocessedFunctionFrameInfo {
+    fn deserialize(&self) -> CompiledFunctionFrameInfo {
+        bincode::deserialize(&self.bytes).expect("Can't deserialize the info")
+    }
+    fn serialize(processed: CompiledFunctionFrameInfo) -> Self {
+        Self {
             bytes: bincode::serialize(&processed).expect("Can't serialize the info"),
         }
     }
 }
 
-impl Into<CompiledFunctionFrameInfo> for ExtraFunctionInfoUnprocessed {
+impl From<CompiledFunctionFrameInfo> for UnprocessedFunctionFrameInfo {
+    /// We serialize the content
+    fn from(processed: CompiledFunctionFrameInfo) -> Self {
+        Self::serialize(processed)
+    }
+}
+
+impl Into<CompiledFunctionFrameInfo> for UnprocessedFunctionFrameInfo {
     /// We deserialize the content
     fn into(self) -> CompiledFunctionFrameInfo {
-        bincode::deserialize(&self.bytes).expect("Can't deserialize the info")
+        self.deserialize()
     }
 }
 
@@ -90,7 +99,7 @@ pub enum ExtraFunctionInfo {
     /// the processed function
     Processed(CompiledFunctionFrameInfo),
     /// the unprocessed
-    Unprocessed(ExtraFunctionInfoUnprocessed),
+    Unprocessed(UnprocessedFunctionFrameInfo),
 }
 
 impl ExtraFunctionInfo {
