@@ -74,21 +74,17 @@ impl ModuleFrameInfo {
         };
         *func = SerializableFunctionFrameInfo::Processed(processed)
     }
-    fn instr_map(&self, local_index: LocalFuncIndex) -> &FunctionAddressMap {
+
+    fn processed_function_frame_info(
+        &self,
+        local_index: LocalFuncIndex,
+    ) -> &CompiledFunctionFrameInfo {
         match self.function_debug_info(local_index) {
-            SerializableFunctionFrameInfo::Processed(di) => &di.address_map,
+            SerializableFunctionFrameInfo::Processed(di) => &di,
             _ => unreachable!("frame info should already be processed"),
         }
     }
-    fn traps(&self, local_index: LocalFuncIndex) -> &Vec<TrapInformation> {
-        match self.function_debug_info(local_index) {
-            SerializableFunctionFrameInfo::Processed(di) => &di.traps,
-            _ => unreachable!("traps should already be processed"),
-        }
-    }
-}
 
-impl ModuleFrameInfo {
     /// Gets a function given a pc
     fn function_info(&self, pc: usize) -> Option<&FunctionInfo> {
         let (end, func) = self.functions.range(pc..).next()?;
@@ -117,7 +113,9 @@ impl GlobalFrameInfo {
         // machine instruction that corresponds to `pc`, which then allows us to
         // map that to a wasm original source location.
         let rel_pos = pc - func.start;
-        let instr_map = module.instr_map(func.local_index);
+        let instr_map = &module
+            .processed_function_frame_info(func.local_index)
+            .address_map;
         let pos = match instr_map
             .instructions
             .binary_search_by_key(&rel_pos, |map| map.code_offset)
@@ -168,7 +166,7 @@ impl GlobalFrameInfo {
     pub fn lookup_trap_info(&self, pc: usize) -> Option<&TrapInformation> {
         let module = self.module_info(pc)?;
         let func = module.function_info(pc)?;
-        let traps = module.traps(func.local_index);
+        let traps = &module.processed_function_frame_info(func.local_index).traps;
         let idx = traps
             .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
             .ok()?;
