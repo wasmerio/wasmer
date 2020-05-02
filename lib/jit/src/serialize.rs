@@ -37,6 +37,8 @@ pub struct SerializableModule {
 
 /// This is the unserialized verison of `CompiledFunctionFrameInfo`.
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(transparent)]
+#[repr(transparent)]
 pub struct UnprocessedFunctionFrameInfo {
     #[serde(with = "serde_bytes")]
     bytes: Vec<u8>,
@@ -110,6 +112,9 @@ impl<'de> Visitor<'de> for FunctionFrameInfoVisitor {
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("bytes")
     }
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E> {
+        Ok(UnprocessedFunctionFrameInfo { bytes: v })
+    }
     fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> {
         Ok(UnprocessedFunctionFrameInfo { bytes: v.to_vec() })
     }
@@ -121,7 +126,7 @@ impl<'de> Deserialize<'de> for SerializableFunctionFrameInfo {
         D: Deserializer<'de>,
     {
         Ok(SerializableFunctionFrameInfo::Unprocessed(
-            deserializer.deserialize_bytes(FunctionFrameInfoVisitor)?,
+            deserializer.deserialize_byte_buf(FunctionFrameInfoVisitor)?,
         ))
     }
 }
