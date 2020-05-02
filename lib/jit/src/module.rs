@@ -3,7 +3,6 @@
 //! `CompiledModule` to allow compiling and instantiating to be done as separate
 //! steps.
 
-use crate::data::OwnedDataInitializer;
 use crate::engine::JITEngineInner;
 use crate::error::{DeserializeError, SerializeError};
 use crate::error::{InstantiationError, LinkError};
@@ -21,7 +20,7 @@ use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
     DataInitializer, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-    MemoryIndex, SignatureIndex, TableIndex,
+    MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::ModuleEnvironment;

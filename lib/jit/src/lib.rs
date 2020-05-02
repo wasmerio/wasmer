@@ -26,7 +26,6 @@
 )]
 
 mod code_memory;
-mod data;
 mod engine;
 mod error;
 mod function_table;

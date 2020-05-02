@@ -1,4 +1,3 @@
-use crate::data::OwnedDataInitializer;
 use serde::de::{Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
@@ -8,7 +7,7 @@ use wasmer_compiler::{CompiledFunctionFrameInfo, FunctionBody, JumpTableOffsets,
 use wasmer_runtime::Module;
 
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{LocalFuncIndex, MemoryIndex, TableIndex};
+use wasm_common::{LocalFuncIndex, MemoryIndex, OwnedDataInitializer, TableIndex};
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// The compilation related data for a serialized modules
@@ -47,14 +46,20 @@ pub struct UnprocessedFunctionFrameInfo {
 impl UnprocessedFunctionFrameInfo {
     /// Converts the `UnprocessedFunctionFrameInfo` to a `CompiledFunctionFrameInfo`
     pub fn deserialize(&self) -> CompiledFunctionFrameInfo {
+        // let r = flexbuffers::Reader::get_root(&self.bytes).expect("Can't deserialize the info");
+        // CompiledFunctionFrameInfo::deserialize(r).expect("Can't deserialize the info")
         bincode::deserialize(&self.bytes).expect("Can't deserialize the info")
     }
 
     /// Converts the `CompiledFunctionFrameInfo` to a `UnprocessedFunctionFrameInfo`
     pub fn serialize(processed: &CompiledFunctionFrameInfo) -> Self {
-        Self {
-            bytes: bincode::serialize(&processed).expect("Can't serialize the info"),
-        }
+        // let mut s = flexbuffers::FlexbufferSerializer::new();
+        // processed
+        //     .serialize(&mut s)
+        //     .expect("Can't serialize the info");
+        // let bytes = s.take_buffer();
+        let bytes = bincode::serialize(&processed).expect("Can't serialize the info");
+        Self { bytes }
     }
 }
 
