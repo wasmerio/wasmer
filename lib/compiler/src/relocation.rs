@@ -89,8 +89,8 @@ pub struct Relocation {
 /// Destination function. Can be either user function or some special one, like `memory.grow`.
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RelocationTarget {
-    /// An imported func from the Wasm source.
-    ImportedFunc(FuncIndex),
+    /// A relocation to a function defined locally in the wasm (not an imported one).
+    LocalFunc(LocalFuncIndex),
     /// A compiler-generated libcall.
     LibCall(LibCall),
     /// Jump table index.

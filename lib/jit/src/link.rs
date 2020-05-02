@@ -19,13 +19,10 @@ pub fn link_module(
     for (i, function_relocs) in relocations.into_iter() {
         for r in function_relocs {
             let target_func_address: usize = match r.reloc_target {
-                RelocationTarget::ImportedFunc(index) => match module.local_func_index(index) {
-                    Some(f) => {
-                        let fatptr: *const [VMFunctionBody] = allocated_functions[f];
-                        fatptr as *const VMFunctionBody as usize
-                    }
-                    None => panic!("direct call to import"),
-                },
+                RelocationTarget::LocalFunc(index) => {
+                    let fatptr: *const [VMFunctionBody] = allocated_functions[index];
+                    fatptr as *const VMFunctionBody as usize
+                }
                 RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
                 RelocationTarget::CustomSection(_custom_section) => {
                     unimplemented!("Custom Sections not yet implemented");

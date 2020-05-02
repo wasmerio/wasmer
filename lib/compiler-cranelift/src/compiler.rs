@@ -27,7 +27,9 @@ use wasmer_runtime::TrapCode;
 use wasmer_runtime::{MemoryPlan, Module, TablePlan};
 
 /// Implementation of a relocation sink that just saves all the information for later
-pub struct RelocSink {
+pub struct RelocSink<'a> {
+    module: &'a Module,
+
     /// Current function index.
     func_index: FuncIndex,
 
@@ -35,7 +37,7 @@ pub struct RelocSink {
     pub func_relocs: Vec<Relocation>,
 }
 
-impl binemit::RelocSink for RelocSink {
+impl<'a> binemit::RelocSink for RelocSink<'a> {
     fn reloc_block(
         &mut self,
         _offset: binemit::CodeOffset,
@@ -54,7 +56,11 @@ impl binemit::RelocSink for RelocSink {
     ) {
         let reloc_target = if let ExternalName::User { namespace, index } = *name {
             debug_assert_eq!(namespace, 0);
-            RelocationTarget::ImportedFunc(FuncIndex::from_u32(index))
+            RelocationTarget::LocalFunc(
+                self.module
+                    .local_func_index(FuncIndex::from_u32(index))
+                    .expect("The provided function should be local"),
+            )
         } else if let ExternalName::LibCall(libcall) = *name {
             RelocationTarget::LibCall(irlibcall_to_libcall(libcall))
         } else {
@@ -88,10 +94,11 @@ impl binemit::RelocSink for RelocSink {
     }
 }
 
-impl RelocSink {
+impl<'a> RelocSink<'a> {
     /// Return a new `RelocSink` instance.
-    pub fn new(func_index: FuncIndex) -> Self {
+    pub fn new(module: &'a Module, func_index: FuncIndex) -> Self {
         Self {
+            module,
             func_index,
             func_relocs: Vec::new(),
         }
@@ -229,7 +236,7 @@ impl Compiler for CraneliftCompiler {
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
-                let mut reloc_sink = RelocSink::new(func_index);
+                let mut reloc_sink = RelocSink::new(module, func_index);
                 let mut trap_sink = TrapSink::new();
                 let mut stackmap_sink = binemit::NullStackmapSink {};
                 context
