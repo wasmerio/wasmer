@@ -5,7 +5,7 @@ support, supporting the wasm ABI used by any [`wasmer-engine`] implementation.
 
 [`wasmer-engine`]: https://crates.io/crates/wasmer-engine
 
-#### Aknowledgments
+### Acknowledgments
 
 This project borrowed some of the code for the VM structure and trapping from the [wasmtime-runtime](https://crates.io/crates/wasmtime-runtime).
 

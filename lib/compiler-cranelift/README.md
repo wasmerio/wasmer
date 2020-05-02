@@ -3,7 +3,7 @@
 This is the `wasmer-compiler-cranelift` crate, which contains a
 compiler implementation based on Cranelift.
 
-#### Aknowledgments
+### Acknowledgments
 
 This project borrowed some of the function lowering from [cranelift-wasm](https://crates.io/crates/cranelift-wasm).
 
