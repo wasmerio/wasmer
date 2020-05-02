@@ -1,10 +1,12 @@
 # Wasmer Runtime
 
 This is the `wasmer-runtime` crate, which contains wasm runtime library
-support, supporting the wasm ABI used by any [`wasmer-compiler`] implementation,
-and [`wasmer-jit`].
+support, supporting the wasm ABI used by any [`wasmer-engine`] implementation.
 
-> Note: this project started as a subfork of [this crate](https://crates.io/crates/wasmtime-runtime).
+[`wasmer-engine`]: https://crates.io/crates/wasmer-engine
 
-[`wasmer-compiler`]: https://crates.io/crates/wasmer-compiler
-[`wasmer-jit`]: https://crates.io/crates/wasmer-jit
+#### Aknowledgments
+
+This project borrowed some of the code for the VM structure and trapping from the [wasmtime-runtime](https://crates.io/crates/wasmtime-runtime).
+
+Please check [Wasmer ATTRIBUTIONS](https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md) to further see licenses and other attributions of the project. 

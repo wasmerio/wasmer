@@ -1,7 +1,5 @@
 # WASI Framebuffer
 
-An experimental extension of WASI for basic graphics.
+The `wasmer-wasi-experimental-io-devices` crate is experimental extension of WASI for basic graphics.
 
-This is not part of the WASI standard right now so use at your own risk -- it may break or be removed
-
-TODO add usage instructions here
+Note: I/O devices is not part of the WASI standard yet.
