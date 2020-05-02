@@ -46,13 +46,13 @@ pub struct LLVMConfig {
 impl LLVMConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new() -> Self {
+    pub fn new(features: Features, target: Target) -> Self {
         Self {
             enable_nan_canonicalization: true,
             enable_verifier: false,
             opt_level: OptimizationLevel::Aggressive,
-            features: Default::default(),
-            target: Default::default(),
+            features,
+            target,
         }
     }
     fn reloc_mode(&self) -> RelocMode {
@@ -160,6 +160,6 @@ impl CompilerConfig for LLVMConfig {
 
 impl Default for LLVMConfig {
     fn default() -> LLVMConfig {
-        LLVMConfig::new()
+        Self::new(Default::default(), Default::default())
     }
 }

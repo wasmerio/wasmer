@@ -19,11 +19,11 @@ pub struct SinglepassConfig {
 impl SinglepassConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new() -> Self {
+    pub fn new(features: Features, target: Target) -> Self {
         Self {
             enable_nan_canonicalization: true,
-            features: Default::default(),
-            target: Default::default(),
+            features,
+            target,
         }
     }
 }
@@ -59,6 +59,6 @@ impl CompilerConfig for SinglepassConfig {
 
 impl Default for SinglepassConfig {
     fn default() -> SinglepassConfig {
-        SinglepassConfig::new()
+        Self::new(Default::default(), Default::default())
     }
 }
