@@ -77,11 +77,17 @@ impl CompiledModule {
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
+        let frame_infos = compilation
+            .get_frame_info()
+            .values()
+            .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
+            .collect::<PrimaryMap<LocalFuncIndex, _>>();
+
         let serializable_compilation = SerializableCompilation {
             function_bodies: compilation.get_function_bodies(),
             function_relocations: compilation.get_relocations(),
             function_jt_offsets: compilation.get_jt_offsets(),
-            function_frame_info: compilation.get_frame_info(),
+            function_frame_info: frame_infos,
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -250,12 +256,7 @@ impl CompiledModule {
             return;
         }
         let frame_infos = &self.serializable.compilation.function_frame_info;
-        let extra_functions = frame_infos
-            .values()
-            .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
-            .collect::<PrimaryMap<LocalFuncIndex, _>>();
-
-        *info = Some(register_frame_info(&self, extra_functions));
+        *info = Some(register_frame_info(&self, frame_infos.clone()));
     }
 }
 
