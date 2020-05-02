@@ -3,7 +3,7 @@
 //! `CompiledModule` to allow compiling and instantiating to be done as separate
 //! steps.
 
-use crate::engine::JITEngineInner;
+use crate::engine::{JITEngine, JITEngineInner};
 use crate::error::{DeserializeError, SerializeError};
 use crate::error::{InstantiationError, LinkError};
 use crate::link::link_module;
@@ -42,8 +42,10 @@ pub struct CompiledModule {
 
 impl CompiledModule {
     /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
-    pub fn new(jit: &mut JITEngineInner, data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
+        let mut jit_compiler = jit.compiler_mut();
+        let tunables = jit.tunables();
 
         let translation = environ
             .translate(data)
@@ -53,16 +55,16 @@ impl CompiledModule {
             .module
             .memories
             .iter()
-            .map(|(_index, memory_type)| jit.make_memory_plan(memory_type))
+            .map(|(_index, memory_type)| tunables.memory_plan(*memory_type))
             .collect();
         let table_plans: PrimaryMap<TableIndex, TablePlan> = translation
             .module
             .tables
             .iter()
-            .map(|(_index, table_type)| jit.make_table_plan(table_type))
+            .map(|(_index, table_type)| tunables.table_plan(*table_type))
             .collect();
 
-        let compilation = jit.compile_module(
+        let compilation = jit_compiler.compile_module(
             &translation.module,
             translation.module_translation.as_ref().unwrap(),
             translation.function_body_inputs,
@@ -95,7 +97,7 @@ impl CompiledModule {
             memory_plans,
             table_plans,
         };
-        Self::from_parts(jit, serializable)
+        Self::from_parts(&mut jit_compiler, serializable)
     }
 
     /// Serialize a CompiledModule
@@ -108,25 +110,23 @@ impl CompiledModule {
     }
 
     /// Deserialize a CompiledModule
-    pub fn deserialize(
-        jit: &mut JITEngineInner,
-        bytes: &[u8],
-    ) -> Result<CompiledModule, DeserializeError> {
+    pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<CompiledModule, DeserializeError> {
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
         let serializable: SerializableModule = bincode::deserialize(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        Self::from_parts(jit, serializable).map_err(|e| DeserializeError::Compiler(e))
+        Self::from_parts(&mut jit.compiler_mut(), serializable)
+            .map_err(|e| DeserializeError::Compiler(e))
     }
 
     /// Construct a `CompiledModule` from component parts.
     pub fn from_parts(
-        jit: &mut JITEngineInner,
+        jit_compiler: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let finished_functions = jit.compile(
+        let finished_functions = jit_compiler.compile(
             &serializable.module,
             &serializable.compilation.function_bodies,
         )?;
@@ -140,7 +140,7 @@ impl CompiledModule {
 
         // Compute indices into the shared signature table.
         let signatures = {
-            let signature_registry = jit.signatures();
+            let signature_registry = jit_compiler.signatures();
             serializable
                 .module
                 .signatures
@@ -150,7 +150,7 @@ impl CompiledModule {
         };
 
         // Make all code compiled thus far executable.
-        jit.publish_compiled_code();
+        jit_compiler.publish_compiled_code();
 
         Ok(Self {
             serializable,
@@ -179,12 +179,13 @@ impl CompiledModule {
     /// See `InstanceHandle::new`
     pub unsafe fn instantiate(
         &self,
-        jit: &JITEngineInner,
+        jit: &JITEngine,
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
-        let is_bulk_memory: bool = jit.compiler().features().bulk_memory;
-        let sig_registry: &SignatureRegistry = jit.signatures();
+        let jit_compiler = jit.compiler();
+        let is_bulk_memory: bool = jit_compiler.compiler().features().bulk_memory;
+        let sig_registry: &SignatureRegistry = jit_compiler.signatures();
         let data_initializers = self
             .serializable
             .data_initializers

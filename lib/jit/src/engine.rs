@@ -9,19 +9,21 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, MemoryType, TableIndex, TableType};
+use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
     Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionBody,
     FunctionBodyData, ModuleTranslationState,
 };
 use wasmer_runtime::{
-    InstanceHandle, LinearMemory, MemoryPlan, Module, SignatureRegistry, Table, TablePlan,
-    VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
+#[derive(Clone)]
 pub struct JITEngine {
     inner: Arc<RefCell<JITEngineInner>>,
+    tunables: Arc<Tunables>,
 }
 
 impl JITEngine {
@@ -36,30 +38,25 @@ impl JITEngine {
         Self {
             inner: Arc::new(RefCell::new(JITEngineInner {
                 compiler,
-                tunables,
                 trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
             })),
+            tunables: Arc::new(tunables),
         }
     }
 
-    fn compiler(&self) -> std::cell::Ref<'_, JITEngineInner> {
+    /// Get the tunables
+    pub fn tunables(&self) -> &Tunables {
+        &self.tunables
+    }
+
+    pub(crate) fn compiler(&self) -> std::cell::Ref<'_, JITEngineInner> {
         self.inner.borrow()
     }
 
-    fn compiler_mut(&self) -> std::cell::RefMut<'_, JITEngineInner> {
+    pub(crate) fn compiler_mut(&self) -> std::cell::RefMut<'_, JITEngineInner> {
         self.inner.borrow_mut()
-    }
-
-    /// Creates a memory
-    pub fn create_memory(&self, memory_type: &MemoryType) -> Result<LinearMemory, String> {
-        self.compiler().create_memory(memory_type)
-    }
-
-    /// Creates a table
-    pub fn create_table(&self, table_type: &TableType) -> Table {
-        self.compiler().create_table(table_type)
     }
 
     /// Register a signature
@@ -86,7 +83,7 @@ impl JITEngine {
 
     /// Compile a WebAssembly binary
     pub fn compile(&self, binary: &[u8]) -> Result<CompiledModule, CompileError> {
-        CompiledModule::new(&mut self.compiler_mut(), binary)
+        CompiledModule::new(&self, binary)
     }
 
     /// Instantiates a WebAssembly module
@@ -95,7 +92,7 @@ impl JITEngine {
         compiled_module: &CompiledModule,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
-        unsafe { compiled_module.instantiate(&self.compiler(), resolver, Box::new(())) }
+        unsafe { compiled_module.instantiate(&self, resolver, Box::new(())) }
     }
 
     /// Serializes a WebAssembly module
@@ -105,15 +102,7 @@ impl JITEngine {
 
     /// Deserializes a WebAssembly module
     pub fn deserialize(&self, bytes: &[u8]) -> Result<CompiledModule, DeserializeError> {
-        CompiledModule::deserialize(&mut self.compiler_mut(), bytes)
-    }
-}
-
-impl Clone for JITEngine {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
+        CompiledModule::deserialize(&self, bytes)
     }
 }
 
@@ -121,8 +110,6 @@ impl Clone for JITEngine {
 pub struct JITEngineInner {
     /// The compiler
     compiler: Box<dyn BaseCompiler>,
-    /// The tunable values
-    tunables: Tunables,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The code memory is responsible of publishing the compiled
@@ -134,11 +121,6 @@ pub struct JITEngineInner {
 }
 
 impl JITEngineInner {
-    /// Return the tunables in use by this engine.
-    pub fn tunables(&self) -> &Tunables {
-        &self.tunables
-    }
-
     /// Gets the compiler associated to this JIT
     pub fn compiler(&self) -> &dyn BaseCompiler {
         &*self.compiler
@@ -216,28 +198,6 @@ impl JITEngineInner {
             self.trampolines.insert(*index, trampoline);
         }
         Ok(allocated_functions)
-    }
-
-    /// Make a memory plan given a memory type
-    pub(crate) fn make_memory_plan(&self, memory_type: &MemoryType) -> MemoryPlan {
-        self.tunables().memory_plan(memory_type.clone())
-    }
-
-    /// Make a memory plan given a memory type
-    pub(crate) fn make_table_plan(&self, table_type: &TableType) -> TablePlan {
-        self.tunables().table_plan(table_type.clone())
-    }
-
-    /// Create a memory given a memory type
-    pub fn create_memory(&self, memory_type: &MemoryType) -> Result<LinearMemory, String> {
-        let plan = self.make_memory_plan(memory_type);
-        LinearMemory::new(&plan)
-    }
-
-    /// Create a memory given a memory type
-    pub fn create_table(&self, table_type: &TableType) -> Table {
-        let plan = self.make_table_plan(table_type);
-        Table::new(&plan)
     }
 
     /// Make memory containing compiled code executable.

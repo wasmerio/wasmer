@@ -2,6 +2,7 @@ use more_asserts::assert_ge;
 use std::cmp::min;
 use target_lexicon::{OperatingSystem, PointerWidth, Triple, HOST};
 use wasm_common::{MemoryType, Pages, TableType};
+use wasmer_runtime::{LinearMemory, Table};
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, TableStyle};
 
 /// Tunable parameters for WebAssembly compilation.
@@ -86,6 +87,18 @@ impl Tunables {
             table,
             style: TableStyle::CallerChecksSignature,
         }
+    }
+
+    /// Create a memory given a memory type
+    pub fn create_memory(&self, memory_type: MemoryType) -> Result<LinearMemory, String> {
+        let plan = self.memory_plan(memory_type);
+        LinearMemory::new(&plan)
+    }
+
+    /// Create a memory given a memory type
+    pub fn create_table(&self, table_type: TableType) -> Table {
+        let plan = self.table_plan(table_type);
+        Table::new(&plan)
     }
 }
 
