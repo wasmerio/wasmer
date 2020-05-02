@@ -37,15 +37,14 @@ use wasm_common::{
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
-    to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, CompiledFunctionFrameInfo,
-    FunctionBody, WasmResult,
+    to_wasm_error, wasm_unsupported, Addend, CodeOffset, CompileError, CompiledFunction,
+    CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, CustomSection, CustomSectionProtection,
+    FunctionAddressMap, FunctionBody, FunctionBodyData, Relocation, RelocationKind,
+    RelocationTarget, SourceLoc, WasmResult,
 };
-use wasmer_compiler::{
-    CompiledFunctionUnwindInfo, FunctionAddressMap, FunctionBodyData, Relocation, RelocationKind,
-    RelocationTarget, SourceLoc,
-};
+use wasmer_runtime::libcalls::LibCall;
 use wasmer_runtime::Module as WasmerCompilerModule;
-use wasmer_runtime::{libcalls::LibCall, MemoryPlan, MemoryStyle, TablePlan};
+use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan};
 
 // TODO: debugging
 use std::fs;
@@ -83,6 +82,15 @@ fn const_zero<'ctx>(ty: BasicTypeEnum<'ctx>) -> BasicValueEnum<'ctx> {
     }
 }
 
+// Relocation against a per-function section.
+#[derive(Debug)]
+pub struct LocalRelocation {
+    pub kind: RelocationKind,
+    pub local_section_index: u32,
+    pub offset: CodeOffset,
+    pub addend: Addend,
+}
+
 impl FuncTranslator {
     pub fn new() -> Self {
         Self {
@@ -99,7 +107,7 @@ impl FuncTranslator {
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FuncIndex, String>,
-    ) -> Result<CompiledFunction, CompileError> {
+    ) -> Result<(CompiledFunction, Vec<LocalRelocation>, Vec<CustomSection>), CompileError> {
         let func_index = wasm_module.func_index(*func_index);
         let func_name = func_names.get(func_index).unwrap();
         let module_name = match wasm_module.name.as_ref() {
@@ -300,6 +308,8 @@ impl FuncTranslator {
 
         let mut bytes = vec![];
         let mut relocations = vec![];
+        let mut local_relocations = vec![];
+        let mut required_custom_sections = vec![];
         for section in object.get_sections() {
             match section.get_name().map(std::ffi::CStr::to_bytes) {
                 Some(b"wasmer_function") => {
@@ -334,24 +344,55 @@ impl FuncTranslator {
                                 }
                             }
                         }
-                        if reloc_target.is_none() {
-                            unimplemented!("reference to non-user function {:?}", &target);
-                        }
-                        let reloc_target = reloc_target.unwrap();
+                        if reloc_target.is_some() {
+                            let reloc_target = reloc_target.unwrap();
 
-                        let relocation = Relocation {
-                            kind,
-                            reloc_target,
-                            offset: rel.get_offset() as u32,
-                            // TODO: it appears the LLVM C API has no way to
-                            // retrieve the addend.
-                            addend: 0,
-                        };
-                        relocations.push(relocation);
+                            relocations.push(Relocation {
+                                kind,
+                                reloc_target,
+                                offset: rel.get_offset() as u32,
+                                // TODO: it appears the LLVM C API has no way to
+                                // retrieve the addend.
+                                addend: 0,
+                            });
+                        } else {
+                            if let Some(ref target) = &target {
+                                let local_section_index = required_custom_sections.len() as u32;
+                                required_custom_sections.push(target.clone());
+                                local_relocations.push(LocalRelocation {
+                                    kind,
+                                    local_section_index,
+                                    offset: rel.get_offset() as u32,
+                                    // TODO: it appears the LLVM C API has no way to
+                                    // retrieve the addend.
+                                    addend: 0,
+                                });
+                            }
+                        }
                     }
                 }
                 _ => {}
             };
+        }
+
+        // TODO: verify that we see all of them
+        let mut custom_sections = vec![];
+        custom_sections.resize(
+            required_custom_sections.len(),
+            CustomSection {
+                protection: CustomSectionProtection::Read,
+                bytes: vec![],
+            },
+        );
+        for section in object.get_sections() {
+            if let Some(name) = section.get_name().map(std::ffi::CStr::to_bytes) {
+                if let Some(index) = required_custom_sections
+                    .iter()
+                    .position(|n| n.as_bytes() == name)
+                {
+                    custom_sections[index].bytes.extend(section.get_contents());
+                }
+            }
         }
 
         let address_map = FunctionAddressMap {
@@ -362,18 +403,22 @@ impl FuncTranslator {
             body_len: 0, // TODO
         };
 
-        Ok(CompiledFunction {
-            body: FunctionBody {
-                body: bytes,
-                unwind_info: CompiledFunctionUnwindInfo::None,
+        Ok((
+            CompiledFunction {
+                body: FunctionBody {
+                    body: bytes,
+                    unwind_info: CompiledFunctionUnwindInfo::None,
+                },
+                jt_offsets: SecondaryMap::new(),
+                relocations,
+                frame_info: CompiledFunctionFrameInfo {
+                    address_map,
+                    traps: vec![],
+                },
             },
-            jt_offsets: SecondaryMap::new(),
-            relocations,
-            frame_info: CompiledFunctionFrameInfo {
-                address_map,
-                traps: vec![],
-            },
-        })
+            local_relocations,
+            custom_sections,
+        ))
     }
 }
 

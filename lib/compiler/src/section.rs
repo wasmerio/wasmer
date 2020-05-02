@@ -23,8 +23,8 @@ pub enum CustomSectionProtection {
     Read,
     // We don't include `ReadWrite` here because it would complicate freeze
     // and resumption of executing Modules.
-    /// A compiled section that is also executable.
-    ReadExecute,
+    // We also currently don't include `ReadExecute` as we don't have a way
+    // to represent relocations for this kind of section.
 }
 
 /// A Section for a `Compilation`.
