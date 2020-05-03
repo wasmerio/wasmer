@@ -31,6 +31,11 @@ impl Compile {
         let module = Module::from_file(&store, &self.path)?;
         let serialized = module.serialize()?;
         fs::write(&self.output, serialized)?;
+        eprintln!(
+            "Compilation `{}` from `{}` created successfully.",
+            self.output.display(),
+            self.path.display()
+        );
         Ok(())
     }
 }

@@ -31,6 +31,8 @@ impl Wast {
         let mut wast = WastSpectest::new_with_spectest(store);
         wast.fail_fast = self.fail_fast;
         wast.run_file(&self.path)
-            .with_context(|| format!("tests failed"))
+            .with_context(|| format!("tests failed"))?;
+        eprintln!("Wast tests succeeded for `{}`.", self.path.display());
+        Ok(())
     }
 }

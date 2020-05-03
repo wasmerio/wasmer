@@ -18,9 +18,14 @@ pub struct Validate {
 impl Validate {
     /// Runs logic for the `validate` subcommand
     pub fn execute(&self) -> Result<()> {
+        self.inner_execute()
+            .context(format!("failed to validate `{}`", self.path.display()))
+    }
+    fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_name) = self.compiler.get_store()?;
         let module_contents = std::fs::read(&self.path)?;
         Module::validate(&store, &module_contents)?;
+        eprintln!("Validation passed for `{}`.", self.path.display());
         Ok(())
     }
 }
