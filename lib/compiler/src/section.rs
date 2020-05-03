@@ -41,6 +41,9 @@ pub struct CustomSection {
     /// > (the start of the memory pointer).
     /// > We might need to create another field for alignment in case it's
     /// > needed in the future.
-    #[serde(with = "serde_bytes")]
-    pub bytes: Vec<u8>,
+    pub bytes: SectionBody,
 }
+
+/// The bytes in the section.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct SectionBody(#[serde(with = "serde_bytes")] Vec<u8>);
