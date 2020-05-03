@@ -7,9 +7,8 @@ use wasmer_compiler::{JumpTable, JumpTableOffsets, RelocationKind, RelocationTar
 use wasmer_runtime::Module;
 use wasmer_runtime::VMFunctionBody;
 
-/// Links a module that has been compiled with `compiled_module` in `wasmer-compiler::Compiler`.
-///
-/// Performs all required relocations inside the function code, provided the necessary metadata.
+/// Links a module, patching the allocated functions with the
+/// requiredd relocations and jump tables.
 pub fn link_module(
     module: &Module,
     allocated_functions: &PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>,
@@ -68,10 +67,8 @@ pub fn link_module(
                         .wrapping_add(reloc_addend as u32);
                     write_unaligned(reloc_address as *mut u32, reloc_delta_u32);
                 }
-                RelocationKind::X86PCRelRodata4 => {
-                    // ignore
-                }
-                _ => panic!("unsupported reloc kind"),
+                RelocationKind::X86PCRelRodata4 => {}
+                _ => panic!("Relocation kind unsupported"),
             }
         }
     }

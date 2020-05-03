@@ -4,16 +4,14 @@
 //! steps.
 
 use crate::engine::{JITEngine, JITEngineInner};
-use crate::error::{DeserializeError, SerializeError};
-use crate::error::{InstantiationError, LinkError};
-use crate::link::link_module;
-use crate::resolver::{resolve_imports, Resolver};
-use crate::serialize::{
-    SerializableCompilation, SerializableFunctionFrameInfo, SerializableModule,
+use wasmer_engine::{DeserializeError, SerializeError, InstantiationError, LinkError, SerializableFunctionFrameInfo,
+    resolve_imports, Resolver, register_frame_info, GlobalFrameInfoRegistration, RuntimeError,
+    CompiledModule as BaseCompiledModule
 };
-use crate::trap::register as register_frame_info;
-use crate::trap::GlobalFrameInfoRegistration;
-use crate::trap::RuntimeError;
+use crate::link::link_module;
+use crate::serialize::{
+    SerializableCompilation, SerializableModule,
+};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
@@ -168,15 +166,7 @@ impl CompiledModule {
         &self.serializable.table_plans
     }
 
-    /// Crate an `Instance` from this `CompiledModule`.
-    ///
-    /// Note that if only one instance of this module is needed, it may be more
-    /// efficient to call the top-level `instantiate`, since that avoids copying
-    /// the data initializers.
-    ///
-    /// # Unsafety
-    ///
-    /// See `InstanceHandle::new`
+    /// Instantiate the module
     pub unsafe fn instantiate(
         &self,
         jit: &JITEngine,
@@ -227,21 +217,6 @@ impl CompiledModule {
         .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 
-    /// Return a reference-counting pointer to a module.
-    pub fn module(&self) -> &Arc<Module> {
-        &self.serializable.module
-    }
-
-    /// Return a reference-counting pointer to a module.
-    pub fn module_mut(&mut self) -> &mut Arc<Module> {
-        &mut self.serializable.module
-    }
-
-    /// Return a reference to a module.
-    pub fn module_ref(&self) -> &Module {
-        &self.serializable.module
-    }
-
     /// Register this module's stack frame information into the global scope.
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
@@ -257,6 +232,22 @@ impl CompiledModule {
             finished_functions,
             frame_infos.clone(),
         ));
+    }
+}
+unsafe impl Sync for CompiledModule {}
+unsafe impl Send for CompiledModule {}
+
+impl BaseCompiledModule for CompiledModule {
+    fn module(&self) -> &Arc<Module> {
+        &self.serializable.module
+    }
+
+    fn module_mut(&mut self) -> &mut Arc<Module> {
+        &mut self.serializable.module
+    }
+
+    fn module_ref(&self) -> &Module {
+        &self.serializable.module
     }
 }
 

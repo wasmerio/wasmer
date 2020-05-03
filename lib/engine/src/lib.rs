@@ -1,8 +1,4 @@
-//! JIT backend for Wasmer compilers.
-//!
-//! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)
-//! it generates the compiled machine code, and publishes it into
-//! memory so it can be used externally.
+//! Generic Engine abstraction for Wasmer Engines.
 
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
@@ -25,18 +21,25 @@
     )
 )]
 
-mod code_memory;
 mod engine;
-mod function_table;
-mod link;
+mod error;
 mod module;
+mod resolver;
 mod serialize;
+mod trap;
+mod tunables;
 
-pub use crate::code_memory::CodeMemory;
-pub use crate::engine::JITEngine;
-pub use crate::function_table::FunctionTable;
-pub use crate::link::link_module;
+pub use crate::engine::Engine;
+pub use crate::error::{
+    DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
+};
 pub use crate::module::CompiledModule;
+pub use crate::resolver::{resolve_imports, NullResolver, Resolver};
+pub use crate::trap::*;
+pub use crate::tunables::Tunables;
+pub use crate::serialize::SerializableFunctionFrameInfo;
+
+pub use wasmer_compiler::CompilerConfig;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -1,10 +1,7 @@
 //! JIT compilation.
 
-use crate::error::InstantiationError;
-use crate::resolver::Resolver;
-use crate::tunables::Tunables;
-use crate::CodeMemory;
-use crate::{CompiledModule, DeserializeError, SerializeError};
+use wasmer_engine::{Engine, InstantiationError, Resolver, Tunables, DeserializeError, SerializeError, CompiledModule as BaseCompiledModule};
+use crate::{CodeMemory, CompiledModule};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -12,7 +9,7 @@ use wasm_common::entity::PrimaryMap;
 use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
     Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionBody,
-    FunctionBodyData, ModuleTranslationState, Target,
+    FunctionBodyData, ModuleTranslationState,
 };
 use wasmer_runtime::{
     InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
@@ -44,11 +41,6 @@ impl JITEngine {
         }
     }
 
-    /// Get the tunables
-    pub fn tunables(&self) -> &dyn Tunables {
-        &**self.tunables
-    }
-
     pub(crate) fn compiler(&self) -> std::cell::Ref<'_, JITEngineInner> {
         self.inner.borrow()
     }
@@ -57,6 +49,13 @@ impl JITEngine {
         self.inner.borrow_mut()
     }
 
+
+    /// Get the tunables
+    pub fn tunables(&self) -> &dyn Tunables {
+        &**self.tunables
+    }
+// }
+// impl Engine for JITEngine {
     /// Register a signature
     pub fn register_signature(&self, func_type: &FuncType) -> VMSharedSignatureIndex {
         let compiler = self.compiler();
@@ -80,27 +79,30 @@ impl JITEngine {
     }
 
     /// Compile a WebAssembly binary
-    pub fn compile(&self, binary: &[u8]) -> Result<CompiledModule, CompileError> {
-        CompiledModule::new(&self, binary)
+    pub fn compile(&self, binary: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, CompileError> {
+        Ok(Arc::new(CompiledModule::new(&self, binary)?))
     }
 
     /// Instantiates a WebAssembly module
     pub fn instantiate(
         &self,
-        compiled_module: &CompiledModule,
+        compiled_module: &Arc<dyn BaseCompiledModule>,
         resolver: &dyn Resolver,
-    ) -> Result<InstanceHandle, InstantiationError> {
+    ) -> Result<InstanceHandle, InstantiationError> 
+    {
+        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
         unsafe { compiled_module.instantiate(&self, resolver, Box::new(())) }
     }
 
     /// Serializes a WebAssembly module
-    pub fn serialize(&self, compiled_module: &CompiledModule) -> Result<Vec<u8>, SerializeError> {
+    pub fn serialize(&self, compiled_module: &Arc<dyn BaseCompiledModule>) -> Result<Vec<u8>, SerializeError> {
+        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
         compiled_module.serialize()
     }
 
     /// Deserializes a WebAssembly module
-    pub fn deserialize(&self, bytes: &[u8]) -> Result<CompiledModule, DeserializeError> {
-        CompiledModule::deserialize(&self, bytes)
+    pub fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
+        Ok(Arc::new(CompiledModule::deserialize(&self, bytes)?))
     }
 }
 

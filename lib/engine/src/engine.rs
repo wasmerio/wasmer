@@ -1,0 +1,49 @@
+//! JIT compilation.
+
+use crate::error::InstantiationError;
+use crate::resolver::Resolver;
+use crate::tunables::Tunables;
+use crate::{CompiledModule, DeserializeError, SerializeError};
+use std::sync::Arc;
+use wasm_common::FuncType;
+use wasmer_compiler::CompileError;
+use wasmer_runtime::{InstanceHandle, VMSharedSignatureIndex, VMTrampoline};
+
+/// A unimplemented Wasmer `Engine`.
+/// This trait is used by implementors to implement custom engines,
+/// such as: JIT or Native.
+pub trait Engine {
+    /// The `CompiledModule` type
+    type Product: CompiledModule;
+
+    /// Get the tunables
+    fn tunables(&self) -> &Tunables;
+
+    /// Register a signature
+    fn register_signature(&self, func_type: &FuncType) -> VMSharedSignatureIndex;
+
+    /// Lookup a signature
+    fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FuncType>;
+
+    /// Retrieves a trampoline given a signature
+    fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;
+
+    /// Validates a WebAssembly module
+    fn validate(&self, binary: &[u8]) -> Result<(), CompileError>;
+
+    /// Compile a WebAssembly binary
+    fn compile(&self, binary: &[u8]) -> Result<Self::Product, CompileError>;
+
+    /// Instantiates a WebAssembly module
+    fn instantiate(
+        &self,
+        compiled_module: &Arc<Self::Product>,
+        resolver: &dyn Resolver,
+    ) -> Result<InstanceHandle, InstantiationError>;
+
+    /// Serializes a WebAssembly module
+    fn serialize(&self, compiled_module: &Arc<Self::Product>) -> Result<Vec<u8>, SerializeError>;
+
+    /// Deserializes a WebAssembly module
+    fn deserialize(&self, bytes: &[u8]) -> Result<Self::Product, DeserializeError>;
+}

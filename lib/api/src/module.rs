@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::{CompileError, WasmError};
-use wasmer_jit::{CompiledModule, DeserializeError, Resolver, SerializeError};
+use wasmer_engine::{CompiledModule, DeserializeError, Resolver, SerializeError};
 use wasmer_runtime::InstanceHandle;
 
 #[derive(Error, Debug)]
@@ -30,7 +30,7 @@ pub enum IoCompileError {
 #[derive(Clone)]
 pub struct Module {
     store: Store,
-    compiled: Arc<CompiledModule>,
+    compiled: Arc<dyn CompiledModule>,
 }
 
 impl Module {
@@ -173,10 +173,11 @@ impl Module {
         Ok(Self::from_compiled_module(store, compiled))
     }
 
-    fn from_compiled_module(store: &Store, compiled: CompiledModule) -> Self {
+    fn from_compiled_module(store: &Store, compiled: Arc<CompiledModule>) -> Self
+    {
         Module {
             store: store.clone(),
-            compiled: Arc::new(compiled),
+            compiled,
         }
     }
 
