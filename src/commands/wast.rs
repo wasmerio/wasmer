@@ -8,8 +8,8 @@ use wasmer_wast::Wast as WastSpectest;
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer wast` subcommand
 pub struct Wast {
-    /// Input file
-    #[structopt(parse(from_os_str))]
+    /// Wast file to run
+    #[structopt(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     #[structopt(flatten)]
@@ -23,10 +23,16 @@ pub struct Wast {
 impl Wast {
     /// Runs logic for the `validate` subcommand
     pub fn execute(&self) -> Result<()> {
+        self.inner_execute()
+            .context(format!("failed to test the wast `{}`", self.path.display()))
+    }
+    fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_name) = self.compiler.get_store()?;
         let mut wast = WastSpectest::new_with_spectest(store);
         wast.fail_fast = self.fail_fast;
         wast.run_file(&self.path)
-            .with_context(|| format!("Test file {} was unsuccessful", self.path.display()))
+            .with_context(|| format!("tests failed"))?;
+        eprintln!("Wast tests succeeded for `{}`.", self.path.display());
+        Ok(())
     }
 }
