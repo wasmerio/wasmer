@@ -173,7 +173,7 @@ impl Run {
                 Module::new(&store, &contents)?
             };
         // We set the name outside the cache, to make sure we dont cache the name
-        module.set_name(self.path.canonicalize()?.as_path().to_str().unwrap());
+        module.set_name(&self.path.file_name().unwrap_or_default().to_string_lossy());
 
         Ok(module)
     }
