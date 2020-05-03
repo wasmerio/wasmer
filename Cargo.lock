@@ -1472,7 +1472,7 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-engine",
- "wasmer-jit",
+ "wasmer-engine-jit",
  "wasmer-runtime",
  "wat",
  "winapi",
@@ -1496,7 +1496,7 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-engine",
- "wasmer-jit",
+ "wasmer-engine-jit",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
@@ -1604,7 +1604,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-jit"
+name = "wasmer-engine-jit"
 version = "0.16.2"
 dependencies = [
  "backtrace",

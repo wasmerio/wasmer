@@ -1,8 +1,8 @@
 [package]
-name = "wasmer-jit"
+name = "wasmer-engine-jit"
 version = "0.16.2"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-description = "Wasmer JIT frontend"
+description = "Wasmer JIT Engine"
 license = "(Apache-2.0 WITH LLVM-exception) or MIT"
 categories = ["wasm"]
 keywords = ["webassembly", "wasm"]

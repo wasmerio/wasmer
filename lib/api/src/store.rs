@@ -2,7 +2,7 @@ use crate::tunables::Tunables;
 use std::sync::Arc;
 use wasmer_compiler::CompilerConfig;
 use wasmer_engine::Engine;
-use wasmer_jit::JITEngine;
+use wasmer_engine_jit::JITEngine;
 
 #[derive(Clone)]
 pub struct Store {

@@ -8,7 +8,7 @@ use crate::{ExternType, FuncType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
 use std::slice;
 use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
-use wasmer_engine::Engine;
+use wasmer_engine::Engine as _;
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
     LinearMemory, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,

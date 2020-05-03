@@ -26,7 +26,7 @@ wasmer-compiler-cranelift = { path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { path = "lib/compiler-llvm", optional = true }
 wasmer-engine = { path = "lib/engine" }
-wasmer-jit = { path = "lib/jit" }
+wasmer-engine-jit = { path = "lib/engine-jit" }
 wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
 wasmer-wast = { path = "tests/lib/wast", optional = true }
@@ -50,7 +50,7 @@ anyhow = "1.0.28"
 test-utils = { path = "tests/lib/test-utils" }
 wasmer = { path = "lib/api" }
 wasmer-compiler = { path = "lib/compiler" }
-wasmer-jit = { path = "lib/jit" }
+wasmer-engine-jit = { path = "lib/engine-jit" }
 wasmer-wast = { path = "tests/lib/wast" }
 
 [features]
