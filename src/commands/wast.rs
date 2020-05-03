@@ -23,10 +23,14 @@ pub struct Wast {
 impl Wast {
     /// Runs logic for the `validate` subcommand
     pub fn execute(&self) -> Result<()> {
+        self.inner_execute()
+            .context(format!("failed to test the wast `{}`", self.path.display()))
+    }
+    fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_name) = self.compiler.get_store()?;
         let mut wast = WastSpectest::new_with_spectest(store);
         wast.fail_fast = self.fail_fast;
         wast.run_file(&self.path)
-            .with_context(|| format!("Test file {} was unsuccessful", self.path.display()))
+            .with_context(|| format!("tests failed"))
     }
 }

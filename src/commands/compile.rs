@@ -23,9 +23,12 @@ pub struct Compile {
 impl Compile {
     /// Runs logic for the `compile` subcommand
     pub fn execute(&self) -> Result<()> {
+        self.inner_execute()
+            .context(format!("failed to compile `{}`", self.path.display()))
+    }
+    fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_name) = self.compiler.get_store()?;
-        let module =
-            Module::from_file(&store, &self.path).with_context(|| "Unable to compile the file")?;
+        let module = Module::from_file(&store, &self.path)?;
         let serialized = module.serialize()?;
         fs::write(&self.output, serialized)?;
         Ok(())

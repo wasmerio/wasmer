@@ -20,8 +20,7 @@ impl Validate {
     pub fn execute(&self) -> Result<()> {
         let (store, _compiler_name) = self.compiler.get_store()?;
         let module_contents = std::fs::read(&self.path)?;
-        Module::validate(&store, &module_contents)
-            .with_context(|| "Unable to validate the file")?;
+        Module::validate(&store, &module_contents)?;
         Ok(())
     }
 }

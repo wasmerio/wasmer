@@ -72,12 +72,14 @@ impl Run {
         cache_dir_root.push(compiler_name);
         Ok(FileSystemCache::new(cache_dir_root)?)
     }
-
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
+        self.inner_execute()
+            .context(format!("failed to run `{}`", self.path.display()))
+    }
+    fn inner_execute(&self) -> Result<()> {
         let (store, compiler_name) = self.compiler.get_store()?;
-        let contents = std::fs::read(self.path.clone())
-            .context(format!("Failed to run `{}`", self.path.display()))?;
+        let contents = std::fs::read(self.path.clone())?;
         // We try to get it from cache, in case caching is enabled
         // and the file length is greater than 4KB.
         // For files smaller than 4KB caching is not worth,
@@ -97,7 +99,7 @@ impl Run {
                     Err(e) => {
                         match e {
                             IoDeserializeError::Deserialize(e) => {
-                                eprintln!("Warning: Error while getting module from cache: {}", e);
+                                eprintln!("Warning: error while getting module from cache: {}", e);
                             }
                             IoDeserializeError::Io(_) => {
                                 // Do not notify on IO errors
@@ -122,7 +124,7 @@ impl Run {
             let instance = Instance::new(&module, &imports)?;
             let result = self
                 .invoke_function(&instance, &invoke, &self.args)
-                .with_context(|| format!("Failed to invoke `{}`", invoke))?;
+                .with_context(|| format!("failed to invoke `{}`", invoke))?;
             println!(
                 "{}",
                 result
