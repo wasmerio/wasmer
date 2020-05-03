@@ -9,7 +9,7 @@ use wasm_common::Features;
 use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::TrapInformation;
-use wasmer_compiler::{Compilation, CompileError, FunctionBody, Compiler};
+use wasmer_compiler::{Compilation, CompileError, Compiler, FunctionBody};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_runtime::Module;
 use wasmer_runtime::TrapCode;
