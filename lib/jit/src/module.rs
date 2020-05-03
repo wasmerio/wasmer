@@ -89,7 +89,7 @@ impl CompiledModule {
             function_relocations: compilation.get_relocations(),
             function_jt_offsets: compilation.get_jt_offsets(),
             function_frame_info: frame_infos,
-            custom_sections: PrimaryMap::new(),
+            custom_sections: compilation.get_custom_sections(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
