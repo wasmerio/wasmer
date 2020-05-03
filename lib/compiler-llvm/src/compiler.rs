@@ -12,7 +12,7 @@ use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
     Compilation, CompileError, CompiledFunction, Compiler, CompilerConfig, CustomSection,
     CustomSectionProtection, FunctionBody, FunctionBodyData, ModuleTranslationState, Relocation,
-    RelocationTarget, SectionIndex, Target, TrapInformation,
+    RelocationTarget, SectionBody, SectionIndex, Target, TrapInformation,
 };
 use wasmer_runtime::{MemoryPlan, Module, TablePlan, TrapCode};
 
@@ -71,7 +71,7 @@ impl Compiler for LLVMCompiler {
         let mut used_readonly_section = false;
         let mut readonly_section = CustomSection {
             protection: CustomSectionProtection::Read,
-            bytes: Vec::new(),
+            bytes: SectionBody::default(),
         };
 
         for (func_index, _) in &module.functions {
@@ -112,7 +112,7 @@ impl Compiler for LLVMCompiler {
                         }
                     };
                     let offset = section.bytes.len() as i64;
-                    section.bytes.extend(&custom_section.bytes);
+                    section.bytes.append(&custom_section.bytes);
                     // TODO: we're needlessly rescanning the whole list.
                     for local_relocation in &local_relocations {
                         if local_relocation.local_section_index == local_idx {
