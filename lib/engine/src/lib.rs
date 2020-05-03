@@ -35,9 +35,9 @@ pub use crate::error::{
 };
 pub use crate::module::CompiledModule;
 pub use crate::resolver::{resolve_imports, NullResolver, Resolver};
+pub use crate::serialize::SerializableFunctionFrameInfo;
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;
-pub use crate::serialize::SerializableFunctionFrameInfo;
 
 pub use wasmer_compiler::CompilerConfig;
 

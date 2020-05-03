@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::{CompileError, WasmError};
-use wasmer_engine::{CompiledModule, DeserializeError, Resolver, SerializeError};
+use wasmer_engine::{CompiledModule, DeserializeError, Engine, Resolver, SerializeError};
 use wasmer_runtime::InstanceHandle;
 
 #[derive(Error, Debug)]
@@ -173,8 +173,7 @@ impl Module {
         Ok(Self::from_compiled_module(store, compiled))
     }
 
-    fn from_compiled_module(store: &Store, compiled: Arc<CompiledModule>) -> Self
-    {
+    fn from_compiled_module(store: &Store, compiled: Arc<CompiledModule>) -> Self {
         Module {
             store: store.clone(),
             compiled,

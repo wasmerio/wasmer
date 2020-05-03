@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use wasmer_compiler::{FunctionBody, JumpTableOffsets, Relocation};
-use wasmer_runtime::Module;
-use wasmer_engine::SerializableFunctionFrameInfo;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{LocalFuncIndex, MemoryIndex, OwnedDataInitializer, TableIndex};
+use wasmer_compiler::{FunctionBody, JumpTableOffsets, Relocation};
+use wasmer_engine::SerializableFunctionFrameInfo;
+use wasmer_runtime::Module;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// The compilation related data for a serialized modules

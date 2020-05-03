@@ -13,9 +13,6 @@ use wasmer_runtime::{InstanceHandle, VMSharedSignatureIndex, VMTrampoline};
 /// This trait is used by implementors to implement custom engines,
 /// such as: JIT or Native.
 pub trait Engine {
-    /// The `CompiledModule` type
-    type Product: CompiledModule;
-
     /// Get the tunables
     fn tunables(&self) -> &Tunables;
 
@@ -32,18 +29,18 @@ pub trait Engine {
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError>;
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Self::Product, CompileError>;
+    fn compile(&self, binary: &[u8]) -> Result<Arc<CompiledModule>, CompileError>;
 
     /// Instantiates a WebAssembly module
     fn instantiate(
         &self,
-        compiled_module: &Arc<Self::Product>,
+        compiled_module: &Arc<CompiledModule>,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError>;
 
     /// Serializes a WebAssembly module
-    fn serialize(&self, compiled_module: &Arc<Self::Product>) -> Result<Vec<u8>, SerializeError>;
+    fn serialize(&self, compiled_module: &Arc<CompiledModule>) -> Result<Vec<u8>, SerializeError>;
 
     /// Deserializes a WebAssembly module
-    fn deserialize(&self, bytes: &[u8]) -> Result<Self::Product, DeserializeError>;
+    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<CompiledModule>, DeserializeError>;
 }

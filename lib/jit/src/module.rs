@@ -4,14 +4,8 @@
 //! steps.
 
 use crate::engine::{JITEngine, JITEngineInner};
-use wasmer_engine::{DeserializeError, SerializeError, InstantiationError, LinkError, SerializableFunctionFrameInfo,
-    resolve_imports, Resolver, register_frame_info, GlobalFrameInfoRegistration, RuntimeError,
-    CompiledModule as BaseCompiledModule
-};
 use crate::link::link_module;
-use crate::serialize::{
-    SerializableCompilation, SerializableModule,
-};
+use crate::serialize::{SerializableCompilation, SerializableModule};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
@@ -22,6 +16,11 @@ use wasm_common::{
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::ModuleEnvironment;
+use wasmer_engine::{
+    register_frame_info, resolve_imports, CompiledModule as BaseCompiledModule, DeserializeError,
+    Engine, GlobalFrameInfoRegistration, InstantiationError, LinkError, Resolver, RuntimeError,
+    SerializableFunctionFrameInfo, SerializeError,
+};
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
     VMGlobalDefinition, VMSharedSignatureIndex,

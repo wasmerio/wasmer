@@ -1,23 +1,20 @@
 use crate::tunables::Tunables;
 use std::sync::Arc;
 use wasmer_compiler::CompilerConfig;
+use wasmer_engine::Engine;
 use wasmer_jit::JITEngine;
-
-pub type Engine = JITEngine;
 
 #[derive(Clone)]
 pub struct Store {
-    engine: Arc<Engine>,
+    engine: Arc<dyn Engine>,
 }
 
 impl Store {
-    pub fn new(engine: &Engine) -> Store {
-        Store {
-            engine: Arc::new(engine.clone()),
-        }
+    pub fn new(engine: Arc<dyn Engine>) -> Store {
+        Store { engine }
     }
 
-    pub fn engine(&self) -> &Engine {
+    pub fn engine(&self) -> &Arc<dyn Engine> {
         &self.engine
     }
 
@@ -75,7 +72,7 @@ impl Default for Store {
     fn default() -> Store {
         let config = Self::default_compiler_config();
         let tunables = Tunables::for_target(config.target().triple());
-        Store::new(&Engine::new(&config, tunables))
+        Store::new(Arc::new(JITEngine::new(&config, tunables)))
     }
 }
 

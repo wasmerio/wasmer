@@ -1,6 +1,5 @@
 //! JIT compilation.
 
-use wasmer_engine::{Engine, InstantiationError, Resolver, Tunables, DeserializeError, SerializeError, CompiledModule as BaseCompiledModule};
 use crate::{CodeMemory, CompiledModule};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -10,6 +9,10 @@ use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
     Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionBody,
     FunctionBodyData, ModuleTranslationState,
+};
+use wasmer_engine::{
+    CompiledModule as BaseCompiledModule, DeserializeError, Engine, InstantiationError, Resolver,
+    SerializeError, Tunables,
 };
 use wasmer_runtime::{
     InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
@@ -48,60 +51,62 @@ impl JITEngine {
     pub(crate) fn compiler_mut(&self) -> std::cell::RefMut<'_, JITEngineInner> {
         self.inner.borrow_mut()
     }
+}
 
-
+impl Engine for JITEngine {
     /// Get the tunables
-    pub fn tunables(&self) -> &dyn Tunables {
+    fn tunables(&self) -> &dyn Tunables {
         &**self.tunables
     }
-// }
-// impl Engine for JITEngine {
+
     /// Register a signature
-    pub fn register_signature(&self, func_type: &FuncType) -> VMSharedSignatureIndex {
+    fn register_signature(&self, func_type: &FuncType) -> VMSharedSignatureIndex {
         let compiler = self.compiler();
         compiler.signatures().register(func_type)
     }
 
     /// Lookup a signature
-    pub fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FuncType> {
+    fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FuncType> {
         let compiler = self.compiler();
         compiler.signatures().lookup(sig)
     }
 
     /// Retrieves a trampoline given a signature
-    pub fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
+    fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
         self.compiler().trampoline(sig)
     }
 
     /// Validates a WebAssembly module
-    pub fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
+    fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
         self.compiler().validate(binary)
     }
 
     /// Compile a WebAssembly binary
-    pub fn compile(&self, binary: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, CompileError> {
+    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, CompileError> {
         Ok(Arc::new(CompiledModule::new(&self, binary)?))
     }
 
     /// Instantiates a WebAssembly module
-    pub fn instantiate(
+    fn instantiate(
         &self,
         compiled_module: &Arc<dyn BaseCompiledModule>,
         resolver: &dyn Resolver,
-    ) -> Result<InstanceHandle, InstantiationError> 
-    {
+    ) -> Result<InstanceHandle, InstantiationError> {
         let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
         unsafe { compiled_module.instantiate(&self, resolver, Box::new(())) }
     }
 
     /// Serializes a WebAssembly module
-    pub fn serialize(&self, compiled_module: &Arc<dyn BaseCompiledModule>) -> Result<Vec<u8>, SerializeError> {
+    fn serialize(
+        &self,
+        compiled_module: &Arc<dyn BaseCompiledModule>,
+    ) -> Result<Vec<u8>, SerializeError> {
         let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
         compiled_module.serialize()
     }
 
     /// Deserializes a WebAssembly module
-    pub fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
+    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
         Ok(Arc::new(CompiledModule::deserialize(&self, bytes)?))
     }
 }

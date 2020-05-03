@@ -1,7 +1,7 @@
-use wasmer_jit::Resolver;
+use wasmer_engine::Resolver;
 use std::iter::FromIterator;
 
-pub struct IndexResolver {
+pub struct sIndexResolver {
     externs: Vec<Extern>,
 }
 impl Resolver for IndexResolver {

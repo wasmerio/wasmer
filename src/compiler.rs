@@ -5,6 +5,7 @@ use crate::common::WasmFeatures;
 use anyhow::{bail, Error, Result};
 use std::str::FromStr;
 use std::string::ToString;
+use std::sync::Arc;
 use structopt::StructOpt;
 use wasmer::*;
 
@@ -127,8 +128,8 @@ impl CompilerOptions {
         let compiler_name = compiler.to_string();
         let compiler_config = self.get_config(compiler)?;
         let tunables = Tunables::for_target(compiler_config.target().triple());
-        let engine = Engine::new(&*compiler_config, tunables);
-        let store = Store::new(&engine);
+        let engine = JITEngine::new(&*compiler_config, tunables);
+        let store = Store::new(Arc::new(engine));
         Ok((store, compiler_name))
     }
 }

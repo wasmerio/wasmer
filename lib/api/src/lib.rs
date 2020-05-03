@@ -19,7 +19,7 @@ pub use crate::instance::Instance;
 pub use crate::memory_view::MemoryView;
 pub use crate::module::Module;
 pub use crate::ptr::{Array, Item, WasmPtr};
-pub use crate::store::{Engine, Store, StoreObject};
+pub use crate::store::{Store, StoreObject};
 pub use crate::tunables::Tunables;
 pub use crate::types::{
     AnyRef, ExportType, ExternType, FuncType, GlobalType, HostInfo, HostRef, ImportType,
@@ -29,8 +29,9 @@ pub use crate::types::{
 pub use wasm_common::{ValueType, WasmExternType, WasmTypeList};
 pub use wasmer_compiler::{CompilerConfig, Features, Target};
 pub use wasmer_engine::{
-    DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
+    DeserializeError, Engine, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
+pub use wasmer_jit::JITEngine;
 
 #[cfg(feature = "compiler-singlepass")]
 pub use wasmer_compiler_singlepass::SinglepassConfig;
