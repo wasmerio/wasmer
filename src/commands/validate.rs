@@ -1,4 +1,4 @@
-use crate::compiler::CompilerOptions;
+use crate::store::StoreOptions;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -12,7 +12,7 @@ pub struct Validate {
     path: PathBuf,
 
     #[structopt(flatten)]
-    compiler: CompilerOptions,
+    compiler: StoreOptions,
 }
 
 impl Validate {

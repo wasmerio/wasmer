@@ -11,7 +11,7 @@ use wasmer::*;
 
 #[derive(Debug, Clone, StructOpt)]
 /// The compiler options
-pub struct CompilerOptions {
+pub struct StoreOptions {
     /// Use Singlepass compiler
     #[structopt(long, conflicts_with_all = &["cranelift", "llvm", "backend"])]
     singlepass: bool,
@@ -63,7 +63,7 @@ impl FromStr for Compiler {
     }
 }
 
-impl CompilerOptions {
+impl StoreOptions {
     fn get_compiler(&self) -> Result<Compiler> {
         if self.cranelift {
             return Ok(Compiler::Cranelift);
