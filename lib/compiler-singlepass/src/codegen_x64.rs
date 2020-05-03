@@ -40,10 +40,10 @@ pub struct FuncGen<'a> {
     config: &'a SinglepassConfig,
 
     // Memory plans.
-    memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
+    memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
 
     // Table plans.
-    table_plans: PrimaryMap<TableIndex, TablePlan>,
+    table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
 
     /// Function signature.
     signature: FuncType,
@@ -59,7 +59,7 @@ pub struct FuncGen<'a> {
     /// Memory locations of local variables.
     locals: Vec<Location>,
 
-    /// Types of local variables.
+    /// Types of local variables, including arguments.
     local_types: Vec<WpType>,
 
     /// Value stack.
@@ -1610,8 +1610,102 @@ impl<'a> FuncGen<'a> {
         id
     }
 
+    fn emit_head(
+        &mut self
+    ) -> Result<(), CodegenError> {
+        // TODO: Patchpoint is not emitted for now, and ARM trampoline is not prepended.
 
-    fn feed_operator(
+        // Normal x86 entry prologue.
+        self.assembler.emit_push(Size::S64, Location::GPR(GPR::RBP));
+        self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
+
+        // Initialize locals.
+        self.locals = self.machine.init_locals(&mut self.assembler, self.local_types.len(), self.signature.params().len());
+
+        // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
+        self.machine.state.register_values
+            [X64Register::GPR(Machine::get_vmctx_reg()).to_index().0] = MachineValue::Vmctx;
+
+        // TODO: Explicit stack check is not supported for now.
+        let diff = self.machine.state.diff(&new_machine_state());
+        let state_diff_id = self.fsm.diffs.len();
+        self.fsm.diffs.push(diff);
+
+        //println!("initial state = {:?}", self.machine.state);
+
+        self.assembler.emit_sub(Size::S64, Location::Imm32(32), Location::GPR(GPR::RSP)); // simulate "red zone" if not supported by the platform
+
+        self.control_stack.push(ControlFrame {
+            label: self.assembler.get_label(),
+            loop_like: false,
+            if_else: IfElseState::None,
+            returns: self.signature.results().iter().map(|&x| type_to_wp_type(x)).collect(),
+            value_stack_depth: 0,
+            fp_stack_depth: 0,
+            state: self.machine.state.clone(),
+            state_diff_id,
+        });
+
+        // TODO: Full preemption by explicit signal checking
+
+        if self.machine.state.wasm_inst_offset != usize::MAX {
+            return Err(CodegenError {
+                message: format!("emit_head: wasm_inst_offset not usize::MAX"),
+            });
+        }
+        Ok(())
+    }
+
+    pub fn new(
+        module: &'a Module,
+        config: &'a SinglepassConfig,
+        memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
+        table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
+        local_func_index: LocalFuncIndex,
+        local_types_excluding_arguments: &[WpType],
+    ) -> Result<FuncGen<'a>, CodegenError> {
+        let func_index = FuncIndex::new(module.num_imported_funcs + local_func_index.index());
+        let sig_index = module.functions[func_index];
+        let signature = module.signatures[sig_index].clone();
+
+        let mut local_types: Vec<_> = signature.params().iter().map(|&x| type_to_wp_type(x)).collect();
+        local_types.extend_from_slice(&local_types_excluding_arguments);
+        
+        let fsm = FunctionStateMap::new(
+            new_machine_state(),
+            local_func_index.index() as usize,
+            32,
+            (0..local_types.len())
+                .map(|_| WasmAbstractValue::Runtime)
+                .collect(),
+        );
+
+        let mut fg = FuncGen {
+            module,
+            config,
+            memory_plans,
+            table_plans,
+            signature,
+            assembler: Assembler::new().unwrap(),
+            locals: vec![], // initialization deferred to emit_head
+            local_types,
+            value_stack: vec![],
+            fp_stack: vec![],
+            control_stack: vec![],
+            machine: Machine::new(),
+            unreachable_depth: 0,
+            fsm,
+            trap_table: TrapTable::default(),
+        };
+        fg.emit_head()?;
+        Ok(fg)
+    }
+
+    pub fn has_control_frames(&self) -> bool {
+        self.control_stack.len() > 0
+    }
+
+    pub fn feed_operator(
         &mut self,
         op: Operator,
     ) -> Result<(), CodegenError> {
@@ -8381,6 +8475,21 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::V128 => WpType::V128,
         Type::AnyRef => WpType::AnyRef,
         Type::FuncRef => WpType::AnyFunc, // TODO: AnyFunc or Func?
+    }
+}
+
+fn wp_type_to_type(ty: WpType) -> Result<Type, CodegenError> {
+    match ty {
+        WpType::I32 => Ok(Type::I32),
+        WpType::I64 => Ok(Type::I64),
+        WpType::F32 => Ok(Type::F32),
+        WpType::F64 => Ok(Type::F64),
+        WpType::V128 => Ok(Type::V128),
+        _ => {
+            return Err(CodegenError {
+                message: "broken invariant, invalid type".to_string(),
+            });
+        }
     }
 }
 

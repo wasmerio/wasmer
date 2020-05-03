@@ -14,6 +14,8 @@ use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_runtime::Module;
 use wasmer_runtime::TrapCode;
 use wasmer_runtime::{MemoryPlan, TablePlan};
+use crate::codegen_x64::{FuncGen, CodegenError};
+use wasmer_compiler::wasmparser::{BinaryReader, BinaryReaderError};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
@@ -50,19 +52,53 @@ impl Compiler for SinglepassCompiler {
     /// associated relocations.
     fn compile_module(
         &self,
-        _module: &Module,
-        _module_translation: &ModuleTranslationState,
-        _function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'_>>,
-        _memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        _table_plans: PrimaryMap<TableIndex, TablePlan>,
+        module: &Module,
+        module_translation: &ModuleTranslationState,
+        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'_>>,
+        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
+        table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
-        // Note to implementors: please use rayon paralell iterator to generate
-        // the machine code in parallel.
-        // Here's an example on how Cranelift is doing it:
-        // https://github.com/wasmerio/wasmer-reborn/blob/master/lib/compiler-cranelift/src/compiler.rs#L202-L267
-        Err(CompileError::Codegen(
-            "Singlepass compilation not supported yet".to_owned(),
-        ))
+        let functions = function_body_inputs
+            .into_iter()
+            .collect::<Vec<(LocalFuncIndex, &FunctionBodyData<'_>)>>()
+            .par_iter()
+            .map(|(i, input)| {
+                let mut reader = BinaryReader::new_with_offset(input.data, input.module_offset);
+
+                // This local list excludes arguments.
+                let mut locals = vec![];
+                let num_locals = reader.read_local_count().map_err(to_compile_error)?;
+                for _ in 0..num_locals {
+                    let mut counter = 0;
+                    let (_count, ty) = reader
+                        .read_local_decl(&mut counter)
+                        .map_err(to_compile_error)?;
+                    for _ in 0.._count {
+                        locals.push(ty);
+                    }
+                }
+
+                let mut generator = FuncGen::new(
+                    module,
+                    &self.config,
+                    &memory_plans,
+                    &table_plans,
+                    *i,
+                    &locals,
+                ).map_err(to_compile_error)?;
+
+                while generator.has_control_frames() {
+                    let op = reader.read_operator().map_err(to_compile_error)?;
+                    generator.feed_operator(op).map_err(to_compile_error)?;
+                }
+
+                Ok(unimplemented!())
+            })
+            .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
+            .into_iter()
+            .collect::<PrimaryMap<LocalFuncIndex, CompiledFunction>>();
+
+        Ok(Compilation::new(functions))
     }
 
     fn compile_wasm_trampolines(
@@ -74,4 +110,28 @@ impl Compiler for SinglepassCompiler {
             "Singlepass trampoline compilation not supported yet".to_owned(),
         ))
     }
+}
+
+trait ToCompileError {
+    fn to_compile_error(self) -> CompileError;
+}
+
+impl ToCompileError for BinaryReaderError {
+    fn to_compile_error(self) -> CompileError {
+        CompileError::Codegen(
+            self.message().into()
+        )
+    }
+}
+
+impl ToCompileError for CodegenError {
+    fn to_compile_error(self) -> CompileError {
+        CompileError::Codegen(
+            self.message
+        )
+    }
+}
+
+fn to_compile_error<T: ToCompileError>(x: T) -> CompileError {
+    x.to_compile_error()
 }
