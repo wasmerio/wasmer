@@ -20,13 +20,13 @@ publish = false
 autoexamples = false
 
 [dependencies]
-wasmer = { path = "lib/api" }
+wasmer = { path = "lib/api", default-features = false }
 wasmer-compiler = { path = "lib/compiler" }
 wasmer-compiler-cranelift = { path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { path = "lib/compiler-llvm", optional = true }
 wasmer-engine = { path = "lib/engine" }
-wasmer-engine-jit = { path = "lib/engine-jit" }
+wasmer-engine-jit = { path = "lib/engine-jit", optional = true }
 wasmer-wasi = { path = "lib/wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
 wasmer-wast = { path = "tests/lib/wast", optional = true }
@@ -48,16 +48,21 @@ rustc_version = "0.2"
 [dev-dependencies]
 anyhow = "1.0.28"
 test-utils = { path = "tests/lib/test-utils" }
-wasmer = { path = "lib/api" }
-wasmer-compiler = { path = "lib/compiler" }
-wasmer-engine-jit = { path = "lib/engine-jit" }
-wasmer-wast = { path = "tests/lib/wast" }
+# wasmer = { path = "lib/api" }
+# wasmer-compiler = { path = "lib/compiler" }
+# wasmer-engine-jit = { path = "lib/engine-jit" }
+# wasmer-wast = { path = "tests/lib/wast" }
 
 [features]
 # Don't add the backend features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
 # default = ["wasi"]
-default = ["wast", "wasi", "experimental-io-devices", "compiler-cranelift", "cache"]
+default = ["wast", "wasi", "wat", "experimental-io-devices", "compiler-cranelift", "cache", "engine-jit"]
+wat = ["wasmer/wat"]
+engine-jit = [
+    "wasmer-engine-jit",
+    "wasmer/engine-jit",
+]
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
