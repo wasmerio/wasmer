@@ -64,7 +64,7 @@ pub use crate::function::{
 };
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
 pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};
-pub use crate::section::{CustomSection, CustomSectionProtection, SectionIndex};
+pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};
 pub use crate::sourceloc::SourceLoc;
 pub use crate::translator::{
     to_wasm_error, translate_module, FunctionBodyData, ModuleEnvironment, ModuleTranslation,

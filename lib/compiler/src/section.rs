@@ -41,6 +41,31 @@ pub struct CustomSection {
     /// > (the start of the memory pointer).
     /// > We might need to create another field for alignment in case it's
     /// > needed in the future.
-    #[serde(with = "serde_bytes")]
-    pub bytes: Vec<u8>,
+    pub bytes: SectionBody,
+}
+
+/// The bytes in the section.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+pub struct SectionBody(#[serde(with = "serde_bytes")] Vec<u8>);
+
+impl SectionBody {
+    /// Extend the section with the bytes given.
+    pub fn extend(&mut self, contents: &[u8]) {
+        self.0.extend(contents);
+    }
+
+    /// Extends the section by appending bytes from another section.
+    pub fn append(&mut self, body: &SectionBody) {
+        self.0.extend(&body.0);
+    }
+
+    /// Returns a raw pointer to the section's buffer.
+    pub fn as_ptr(&self) -> *const u8 {
+        self.0.as_ptr()
+    }
+
+    /// Returns the length of this section in bytes.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }

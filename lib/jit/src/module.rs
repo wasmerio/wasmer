@@ -89,6 +89,7 @@ impl CompiledModule {
             function_relocations: compilation.get_relocations(),
             function_jt_offsets: compilation.get_jt_offsets(),
             function_frame_info: frame_infos,
+            custom_sections: compilation.get_custom_sections(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -136,6 +137,7 @@ impl CompiledModule {
             &finished_functions,
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
+            &serializable.compilation.custom_sections,
         );
 
         // Compute indices into the shared signature table.
