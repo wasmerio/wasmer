@@ -121,12 +121,23 @@ impl StoreOptions {
         return Ok(config);
     }
 
-    /// Get's the store
-    pub fn get_store(&self) -> Result<(Store, String)> {
+    /// Get's the compiler config
+    pub fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, String)> {
         let compiler = self.get_compiler()?;
         let compiler_name = compiler.to_string();
         let compiler_config = self.get_config(compiler)?;
-        let tunables = Tunables::for_target(compiler_config.target().triple());
+        Ok((compiler_config, compiler_name))
+    }
+
+    /// Get's the tunables for the compiler target
+    pub fn get_tunables(&self, compiler_config: &dyn CompilerConfig) -> Tunables {
+        Tunables::for_target(compiler_config.target().triple())
+    }
+
+    /// Get's the store
+    pub fn get_store(&self) -> Result<(Store, String)> {
+        let (compiler_config, compiler_name) = self.get_compiler_config()?;
+        let tunables = self.get_tunables(&*compiler_config);
         let engine = Engine::new(&*compiler_config, tunables);
         let store = Store::new(&engine);
         Ok((store, compiler_name))
