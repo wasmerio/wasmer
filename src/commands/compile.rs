@@ -1,4 +1,4 @@
-use crate::compiler::CompilerOptions;
+use crate::store::StoreOptions;
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::PathBuf;
@@ -17,7 +17,7 @@ pub struct Compile {
     output: PathBuf,
 
     #[structopt(flatten)]
-    compiler: CompilerOptions,
+    compiler: StoreOptions,
 }
 
 impl Compile {

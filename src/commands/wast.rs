@@ -1,5 +1,5 @@
 //! Runs a .wast WebAssembly test suites
-use crate::compiler::CompilerOptions;
+use crate::store::StoreOptions;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -13,7 +13,7 @@ pub struct Wast {
     path: PathBuf,
 
     #[structopt(flatten)]
-    compiler: CompilerOptions,
+    compiler: StoreOptions,
 
     #[structopt(short, long)]
     /// A flag to indicate wast stop at the first error or continue.

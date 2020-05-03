@@ -1,5 +1,5 @@
 use crate::common::get_cache_dir;
-use crate::compiler::CompilerOptions;
+use crate::store::StoreOptions;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -43,7 +43,7 @@ pub struct Run {
     cache_key: Option<String>,
 
     #[structopt(flatten)]
-    compiler: CompilerOptions,
+    compiler: StoreOptions,
 
     #[cfg(feature = "wasi")]
     #[structopt(flatten)]
