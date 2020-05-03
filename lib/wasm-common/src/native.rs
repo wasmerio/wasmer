@@ -357,16 +357,15 @@ impl WasmTypeList for Infallible {
 macro_rules! impl_traits {
     ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
         /// Struct for typed funcs.
-        #[derive(Debug)]
         #[repr($repr)]
-        pub struct $struct_name< $( $x ),* > ( $( $x ),* )
+        pub struct $struct_name< $( $x ),* > ( $( <$x as WasmExternType>::Native ),* )
         where
-            $( $x: NativeWasmType ),*;
+            $( $x: WasmExternType ),*;
 
         #[allow(unused_parens, dead_code)]
         impl< $( $x ),* > WasmTypeList for ( $( $x ),* )
         where
-            $( $x: NativeWasmType ),*
+            $( $x: WasmExternType ),*
         {
             type CStruct = $struct_name<$( $x ),*>;
 
@@ -394,42 +393,42 @@ macro_rules! impl_traits {
                 #[allow(non_snake_case)]
                 let $struct_name ( $( $x ),* ) = c_struct;
 
-                ( $( $x ),* )
+                ( $( WasmExternType::from_native($x) ),* )
             }
 
             #[allow(unused_parens, non_snake_case)]
             fn into_c_struct(self) -> Self::CStruct {
                 let ( $( $x ),* ) = self;
 
-                $struct_name ( $( $x ),* )
+                $struct_name ( $( WasmExternType::to_native($x) ),* )
             }
 
             fn wasm_types() -> &'static [Type] {
-                &[$( $x::WASM_TYPE ),*]
+                &[$( $x::Native::WASM_TYPE ),*]
             }
         }
 
         #[allow(unused_parens)]
         impl< $( $x, )* Rets, FN > HostFunction<( $( $x ),* ), Rets, WithoutEnv, ()> for FN
         where
-            $( $x: NativeWasmType, )*
+            $( $x: WasmExternType, )*
             Rets: WasmTypeList,
             FN: Fn($( $x , )*) -> Rets + 'static + Send
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
                 // unimplemented!("");
-                extern fn wrap<$( $x, )* Rets, FN>( _: usize, _: usize, $($x: $x::Abi, )* ) -> Rets::CStruct
+                extern fn wrap<$( $x, )* Rets, FN>( _: usize, _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
                 where
                     Rets: WasmTypeList,
-                    $($x: NativeWasmType,)*
+                    $($x: WasmExternType,)*
                     FN: Fn( $( $x ),* ) -> Rets + 'static
                 {
                     // println!("WRAP");
                     // println!("Struct {:?}", (($( $x ),*) as WasmTypeList).into_c_struct());
                     // $( println!("X: {:?}", $x); )*
                     let f: &FN = unsafe { std::mem::transmute(&()) };
-                    f( $( $x::from_abi($x) ),* ).into_c_struct()
+                    f( $( WasmExternType::from_native($x) ),* ).into_c_struct()
                 }
                 wrap::<$( $x, )* Rets, Self> as *const FunctionBody
 
@@ -488,67 +487,27 @@ macro_rules! impl_traits {
             }
         }
 
-
         #[allow(unused_parens)]
         impl< $( $x, )* Rets, FN, T > HostFunction<( $( $x ),* ), Rets, WithEnv, T> for FN
         where
-            $( $x: NativeWasmType, )*
+            $( $x: WasmExternType, )*
             Rets: WasmTypeList,
             T: Sized,
             FN: Fn(&mut T, $( $x , )*) -> Rets + 'static + Send
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
-                extern fn wrap<$( $x, )* Rets, FN, T>( ctx: &mut T, _: usize, $($x: $x::Abi, )* ) -> Rets::CStruct
+                extern fn wrap<$( $x, )* Rets, FN, T>( ctx: &mut T, _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
                 where
                     Rets: WasmTypeList,
-                    $($x: NativeWasmType,)*
+                    $($x: WasmExternType,)*
                     T: Sized,
                     FN: Fn(&mut T, $( $x ),* ) -> Rets + 'static
                 {
                     let f: &FN = unsafe { std::mem::transmute(&()) };
-                    f(ctx, $( $x::from_abi($x) ),* ).into_c_struct()
+                    f(ctx, $( WasmExternType::from_native($x) ),* ).into_c_struct()
                 }
                 wrap::<$( $x, )* Rets, Self, T> as *const FunctionBody
-            }
-        }
-
-        // Add call(args: &[u128], results: &mut [u128])
-        // And call_checked(func_type, args: &[], results: &mut [])
-
-        #[allow(unused_parens, dead_code)]
-        impl<$( $x, )* Rets> Func<( $( $x ),* ), Rets>
-        where
-            $( $x: NativeWasmType, )*
-            Rets: WasmTypeList,
-        {
-            /// Call the typed func and return results.
-            // #[allow(non_snake_case, clippy::too_many_arguments)]
-            // pub fn call_native(&self, $( $x: $x, )* ) -> Result<Rets, ()> {
-            #[allow(non_snake_case, unused_parens, dead_code, clippy::too_many_arguments)]
-            pub fn call(&self, _args: <( $( $x ),* ) as WasmTypeList>::Array, _rets: &mut Rets::Array ) {
-                // Ok()
-                // let function = unsafe {
-                //     std::mem::transmute::<*const FunctionBody, fn($( $x ),* ) -> Rets::CStruct>(self.address)
-                // };
-                unimplemented!("Call is not yet implemented")
-                // if len(args) == 1 {
-                //     let results = function(args[0] as _);
-                // }
-                // rets[0] = results;
-                // panic!("Args! {:?}", args);
-                // let args = ( ($( $x ),*) ).into_array();
-                // let returns = <( $( $x ),* ) as WasmTypeList>::empty_array();
-                // println!("ARGS:{:?} RETURNS: {:?}", args, returns);
-                // // Ok(args)
-                // Err(())
-                // Ok( ( $( $x ),* ).into_c_struct() )
-                // #[allow(unused_parens)]
-                // unsafe {
-                //     <( $( $x ),* ) as WasmTypeList>::call(
-                //         ( $( $x ),* ),
-                //     )
-                // }
             }
         }
     };

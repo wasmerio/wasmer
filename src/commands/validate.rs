@@ -1,4 +1,4 @@
-use crate::compiler::CompilerOptions;
+use crate::store::StoreOptions;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -7,23 +7,25 @@ use wasmer::*;
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer validate` subcommand
 pub struct Validate {
-    /// Input file
-    #[structopt(parse(from_os_str))]
+    /// File to validate as WebAssembly
+    #[structopt(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     #[structopt(flatten)]
-    compiler: CompilerOptions,
+    compiler: StoreOptions,
 }
 
 impl Validate {
     /// Runs logic for the `validate` subcommand
     pub fn execute(&self) -> Result<()> {
-        let compiler_config = self.compiler.get_config()?;
-        let engine = Engine::new(&*compiler_config);
-        let store = Store::new(&engine);
+        self.inner_execute()
+            .context(format!("failed to validate `{}`", self.path.display()))
+    }
+    fn inner_execute(&self) -> Result<()> {
+        let (store, _compiler_name) = self.compiler.get_store()?;
         let module_contents = std::fs::read(&self.path)?;
-        Module::validate(&store, &module_contents)
-            .with_context(|| "Unable to validate the file")?;
+        Module::validate(&store, &module_contents)?;
+        eprintln!("Validation passed for `{}`.", self.path.display());
         Ok(())
     }
 }

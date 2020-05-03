@@ -231,7 +231,7 @@ fn set_table_item(
 impl Table {
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
-        let table = store.engine().create_table(&ty);
+        let table = store.engine().tunables().create_table(ty);
 
         let definition = table.vmtable();
         for i in 0..definition.current_elements {
@@ -310,7 +310,7 @@ impl Table {
             src_index,
             len,
         )
-        .map_err(|e| RuntimeError::from_jit(e))?;
+        .map_err(|e| RuntimeError::from_trap(e))?;
         Ok(())
     }
 
@@ -345,7 +345,7 @@ pub struct Memory {
 
 impl Memory {
     pub fn new(store: &Store, ty: MemoryType) -> Memory {
-        let memory = store.engine().create_memory(&ty).unwrap();
+        let memory = store.engine().tunables().create_memory(ty).unwrap();
         let definition = memory.vmmemory();
 
         Memory {
@@ -620,7 +620,7 @@ impl Func {
                 values_vec.as_mut_ptr() as *mut u8,
             )
         } {
-            return Err(RuntimeError::from_jit(error));
+            return Err(RuntimeError::from_trap(error));
         }
 
         // Load the return values out of `values_vec`.

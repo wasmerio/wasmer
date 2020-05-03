@@ -1,23 +1,11 @@
 use crate::config::LLVMConfig;
-use crate::translator::intrinsics::{func_type_to_llvm, type_to_llvm, Intrinsics};
+use crate::translator::intrinsics::{func_type_to_llvm, Intrinsics};
 use inkwell::{
-    context::Context,
-    module::{Linkage, Module},
-    passes::PassManager,
-    targets::FileType,
-    types::{BasicType, FunctionType},
-    values::FunctionValue,
-    AddressSpace,
+    context::Context, module::Linkage, passes::PassManager, targets::FileType, types::BasicType,
+    values::FunctionValue, AddressSpace,
 };
-use wasm_common::entity::SecondaryMap;
 use wasm_common::{FuncType, Type};
-use wasmer_compiler::{
-    Compilation, CompileError, CompiledFunction, CompiledFunctionUnwindInfo, Compiler,
-    FunctionAddressMap, SourceLoc,
-};
-
-use std::fs;
-use std::io::Write;
+use wasmer_compiler::{CompileError, CompiledFunctionUnwindInfo, FunctionBody};
 
 pub struct FuncTrampoline {
     ctx: Context,
@@ -34,7 +22,7 @@ impl FuncTrampoline {
         &mut self,
         ty: &FuncType,
         config: &LLVMConfig,
-    ) -> Result<CompiledFunction, CompileError> {
+    ) -> Result<FunctionBody, CompileError> {
         let mut module = self.ctx.create_module("");
         let target_triple = config.target_triple();
         let target_machine = config.target_machine();
@@ -81,8 +69,8 @@ impl FuncTrampoline {
             .write_to_memory_buffer(&mut module, FileType::Object)
             .unwrap();
 
-        // TODO: remove debugging
         /*
+        // TODO: remove debugging
         let mem_buf_slice = memory_buffer.as_slice();
         let mut file = fs::File::create("/home/nicholas/trampoline.o").unwrap();
         let mut pos = 0;
@@ -100,26 +88,16 @@ impl FuncTrampoline {
             if section.get_name().map(std::ffi::CStr::to_bytes)
                 == Some("wasmer_trampoline".as_bytes())
             {
-                bytes.extend(section.get_contents().to_bytes());
+                bytes.extend(section.get_contents().to_vec());
                 break;
             }
         }
+        // TODO: remove debugging
+        //dbg!(&bytes);
 
-        let address_map = FunctionAddressMap {
-            instructions: vec![],
-            start_srcloc: SourceLoc::default(),
-            end_srcloc: SourceLoc::default(),
-            body_offset: 0,
-            body_len: 0, // TODO
-        };
-
-        Ok(CompiledFunction {
-            address_map,
+        Ok(FunctionBody {
             body: bytes,
-            jt_offsets: SecondaryMap::new(),
             unwind_info: CompiledFunctionUnwindInfo::None,
-            relocations: vec![],
-            traps: vec![],
         })
     }
 }
@@ -133,6 +111,14 @@ fn generate_trampoline<'ctx>(
     let entry_block = context.append_basic_block(trampoline_func, "entry");
     let builder = context.create_builder();
     builder.position_at_end(entry_block);
+
+    /*
+    // TODO: remove debugging
+    builder.build_call(
+        intrinsics.debug_trap,
+        &[],
+        "");
+    */
 
     let (callee_vmctx_ptr, caller_vmctx_ptr, func_ptr, args_rets_ptr) =
         match trampoline_func.get_params().as_slice() {

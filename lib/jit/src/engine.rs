@@ -9,57 +9,60 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, MemoryType, TableIndex, TableType};
+use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
-    Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionAddressMap,
-    FunctionBodyData, JumpTableOffsets, ModuleTranslationState, Relocations, TrapInformation,
+    Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionBody,
+    FunctionBodyData, ModuleTranslationState, Target,
 };
 use wasmer_runtime::{
-    InstanceHandle, LinearMemory, MemoryPlan, Module, SignatureRegistry, Table, TablePlan,
-    VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
+#[derive(Clone)]
 pub struct JITEngine {
     inner: Arc<RefCell<JITEngineInner>>,
+    tunables: Arc<Box<dyn Tunables>>,
 }
 
 impl JITEngine {
+    const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
+
     /// Create a new JIT Engine given config
-    pub fn new<T: CompilerConfig>(config: &T) -> Self
+    pub fn new<C: CompilerConfig>(config: &C, tunables: impl Tunables + 'static) -> Self
     where
-        T: ?Sized,
+        C: ?Sized,
     {
         let compiler = config.compiler();
-        let tunables = Tunables::for_target(compiler.target().triple());
-
         Self {
             inner: Arc::new(RefCell::new(JITEngineInner {
                 compiler,
-                tunables,
                 trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
             })),
+            tunables: Arc::new(Box::new(tunables)),
         }
     }
 
-    fn compiler(&self) -> std::cell::Ref<'_, JITEngineInner> {
+    /// Get the tunables
+    pub fn tunables(&self) -> &dyn Tunables {
+        &**self.tunables
+    }
+
+    pub(crate) fn compiler(&self) -> std::cell::Ref<'_, JITEngineInner> {
         self.inner.borrow()
     }
 
-    fn compiler_mut(&self) -> std::cell::RefMut<'_, JITEngineInner> {
+    pub(crate) fn compiler_mut(&self) -> std::cell::RefMut<'_, JITEngineInner> {
         self.inner.borrow_mut()
     }
 
-    /// Creates a memory
-    pub fn create_memory(&self, memory_type: &MemoryType) -> Result<LinearMemory, String> {
-        self.compiler().create_memory(memory_type)
-    }
-
-    /// Creates a table
-    pub fn create_table(&self, table_type: &TableType) -> Table {
-        self.compiler().create_table(table_type)
+    /// Check if the provided bytes look like a serialized
+    /// module by the `JITEngine` implementation.
+    pub fn is_deserializable(bytes: &[u8]) -> bool {
+        bytes.starts_with(Self::MAGIC_HEADER)
     }
 
     /// Register a signature
@@ -86,7 +89,7 @@ impl JITEngine {
 
     /// Compile a WebAssembly binary
     pub fn compile(&self, binary: &[u8]) -> Result<CompiledModule, CompileError> {
-        CompiledModule::new(&mut self.compiler_mut(), binary)
+        CompiledModule::new(&self, binary)
     }
 
     /// Instantiates a WebAssembly module
@@ -95,25 +98,28 @@ impl JITEngine {
         compiled_module: &CompiledModule,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
-        unsafe { compiled_module.instantiate(&self.compiler(), resolver, Box::new(())) }
+        unsafe { compiled_module.instantiate(&self, resolver, Box::new(())) }
     }
 
     /// Serializes a WebAssembly module
     pub fn serialize(&self, compiled_module: &CompiledModule) -> Result<Vec<u8>, SerializeError> {
-        compiled_module.serialize()
+        // We append the header
+        let mut serialized = Self::MAGIC_HEADER.to_vec();
+        serialized.extend(compiled_module.serialize()?);
+        Ok(serialized)
     }
 
     /// Deserializes a WebAssembly module
     pub fn deserialize(&self, bytes: &[u8]) -> Result<CompiledModule, DeserializeError> {
-        CompiledModule::deserialize(&mut self.compiler_mut(), bytes)
-    }
-}
-
-impl Clone for JITEngine {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
+        if !Self::is_deserializable(bytes) {
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not wasmer-jit".to_string(),
+            ));
         }
+        Ok(CompiledModule::deserialize(
+            &self,
+            &bytes[Self::MAGIC_HEADER.len()..],
+        )?)
     }
 }
 
@@ -121,8 +127,6 @@ impl Clone for JITEngine {
 pub struct JITEngineInner {
     /// The compiler
     compiler: Box<dyn BaseCompiler>,
-    /// The tunable values
-    tunables: Tunables,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The code memory is responsible of publishing the compiled
@@ -134,11 +138,6 @@ pub struct JITEngineInner {
 }
 
 impl JITEngineInner {
-    /// Return the tunables in use by this engine.
-    pub fn tunables(&self) -> &Tunables {
-        &self.tunables
-    }
-
     /// Gets the compiler associated to this JIT
     pub fn compiler(&self) -> &dyn BaseCompiler {
         &*self.compiler
@@ -151,7 +150,7 @@ impl JITEngineInner {
 
     /// Compile the given function bodies.
     pub(crate) fn compile_module<'data>(
-        &mut self,
+        &self,
         module: &Module,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
@@ -171,25 +170,13 @@ impl JITEngineInner {
     pub(crate) fn compile<'data>(
         &mut self,
         module: &Module,
-        compilation: &Compilation,
-    ) -> Result<
-        (
-            PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>,
-            PrimaryMap<LocalFuncIndex, JumpTableOffsets>,
-            Relocations,
-            PrimaryMap<LocalFuncIndex, Vec<TrapInformation>>,
-            PrimaryMap<LocalFuncIndex, FunctionAddressMap>,
-        ),
-        CompileError,
-    > {
-        let relocations = compilation.get_relocations();
-        let traps = compilation.get_traps();
-
+        functions: &PrimaryMap<LocalFuncIndex, FunctionBody>,
+    ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, CompileError> {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
         let allocated_functions =
             self.code_memory
-                .allocate_functions(&compilation)
+                .allocate_functions(&functions)
                 .map_err(|message| {
                     CompileError::Resource(format!(
                         "failed to allocate memory for functions: {}",
@@ -220,46 +207,14 @@ impl JITEngineInner {
         {
             let ptr = self
                 .code_memory
-                .allocate_for_function(compiled_function)
+                .allocate_for_function(&compiled_function)
                 .map_err(|message| CompileError::Resource(message))?
                 .as_ptr();
             let trampoline =
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
             self.trampolines.insert(*index, trampoline);
         }
-
-        let jt_offsets = compilation.get_jt_offsets();
-        let address_maps = compilation.get_address_maps();
-
-        Ok((
-            allocated_functions,
-            jt_offsets,
-            relocations,
-            traps,
-            address_maps,
-        ))
-    }
-
-    /// Make a memory plan given a memory type
-    pub(crate) fn make_memory_plan(&self, memory_type: &MemoryType) -> MemoryPlan {
-        self.tunables().memory_plan(memory_type.clone())
-    }
-
-    /// Make a memory plan given a memory type
-    pub(crate) fn make_table_plan(&self, table_type: &TableType) -> TablePlan {
-        self.tunables().table_plan(table_type.clone())
-    }
-
-    /// Create a memory given a memory type
-    pub fn create_memory(&self, memory_type: &MemoryType) -> Result<LinearMemory, String> {
-        let plan = self.make_memory_plan(memory_type);
-        LinearMemory::new(&plan)
-    }
-
-    /// Create a memory given a memory type
-    pub fn create_table(&self, table_type: &TableType) -> Table {
-        let plan = self.make_table_plan(table_type);
-        Table::new(&plan)
+        Ok(allocated_functions)
     }
 
     /// Make memory containing compiled code executable.

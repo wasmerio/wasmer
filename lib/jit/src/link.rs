@@ -19,26 +19,21 @@ pub fn link_module(
     for (i, function_relocs) in relocations.into_iter() {
         for r in function_relocs {
             let target_func_address: usize = match r.reloc_target {
-                RelocationTarget::UserFunc(index) => match module.local_func_index(index) {
-                    Some(f) => {
-                        let fatptr: *const [VMFunctionBody] = allocated_functions[f];
-                        fatptr as *const VMFunctionBody as usize
-                    }
-                    None => panic!("direct call to import"),
-                },
+                RelocationTarget::LocalFunc(index) => {
+                    let fatptr: *const [VMFunctionBody] = allocated_functions[index];
+                    fatptr as *const VMFunctionBody as usize
+                }
                 RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
+                RelocationTarget::CustomSection(_custom_section) => {
+                    unimplemented!("Custom Sections not yet implemented");
+                }
                 RelocationTarget::JumpTable(func_index, jt) => {
-                    match module.local_func_index(func_index) {
-                        Some(f) => {
-                            let offset = *jt_offsets
-                                .get(f)
-                                .and_then(|ofs| ofs.get(JumpTable::new(jt.index())))
-                                .expect("func jump table");
-                            let fatptr: *const [VMFunctionBody] = allocated_functions[f];
-                            fatptr as *const VMFunctionBody as usize + offset as usize
-                        }
-                        None => panic!("func index of jump table"),
-                    }
+                    let offset = *jt_offsets
+                        .get(func_index)
+                        .and_then(|ofs| ofs.get(JumpTable::new(jt.index())))
+                        .expect("func jump table");
+                    let fatptr: *const [VMFunctionBody] = allocated_functions[func_index];
+                    fatptr as *const VMFunctionBody as usize + offset as usize
                 }
             };
 
@@ -66,7 +61,12 @@ pub fn link_module(
                 },
                 #[cfg(target_pointer_width = "32")]
                 RelocationKind::X86CallPCRel4 => {
-                    // ignore
+                    let reloc_address = body.add(r.offset as usize) as usize;
+                    let reloc_addend = r.addend as isize;
+                    let reloc_delta_u32 = (target_func_address as u32)
+                        .wrapping_sub(reloc_address as u32)
+                        .wrapping_add(reloc_addend as u32);
+                    write_unaligned(reloc_address as *mut u32, reloc_delta_u32);
                 }
                 RelocationKind::X86PCRelRodata4 => {
                     // ignore

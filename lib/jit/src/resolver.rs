@@ -110,7 +110,7 @@ pub fn resolve_imports(
                 return Err(LinkError::Import(
                     module_name.to_string(),
                     field.to_string(),
-                    ImportError::Unknown(import_extern),
+                    ImportError::UnknownImport(import_extern),
                 ));
             }
             Some(r) => r,

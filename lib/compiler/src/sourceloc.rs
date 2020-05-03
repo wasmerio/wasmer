@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 /// The default source location uses the all-ones bit pattern `!0`. It is used for instructions
 /// that can't be given a real source location.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+#[repr(transparent)]
 pub struct SourceLoc(u32);
 
 impl SourceLoc {
@@ -50,6 +52,7 @@ impl fmt::Display for SourceLoc {
 #[cfg(test)]
 mod tests {
     use super::SourceLoc;
+    use crate::std::string::ToString;
 
     #[test]
     fn display() {

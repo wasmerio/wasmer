@@ -12,7 +12,7 @@ use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
-use log::info;
+use tracing::info;
 use wasmer_compiler::wasmparser::{self, BinaryReader};
 use wasmer_compiler::{to_wasm_error, wasm_unsupported, ModuleTranslationState, WasmResult};
 

@@ -1,11 +1,13 @@
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
+use crate::InstantiationError;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::{CompileError, WasmError};
-use wasmer_jit::{CompiledModule, DeserializeError, SerializeError};
+use wasmer_jit::{CompiledModule, DeserializeError, Resolver, SerializeError};
+use wasmer_runtime::InstanceHandle;
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -67,28 +69,18 @@ impl Module {
     /// let module = Module::new(&store, bytes)?;
     /// ```
     pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Module, CompileError> {
-        // We try to parse it with WAT: it will be a no-op on
-        // wasm files.
-        if bytes.as_ref().starts_with(b"\0asm") {
+        #[cfg(feature = "wat")]
+        {
+            let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+                CompileError::Wasm(WasmError::Generic(format!(
+                    "Error when converting wat: {}",
+                    e
+                )))
+            })?;
             return Module::from_binary(store, bytes.as_ref());
         }
 
-        #[cfg(feature = "wat")]
-        {
-            let bytes = wat::parse_bytes(bytes.as_ref())
-                .map_err(|e| CompileError::Wasm(WasmError::Generic(format!("{}", e))))?;
-            // We can assume the binary is valid WebAssembly if returned
-            // without errors from from wat. However, by skipping validation
-            // we are not checking if it's using WebAssembly features not enabled
-            // in the store.
-            // This is a good tradeoff, as we can assume the "wat" feature is only
-            // going to be used in development mode.
-            return unsafe { Module::from_binary_unchecked(store, bytes.as_ref()) };
-        }
-
-        Err(CompileError::Validate(
-            "The module is not a valid WebAssembly file.".to_string(),
-        ))
+        Module::from_binary(store, bytes.as_ref())
     }
 
     pub fn from_file(store: &Store, file: impl AsRef<Path>) -> Result<Module, IoCompileError> {
@@ -153,7 +145,7 @@ impl Module {
     /// let serialized = module.serialize()?;
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.store.engine().serialize(self.compiled_module())
+        self.store.engine().serialize(&self.compiled)
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
@@ -188,8 +180,11 @@ impl Module {
         }
     }
 
-    pub(crate) fn compiled_module(&self) -> &CompiledModule {
-        &self.compiled
+    pub(crate) fn instantiate(
+        &self,
+        resolver: &dyn Resolver,
+    ) -> Result<InstanceHandle, InstantiationError> {
+        self.store.engine().instantiate(&self.compiled, resolver)
     }
 
     /// Returns the name of the current module.
@@ -247,7 +242,7 @@ impl Module {
     /// }
     /// ```
     pub fn imports<'a>(&'a self) -> impl Iterator<Item = ImportType> + 'a {
-        self.compiled.module_ref().imports()
+        self.compiled.module().imports()
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -270,7 +265,7 @@ impl Module {
     /// }
     /// ```
     pub fn exports<'a>(&'a self) -> impl Iterator<Item = ExportType> + 'a {
-        self.compiled.module_ref().exports()
+        self.compiled.module().exports()
     }
 
     pub fn store(&self) -> &Store {

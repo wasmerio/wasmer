@@ -157,6 +157,9 @@ cfg_if::cfg_if! {
                 if #[cfg(all(target_os = "linux", target_arch = "x86_64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.gregs[libc::REG_RIP as usize] as *const u8
+                } else if #[cfg(all(target_os = "linux", target_arch = "x86"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.gregs[libc::REG_EIP as usize] as *const u8
                 } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
                     // libc doesn't seem to support Linux/aarch64 at the moment?
                     extern "C" {
@@ -251,7 +254,7 @@ cfg_if::cfg_if! {
 /// function needs to be called at the end of the startup process, after other
 /// handlers have been installed. This function can thus be called multiple
 /// times, having no effect after the first call.
-pub fn init() {
+pub fn init_traps() {
     static INIT: Once = Once::new();
     INIT.call_once(real_init);
 }
@@ -406,7 +409,7 @@ where
 {
     // Ensure that we have our sigaltstack installed.
     #[cfg(unix)]
-    setup_unix_sigaltstack()?;
+    setup_unix_signalstack()?;
 
     return CallThreadState::new(vmctx).with(|cx| {
         RegisterSetjmp(
@@ -625,7 +628,7 @@ mod tls {
 /// and registering our own alternate stack that is large enough and has a guard
 /// page.
 #[cfg(unix)]
-fn setup_unix_sigaltstack() -> Result<(), Trap> {
+fn setup_unix_signalstack() -> Result<(), Trap> {
     use std::cell::RefCell;
     use std::convert::TryInto;
     use std::ptr::null_mut;

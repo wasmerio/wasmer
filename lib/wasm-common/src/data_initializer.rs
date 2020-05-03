@@ -27,3 +27,24 @@ pub struct DataInitializer<'data> {
     /// The initialization data.
     pub data: &'data [u8],
 }
+
+/// As `DataInitializer` but owning the data rather than
+/// holding a reference to it
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OwnedDataInitializer {
+    /// The location where the initialization is to be performed.
+    pub location: DataInitializerLocation,
+
+    /// The initialization owned data.
+    pub data: Box<[u8]>,
+}
+
+impl OwnedDataInitializer {
+    /// Creates a new `OwnedDataInitializer` from a `DataInitializer`.
+    pub fn new(borrowed: &DataInitializer<'_>) -> Self {
+        Self {
+            location: borrowed.location.clone(),
+            data: borrowed.data.to_vec().into_boxed_slice(),
+        }
+    }
+}

@@ -5,7 +5,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::mem;
-use wasmer_runtime_core::types::ValueType;
+use wasmer::ValueType;
 
 pub type __wasi_advice_t = u8;
 pub const __WASI_ADVICE_NORMAL: u8 = 0;
@@ -704,7 +704,7 @@ pub const __WASI_WHENCE_END: u8 = 2;
 pub mod snapshot0 {
     use serde::{Deserialize, Serialize};
     pub type __wasi_linkcount_t = u32;
-    use wasmer_runtime_core::types::ValueType;
+    use wasmer::ValueType;
 
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]
     #[repr(C)]

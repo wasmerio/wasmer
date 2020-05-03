@@ -5,7 +5,7 @@ use crate::export::Export;
 use crate::imports::Imports;
 use crate::memory::LinearMemory;
 use crate::table::Table;
-use crate::trap::{catch_traps, init_traphandlers, Trap, TrapCode};
+use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
     VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex,
@@ -899,8 +899,7 @@ impl InstanceHandle {
         initialize_globals(instance);
 
         // Ensure that our signal handlers are ready for action.
-        // TODO: Move these calls out of `InstanceHandle`.
-        init_traphandlers();
+        init_traps();
 
         // The WebAssembly spec specifies that the start function is
         // invoked automatically at instantiation time.

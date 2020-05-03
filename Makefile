@@ -3,3 +3,6 @@ tests-spec-update-testsuite:
 
 test:
 	cargo test --release
+
+doc:
+	cargo doc --all-features --document-private-items

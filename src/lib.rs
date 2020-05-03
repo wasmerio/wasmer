@@ -15,7 +15,10 @@
 
 pub mod commands;
 pub mod common;
-pub mod compiler;
 #[cfg(feature = "debug")]
 pub mod logging;
+pub mod store;
 pub mod utils;
+
+/// Version number of this crate.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

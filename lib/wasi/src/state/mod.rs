@@ -19,6 +19,7 @@ mod types;
 pub use self::builder::*;
 pub use self::types::*;
 use crate::syscalls::types::*;
+use crate::WasiEnv;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 use serde::{Deserialize, Serialize};
@@ -31,7 +32,7 @@ use std::{
     path::{Path, PathBuf},
     time::SystemTime,
 };
-use wasmer_runtime_core::vm::Ctx;
+use tracing::debug;
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;
@@ -54,10 +55,10 @@ const STDERR_DEFAULT_RIGHTS: __wasi_rights_t = STDOUT_DEFAULT_RIGHTS;
 /// Get WasiState from a Ctx
 ///
 /// # Safety
-/// - This function must be called on a `Ctx` that was created with `WasiState`
+/// - This function must be called on a `WasiEnv` that was created with `WasiState`
 ///   in the data field
-pub unsafe fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
-    &mut *(ctx.data as *mut WasiState)
+pub unsafe fn get_wasi_state<'a>(env: &'a mut WasiEnv) -> &'a mut WasiState {
+    env.state_mut()
 }
 
 /// A completely aribtrary "big enough" number used as the upper limit for

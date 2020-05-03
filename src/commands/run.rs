@@ -1,10 +1,20 @@
-// use crate::common::get_cache_dir;
-use crate::compiler::CompilerOptions;
+use crate::common::get_cache_dir;
+use crate::store::StoreOptions;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Arc;
 use wasmer::*;
+#[cfg(feature = "cache")]
+use wasmer_cache::{Cache, FileSystemCache, IoDeserializeError, WasmHash};
 
 use structopt::StructOpt;
+
+#[cfg(feature = "wasi")]
+mod wasi;
+
+#[cfg(feature = "wasi")]
+use wasi::Wasi;
 
 #[derive(Debug, StructOpt, Clone)]
 /// The options for the `wasmer run` subcommand
@@ -13,8 +23,8 @@ pub struct Run {
     #[structopt(long = "disable-cache")]
     disable_cache: bool,
 
-    /// Input file
-    #[structopt(parse(from_os_str))]
+    /// File to run
+    #[structopt(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Invoke a specified function
@@ -34,13 +44,12 @@ pub struct Run {
     cache_key: Option<String>,
 
     #[structopt(flatten)]
-    compiler: CompilerOptions,
+    compiler: StoreOptions,
 
-    // #[structopt(flatten)]
-    // llvm: LLVMCLIOptions,
+    #[cfg(feature = "wasi")]
+    #[structopt(flatten)]
+    wasi: Wasi,
 
-    // #[structopt(flatten)]
-    // wasi: WasiOptions,
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "io-devices")]
     #[structopt(long = "enable-io-devices")]
@@ -57,19 +66,27 @@ pub struct Run {
 }
 
 impl Run {
+    #[cfg(feature = "cache")]
+    /// Get the Compiler Filesystem cache
+    fn get_cache(&self, compiler_name: String) -> Result<FileSystemCache> {
+        let mut cache_dir_root = get_cache_dir();
+        cache_dir_root.push(compiler_name);
+        Ok(FileSystemCache::new(cache_dir_root)?)
+    }
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
-        let compiler_config = self.compiler.get_config()?;
-        let engine = Engine::new(&*compiler_config);
-        let store = Store::new(&engine);
-        let module = Module::from_file(&store, &self.path)?;
-        let imports = imports! {};
-        let instance = Instance::new(&module, &imports)?;
-
+        self.inner_execute()
+            .context(format!("failed to run `{}`", self.path.display()))
+    }
+    fn inner_execute(&self) -> Result<()> {
+        let module = self.get_module()?;
+        // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
+            let imports = imports! {};
+            let instance = Instance::new(&module, &imports)?;
             let result = self
                 .invoke_function(&instance, &invoke, &self.args)
-                .with_context(|| format!("Failed to invoke `{}`", invoke))?;
+                .with_context(|| format!("failed to invoke `{}`", invoke))?;
             println!(
                 "{}",
                 result
@@ -81,10 +98,84 @@ impl Run {
             return Ok(());
         }
 
+        // If WASI is enabled, try to execute it with it
+        if cfg!(feature = "wasi") {
+            let wasi_version = Wasi::get_version(&module);
+            if let Some(version) = wasi_version {
+                let program_name = self
+                    .command_name
+                    .clone()
+                    .or_else(|| {
+                        self.path
+                            .file_name()
+                            .map(|f| f.to_string_lossy().to_string())
+                    })
+                    .unwrap_or("".to_string());
+                return self
+                    .wasi
+                    .execute(module, version, program_name, self.args.clone());
+            }
+        }
+
+        // Try to instantiate the wasm file, with no provided imports
+        let imports = imports! {};
+        let instance = Instance::new(&module, &imports)?;
         let start: &Func = instance.exports.get("_start")?;
         start.call(&[])?;
 
         Ok(())
+    }
+
+    fn get_module(&self) -> Result<Module> {
+        let contents = std::fs::read(self.path.clone())?;
+        if Engine::is_deserializable(&contents) {
+            let (compiler_config, _compiler_name) = self.compiler.get_compiler_config()?;
+            let tunables = self.compiler.get_tunables(&*compiler_config);
+            let engine = Engine::new(&*compiler_config, tunables);
+            let store = Store::new(&engine);
+            let module = unsafe { Module::deserialize(&store, &contents)? };
+            return Ok(module);
+        }
+        let (store, compiler_name) = self.compiler.get_store()?;
+        // We try to get it from cache, in case caching is enabled
+        // and the file length is greater than 4KB.
+        // For files smaller than 4KB caching is not worth,
+        // as it takes space and the speedup is minimal.
+        let mut module =
+            if cfg!(feature = "cache") && !self.disable_cache && contents.len() > 0x1000 {
+                let mut cache = self.get_cache(compiler_name)?;
+                // Try to get the hash from the provided `--cache-key`, otherwise
+                // generate one from the provided file `.wasm` contents.
+                let hash = self
+                    .cache_key
+                    .as_ref()
+                    .and_then(|key| WasmHash::from_str(&key).ok())
+                    .unwrap_or(WasmHash::generate(&contents));
+                let module = match unsafe { cache.load(&store, hash) } {
+                    Ok(module) => module,
+                    Err(e) => {
+                        match e {
+                            IoDeserializeError::Deserialize(e) => {
+                                eprintln!("Warning: error while getting module from cache: {}", e);
+                            }
+                            IoDeserializeError::Io(_) => {
+                                // Do not notify on IO errors
+                            }
+                        }
+                        let module = Module::new(&store, &contents)?;
+                        // Store the compiled Module in cache
+                        cache.store(hash, module.clone())?;
+                        module
+                    }
+                };
+                module
+            } else {
+                Module::new(&store, &contents)?
+            };
+        // We set the name outside the cache, to make sure we dont cache the name
+        module.set_name(&self.path.file_name().unwrap_or_default().to_string_lossy());
+
+        Ok(module)
     }
 
     fn invoke_function(

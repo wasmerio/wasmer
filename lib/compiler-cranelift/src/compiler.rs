@@ -17,9 +17,9 @@ use wasm_common::{
     Features, FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
-use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::{
-    Compilation, CompiledFunction, Compiler, JumpTable, SourceLoc, TrapInformation,
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, Compiler, FunctionBody,
+    FunctionBodyData, JumpTable, SourceLoc, TrapInformation,
 };
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{Relocation, RelocationTarget};
@@ -27,15 +27,17 @@ use wasmer_runtime::TrapCode;
 use wasmer_runtime::{MemoryPlan, Module, TablePlan};
 
 /// Implementation of a relocation sink that just saves all the information for later
-pub struct RelocSink {
+pub struct RelocSink<'a> {
+    module: &'a Module,
+
     /// Current function index.
-    func_index: FuncIndex,
+    local_func_index: LocalFuncIndex,
 
     /// Relocations recorded for the function.
     pub func_relocs: Vec<Relocation>,
 }
 
-impl binemit::RelocSink for RelocSink {
+impl<'a> binemit::RelocSink for RelocSink<'a> {
     fn reloc_block(
         &mut self,
         _offset: binemit::CodeOffset,
@@ -54,7 +56,11 @@ impl binemit::RelocSink for RelocSink {
     ) {
         let reloc_target = if let ExternalName::User { namespace, index } = *name {
             debug_assert_eq!(namespace, 0);
-            RelocationTarget::UserFunc(FuncIndex::from_u32(index))
+            RelocationTarget::LocalFunc(
+                self.module
+                    .local_func_index(FuncIndex::from_u32(index))
+                    .expect("The provided function should be local"),
+            )
         } else if let ExternalName::LibCall(libcall) = *name {
             RelocationTarget::LibCall(irlibcall_to_libcall(libcall))
         } else {
@@ -81,18 +87,25 @@ impl binemit::RelocSink for RelocSink {
     fn reloc_jt(&mut self, offset: binemit::CodeOffset, reloc: binemit::Reloc, jt: ir::JumpTable) {
         self.func_relocs.push(Relocation {
             kind: irreloc_to_relocationkind(reloc),
-            reloc_target: RelocationTarget::JumpTable(self.func_index, JumpTable::new(jt.index())),
+            reloc_target: RelocationTarget::JumpTable(
+                self.local_func_index,
+                JumpTable::new(jt.index()),
+            ),
             offset,
             addend: 0,
         });
     }
 }
 
-impl RelocSink {
+impl<'a> RelocSink<'a> {
     /// Return a new `RelocSink` instance.
-    pub fn new(func_index: FuncIndex) -> Self {
+    pub fn new(module: &'a Module, func_index: FuncIndex) -> Self {
+        let local_func_index = module
+            .local_func_index(func_index)
+            .expect("The provided function should be local");
         Self {
-            func_index,
+            module,
+            local_func_index,
             func_relocs: Vec::new(),
         }
     }
@@ -229,7 +242,7 @@ impl Compiler for CraneliftCompiler {
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
-                let mut reloc_sink = RelocSink::new(func_index);
+                let mut reloc_sink = RelocSink::new(module, func_index);
                 let mut trap_sink = TrapSink::new();
                 let mut stackmap_sink = binemit::NullStackmapSink {};
                 context
@@ -252,25 +265,31 @@ impl Compiler for CraneliftCompiler {
                 let func_jt_offsets = transform_jump_table(context.func.jt_offsets);
 
                 Ok(CompiledFunction {
-                    body: code_buf,
+                    body: FunctionBody {
+                        body: code_buf,
+                        unwind_info,
+                    },
                     jt_offsets: func_jt_offsets,
-                    unwind_info,
-                    address_map,
                     relocations: reloc_sink.func_relocs,
-                    traps: trap_sink.traps,
+                    frame_info: CompiledFunctionFrameInfo {
+                        address_map,
+                        traps: trap_sink.traps,
+                    },
                 })
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<LocalFuncIndex, _>>();
 
-        Ok(Compilation::new(functions))
+        let custom_sections = PrimaryMap::new();
+
+        Ok(Compilation::new(functions, custom_sections))
     }
 
     fn compile_wasm_trampolines(
         &self,
         signatures: &[FuncType],
-    ) -> Result<Vec<CompiledFunction>, CompileError> {
+    ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, sig| {

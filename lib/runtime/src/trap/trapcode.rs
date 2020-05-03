@@ -64,6 +64,28 @@ pub enum TrapCode {
     User(u16),
 }
 
+impl TrapCode {
+    /// Get's the message for this trap code
+    pub fn message(&self) -> &str {
+        match self {
+            Self::StackOverflow => "call stack exhausted",
+            Self::HeapSetterOutOfBounds => "memory out of bounds: data segment does not fit",
+            Self::HeapAccessOutOfBounds => "out of bounds memory access",
+            Self::TableSetterOutOfBounds => "table out of bounds: elements segment does not fit",
+            Self::TableAccessOutOfBounds => "undefined element: out of bounds table access",
+            Self::OutOfBounds => "out of bounds",
+            Self::IndirectCallToNull => "uninitialized element",
+            Self::BadSignature => "indirect call type mismatch",
+            Self::IntegerOverflow => "integer overflow",
+            Self::IntegerDivisionByZero => "integer divide by zero",
+            Self::BadConversionToInteger => "invalid conversion to integer",
+            Self::UnreachableCodeReached => "unreachable",
+            Self::Interrupt => "interrupt",
+            Self::User(_) => unreachable!(),
+        }
+    }
+}
+
 impl Display for TrapCode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use self::TrapCode::*;

@@ -1,7 +1,7 @@
 /// Controls which experimental features will be enabled.
-/// Features usually have a corresponding [WebAssembly proposal][WebAssembly-props].
+/// Features usually have a corresponding [WebAssembly proposal].
 ///
-/// [WebAssembly-props]: https://github.com/WebAssembly/proposals
+/// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Features {
     /// Threads proposal should be enabled
@@ -24,7 +24,8 @@ impl Features {
             reference_types: false,
             simd: false,
             bulk_memory: false,
-            multi_value: false,
+            // Multivalue should be on by default
+            multi_value: true,
         }
     }
 

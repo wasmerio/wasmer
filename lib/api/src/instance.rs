@@ -25,9 +25,12 @@ impl Instance {
     /// set of imports resolved by the [`Resolver`].
     ///
     /// The resolver can be anything that implements the [`Resolver`] trait,
-    /// so you can plug custom resolution for the imports.
+    /// so you can plug custom resolution for the imports, if you wish not
+    /// to use [`ImportObject`].
     ///
     /// The [`ImportObject`] is the easiest way to provide imports to the instance.
+    ///
+    /// [`ImportObject`]: crate::ImportObject
     ///
     /// ```
     /// # use wasmer::{imports, Store, Module, Global, Instance};
@@ -43,7 +46,7 @@ impl Instance {
     ///
     /// ## Errors
     ///
-    /// The function can return [`InstantiationErrors`].
+    /// The function can return [`InstantiationError`]s.
     ///
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
@@ -51,9 +54,7 @@ impl Instance {
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Instance, InstantiationError> {
         let store = module.store();
 
-        let handle = store
-            .engine()
-            .instantiate(module.compiled_module(), resolver)?;
+        let handle = module.instantiate(resolver)?;
 
         let exports = module
             .exports()

@@ -37,7 +37,7 @@ pub mod entity {
     pub use cranelift_entity::*;
 }
 
-pub use crate::data_initializer::{DataInitializer, DataInitializerLocation};
+pub use crate::data_initializer::{DataInitializer, DataInitializerLocation, OwnedDataInitializer};
 pub use crate::features::Features;
 pub use crate::indexes::{
     DataIndex, ElemIndex, ExportIndex, FuncIndex, GlobalIndex, ImportIndex, LocalFuncIndex,
