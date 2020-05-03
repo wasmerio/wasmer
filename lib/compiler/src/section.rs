@@ -47,3 +47,10 @@ pub struct CustomSection {
 /// The bytes in the section.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct SectionBody(#[serde(with = "serde_bytes")] Vec<u8>);
+
+impl SectionBody {
+    /// Returns a raw pointer to the section's buffer.
+    pub fn as_ptr(&self) -> *const u8 {
+        self.0.as_ptr()
+    }
+}

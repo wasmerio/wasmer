@@ -137,6 +137,7 @@ impl CompiledModule {
             &finished_functions,
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
+            &serializable.compilation.custom_sections,
         );
 
         // Compute indices into the shared signature table.
