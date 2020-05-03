@@ -3,9 +3,12 @@ use crate::store::StoreOptions;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, IoDeserializeError, WasmHash};
+#[cfg(feature = "engine-jit")]
+use wasmer_engine_jit::JITEngine;
 
 use structopt::StructOpt;
 
@@ -78,46 +81,7 @@ impl Run {
             .context(format!("failed to run `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let (store, compiler_name) = self.compiler.get_store()?;
-        let contents = std::fs::read(self.path.clone())?;
-        // We try to get it from cache, in case caching is enabled
-        // and the file length is greater than 4KB.
-        // For files smaller than 4KB caching is not worth,
-        // as it takes space and the speedup is minimal.
-        let mut module =
-            if cfg!(feature = "cache") && !self.disable_cache && contents.len() > 0x1000 {
-                let mut cache = self.get_cache(compiler_name)?;
-                // Try to get the hash from the provided `--cache-key`, otherwise
-                // generate one from the provided file `.wasm` contents.
-                let hash = self
-                    .cache_key
-                    .as_ref()
-                    .and_then(|key| WasmHash::from_str(&key).ok())
-                    .unwrap_or(WasmHash::generate(&contents));
-                let module = match unsafe { cache.load(&store, hash) } {
-                    Ok(module) => module,
-                    Err(e) => {
-                        match e {
-                            IoDeserializeError::Deserialize(e) => {
-                                eprintln!("Warning: error while getting module from cache: {}", e);
-                            }
-                            IoDeserializeError::Io(_) => {
-                                // Do not notify on IO errors
-                            }
-                        }
-                        let module = Module::new(&store, &contents)?;
-                        // Store the compiled Module in cache
-                        cache.store(hash, module.clone())?;
-                        module
-                    }
-                };
-                module
-            } else {
-                Module::new(&store, &contents)?
-            };
-        // We set the name outside the cache, to make sure we dont cache the name
-        module.set_name(self.path.canonicalize()?.as_path().to_str().unwrap());
-
+        let module = self.get_module()?;
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
@@ -162,6 +126,58 @@ impl Run {
         start.call(&[])?;
 
         Ok(())
+    }
+
+    fn get_module(&self) -> Result<Module> {
+        let contents = std::fs::read(self.path.clone())?;
+        if JITEngine::is_deserializable(&contents) {
+            let (compiler_config, _compiler_name) = self.compiler.get_compiler_config()?;
+            let tunables = self.compiler.get_tunables(&*compiler_config);
+            let engine = JITEngine::new(&*compiler_config, tunables);
+            let store = Store::new(Arc::new(engine));
+            let module = unsafe { Module::deserialize(&store, &contents)? };
+            return Ok(module);
+        }
+        let (store, compiler_name) = self.compiler.get_store()?;
+        // We try to get it from cache, in case caching is enabled
+        // and the file length is greater than 4KB.
+        // For files smaller than 4KB caching is not worth,
+        // as it takes space and the speedup is minimal.
+        let mut module =
+            if cfg!(feature = "cache") && !self.disable_cache && contents.len() > 0x1000 {
+                let mut cache = self.get_cache(compiler_name)?;
+                // Try to get the hash from the provided `--cache-key`, otherwise
+                // generate one from the provided file `.wasm` contents.
+                let hash = self
+                    .cache_key
+                    .as_ref()
+                    .and_then(|key| WasmHash::from_str(&key).ok())
+                    .unwrap_or(WasmHash::generate(&contents));
+                let module = match unsafe { cache.load(&store, hash) } {
+                    Ok(module) => module,
+                    Err(e) => {
+                        match e {
+                            IoDeserializeError::Deserialize(e) => {
+                                eprintln!("Warning: error while getting module from cache: {}", e);
+                            }
+                            IoDeserializeError::Io(_) => {
+                                // Do not notify on IO errors
+                            }
+                        }
+                        let module = Module::new(&store, &contents)?;
+                        // Store the compiled Module in cache
+                        cache.store(hash, module.clone())?;
+                        module
+                    }
+                };
+                module
+            } else {
+                Module::new(&store, &contents)?
+            };
+        // We set the name outside the cache, to make sure we dont cache the name
+        module.set_name(self.path.canonicalize()?.as_path().to_str().unwrap());
+
+        Ok(module)
     }
 
     fn invoke_function(

@@ -27,6 +27,8 @@ pub struct JITEngine {
 }
 
 impl JITEngine {
+    const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
+
     /// Create a new JIT Engine given config
     pub fn new<C: CompilerConfig>(config: &C, tunables: impl Tunables + 'static) -> Self
     where
@@ -50,6 +52,12 @@ impl JITEngine {
 
     pub(crate) fn compiler_mut(&self) -> std::cell::RefMut<'_, JITEngineInner> {
         self.inner.borrow_mut()
+    }
+
+    /// Check if the provided bytes look like a serialized
+    /// module by the `JITEngine` implementation.
+    pub fn is_deserializable(bytes: &[u8]) -> bool {
+        bytes.starts_with(Self::MAGIC_HEADER)
     }
 }
 
@@ -102,12 +110,23 @@ impl Engine for JITEngine {
         compiled_module: &Arc<dyn BaseCompiledModule>,
     ) -> Result<Vec<u8>, SerializeError> {
         let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
-        compiled_module.serialize()
+        // We append the header
+        let mut serialized = Self::MAGIC_HEADER.to_vec();
+        serialized.extend(compiled_module.serialize()?);
+        Ok(serialized)
     }
 
     /// Deserializes a WebAssembly module
     fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
-        Ok(Arc::new(CompiledModule::deserialize(&self, bytes)?))
+        if !Self::is_deserializable(bytes) {
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not wasmer-jit".to_string(),
+            ));
+        }
+        Ok(Arc::new(CompiledModule::deserialize(
+            &self,
+            &bytes[Self::MAGIC_HEADER.len()..],
+        )?))
     }
 }
 
