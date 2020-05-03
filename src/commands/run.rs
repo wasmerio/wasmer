@@ -22,8 +22,8 @@ pub struct Run {
     #[structopt(long = "disable-cache")]
     disable_cache: bool,
 
-    /// Input file
-    #[structopt(parse(from_os_str))]
+    /// File to run
+    #[structopt(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Invoke a specified function
@@ -76,7 +76,8 @@ impl Run {
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
         let (store, compiler_name) = self.compiler.get_store()?;
-        let contents = std::fs::read(self.path.clone())?;
+        let contents = std::fs::read(self.path.clone())
+            .context(format!("Failed to run `{}`", self.path.display()))?;
         // We try to get it from cache, in case caching is enabled
         // and the file length is greater than 4KB.
         // For files smaller than 4KB caching is not worth,

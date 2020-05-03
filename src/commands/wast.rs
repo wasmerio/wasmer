@@ -8,8 +8,8 @@ use wasmer_wast::Wast as WastSpectest;
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer wast` subcommand
 pub struct Wast {
-    /// Input file
-    #[structopt(parse(from_os_str))]
+    /// Wast file to run
+    #[structopt(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     #[structopt(flatten)]

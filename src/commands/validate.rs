@@ -7,8 +7,8 @@ use wasmer::*;
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer validate` subcommand
 pub struct Validate {
-    /// Input file
-    #[structopt(parse(from_os_str))]
+    /// File to validate as WebAssembly
+    #[structopt(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     #[structopt(flatten)]
