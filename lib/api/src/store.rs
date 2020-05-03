@@ -2,7 +2,6 @@ use crate::tunables::Tunables;
 use std::sync::Arc;
 use wasmer_compiler::CompilerConfig;
 use wasmer_engine::Engine;
-use wasmer_engine_jit::JITEngine;
 
 #[derive(Clone)]
 pub struct Store {
@@ -54,6 +53,27 @@ impl Store {
         #[cfg(feature = "default-compiler-singlepass")]
         return wasmer_compiler_singlepass::SinglepassConfig::default();
     }
+
+    #[cfg(all(
+        any(
+            feature = "default-compiler-singlepass",
+            feature = "default-compiler-cranelift",
+            feature = "default-compiler-llvm",
+        ),
+        any(feature = "default-engine-jit", feature = "default-engine-native",)
+    ))]
+    pub fn default_engine() -> impl Engine {
+        #[cfg(all(feature = "default-engine-jit", feature = "default-engine-native",))]
+        compile_error!(
+            "The `default-engine-X` features are mutually exclusive. Please choose just one"
+        );
+
+        let config = Self::default_compiler_config();
+        let tunables = Tunables::for_target(config.target().triple());
+
+        #[cfg(feature = "engine-jit")]
+        return wasmer_engine_jit::JITEngine::new(&config, tunables);
+    }
 }
 
 impl PartialEq for Store {
@@ -63,16 +83,18 @@ impl PartialEq for Store {
 }
 
 // We only implement default if we have assigned a default compiler
-#[cfg(any(
-    feature = "default-compiler-singlepass",
-    feature = "default-compiler-cranelift",
-    feature = "default-compiler-llvm",
+#[cfg(all(
+    any(
+        feature = "default-compiler-singlepass",
+        feature = "default-compiler-cranelift",
+        feature = "default-compiler-llvm",
+    ),
+    any(feature = "default-engine-jit", feature = "default-engine-native",)
 ))]
 impl Default for Store {
     fn default() -> Store {
-        let config = Self::default_compiler_config();
-        let tunables = Tunables::for_target(config.target().triple());
-        Store::new(Arc::new(JITEngine::new(&config, tunables)))
+        let engine = Self::default_engine();
+        Store::new(Arc::new(engine))
     }
 }
 

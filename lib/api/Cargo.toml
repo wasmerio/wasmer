@@ -15,7 +15,7 @@ wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "0.16.2"
 wasmer-compiler-llvm = { path = "../compiler-llvm", version = "0.16.2", optional = true }
 wasmer-compiler = { path = "../compiler", version = "0.16.2" }
 wasmer-engine = { path = "../engine", version = "0.16.2" }
-wasmer-engine-jit = { path = "../engine-jit", version = "0.16.2" }
+wasmer-engine-jit = { path = "../engine-jit", version = "0.16.2", optional = true }
 wasm-common = { path = "../wasm-common", version = "0.16.2" }
 indexmap = { version = "1.3.2", features = ["serde-1"] }
 cfg-if = "0.1.10"
@@ -38,7 +38,17 @@ anyhow = "1.0.28"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["wat", "default-compiler-cranelift"]
+default = [
+    "wat",
+    "default-compiler-cranelift",
+    "default-engine-jit"
+]
+engine-jit = [
+    "wasmer-engine-jit"
+]
+default-engine-jit = [
+    "engine-jit"
+]
 compiler-singlepass = [
     "wasmer-compiler-singlepass"
 ]

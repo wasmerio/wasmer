@@ -31,6 +31,7 @@ pub use wasmer_compiler::{CompilerConfig, Features, Target};
 pub use wasmer_engine::{
     DeserializeError, Engine, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
+#[cfg(feature = "engine-jit")]
 pub use wasmer_engine_jit::JITEngine;
 
 #[cfg(feature = "compiler-singlepass")]

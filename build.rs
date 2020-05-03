@@ -37,7 +37,11 @@ fn main() -> anyhow::Result<()> {
     with_backends(&mut spectests, &backends, |mut spectests| {
         with_test_module(&mut spectests, "spec", |spectests| {
             let _spec_tests = test_directory(spectests, "tests/wast/spec", wast_processor)?;
-            test_directory_module(spectests, "tests/wast/spec/proposals/multi-value", wast_processor)?;
+            test_directory_module(
+                spectests,
+                "tests/wast/spec/proposals/multi-value",
+                wast_processor,
+            )?;
             // test_directory_module(spectests, "tests/wast/spec/proposals/bulk-memory-operations", wast_processor)?;
             Ok(())
         })?;
