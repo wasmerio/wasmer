@@ -16,9 +16,6 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 libc = "0.2.60"
-# for generating code in the same way thot the wasm-c-api does
-# Commented out for now until we can find a solution to the exported function problem
-# wasmer-wasm-c-api = { version = "0.16.2", path = "crates/wasm-c-api" }
 
 [dependencies.wasmer]
 default-features = false
@@ -48,8 +45,6 @@ cranelift-backend = ["wasmer/cranelift", "wasmer/default-backend-cranelift"]
 llvm-backend = ["wasmer/llvm", "wasmer/default-backend-llvm"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]
-# used to avoid generating standard Wasm C API types in our header files
-ignore-wasm-c-api = []
 
 [build-dependencies]
-cbindgen = "0.14"
+cbindgen = { path = "../../../Dev/cbindgen", version = "0.14" }
