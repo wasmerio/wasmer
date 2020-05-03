@@ -19,12 +19,15 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     println!("Running wast {} with {}", wast_path, compiler);
     let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();
-    features.multi_value(true);
+    if wast_path.contains("bulk-memory") {
+        features.bulk_memory(true);
+    }
     let compiler_config =
         get_compiler_config_from_str(compiler, try_nan_canonicalization, features);
     let tunables = Tunables::for_target(compiler_config.target().triple());
     let store = Store::new(&Engine::new(&*compiler_config, tunables));
     let mut wast = Wast::new_with_spectest(store);
+    // wast.fail_fast = false;
     let path = Path::new(wast_path);
     wast.run_file(path)
 }

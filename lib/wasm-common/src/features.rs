@@ -24,7 +24,8 @@ impl Features {
             reference_types: false,
             simd: false,
             bulk_memory: false,
-            multi_value: false,
+            // Multivalue should be on by default
+            multi_value: true,
         }
     }
 

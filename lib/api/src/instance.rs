@@ -25,7 +25,8 @@ impl Instance {
     /// set of imports resolved by the [`Resolver`].
     ///
     /// The resolver can be anything that implements the [`Resolver`] trait,
-    /// so you can plug custom resolution for the imports.
+    /// so you can plug custom resolution for the imports, if you wish not
+    /// to use [`ImportObject`].
     ///
     /// The [`ImportObject`] is the easiest way to provide imports to the instance.
     ///
