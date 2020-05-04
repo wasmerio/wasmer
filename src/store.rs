@@ -62,7 +62,7 @@ impl FromStr for Compiler {
     }
 }
 
-#[cfg(feature="compiler")]
+#[cfg(feature = "compiler")]
 impl StoreOptions {
     fn get_compiler(&self) -> Result<Compiler> {
         if self.cranelift {
@@ -146,7 +146,7 @@ impl StoreOptions {
     }
 }
 
-#[cfg(not(feature="compiler"))]
+#[cfg(not(feature = "compiler"))]
 impl StoreOptions {
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, String)> {

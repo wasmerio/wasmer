@@ -1,4 +1,4 @@
-#![cfg(feature="compiler")]
+#![cfg(feature = "compiler")]
 
 use wasmer_compiler::{CompilerConfig, Features, Target};
 
