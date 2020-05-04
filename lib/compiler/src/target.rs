@@ -1,10 +1,8 @@
-//! The configuration for the
-use crate::compiler::Compiler;
-use crate::std::boxed::Box;
+//! Target configuration
 use enumset::{EnumSet, EnumSetType};
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple};
-pub use wasm_common::Features;
 
+use crate::std::boxed::Box;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use raw_cpuid::CpuId;
 
@@ -139,20 +137,4 @@ impl Default for Target {
             cpu_features: CpuFeature::for_host(),
         }
     }
-}
-
-/// The compiler configuration options.
-///
-/// This options must have WebAssembly `Features` and a specific
-/// `Target` to compile to.
-pub trait CompilerConfig {
-    /// Gets the WebAssembly features
-    fn features(&self) -> &Features;
-
-    /// Gets the target that we will use for compiling
-    /// the WebAssembly module
-    fn target(&self) -> &Target;
-
-    /// Gets the custom compiler config
-    fn compiler(&self) -> Box<dyn Compiler>;
 }

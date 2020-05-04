@@ -26,6 +26,10 @@ raw-cpuid = "7.0.3"
 
 [features]
 default = ["std", "enable-serde"]
+# This feature is for compiler implementors, it enables using `Compiler` and
+# `CompilerConfig`, as well as the included wasmparser.
+# Disable this feature if you just want a headless engine.
+translator = []
 std = []
 core = ["hashbrown"]
 enable-serde = ["serde", "serde_bytes"]
