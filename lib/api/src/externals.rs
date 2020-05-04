@@ -4,7 +4,7 @@ use crate::store::{Store, StoreObject};
 use crate::types::{Val, ValAnyFunc};
 use crate::Mutability;
 use crate::RuntimeError;
-use crate::{ExternType, FuncType, GlobalType, MemoryType, TableType, ValType};
+use crate::{ExternType, FunctionType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
 use std::slice;
 use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
@@ -563,7 +563,7 @@ impl Func {
     }
 
     /// Returns the underlying type of this function.
-    pub fn ty(&self) -> FuncType {
+    pub fn ty(&self) -> FunctionType {
         self.store
             .engine()
             .lookup_signature(self.exported.signature)

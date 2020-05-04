@@ -9,7 +9,7 @@ use crate::target::Target;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{Features, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
+use wasm_common::{Features, FunctionType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::Module;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
@@ -82,6 +82,6 @@ pub trait Compiler {
     /// ```
     fn compile_wasm_trampolines(
         &self,
-        signatures: &[FuncType],
+        signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError>;
 }

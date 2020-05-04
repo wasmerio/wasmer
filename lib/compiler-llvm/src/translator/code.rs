@@ -33,7 +33,8 @@ use std::collections::HashMap;
 use crate::config::LLVMConfig;
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
-    FuncIndex, FuncType, GlobalIndex, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
+    FuncIndex, FunctionType, GlobalIndex, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex,
+    Type,
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{

@@ -51,8 +51,8 @@ pub use crate::r#ref::{AnyRef, HostInfo, HostRef};
 pub use crate::units::{Bytes, Pages};
 pub use crate::values::Value;
 pub use types::{
-    ExportType, ExternType, FuncType, GlobalInit, GlobalType, ImportType, MemoryType, Mutability,
-    TableType, Type, V128,
+    ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
+    Mutability, TableType, Type, V128,
 };
 
 /// Version number of this crate.

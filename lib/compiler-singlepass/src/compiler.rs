@@ -6,7 +6,7 @@ use crate::config::SinglepassConfig;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
-use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
+use wasm_common::{FuncIndex, FunctionType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, Compiler, FunctionBody};
@@ -67,7 +67,7 @@ impl Compiler for SinglepassCompiler {
 
     fn compile_wasm_trampolines(
         &self,
-        _signatures: &[FuncType],
+        _signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
         // Note: do not implement this yet
         Err(CompileError::Codegen(

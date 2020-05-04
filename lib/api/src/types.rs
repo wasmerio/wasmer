@@ -4,7 +4,7 @@ use crate::RuntimeError;
 use std::ptr;
 use wasm_common::Value;
 pub use wasm_common::{
-    AnyRef, ExportType, ExternType, FuncType, GlobalType, HostInfo, HostRef, ImportType,
+    AnyRef, ExportType, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Type as ValType,
 };
 

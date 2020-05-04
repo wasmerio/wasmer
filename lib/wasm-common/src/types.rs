@@ -100,7 +100,7 @@ impl From<&[u8]> for V128 {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ExternType {
     /// This external type is the type of a WebAssembly function.
-    Func(FuncType),
+    Func(FunctionType),
     /// This external type is the type of a WebAssembly global.
     Global(GlobalType),
     /// This external type is the type of a WebAssembly table.
@@ -192,7 +192,7 @@ macro_rules! accessors {
 
 impl ExternType {
     accessors! {
-        (Func(FuncType) func unwrap_func)
+        (Func(FunctionType) func unwrap_func)
         (Global(GlobalType) global unwrap_global)
         (Table(TableType) table unwrap_table)
         (Memory(MemoryType) memory unwrap_memory)
@@ -216,14 +216,14 @@ impl ExternType {
 /// WebAssembly functions can have 0 or more parameters and results.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct FuncType {
+pub struct FunctionType {
     /// The parameters of the function
     params: Vec<Type>,
     /// The return values of the function
     results: Vec<Type>,
 }
 
-impl FuncType {
+impl FunctionType {
     /// Creates a new Function Type with the given parameter and return types.
     pub fn new<Params, Returns>(params: Params, returns: Returns) -> Self
     where
@@ -257,7 +257,7 @@ impl FuncType {
     // }
 }
 
-impl std::fmt::Display for FuncType {
+impl std::fmt::Display for FunctionType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let params = self
             .params

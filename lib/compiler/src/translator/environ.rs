@@ -7,7 +7,7 @@ use crate::{WasmError, WasmResult};
 use std::convert::TryFrom;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::FuncType;
+use wasm_common::FunctionType;
 use wasm_common::{
     DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FuncIndex,
     GlobalIndex, GlobalInit, GlobalType, ImportIndex, LocalFuncIndex, MemoryIndex, MemoryType,
@@ -102,7 +102,7 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn declare_signature(&mut self, sig: FuncType) -> WasmResult<()> {
+    pub(crate) fn declare_signature(&mut self, sig: FunctionType) -> WasmResult<()> {
         // TODO: Deduplicate signatures.
         self.result.module.signatures.push(sig);
         Ok(())

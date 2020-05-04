@@ -4,7 +4,7 @@ use inkwell::{
     context::Context, module::Linkage, passes::PassManager, targets::FileType, types::BasicType,
     values::FunctionValue, AddressSpace,
 };
-use wasm_common::{FuncType, Type};
+use wasm_common::{FunctionType, Type};
 use wasmer_compiler::{CompileError, CompiledFunctionUnwindInfo, FunctionBody};
 
 pub struct FuncTrampoline {
@@ -20,7 +20,7 @@ impl FuncTrampoline {
 
     pub fn trampoline(
         &mut self,
-        ty: &FuncType,
+        ty: &FunctionType,
         config: &LLVMConfig,
     ) -> Result<FunctionBody, CompileError> {
         let mut module = self.ctx.create_module("");
@@ -104,7 +104,7 @@ impl FuncTrampoline {
 
 fn generate_trampoline<'ctx>(
     trampoline_func: FunctionValue,
-    func_sig: &FuncType,
+    func_sig: &FunctionType,
     context: &'ctx Context,
     intrinsics: &Intrinsics<'ctx>,
 ) -> Result<(), CompileError> {

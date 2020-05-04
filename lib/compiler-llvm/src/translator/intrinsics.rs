@@ -34,8 +34,8 @@ use wasmer_runtime_core::{
 */
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    FuncIndex, FuncType, GlobalIndex, MemoryIndex, Mutability, Pages, SignatureIndex, TableIndex,
-    Type,
+    FuncIndex, FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, Pages,
+    SignatureIndex, TableIndex, Type,
 };
 use wasmer_runtime::Module as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, VMOffsets};

@@ -6,7 +6,7 @@ use more_asserts::{assert_lt, debug_assert_lt};
 use std::collections::{hash_map, HashMap};
 use std::convert::TryFrom;
 use std::sync::RwLock;
-use wasm_common::FuncType;
+use wasm_common::FunctionType;
 
 /// WebAssembly requires that the caller and callee signatures in an indirect
 /// call must match. To implement this efficiently, keep a registry of all
@@ -24,8 +24,8 @@ pub struct SignatureRegistry {
 
 #[derive(Debug, Default)]
 struct Inner {
-    signature2index: HashMap<FuncType, VMSharedSignatureIndex>,
-    index2signature: HashMap<VMSharedSignatureIndex, FuncType>,
+    signature2index: HashMap<FunctionType, VMSharedSignatureIndex>,
+    index2signature: HashMap<VMSharedSignatureIndex, FunctionType>,
 }
 
 impl SignatureRegistry {
@@ -37,7 +37,7 @@ impl SignatureRegistry {
     }
 
     /// Register a signature and return its unique index.
-    pub fn register(&self, sig: &FuncType) -> VMSharedSignatureIndex {
+    pub fn register(&self, sig: &FunctionType) -> VMSharedSignatureIndex {
         let mut inner = self.inner.write().unwrap();
         let len = inner.signature2index.len();
         match inner.signature2index.entry(sig.clone()) {
@@ -62,7 +62,7 @@ impl SignatureRegistry {
     ///
     /// Note that for this operation to be semantically correct the `idx` must
     /// have previously come from a call to `register` of this same object.
-    pub fn lookup(&self, idx: VMSharedSignatureIndex) -> Option<FuncType> {
+    pub fn lookup(&self, idx: VMSharedSignatureIndex) -> Option<FunctionType> {
         self.inner
             .read()
             .unwrap()

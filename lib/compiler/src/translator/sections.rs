@@ -18,15 +18,16 @@ use std::vec::Vec;
 use wasm_common::entity::packed_option::ReservedValue;
 use wasm_common::entity::EntityRef;
 use wasm_common::{
-    DataIndex, ElemIndex, FuncIndex, FuncType, GlobalIndex, GlobalInit, GlobalType, MemoryIndex,
-    MemoryType, Pages, SignatureIndex, TableIndex, TableType, Type, V128,
+    DataIndex, ElemIndex, FuncIndex, FunctionType, GlobalIndex, GlobalInit, GlobalType,
+    MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, Type, V128,
 };
 use wasmparser::{
     self, CodeSectionReader, Data, DataKind, DataSectionReader, Element, ElementItem, ElementItems,
     ElementKind, ElementSectionReader, Export, ExportSectionReader, ExternalKind,
-    FuncType as WPFuncType, FunctionSectionReader, GlobalSectionReader, GlobalType as WPGlobalType,
-    ImportSectionEntryType, ImportSectionReader, MemorySectionReader, MemoryType as WPMemoryType,
-    NameSectionReader, Naming, NamingReader, Operator, TableSectionReader, TypeSectionReader,
+    FuncType as WPFunctionType, FunctionSectionReader, GlobalSectionReader,
+    GlobalType as WPGlobalType, ImportSectionEntryType, ImportSectionReader, MemorySectionReader,
+    MemoryType as WPMemoryType, NameSectionReader, Naming, NamingReader, Operator,
+    TableSectionReader, TypeSectionReader,
 };
 
 /// Helper function translating wasmparser types to Wasm Type.
@@ -57,7 +58,7 @@ pub fn parse_type_section(
 
     for entry in types {
         match entry.map_err(to_wasm_error)? {
-            WPFuncType {
+            WPFunctionType {
                 form: wasmparser::Type::Func,
                 params,
                 returns,
@@ -76,7 +77,7 @@ pub fn parse_type_section(
                             .expect("only numeric types are supported in function signatures")
                     })
                     .collect();
-                let sig = FuncType::new(sig_params, sig_returns);
+                let sig = FunctionType::new(sig_params, sig_returns);
                 environ.declare_signature(sig)?;
                 module_translation_state.wasm_types.push((params, returns));
             }

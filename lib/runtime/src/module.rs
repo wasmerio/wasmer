@@ -9,8 +9,8 @@ use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FuncIndex, FuncType, GlobalIndex,
-    GlobalInit, GlobalType, ImportIndex, ImportType, LocalFuncIndex, LocalGlobalIndex,
+    DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FuncIndex, FunctionType,
+    GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFuncIndex, LocalGlobalIndex,
     LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex,
     TableType,
 };
@@ -132,7 +132,7 @@ pub struct Module {
     pub func_names: HashMap<FuncIndex, String>,
 
     /// WebAssembly function signatures.
-    pub signatures: PrimaryMap<SignatureIndex, FuncType>,
+    pub signatures: PrimaryMap<SignatureIndex, FunctionType>,
 
     /// Types of functions (imported and local).
     pub functions: PrimaryMap<FuncIndex, SignatureIndex>,
@@ -191,7 +191,7 @@ impl Module {
     }
 
     /// Get the exported signatures of the module
-    pub fn exported_signatures(&self) -> Vec<FuncType> {
+    pub fn exported_signatures(&self) -> Vec<FunctionType> {
         self.exports
             .iter()
             .filter_map(|(_name, export_index)| match export_index {
@@ -202,7 +202,7 @@ impl Module {
                 }
                 _ => None,
             })
-            .collect::<Vec<FuncType>>()
+            .collect::<Vec<FunctionType>>()
     }
 
     /// Get the export types of the module

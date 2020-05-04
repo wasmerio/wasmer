@@ -8,7 +8,7 @@ use crate::translator::FuncTranslator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::Features;
-use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
+use wasm_common::{FuncIndex, FunctionType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
     Compilation, CompileError, CompiledFunction, Compiler, CompilerConfig, CustomSection,
     CustomSectionProtection, FunctionBody, FunctionBodyData, ModuleTranslationState, Relocation,
@@ -141,7 +141,7 @@ impl Compiler for LLVMCompiler {
 
     fn compile_wasm_trampolines(
         &self,
-        signatures: &[FuncType],
+        signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()

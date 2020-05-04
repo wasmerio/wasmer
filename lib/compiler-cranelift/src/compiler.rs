@@ -14,7 +14,7 @@ use cranelift_codegen::{binemit, isa, Context};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
-    Features, FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex,
+    Features, FuncIndex, FunctionType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{
@@ -288,7 +288,7 @@ impl Compiler for CraneliftCompiler {
 
     fn compile_wasm_trampolines(
         &self,
-        signatures: &[FuncType],
+        signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()
