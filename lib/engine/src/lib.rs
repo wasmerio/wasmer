@@ -39,7 +39,5 @@ pub use crate::serialize::SerializableFunctionFrameInfo;
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;
 
-pub use wasmer_compiler::CompilerConfig;
-
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
