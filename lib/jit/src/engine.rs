@@ -119,7 +119,7 @@ impl JITEngine {
     }
 
     /// Instantiates a WebAssembly module
-    pub fn instantiate(
+    pub unsafe fn instantiate(
         &self,
         compiled_module: &CompiledModule,
         resolver: &dyn Resolver,

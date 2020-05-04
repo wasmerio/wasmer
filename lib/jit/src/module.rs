@@ -211,17 +211,7 @@ impl CompiledModule {
     ) -> Result<InstanceHandle, InstantiationError> {
         let jit_compiler = jit.compiler();
         let tunables = jit.tunables();
-        let is_bulk_memory: bool = self.serializable.features.bulk_memory;
         let sig_registry: &SignatureRegistry = jit_compiler.signatures();
-        let data_initializers = self
-            .serializable
-            .data_initializers
-            .iter()
-            .map(|init| DataInitializer {
-                location: init.location.clone(),
-                data: &*init.data,
-            })
-            .collect::<Vec<_>>();
         let imports = resolve_imports(
             &self.serializable.module,
             &sig_registry,
@@ -254,12 +244,37 @@ impl CompiledModule {
             finished_tables,
             finished_globals,
             imports,
-            &data_initializers,
             self.signatures.clone(),
-            is_bulk_memory,
             host_state,
         )
         .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    }
+
+    /// Finish instantiation of a `InstanceHandle`
+    ///
+    /// # Unsafety
+    ///
+    /// See `InstanceHandle::finish_instantiation`
+    pub unsafe fn finish_instantiation(
+        &self,
+        handle: &InstanceHandle,
+    ) -> Result<(), InstantiationError> {
+        let is_bulk_memory: bool = self.serializable.features.bulk_memory;
+        handle
+            .finish_instantiation(is_bulk_memory, &self.data_initializers())
+            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    }
+
+    /// Returns data initializers to pass to `InstanceHandle::initialize`
+    pub fn data_initializers(&self) -> Vec<DataInitializer<'_>> {
+        self.serializable
+            .data_initializers
+            .iter()
+            .map(|init| DataInitializer {
+                location: init.location.clone(),
+                data: &*init.data,
+            })
+            .collect::<Vec<_>>()
     }
 
     /// Return a reference-counting pointer to a module.

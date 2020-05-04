@@ -184,7 +184,17 @@ impl Module {
         &self,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
-        self.store.engine().instantiate(&self.compiled, resolver)
+        unsafe {
+            let instance_handle = self.store.engine().instantiate(&self.compiled, resolver)?;
+
+            // After the instance handle is created, we need to initialize
+            // the data, call the start function and so. However, if any
+            // of this steps traps, we still need to keep the instance alive
+            // as some of the Instance elements may have placed in other
+            // instance tables.
+            self.compiled.finish_instantiation(&instance_handle)?;
+            Ok(instance_handle)
+        }
     }
 
     /// Returns the name of the current module.
