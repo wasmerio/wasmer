@@ -13,7 +13,7 @@ edition = "2018"
 [dependencies]
 enumset = "1.0.0"
 target-lexicon = { version = "0.10.0", default-features = false }
-wasmparser = { version = "0.51.4", default-features = false }
+wasmparser = { version = "0.51.4", optional = true, default-features = false }
 wasmer-runtime = { path = "../runtime", version = "0.16.2" }
 wasm-common = { path = "../wasm-common", version = "0.16.2" }
 hashbrown = { version = "0.7.2", optional = true }
@@ -29,7 +29,7 @@ default = ["std", "enable-serde"]
 # This feature is for compiler implementors, it enables using `Compiler` and
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
-translator = []
+translator = ["wasmparser"]
 std = []
 core = ["hashbrown"]
 enable-serde = ["serde", "serde_bytes"]
