@@ -40,7 +40,7 @@ fn get_extern_from_import(module: &Module, import_index: &ImportIndex) -> Extern
     match import_index {
         ImportIndex::Function(index) => {
             let func = module.signatures[module.functions[*index]].clone();
-            ExternType::Func(func)
+            ExternType::Function(func)
         }
         ImportIndex::Table(index) => {
             let table = module.tables[*index].clone();
@@ -66,7 +66,7 @@ fn get_extern_from_export(
     match export {
         Export::Function(ref f) => {
             let func = signatures.lookup(f.signature).unwrap().clone();
-            ExternType::Func(func)
+            ExternType::Function(func)
         }
         Export::Table(ref t) => {
             let table = t.plan().table.clone();

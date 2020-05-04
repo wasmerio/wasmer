@@ -212,7 +212,7 @@ impl Module {
                 ExportIndex::Function(i) => {
                     let signature = self.functions.get(i.clone()).unwrap();
                     let func_type = self.signatures.get(signature.clone()).unwrap();
-                    ExternType::Func(func_type.clone())
+                    ExternType::Function(func_type.clone())
                 }
                 ExportIndex::Table(i) => {
                     let table_type = self.tables.get(i.clone()).unwrap();
@@ -240,7 +240,7 @@ impl Module {
                     ImportIndex::Function(i) => {
                         let signature = self.functions.get(i.clone()).unwrap();
                         let func_type = self.signatures.get(signature.clone()).unwrap();
-                        ExternType::Func(func_type.clone())
+                        ExternType::Function(func_type.clone())
                     }
                     ImportIndex::Table(i) => {
                         let table_type = self.tables.get(i.clone()).unwrap();

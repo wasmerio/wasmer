@@ -16,7 +16,7 @@ use wasmer_runtime::{
 
 #[derive(Clone)]
 pub enum Extern {
-    Func(Func),
+    Function(Func),
     Global(Global),
     Table(Table),
     Memory(Memory),
@@ -25,7 +25,7 @@ pub enum Extern {
 impl Extern {
     pub fn ty(&self) -> ExternType {
         match self {
-            Extern::Func(ft) => ExternType::Func(ft.ty().clone()),
+            Extern::Function(ft) => ExternType::Function(ft.ty().clone()),
             Extern::Memory(ft) => ExternType::Memory(ft.ty().clone()),
             Extern::Table(tt) => ExternType::Table(tt.ty().clone()),
             Extern::Global(gt) => ExternType::Global(gt.ty().clone()),
@@ -34,7 +34,7 @@ impl Extern {
 
     pub(crate) fn from_export(store: &Store, export: Export) -> Extern {
         match export {
-            Export::Function(f) => Extern::Func(Func::from_export(store, f)),
+            Export::Function(f) => Extern::Function(Func::from_export(store, f)),
             Export::Memory(m) => Extern::Memory(Memory::from_export(store, m)),
             Export::Global(g) => Extern::Global(Global::from_export(store, g)),
             Export::Table(t) => Extern::Table(Table::from_export(store, t)),
@@ -45,7 +45,7 @@ impl Extern {
 impl<'a> Exportable<'a> for Extern {
     fn to_export(&self) -> Export {
         match self {
-            Extern::Func(f) => f.to_export(),
+            Extern::Function(f) => f.to_export(),
             Extern::Global(g) => g.to_export(),
             Extern::Memory(m) => m.to_export(),
             Extern::Table(t) => t.to_export(),
@@ -61,7 +61,7 @@ impl<'a> Exportable<'a> for Extern {
 impl StoreObject for Extern {
     fn comes_from_same_store(&self, store: &Store) -> bool {
         let my_store = match self {
-            Extern::Func(f) => f.store(),
+            Extern::Function(f) => f.store(),
             Extern::Global(g) => g.store(),
             Extern::Memory(m) => m.store(),
             Extern::Table(t) => t.store(),
@@ -72,7 +72,7 @@ impl StoreObject for Extern {
 
 impl From<Func> for Extern {
     fn from(r: Func) -> Self {
-        Extern::Func(r)
+        Extern::Function(r)
     }
 }
 
@@ -687,7 +687,7 @@ impl<'a> Exportable<'a> for Func {
     }
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
-            Extern::Func(func) => Ok(func),
+            Extern::Function(func) => Ok(func),
             _ => Err(ExportError::IncompatibleType),
         }
     }
