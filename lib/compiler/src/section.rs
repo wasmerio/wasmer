@@ -19,12 +19,17 @@ entity_impl!(SectionIndex);
 /// Determines how a custom section may be used.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CustomSectionProtection {
-    /// A custom section with read permissions,
+    /// A custom section with read permission.
     Read,
     // We don't include `ReadWrite` here because it would complicate freeze
     // and resumption of executing Modules.
+
     // We also currently don't include `ReadExecute` as we don't have a way
     // to represent relocations for this kind of section.
+
+    // Singlepass requires `ReadExecute`. Adding it for now.
+    /// A custom section with read and write permissions.
+    ReadExecute,
 }
 
 /// A Section for a `Compilation`.
