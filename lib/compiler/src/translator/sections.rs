@@ -8,9 +8,10 @@
 //! is handled, according to the semantics of WebAssembly, to only specific expressions that are
 //! interpreted on the fly.
 use super::environ::ModuleEnvironment;
-use super::error::{to_wasm_error, WasmError, WasmResult};
+use super::error::to_wasm_error;
 use super::state::ModuleTranslationState;
 use crate::{wasm_unsupported, HashMap};
+use crate::{WasmError, WasmResult};
 use core::convert::TryFrom;
 use std::boxed::Box;
 use std::vec::Vec;

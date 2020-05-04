@@ -1,13 +1,14 @@
 //! Translation skeleton that traverses the whole WebAssembly module and call helper functions
 //! to deal with each part of it.
 use super::environ::ModuleEnvironment;
-use super::error::{to_wasm_error, WasmResult};
+use super::error::to_wasm_error;
 use super::sections::{
     parse_code_section, parse_data_section, parse_element_section, parse_export_section,
     parse_function_section, parse_global_section, parse_import_section, parse_memory_section,
     parse_name_section, parse_start_section, parse_table_section, parse_type_section,
 };
 use super::state::ModuleTranslationState;
+use crate::WasmResult;
 use wasmparser::{CustomSectionContent, ModuleReader, SectionContent};
 
 /// Translate a sequence of bytes forming a valid Wasm binary into a
