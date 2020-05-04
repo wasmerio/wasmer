@@ -38,25 +38,24 @@ use hashbrown::HashMap;
 use std::collections::HashMap;
 
 mod address_map;
+#[cfg(feature = "translator")]
 mod compiler;
-mod config;
 mod error;
 mod function;
 mod jump_table;
 mod relocation;
+mod target;
 mod trap;
 mod unwind;
+#[cfg(feature = "translator")]
 #[macro_use]
 mod translator;
 mod section;
 mod sourceloc;
 
 pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
-pub use crate::compiler::Compiler;
-pub use crate::config::{
-    Architecture, CallingConvention, CompilerConfig, CpuFeature, Features, OperatingSystem, Target,
-    Triple,
-};
+#[cfg(feature = "translator")]
+pub use crate::compiler::{Compiler, CompilerConfig};
 pub use crate::error::{CompileError, WasmError, WasmResult};
 pub use crate::function::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, FunctionBody,
@@ -66,12 +65,18 @@ pub use crate::jump_table::{JumpTable, JumpTableOffsets};
 pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};
 pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};
 pub use crate::sourceloc::SourceLoc;
+pub use crate::target::{
+    Architecture, CallingConvention, CpuFeature, OperatingSystem, Target, Triple,
+};
+#[cfg(feature = "translator")]
 pub use crate::translator::{
     to_wasm_error, translate_module, FunctionBodyData, ModuleEnvironment, ModuleTranslation,
     ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;
 pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTableReloc};
+
+pub use wasm_common::Features;
 
 /// wasmparser is exported as a module to slim compiler dependencies
 pub mod wasmparser {
