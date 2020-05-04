@@ -103,7 +103,7 @@ impl Exports {
     }
 
     /// Get an export as a `Func`.
-    pub fn get_func(&self, name: &str) -> Result<&Function, ExportError> {
+    pub fn get_function(&self, name: &str) -> Result<&Function, ExportError> {
         self.get(name)
     }
 
