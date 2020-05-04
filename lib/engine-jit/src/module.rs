@@ -9,7 +9,7 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataInitializer, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
+    DataInitializer, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
     MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
@@ -31,7 +31,7 @@ use wasmer_runtime::{MemoryPlan, TablePlan};
 pub struct CompiledModule {
     serializable: SerializableModule,
 
-    finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
+    finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
 }
@@ -95,7 +95,7 @@ impl CompiledModule {
             .get_frame_info()
             .values()
             .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
-            .collect::<PrimaryMap<LocalFuncIndex, _>>();
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         let serializable_compilation = SerializableCompilation {
             function_bodies: compilation.get_function_bodies(),

@@ -1,7 +1,7 @@
 //! This module permits to create native functions
 //! easily in Rust, thanks to it's advanced typing system.
 
-use crate::types::{FuncType, Type};
+use crate::types::{FunctionType, Type};
 use std::convert::Infallible;
 use std::marker::PhantomData;
 
@@ -300,8 +300,8 @@ where
     }
 
     /// Get the type of the Func
-    pub fn ty(&self) -> FuncType {
-        FuncType::new(Args::wasm_types(), Rets::wasm_types())
+    pub fn ty(&self) -> FunctionType {
+        FunctionType::new(Args::wasm_types(), Rets::wasm_types())
     }
 
     /// Get the type of the Func
@@ -633,36 +633,36 @@ mod test_func {
 
     #[test]
     fn test_function_types() {
-        assert_eq!(Func::new(func).ty(), FuncType::new(vec![], vec![]));
+        assert_eq!(Function::new(func).ty(), FunctionType::new(vec![], vec![]));
         assert_eq!(
-            Func::new(func__i32).ty(),
-            FuncType::new(vec![], vec![Type::I32])
+            Function::new(func__i32).ty(),
+            FunctionType::new(vec![], vec![Type::I32])
         );
         assert_eq!(
-            Func::new(func_i32).ty(),
-            FuncType::new(vec![Type::I32], vec![])
+            Function::new(func_i32).ty(),
+            FunctionType::new(vec![Type::I32], vec![])
         );
         assert_eq!(
-            Func::new(func_i32__i32).ty(),
-            FuncType::new(vec![Type::I32], vec![Type::I32])
+            Function::new(func_i32__i32).ty(),
+            FunctionType::new(vec![Type::I32], vec![Type::I32])
         );
         assert_eq!(
-            Func::new(func_i32_i32__i32).ty(),
-            FuncType::new(vec![Type::I32, Type::I32], vec![Type::I32])
+            Function::new(func_i32_i32__i32).ty(),
+            FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
         );
         assert_eq!(
-            Func::new(func_i32_i32__i32_i32).ty(),
-            FuncType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
+            Function::new(func_i32_i32__i32_i32).ty(),
+            FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
         );
         assert_eq!(
-            Func::new(func_f32_i32__i32_f32).ty(),
-            FuncType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
+            Function::new(func_f32_i32__i32_f32).ty(),
+            FunctionType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
         );
     }
 
     #[test]
     fn test_function_pointer() {
-        let f = Func::new(func_i32__i32);
+        let f = Function::new(func_i32__i32);
         let function = unsafe {
             std::mem::transmute::<*const FunctionBody, fn(i32, i32, i32) -> i32>(f.address)
         };
@@ -680,7 +680,7 @@ mod test_func {
             pub num: i32,
         };
         let mut my_env = Env { num: 2 };
-        let f = Func::new_env(&mut my_env, func_i32__i32_env);
+        let f = Function::new_env(&mut my_env, func_i32__i32_env);
         let function = unsafe {
             std::mem::transmute::<*const FunctionBody, fn(&mut Env, i32, i32) -> i32>(f.address)
         };
@@ -690,7 +690,7 @@ mod test_func {
 
     #[test]
     fn test_function_call() {
-        let f = Func::new(func_i32__i32);
+        let f = Function::new(func_i32__i32);
         let x = |args: <(i32, i32) as WasmTypeList>::Array,
                  rets: &mut <(i32, i32) as WasmTypeList>::Array| {
             let result = func_i32_i32__i32_i32(args[0] as _, args[1] as _);

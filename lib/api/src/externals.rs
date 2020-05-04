@@ -4,7 +4,7 @@ use crate::store::{Store, StoreObject};
 use crate::types::{Val, ValAnyFunc};
 use crate::Mutability;
 use crate::RuntimeError;
-use crate::{ExternType, FuncType, GlobalType, MemoryType, TableType, ValType};
+use crate::{ExternType, FunctionType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
 use std::slice;
 use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
@@ -17,7 +17,7 @@ use wasmer_runtime::{
 
 #[derive(Clone)]
 pub enum Extern {
-    Func(Func),
+    Function(Function),
     Global(Global),
     Table(Table),
     Memory(Memory),
@@ -26,7 +26,7 @@ pub enum Extern {
 impl Extern {
     pub fn ty(&self) -> ExternType {
         match self {
-            Extern::Func(ft) => ExternType::Func(ft.ty().clone()),
+            Extern::Function(ft) => ExternType::Function(ft.ty().clone()),
             Extern::Memory(ft) => ExternType::Memory(ft.ty().clone()),
             Extern::Table(tt) => ExternType::Table(tt.ty().clone()),
             Extern::Global(gt) => ExternType::Global(gt.ty().clone()),
@@ -35,7 +35,7 @@ impl Extern {
 
     pub(crate) fn from_export(store: &Store, export: Export) -> Extern {
         match export {
-            Export::Function(f) => Extern::Func(Func::from_export(store, f)),
+            Export::Function(f) => Extern::Function(Function::from_export(store, f)),
             Export::Memory(m) => Extern::Memory(Memory::from_export(store, m)),
             Export::Global(g) => Extern::Global(Global::from_export(store, g)),
             Export::Table(t) => Extern::Table(Table::from_export(store, t)),
@@ -46,7 +46,7 @@ impl Extern {
 impl<'a> Exportable<'a> for Extern {
     fn to_export(&self) -> Export {
         match self {
-            Extern::Func(f) => f.to_export(),
+            Extern::Function(f) => f.to_export(),
             Extern::Global(g) => g.to_export(),
             Extern::Memory(m) => m.to_export(),
             Extern::Table(t) => t.to_export(),
@@ -62,7 +62,7 @@ impl<'a> Exportable<'a> for Extern {
 impl StoreObject for Extern {
     fn comes_from_same_store(&self, store: &Store) -> bool {
         let my_store = match self {
-            Extern::Func(f) => f.store(),
+            Extern::Function(f) => f.store(),
             Extern::Global(g) => g.store(),
             Extern::Memory(m) => m.store(),
             Extern::Table(t) => t.store(),
@@ -71,9 +71,9 @@ impl StoreObject for Extern {
     }
 }
 
-impl From<Func> for Extern {
-    fn from(r: Func) -> Self {
-        Extern::Func(r)
+impl From<Function> for Extern {
+    fn from(r: Function) -> Self {
+        Extern::Function(r)
     }
 }
 
@@ -114,14 +114,9 @@ impl Global {
         Self::from_type(store, GlobalType::new(val.ty(), Mutability::Var), val).unwrap()
     }
 
-    pub fn from_type(store: &Store, ty: GlobalType, val: Val) -> Result<Global, RuntimeError> {
+    fn from_type(store: &Store, ty: GlobalType, val: Val) -> Result<Global, RuntimeError> {
         if !val.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` globals are not supported"));
-        }
-        if val.ty() != ty.ty.clone() {
-            return Err(RuntimeError::new(
-                "value provided does not match the type of this global",
-            ));
         }
         let mut definition = VMGlobalDefinition::new();
         unsafe {
@@ -498,7 +493,7 @@ pub enum InnerFunc {
 
 /// A WebAssembly `function`.
 #[derive(Clone, PartialEq)]
-pub struct Func {
+pub struct Function {
     store: Store,
     // If the Function is owned by the Store, not the instance
     inner: InnerFunc,
@@ -506,12 +501,12 @@ pub struct Func {
     exported: ExportFunction,
 }
 
-impl Func {
+impl Function {
     /// Creates a new `Func` with the given parameters.
     ///
     /// * `store` - a global cache to store information in
     /// * `func` - the function.
-    pub fn new<F, Args, Rets, Env>(store: &Store, func: F) -> Func
+    pub fn new<F, Args, Rets, Env>(store: &Store, func: F) -> Self
     where
         F: HostFunction<Args, Rets, WithoutEnv, Env>,
         Args: WasmTypeList,
@@ -523,7 +518,7 @@ impl Func {
         let vmctx = (func.env().unwrap_or(std::ptr::null_mut()) as *mut _) as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
-        Func {
+        Self {
             store: store.clone(),
             owned_by_store: true,
             inner: InnerFunc::Host(HostFunc {
@@ -542,7 +537,7 @@ impl Func {
     /// * `store` - a global cache to store information in.
     /// * `env` - the function environment.
     /// * `func` - the function.
-    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: &mut Env, func: F) -> Func
+    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: &mut Env, func: F) -> Self
     where
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
@@ -554,7 +549,7 @@ impl Func {
         let vmctx = (func.env().unwrap_or(std::ptr::null_mut()) as *mut _) as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
-        Func {
+        Self {
             store: store.clone(),
             owned_by_store: true,
             inner: InnerFunc::Host(HostFunc {
@@ -569,7 +564,7 @@ impl Func {
     }
 
     /// Returns the underlying type of this function.
-    pub fn ty(&self) -> FuncType {
+    pub fn ty(&self) -> FunctionType {
         self.store
             .engine()
             .lookup_signature(self.exported.signature)
@@ -668,9 +663,9 @@ impl Func {
         Ok(results.into_boxed_slice())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Func {
+    pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
         let trampoline = store.engine().trampoline(wasmer_export.signature).unwrap();
-        Func {
+        Self {
             store: store.clone(),
             owned_by_store: false,
             inner: InnerFunc::Wasm(WasmFunc { trampoline }),
@@ -687,19 +682,19 @@ impl Func {
     }
 }
 
-impl<'a> Exportable<'a> for Func {
+impl<'a> Exportable<'a> for Function {
     fn to_export(&self) -> Export {
         self.exported.clone().into()
     }
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
-            Extern::Func(func) => Ok(func),
+            Extern::Function(func) => Ok(func),
             _ => Err(ExportError::IncompatibleType),
         }
     }
 }
 
-impl std::fmt::Debug for Func {
+impl std::fmt::Debug for Function {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Ok(())
     }

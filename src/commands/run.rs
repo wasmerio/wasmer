@@ -123,7 +123,7 @@ impl Run {
         // Try to instantiate the wasm file, with no provided imports
         let imports = imports! {};
         let instance = Instance::new(&module, &imports)?;
-        let start: &Func = instance.exports.get("_start")?;
+        let start: &Function = instance.exports.get("_start")?;
         start.call(&[])?;
 
         Ok(())
@@ -189,7 +189,7 @@ impl Run {
         invoke: &str,
         args: &Vec<String>,
     ) -> Result<Box<[Val]>> {
-        let func: &Func = instance.exports.get(&invoke)?;
+        let func: &Function = instance.exports.get(&invoke)?;
         let func_ty = func.ty();
         let required_arguments = func_ty.params().len();
         let provided_arguments = args.len();

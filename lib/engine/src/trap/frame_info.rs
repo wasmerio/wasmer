@@ -15,7 +15,7 @@ use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
-use wasm_common::LocalFuncIndex;
+use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
 use wasmer_runtime::{Module, VMFunctionBody};
 
@@ -54,15 +54,18 @@ struct ModuleFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<Module>,
-    frame_infos: PrimaryMap<LocalFuncIndex, SerializableFunctionFrameInfo>,
+    frame_infos: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
 }
 
 impl ModuleFrameInfo {
-    fn function_debug_info(&self, local_index: LocalFuncIndex) -> &SerializableFunctionFrameInfo {
+    fn function_debug_info(
+        &self,
+        local_index: LocalFunctionIndex,
+    ) -> &SerializableFunctionFrameInfo {
         &self.frame_infos.get(local_index).unwrap()
     }
 
-    fn process_function_debug_info(&mut self, local_index: LocalFuncIndex) {
+    fn process_function_debug_info(&mut self, local_index: LocalFunctionIndex) {
         let mut func = self.frame_infos.get_mut(local_index).unwrap();
         let processed: CompiledFunctionFrameInfo = match func {
             SerializableFunctionFrameInfo::Processed(_) => {
@@ -76,7 +79,7 @@ impl ModuleFrameInfo {
 
     fn processed_function_frame_info(
         &self,
-        local_index: LocalFuncIndex,
+        local_index: LocalFunctionIndex,
     ) -> &CompiledFunctionFrameInfo {
         match self.function_debug_info(local_index) {
             SerializableFunctionFrameInfo::Processed(di) => &di,
@@ -96,7 +99,7 @@ impl ModuleFrameInfo {
 
 struct FunctionInfo {
     start: usize,
-    local_index: LocalFuncIndex,
+    local_index: LocalFunctionIndex,
 }
 
 impl GlobalFrameInfo {
@@ -223,8 +226,8 @@ impl Drop for GlobalFrameInfoRegistration {
 /// dropped, will be used to unregister all name information from this map.
 pub fn register(
     module: &Arc<Module>,
-    finished_functions: &BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
-    frame_infos: PrimaryMap<LocalFuncIndex, SerializableFunctionFrameInfo>,
+    finished_functions: &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    frame_infos: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::max_value();
     let mut max = 0;

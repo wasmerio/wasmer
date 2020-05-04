@@ -5,7 +5,7 @@ use crate::resolver::Resolver;
 use crate::tunables::Tunables;
 use crate::{CompiledModule, DeserializeError, SerializeError};
 use std::sync::Arc;
-use wasm_common::FuncType;
+use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
 use wasmer_runtime::{InstanceHandle, VMSharedSignatureIndex, VMTrampoline};
 
@@ -17,10 +17,10 @@ pub trait Engine {
     fn tunables(&self) -> &Tunables;
 
     /// Register a signature
-    fn register_signature(&self, func_type: &FuncType) -> VMSharedSignatureIndex;
+    fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex;
 
     /// Lookup a signature
-    fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FuncType>;
+    fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType>;
 
     /// Retrieves a trampoline given a signature
     fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;

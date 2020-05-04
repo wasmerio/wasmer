@@ -201,7 +201,7 @@ impl Extend<((String, String), Export)> for ImportObject {
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => Func::new(&store, foo)
+///         "foo" => Function::new(&store, foo)
 ///     }
 /// };
 ///

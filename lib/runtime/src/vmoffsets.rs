@@ -6,7 +6,7 @@ use crate::VMBuiltinFunctionIndex;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
 use wasm_common::{
-    FuncIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
+    FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     SignatureIndex, TableIndex,
 };
 
@@ -364,7 +364,7 @@ impl VMOffsets {
     }
 
     /// Return the offset to `VMFunctionImport` index `index`.
-    pub fn vmctx_vmfunction_import(&self, index: FuncIndex) -> u32 {
+    pub fn vmctx_vmfunction_import(&self, index: FunctionIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_functions);
         self.vmctx_imported_functions_begin()
             .checked_add(
@@ -455,14 +455,14 @@ impl VMOffsets {
     }
 
     /// Return the offset to the `body` field in `*const VMFunctionBody` index `index`.
-    pub fn vmctx_vmfunction_import_body(&self, index: FuncIndex) -> u32 {
+    pub fn vmctx_vmfunction_import_body(&self, index: FunctionIndex) -> u32 {
         self.vmctx_vmfunction_import(index)
             .checked_add(u32::from(self.vmfunction_import_body()))
             .unwrap()
     }
 
     /// Return the offset to the `vmctx` field in `*const VMFunctionBody` index `index`.
-    pub fn vmctx_vmfunction_import_vmctx(&self, index: FuncIndex) -> u32 {
+    pub fn vmctx_vmfunction_import_vmctx(&self, index: FunctionIndex) -> u32 {
         self.vmctx_vmfunction_import(index)
             .checked_add(u32::from(self.vmfunction_import_vmctx()))
             .unwrap()

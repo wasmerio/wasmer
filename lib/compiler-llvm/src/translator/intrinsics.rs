@@ -26,7 +26,7 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     structures::TypedIndex,
     types::{
-        GlobalIndex, ImportedFuncIndex, LocalOrImport, MemoryIndex, SignatureIndex, TableIndex, Type,
+        GlobalIndex, ImportedFunctionIndex, LocalOrImport, MemoryIndex, SignatureIndex, TableIndex, Type,
     },
     units::Pages,
     vm::{Ctx, INTERNALS_SIZE},
@@ -34,8 +34,8 @@ use wasmer_runtime_core::{
 */
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    FuncIndex, FuncType, GlobalIndex, MemoryIndex, Mutability, Pages, SignatureIndex, TableIndex,
-    Type,
+    FunctionIndex, FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, Pages,
+    SignatureIndex, TableIndex, Type,
 };
 use wasmer_runtime::Module as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, VMOffsets};
@@ -637,7 +637,7 @@ pub struct CtxType<'ctx, 'a> {
     cached_tables: HashMap<TableIndex, TableCache<'ctx>>,
     cached_sigindices: HashMap<SignatureIndex, IntValue<'ctx>>,
     cached_globals: HashMap<GlobalIndex, GlobalCache<'ctx>>,
-    cached_imported_functions: HashMap<FuncIndex, ImportedFuncCache<'ctx>>,
+    cached_imported_functions: HashMap<FunctionIndex, ImportedFuncCache<'ctx>>,
 
     offsets: VMOffsets,
 }
@@ -1114,7 +1114,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
     pub fn imported_func(
         &mut self,
-        index: FuncIndex,
+        index: FunctionIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
