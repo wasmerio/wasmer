@@ -57,7 +57,7 @@ pub use crate::config::{
     Architecture, CallingConvention, CompilerConfig, CpuFeature, Features, OperatingSystem, Target,
     Triple,
 };
-pub use crate::error::CompileError;
+pub use crate::error::{CompileError, WasmError, WasmResult};
 pub use crate::function::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, FunctionBody,
     Functions,
@@ -68,7 +68,7 @@ pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, Se
 pub use crate::sourceloc::SourceLoc;
 pub use crate::translator::{
     to_wasm_error, translate_module, FunctionBodyData, ModuleEnvironment, ModuleTranslation,
-    ModuleTranslationState, WasmError, WasmResult,
+    ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;
 pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTableReloc};
