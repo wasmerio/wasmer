@@ -1,7 +1,5 @@
-//! Define the `instantiate` function, which takes a byte array containing an
-//! encoded wasm module and returns a live wasm instance. Also, define
-//! `CompiledModule` to allow compiling and instantiating to be done as separate
-//! steps.
+//! Define `CompiledModule` to allow compiling and instantiating to be
+//! done as separate steps.
 
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::error::{DeserializeError, SerializeError};
@@ -176,10 +174,6 @@ impl CompiledModule {
     }
 
     /// Crate an `Instance` from this `CompiledModule`.
-    ///
-    /// Note that if only one instance of this module is needed, it may be more
-    /// efficient to call the top-level `instantiate`, since that avoids copying
-    /// the data initializers.
     ///
     /// # Unsafety
     ///
