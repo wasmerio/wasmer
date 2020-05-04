@@ -13,6 +13,7 @@ use wasm_common::{
     MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{
     register_frame_info, resolve_imports, CompiledModule as BaseCompiledModule, DeserializeError,
@@ -37,6 +38,7 @@ pub struct CompiledModule {
 
 impl CompiledModule {
     /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
+    #[cfg(feature = "compiler")]
     pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let mut jit_compiler = jit.compiler_mut();
@@ -112,6 +114,14 @@ impl CompiledModule {
             table_plans,
         };
         Self::from_parts(&mut jit_compiler, serializable)
+    }
+
+    /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
+    #[cfg(not(feature = "compiler"))]
+    pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
+        Err(CompileError::Codegen(
+            "Compilation is not enabled in the engine".to_string(),
+        ))
     }
 
     /// Serialize a CompiledModule
@@ -223,9 +233,11 @@ impl CompiledModule {
             .into_boxed_slice();
         let finished_tables = tunables
             .create_tables(&self.serializable.module, self.table_plans())
+            .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_globals = tunables
             .create_globals(&self.serializable.module)
+            .map_err(InstantiationError::Link)?
             .into_boxed_slice();
 
         // Register the frame info for the module

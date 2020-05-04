@@ -98,7 +98,7 @@ impl BaseTunables for Tunables {
     }
 
     /// Create a memory given a memory type
-    fn create_table(&self, plan: TablePlan) -> Table {
+    fn create_table(&self, plan: TablePlan) -> Result<Table, String> {
         Table::new(&plan)
     }
 }

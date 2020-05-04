@@ -1,5 +1,6 @@
 use crate::tunables::Tunables;
 use std::sync::Arc;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 use wasmer_engine::Engine;
 

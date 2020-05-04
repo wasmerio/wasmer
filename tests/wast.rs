@@ -1,3 +1,5 @@
+#![cfg(feature = "compiler")]
+
 use std::path::Path;
 use std::sync::Arc;
 use test_utils::get_compiler_config_from_str;

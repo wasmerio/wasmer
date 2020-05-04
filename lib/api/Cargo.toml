@@ -49,14 +49,18 @@ engine-jit = [
 default-engine-jit = [
     "engine-jit"
 ]
+compiler = ["wasmer-engine-jit/compiler"]
 compiler-singlepass = [
-    "wasmer-compiler-singlepass"
+    "wasmer-compiler-singlepass",
+    "compiler",
 ]
 compiler-cranelift = [
-    "wasmer-compiler-cranelift"
+    "wasmer-compiler-cranelift",
+    "compiler",
 ]
 compiler-llvm = [
-    "wasmer-compiler-llvm"
+    "wasmer-compiler-llvm",
+    "compiler",
 ]
 default-compiler-singlepass = [
     "compiler-singlepass"

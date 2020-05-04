@@ -19,7 +19,7 @@ pub trait Tunables {
     fn create_memory(&self, memory_type: MemoryPlan) -> Result<LinearMemory, String>;
 
     /// Create a memory given a memory type
-    fn create_table(&self, table_type: TablePlan) -> Table;
+    fn create_table(&self, table_type: TablePlan) -> Result<Table, String>;
 
     /// Allocate memory for just the memories of the current module.
     fn create_memories(
@@ -42,20 +42,23 @@ pub trait Tunables {
         &self,
         module: &Module,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
-    ) -> PrimaryMap<LocalTableIndex, Table> {
+    ) -> Result<PrimaryMap<LocalTableIndex, Table>, LinkError> {
         let num_imports = module.num_imported_tables;
         let mut tables: PrimaryMap<LocalTableIndex, _> =
             PrimaryMap::with_capacity(module.tables.len() - num_imports);
         for index in num_imports..module.tables.len() {
             let plan = table_plans[TableIndex::new(index)].clone();
-            tables.push(self.create_table(plan));
+            tables.push(self.create_table(plan).map_err(LinkError::Resource)?);
         }
-        tables
+        Ok(tables)
     }
 
     /// Allocate memory for just the globals of the current module,
     /// with initializers applied.
-    fn create_globals(&self, module: &Module) -> PrimaryMap<LocalGlobalIndex, VMGlobalDefinition> {
+    fn create_globals(
+        &self,
+        module: &Module,
+    ) -> Result<PrimaryMap<LocalGlobalIndex, VMGlobalDefinition>, LinkError> {
         let num_imports = module.num_imported_globals;
         let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
 
@@ -63,6 +66,6 @@ pub trait Tunables {
             vmctx_globals.push(VMGlobalDefinition::new());
         }
 
-        vmctx_globals
+        Ok(vmctx_globals)
     }
 }

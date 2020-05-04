@@ -65,6 +65,7 @@ impl FromStr for Compiler {
     }
 }
 
+#[cfg(feature = "compiler")]
 impl StoreOptions {
     fn get_compiler(&self) -> Result<Compiler> {
         if self.cranelift {
@@ -126,7 +127,7 @@ impl StoreOptions {
     }
 
     /// Get's the compiler config
-    pub fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, String)> {
+    fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, String)> {
         let compiler = self.get_compiler()?;
         let compiler_name = compiler.to_string();
         let compiler_config = self.get_config(compiler)?;
@@ -146,5 +147,17 @@ impl StoreOptions {
         let engine = JITEngine::new(&*compiler_config, tunables);
         let store = Store::new(Arc::new(engine));
         Ok((store, compiler_name))
+    }
+}
+
+#[cfg(not(feature = "compiler"))]
+impl StoreOptions {
+    /// Get the store (headless engine)
+    pub fn get_store(&self) -> Result<(Store, String)> {
+        // Get the tunables for the current host
+        let tunables = Tunables::default();
+        let engine = Engine::headless(tunables);
+        let store = Store::new(&engine);
+        Ok((store, "headless".to_string()))
     }
 }

@@ -194,13 +194,15 @@ impl Extend<((String, String), Export)> for ImportObject {
 ///
 ///
 /// # Usage:
-/// ```ignore
-/// use wasmer::{imports, func};
+/// ```
+/// # use wasmer::{Func, Store};
+/// # let store = Store::default();
+/// use wasmer::imports;
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => func!(foo),
-///     },
+///         "foo" => Func::new(&store, foo)
+///     }
 /// };
 ///
 /// fn foo(n: i32) -> i32 {
@@ -224,24 +226,8 @@ macro_rules! imports {
     }};
 }
 
-/// Generate an [`Namespace`] easily with the `namespace!` macro.
-///
-/// [`Namespace`]: struct.Namespace.html
-///
-///
-/// # Usage:
-/// ```ignore
-/// use wasmer::{namespace, func};
-///
-/// let env = namespace! {
-///     "foo" => func!(foo),
-/// };
-///
-/// fn foo(n: i32) -> i32 {
-///     n
-/// }
-/// ```
 #[macro_export]
+#[doc(hidden)]
 macro_rules! namespace {
     ($( $imp_name:expr => $import_item:expr ),* $(,)? ) => {
         $crate::import_namespace!({ $( $imp_name => $import_item, )* })
