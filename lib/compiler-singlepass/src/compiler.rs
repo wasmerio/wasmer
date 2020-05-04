@@ -9,7 +9,7 @@ use wasm_common::Features;
 use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::TrapInformation;
-use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler};
+use wasmer_compiler::{Compilation, CompileError, Compiler, FunctionBody};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_runtime::Module;
 use wasmer_runtime::TrapCode;
@@ -68,7 +68,7 @@ impl Compiler for SinglepassCompiler {
     fn compile_wasm_trampolines(
         &self,
         _signatures: &[FuncType],
-    ) -> Result<Vec<CompiledFunction>, CompileError> {
+    ) -> Result<Vec<FunctionBody>, CompileError> {
         // Note: do not implement this yet
         Err(CompileError::Codegen(
             "Singlepass trampoline compilation not supported yet".to_owned(),

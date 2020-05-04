@@ -40,7 +40,7 @@ use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, Addend, CodeOffset, CompileError, CompiledFunction,
     CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, CustomSection, CustomSectionProtection,
     FunctionAddressMap, FunctionBody, FunctionBodyData, Relocation, RelocationKind,
-    RelocationTarget, SourceLoc, WasmResult,
+    RelocationTarget, SectionBody, SourceLoc, WasmResult,
 };
 use wasmer_runtime::libcalls::LibCall;
 use wasmer_runtime::Module as WasmerCompilerModule;
@@ -384,7 +384,7 @@ impl FuncTranslator {
             required_custom_sections.len(),
             CustomSection {
                 protection: CustomSectionProtection::Read,
-                bytes: vec![],
+                bytes: SectionBody::default(),
             },
         );
         for section in object.get_sections() {

@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{LocalFuncIndex, MemoryIndex, OwnedDataInitializer, TableIndex};
-use wasmer_compiler::{FunctionBody, JumpTableOffsets, Relocation};
+use wasm_common::{
+    Features, LocalFuncIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
+};
+use wasmer_compiler::{FunctionBody, JumpTableOffsets, Relocation, SectionBody, SectionIndex};
 use wasmer_engine::SerializableFunctionFrameInfo;
 use wasmer_runtime::Module;
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -17,6 +19,8 @@ pub struct SerializableCompilation {
     // to allow lazy frame_info deserialization, we convert it to it's lazy binary
     // format upon serialization.
     pub function_frame_info: PrimaryMap<LocalFuncIndex, SerializableFunctionFrameInfo>,
+    pub trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
+    pub custom_sections: PrimaryMap<SectionIndex, SectionBody>,
 }
 
 /// Serializable struct that is able to serialize from and to
@@ -24,6 +28,7 @@ pub struct SerializableCompilation {
 #[derive(Serialize, Deserialize)]
 pub struct SerializableModule {
     pub compilation: SerializableCompilation,
+    pub features: Features,
     pub module: Arc<Module>,
     pub data_initializers: Box<[OwnedDataInitializer]>,
     // Plans for that module

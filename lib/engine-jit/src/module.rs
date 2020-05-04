@@ -68,6 +68,7 @@ impl CompiledModule {
             memory_plans.clone(),
             table_plans.clone(),
         )?;
+        let trampolines = jit_compiler.compile_trampolines(&translation.module.signatures)?;
         let data_initializers = translation
             .data_initializers
             .iter()
@@ -86,10 +87,13 @@ impl CompiledModule {
             function_relocations: compilation.get_relocations(),
             function_jt_offsets: compilation.get_jt_offsets(),
             function_frame_info: frame_infos,
+            trampolines,
+            custom_sections: compilation.get_custom_sections(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
             module: Arc::new(translation.module),
+            features: jit_compiler.compiler()?.features().clone(),
             data_initializers,
             memory_plans,
             table_plans,
@@ -123,9 +127,10 @@ impl CompiledModule {
         jit_compiler: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let finished_functions = jit_compiler.compile(
+        let finished_functions = jit_compiler.allocate(
             &serializable.module,
             &serializable.compilation.function_bodies,
+            &serializable.compilation.trampolines,
         )?;
 
         link_module(
@@ -133,6 +138,7 @@ impl CompiledModule {
             &finished_functions,
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
+            &serializable.compilation.custom_sections,
         );
 
         // Compute indices into the shared signature table.
@@ -173,7 +179,7 @@ impl CompiledModule {
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
         let jit_compiler = jit.compiler();
-        let is_bulk_memory: bool = jit_compiler.compiler().features().bulk_memory;
+        let is_bulk_memory: bool = self.serializable.features.bulk_memory;
         let sig_registry: &SignatureRegistry = jit_compiler.signatures();
         let data_initializers = self
             .serializable

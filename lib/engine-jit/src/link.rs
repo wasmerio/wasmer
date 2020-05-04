@@ -3,7 +3,10 @@
 use std::ptr::write_unaligned;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::LocalFuncIndex;
-use wasmer_compiler::{JumpTable, JumpTableOffsets, RelocationKind, RelocationTarget, Relocations};
+use wasmer_compiler::{
+    JumpTable, JumpTableOffsets, RelocationKind, RelocationTarget, Relocations, SectionBody,
+    SectionIndex,
+};
 use wasmer_runtime::Module;
 use wasmer_runtime::VMFunctionBody;
 
@@ -14,6 +17,7 @@ pub fn link_module(
     allocated_functions: &PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>,
     jt_offsets: &PrimaryMap<LocalFuncIndex, JumpTableOffsets>,
     relocations: Relocations,
+    allocated_sections: &PrimaryMap<SectionIndex, SectionBody>,
 ) {
     for (i, function_relocs) in relocations.into_iter() {
         for r in function_relocs {
@@ -23,8 +27,8 @@ pub fn link_module(
                     fatptr as *const VMFunctionBody as usize
                 }
                 RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
-                RelocationTarget::CustomSection(_custom_section) => {
-                    unimplemented!("Custom Sections not yet implemented");
+                RelocationTarget::CustomSection(custom_section) => {
+                    allocated_sections[custom_section].as_ptr() as usize
                 }
                 RelocationTarget::JumpTable(func_index, jt) => {
                     let offset = *jt_offsets

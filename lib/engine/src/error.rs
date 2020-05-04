@@ -46,7 +46,7 @@ pub enum ImportError {
     /// Unknown Import.
     /// This error occurs when an import was expected but not provided.
     #[error("unknown import. Expected {0:?}")]
-    Unknown(ExternType),
+    UnknownImport(ExternType),
 }
 
 /// The WebAssembly.LinkError object indicates an error during
@@ -58,9 +58,6 @@ pub enum ImportError {
 #[derive(Error, Debug)]
 #[error("Link error: {0}")]
 pub enum LinkError {
-    /// A wasm translation error occured.
-    Generic(String),
-
     /// An error occurred when checking the import types.
     #[error("Error while importing {0:?}.{1:?}: {2}")]
     Import(String, String, ImportError),
