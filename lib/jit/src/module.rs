@@ -227,9 +227,11 @@ impl CompiledModule {
             .into_boxed_slice();
         let finished_tables = tunables
             .create_tables(&self.serializable.module, self.table_plans())
+            .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_globals = tunables
             .create_globals(&self.serializable.module)
+            .map_err(InstantiationError::Link)?
             .into_boxed_slice();
 
         // Register the frame info for the module

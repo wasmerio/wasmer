@@ -233,7 +233,7 @@ impl Table {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.engine().tunables();
         let table_plan = tunables.table_plan(ty);
-        let table = tunables.create_table(table_plan);
+        let table = tunables.create_table(table_plan).unwrap();
 
         let definition = table.vmtable();
         for i in 0..definition.current_elements {
