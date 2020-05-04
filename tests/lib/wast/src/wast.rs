@@ -306,7 +306,7 @@ impl Wast {
         args: &[Val],
     ) -> Result<Vec<Val>> {
         let instance = self.get_instance(instance_name.as_ref().map(|x| &**x))?;
-        let func: &Func = instance.exports.get(field)?;
+        let func: &Function = instance.exports.get(field)?;
         match func.call(args) {
             Ok(result) => Ok(result.into()),
             Err(e) => Err(e.into()),

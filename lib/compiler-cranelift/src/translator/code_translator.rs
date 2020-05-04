@@ -37,7 +37,7 @@ use cranelift_codegen::ir::{
 use cranelift_codegen::packed_option::ReservedValue;
 use cranelift_frontend::{FunctionBuilder, Variable};
 use std::vec::Vec;
-use wasm_common::{FuncIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{to_wasm_error, WasmResult};
 use wasmer_compiler::{wasm_unsupported, ModuleTranslationState};
@@ -508,7 +508,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
 
             let call = environ.translate_call(
                 builder.cursor(),
-                FuncIndex::from_u32(*function_index),
+                FunctionIndex::from_u32(*function_index),
                 fref,
                 args,
             )?;

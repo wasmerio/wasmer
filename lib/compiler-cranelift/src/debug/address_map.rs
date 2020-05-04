@@ -3,13 +3,13 @@
 
 use cranelift_codegen::ir;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::LocalFuncIndex;
+use wasm_common::LocalFunctionIndex;
 
 /// Value ranges for functions.
-pub type ValueLabelsRanges = PrimaryMap<LocalFuncIndex, cranelift_codegen::ValueLabelsRanges>;
+pub type ValueLabelsRanges = PrimaryMap<LocalFunctionIndex, cranelift_codegen::ValueLabelsRanges>;
 
 /// Stack slots for functions.
-pub type StackSlots = PrimaryMap<LocalFuncIndex, ir::StackSlots>;
+pub type StackSlots = PrimaryMap<LocalFunctionIndex, ir::StackSlots>;
 
 /// Memory definition offset in the VMContext structure.
 #[derive(Debug, Clone)]

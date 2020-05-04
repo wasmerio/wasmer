@@ -10,7 +10,7 @@ use super::func_environ::{FuncEnvironment, GlobalVariable};
 use crate::{HashMap, Occupied, Vacant};
 use cranelift_codegen::ir::{self, Block, Inst, Value};
 use std::vec::Vec;
-use wasm_common::{FuncIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::WasmResult;
 
 /// Information about the presence of an associated `else` for an `if`, or the
@@ -213,7 +213,7 @@ pub struct FuncTranslationState {
     // Imported and local functions that have been created by
     // `FuncEnvironment::make_direct_func()`.
     // Stores both the function reference and the number of WebAssembly arguments
-    functions: HashMap<FuncIndex, (ir::FuncRef, usize)>,
+    functions: HashMap<FunctionIndex, (ir::FuncRef, usize)>,
 }
 
 // Public methods that are exposed to non-`wasmer_compiler` API consumers.
@@ -490,7 +490,7 @@ impl FuncTranslationState {
         index: u32,
         environ: &mut FE,
     ) -> WasmResult<(ir::FuncRef, usize)> {
-        let index = FuncIndex::from_u32(index);
+        let index = FunctionIndex::from_u32(index);
         match self.functions.entry(index) {
             Occupied(entry) => Ok(*entry.get()),
             Vacant(entry) => {

@@ -9,10 +9,10 @@ use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FuncIndex, FuncType, GlobalIndex,
-    GlobalInit, GlobalType, ImportIndex, ImportType, LocalFuncIndex, LocalGlobalIndex,
-    LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex,
-    TableType,
+    DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex, FunctionType,
+    GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, Pages,
+    SignatureIndex, TableIndex, TableType,
 };
 
 /// A WebAssembly table initializer.
@@ -25,7 +25,7 @@ pub struct TableElements {
     /// The offset to add to the base.
     pub offset: usize,
     /// The values to write into the table elements.
-    pub elements: Box<[FuncIndex]>,
+    pub elements: Box<[FunctionIndex]>,
 }
 
 /// Implemenation styles for WebAssembly linear memory.
@@ -114,13 +114,13 @@ pub struct Module {
     pub exports: IndexMap<String, ExportIndex>,
 
     /// The module "start" function, if present.
-    pub start_func: Option<FuncIndex>,
+    pub start_func: Option<FunctionIndex>,
 
     /// WebAssembly table initializers.
     pub table_elements: Vec<TableElements>,
 
     /// WebAssembly passive elements.
-    pub passive_elements: HashMap<ElemIndex, Box<[FuncIndex]>>,
+    pub passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
 
     /// WebAssembly passive data segments.
     pub passive_data: HashMap<DataIndex, Arc<[u8]>>,
@@ -129,13 +129,13 @@ pub struct Module {
     pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
 
     /// WebAssembly function names.
-    pub func_names: HashMap<FuncIndex, String>,
+    pub func_names: HashMap<FunctionIndex, String>,
 
     /// WebAssembly function signatures.
-    pub signatures: PrimaryMap<SignatureIndex, FuncType>,
+    pub signatures: PrimaryMap<SignatureIndex, FunctionType>,
 
     /// Types of functions (imported and local).
-    pub functions: PrimaryMap<FuncIndex, SignatureIndex>,
+    pub functions: PrimaryMap<FunctionIndex, SignatureIndex>,
 
     /// WebAssembly tables (imported and local).
     pub tables: PrimaryMap<TableIndex, TableType>,
@@ -186,12 +186,12 @@ impl Module {
     }
 
     /// Get the given passive element, if it exists.
-    pub fn get_passive_element(&self, index: ElemIndex) -> Option<&[FuncIndex]> {
+    pub fn get_passive_element(&self, index: ElemIndex) -> Option<&[FunctionIndex]> {
         self.passive_elements.get(&index).map(|es| &**es)
     }
 
     /// Get the exported signatures of the module
-    pub fn exported_signatures(&self) -> Vec<FuncType> {
+    pub fn exported_signatures(&self) -> Vec<FunctionType> {
         self.exports
             .iter()
             .filter_map(|(_name, export_index)| match export_index {
@@ -202,7 +202,7 @@ impl Module {
                 }
                 _ => None,
             })
-            .collect::<Vec<FuncType>>()
+            .collect::<Vec<FunctionType>>()
     }
 
     /// Get the export types of the module
@@ -212,7 +212,7 @@ impl Module {
                 ExportIndex::Function(i) => {
                     let signature = self.functions.get(i.clone()).unwrap();
                     let func_type = self.signatures.get(signature.clone()).unwrap();
-                    ExternType::Func(func_type.clone())
+                    ExternType::Function(func_type.clone())
                 }
                 ExportIndex::Table(i) => {
                     let table_type = self.tables.get(i.clone()).unwrap();
@@ -240,7 +240,7 @@ impl Module {
                     ImportIndex::Function(i) => {
                         let signature = self.functions.get(i.clone()).unwrap();
                         let func_type = self.signatures.get(signature.clone()).unwrap();
-                        ExternType::Func(func_type.clone())
+                        ExternType::Function(func_type.clone())
                     }
                     ImportIndex::Table(i) => {
                         let table_type = self.tables.get(i.clone()).unwrap();
@@ -259,21 +259,21 @@ impl Module {
             })
     }
 
-    /// Convert a `LocalFuncIndex` into a `FuncIndex`.
-    pub fn func_index(&self, local_func: LocalFuncIndex) -> FuncIndex {
-        FuncIndex::new(self.num_imported_funcs + local_func.index())
+    /// Convert a `LocalFunctionIndex` into a `FunctionIndex`.
+    pub fn func_index(&self, local_func: LocalFunctionIndex) -> FunctionIndex {
+        FunctionIndex::new(self.num_imported_funcs + local_func.index())
     }
 
-    /// Convert a `FuncIndex` into a `LocalFuncIndex`. Returns None if the
+    /// Convert a `FunctionIndex` into a `LocalFunctionIndex`. Returns None if the
     /// index is an imported function.
-    pub fn local_func_index(&self, func: FuncIndex) -> Option<LocalFuncIndex> {
+    pub fn local_func_index(&self, func: FunctionIndex) -> Option<LocalFunctionIndex> {
         func.index()
             .checked_sub(self.num_imported_funcs)
-            .map(LocalFuncIndex::new)
+            .map(LocalFunctionIndex::new)
     }
 
     /// Test whether the given function index is for an imported function.
-    pub fn is_imported_function(&self, index: FuncIndex) -> bool {
+    pub fn is_imported_function(&self, index: FunctionIndex) -> bool {
         index.index() < self.num_imported_funcs
     }
 

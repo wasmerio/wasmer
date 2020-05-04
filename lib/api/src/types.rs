@@ -1,14 +1,14 @@
-use crate::externals::Func;
+use crate::externals::Function;
 use crate::store::{Store, StoreObject};
 use crate::RuntimeError;
 use std::ptr;
 use wasm_common::Value;
 pub use wasm_common::{
-    AnyRef, ExportType, ExternType, FuncType, GlobalType, HostInfo, HostRef, ImportType,
+    AnyRef, ExportType, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Type as ValType,
 };
 
-pub type Val = Value<Func>;
+pub type Val = Value<Function>;
 
 impl StoreObject for Val {
     fn comes_from_same_store(&self, store: &Store) -> bool {
@@ -21,8 +21,8 @@ impl StoreObject for Val {
     }
 }
 
-impl From<Func> for Val {
-    fn from(val: Func) -> Val {
+impl From<Function> for Val {
+    fn from(val: Function) -> Val {
         Val::FuncRef(val)
     }
 }
@@ -66,7 +66,7 @@ impl ValAnyFunc for Val {
             signature: item.type_index,
             vmctx: item.vmctx,
         };
-        let f = Func::from_export(store, export);
+        let f = Function::from_export(store, export);
         Val::FuncRef(f)
     }
 }

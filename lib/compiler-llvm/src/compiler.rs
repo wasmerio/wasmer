@@ -8,7 +8,7 @@ use crate::translator::FuncTranslator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::Features;
-use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
+use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
     Compilation, CompileError, CompiledFunction, Compiler, CompilerConfig, CustomSection,
     CustomSectionProtection, FunctionBody, FunctionBodyData, ModuleTranslationState, Relocation,
@@ -58,7 +58,7 @@ impl Compiler for LLVMCompiler {
         &self,
         module: &'module Module,
         _module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
@@ -83,7 +83,7 @@ impl Compiler for LLVMCompiler {
         }
         let mut functions = function_body_inputs
             .into_iter()
-            .collect::<Vec<(LocalFuncIndex, &FunctionBodyData<'_>)>>()
+            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
                 // TODO: remove (to serialize)
@@ -130,7 +130,7 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<LocalFuncIndex, _>>();
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         let mut custom_sections = PrimaryMap::new();
         if used_readonly_section {
@@ -141,7 +141,7 @@ impl Compiler for LLVMCompiler {
 
     fn compile_wasm_trampolines(
         &self,
-        signatures: &[FuncType],
+        signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()

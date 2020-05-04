@@ -1,13 +1,13 @@
 use crate::vmcontext::{VMFunctionImport, VMGlobalImport, VMMemoryImport, VMTableImport};
 use std::collections::HashSet;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
-use wasm_common::{FuncIndex, GlobalIndex, MemoryIndex, TableIndex};
+use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 
 /// Resolved import pointers.
 #[derive(Clone)]
 pub struct Imports {
     /// Resolved addresses for imported functions.
-    pub functions: BoxedSlice<FuncIndex, VMFunctionImport>,
+    pub functions: BoxedSlice<FunctionIndex, VMFunctionImport>,
 
     /// Resolved addresses for imported tables.
     pub tables: BoxedSlice<TableIndex, VMTableImport>,
@@ -22,7 +22,7 @@ pub struct Imports {
 impl Imports {
     /// Construct a new `Imports` instance.
     pub fn new(
-        function_imports: PrimaryMap<FuncIndex, VMFunctionImport>,
+        function_imports: PrimaryMap<FunctionIndex, VMFunctionImport>,
         table_imports: PrimaryMap<TableIndex, VMTableImport>,
         memory_imports: PrimaryMap<MemoryIndex, VMMemoryImport>,
         global_imports: PrimaryMap<GlobalIndex, VMGlobalImport>,

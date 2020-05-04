@@ -1,4 +1,4 @@
-use crate::indexes::{FuncIndex, GlobalIndex};
+use crate::indexes::{FunctionIndex, GlobalIndex};
 use crate::units::Pages;
 use crate::values::Value;
 
@@ -100,7 +100,7 @@ impl From<&[u8]> for V128 {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ExternType {
     /// This external type is the type of a WebAssembly function.
-    Func(FuncType),
+    Function(FunctionType),
     /// This external type is the type of a WebAssembly global.
     Global(GlobalType),
     /// This external type is the type of a WebAssembly table.
@@ -192,7 +192,7 @@ macro_rules! accessors {
 
 impl ExternType {
     accessors! {
-        (Func(FuncType) func unwrap_func)
+        (Function(FunctionType) func unwrap_func)
         (Global(GlobalType) global unwrap_global)
         (Table(TableType) table unwrap_table)
         (Memory(MemoryType) memory unwrap_memory)
@@ -200,7 +200,7 @@ impl ExternType {
     /// Check if two externs are compatible
     pub fn is_compatible_with(&self, other: &Self) -> bool {
         match (self, other) {
-            (ExternType::Func(a), ExternType::Func(b)) => a == b,
+            (ExternType::Function(a), ExternType::Function(b)) => a == b,
             (ExternType::Global(a), ExternType::Global(b)) => is_global_compatible(a, b),
             (ExternType::Table(a), ExternType::Table(b)) => is_table_compatible(a, b),
             (ExternType::Memory(a), ExternType::Memory(b)) => is_memory_compatible(a, b),
@@ -216,14 +216,14 @@ impl ExternType {
 /// WebAssembly functions can have 0 or more parameters and results.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct FuncType {
+pub struct FunctionType {
     /// The parameters of the function
     params: Vec<Type>,
     /// The return values of the function
     results: Vec<Type>,
 }
 
-impl FuncType {
+impl FunctionType {
     /// Creates a new Function Type with the given parameter and return types.
     pub fn new<Params, Returns>(params: Params, returns: Returns) -> Self
     where
@@ -257,7 +257,7 @@ impl FuncType {
     // }
 }
 
-impl std::fmt::Display for FuncType {
+impl std::fmt::Display for FunctionType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let params = self
             .params
@@ -358,7 +358,7 @@ pub enum GlobalInit {
     /// A `ref.null`.
     RefNullConst,
     /// A `ref.func <index>`.
-    RefFunc(FuncIndex),
+    RefFunc(FunctionIndex),
 }
 
 impl GlobalInit {

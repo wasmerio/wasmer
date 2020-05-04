@@ -24,8 +24,8 @@ use std::sync::Arc;
 use std::{mem, ptr, slice};
 use wasm_common::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataIndex, DataInitializer, ElemIndex, ExportIndex, FuncIndex, GlobalIndex, GlobalInit,
-    LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, Pages,
+    DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, Pages,
     SignatureIndex, TableIndex,
 };
 
@@ -84,7 +84,7 @@ pub(crate) struct Instance {
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
 
     /// Pointers to functions in executable memory.
-    finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
+    finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -128,7 +128,7 @@ impl Instance {
     }
 
     /// Return the indexed `VMFunctionImport`.
-    fn imported_function(&self, index: FuncIndex) -> &VMFunctionImport {
+    fn imported_function(&self, index: FunctionIndex) -> &VMFunctionImport {
         let index = usize::try_from(index.as_u32()).unwrap();
         unsafe { &*self.imported_functions_ptr().add(index) }
     }
@@ -536,9 +536,9 @@ impl Instance {
         Layout::from_size_align(size, align).unwrap()
     }
 
-    /// Get a `VMCallerCheckedAnyfunc` for the given `FuncIndex`.
-    fn get_caller_checked_anyfunc(&self, index: FuncIndex) -> VMCallerCheckedAnyfunc {
-        if index == FuncIndex::reserved_value() {
+    /// Get a `VMCallerCheckedAnyfunc` for the given `FunctionIndex`.
+    fn get_caller_checked_anyfunc(&self, index: FunctionIndex) -> VMCallerCheckedAnyfunc {
+        if index == FunctionIndex::reserved_value() {
             return VMCallerCheckedAnyfunc::default();
         }
 
@@ -775,7 +775,7 @@ impl InstanceHandle {
     /// safety.
     pub unsafe fn new(
         module: Arc<Module>,
-        finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
+        finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
         finished_memories: BoxedSlice<LocalMemoryIndex, LinearMemory>,
         finished_tables: BoxedSlice<LocalTableIndex, Table>,
         finished_globals: BoxedSlice<LocalGlobalIndex, VMGlobalDefinition>,
@@ -1173,7 +1173,7 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
 }
 
 /// Initialize the `Instance::passive_elements` map by resolving the
-/// `Module::passive_elements`'s `FuncIndex`s into `VMCallerCheckedAnyfunc`s for
+/// `Module::passive_elements`'s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
 /// this instance.
 fn initialize_passive_elements(instance: &Instance) {
     let mut passive_elements = instance.passive_elements.borrow_mut();

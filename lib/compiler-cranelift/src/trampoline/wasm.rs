@@ -14,14 +14,14 @@ use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-use wasm_common::FuncType;
+use wasm_common::FunctionType;
 use wasmer_compiler::{CompileError, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_wasm_trampoline(
     isa: &dyn TargetIsa,
     fn_builder_ctx: &mut FunctionBuilderContext,
-    func_type: &FuncType,
+    func_type: &FunctionType,
     value_size: usize,
 ) -> Result<FunctionBody, CompileError> {
     let pointer_type = isa.pointer_type();
