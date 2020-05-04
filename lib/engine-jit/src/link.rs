@@ -11,7 +11,7 @@ use wasmer_runtime::Module;
 use wasmer_runtime::VMFunctionBody;
 
 /// Links a module, patching the allocated functions with the
-/// requiredd relocations and jump tables.
+/// required relocations and jump tables.
 pub fn link_module(
     module: &Module,
     allocated_functions: &PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
