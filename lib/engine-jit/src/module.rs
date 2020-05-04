@@ -1,7 +1,5 @@
-//! Define the `instantiate` function, which takes a byte array containing an
-//! encoded wasm module and returns a live wasm instance. Also, define
-//! `CompiledModule` to allow compiling and instantiating to be done as separate
-//! steps.
+//! Define `CompiledModule` to allow compiling and instantiating to be
+//! done as separate steps.
 
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
@@ -19,7 +17,7 @@ use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{
     register_frame_info, resolve_imports, CompiledModule as BaseCompiledModule, DeserializeError,
     Engine, GlobalFrameInfoRegistration, InstantiationError, LinkError, Resolver, RuntimeError,
-    SerializableFunctionFrameInfo, SerializeError,
+    SerializableFunctionFrameInfo, SerializeError, Tunables,
 };
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
@@ -171,7 +169,11 @@ impl CompiledModule {
         &self.serializable.table_plans
     }
 
-    /// Instantiate the module
+    /// Crate an `Instance` from this `CompiledModule`.
+    ///
+    /// # Unsafety
+    ///
+    /// See `InstanceHandle::new`
     pub unsafe fn instantiate(
         &self,
         jit: &JITEngine,
@@ -179,6 +181,7 @@ impl CompiledModule {
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
         let jit_compiler = jit.compiler();
+        let tunables = jit.tunables();
         let is_bulk_memory: bool = self.serializable.features.bulk_memory;
         let sig_registry: &SignatureRegistry = jit_compiler.signatures();
         let data_initializers = self
@@ -199,10 +202,16 @@ impl CompiledModule {
         )
         .map_err(InstantiationError::Link)?;
 
-        let finished_memories = create_memories(&self.serializable.module, self.memory_plans())
-            .map_err(InstantiationError::Link)?;
-        let finished_tables = create_tables(&self.serializable.module, self.table_plans());
-        let finished_globals = create_globals(&self.serializable.module);
+        let finished_memories = tunables
+            .create_memories(&self.serializable.module, self.memory_plans())
+            .map_err(InstantiationError::Link)?
+            .into_boxed_slice();
+        let finished_tables = tunables
+            .create_tables(&self.serializable.module, self.table_plans())
+            .into_boxed_slice();
+        let finished_globals = tunables
+            .create_globals(&self.serializable.module)
+            .into_boxed_slice();
 
         // Register the frame info for the module
         self.register_frame_info();
@@ -239,6 +248,7 @@ impl CompiledModule {
         ));
     }
 }
+
 unsafe impl Sync for CompiledModule {}
 unsafe impl Send for CompiledModule {}
 
@@ -254,47 +264,4 @@ impl BaseCompiledModule for CompiledModule {
     fn module_ref(&self) -> &Module {
         &self.serializable.module
     }
-}
-
-/// Allocate memory for just the memories of the current module.
-fn create_memories(
-    module: &Module,
-    memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
-) -> Result<BoxedSlice<LocalMemoryIndex, LinearMemory>, LinkError> {
-    let num_imports = module.num_imported_memories;
-    let mut memories: PrimaryMap<LocalMemoryIndex, _> =
-        PrimaryMap::with_capacity(module.memories.len() - num_imports);
-    for index in num_imports..module.memories.len() {
-        let plan = memory_plans[MemoryIndex::new(index)].clone();
-        memories.push(LinearMemory::new(&plan).map_err(LinkError::Resource)?);
-    }
-    Ok(memories.into_boxed_slice())
-}
-
-/// Allocate memory for just the tables of the current module.
-fn create_tables(
-    module: &Module,
-    table_plans: &PrimaryMap<TableIndex, TablePlan>,
-) -> BoxedSlice<LocalTableIndex, Table> {
-    let num_imports = module.num_imported_tables;
-    let mut tables: PrimaryMap<LocalTableIndex, _> =
-        PrimaryMap::with_capacity(module.tables.len() - num_imports);
-    for index in num_imports..module.tables.len() {
-        let plan = table_plans[TableIndex::new(index)].clone();
-        tables.push(Table::new(&plan));
-    }
-    tables.into_boxed_slice()
-}
-
-/// Allocate memory for just the globals of the current module,
-/// with initializers applied.
-fn create_globals(module: &Module) -> BoxedSlice<LocalGlobalIndex, VMGlobalDefinition> {
-    let num_imports = module.num_imported_globals;
-    let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
-
-    for _ in &module.globals.values().as_slice()[num_imports..] {
-        vmctx_globals.push(VMGlobalDefinition::new());
-    }
-
-    vmctx_globals.into_boxed_slice()
 }
