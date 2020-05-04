@@ -59,7 +59,7 @@ impl ValAnyFunc for Val {
 
     fn from_checked_anyfunc(item: wasmer_runtime::VMCallerCheckedAnyfunc, store: &Store) -> Val {
         if item.type_index == wasmer_runtime::VMSharedSignatureIndex::default() {
-            Val::AnyRef(AnyRef::Null);
+            return Val::AnyRef(AnyRef::Null);
         }
         let export = wasmer_runtime::ExportFunction {
             address: item.func_ptr,
