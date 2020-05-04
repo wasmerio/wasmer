@@ -10,10 +10,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex};
-use wasmer_compiler::{
-    Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionBody,
-    FunctionBodyData, ModuleTranslationState, Target,
-};
+use wasmer_compiler::{Compilation, CompileError, Compiler, CompilerConfig, FunctionBody, Target};
 use wasmer_runtime::{
     InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
     VMSharedSignatureIndex, VMTrampoline,
@@ -151,7 +148,7 @@ impl JITEngine {
 /// The inner contents of `JITEngine`
 pub struct JITEngineInner {
     /// The compiler
-    compiler: Option<Box<dyn BaseCompiler>>,
+    compiler: Option<Box<dyn Compiler>>,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The code memory is responsible of publishing the compiled
@@ -164,7 +161,7 @@ pub struct JITEngineInner {
 
 impl JITEngineInner {
     /// Gets the compiler associated to this JIT
-    pub fn compiler(&self) -> Result<&dyn BaseCompiler, CompileError> {
+    pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
             return Err(CompileError::Codegen("The JITEngine is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
         }
@@ -174,37 +171,6 @@ impl JITEngineInner {
     /// Validate the module
     pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
         self.compiler()?.validate_module(data)
-    }
-
-    /// Compile the given function bodies.
-    pub(crate) fn compile_module<'data>(
-        &self,
-        module: &Module,
-        module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
-        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: PrimaryMap<TableIndex, TablePlan>,
-    ) -> Result<Compilation, CompileError> {
-        self.compiler()?.compile_module(
-            module,
-            module_translation,
-            function_body_inputs,
-            memory_plans,
-            table_plans,
-        )
-    }
-
-    /// Compile the module trampolines
-    pub(crate) fn compile_trampolines(
-        &self,
-        signatures: &PrimaryMap<SignatureIndex, FuncType>,
-    ) -> Result<PrimaryMap<SignatureIndex, FunctionBody>, CompileError> {
-        let func_types = signatures.values().cloned().collect::<Vec<_>>();
-        Ok(self
-            .compiler()?
-            .compile_wasm_trampolines(&func_types)?
-            .into_iter()
-            .collect::<PrimaryMap<SignatureIndex, _>>())
     }
 
     /// Compile the given function bodies.

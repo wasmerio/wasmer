@@ -63,14 +63,29 @@ impl CompiledModule {
             .map(|(_index, table_type)| tunables.table_plan(*table_type))
             .collect();
 
-        let compilation = jit_compiler.compile_module(
+        let compiler = jit_compiler.compiler()?;
+
+        // Compile the Module
+        let compilation = compiler.compile_module(
             &translation.module,
             translation.module_translation.as_ref().unwrap(),
             translation.function_body_inputs,
             memory_plans.clone(),
             table_plans.clone(),
         )?;
-        let trampolines = jit_compiler.compile_trampolines(&translation.module.signatures)?;
+
+        // Compile the trampolines
+        let func_types = translation
+            .module
+            .signatures
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+        let trampolines = compiler
+            .compile_wasm_trampolines(&func_types)?
+            .into_iter()
+            .collect::<PrimaryMap<SignatureIndex, _>>();
+
         let data_initializers = translation
             .data_initializers
             .iter()
