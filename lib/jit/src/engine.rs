@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasm_common::{FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::{Compilation, CompileError, FunctionBody, Target};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
@@ -92,13 +92,13 @@ impl JITEngine {
     }
 
     /// Register a signature
-    pub fn register_signature(&self, func_type: &FuncType) -> VMSharedSignatureIndex {
+    pub fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
         let compiler = self.compiler();
         compiler.signatures().register(func_type)
     }
 
     /// Lookup a signature
-    pub fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FuncType> {
+    pub fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
         let compiler = self.compiler();
         compiler.signatures().lookup(sig)
     }
@@ -192,9 +192,9 @@ impl JITEngineInner {
     pub(crate) fn allocate<'data>(
         &mut self,
         module: &Module,
-        functions: &PrimaryMap<LocalFuncIndex, FunctionBody>,
+        functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
-    ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, CompileError> {
+    ) -> Result<PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>, CompileError> {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
         let allocated_functions =

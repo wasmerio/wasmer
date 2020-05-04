@@ -7,7 +7,7 @@ use crate::config::SinglepassConfig;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
-use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
+use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::wasmparser::{BinaryReader, BinaryReaderError};
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
@@ -54,12 +54,12 @@ impl Compiler for SinglepassCompiler {
         &self,
         module: &Module,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'_>>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
-            .map(FuncIndex::new)
+            .map(FunctionIndex::new)
             .collect::<Vec<_>>()
             .into_par_iter()
             .map(|i| gen_import_call_trampoline(i, module.signatures[module.functions[i]].clone()))
@@ -68,7 +68,7 @@ impl Compiler for SinglepassCompiler {
             .collect();
         let functions = function_body_inputs
             .into_iter()
-            .collect::<Vec<(LocalFuncIndex, &FunctionBodyData<'_>)>>()
+            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map(|(i, input)| {
                 let mut reader = BinaryReader::new_with_offset(input.data, input.module_offset);
@@ -105,14 +105,14 @@ impl Compiler for SinglepassCompiler {
             })
             .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<LocalFuncIndex, CompiledFunction>>();
+            .collect::<PrimaryMap<LocalFunctionIndex, CompiledFunction>>();
 
         Ok(Compilation::new(functions, import_trampolines))
     }
 
     fn compile_wasm_trampolines(
         &self,
-        signatures: &[FuncType],
+        signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
         Ok(signatures
             .par_iter()

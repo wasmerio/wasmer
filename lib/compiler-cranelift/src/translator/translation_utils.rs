@@ -7,7 +7,7 @@ use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::ir::{self, AbiParam};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
-use wasm_common::{FuncType, Type};
+use wasm_common::{FunctionType, Type};
 use wasmer_compiler::wasm_unsupported;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::RelocationKind;
@@ -16,7 +16,7 @@ use wasmer_runtime::libcalls::LibCall;
 
 /// Helper function translate a Funciton signature into Cranelift Ir
 pub fn signature_to_cranelift_ir(
-    signature: &FuncType,
+    signature: &FunctionType,
     target_config: &TargetFrontendConfig,
 ) -> ir::Signature {
     let mut sig = ir::Signature::new(target_config.default_call_conv);

@@ -7,12 +7,12 @@ use std::collections::HashMap;
 use std::iter;
 use wasm_common::{
     entity::{EntityRef, PrimaryMap, SecondaryMap},
-    FuncType,
+    FunctionType,
 };
 use wasm_common::{
-    DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FuncIndex,
-    GlobalIndex, GlobalType, ImportIndex, LocalFuncIndex, MemoryIndex, MemoryType, SignatureIndex,
-    TableIndex, TableType, Type,
+    DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FunctionIndex,
+    GlobalIndex, GlobalType, ImportIndex, LocalFunctionIndex, MemoryIndex, MemoryType,
+    SignatureIndex, TableIndex, TableType, Type,
 };
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
@@ -20,7 +20,7 @@ use wasmer_compiler::wasmparser::{
 use wasmer_compiler::{
     CodeOffset, CompiledFunction, CompiledFunctionUnwindInfo, CustomSection,
     CustomSectionProtection, FunctionBody, Relocation, RelocationKind, RelocationTarget,
-    SectionIndex, SectionBody,
+    SectionBody, SectionIndex,
 };
 use wasmer_runtime::{MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle, TrapCode};
 
@@ -43,7 +43,7 @@ pub struct FuncGen<'a> {
     table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
 
     /// Function signature.
-    signature: FuncType,
+    signature: FunctionType,
 
     // Working storage.
     /// The assembler.
@@ -1646,7 +1646,7 @@ impl<'a> FuncGen<'a> {
 
     pub fn get_state_diff(&mut self) -> usize {
         if !self.machine.track_state {
-            return usize::MAX;
+            return std::usize::MAX;
         }
         let last_frame = self.control_stack.last_mut().unwrap();
         let mut diff = self.machine.state.diff(&last_frame.state);
@@ -1705,9 +1705,9 @@ impl<'a> FuncGen<'a> {
 
         // TODO: Full preemption by explicit signal checking
 
-        if self.machine.state.wasm_inst_offset != usize::MAX {
+        if self.machine.state.wasm_inst_offset != std::usize::MAX {
             return Err(CodegenError {
-                message: format!("emit_head: wasm_inst_offset not usize::MAX"),
+                message: format!("emit_head: wasm_inst_offset not std::usize::MAX"),
             });
         }
         Ok(())
@@ -1718,10 +1718,10 @@ impl<'a> FuncGen<'a> {
         config: &'a SinglepassConfig,
         memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
-        local_func_index: LocalFuncIndex,
+        local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
     ) -> Result<FuncGen<'a>, CodegenError> {
-        let func_index = FuncIndex::new(module.num_imported_funcs + local_func_index.index());
+        let func_index = FunctionIndex::new(module.num_imported_funcs + local_func_index.index());
         let sig_index = module.functions[func_index];
         let signature = module.signatures[sig_index].clone();
 
@@ -5093,7 +5093,7 @@ impl<'a> FuncGen<'a> {
                 let sig_index = *self
                     .module
                     .functions
-                    .get(FuncIndex::new(function_index))
+                    .get(FunctionIndex::new(function_index))
                     .unwrap();
                 let sig = self.module.signatures.get(sig_index).unwrap();
                 let param_types: SmallVec<[WpType; 8]> =
@@ -5138,7 +5138,7 @@ impl<'a> FuncGen<'a> {
                 let reloc_target = if function_index < self.module.num_imported_funcs {
                     RelocationTarget::CustomSection(SectionIndex::new(function_index))
                 } else {
-                    RelocationTarget::LocalFunc(LocalFuncIndex::new(
+                    RelocationTarget::LocalFunc(LocalFunctionIndex::new(
                         function_index - self.module.num_imported_funcs,
                     ))
                 };
@@ -8188,7 +8188,7 @@ fn sort_call_movs(movs: &mut [(Location, GPR)]) {
 }
 
 // Standard entry trampoline.
-pub fn gen_std_trampoline(sig: FuncType) -> FunctionBody {
+pub fn gen_std_trampoline(sig: FunctionType) -> FunctionBody {
     let mut a = Assembler::new().unwrap();
 
     // Calculate stack offset.
@@ -8291,7 +8291,7 @@ pub fn gen_std_trampoline(sig: FuncType) -> FunctionBody {
 }
 
 // Singlepass calls import functions through a trampoline.
-pub fn gen_import_call_trampoline(index: FuncIndex, sig: FuncType) -> CustomSection {
+pub fn gen_import_call_trampoline(index: FunctionIndex, sig: FunctionType) -> CustomSection {
     let mut a = Assembler::new().unwrap();
 
     // TODO: ARM entry trampoline is not emitted.
