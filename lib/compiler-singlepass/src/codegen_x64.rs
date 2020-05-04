@@ -20,7 +20,7 @@ use wasmer_compiler::wasmparser::{
 use wasmer_compiler::{
     CodeOffset, CompiledFunction, CompiledFunctionUnwindInfo, CustomSection,
     CustomSectionProtection, FunctionBody, Relocation, RelocationKind, RelocationTarget,
-    SectionIndex,
+    SectionIndex, SectionBody,
 };
 use wasmer_runtime::{MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle, TrapCode};
 
@@ -8408,9 +8408,12 @@ pub fn gen_import_call_trampoline(index: FuncIndex, sig: FuncType) -> CustomSect
     );
     a.emit_host_redirection(GPR::RAX);
 
+    let mut section_body = SectionBody::default();
+    section_body.extend(&a.finalize().unwrap());
+
     CustomSection {
         protection: CustomSectionProtection::ReadExecute,
-        bytes: a.finalize().unwrap().to_vec(),
+        bytes: section_body,
     }
 }
 
