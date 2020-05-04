@@ -35,7 +35,7 @@ cfg_if::cfg_if! {
 
         impl InstanceHandle {
             /// Set a custom signal handler
-            pub fn set_signal_handler<H>(&mut self, handler: H)
+            pub fn set_signal_handler<H>(&self, handler: H)
             where
                 H: 'static + Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool,
             {
@@ -47,7 +47,7 @@ cfg_if::cfg_if! {
 
         impl InstanceHandle {
             /// Set a custom signal handler
-            pub fn set_signal_handler<H>(&mut self, handler: H)
+            pub fn set_signal_handler<H>(&self, handler: H)
             where
                 H: 'static + Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool,
             {
@@ -62,14 +62,6 @@ cfg_if::cfg_if! {
 /// This is repr(C) to ensure that the vmctx field is last.
 #[repr(C)]
 pub(crate) struct Instance {
-    /// The number of references to this `Instance`.
-    refcount: Cell<usize>,
-
-    /// `Instance`s from which this `Instance` imports. These won't
-    /// create reference cycles because wasm instances can't cyclically
-    /// import from each other.
-    dependencies: HashSet<InstanceHandle>,
-
     /// The `Module` this `Instance` was instantiated from.
     module: Arc<Module>,
 
@@ -788,9 +780,7 @@ impl InstanceHandle {
         finished_tables: BoxedSlice<LocalTableIndex, Table>,
         finished_globals: BoxedSlice<LocalGlobalIndex, VMGlobalDefinition>,
         imports: Imports,
-        data_initializers: &[DataInitializer<'_>],
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-        is_bulk_memory: bool,
         host_state: Box<dyn Any>,
     ) -> Result<Self, Trap> {
         let vmctx_tables = finished_tables
@@ -813,8 +803,6 @@ impl InstanceHandle {
 
         let handle = {
             let instance = Instance {
-                refcount: Cell::new(1),
-                dependencies: imports.dependencies,
                 module,
                 offsets,
                 memories: finished_memories,
@@ -883,29 +871,42 @@ impl InstanceHandle {
             VMBuiltinFunctionsArray::initialized(),
         );
 
+        // Ensure that our signal handlers are ready for action.
+        init_traps();
+
+        // Perform infallible initialization in this constructor, while fallible
+        // initialization is deferred to the `initialize` method.
+        initialize_passive_elements(instance);
+        initialize_globals(instance);
+
+        Ok(handle)
+    }
+
+    /// Finishes the instantiation process started by `Instance::new`.
+    ///
+    /// Only safe to call immediately after instantiation.
+    pub unsafe fn finish_instantiation(
+        &self,
+        is_bulk_memory: bool,
+        data_initializers: &[DataInitializer<'_>],
+    ) -> Result<(), Trap> {
         // Check initializer bounds before initializing anything. Only do this
         // when bulk memory is disabled, since the bulk memory proposal changes
         // instantiation such that the intermediate results of failed
         // initializations are visible.
         if !is_bulk_memory {
-            check_table_init_bounds(instance)?;
-            check_memory_init_bounds(instance, data_initializers)?;
+            check_table_init_bounds(self.instance())?;
+            check_memory_init_bounds(self.instance(), data_initializers)?;
         }
 
         // Apply the initializers.
-        initialize_tables(instance)?;
-        initialize_passive_elements(instance);
-        initialize_memories(instance, data_initializers)?;
-        initialize_globals(instance);
-
-        // Ensure that our signal handlers are ready for action.
-        init_traps();
+        initialize_tables(self.instance())?;
+        initialize_memories(self.instance(), data_initializers)?;
 
         // The WebAssembly spec specifies that the start function is
         // invoked automatically at instantiation time.
-        instance.invoke_start_function()?;
-
-        Ok(handle)
+        self.instance().invoke_start_function()?;
+        Ok(())
     }
 
     /// Create a new `InstanceHandle` pointing at the instance
@@ -916,7 +917,6 @@ impl InstanceHandle {
     /// be a `VMContext` allocated as part of an `Instance`.
     pub unsafe fn from_vmctx(vmctx: *mut VMContext) -> Self {
         let instance = (&mut *vmctx).instance();
-        instance.refcount.set(instance.refcount.get() + 1);
         Self {
             instance: instance as *const Instance as *mut Instance,
         }
@@ -1031,32 +1031,36 @@ impl InstanceHandle {
     pub(crate) fn instance(&self) -> &Instance {
         unsafe { &*(self.instance as *const Instance) }
     }
+
+    /// Deallocates memory associated with this instance.
+    ///
+    /// Note that this is unsafe because there might be other handles to this
+    /// `InstanceHandle` elsewhere, and there's nothing preventing usage of
+    /// this handle after this function is called.
+    pub unsafe fn dealloc(&self) {
+        let instance = self.instance();
+        let layout = instance.alloc_layout();
+        ptr::drop_in_place(self.instance);
+        alloc::dealloc(self.instance.cast(), layout);
+    }
 }
 
 impl Clone for InstanceHandle {
     fn clone(&self) -> Self {
-        let instance = self.instance();
-        instance.refcount.set(instance.refcount.get() + 1);
         Self {
             instance: self.instance,
         }
     }
 }
 
-impl Drop for InstanceHandle {
-    fn drop(&mut self) {
-        let instance = self.instance();
-        let count = instance.refcount.get();
-        instance.refcount.set(count - 1);
-        if count == 1 {
-            let layout = instance.alloc_layout();
-            unsafe {
-                ptr::drop_in_place(self.instance);
-                alloc::dealloc(self.instance.cast(), layout);
-            }
-        }
-    }
-}
+// TODO: uncomment this, as we need to store the handles
+// in the store, and once the store is dropped, then the instances
+// will too.
+// impl Drop for InstanceHandle {
+//     fn drop(&mut self) {
+//         unsafe { self.dealloc() }
+//     }
+// }
 
 fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);

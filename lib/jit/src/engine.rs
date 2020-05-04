@@ -9,11 +9,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
-use wasmer_compiler::{
-    Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionBody,
-    FunctionBodyData, ModuleTranslationState, Target,
-};
+use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasmer_compiler::{Compilation, CompileError, FunctionBody, Target};
+#[cfg(feature = "compiler")]
+use wasmer_compiler::{Compiler, CompilerConfig};
 use wasmer_runtime::{
     InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
     VMSharedSignatureIndex, VMTrampoline,
@@ -29,7 +28,8 @@ pub struct JITEngine {
 impl JITEngine {
     const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
 
-    /// Create a new JIT Engine given config
+    /// Create a new `JITEngine` with the given config
+    #[cfg(feature = "compiler")]
     pub fn new<C: CompilerConfig>(config: &C, tunables: impl Tunables + 'static) -> Self
     where
         C: ?Sized,
@@ -37,7 +37,33 @@ impl JITEngine {
         let compiler = config.compiler();
         Self {
             inner: Arc::new(RefCell::new(JITEngineInner {
-                compiler,
+                compiler: Some(compiler),
+                trampolines: HashMap::new(),
+                code_memory: CodeMemory::new(),
+                signatures: SignatureRegistry::new(),
+            })),
+            tunables: Arc::new(Box::new(tunables)),
+        }
+    }
+
+    /// Create a headless `JITEngine`
+    ///
+    /// A headless engine is an engine without any compiler attached.
+    /// This is useful for assuring a minimal runtime for running
+    /// WebAssembly modules.
+    ///
+    /// For example, for running in IoT devices where compilers are very
+    /// expensive, or also to optimize startup speed.
+    ///
+    /// # Important
+    ///
+    /// Headless engines can't compile or validate any modules,
+    /// they just take already processed Modules (via `Module::serialize`).
+    pub fn headless(tunables: impl Tunables + 'static) -> Self {
+        Self {
+            inner: Arc::new(RefCell::new(JITEngineInner {
+                #[cfg(feature = "compiler")]
+                compiler: None,
                 trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
@@ -93,7 +119,7 @@ impl JITEngine {
     }
 
     /// Instantiates a WebAssembly module
-    pub fn instantiate(
+    pub unsafe fn instantiate(
         &self,
         compiled_module: &CompiledModule,
         resolver: &dyn Resolver,
@@ -126,7 +152,8 @@ impl JITEngine {
 /// The inner contents of `JITEngine`
 pub struct JITEngineInner {
     /// The compiler
-    compiler: Box<dyn BaseCompiler>,
+    #[cfg(feature = "compiler")]
+    compiler: Option<Box<dyn Compiler>>,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The code memory is responsible of publishing the compiled
@@ -139,38 +166,34 @@ pub struct JITEngineInner {
 
 impl JITEngineInner {
     /// Gets the compiler associated to this JIT
-    pub fn compiler(&self) -> &dyn BaseCompiler {
-        &*self.compiler
+    #[cfg(feature = "compiler")]
+    pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
+        if self.compiler.is_none() {
+            return Err(CompileError::Codegen("The JITEngine is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
+        }
+        Ok(&**self.compiler.as_ref().unwrap())
     }
 
     /// Validate the module
+    #[cfg(feature = "compiler")]
     pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
-        self.compiler().validate_module(data)
+        self.compiler()?.validate_module(data)
+    }
+
+    /// Validate the module
+    #[cfg(not(feature = "compiler"))]
+    pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
+        Err(CompileError::Validate(
+            "Validation is only enabled with the compiler feature".to_string(),
+        ))
     }
 
     /// Compile the given function bodies.
-    pub(crate) fn compile_module<'data>(
-        &self,
-        module: &Module,
-        module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
-        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: PrimaryMap<TableIndex, TablePlan>,
-    ) -> Result<Compilation, CompileError> {
-        self.compiler.compile_module(
-            module,
-            module_translation,
-            function_body_inputs,
-            memory_plans,
-            table_plans,
-        )
-    }
-
-    /// Compile the given function bodies.
-    pub(crate) fn compile<'data>(
+    pub(crate) fn allocate<'data>(
         &mut self,
         module: &Module,
         functions: &PrimaryMap<LocalFuncIndex, FunctionBody>,
+        trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
     ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, CompileError> {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
@@ -184,35 +207,27 @@ impl JITEngineInner {
                     ))
                 })?;
 
-        // Trampoline generation.
-        // We do it in two steps:
-        // 1. Generate only the trampolines for the signatures that are unique
-        // 2. Push the compiled code to memory
-        let mut unique_signatures: HashMap<VMSharedSignatureIndex, FuncType> = HashMap::new();
-        // for sig in module.exported_signatures() {
-        for sig in module.signatures.values() {
-            let index = self.signatures.register(&sig);
-            if unique_signatures.contains_key(&index) {
+        for (sig_index, compiled_function) in trampolines.iter() {
+            let func_type = module.signatures.get(sig_index).unwrap();
+            let index = self.signatures.register(&func_type);
+            if self.trampolines.contains_key(&index) {
+                // We don't need to allocate the trampoline in case
+                // it's signature is already allocated.
                 continue;
             }
-            unique_signatures.insert(index, sig.clone());
-        }
-
-        let compiled_trampolines = self
-            .compiler
-            .compile_wasm_trampolines(&unique_signatures.values().cloned().collect::<Vec<_>>())?;
-
-        for ((index, _), compiled_function) in
-            unique_signatures.iter().zip(compiled_trampolines.iter())
-        {
             let ptr = self
                 .code_memory
                 .allocate_for_function(&compiled_function)
-                .map_err(|message| CompileError::Resource(message))?
+                .map_err(|message| {
+                    CompileError::Resource(format!(
+                        "failed to allocate memory for trampolines: {}",
+                        message
+                    ))
+                })?
                 .as_ptr();
             let trampoline =
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
-            self.trampolines.insert(*index, trampoline);
+            self.trampolines.insert(index, trampoline);
         }
         Ok(allocated_functions)
     }

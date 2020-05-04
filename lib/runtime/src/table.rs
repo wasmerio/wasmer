@@ -19,20 +19,22 @@ pub struct Table {
 
 impl Table {
     /// Create a new table instance with specified minimum and maximum number of elements.
-    pub fn new(plan: &TablePlan) -> Self {
+    pub fn new(plan: &TablePlan) -> Result<Self, String> {
         match plan.table.ty {
             Type::FuncRef => (),
-            ty => unimplemented!("tables of types other than anyfunc ({})", ty),
+            ty => return Err(format!("tables of types other than anyfunc ({})", ty)),
         };
         match plan.style {
-            TableStyle::CallerChecksSignature => Self {
+            TableStyle::CallerChecksSignature => Ok(Self {
                 vec: RefCell::new(vec![
                     VMCallerCheckedAnyfunc::default();
-                    usize::try_from(plan.table.minimum).unwrap()
+                    usize::try_from(plan.table.minimum).map_err(|_| {
+                        "Table minimum is bigger than usize".to_string()
+                    })?
                 ]),
                 maximum: plan.table.maximum,
                 plan: plan.clone(),
-            },
+            }),
         }
     }
 

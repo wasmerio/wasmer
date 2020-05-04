@@ -38,14 +38,18 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["wat", "default-compiler-cranelift"]
+compiler = ["wasmer-jit/compiler"]
 compiler-singlepass = [
-    "wasmer-compiler-singlepass"
+    "wasmer-compiler-singlepass",
+    "compiler",
 ]
 compiler-cranelift = [
-    "wasmer-compiler-cranelift"
+    "wasmer-compiler-cranelift",
+    "compiler",
 ]
 compiler-llvm = [
-    "wasmer-compiler-llvm"
+    "wasmer-compiler-llvm",
+    "compiler",
 ]
 default-compiler-singlepass = [
     "compiler-singlepass"

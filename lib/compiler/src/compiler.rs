@@ -1,10 +1,11 @@
 //! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
-use crate::config::Target;
 use crate::error::CompileError;
 use crate::function::{Compilation, FunctionBody};
+use crate::std::boxed::Box;
 use crate::std::vec::Vec;
+use crate::target::Target;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasm_common::entity::PrimaryMap;
@@ -12,6 +13,22 @@ use wasm_common::{Features, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::Module;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
+
+/// The compiler configuration options.
+///
+/// This options must have WebAssembly `Features` and a specific
+/// `Target` to compile to.
+pub trait CompilerConfig {
+    /// Gets the WebAssembly features
+    fn features(&self) -> &Features;
+
+    /// Gets the target that we will use for compiling
+    /// the WebAssembly module
+    fn target(&self) -> &Target;
+
+    /// Gets the custom compiler config
+    fn compiler(&self) -> Box<dyn Compiler>;
+}
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
 pub trait Compiler {

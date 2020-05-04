@@ -92,14 +92,12 @@ impl wasmer_jit::Tunables for Tunables {
     }
 
     /// Create a memory given a memory type
-    fn create_memory(&self, memory_type: MemoryType) -> Result<LinearMemory, String> {
-        let plan = self.memory_plan(memory_type);
+    fn create_memory(&self, plan: MemoryPlan) -> Result<LinearMemory, String> {
         LinearMemory::new(&plan)
     }
 
     /// Create a memory given a memory type
-    fn create_table(&self, table_type: TableType) -> Table {
-        let plan = self.table_plan(table_type);
+    fn create_table(&self, plan: TablePlan) -> Result<Table, String> {
         Table::new(&plan)
     }
 }

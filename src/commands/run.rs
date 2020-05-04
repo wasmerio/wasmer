@@ -99,7 +99,8 @@ impl Run {
         }
 
         // If WASI is enabled, try to execute it with it
-        if cfg!(feature = "wasi") {
+        #[cfg(feature = "wasi")]
+        {
             let wasi_version = Wasi::get_version(&module);
             if let Some(version) = wasi_version {
                 let program_name = self
@@ -129,9 +130,9 @@ impl Run {
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
         if Engine::is_deserializable(&contents) {
-            let (compiler_config, _compiler_name) = self.compiler.get_compiler_config()?;
-            let tunables = self.compiler.get_tunables(&*compiler_config);
-            let engine = Engine::new(&*compiler_config, tunables);
+            // We get the tunables for the current host
+            let tunables = Tunables::default();
+            let engine = Engine::headless(tunables);
             let store = Store::new(&engine);
             let module = unsafe { Module::deserialize(&store, &contents)? };
             return Ok(module);

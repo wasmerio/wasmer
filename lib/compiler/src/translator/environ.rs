@@ -1,9 +1,9 @@
-use super::error::{WasmError, WasmResult};
 use super::module::translate_module;
 use super::state::ModuleTranslationState;
 use crate::std::borrow::ToOwned;
 use crate::std::string::ToString;
 use crate::std::{boxed::Box, string::String, vec::Vec};
+use crate::{WasmError, WasmResult};
 use std::convert::TryFrom;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;

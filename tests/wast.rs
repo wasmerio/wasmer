@@ -1,3 +1,5 @@
+#![cfg(feature = "compiler")]
+
 use std::path::Path;
 use test_utils::get_compiler_config_from_str;
 use wasmer::{Engine, Features, Store, Tunables};
@@ -16,7 +18,10 @@ use wasmer_wast::Wast;
 include!(concat!(env!("OUT_DIR"), "/generated_spectests.rs"));
 
 fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
-    println!("Running wast {} with {}", wast_path, compiler);
+    println!(
+        "Running wast `{}` with the {} compiler",
+        wast_path, compiler
+    );
     let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();
     if wast_path.contains("bulk-memory") {

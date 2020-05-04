@@ -5,7 +5,7 @@
 //! * `jit`: to generate a JIT
 //! * `obj`: to generate a native object
 
-use crate::section::{CustomSection, SectionIndex};
+use crate::section::{CustomSection, SectionBody, SectionIndex};
 use crate::std::vec::Vec;
 use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
@@ -129,6 +129,14 @@ impl Compilation {
             .iter()
             .map(|(_, func)| func.frame_info.clone())
             .collect::<PrimaryMap<LocalFuncIndex, _>>()
+    }
+
+    /// Gets custom section data.
+    pub fn get_custom_sections(&self) -> PrimaryMap<SectionIndex, SectionBody> {
+        self.custom_sections
+            .iter()
+            .map(|(_, section)| section.bytes.clone())
+            .collect::<PrimaryMap<SectionIndex, _>>()
     }
 }
 
