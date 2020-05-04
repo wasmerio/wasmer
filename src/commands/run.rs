@@ -101,7 +101,8 @@ impl Run {
         }
 
         // If WASI is enabled, try to execute it with it
-        if cfg!(feature = "wasi") {
+        #[cfg(feature = "wasi")]
+        {
             let wasi_version = Wasi::get_version(&module);
             if let Some(version) = wasi_version {
                 let program_name = self
@@ -130,13 +131,15 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
-        if JITEngine::is_deserializable(&contents) {
-            let (compiler_config, _compiler_name) = self.compiler.get_compiler_config()?;
-            let tunables = self.compiler.get_tunables(&*compiler_config);
-            let engine = JITEngine::new(&*compiler_config, tunables);
-            let store = Store::new(Arc::new(engine));
-            let module = unsafe { Module::deserialize(&store, &contents)? };
-            return Ok(module);
+        #[cfg(feature = "engine-jit")]
+        {
+            if JITEngine::is_deserializable(&contents) {
+                let tunables = Tunables::default();
+                let engine = JITEngine::headless(tunables);
+                let store = Store::new(Arc::new(engine));
+                let module = unsafe { Module::deserialize(&store, &contents)? };
+                return Ok(module);
+            }
         }
         let (store, compiler_name) = self.compiler.get_store()?;
         // We try to get it from cache, in case caching is enabled

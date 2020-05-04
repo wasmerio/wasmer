@@ -8,6 +8,8 @@ use std::string::ToString;
 use std::sync::Arc;
 use structopt::StructOpt;
 use wasmer::*;
+#[cfg(feature = "engine-jit")]
+use wasmer_engine_jit::JITEngine;
 
 #[derive(Debug, Clone, StructOpt)]
 /// The compiler options
@@ -92,6 +94,7 @@ impl StoreOptions {
     }
 
     /// Get the Compiler Config for the current options
+    #[allow(unused_variables)]
     fn get_config(&self, compiler: Compiler) -> Result<Box<dyn CompilerConfig>> {
         let config: Box<dyn CompilerConfig> = match compiler {
             #[cfg(feature = "compiler-singlepass")]
@@ -139,6 +142,7 @@ impl StoreOptions {
     pub fn get_store(&self) -> Result<(Store, String)> {
         let (compiler_config, compiler_name) = self.get_compiler_config()?;
         let tunables = self.get_tunables(&*compiler_config);
+        #[cfg(feature = "engine-jit")]
         let engine = JITEngine::new(&*compiler_config, tunables);
         let store = Store::new(Arc::new(engine));
         Ok((store, compiler_name))
