@@ -121,7 +121,7 @@ impl Engine for JITEngine {
     }
 
     /// Instantiates a WebAssembly module
-    fn instantiate(
+    unsafe fn instantiate(
         &self,
         compiled_module: &Arc<dyn BaseCompiledModule>,
         resolver: &dyn Resolver,

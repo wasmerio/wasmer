@@ -32,7 +32,7 @@ pub trait Engine {
     fn compile(&self, binary: &[u8]) -> Result<Arc<CompiledModule>, CompileError>;
 
     /// Instantiates a WebAssembly module
-    fn instantiate(
+    unsafe fn instantiate(
         &self,
         compiled_module: &Arc<CompiledModule>,
         resolver: &dyn Resolver,
