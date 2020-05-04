@@ -1,3 +1,5 @@
+#![cfg(feature = "compiler")]
+
 use std::path::Path;
 use test_utils::get_compiler_config_from_str;
 use wasmer::{Engine, Features, Store, Tunables};

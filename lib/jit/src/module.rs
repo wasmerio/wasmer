@@ -22,6 +22,7 @@ use wasm_common::{
     MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,

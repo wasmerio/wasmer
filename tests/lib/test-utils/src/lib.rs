@@ -1,3 +1,5 @@
+#![cfg(feature="compiler")]
+
 use wasmer_compiler::{CompilerConfig, Features, Target};
 
 pub fn get_compiler_config_from_str(

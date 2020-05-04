@@ -27,7 +27,10 @@ pub use crate::types::{
 };
 
 pub use wasm_common::{ValueType, WasmExternType, WasmTypeList};
-pub use wasmer_compiler::{CompilerConfig, Features, Target};
+pub use wasmer_compiler::{Features, Target};
+#[cfg(feature = "compiler")]
+pub use wasmer_compiler::CompilerConfig;
+
 pub use wasmer_jit::{
     DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
