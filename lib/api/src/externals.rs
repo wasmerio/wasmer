@@ -6,12 +6,15 @@ use crate::Mutability;
 use crate::RuntimeError;
 use crate::{ExternType, FuncType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
+use std::marker::PhantomData;
 use std::slice;
-use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
+use wasm_common::{
+    Bytes, HostFunction, Pages, ValueType, WasmExternType, WasmTypeList, WithEnv, WithoutEnv,
+};
 use wasmer_runtime::{
-    wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
-    LinearMemory, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
-    VMGlobalDefinition, VMMemoryDefinition, VMTrampoline,
+    catch_traps, wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory,
+    ExportTable, LinearMemory, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext,
+    VMFunctionBody, VMGlobalDefinition, VMMemoryDefinition, VMTrampoline,
 };
 
 #[derive(Clone)]
@@ -661,6 +664,10 @@ impl Func {
         }
         Ok(results.into_boxed_slice())
     }
+
+    // pub fn native<Args, Rets>(&self) -> NativeFunc<Args, Rets> {
+    //     NativeFunc::from_export(self.exported.clone())
+    // }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Func {
         let trampoline = store.engine().trampoline(wasmer_export.signature).unwrap();

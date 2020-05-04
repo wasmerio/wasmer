@@ -1,4 +1,5 @@
 //! Wasmer API
+#![feature(trace_macros)]
 #![deny(intra_doc_link_resolution_failure)]
 
 mod exports;
@@ -7,6 +8,7 @@ mod import_object;
 mod instance;
 mod memory_view;
 mod module;
+mod native;
 mod ptr;
 mod store;
 mod tunables;
