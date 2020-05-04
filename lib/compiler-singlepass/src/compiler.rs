@@ -2,20 +2,20 @@
 // Allow unused imports while developing.
 #![allow(unused_imports, dead_code)]
 
+use crate::codegen_x64::{gen_import_call_trampoline, gen_std_trampoline, CodegenError, FuncGen};
 use crate::config::SinglepassConfig;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
 use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
-use wasmer_compiler::FunctionBodyData;
+use wasmer_compiler::wasmparser::{BinaryReader, BinaryReaderError};
 use wasmer_compiler::TrapInformation;
-use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler};
+use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
+use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_runtime::Module;
 use wasmer_runtime::TrapCode;
 use wasmer_runtime::{MemoryPlan, TablePlan};
-use crate::codegen_x64::{FuncGen, CodegenError};
-use wasmer_compiler::wasmparser::{BinaryReader, BinaryReaderError};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
@@ -58,6 +58,14 @@ impl Compiler for SinglepassCompiler {
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
+        let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
+            .map(FuncIndex::new)
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .map(|i| gen_import_call_trampoline(i, module.signatures[module.functions[i]].clone()))
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect();
         let functions = function_body_inputs
             .into_iter()
             .collect::<Vec<(LocalFuncIndex, &FunctionBodyData<'_>)>>()
@@ -85,30 +93,32 @@ impl Compiler for SinglepassCompiler {
                     &table_plans,
                     *i,
                     &locals,
-                ).map_err(to_compile_error)?;
+                )
+                .map_err(to_compile_error)?;
 
                 while generator.has_control_frames() {
                     let op = reader.read_operator().map_err(to_compile_error)?;
                     generator.feed_operator(op).map_err(to_compile_error)?;
                 }
 
-                Ok(unimplemented!())
+                Ok(generator.finalize())
             })
             .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<LocalFuncIndex, CompiledFunction>>();
 
-        Ok(Compilation::new(functions))
+        Ok(Compilation::new(functions, import_trampolines))
     }
 
     fn compile_wasm_trampolines(
         &self,
-        _signatures: &[FuncType],
-    ) -> Result<Vec<CompiledFunction>, CompileError> {
-        // Note: do not implement this yet
-        Err(CompileError::Codegen(
-            "Singlepass trampoline compilation not supported yet".to_owned(),
-        ))
+        signatures: &[FuncType],
+    ) -> Result<Vec<FunctionBody>, CompileError> {
+        Ok(signatures
+            .par_iter()
+            .cloned()
+            .map(gen_std_trampoline)
+            .collect())
     }
 }
 
@@ -118,17 +128,13 @@ trait ToCompileError {
 
 impl ToCompileError for BinaryReaderError {
     fn to_compile_error(self) -> CompileError {
-        CompileError::Codegen(
-            self.message().into()
-        )
+        CompileError::Codegen(self.message().into())
     }
 }
 
 impl ToCompileError for CodegenError {
     fn to_compile_error(self) -> CompileError {
-        CompileError::Codegen(
-            self.message
-        )
+        CompileError::Codegen(self.message)
     }
 }
 

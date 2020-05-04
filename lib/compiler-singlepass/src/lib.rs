@@ -12,14 +12,14 @@
 
 #![feature(proc_macro_hygiene)]
 
-mod compiler;
-mod config;
 mod codegen_x64;
 mod common_decl;
+mod compiler;
+mod config;
 mod emitter_x64;
 mod machine;
-mod x64_decl;
 mod vm;
+mod x64_decl;
 
 pub use crate::compiler::SinglepassCompiler;
 pub use crate::config::SinglepassConfig;

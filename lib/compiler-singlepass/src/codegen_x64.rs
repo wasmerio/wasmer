@@ -1,30 +1,28 @@
-use wasm_common::{
-    FuncType,
-    entity::{PrimaryMap, EntityRef},
-};
-use wasmer_runtime::{Module, MemoryPlan, TablePlan, MemoryStyle, TableStyle, TrapCode};
-use wasmer_compiler::wasmparser::{
-    Type as WpType,
-    TypeOrFuncType as WpTypeOrFuncType,
-    Operator,
-    MemoryImmediate,
+use crate::{
+    common_decl::*, config::SinglepassConfig, emitter_x64::*, machine::Machine, x64_decl::*,
 };
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-use crate::{
-    machine::Machine,
-    config::SinglepassConfig,
-    common_decl::*,
-    x64_decl::*,
-    emitter_x64::*,
-};
 use smallvec::{smallvec, SmallVec};
+use std::collections::HashMap;
+use std::iter;
+use wasm_common::{
+    entity::{EntityRef, PrimaryMap, SecondaryMap},
+    FuncType,
+};
 use wasm_common::{
     DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FuncIndex,
     GlobalIndex, GlobalType, ImportIndex, LocalFuncIndex, MemoryIndex, MemoryType, SignatureIndex,
     TableIndex, TableType, Type,
 };
-use std::iter;
-use std::collections::HashMap;
+use wasmer_compiler::wasmparser::{
+    MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
+};
+use wasmer_compiler::{
+    CodeOffset, CompiledFunction, CompiledFunctionUnwindInfo, CustomSection,
+    CustomSectionProtection, FunctionBody, Relocation, RelocationKind, RelocationTarget,
+    SectionIndex,
+};
+use wasmer_runtime::{MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle, TrapCode};
 
 // Placeholder
 use crate::vm::{self, LocalTable};
@@ -32,7 +30,6 @@ use crate::vm::{self, LocalTable};
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a> {
     // Immutable properties assigned at creation time.
-
     /// Static module information.
     module: &'a Module,
 
@@ -49,9 +46,8 @@ pub struct FuncGen<'a> {
     signature: FuncType,
 
     // Working storage.
-
     /// The assembler.
-    /// 
+    ///
     /// This should be changed to `Vec<u8>` for platform independency, but dynasm doesn't (yet)
     /// support automatic relative relocations for `Vec<u8>`.
     assembler: Assembler,
@@ -82,6 +78,9 @@ pub struct FuncGen<'a> {
 
     /// Trap table.
     trap_table: TrapTable,
+
+    /// Relocation information.
+    relocations: Vec<Relocation>,
 }
 
 /// A trap table for a `RunnableModule`.
@@ -236,7 +235,6 @@ pub struct CodegenError {
     pub message: String,
 }
 
-
 struct I2O1 {
     loc_a: Location,
     loc_b: Location,
@@ -250,7 +248,10 @@ impl<'a> FuncGen<'a> {
     }
 
     fn pop_value_released(&mut self) -> Location {
-        let loc = self.value_stack.pop().expect("pop_value_released: value stack is empty");
+        let loc = self
+            .value_stack
+            .pop()
+            .expect("pop_value_released: value stack is empty");
         self.get_location_released(loc)
     }
 
@@ -264,16 +265,10 @@ impl<'a> FuncGen<'a> {
             false,
         )[0];
         self.value_stack.push(ret);
-        I2O1 {
-            loc_a,
-            loc_b,
-            ret,
-        }
+        I2O1 { loc_a, loc_b, ret }
     }
 
-    fn mark_trappable(
-        &mut self
-    ) {
+    fn mark_trappable(&mut self) {
         let state_diff_id = self.get_state_diff();
         let offset = self.assembler.get_offset().0;
         self.fsm.trappable_offsets.insert(
@@ -284,8 +279,10 @@ impl<'a> FuncGen<'a> {
                 diff_id: state_diff_id,
             },
         );
-        self.fsm.wasm_offset_to_target_offset
-            .insert(self.machine.state.wasm_inst_offset, SuspendOffset::Trappable(offset));
+        self.fsm.wasm_offset_to_target_offset.insert(
+            self.machine.state.wasm_inst_offset,
+            SuspendOffset::Trappable(offset),
+        );
     }
 
     /// Marks each address in the code range emitted by `f` with the trap code `code`.
@@ -304,12 +301,7 @@ impl<'a> FuncGen<'a> {
     }
 
     /// Canonicalizes the floating point value at `input` into `output`.
-    fn canonicalize_nan(
-        &mut self,
-        sz: Size,
-        input: Location,
-        output: Location,
-    ) {
+    fn canonicalize_nan(&mut self, sz: Size, input: Location, output: Location) {
         let tmp1 = self.machine.acquire_temp_xmm().unwrap();
         let tmp2 = self.machine.acquire_temp_xmm().unwrap();
         let tmp3 = self.machine.acquire_temp_xmm().unwrap();
@@ -319,24 +311,30 @@ impl<'a> FuncGen<'a> {
 
         match sz {
             Size::S32 => {
-                self.assembler.emit_vcmpunordss(tmp1, XMMOrMemory::XMM(tmp1), tmp2);
+                self.assembler
+                    .emit_vcmpunordss(tmp1, XMMOrMemory::XMM(tmp1), tmp2);
                 self.assembler.emit_mov(
                     Size::S32,
                     Location::Imm32(0x7FC0_0000), // Canonical NaN
                     Location::GPR(tmpg1),
                 );
-                self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp3));
-                self.assembler.emit_vblendvps(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp3));
+                self.assembler
+                    .emit_vblendvps(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1);
             }
             Size::S64 => {
-                self.assembler.emit_vcmpunordsd(tmp1, XMMOrMemory::XMM(tmp1), tmp2);
+                self.assembler
+                    .emit_vcmpunordsd(tmp1, XMMOrMemory::XMM(tmp1), tmp2);
                 self.assembler.emit_mov(
                     Size::S64,
                     Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
                     Location::GPR(tmpg1),
                 );
-                self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp3));
-                self.assembler.emit_vblendvpd(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp3));
+                self.assembler
+                    .emit_vblendvpd(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1);
             }
             _ => unreachable!(),
         }
@@ -361,16 +359,18 @@ impl<'a> FuncGen<'a> {
             Location::Imm64(_) | Location::Imm32(_) => {
                 self.assembler.emit_mov(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
                 self.mark_trappable();
-                self.trap_table
-                    .offset_to_code
-                    .insert(self.assembler.get_offset().0, TrapCode::IntegerDivisionByZero);
+                self.trap_table.offset_to_code.insert(
+                    self.assembler.get_offset().0,
+                    TrapCode::IntegerDivisionByZero,
+                );
                 op(&mut self.assembler, sz, Location::GPR(GPR::RCX));
             }
             _ => {
                 self.mark_trappable();
-                self.trap_table
-                    .offset_to_code
-                    .insert(self.assembler.get_offset().0, TrapCode::IntegerDivisionByZero);
+                self.trap_table.offset_to_code.insert(
+                    self.assembler.get_offset().0,
+                    TrapCode::IntegerDivisionByZero,
+                );
                 op(&mut self.assembler, sz, loc);
             }
         }
@@ -414,14 +414,17 @@ impl<'a> FuncGen<'a> {
         match src {
             Location::Imm32(_) | Location::Imm64(_) => {
                 let tmp_src = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_mov(Size::S64, src, Location::GPR(tmp_src));
+                self.assembler
+                    .emit_mov(Size::S64, src, Location::GPR(tmp_src));
                 src = Location::GPR(tmp_src);
 
                 inner(&mut self.machine, &mut self.assembler, src)?;
 
                 self.machine.release_temp_gpr(tmp_src);
             }
-            Location::GPR(_) | Location::Memory(_, _) => inner(&mut self.machine, &mut self.assembler, src)?,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                inner(&mut self.machine, &mut self.assembler, src)?
+            }
             _ => {
                 return Err(CodegenError {
                     message: format!("emit_relaxed_zx_sx src: unreachable code"),
@@ -486,7 +489,12 @@ impl<'a> FuncGen<'a> {
                 let temp_dst = self.machine.acquire_temp_gpr().unwrap();
                 self.assembler.emit_mov(sz, src, Location::GPR(temp_src));
                 self.assembler.emit_mov(sz, dst, Location::GPR(temp_dst));
-                op(&mut self.assembler, sz, Location::GPR(temp_src), Location::GPR(temp_dst));
+                op(
+                    &mut self.assembler,
+                    sz,
+                    Location::GPR(temp_src),
+                    Location::GPR(temp_dst),
+                );
                 match dst {
                     Location::Memory(_, _) | Location::GPR(_) => {
                         self.assembler.emit_mov(sz, Location::GPR(temp_dst), dst);
@@ -535,17 +543,22 @@ impl<'a> FuncGen<'a> {
         let src1 = match src1 {
             Location::XMM(x) => x,
             Location::GPR(_) | Location::Memory(_, _) => {
-                self.assembler.emit_mov(Size::S64, src1, Location::XMM(tmp1));
+                self.assembler
+                    .emit_mov(Size::S64, src1, Location::XMM(tmp1));
                 tmp1
             }
             Location::Imm32(_) => {
-                self.assembler.emit_mov(Size::S32, src1, Location::GPR(tmpg));
-                self.assembler.emit_mov(Size::S32, Location::GPR(tmpg), Location::XMM(tmp1));
+                self.assembler
+                    .emit_mov(Size::S32, src1, Location::GPR(tmpg));
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(tmpg), Location::XMM(tmp1));
                 tmp1
             }
             Location::Imm64(_) => {
-                self.assembler.emit_mov(Size::S64, src1, Location::GPR(tmpg));
-                self.assembler.emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp1));
+                self.assembler
+                    .emit_mov(Size::S64, src1, Location::GPR(tmpg));
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp1));
                 tmp1
             }
             _ => {
@@ -559,17 +572,22 @@ impl<'a> FuncGen<'a> {
             Location::XMM(x) => XMMOrMemory::XMM(x),
             Location::Memory(base, disp) => XMMOrMemory::Memory(base, disp),
             Location::GPR(_) => {
-                self.assembler.emit_mov(Size::S64, src2, Location::XMM(tmp2));
+                self.assembler
+                    .emit_mov(Size::S64, src2, Location::XMM(tmp2));
                 XMMOrMemory::XMM(tmp2)
             }
             Location::Imm32(_) => {
-                self.assembler.emit_mov(Size::S32, src2, Location::GPR(tmpg));
-                self.assembler.emit_mov(Size::S32, Location::GPR(tmpg), Location::XMM(tmp2));
+                self.assembler
+                    .emit_mov(Size::S32, src2, Location::GPR(tmpg));
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(tmpg), Location::XMM(tmp2));
                 XMMOrMemory::XMM(tmp2)
             }
             Location::Imm64(_) => {
-                self.assembler.emit_mov(Size::S64, src2, Location::GPR(tmpg));
-                self.assembler.emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp2));
+                self.assembler
+                    .emit_mov(Size::S64, src2, Location::GPR(tmpg));
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp2));
                 XMMOrMemory::XMM(tmp2)
             }
             _ => {
@@ -602,27 +620,14 @@ impl<'a> FuncGen<'a> {
     }
 
     /// I32 binary operation with both operands popped from the virtual stack.
-    fn emit_binop_i32(
-        &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
-    ) {
+    fn emit_binop_i32(&mut self, f: fn(&mut Assembler, Size, Location, Location)) {
         // Using Red Zone here.
         let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
         if loc_a != ret {
             let tmp = self.machine.acquire_temp_gpr().unwrap();
-            self.emit_relaxed_binop(
-                Assembler::emit_mov,
-                Size::S32,
-                loc_a,
-                Location::GPR(tmp),
-            );
+            self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc_a, Location::GPR(tmp));
             self.emit_relaxed_binop(f, Size::S32, loc_b, Location::GPR(tmp));
-            self.emit_relaxed_binop(
-                Assembler::emit_mov,
-                Size::S32,
-                Location::GPR(tmp),
-                ret,
-            );
+            self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, Location::GPR(tmp), ret);
             self.machine.release_temp_gpr(tmp);
         } else {
             self.emit_relaxed_binop(f, Size::S32, loc_b, ret);
@@ -630,28 +635,15 @@ impl<'a> FuncGen<'a> {
     }
 
     /// I64 binary operation with both operands popped from the virtual stack.
-    fn emit_binop_i64(
-        &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
-    ) {
+    fn emit_binop_i64(&mut self, f: fn(&mut Assembler, Size, Location, Location)) {
         // Using Red Zone here.
         let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
 
         if loc_a != ret {
             let tmp = self.machine.acquire_temp_gpr().unwrap();
-            self.emit_relaxed_binop(
-                Assembler::emit_mov,
-                Size::S64,
-                loc_a,
-                Location::GPR(tmp),
-            );
+            self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc_a, Location::GPR(tmp));
             self.emit_relaxed_binop(f, Size::S64, loc_b, Location::GPR(tmp));
-            self.emit_relaxed_binop(
-                Assembler::emit_mov,
-                Size::S64,
-                Location::GPR(tmp),
-                ret,
-            );
+            self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, Location::GPR(tmp), ret);
             self.machine.release_temp_gpr(tmp);
         } else {
             self.emit_relaxed_binop(f, Size::S64, loc_b, ret);
@@ -676,13 +668,15 @@ impl<'a> FuncGen<'a> {
             Location::GPR(x) => {
                 self.emit_relaxed_binop(Assembler::emit_cmp, Size::S32, loc_b, loc_a);
                 self.assembler.emit_set(c, x);
-                self.assembler.emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(x));
+                self.assembler
+                    .emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(x));
             }
             Location::Memory(_, _) => {
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
                 self.emit_relaxed_binop(Assembler::emit_cmp, Size::S32, loc_b, loc_a);
                 self.assembler.emit_set(c, tmp);
-                self.assembler.emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(tmp));
+                self.assembler
+                    .emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(tmp));
                 self.assembler.emit_mov(Size::S32, Location::GPR(tmp), ret);
                 self.machine.release_temp_gpr(tmp);
             }
@@ -697,10 +691,7 @@ impl<'a> FuncGen<'a> {
     }
 
     /// I32 comparison with both operands popped from the virtual stack.
-    fn emit_cmpop_i32(
-        &mut self,
-        c: Condition,
-    ) -> Result<(), CodegenError> {
+    fn emit_cmpop_i32(&mut self, c: Condition) -> Result<(), CodegenError> {
         let loc_b = self.pop_value_released();
         self.emit_cmpop_i32_dynamic_b(c, loc_b)?;
         Ok(())
@@ -724,13 +715,15 @@ impl<'a> FuncGen<'a> {
             Location::GPR(x) => {
                 self.emit_relaxed_binop(Assembler::emit_cmp, Size::S64, loc_b, loc_a);
                 self.assembler.emit_set(c, x);
-                self.assembler.emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(x));
+                self.assembler
+                    .emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(x));
             }
             Location::Memory(_, _) => {
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
                 self.emit_relaxed_binop(Assembler::emit_cmp, Size::S64, loc_b, loc_a);
                 self.assembler.emit_set(c, tmp);
-                self.assembler.emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(tmp));
+                self.assembler
+                    .emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(tmp));
                 self.assembler.emit_mov(Size::S32, Location::GPR(tmp), ret);
                 self.machine.release_temp_gpr(tmp);
             }
@@ -745,10 +738,7 @@ impl<'a> FuncGen<'a> {
     }
 
     /// I64 comparison with both operands popped from the virtual stack.
-    fn emit_cmpop_i64(
-        &mut self,
-        c: Condition,
-    ) -> Result<(), CodegenError> {
+    fn emit_cmpop_i64(&mut self, c: Condition) -> Result<(), CodegenError> {
         let loc_b = self.pop_value_released();
         self.emit_cmpop_i64_dynamic_b(c, loc_b)?;
         Ok(())
@@ -772,8 +762,14 @@ impl<'a> FuncGen<'a> {
                 self.assembler.emit_mov(Size::S32, loc, Location::GPR(tmp));
                 if let Location::Memory(_, _) = ret {
                     let out_tmp = self.machine.acquire_temp_gpr().unwrap();
-                    f(&mut self.assembler, Size::S32, Location::GPR(tmp), Location::GPR(out_tmp));
-                    self.assembler.emit_mov(Size::S32, Location::GPR(out_tmp), ret);
+                    f(
+                        &mut self.assembler,
+                        Size::S32,
+                        Location::GPR(tmp),
+                        Location::GPR(out_tmp),
+                    );
+                    self.assembler
+                        .emit_mov(Size::S32, Location::GPR(out_tmp), ret);
                     self.machine.release_temp_gpr(out_tmp);
                 } else {
                     f(&mut self.assembler, Size::S32, Location::GPR(tmp), ret);
@@ -784,7 +780,8 @@ impl<'a> FuncGen<'a> {
                 if let Location::Memory(_, _) = ret {
                     let out_tmp = self.machine.acquire_temp_gpr().unwrap();
                     f(&mut self.assembler, Size::S32, loc, Location::GPR(out_tmp));
-                    self.assembler.emit_mov(Size::S32, Location::GPR(out_tmp), ret);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::GPR(out_tmp), ret);
                     self.machine.release_temp_gpr(out_tmp);
                 } else {
                     f(&mut self.assembler, Size::S32, loc, ret);
@@ -818,8 +815,14 @@ impl<'a> FuncGen<'a> {
                 self.assembler.emit_mov(Size::S64, loc, Location::GPR(tmp));
                 if let Location::Memory(_, _) = ret {
                     let out_tmp = self.machine.acquire_temp_gpr().unwrap();
-                    f(&mut self.assembler, Size::S64, Location::GPR(tmp), Location::GPR(out_tmp));
-                    self.assembler.emit_mov(Size::S64, Location::GPR(out_tmp), ret);
+                    f(
+                        &mut self.assembler,
+                        Size::S64,
+                        Location::GPR(tmp),
+                        Location::GPR(out_tmp),
+                    );
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(out_tmp), ret);
                     self.machine.release_temp_gpr(out_tmp);
                 } else {
                     f(&mut self.assembler, Size::S64, Location::GPR(tmp), ret);
@@ -830,7 +833,8 @@ impl<'a> FuncGen<'a> {
                 if let Location::Memory(_, _) = ret {
                     let out_tmp = self.machine.acquire_temp_gpr().unwrap();
                     f(&mut self.assembler, Size::S64, loc, Location::GPR(out_tmp));
-                    self.assembler.emit_mov(Size::S64, Location::GPR(out_tmp), ret);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(out_tmp), ret);
                     self.machine.release_temp_gpr(out_tmp);
                 } else {
                     f(&mut self.assembler, Size::S64, loc, ret);
@@ -847,13 +851,11 @@ impl<'a> FuncGen<'a> {
     }
 
     /// I32 shift with both operands popped from the virtual stack.
-    fn emit_shift_i32(
-        &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
-    ) {
+    fn emit_shift_i32(&mut self, f: fn(&mut Assembler, Size, Location, Location)) {
         let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
 
-        self.assembler.emit_mov(Size::S32, loc_b, Location::GPR(GPR::RCX));
+        self.assembler
+            .emit_mov(Size::S32, loc_b, Location::GPR(GPR::RCX));
 
         if loc_a != ret {
             self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc_a, ret);
@@ -863,12 +865,10 @@ impl<'a> FuncGen<'a> {
     }
 
     /// I64 shift with both operands popped from the virtual stack.
-    fn emit_shift_i64(
-        &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
-    ) {
+    fn emit_shift_i64(&mut self, f: fn(&mut Assembler, Size, Location, Location)) {
         let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
-        self.assembler.emit_mov(Size::S64, loc_b, Location::GPR(GPR::RCX));
+        self.assembler
+            .emit_mov(Size::S64, loc_b, Location::GPR(GPR::RCX));
 
         if loc_a != ret {
             self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc_a, ret);
@@ -923,10 +923,13 @@ impl<'a> FuncGen<'a> {
     fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Self)>(
         &mut self,
         cb: F,
-        params: I
+        params: I,
     ) -> Result<(), CodegenError> {
         // Values pushed in this function are above the shadow region.
-        self.machine.state.stack_values.push(MachineValue::ExplicitShadow);
+        self.machine
+            .state
+            .stack_values
+            .push(MachineValue::ExplicitShadow);
 
         let params: Vec<_> = params.collect();
 
@@ -934,7 +937,8 @@ impl<'a> FuncGen<'a> {
         let used_gprs = self.machine.get_used_gprs();
         for r in used_gprs.iter() {
             self.assembler.emit_push(Size::S64, Location::GPR(*r));
-            let content = self.machine.state.register_values[X64Register::GPR(*r).to_index().0].clone();
+            let content =
+                self.machine.state.register_values[X64Register::GPR(*r).to_index().0].clone();
             if content == MachineValue::Undefined {
                 return Err(CodegenError {
                     message: format!("emit_call_sysv: Undefined used_gprs content"),
@@ -960,7 +964,8 @@ impl<'a> FuncGen<'a> {
                 );
             }
             for r in used_xmms.iter().rev() {
-                let content = self.machine.state.register_values[X64Register::XMM(*r).to_index().0].clone();
+                let content =
+                    self.machine.state.register_values[X64Register::XMM(*r).to_index().0].clone();
                 if content == MachineValue::Undefined {
                     return Err(CodegenError {
                         message: format!("emit_call_sysv: Undefined used_xmms content"),
@@ -984,12 +989,20 @@ impl<'a> FuncGen<'a> {
         }
 
         // Align stack to 16 bytes.
-        if (self.machine.get_stack_offset() + used_gprs.len() * 8 + used_xmms.len() * 8 + stack_offset) % 16
+        if (self.machine.get_stack_offset()
+            + used_gprs.len() * 8
+            + used_xmms.len() * 8
+            + stack_offset)
+            % 16
             != 0
         {
-            self.assembler.emit_sub(Size::S64, Location::Imm32(8), Location::GPR(GPR::RSP));
+            self.assembler
+                .emit_sub(Size::S64, Location::Imm32(8), Location::GPR(GPR::RSP));
             stack_offset += 8;
-            self.machine.state.stack_values.push(MachineValue::Undefined);
+            self.machine
+                .state
+                .stack_values
+                .push(MachineValue::Undefined);
         }
 
         let mut call_movs: Vec<(Location, GPR)> = vec![];
@@ -1004,8 +1017,9 @@ impl<'a> FuncGen<'a> {
                 Location::Memory(_, _) => {
                     match *param {
                         Location::GPR(x) => {
-                            let content =
-                                self.machine.state.register_values[X64Register::GPR(x).to_index().0].clone();
+                            let content = self.machine.state.register_values
+                                [X64Register::GPR(x).to_index().0]
+                                .clone();
                             // FIXME: There might be some corner cases (release -> emit_call_sysv -> acquire?) that cause this assertion to fail.
                             // Hopefully nothing would be incorrect at runtime.
 
@@ -1013,8 +1027,9 @@ impl<'a> FuncGen<'a> {
                             self.machine.state.stack_values.push(content);
                         }
                         Location::XMM(x) => {
-                            let content =
-                                self.machine.state.register_values[X64Register::XMM(x).to_index().0].clone();
+                            let content = self.machine.state.register_values
+                                [X64Register::XMM(x).to_index().0]
+                                .clone();
                             //assert!(content != MachineValue::Undefined);
                             self.machine.state.stack_values.push(content);
                         }
@@ -1024,13 +1039,17 @@ impl<'a> FuncGen<'a> {
                                     message: format!("emit_call_sysv loc param: unreachable code"),
                                 });
                             }
-                            self.machine.state
+                            self.machine
+                                .state
                                 .stack_values
                                 .push(MachineValue::CopyStackBPRelative(offset));
                             // TODO: Read value at this offset
                         }
                         _ => {
-                            self.machine.state.stack_values.push(MachineValue::Undefined);
+                            self.machine
+                                .state
+                                .stack_values
+                                .push(MachineValue::Undefined);
                         }
                     }
                     match *param {
@@ -1042,7 +1061,8 @@ impl<'a> FuncGen<'a> {
                             // - It is a temporary register that is not used for any persistent value.
                             // - This register as an argument location is only written to after `sort_call_movs`.'
                             self.machine.reserve_unused_temp_gpr(GPR::RCX);
-                            self.assembler.emit_mov(Size::S64, *param, Location::GPR(GPR::RCX));
+                            self.assembler
+                                .emit_mov(Size::S64, *param, Location::GPR(GPR::RCX));
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(GPR::RCX),
@@ -1055,7 +1075,11 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_push(Size::S64, Location::GPR(GPR::RAX));
 
                             // XMM registers can be directly stored to memory.
-                            self.assembler.emit_mov(Size::S64, *param, Location::Memory(GPR::RSP, 0));
+                            self.assembler.emit_mov(
+                                Size::S64,
+                                *param,
+                                Location::Memory(GPR::RSP, 0),
+                            );
                         }
                         _ => self.assembler.emit_push(Size::S64, *param),
                     }
@@ -1106,8 +1130,10 @@ impl<'a> FuncGen<'a> {
                     diff_id: state_diff_id,
                 },
             );
-            self.fsm.wasm_offset_to_target_offset
-                .insert(self.machine.state.wasm_inst_offset, SuspendOffset::Call(offset));
+            self.fsm.wasm_offset_to_target_offset.insert(
+                self.machine.state.wasm_inst_offset,
+                SuspendOffset::Call(offset),
+            );
         }
 
         // Restore stack.
@@ -1164,7 +1190,7 @@ impl<'a> FuncGen<'a> {
     fn emit_call_sysv_label<I: Iterator<Item = Location>>(
         &mut self,
         label: DynamicLabel,
-        params: I
+        params: I,
     ) -> Result<(), CodegenError> {
         self.emit_call_sysv(|this| this.assembler.emit_call_label(label), params)?;
         Ok(())
@@ -1209,14 +1235,17 @@ impl<'a> FuncGen<'a> {
                 Location::GPR(tmp_bound),
             );
             // Adds base to bound so `tmp_bound` now holds the end of linear memory.
-            self.assembler.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
-            self.assembler.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
+            self.assembler
+                .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
+            self.assembler
+                .emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
 
             // This branch is used for emitting "faster" code for the special case of (offset + value_size) not exceeding u32 range.
             match (memarg.offset as u32).checked_add(value_size as u32) {
                 Some(0) => {}
                 Some(x) => {
-                    self.assembler.emit_add(Size::S64, Location::Imm32(x), Location::GPR(tmp_addr));
+                    self.assembler
+                        .emit_add(Size::S64, Location::Imm32(x), Location::GPR(tmp_addr));
                 }
                 None => {
                     self.assembler.emit_add(
@@ -1233,19 +1262,21 @@ impl<'a> FuncGen<'a> {
             }
 
             // Trap if the end address of the requested area is above that of the linear memory.
-            self.assembler.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
-            self.assembler.emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+            self.assembler
+                .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
+            self.assembler
+                .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
 
-            self.mark_range_with_trap_code(
-                TrapCode::HeapAccessOutOfBounds,
-                |this| this.assembler.emit_conditional_trap(Condition::Above),
-            );
+            self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
+                this.assembler.emit_conditional_trap(Condition::Above)
+            });
 
             self.machine.release_temp_gpr(tmp_bound);
         }
 
         // Calculates the real address, and loads from it.
-        self.assembler.emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
+        self.assembler
+            .emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
         if memarg.offset != 0 {
             self.assembler.emit_add(
                 Size::S64,
@@ -1253,7 +1284,8 @@ impl<'a> FuncGen<'a> {
                 Location::GPR(tmp_addr),
             );
         }
-        self.assembler.emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
+        self.assembler
+            .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
         self.machine.release_temp_gpr(tmp_base);
 
         let align = match memarg.flags & 3 {
@@ -1279,16 +1311,13 @@ impl<'a> FuncGen<'a> {
                 Location::Imm32(align - 1),
                 Location::GPR(tmp_aligncheck),
             );
-            self.mark_range_with_trap_code(
-                TrapCode::HeapAccessOutOfBounds,
-                |this| this.assembler.emit_conditional_trap(Condition::NotEqual),
-            );
+            self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
+                this.assembler.emit_conditional_trap(Condition::NotEqual)
+            });
             self.machine.release_temp_gpr(tmp_aligncheck);
         }
 
-        self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
-            cb(this, tmp_addr)
-        })?;
+        self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| cb(this, tmp_addr))?;
 
         self.machine.release_temp_gpr(tmp_addr);
         Ok(())
@@ -1325,23 +1354,24 @@ impl<'a> FuncGen<'a> {
         let retry = self.assembler.get_label();
         self.assembler.emit_label(retry);
 
-        self.emit_memory_op(
-            target,
-            memarg,
-            true,
-            value_size,
-            |this, addr| {
-                // Memory moves with size < 32b do not zero upper bits.
-                if memory_sz < Size::S32 {
-                    this.assembler.emit_xor(Size::S32, Location::GPR(compare), Location::GPR(compare));
-                }
-                this.assembler.emit_mov(memory_sz, Location::Memory(addr, 0), Location::GPR(compare));
-                this.assembler.emit_mov(stack_sz, Location::GPR(compare), ret);
-                cb(this, compare, value);
-                this.assembler.emit_lock_cmpxchg(memory_sz, Location::GPR(value), Location::Memory(addr, 0));
-                Ok(())
-            },
-        )?;
+        self.emit_memory_op(target, memarg, true, value_size, |this, addr| {
+            // Memory moves with size < 32b do not zero upper bits.
+            if memory_sz < Size::S32 {
+                this.assembler
+                    .emit_xor(Size::S32, Location::GPR(compare), Location::GPR(compare));
+            }
+            this.assembler
+                .emit_mov(memory_sz, Location::Memory(addr, 0), Location::GPR(compare));
+            this.assembler
+                .emit_mov(stack_sz, Location::GPR(compare), ret);
+            cb(this, compare, value);
+            this.assembler.emit_lock_cmpxchg(
+                memory_sz,
+                Location::GPR(value),
+                Location::Memory(addr, 0),
+            );
+            Ok(())
+        })?;
 
         self.assembler.emit_jmp(Condition::NotEqual, retry);
 
@@ -1368,25 +1398,39 @@ impl<'a> FuncGen<'a> {
         let tmp_x = self.machine.acquire_temp_xmm().unwrap();
 
         // Underflow.
-        self.assembler.emit_mov(Size::S32, Location::Imm32(lower_bound), Location::GPR(tmp));
-        self.assembler.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x));
-        self.assembler.emit_vcmpless(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
-        self.assembler.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
-        self.assembler.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        self.assembler.emit_jmp(Condition::NotEqual, underflow_label);
+        self.assembler
+            .emit_mov(Size::S32, Location::Imm32(lower_bound), Location::GPR(tmp));
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x));
+        self.assembler
+            .emit_vcmpless(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
+        self.assembler
+            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler
+            .emit_jmp(Condition::NotEqual, underflow_label);
 
         // Overflow.
-        self.assembler.emit_mov(Size::S32, Location::Imm32(upper_bound), Location::GPR(tmp));
-        self.assembler.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x));
-        self.assembler.emit_vcmpgess(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
-        self.assembler.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
-        self.assembler.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler
+            .emit_mov(Size::S32, Location::Imm32(upper_bound), Location::GPR(tmp));
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x));
+        self.assembler
+            .emit_vcmpgess(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
+        self.assembler
+            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
         self.assembler.emit_jmp(Condition::NotEqual, overflow_label);
 
         // NaN.
-        self.assembler.emit_vcmpeqss(reg, XMMOrMemory::XMM(reg), tmp_x);
-        self.assembler.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
-        self.assembler.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler
+            .emit_vcmpeqss(reg, XMMOrMemory::XMM(reg), tmp_x);
+        self.assembler
+            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
         self.assembler.emit_jmp(Condition::Equal, nan_label);
 
         self.assembler.emit_jmp(Condition::None, succeed_label);
@@ -1396,20 +1440,16 @@ impl<'a> FuncGen<'a> {
     }
 
     // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
-    fn emit_f32_int_conv_check_trap(
-        &mut self,
-        reg: XMM,
-        lower_bound: f32,
-        upper_bound: f32,
-    ) {
+    fn emit_f32_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f32, upper_bound: f32) {
         let trap = self.assembler.get_label();
         let end = self.assembler.get_label();
 
         self.emit_f32_int_conv_check(reg, lower_bound, upper_bound, trap, trap, trap, end);
         self.assembler.emit_label(trap);
-        self.trap_table
-            .offset_to_code
-            .insert(self.assembler.get_offset().0, TrapCode::BadConversionToInteger);
+        self.trap_table.offset_to_code.insert(
+            self.assembler.get_offset().0,
+            TrapCode::BadConversionToInteger,
+        );
         self.assembler.emit_ud2();
         self.assembler.emit_label(end);
     }
@@ -1490,25 +1530,39 @@ impl<'a> FuncGen<'a> {
         let tmp_x = self.machine.acquire_temp_xmm().unwrap();
 
         // Underflow.
-        self.assembler.emit_mov(Size::S64, Location::Imm64(lower_bound), Location::GPR(tmp));
-        self.assembler.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x));
-        self.assembler.emit_vcmplesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
-        self.assembler.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
-        self.assembler.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        self.assembler.emit_jmp(Condition::NotEqual, underflow_label);
+        self.assembler
+            .emit_mov(Size::S64, Location::Imm64(lower_bound), Location::GPR(tmp));
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x));
+        self.assembler
+            .emit_vcmplesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
+        self.assembler
+            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler
+            .emit_jmp(Condition::NotEqual, underflow_label);
 
         // Overflow.
-        self.assembler.emit_mov(Size::S64, Location::Imm64(upper_bound), Location::GPR(tmp));
-        self.assembler.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x));
-        self.assembler.emit_vcmpgesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
-        self.assembler.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
-        self.assembler.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler
+            .emit_mov(Size::S64, Location::Imm64(upper_bound), Location::GPR(tmp));
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x));
+        self.assembler
+            .emit_vcmpgesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
+        self.assembler
+            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
         self.assembler.emit_jmp(Condition::NotEqual, overflow_label);
 
         // NaN.
-        self.assembler.emit_vcmpeqsd(reg, XMMOrMemory::XMM(reg), tmp_x);
-        self.assembler.emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
-        self.assembler.emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler
+            .emit_vcmpeqsd(reg, XMMOrMemory::XMM(reg), tmp_x);
+        self.assembler
+            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
         self.assembler.emit_jmp(Condition::Equal, nan_label);
 
         self.assembler.emit_jmp(Condition::None, succeed_label);
@@ -1518,20 +1572,16 @@ impl<'a> FuncGen<'a> {
     }
 
     // Checks for underflow/overflow/nan before IxxTrunc{U/S}F64.
-    fn emit_f64_int_conv_check_trap(
-        &mut self,
-        reg: XMM,
-        lower_bound: f64,
-        upper_bound: f64,
-    ) {
+    fn emit_f64_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f64, upper_bound: f64) {
         let trap = self.assembler.get_label();
         let end = self.assembler.get_label();
 
         self.emit_f64_int_conv_check(reg, lower_bound, upper_bound, trap, trap, trap, end);
         self.assembler.emit_label(trap);
-        self.trap_table
-            .offset_to_code
-            .insert(self.assembler.get_offset().0, TrapCode::BadConversionToInteger);
+        self.trap_table.offset_to_code.insert(
+            self.assembler.get_offset().0,
+            TrapCode::BadConversionToInteger,
+        );
         self.assembler.emit_ud2();
         self.assembler.emit_label(end);
     }
@@ -1594,9 +1644,7 @@ impl<'a> FuncGen<'a> {
         self.assembler.emit_label(end);
     }
 
-    pub fn get_state_diff(
-        &mut self
-    ) -> usize {
+    pub fn get_state_diff(&mut self) -> usize {
         if !self.machine.track_state {
             return usize::MAX;
         }
@@ -1610,17 +1658,20 @@ impl<'a> FuncGen<'a> {
         id
     }
 
-    fn emit_head(
-        &mut self
-    ) -> Result<(), CodegenError> {
+    fn emit_head(&mut self) -> Result<(), CodegenError> {
         // TODO: Patchpoint is not emitted for now, and ARM trampoline is not prepended.
 
         // Normal x86 entry prologue.
         self.assembler.emit_push(Size::S64, Location::GPR(GPR::RBP));
-        self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
 
         // Initialize locals.
-        self.locals = self.machine.init_locals(&mut self.assembler, self.local_types.len(), self.signature.params().len());
+        self.locals = self.machine.init_locals(
+            &mut self.assembler,
+            self.local_types.len(),
+            self.signature.params().len(),
+        );
 
         // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
         self.machine.state.register_values
@@ -1633,13 +1684,19 @@ impl<'a> FuncGen<'a> {
 
         //println!("initial state = {:?}", self.machine.state);
 
-        self.assembler.emit_sub(Size::S64, Location::Imm32(32), Location::GPR(GPR::RSP)); // simulate "red zone" if not supported by the platform
+        self.assembler
+            .emit_sub(Size::S64, Location::Imm32(32), Location::GPR(GPR::RSP)); // simulate "red zone" if not supported by the platform
 
         self.control_stack.push(ControlFrame {
             label: self.assembler.get_label(),
             loop_like: false,
             if_else: IfElseState::None,
-            returns: self.signature.results().iter().map(|&x| type_to_wp_type(x)).collect(),
+            returns: self
+                .signature
+                .results()
+                .iter()
+                .map(|&x| type_to_wp_type(x))
+                .collect(),
             value_stack_depth: 0,
             fp_stack_depth: 0,
             state: self.machine.state.clone(),
@@ -1668,9 +1725,13 @@ impl<'a> FuncGen<'a> {
         let sig_index = module.functions[func_index];
         let signature = module.signatures[sig_index].clone();
 
-        let mut local_types: Vec<_> = signature.params().iter().map(|&x| type_to_wp_type(x)).collect();
+        let mut local_types: Vec<_> = signature
+            .params()
+            .iter()
+            .map(|&x| type_to_wp_type(x))
+            .collect();
         local_types.extend_from_slice(&local_types_excluding_arguments);
-        
+
         let fsm = FunctionStateMap::new(
             new_machine_state(),
             local_func_index.index() as usize,
@@ -1696,6 +1757,7 @@ impl<'a> FuncGen<'a> {
             unreachable_depth: 0,
             fsm,
             trap_table: TrapTable::default(),
+            relocations: vec![],
         };
         fg.emit_head()?;
         Ok(fg)
@@ -1705,10 +1767,7 @@ impl<'a> FuncGen<'a> {
         self.control_stack.len() > 0
     }
 
-    pub fn feed_operator(
-        &mut self,
-        op: Operator,
-    ) -> Result<(), CodegenError> {
+    pub fn feed_operator(&mut self, op: Operator) -> Result<(), CodegenError> {
         assert!(self.fp_stack.len() <= self.value_stack.len());
 
         self.machine.state.wasm_inst_offset = self.machine.state.wasm_inst_offset.wrapping_add(1);
@@ -1901,7 +1960,8 @@ impl<'a> FuncGen<'a> {
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
                     false,
                 )[0];
-                self.emit_relaxed_binop(Assembler::emit_mov,
+                self.emit_relaxed_binop(
+                    Assembler::emit_mov,
                     Size::S64,
                     self.locals[local_index],
                     ret,
@@ -1914,8 +1974,7 @@ impl<'a> FuncGen<'a> {
             }
             Operator::LocalSet { local_index } => {
                 let local_index = local_index as usize;
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
 
                 if self.local_types[local_index].is_float() {
                     let fp = self.fp_stack.pop1()?;
@@ -1923,7 +1982,8 @@ impl<'a> FuncGen<'a> {
                         && self.config.enable_nan_canonicalization
                         && fp.canonicalization.is_some()
                     {
-                        self.canonicalize_nan(match self.local_types[local_index] {
+                        self.canonicalize_nan(
+                            match self.local_types[local_index] {
                                 WpType::F32 => Size::S32,
                                 WpType::F64 => Size::S64,
                                 _ => unreachable!(),
@@ -1932,14 +1992,16 @@ impl<'a> FuncGen<'a> {
                             self.locals[local_index],
                         );
                     } else {
-                        self.emit_relaxed_binop(Assembler::emit_mov,
+                        self.emit_relaxed_binop(
+                            Assembler::emit_mov,
                             Size::S64,
                             loc,
                             self.locals[local_index],
                         );
                     }
                 } else {
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         self.locals[local_index],
@@ -1956,7 +2018,8 @@ impl<'a> FuncGen<'a> {
                         && self.config.enable_nan_canonicalization
                         && fp.canonicalization.is_some()
                     {
-                        self.canonicalize_nan(match self.local_types[local_index] {
+                        self.canonicalize_nan(
+                            match self.local_types[local_index] {
                                 WpType::F32 => Size::S32,
                                 WpType::F64 => Size::S64,
                                 _ => unreachable!(),
@@ -1965,14 +2028,16 @@ impl<'a> FuncGen<'a> {
                             self.locals[local_index],
                         );
                     } else {
-                        self.emit_relaxed_binop(Assembler::emit_mov,
+                        self.emit_relaxed_binop(
+                            Assembler::emit_mov,
                             Size::S64,
                             loc,
                             self.locals[local_index],
                         );
                     }
                 } else {
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         self.locals[local_index],
@@ -1986,56 +2051,46 @@ impl<'a> FuncGen<'a> {
                     .wasm_stack
                     .push(WasmAbstractValue::Const(value as u32 as u64));
             }
-            Operator::I32Add => self.emit_binop_i32(
-                Assembler::emit_add,
-            ),
-            Operator::I32Sub => self.emit_binop_i32(
-                Assembler::emit_sub,
-            ),
-            Operator::I32Mul => self.emit_binop_i32(
-                Assembler::emit_imul,
-            ),
+            Operator::I32Add => self.emit_binop_i32(Assembler::emit_add),
+            Operator::I32Sub => self.emit_binop_i32(Assembler::emit_sub),
+            Operator::I32Mul => self.emit_binop_i32(Assembler::emit_imul),
             Operator::I32DivU => {
                 // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
-                self.assembler.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
-                self.assembler.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
-                self.emit_relaxed_xdiv(
-                    Assembler::emit_div,
+                self.assembler
+                    .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+                self.assembler.emit_xor(
                     Size::S32,
-                    loc_b,
-                   
-                   
+                    Location::GPR(GPR::RDX),
+                    Location::GPR(GPR::RDX),
                 );
-                self.assembler.emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
+                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S32, loc_b);
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
             }
             Operator::I32DivS => {
                 // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
-                self.assembler.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+                self.assembler
+                    .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cdq();
-                self.emit_relaxed_xdiv(
-                    Assembler::emit_idiv,
-                    Size::S32,
-                    loc_b,
-                   
-                   
-                );
-                self.assembler.emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
+                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S32, loc_b);
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
             }
             Operator::I32RemU => {
                 // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
-                self.assembler.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
-                self.assembler.emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
-                self.emit_relaxed_xdiv(
-                    Assembler::emit_div,
+                self.assembler
+                    .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+                self.assembler.emit_xor(
                     Size::S32,
-                    loc_b,
-                   
-                   
+                    Location::GPR(GPR::RDX),
+                    Location::GPR(GPR::RDX),
                 );
-                self.assembler.emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
+                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S32, loc_b);
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
             }
             Operator::I32RemS => {
                 // We assume that RAX and RDX are temporary registers here.
@@ -2044,13 +2099,15 @@ impl<'a> FuncGen<'a> {
                 let normal_path = self.assembler.get_label();
                 let end = self.assembler.get_label();
 
-                self.emit_relaxed_binop(Assembler::emit_cmp,
+                self.emit_relaxed_binop(
+                    Assembler::emit_cmp,
                     Size::S32,
                     Location::Imm32(0x80000000),
                     loc_a,
                 );
                 self.assembler.emit_jmp(Condition::NotEqual, normal_path);
-                self.emit_relaxed_binop(Assembler::emit_cmp,
+                self.emit_relaxed_binop(
+                    Assembler::emit_cmp,
                     Size::S32,
                     Location::Imm32(0xffffffff),
                     loc_b,
@@ -2060,41 +2117,25 @@ impl<'a> FuncGen<'a> {
                 self.assembler.emit_jmp(Condition::None, end);
 
                 self.assembler.emit_label(normal_path);
-                self.assembler.emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+                self.assembler
+                    .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cdq();
-                self.emit_relaxed_xdiv(
-                    Assembler::emit_idiv,
-                    Size::S32,
-                    loc_b,
-                   
-                   
-                );
-                self.assembler.emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
+                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S32, loc_b);
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
 
                 self.assembler.emit_label(end);
             }
-            Operator::I32And => self.emit_binop_i32(
-                Assembler::emit_and,
-            ),
-            Operator::I32Or => self.emit_binop_i32(
-                Assembler::emit_or,
-            ),
-            Operator::I32Xor => self.emit_binop_i32(
-                Assembler::emit_xor,
-            ),
-            Operator::I32Eq => self.emit_cmpop_i32(
-                Condition::Equal,
-            )?,
-            Operator::I32Ne => self.emit_cmpop_i32(
-                Condition::NotEqual,
-            )?,
-            Operator::I32Eqz => self.emit_cmpop_i32_dynamic_b(
-                Condition::Equal,
-                Location::Imm32(0),
-            )?,
+            Operator::I32And => self.emit_binop_i32(Assembler::emit_and),
+            Operator::I32Or => self.emit_binop_i32(Assembler::emit_or),
+            Operator::I32Xor => self.emit_binop_i32(Assembler::emit_xor),
+            Operator::I32Eq => self.emit_cmpop_i32(Condition::Equal)?,
+            Operator::I32Ne => self.emit_cmpop_i32(Condition::NotEqual)?,
+            Operator::I32Eqz => {
+                self.emit_cmpop_i32_dynamic_b(Condition::Equal, Location::Imm32(0))?
+            }
             Operator::I32Clz => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let src = match loc {
                     Location::Imm32(_) | Location::Memory(_, _) => {
                         let tmp = self.machine.acquire_temp_gpr().unwrap();
@@ -2127,18 +2168,25 @@ impl<'a> FuncGen<'a> {
                 };
 
                 if self.assembler.arch_has_xzcnt() {
-                    self.assembler.arch_emit_lzcnt(Size::S32, Location::GPR(src), Location::GPR(dst));
+                    self.assembler.arch_emit_lzcnt(
+                        Size::S32,
+                        Location::GPR(src),
+                        Location::GPR(dst),
+                    );
                 } else {
                     let zero_path = self.assembler.get_label();
                     let end = self.assembler.get_label();
 
                     self.assembler.emit_test_gpr_64(src);
                     self.assembler.emit_jmp(Condition::Equal, zero_path);
-                    self.assembler.emit_bsr(Size::S32, Location::GPR(src), Location::GPR(dst));
-                    self.assembler.emit_xor(Size::S32, Location::Imm32(31), Location::GPR(dst));
+                    self.assembler
+                        .emit_bsr(Size::S32, Location::GPR(src), Location::GPR(dst));
+                    self.assembler
+                        .emit_xor(Size::S32, Location::Imm32(31), Location::GPR(dst));
                     self.assembler.emit_jmp(Condition::None, end);
                     self.assembler.emit_label(zero_path);
-                    self.assembler.emit_mov(Size::S32, Location::Imm32(32), Location::GPR(dst));
+                    self.assembler
+                        .emit_mov(Size::S32, Location::Imm32(32), Location::GPR(dst));
                     self.assembler.emit_label(end);
                 }
 
@@ -2157,8 +2205,7 @@ impl<'a> FuncGen<'a> {
                 };
             }
             Operator::I32Ctz => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let src = match loc {
                     Location::Imm32(_) | Location::Memory(_, _) => {
                         let tmp = self.machine.acquire_temp_gpr().unwrap();
@@ -2191,17 +2238,23 @@ impl<'a> FuncGen<'a> {
                 };
 
                 if self.assembler.arch_has_xzcnt() {
-                    self.assembler.arch_emit_tzcnt(Size::S32, Location::GPR(src), Location::GPR(dst));
+                    self.assembler.arch_emit_tzcnt(
+                        Size::S32,
+                        Location::GPR(src),
+                        Location::GPR(dst),
+                    );
                 } else {
                     let zero_path = self.assembler.get_label();
                     let end = self.assembler.get_label();
 
                     self.assembler.emit_test_gpr_64(src);
                     self.assembler.emit_jmp(Condition::Equal, zero_path);
-                    self.assembler.emit_bsf(Size::S32, Location::GPR(src), Location::GPR(dst));
+                    self.assembler
+                        .emit_bsf(Size::S32, Location::GPR(src), Location::GPR(dst));
                     self.assembler.emit_jmp(Condition::None, end);
                     self.assembler.emit_label(zero_path);
-                    self.assembler.emit_mov(Size::S32, Location::Imm32(32), Location::GPR(dst));
+                    self.assembler
+                        .emit_mov(Size::S32, Location::Imm32(32), Location::GPR(dst));
                     self.assembler.emit_label(end);
                 }
 
@@ -2219,48 +2272,22 @@ impl<'a> FuncGen<'a> {
                     _ => {}
                 };
             }
-            Operator::I32Popcnt => self.emit_xcnt_i32(
-                Assembler::emit_popcnt,
-            )?,
-            Operator::I32Shl => self.emit_shift_i32(
-                Assembler::emit_shl,
-            ),
-            Operator::I32ShrU => self.emit_shift_i32(
-                Assembler::emit_shr,
-            ),
-            Operator::I32ShrS => self.emit_shift_i32(
-                Assembler::emit_sar,
-            ),
-            Operator::I32Rotl => self.emit_shift_i32(
-                Assembler::emit_rol,
-            ),
-            Operator::I32Rotr => self.emit_shift_i32(
-                Assembler::emit_ror,
-            ),
-            Operator::I32LtU => self.emit_cmpop_i32(
-                Condition::Below,
-            )?,
-            Operator::I32LeU => self.emit_cmpop_i32(
-                Condition::BelowEqual,
-            )?,
-            Operator::I32GtU => self.emit_cmpop_i32(
-                Condition::Above,
-            )?,
-            Operator::I32GeU => self.emit_cmpop_i32(
-                Condition::AboveEqual,
-            )?,
+            Operator::I32Popcnt => self.emit_xcnt_i32(Assembler::emit_popcnt)?,
+            Operator::I32Shl => self.emit_shift_i32(Assembler::emit_shl),
+            Operator::I32ShrU => self.emit_shift_i32(Assembler::emit_shr),
+            Operator::I32ShrS => self.emit_shift_i32(Assembler::emit_sar),
+            Operator::I32Rotl => self.emit_shift_i32(Assembler::emit_rol),
+            Operator::I32Rotr => self.emit_shift_i32(Assembler::emit_ror),
+            Operator::I32LtU => self.emit_cmpop_i32(Condition::Below)?,
+            Operator::I32LeU => self.emit_cmpop_i32(Condition::BelowEqual)?,
+            Operator::I32GtU => self.emit_cmpop_i32(Condition::Above)?,
+            Operator::I32GeU => self.emit_cmpop_i32(Condition::AboveEqual)?,
             Operator::I32LtS => {
-                self.emit_cmpop_i32( Condition::Less)?;
+                self.emit_cmpop_i32(Condition::Less)?;
             }
-            Operator::I32LeS => self.emit_cmpop_i32(
-                Condition::LessEqual,
-            )?,
-            Operator::I32GtS => self.emit_cmpop_i32(
-                Condition::Greater,
-            )?,
-            Operator::I32GeS => self.emit_cmpop_i32(
-                Condition::GreaterEqual,
-            )?,
+            Operator::I32LeS => self.emit_cmpop_i32(Condition::LessEqual)?,
+            Operator::I32GtS => self.emit_cmpop_i32(Condition::Greater)?,
+            Operator::I32GeS => self.emit_cmpop_i32(Condition::GreaterEqual)?,
             Operator::I64Const { value } => {
                 let value = value as u64;
                 self.value_stack.push(Location::Imm64(value));
@@ -2269,56 +2296,46 @@ impl<'a> FuncGen<'a> {
                     .wasm_stack
                     .push(WasmAbstractValue::Const(value));
             }
-            Operator::I64Add => self.emit_binop_i64(
-                Assembler::emit_add,
-            ),
-            Operator::I64Sub => self.emit_binop_i64(
-                Assembler::emit_sub,
-            ),
-            Operator::I64Mul => self.emit_binop_i64(
-                Assembler::emit_imul,
-            ),
+            Operator::I64Add => self.emit_binop_i64(Assembler::emit_add),
+            Operator::I64Sub => self.emit_binop_i64(Assembler::emit_sub),
+            Operator::I64Mul => self.emit_binop_i64(Assembler::emit_imul),
             Operator::I64DivU => {
                 // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
-                self.assembler.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
-                self.assembler.emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
-                self.emit_relaxed_xdiv(
-                    Assembler::emit_div,
+                self.assembler
+                    .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+                self.assembler.emit_xor(
                     Size::S64,
-                    loc_b,
-                   
-                   
+                    Location::GPR(GPR::RDX),
+                    Location::GPR(GPR::RDX),
                 );
-                self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S64, loc_b);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
             Operator::I64DivS => {
                 // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
-                self.assembler.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+                self.assembler
+                    .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cqo();
-                self.emit_relaxed_xdiv(
-                    Assembler::emit_idiv,
-                    Size::S64,
-                    loc_b,
-                   
-                   
-                );
-                self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S64, loc_b);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
             Operator::I64RemU => {
                 // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
-                self.assembler.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
-                self.assembler.emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
-                self.emit_relaxed_xdiv(
-                    Assembler::emit_div,
+                self.assembler
+                    .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+                self.assembler.emit_xor(
                     Size::S64,
-                    loc_b,
-                   
-                   
+                    Location::GPR(GPR::RDX),
+                    Location::GPR(GPR::RDX),
                 );
-                self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
+                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S64, loc_b);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
             }
             Operator::I64RemS => {
                 // We assume that RAX and RDX are temporary registers here.
@@ -2327,61 +2344,43 @@ impl<'a> FuncGen<'a> {
                 let normal_path = self.assembler.get_label();
                 let end = self.assembler.get_label();
 
-                self.emit_relaxed_binop(Assembler::emit_cmp,
+                self.emit_relaxed_binop(
+                    Assembler::emit_cmp,
                     Size::S64,
                     Location::Imm64(0x8000000000000000u64),
                     loc_a,
                 );
                 self.assembler.emit_jmp(Condition::NotEqual, normal_path);
-                self.emit_relaxed_binop(Assembler::emit_cmp,
+                self.emit_relaxed_binop(
+                    Assembler::emit_cmp,
                     Size::S64,
                     Location::Imm64(0xffffffffffffffffu64),
                     loc_b,
                 );
                 self.assembler.emit_jmp(Condition::NotEqual, normal_path);
-                self.emit_relaxed_binop(Assembler::emit_mov,
-                    Size::S64,
-                    Location::Imm64(0),
-                    ret,
-                );
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, Location::Imm64(0), ret);
                 self.assembler.emit_jmp(Condition::None, end);
 
                 self.assembler.emit_label(normal_path);
 
-                self.assembler.emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+                self.assembler
+                    .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cqo();
-                self.emit_relaxed_xdiv(
-                    Assembler::emit_idiv,
-                    Size::S64,
-                    loc_b,
-                   
-                   
-                );
-                self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
+                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S64, loc_b);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
                 self.assembler.emit_label(end);
             }
-            Operator::I64And => self.emit_binop_i64(
-                Assembler::emit_and,
-            ),
-            Operator::I64Or => self.emit_binop_i64(
-                Assembler::emit_or,
-            ),
-            Operator::I64Xor => self.emit_binop_i64(
-                Assembler::emit_xor,
-            ),
-            Operator::I64Eq => self.emit_cmpop_i64(
-                Condition::Equal,
-            )?,
-            Operator::I64Ne => self.emit_cmpop_i64(
-                Condition::NotEqual,
-            )?,
-            Operator::I64Eqz => self.emit_cmpop_i64_dynamic_b(
-                Condition::Equal,
-                Location::Imm64(0),
-            )?,
+            Operator::I64And => self.emit_binop_i64(Assembler::emit_and),
+            Operator::I64Or => self.emit_binop_i64(Assembler::emit_or),
+            Operator::I64Xor => self.emit_binop_i64(Assembler::emit_xor),
+            Operator::I64Eq => self.emit_cmpop_i64(Condition::Equal)?,
+            Operator::I64Ne => self.emit_cmpop_i64(Condition::NotEqual)?,
+            Operator::I64Eqz => {
+                self.emit_cmpop_i64_dynamic_b(Condition::Equal, Location::Imm64(0))?
+            }
             Operator::I64Clz => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let src = match loc {
                     Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
                         let tmp = self.machine.acquire_temp_gpr().unwrap();
@@ -2414,18 +2413,25 @@ impl<'a> FuncGen<'a> {
                 };
 
                 if self.assembler.arch_has_xzcnt() {
-                    self.assembler.arch_emit_lzcnt(Size::S64, Location::GPR(src), Location::GPR(dst));
+                    self.assembler.arch_emit_lzcnt(
+                        Size::S64,
+                        Location::GPR(src),
+                        Location::GPR(dst),
+                    );
                 } else {
                     let zero_path = self.assembler.get_label();
                     let end = self.assembler.get_label();
 
                     self.assembler.emit_test_gpr_64(src);
                     self.assembler.emit_jmp(Condition::Equal, zero_path);
-                    self.assembler.emit_bsr(Size::S64, Location::GPR(src), Location::GPR(dst));
-                    self.assembler.emit_xor(Size::S64, Location::Imm32(63), Location::GPR(dst));
+                    self.assembler
+                        .emit_bsr(Size::S64, Location::GPR(src), Location::GPR(dst));
+                    self.assembler
+                        .emit_xor(Size::S64, Location::Imm32(63), Location::GPR(dst));
                     self.assembler.emit_jmp(Condition::None, end);
                     self.assembler.emit_label(zero_path);
-                    self.assembler.emit_mov(Size::S64, Location::Imm32(64), Location::GPR(dst));
+                    self.assembler
+                        .emit_mov(Size::S64, Location::Imm32(64), Location::GPR(dst));
                     self.assembler.emit_label(end);
                 }
 
@@ -2444,8 +2450,7 @@ impl<'a> FuncGen<'a> {
                 };
             }
             Operator::I64Ctz => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let src = match loc {
                     Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
                         let tmp = self.machine.acquire_temp_gpr().unwrap();
@@ -2478,17 +2483,23 @@ impl<'a> FuncGen<'a> {
                 };
 
                 if self.assembler.arch_has_xzcnt() {
-                    self.assembler.arch_emit_tzcnt(Size::S64, Location::GPR(src), Location::GPR(dst));
+                    self.assembler.arch_emit_tzcnt(
+                        Size::S64,
+                        Location::GPR(src),
+                        Location::GPR(dst),
+                    );
                 } else {
                     let zero_path = self.assembler.get_label();
                     let end = self.assembler.get_label();
 
                     self.assembler.emit_test_gpr_64(src);
                     self.assembler.emit_jmp(Condition::Equal, zero_path);
-                    self.assembler.emit_bsf(Size::S64, Location::GPR(src), Location::GPR(dst));
+                    self.assembler
+                        .emit_bsf(Size::S64, Location::GPR(src), Location::GPR(dst));
                     self.assembler.emit_jmp(Condition::None, end);
                     self.assembler.emit_label(zero_path);
-                    self.assembler.emit_mov(Size::S64, Location::Imm32(64), Location::GPR(dst));
+                    self.assembler
+                        .emit_mov(Size::S64, Location::Imm32(64), Location::GPR(dst));
                     self.assembler.emit_label(end);
                 }
 
@@ -2506,82 +2517,44 @@ impl<'a> FuncGen<'a> {
                     _ => {}
                 };
             }
-            Operator::I64Popcnt => self.emit_xcnt_i64(
-                Assembler::emit_popcnt,
-            )?,
-            Operator::I64Shl => self.emit_shift_i64(
-                Assembler::emit_shl,
-            ),
-            Operator::I64ShrU => self.emit_shift_i64(
-                Assembler::emit_shr,
-            ),
-            Operator::I64ShrS => self.emit_shift_i64(
-                Assembler::emit_sar,
-            ),
-            Operator::I64Rotl => self.emit_shift_i64(
-                Assembler::emit_rol,
-            ),
-            Operator::I64Rotr => self.emit_shift_i64(
-                Assembler::emit_ror,
-            ),
-            Operator::I64LtU => self.emit_cmpop_i64(
-                Condition::Below,
-            )?,
-            Operator::I64LeU => self.emit_cmpop_i64(
-                Condition::BelowEqual,
-            )?,
-            Operator::I64GtU => self.emit_cmpop_i64(
-                Condition::Above,
-            )?,
-            Operator::I64GeU => self.emit_cmpop_i64(
-                Condition::AboveEqual,
-            )?,
+            Operator::I64Popcnt => self.emit_xcnt_i64(Assembler::emit_popcnt)?,
+            Operator::I64Shl => self.emit_shift_i64(Assembler::emit_shl),
+            Operator::I64ShrU => self.emit_shift_i64(Assembler::emit_shr),
+            Operator::I64ShrS => self.emit_shift_i64(Assembler::emit_sar),
+            Operator::I64Rotl => self.emit_shift_i64(Assembler::emit_rol),
+            Operator::I64Rotr => self.emit_shift_i64(Assembler::emit_ror),
+            Operator::I64LtU => self.emit_cmpop_i64(Condition::Below)?,
+            Operator::I64LeU => self.emit_cmpop_i64(Condition::BelowEqual)?,
+            Operator::I64GtU => self.emit_cmpop_i64(Condition::Above)?,
+            Operator::I64GeU => self.emit_cmpop_i64(Condition::AboveEqual)?,
             Operator::I64LtS => {
-                self.emit_cmpop_i64( Condition::Less)?;
+                self.emit_cmpop_i64(Condition::Less)?;
             }
-            Operator::I64LeS => self.emit_cmpop_i64(
-                Condition::LessEqual,
-            )?,
-            Operator::I64GtS => self.emit_cmpop_i64(
-                Condition::Greater,
-            )?,
-            Operator::I64GeS => self.emit_cmpop_i64(
-                Condition::GreaterEqual,
-            )?,
+            Operator::I64LeS => self.emit_cmpop_i64(Condition::LessEqual)?,
+            Operator::I64GtS => self.emit_cmpop_i64(Condition::Greater)?,
+            Operator::I64GeS => self.emit_cmpop_i64(Condition::GreaterEqual)?,
             Operator::I64ExtendI32U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                self.emit_relaxed_binop(Assembler::emit_mov,
-                    Size::S32,
-                    loc,
-                    ret,
-                );
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, ret);
             }
             Operator::I64ExtendI32S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                    Size::S32,
-                    loc,
-                    Size::S64,
-                    ret,
-                )?;
+                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S32, loc, Size::S64, ret)?;
             }
             Operator::I32Extend8S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -2589,16 +2562,10 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                    Size::S8,
-                    loc,
-                    Size::S32,
-                    ret,
-                )?;
+                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S8, loc, Size::S32, ret)?;
             }
             Operator::I32Extend16S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -2606,16 +2573,10 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                    Size::S16,
-                    loc,
-                    Size::S32,
-                    ret,
-                )?;
+                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S16, loc, Size::S32, ret)?;
             }
             Operator::I64Extend8S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -2623,16 +2584,10 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                    Size::S8,
-                    loc,
-                    Size::S64,
-                    ret,
-                )?;
+                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S8, loc, Size::S64, ret)?;
             }
             Operator::I64Extend16S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -2640,16 +2595,10 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                    Size::S16,
-                    loc,
-                    Size::S64,
-                    ret,
-                )?;
+                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S16, loc, Size::S64, ret)?;
             }
             Operator::I64Extend32S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -2657,27 +2606,17 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                    Size::S32,
-                    loc,
-                    Size::S64,
-                    ret,
-                )?;
+                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S32, loc, Size::S64, ret)?;
             }
             Operator::I32WrapI64 => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                self.emit_relaxed_binop(Assembler::emit_mov,
-                    Size::S32,
-                    loc,
-                    ret,
-                );
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, ret);
             }
 
             Operator::F32Const { value } => {
@@ -2693,42 +2632,32 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(
-                    Assembler::emit_vaddss,
-                )?;
+                self.emit_fp_binop_avx(Assembler::emit_vaddss)?;
             }
             Operator::F32Sub => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(
-                    Assembler::emit_vsubss,
-                )?
+                self.emit_fp_binop_avx(Assembler::emit_vsubss)?
             }
             Operator::F32Mul => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(
-                    Assembler::emit_vmulss,
-                )?
+                self.emit_fp_binop_avx(Assembler::emit_vmulss)?
             }
             Operator::F32Div => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(
-                    Assembler::emit_vdivss,
-                )?
+                self.emit_fp_binop_avx(Assembler::emit_vdivss)?
             }
             Operator::F32Max => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 2));
                 if !self.assembler.arch_supports_canonicalize_nan() {
-                    self.emit_fp_binop_avx(
-                        Assembler::emit_vmaxss,
-                    )?;
+                    self.emit_fp_binop_avx(Assembler::emit_vmaxss)?;
                 } else {
                     let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
@@ -2740,17 +2669,28 @@ impl<'a> FuncGen<'a> {
                     let src1 = match loc_a {
                         Location::XMM(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
-                            self.assembler.emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
                             tmp1
                         }
                         Location::Imm32(_) => {
-                            self.assembler.emit_mov(Size::S32, loc_a, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S32, loc_a, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S32,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp1),
+                            );
                             tmp1
                         }
                         Location::Imm64(_) => {
-                            self.assembler.emit_mov(Size::S64, loc_a, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_a, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp1),
+                            );
                             tmp1
                         }
                         _ => {
@@ -2762,17 +2702,28 @@ impl<'a> FuncGen<'a> {
                     let src2 = match loc_b {
                         Location::XMM(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
-                            self.assembler.emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
                             tmp2
                         }
                         Location::Imm32(_) => {
-                            self.assembler.emit_mov(Size::S32, loc_b, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S32, loc_b, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S32,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp2),
+                            );
                             tmp2
                         }
                         Location::Imm64(_) => {
-                            self.assembler.emit_mov(Size::S64, loc_b, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_b, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp2),
+                            );
                             tmp2
                         }
                         _ => {
@@ -2786,32 +2737,48 @@ impl<'a> FuncGen<'a> {
                     let tmp_xmm2 = XMM::XMM9;
                     let tmp_xmm3 = XMM::XMM10;
 
-                    self.assembler.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmpg1));
-                    self.assembler.emit_mov(Size::S32, Location::XMM(src2), Location::GPR(tmpg2));
-                    self.assembler.emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1));
-                    self.assembler.emit_vmaxss(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmpg1));
+                    self.assembler
+                        .emit_mov(Size::S32, Location::XMM(src2), Location::GPR(tmpg2));
+                    self.assembler
+                        .emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1));
+                    self.assembler
+                        .emit_vmaxss(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
                     let label1 = self.assembler.get_label();
                     let label2 = self.assembler.get_label();
                     self.assembler.emit_jmp(Condition::NotEqual, label1);
-                    self.assembler.emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
+                    self.assembler
+                        .emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
                     self.assembler.emit_jmp(Condition::None, label2);
                     self.assembler.emit_label(label1);
-                    self.assembler.emit_vxorps(tmp_xmm2, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm2);
+                    self.assembler
+                        .emit_vxorps(tmp_xmm2, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm2);
                     self.assembler.emit_label(label2);
-                    self.assembler.emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
-                    self.assembler.emit_vblendvps(tmp_xmm3, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm1, tmp_xmm1);
-                    self.assembler.emit_vcmpunordss(src1, XMMOrMemory::XMM(src2), src1);
+                    self.assembler
+                        .emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
+                    self.assembler.emit_vblendvps(
+                        tmp_xmm3,
+                        XMMOrMemory::XMM(tmp_xmm2),
+                        tmp_xmm1,
+                        tmp_xmm1,
+                    );
+                    self.assembler
+                        .emit_vcmpunordss(src1, XMMOrMemory::XMM(src2), src1);
                     // load float canonical nan
                     self.assembler.emit_mov(
                         Size::S64,
                         Location::Imm32(0x7FC0_0000), // Canonical NaN
                         Location::GPR(tmpg1),
                     );
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
-                    self.assembler.emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
+                    self.assembler
+                        .emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
                     match ret {
                         Location::XMM(x) => {
-                            self.assembler.emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
+                            self.assembler
+                                .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
                         }
                         Location::Memory(_, _) | Location::GPR(_) => {
                             self.assembler.emit_mov(Size::S64, Location::XMM(src1), ret);
@@ -2834,9 +2801,7 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 2));
                 if !self.assembler.arch_supports_canonicalize_nan() {
-                    self.emit_fp_binop_avx(
-                        Assembler::emit_vminss,
-                    )?;
+                    self.emit_fp_binop_avx(Assembler::emit_vminss)?;
                 } else {
                     let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
@@ -2848,17 +2813,28 @@ impl<'a> FuncGen<'a> {
                     let src1 = match loc_a {
                         Location::XMM(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
-                            self.assembler.emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
                             tmp1
                         }
                         Location::Imm32(_) => {
-                            self.assembler.emit_mov(Size::S32, loc_a, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S32, loc_a, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S32,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp1),
+                            );
                             tmp1
                         }
                         Location::Imm64(_) => {
-                            self.assembler.emit_mov(Size::S64, loc_a, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_a, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp1),
+                            );
                             tmp1
                         }
                         _ => {
@@ -2870,17 +2846,28 @@ impl<'a> FuncGen<'a> {
                     let src2 = match loc_b {
                         Location::XMM(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
-                            self.assembler.emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
                             tmp2
                         }
                         Location::Imm32(_) => {
-                            self.assembler.emit_mov(Size::S32, loc_b, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S32, loc_b, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S32,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp2),
+                            );
                             tmp2
                         }
                         Location::Imm64(_) => {
-                            self.assembler.emit_mov(Size::S64, loc_b, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_b, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp2),
+                            );
                             tmp2
                         }
                         _ => {
@@ -2894,14 +2881,19 @@ impl<'a> FuncGen<'a> {
                     let tmp_xmm2 = XMM::XMM9;
                     let tmp_xmm3 = XMM::XMM10;
 
-                    self.assembler.emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmpg1));
-                    self.assembler.emit_mov(Size::S32, Location::XMM(src2), Location::GPR(tmpg2));
-                    self.assembler.emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1));
-                    self.assembler.emit_vminss(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmpg1));
+                    self.assembler
+                        .emit_mov(Size::S32, Location::XMM(src2), Location::GPR(tmpg2));
+                    self.assembler
+                        .emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1));
+                    self.assembler
+                        .emit_vminss(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
                     let label1 = self.assembler.get_label();
                     let label2 = self.assembler.get_label();
                     self.assembler.emit_jmp(Condition::NotEqual, label1);
-                    self.assembler.emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
+                    self.assembler
+                        .emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
                     self.assembler.emit_jmp(Condition::None, label2);
                     self.assembler.emit_label(label1);
                     // load float -0.0
@@ -2910,22 +2902,36 @@ impl<'a> FuncGen<'a> {
                         Location::Imm32(0x8000_0000), // Negative zero
                         Location::GPR(tmpg1),
                     );
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp_xmm2));
+                    self.assembler.emit_mov(
+                        Size::S64,
+                        Location::GPR(tmpg1),
+                        Location::XMM(tmp_xmm2),
+                    );
                     self.assembler.emit_label(label2);
-                    self.assembler.emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
-                    self.assembler.emit_vblendvps(tmp_xmm3, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm1, tmp_xmm1);
-                    self.assembler.emit_vcmpunordss(src1, XMMOrMemory::XMM(src2), src1);
+                    self.assembler
+                        .emit_vcmpeqss(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
+                    self.assembler.emit_vblendvps(
+                        tmp_xmm3,
+                        XMMOrMemory::XMM(tmp_xmm2),
+                        tmp_xmm1,
+                        tmp_xmm1,
+                    );
+                    self.assembler
+                        .emit_vcmpunordss(src1, XMMOrMemory::XMM(src2), src1);
                     // load float canonical nan
                     self.assembler.emit_mov(
                         Size::S64,
                         Location::Imm32(0x7FC0_0000), // Canonical NaN
                         Location::GPR(tmpg1),
                     );
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
-                    self.assembler.emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
+                    self.assembler
+                        .emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
                     match ret {
                         Location::XMM(x) => {
-                            self.assembler.emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
+                            self.assembler
+                                .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
                         }
                         Location::Memory(_, _) | Location::GPR(_) => {
                             self.assembler.emit_mov(Size::S64, Location::XMM(src1), ret);
@@ -2945,79 +2951,57 @@ impl<'a> FuncGen<'a> {
             }
             Operator::F32Eq => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpeqss,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpeqss)?
             }
             Operator::F32Ne => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpneqss,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpneqss)?
             }
             Operator::F32Lt => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpltss,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpltss)?
             }
             Operator::F32Le => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpless,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpless)?
             }
             Operator::F32Gt => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpgtss,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpgtss)?
             }
             Operator::F32Ge => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpgess,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpgess)?
             }
             Operator::F32Nearest => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vroundss_nearest,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vroundss_nearest)?
             }
             Operator::F32Floor => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vroundss_floor,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vroundss_floor)?
             }
             Operator::F32Ceil => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vroundss_ceil,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vroundss_ceil)?
             }
             Operator::F32Trunc => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vroundss_trunc,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vroundss_trunc)?
             }
             Operator::F32Sqrt => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vsqrtss,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vsqrtss)?
             }
 
             Operator::F32Copysign => {
@@ -3030,23 +3014,25 @@ impl<'a> FuncGen<'a> {
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
 
-                if self.assembler.arch_supports_canonicalize_nan() && self.config.enable_nan_canonicalization {
+                if self.assembler.arch_supports_canonicalize_nan()
+                    && self.config.enable_nan_canonicalization
+                {
                     for (fp, loc, tmp) in [(fp_src1, loc_a, tmp1), (fp_src2, loc_b, tmp2)].iter() {
                         match fp.canonicalization {
                             Some(_) => {
-                                self.canonicalize_nan(Size::S32,
-                                    *loc,
-                                    Location::GPR(*tmp),
-                                );
+                                self.canonicalize_nan(Size::S32, *loc, Location::GPR(*tmp));
                             }
                             None => {
-                                self.assembler.emit_mov(Size::S32, *loc, Location::GPR(*tmp));
+                                self.assembler
+                                    .emit_mov(Size::S32, *loc, Location::GPR(*tmp));
                             }
                         }
                     }
                 } else {
-                    self.assembler.emit_mov(Size::S32, loc_a, Location::GPR(tmp1));
-                    self.assembler.emit_mov(Size::S32, loc_b, Location::GPR(tmp2));
+                    self.assembler
+                        .emit_mov(Size::S32, loc_a, Location::GPR(tmp1));
+                    self.assembler
+                        .emit_mov(Size::S32, loc_b, Location::GPR(tmp2));
                 }
                 self.assembler.emit_and(
                     Size::S32,
@@ -3058,7 +3044,8 @@ impl<'a> FuncGen<'a> {
                     Location::Imm32(0x80000000u32),
                     Location::GPR(tmp2),
                 );
-                self.assembler.emit_or(Size::S32, Location::GPR(tmp2), Location::GPR(tmp1));
+                self.assembler
+                    .emit_or(Size::S32, Location::GPR(tmp2), Location::GPR(tmp1));
                 self.assembler.emit_mov(Size::S32, Location::GPR(tmp1), ret);
                 self.machine.release_temp_gpr(tmp2);
                 self.machine.release_temp_gpr(tmp1);
@@ -3067,8 +3054,7 @@ impl<'a> FuncGen<'a> {
             Operator::F32Abs => {
                 // Preserve canonicalization state.
 
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3089,8 +3075,7 @@ impl<'a> FuncGen<'a> {
             Operator::F32Neg => {
                 // Preserve canonicalization state.
 
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3100,13 +3085,15 @@ impl<'a> FuncGen<'a> {
 
                 if self.assembler.arch_has_fneg() {
                     let tmp = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::XMM(tmp),
                     );
                     self.assembler.arch_emit_f32_neg(tmp, tmp);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         Location::XMM(tmp),
                         ret,
@@ -3134,33 +3121,25 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(
-                    Assembler::emit_vaddsd,
-                )?
+                self.emit_fp_binop_avx(Assembler::emit_vaddsd)?
             }
             Operator::F64Sub => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(
-                    Assembler::emit_vsubsd,
-                )?
+                self.emit_fp_binop_avx(Assembler::emit_vsubsd)?
             }
             Operator::F64Mul => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(
-                    Assembler::emit_vmulsd,
-                )?
+                self.emit_fp_binop_avx(Assembler::emit_vmulsd)?
             }
             Operator::F64Div => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(
-                    Assembler::emit_vdivsd,
-                )?
+                self.emit_fp_binop_avx(Assembler::emit_vdivsd)?
             }
             Operator::F64Max => {
                 self.fp_stack.pop2()?;
@@ -3168,9 +3147,7 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::new(self.value_stack.len() - 2));
 
                 if !self.assembler.arch_supports_canonicalize_nan() {
-                    self.emit_fp_binop_avx(
-                        Assembler::emit_vmaxsd,
-                    )?;
+                    self.emit_fp_binop_avx(Assembler::emit_vmaxsd)?;
                 } else {
                     let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
@@ -3182,17 +3159,28 @@ impl<'a> FuncGen<'a> {
                     let src1 = match loc_a {
                         Location::XMM(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
-                            self.assembler.emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
                             tmp1
                         }
                         Location::Imm32(_) => {
-                            self.assembler.emit_mov(Size::S32, loc_a, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S32, loc_a, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S32,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp1),
+                            );
                             tmp1
                         }
                         Location::Imm64(_) => {
-                            self.assembler.emit_mov(Size::S64, loc_a, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_a, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp1),
+                            );
                             tmp1
                         }
                         _ => {
@@ -3204,17 +3192,28 @@ impl<'a> FuncGen<'a> {
                     let src2 = match loc_b {
                         Location::XMM(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
-                            self.assembler.emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
                             tmp2
                         }
                         Location::Imm32(_) => {
-                            self.assembler.emit_mov(Size::S32, loc_b, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S32, loc_b, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S32,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp2),
+                            );
                             tmp2
                         }
                         Location::Imm64(_) => {
-                            self.assembler.emit_mov(Size::S64, loc_b, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_b, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp2),
+                            );
                             tmp2
                         }
                         _ => {
@@ -3228,32 +3227,48 @@ impl<'a> FuncGen<'a> {
                     let tmp_xmm2 = XMM::XMM9;
                     let tmp_xmm3 = XMM::XMM10;
 
-                    self.assembler.emit_mov(Size::S64, Location::XMM(src1), Location::GPR(tmpg1));
-                    self.assembler.emit_mov(Size::S64, Location::XMM(src2), Location::GPR(tmpg2));
-                    self.assembler.emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1));
-                    self.assembler.emit_vmaxsd(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::XMM(src1), Location::GPR(tmpg1));
+                    self.assembler
+                        .emit_mov(Size::S64, Location::XMM(src2), Location::GPR(tmpg2));
+                    self.assembler
+                        .emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1));
+                    self.assembler
+                        .emit_vmaxsd(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
                     let label1 = self.assembler.get_label();
                     let label2 = self.assembler.get_label();
                     self.assembler.emit_jmp(Condition::NotEqual, label1);
-                    self.assembler.emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
+                    self.assembler
+                        .emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
                     self.assembler.emit_jmp(Condition::None, label2);
                     self.assembler.emit_label(label1);
-                    self.assembler.emit_vxorpd(tmp_xmm2, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm2);
+                    self.assembler
+                        .emit_vxorpd(tmp_xmm2, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm2);
                     self.assembler.emit_label(label2);
-                    self.assembler.emit_vcmpeqsd(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
-                    self.assembler.emit_vblendvpd(tmp_xmm3, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm1, tmp_xmm1);
-                    self.assembler.emit_vcmpunordsd(src1, XMMOrMemory::XMM(src2), src1);
+                    self.assembler
+                        .emit_vcmpeqsd(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
+                    self.assembler.emit_vblendvpd(
+                        tmp_xmm3,
+                        XMMOrMemory::XMM(tmp_xmm2),
+                        tmp_xmm1,
+                        tmp_xmm1,
+                    );
+                    self.assembler
+                        .emit_vcmpunordsd(src1, XMMOrMemory::XMM(src2), src1);
                     // load float canonical nan
                     self.assembler.emit_mov(
                         Size::S64,
                         Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
                         Location::GPR(tmpg1),
                     );
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
-                    self.assembler.emit_vblendvpd(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
+                    self.assembler
+                        .emit_vblendvpd(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
                     match ret {
                         Location::XMM(x) => {
-                            self.assembler.emit_vmovapd(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
+                            self.assembler
+                                .emit_vmovapd(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
                         }
                         Location::Memory(_, _) | Location::GPR(_) => {
                             self.assembler.emit_mov(Size::S64, Location::XMM(src1), ret);
@@ -3277,9 +3292,7 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::new(self.value_stack.len() - 2));
 
                 if !self.assembler.arch_supports_canonicalize_nan() {
-                    self.emit_fp_binop_avx(
-                        Assembler::emit_vminsd,
-                    )?;
+                    self.emit_fp_binop_avx(Assembler::emit_vminsd)?;
                 } else {
                     let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
@@ -3291,17 +3304,28 @@ impl<'a> FuncGen<'a> {
                     let src1 = match loc_a {
                         Location::XMM(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
-                            self.assembler.emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
                             tmp1
                         }
                         Location::Imm32(_) => {
-                            self.assembler.emit_mov(Size::S32, loc_a, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S32, loc_a, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S32,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp1),
+                            );
                             tmp1
                         }
                         Location::Imm64(_) => {
-                            self.assembler.emit_mov(Size::S64, loc_a, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp1));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_a, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp1),
+                            );
                             tmp1
                         }
                         _ => {
@@ -3313,17 +3337,28 @@ impl<'a> FuncGen<'a> {
                     let src2 = match loc_b {
                         Location::XMM(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
-                            self.assembler.emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
                             tmp2
                         }
                         Location::Imm32(_) => {
-                            self.assembler.emit_mov(Size::S32, loc_b, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S32, Location::GPR(tmpg1), Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S32, loc_b, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S32,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp2),
+                            );
                             tmp2
                         }
                         Location::Imm64(_) => {
-                            self.assembler.emit_mov(Size::S64, loc_b, Location::GPR(tmpg1));
-                            self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp2));
+                            self.assembler
+                                .emit_mov(Size::S64, loc_b, Location::GPR(tmpg1));
+                            self.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(tmpg1),
+                                Location::XMM(tmp2),
+                            );
                             tmp2
                         }
                         _ => {
@@ -3337,14 +3372,19 @@ impl<'a> FuncGen<'a> {
                     let tmp_xmm2 = XMM::XMM9;
                     let tmp_xmm3 = XMM::XMM10;
 
-                    self.assembler.emit_mov(Size::S64, Location::XMM(src1), Location::GPR(tmpg1));
-                    self.assembler.emit_mov(Size::S64, Location::XMM(src2), Location::GPR(tmpg2));
-                    self.assembler.emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1));
-                    self.assembler.emit_vminsd(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::XMM(src1), Location::GPR(tmpg1));
+                    self.assembler
+                        .emit_mov(Size::S64, Location::XMM(src2), Location::GPR(tmpg2));
+                    self.assembler
+                        .emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1));
+                    self.assembler
+                        .emit_vminsd(src1, XMMOrMemory::XMM(src2), tmp_xmm1);
                     let label1 = self.assembler.get_label();
                     let label2 = self.assembler.get_label();
                     self.assembler.emit_jmp(Condition::NotEqual, label1);
-                    self.assembler.emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
+                    self.assembler
+                        .emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
                     self.assembler.emit_jmp(Condition::None, label2);
                     self.assembler.emit_label(label1);
                     // load float -0.0
@@ -3353,22 +3393,36 @@ impl<'a> FuncGen<'a> {
                         Location::Imm64(0x8000_0000_0000_0000), // Negative zero
                         Location::GPR(tmpg1),
                     );
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp_xmm2));
+                    self.assembler.emit_mov(
+                        Size::S64,
+                        Location::GPR(tmpg1),
+                        Location::XMM(tmp_xmm2),
+                    );
                     self.assembler.emit_label(label2);
-                    self.assembler.emit_vcmpeqsd(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
-                    self.assembler.emit_vblendvpd(tmp_xmm3, XMMOrMemory::XMM(tmp_xmm2), tmp_xmm1, tmp_xmm1);
-                    self.assembler.emit_vcmpunordsd(src1, XMMOrMemory::XMM(src2), src1);
+                    self.assembler
+                        .emit_vcmpeqsd(src1, XMMOrMemory::XMM(src2), tmp_xmm3);
+                    self.assembler.emit_vblendvpd(
+                        tmp_xmm3,
+                        XMMOrMemory::XMM(tmp_xmm2),
+                        tmp_xmm1,
+                        tmp_xmm1,
+                    );
+                    self.assembler
+                        .emit_vcmpunordsd(src1, XMMOrMemory::XMM(src2), src1);
                     // load float canonical nan
                     self.assembler.emit_mov(
                         Size::S64,
                         Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
                         Location::GPR(tmpg1),
                     );
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
-                    self.assembler.emit_vblendvpd(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
+                    self.assembler
+                        .emit_vblendvpd(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
                     match ret {
                         Location::XMM(x) => {
-                            self.assembler.emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
+                            self.assembler
+                                .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
                         }
                         Location::Memory(_, _) | Location::GPR(_) => {
                             self.assembler.emit_mov(Size::S64, Location::XMM(src1), ret);
@@ -3388,79 +3442,57 @@ impl<'a> FuncGen<'a> {
             }
             Operator::F64Eq => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpeqsd,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpeqsd)?
             }
             Operator::F64Ne => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpneqsd,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpneqsd)?
             }
             Operator::F64Lt => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpltsd,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpltsd)?
             }
             Operator::F64Le => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmplesd,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmplesd)?
             }
             Operator::F64Gt => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpgtsd,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpgtsd)?
             }
             Operator::F64Ge => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(
-                    Assembler::emit_vcmpgesd,
-                )?
+                self.emit_fp_cmpop_avx(Assembler::emit_vcmpgesd)?
             }
             Operator::F64Nearest => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vroundsd_nearest,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vroundsd_nearest)?
             }
             Operator::F64Floor => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vroundsd_floor,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vroundsd_floor)?
             }
             Operator::F64Ceil => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vroundsd_ceil,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vroundsd_ceil)?
             }
             Operator::F64Trunc => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vroundsd_trunc,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vroundsd_trunc)?
             }
             Operator::F64Sqrt => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vsqrtsd,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vsqrtsd)?
             }
 
             Operator::F64Copysign => {
@@ -3473,23 +3505,25 @@ impl<'a> FuncGen<'a> {
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
 
-                if self.assembler.arch_supports_canonicalize_nan() && self.config.enable_nan_canonicalization {
+                if self.assembler.arch_supports_canonicalize_nan()
+                    && self.config.enable_nan_canonicalization
+                {
                     for (fp, loc, tmp) in [(fp_src1, loc_a, tmp1), (fp_src2, loc_b, tmp2)].iter() {
                         match fp.canonicalization {
                             Some(_) => {
-                                self.canonicalize_nan(Size::S64,
-                                    *loc,
-                                    Location::GPR(*tmp),
-                                );
+                                self.canonicalize_nan(Size::S64, *loc, Location::GPR(*tmp));
                             }
                             None => {
-                                self.assembler.emit_mov(Size::S64, *loc, Location::GPR(*tmp));
+                                self.assembler
+                                    .emit_mov(Size::S64, *loc, Location::GPR(*tmp));
                             }
                         }
                     }
                 } else {
-                    self.assembler.emit_mov(Size::S64, loc_a, Location::GPR(tmp1));
-                    self.assembler.emit_mov(Size::S64, loc_b, Location::GPR(tmp2));
+                    self.assembler
+                        .emit_mov(Size::S64, loc_a, Location::GPR(tmp1));
+                    self.assembler
+                        .emit_mov(Size::S64, loc_b, Location::GPR(tmp2));
                 }
 
                 let c = self.machine.acquire_temp_gpr().unwrap();
@@ -3499,16 +3533,19 @@ impl<'a> FuncGen<'a> {
                     Location::Imm64(0x7fffffffffffffffu64),
                     Location::GPR(c),
                 );
-                self.assembler.emit_and(Size::S64, Location::GPR(c), Location::GPR(tmp1));
+                self.assembler
+                    .emit_and(Size::S64, Location::GPR(c), Location::GPR(tmp1));
 
                 self.assembler.emit_mov(
                     Size::S64,
                     Location::Imm64(0x8000000000000000u64),
                     Location::GPR(c),
                 );
-                self.assembler.emit_and(Size::S64, Location::GPR(c), Location::GPR(tmp2));
+                self.assembler
+                    .emit_and(Size::S64, Location::GPR(c), Location::GPR(tmp2));
 
-                self.assembler.emit_or(Size::S64, Location::GPR(tmp2), Location::GPR(tmp1));
+                self.assembler
+                    .emit_or(Size::S64, Location::GPR(tmp2), Location::GPR(tmp1));
                 self.assembler.emit_mov(Size::S64, Location::GPR(tmp1), ret);
 
                 self.machine.release_temp_gpr(c);
@@ -3519,8 +3556,7 @@ impl<'a> FuncGen<'a> {
             Operator::F64Abs => {
                 // Preserve canonicalization state.
 
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3537,7 +3573,8 @@ impl<'a> FuncGen<'a> {
                     Location::Imm64(0x7fffffffffffffffu64),
                     Location::GPR(c),
                 );
-                self.assembler.emit_and(Size::S64, Location::GPR(c), Location::GPR(tmp));
+                self.assembler
+                    .emit_and(Size::S64, Location::GPR(c), Location::GPR(tmp));
                 self.assembler.emit_mov(Size::S64, Location::GPR(tmp), ret);
 
                 self.machine.release_temp_gpr(c);
@@ -3547,8 +3584,7 @@ impl<'a> FuncGen<'a> {
             Operator::F64Neg => {
                 // Preserve canonicalization state.
 
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3557,13 +3593,15 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 if self.assembler.arch_has_fneg() {
                     let tmp = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::XMM(tmp),
                     );
                     self.assembler.arch_emit_f64_neg(tmp, tmp);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         Location::XMM(tmp),
                         ret,
@@ -3581,21 +3619,16 @@ impl<'a> FuncGen<'a> {
             Operator::F64PromoteF32 => {
                 let fp = self.fp_stack.pop1()?;
                 self.fp_stack.push(fp.promote(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vcvtss2sd,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vcvtss2sd)?
             }
             Operator::F32DemoteF64 => {
                 let fp = self.fp_stack.pop1()?;
                 self.fp_stack.push(fp.demote(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(
-                    Assembler::emit_vcvtsd2ss,
-                )?
+                self.emit_fp_unop_avx(Assembler::emit_vcvtsd2ss)?
             }
 
             Operator::I32ReinterpretF32 => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3609,19 +3642,14 @@ impl<'a> FuncGen<'a> {
                     || fp.canonicalization.is_none()
                 {
                     if loc != ret {
-                        self.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S32,
-                            loc,
-                            ret,
-                        );
+                        self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, ret);
                     }
                 } else {
                     self.canonicalize_nan(Size::S32, loc, ret);
                 }
             }
             Operator::F32ReinterpretI32 => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3632,17 +3660,12 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::new(self.value_stack.len() - 1));
 
                 if loc != ret {
-                    self.emit_relaxed_binop(Assembler::emit_mov,
-                        Size::S32,
-                        loc,
-                        ret,
-                    );
+                    self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, ret);
                 }
             }
 
             Operator::I64ReinterpretF64 => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3656,19 +3679,14 @@ impl<'a> FuncGen<'a> {
                     || fp.canonicalization.is_none()
                 {
                     if loc != ret {
-                        self.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S64,
-                            loc,
-                            ret,
-                        );
+                        self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, ret);
                     }
                 } else {
                     self.canonicalize_nan(Size::S64, loc, ret);
                 }
             }
             Operator::F64ReinterpretI64 => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3679,17 +3697,12 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::new(self.value_stack.len() - 1));
 
                 if loc != ret {
-                    self.emit_relaxed_binop(Assembler::emit_mov,
-                        Size::S64,
-                        loc,
-                        ret,
-                    );
+                    self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, ret);
                 }
             }
 
             Operator::I32TruncF32U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3701,13 +3714,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::XMM(tmp_in),
                     );
                     self.assembler.arch_emit_i32_trunc_uf32(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         Location::GPR(tmp_out),
                         ret,
@@ -3717,19 +3732,18 @@ impl<'a> FuncGen<'a> {
                 } else {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::XMM(tmp_in),
                     );
-                    self.emit_f32_int_conv_check_trap(
-                        tmp_in,
-                        GEF32_LT_U32_MIN,
-                        LEF32_GT_U32_MAX,
-                    );
+                    self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U32_MIN, LEF32_GT_U32_MAX);
 
-                    self.assembler.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                    self.assembler
+                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
 
                     self.machine.release_temp_xmm(tmp_in);
                     self.machine.release_temp_gpr(tmp_out);
@@ -3737,8 +3751,7 @@ impl<'a> FuncGen<'a> {
             }
 
             Operator::I32TruncSatF32U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3749,16 +3762,17 @@ impl<'a> FuncGen<'a> {
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                self.emit_relaxed_binop(Assembler::emit_mov,
-                    Size::S32,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                self.emit_f32_int_conv_check_sat(tmp_in,
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::XMM(tmp_in));
+                self.emit_f32_int_conv_check_sat(
+                    tmp_in,
                     GEF32_LT_U32_MIN,
                     LEF32_GT_U32_MAX,
                     |this| {
-                        this.assembler.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+                        this.assembler.emit_mov(
+                            Size::S32,
+                            Location::Imm32(0),
+                            Location::GPR(tmp_out),
+                        );
                     },
                     |this| {
                         this.assembler.emit_mov(
@@ -3772,19 +3786,20 @@ impl<'a> FuncGen<'a> {
                         if this.assembler.arch_has_itruncf() {
                             this.assembler.arch_emit_i32_trunc_uf32(tmp_in, tmp_out);
                         } else {
-                            this.assembler.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                            this.assembler
+                                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                         }
                     },
                 );
 
-                self.assembler.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
 
             Operator::I32TruncF32S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3796,13 +3811,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::XMM(tmp_in),
                     );
                     self.assembler.arch_emit_i32_trunc_sf32(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         Location::GPR(tmp_out),
                         ret,
@@ -3813,27 +3830,25 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::XMM(tmp_in),
                     );
-                    self.emit_f32_int_conv_check_trap(
-                        tmp_in,
-                        GEF32_LT_I32_MIN,
-                        LEF32_GT_I32_MAX,
-                    );
+                    self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_I32_MIN, LEF32_GT_I32_MAX);
 
-                    self.assembler.emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                    self.assembler
+                        .emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
 
                     self.machine.release_temp_xmm(tmp_in);
                     self.machine.release_temp_gpr(tmp_out);
                 }
             }
             Operator::I32TruncSatF32S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3845,12 +3860,9 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov,
-                    Size::S32,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                self.emit_f32_int_conv_check_sat(tmp_in,
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::XMM(tmp_in));
+                self.emit_f32_int_conv_check_sat(
+                    tmp_in,
                     GEF32_LT_I32_MIN,
                     LEF32_GT_I32_MAX,
                     |this| {
@@ -3868,25 +3880,30 @@ impl<'a> FuncGen<'a> {
                         );
                     },
                     Some(|this: &mut Self| {
-                        this.assembler.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+                        this.assembler.emit_mov(
+                            Size::S32,
+                            Location::Imm32(0),
+                            Location::GPR(tmp_out),
+                        );
                     }),
                     |this| {
                         if this.assembler.arch_has_itruncf() {
                             this.assembler.arch_emit_i32_trunc_sf32(tmp_in, tmp_out);
                         } else {
-                            this.assembler.emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
+                            this.assembler
+                                .emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
                         }
                     },
                 );
 
-                self.assembler.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
 
             Operator::I64TruncF32S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3898,13 +3915,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::XMM(tmp_in),
                     );
                     self.assembler.arch_emit_i64_trunc_sf32(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         Location::GPR(tmp_out),
                         ret,
@@ -3915,18 +3934,17 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::XMM(tmp_in),
                     );
-                    self.emit_f32_int_conv_check_trap(
-                        tmp_in,
-                        GEF32_LT_I64_MIN,
-                        LEF32_GT_I64_MAX,
-                    );
-                    self.assembler.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                    self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_I64_MIN, LEF32_GT_I64_MAX);
+                    self.assembler
+                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
 
                     self.machine.release_temp_xmm(tmp_in);
                     self.machine.release_temp_gpr(tmp_out);
@@ -3934,8 +3952,7 @@ impl<'a> FuncGen<'a> {
             }
 
             Operator::I64TruncSatF32S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3947,12 +3964,9 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov,
-                    Size::S32,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                self.emit_f32_int_conv_check_sat(tmp_in,
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::XMM(tmp_in));
+                self.emit_f32_int_conv_check_sat(
+                    tmp_in,
                     GEF32_LT_I64_MIN,
                     LEF32_GT_I64_MAX,
                     |this| {
@@ -3970,25 +3984,30 @@ impl<'a> FuncGen<'a> {
                         );
                     },
                     Some(|this: &mut Self| {
-                        this.assembler.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+                        this.assembler.emit_mov(
+                            Size::S64,
+                            Location::Imm64(0),
+                            Location::GPR(tmp_out),
+                        );
                     }),
                     |this| {
                         if this.assembler.arch_has_itruncf() {
                             this.assembler.arch_emit_i64_trunc_sf32(tmp_in, tmp_out);
                         } else {
-                            this.assembler.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                            this.assembler
+                                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                         }
                     },
                 );
 
-                self.assembler.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
 
             Operator::I64TruncF32U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4000,13 +4019,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::XMM(tmp_in),
                     );
                     self.assembler.arch_emit_i64_trunc_uf32(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         Location::GPR(tmp_out),
                         ret,
@@ -4017,16 +4038,13 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::XMM(tmp_in),
                     );
-                    self.emit_f32_int_conv_check_trap(
-                        tmp_in,
-                        GEF32_LT_U64_MIN,
-                        LEF32_GT_U64_MAX,
-                    );
+                    self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U64_MIN, LEF32_GT_U64_MAX);
 
                     let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
                     let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
@@ -4037,20 +4055,31 @@ impl<'a> FuncGen<'a> {
                         Location::Imm32(1593835520u32),
                         Location::GPR(tmp),
                     ); //float 9.22337203E+18
-                    self.assembler.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
-                    self.assembler.emit_mov(Size::S32, Location::XMM(tmp_in), Location::XMM(tmp_x2));
-                    self.assembler.emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
-                    self.assembler.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
+                    self.assembler.emit_mov(
+                        Size::S32,
+                        Location::XMM(tmp_in),
+                        Location::XMM(tmp_x2),
+                    );
+                    self.assembler
+                        .emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                    self.assembler
+                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                     self.assembler.emit_mov(
                         Size::S64,
                         Location::Imm64(0x8000000000000000u64),
                         Location::GPR(tmp),
                     );
-                    self.assembler.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
-                    self.assembler.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                    self.assembler.emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                    self.assembler
+                        .emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                    self.assembler
+                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                    self.assembler
+                        .emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
                     self.assembler.emit_cmovae_gpr_64(tmp, tmp_out);
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
 
                     self.machine.release_temp_xmm(tmp_x2);
                     self.machine.release_temp_xmm(tmp_x1);
@@ -4060,8 +4089,7 @@ impl<'a> FuncGen<'a> {
                 }
             }
             Operator::I64TruncSatF32U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4073,16 +4101,17 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov,
-                    Size::S32,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                self.emit_f32_int_conv_check_sat(tmp_in,
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::XMM(tmp_in));
+                self.emit_f32_int_conv_check_sat(
+                    tmp_in,
                     GEF32_LT_U64_MIN,
                     LEF32_GT_U64_MAX,
                     |this| {
-                        this.assembler.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+                        this.assembler.emit_mov(
+                            Size::S64,
+                            Location::Imm64(0),
+                            Location::GPR(tmp_out),
+                        );
                     },
                     |this| {
                         this.assembler.emit_mov(
@@ -4105,18 +4134,34 @@ impl<'a> FuncGen<'a> {
                                 Location::Imm32(1593835520u32),
                                 Location::GPR(tmp),
                             ); //float 9.22337203E+18
-                            this.assembler.emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
-                            this.assembler.emit_mov(Size::S32, Location::XMM(tmp_in), Location::XMM(tmp_x2));
-                            this.assembler.emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
-                            this.assembler.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                            this.assembler.emit_mov(
+                                Size::S32,
+                                Location::GPR(tmp),
+                                Location::XMM(tmp_x1),
+                            );
+                            this.assembler.emit_mov(
+                                Size::S32,
+                                Location::XMM(tmp_in),
+                                Location::XMM(tmp_x2),
+                            );
+                            this.assembler
+                                .emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                            this.assembler
+                                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                             this.assembler.emit_mov(
                                 Size::S64,
                                 Location::Imm64(0x8000000000000000u64),
                                 Location::GPR(tmp),
                             );
-                            this.assembler.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
-                            this.assembler.emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                            this.assembler.emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                            this.assembler.emit_xor(
+                                Size::S64,
+                                Location::GPR(tmp_out),
+                                Location::GPR(tmp),
+                            );
+                            this.assembler
+                                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                            this.assembler
+                                .emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
                             this.assembler.emit_cmovae_gpr_64(tmp, tmp_out);
 
                             this.machine.release_temp_xmm(tmp_x2);
@@ -4126,14 +4171,14 @@ impl<'a> FuncGen<'a> {
                     },
                 );
 
-                self.assembler.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
 
             Operator::I32TruncF64U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4145,13 +4190,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::XMM(tmp_in),
                     );
                     self.assembler.arch_emit_i32_trunc_uf64(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         Location::GPR(tmp_out),
                         ret,
@@ -4162,19 +4209,18 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::XMM(tmp_in),
                     );
-                    self.emit_f64_int_conv_check_trap(
-                        tmp_in,
-                        GEF64_LT_U32_MIN,
-                        LEF64_GT_U32_MAX,
-                    );
+                    self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_U32_MIN, LEF64_GT_U32_MAX);
 
-                    self.assembler.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                    self.assembler
+                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
 
                     self.machine.release_temp_xmm(tmp_in);
                     self.machine.release_temp_gpr(tmp_out);
@@ -4182,8 +4228,7 @@ impl<'a> FuncGen<'a> {
             }
 
             Operator::I32TruncSatF64U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4195,16 +4240,17 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov,
-                    Size::S64,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                self.emit_f64_int_conv_check_sat(tmp_in,
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, Location::XMM(tmp_in));
+                self.emit_f64_int_conv_check_sat(
+                    tmp_in,
                     GEF64_LT_U32_MIN,
                     LEF64_GT_U32_MAX,
                     |this| {
-                        this.assembler.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+                        this.assembler.emit_mov(
+                            Size::S32,
+                            Location::Imm32(0),
+                            Location::GPR(tmp_out),
+                        );
                     },
                     |this| {
                         this.assembler.emit_mov(
@@ -4218,19 +4264,20 @@ impl<'a> FuncGen<'a> {
                         if this.assembler.arch_has_itruncf() {
                             this.assembler.arch_emit_i32_trunc_uf64(tmp_in, tmp_out);
                         } else {
-                            this.assembler.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                            this.assembler
+                                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                         }
                     },
                 );
 
-                self.assembler.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
 
             Operator::I32TruncF64S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4242,13 +4289,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::XMM(tmp_in),
                     );
                     self.assembler.arch_emit_i32_trunc_sf64(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         Location::GPR(tmp_out),
                         ret,
@@ -4261,25 +4310,29 @@ impl<'a> FuncGen<'a> {
 
                     let real_in = match loc {
                         Location::Imm32(_) | Location::Imm64(_) => {
-                            self.assembler.emit_mov(Size::S64, loc, Location::GPR(tmp_out));
-                            self.assembler.emit_mov(Size::S64, Location::GPR(tmp_out), Location::XMM(tmp_in));
+                            self.assembler
+                                .emit_mov(Size::S64, loc, Location::GPR(tmp_out));
+                            self.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(tmp_out),
+                                Location::XMM(tmp_in),
+                            );
                             tmp_in
                         }
                         Location::XMM(x) => x,
                         _ => {
-                            self.assembler.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                            self.assembler
+                                .emit_mov(Size::S64, loc, Location::XMM(tmp_in));
                             tmp_in
                         }
                     };
 
-                    self.emit_f64_int_conv_check_trap(
-                        real_in,
-                        GEF64_LT_I32_MIN,
-                        LEF64_GT_I32_MAX,
-                    );
+                    self.emit_f64_int_conv_check_trap(real_in, GEF64_LT_I32_MIN, LEF64_GT_I32_MAX);
 
-                    self.assembler.emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
-                    self.assembler.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                    self.assembler
+                        .emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
 
                     self.machine.release_temp_xmm(tmp_in);
                     self.machine.release_temp_gpr(tmp_out);
@@ -4287,8 +4340,7 @@ impl<'a> FuncGen<'a> {
             }
 
             Operator::I32TruncSatF64S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4302,18 +4354,25 @@ impl<'a> FuncGen<'a> {
 
                 let real_in = match loc {
                     Location::Imm32(_) | Location::Imm64(_) => {
-                        self.assembler.emit_mov(Size::S64, loc, Location::GPR(tmp_out));
-                        self.assembler.emit_mov(Size::S64, Location::GPR(tmp_out), Location::XMM(tmp_in));
+                        self.assembler
+                            .emit_mov(Size::S64, loc, Location::GPR(tmp_out));
+                        self.assembler.emit_mov(
+                            Size::S64,
+                            Location::GPR(tmp_out),
+                            Location::XMM(tmp_in),
+                        );
                         tmp_in
                     }
                     Location::XMM(x) => x,
                     _ => {
-                        self.assembler.emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                        self.assembler
+                            .emit_mov(Size::S64, loc, Location::XMM(tmp_in));
                         tmp_in
                     }
                 };
 
-                self.emit_f64_int_conv_check_sat(real_in,
+                self.emit_f64_int_conv_check_sat(
+                    real_in,
                     GEF64_LT_I32_MIN,
                     LEF64_GT_I32_MAX,
                     |this| {
@@ -4331,25 +4390,30 @@ impl<'a> FuncGen<'a> {
                         );
                     },
                     Some(|this: &mut Self| {
-                        this.assembler.emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+                        this.assembler.emit_mov(
+                            Size::S32,
+                            Location::Imm32(0),
+                            Location::GPR(tmp_out),
+                        );
                     }),
                     |this| {
                         if this.assembler.arch_has_itruncf() {
                             this.assembler.arch_emit_i32_trunc_sf64(tmp_in, tmp_out);
                         } else {
-                            this.assembler.emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
+                            this.assembler
+                                .emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
                         }
                     },
                 );
 
-                self.assembler.emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
 
             Operator::I64TruncF64S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4361,13 +4425,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::XMM(tmp_in),
                     );
                     self.assembler.arch_emit_i64_trunc_sf64(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         Location::GPR(tmp_out),
                         ret,
@@ -4378,19 +4444,18 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::XMM(tmp_in),
                     );
-                    self.emit_f64_int_conv_check_trap(
-                        tmp_in,
-                        GEF64_LT_I64_MIN,
-                        LEF64_GT_I64_MAX,
-                    );
+                    self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_I64_MIN, LEF64_GT_I64_MAX);
 
-                    self.assembler.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                    self.assembler
+                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
 
                     self.machine.release_temp_xmm(tmp_in);
                     self.machine.release_temp_gpr(tmp_out);
@@ -4398,8 +4463,7 @@ impl<'a> FuncGen<'a> {
             }
 
             Operator::I64TruncSatF64S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4411,12 +4475,9 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov,
-                    Size::S64,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                self.emit_f64_int_conv_check_sat(tmp_in,
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, Location::XMM(tmp_in));
+                self.emit_f64_int_conv_check_sat(
+                    tmp_in,
                     GEF64_LT_I64_MIN,
                     LEF64_GT_I64_MAX,
                     |this| {
@@ -4434,25 +4495,30 @@ impl<'a> FuncGen<'a> {
                         );
                     },
                     Some(|this: &mut Self| {
-                        this.assembler.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+                        this.assembler.emit_mov(
+                            Size::S64,
+                            Location::Imm64(0),
+                            Location::GPR(tmp_out),
+                        );
                     }),
                     |this| {
                         if this.assembler.arch_has_itruncf() {
                             this.assembler.arch_emit_i64_trunc_sf64(tmp_in, tmp_out);
                         } else {
-                            this.assembler.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                            this.assembler
+                                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                         }
                     },
                 );
 
-                self.assembler.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
 
             Operator::I64TruncF64U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4464,13 +4530,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_itruncf() {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::XMM(tmp_in),
                     );
                     self.assembler.arch_emit_i64_trunc_uf64(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         Location::GPR(tmp_out),
                         ret,
@@ -4481,16 +4549,13 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                     let tmp_in = self.machine.acquire_temp_xmm().unwrap(); // xmm2
 
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::XMM(tmp_in),
                     );
-                    self.emit_f64_int_conv_check_trap(
-                        tmp_in,
-                        GEF64_LT_U64_MIN,
-                        LEF64_GT_U64_MAX,
-                    );
+                    self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_U64_MIN, LEF64_GT_U64_MAX);
 
                     let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
                     let tmp_x1 = self.machine.acquire_temp_xmm().unwrap(); // xmm1
@@ -4501,20 +4566,31 @@ impl<'a> FuncGen<'a> {
                         Location::Imm64(4890909195324358656u64),
                         Location::GPR(tmp),
                     ); //double 9.2233720368547758E+18
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
-                    self.assembler.emit_mov(Size::S64, Location::XMM(tmp_in), Location::XMM(tmp_x2));
-                    self.assembler.emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
-                    self.assembler.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
+                    self.assembler.emit_mov(
+                        Size::S64,
+                        Location::XMM(tmp_in),
+                        Location::XMM(tmp_x2),
+                    );
+                    self.assembler
+                        .emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                    self.assembler
+                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                     self.assembler.emit_mov(
                         Size::S64,
                         Location::Imm64(0x8000000000000000u64),
                         Location::GPR(tmp),
                     );
-                    self.assembler.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
-                    self.assembler.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                    self.assembler.emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                    self.assembler
+                        .emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                    self.assembler
+                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                    self.assembler
+                        .emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
                     self.assembler.emit_cmovae_gpr_64(tmp, tmp_out);
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
 
                     self.machine.release_temp_xmm(tmp_x2);
                     self.machine.release_temp_xmm(tmp_x1);
@@ -4525,8 +4601,7 @@ impl<'a> FuncGen<'a> {
             }
 
             Operator::I64TruncSatF64U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4538,16 +4613,17 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov,
-                    Size::S64,
-                    loc,
-                    Location::XMM(tmp_in),
-                );
-                self.emit_f64_int_conv_check_sat(tmp_in,
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, Location::XMM(tmp_in));
+                self.emit_f64_int_conv_check_sat(
+                    tmp_in,
                     GEF64_LT_U64_MIN,
                     LEF64_GT_U64_MAX,
                     |this| {
-                        this.assembler.emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+                        this.assembler.emit_mov(
+                            Size::S64,
+                            Location::Imm64(0),
+                            Location::GPR(tmp_out),
+                        );
                     },
                     |this| {
                         this.assembler.emit_mov(
@@ -4570,18 +4646,34 @@ impl<'a> FuncGen<'a> {
                                 Location::Imm64(4890909195324358656u64),
                                 Location::GPR(tmp),
                             ); //double 9.2233720368547758E+18
-                            this.assembler.emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
-                            this.assembler.emit_mov(Size::S64, Location::XMM(tmp_in), Location::XMM(tmp_x2));
-                            this.assembler.emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
-                            this.assembler.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                            this.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(tmp),
+                                Location::XMM(tmp_x1),
+                            );
+                            this.assembler.emit_mov(
+                                Size::S64,
+                                Location::XMM(tmp_in),
+                                Location::XMM(tmp_x2),
+                            );
+                            this.assembler
+                                .emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                            this.assembler
+                                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
                             this.assembler.emit_mov(
                                 Size::S64,
                                 Location::Imm64(0x8000000000000000u64),
                                 Location::GPR(tmp),
                             );
-                            this.assembler.emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
-                            this.assembler.emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                            this.assembler.emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                            this.assembler.emit_xor(
+                                Size::S64,
+                                Location::GPR(tmp_out),
+                                Location::GPR(tmp),
+                            );
+                            this.assembler
+                                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                            this.assembler
+                                .emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
                             this.assembler.emit_cmovae_gpr_64(tmp, tmp_out);
 
                             this.machine.release_temp_xmm(tmp_x2);
@@ -4591,14 +4683,14 @@ impl<'a> FuncGen<'a> {
                     },
                 );
 
-                self.assembler.emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
                 self.machine.release_temp_xmm(tmp_in);
                 self.machine.release_temp_gpr(tmp_out);
             }
 
             Operator::F32ConvertI32S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4611,13 +4703,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::GPR(tmp_in),
                     );
                     self.assembler.arch_emit_f32_convert_si32(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         Location::XMM(tmp_out),
                         ret,
@@ -4628,17 +4722,19 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                    self.assembler.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
-                    self.assembler.emit_vcvtsi2ss_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                    self.assembler
+                        .emit_mov(Size::S32, loc, Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_vcvtsi2ss_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::XMM(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
             Operator::F32ConvertI32U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4651,13 +4747,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::GPR(tmp_in),
                     );
                     self.assembler.arch_emit_f32_convert_ui32(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         Location::XMM(tmp_out),
                         ret,
@@ -4668,17 +4766,19 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                    self.assembler.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
-                    self.assembler.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                    self.assembler
+                        .emit_mov(Size::S32, loc, Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::XMM(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
             Operator::F32ConvertI64S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4691,13 +4791,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::GPR(tmp_in),
                     );
                     self.assembler.arch_emit_f32_convert_si64(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         Location::XMM(tmp_out),
                         ret,
@@ -4708,17 +4810,19 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                    self.assembler.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
-                    self.assembler.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                    self.assembler
+                        .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::XMM(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
             Operator::F32ConvertI64U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4731,13 +4835,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::GPR(tmp_in),
                     );
                     self.assembler.arch_emit_f32_convert_ui64(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         Location::XMM(tmp_out),
                         ret,
@@ -4752,20 +4858,29 @@ impl<'a> FuncGen<'a> {
                     let do_convert = self.assembler.get_label();
                     let end_convert = self.assembler.get_label();
 
-                    self.assembler.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
                     self.assembler.emit_test_gpr_64(tmp_in);
                     self.assembler.emit_jmp(Condition::Signed, do_convert);
-                    self.assembler.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                     self.assembler.emit_jmp(Condition::None, end_convert);
                     self.assembler.emit_label(do_convert);
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
-                    self.assembler.emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
-                    self.assembler.emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
-                    self.assembler.emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
-                    self.assembler.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                    self.assembler.emit_vaddss(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
+                    self.assembler
+                        .emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
+                    self.assembler
+                        .emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_vaddss(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
                     self.assembler.emit_label(end_convert);
-                    self.assembler.emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                    self.assembler
+                        .emit_mov(Size::S32, Location::XMM(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp);
                     self.machine.release_temp_gpr(tmp_in);
@@ -4774,8 +4889,7 @@ impl<'a> FuncGen<'a> {
             }
 
             Operator::F64ConvertI32S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4788,13 +4902,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::GPR(tmp_in),
                     );
                     self.assembler.arch_emit_f64_convert_si32(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         Location::XMM(tmp_out),
                         ret,
@@ -4805,17 +4921,19 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                    self.assembler.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
-                    self.assembler.emit_vcvtsi2sd_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                    self.assembler
+                        .emit_mov(Size::S32, loc, Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_vcvtsi2sd_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::XMM(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
             Operator::F64ConvertI32U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4828,13 +4946,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S32,
                         loc,
                         Location::GPR(tmp_in),
                     );
                     self.assembler.arch_emit_f64_convert_ui32(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         Location::XMM(tmp_out),
                         ret,
@@ -4845,17 +4965,19 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                    self.assembler.emit_mov(Size::S32, loc, Location::GPR(tmp_in));
-                    self.assembler.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                    self.assembler
+                        .emit_mov(Size::S32, loc, Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::XMM(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
             Operator::F64ConvertI64S => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4868,13 +4990,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::GPR(tmp_in),
                     );
                     self.assembler.arch_emit_f64_convert_si64(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         Location::XMM(tmp_out),
                         ret,
@@ -4885,17 +5009,19 @@ impl<'a> FuncGen<'a> {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
 
-                    self.assembler.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
-                    self.assembler.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                    self.assembler.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                    self.assembler
+                        .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::XMM(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
                 }
             }
             Operator::F64ConvertI64U => {
-                let loc =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -4908,13 +5034,15 @@ impl<'a> FuncGen<'a> {
                 if self.assembler.arch_has_fconverti() {
                     let tmp_out = self.machine.acquire_temp_xmm().unwrap();
                     let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
                         Location::GPR(tmp_in),
                     );
                     self.assembler.arch_emit_f64_convert_ui64(tmp_in, tmp_out);
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         Location::XMM(tmp_out),
                         ret,
@@ -4929,20 +5057,29 @@ impl<'a> FuncGen<'a> {
                     let do_convert = self.assembler.get_label();
                     let end_convert = self.assembler.get_label();
 
-                    self.assembler.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
                     self.assembler.emit_test_gpr_64(tmp_in);
                     self.assembler.emit_jmp(Condition::Signed, do_convert);
-                    self.assembler.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                     self.assembler.emit_jmp(Condition::None, end_convert);
                     self.assembler.emit_label(do_convert);
-                    self.assembler.emit_mov(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
-                    self.assembler.emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
-                    self.assembler.emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
-                    self.assembler.emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
-                    self.assembler.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
-                    self.assembler.emit_vaddsd(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
+                    self.assembler
+                        .emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
+                    self.assembler
+                        .emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
+                    self.assembler
+                        .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                    self.assembler
+                        .emit_vaddsd(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
                     self.assembler.emit_label(end_convert);
-                    self.assembler.emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                    self.assembler
+                        .emit_mov(Size::S64, Location::XMM(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp);
                     self.machine.release_temp_gpr(tmp_in);
@@ -4953,18 +5090,9 @@ impl<'a> FuncGen<'a> {
             Operator::Call { function_index } => {
                 let function_index = function_index as usize;
 
-                // !!! FIXME: This is incorrect and just a placeholder
-                let label = self.assembler.get_label();
-                /*
-                let label = self
-                    .function_labels
-                    .as_mut()
-                    .unwrap()
-                    .entry(function_index)
-                    .or_insert_with(|| (self.assembler.get_label(), None))
-                    .0;*/
                 let sig_index = *self
-                    .module.functions
+                    .module
+                    .functions
                     .get(FuncIndex::new(function_index))
                     .unwrap();
                 let sig = self.module.signatures.get(sig_index).unwrap();
@@ -4992,7 +5120,8 @@ impl<'a> FuncGen<'a> {
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(fp.canonicalization.unwrap().to_size(),
+                            self.canonicalize_nan(
+                                fp.canonicalization.unwrap().to_size(),
                                 params[index],
                                 params[index],
                             );
@@ -5003,11 +5132,40 @@ impl<'a> FuncGen<'a> {
                     }
                 }
 
-                self.emit_call_sysv_label(label,
-                    params.iter().map(|x| *x)
+                let reloc_at =
+                    self.assembler.get_offset().0 + self.assembler.arch_mov64_imm_offset();
+                // Imported functions are called through trampolines placed as custom sections.
+                let reloc_target = if function_index < self.module.num_imported_funcs {
+                    RelocationTarget::CustomSection(SectionIndex::new(function_index))
+                } else {
+                    RelocationTarget::LocalFunc(LocalFuncIndex::new(
+                        function_index - self.module.num_imported_funcs,
+                    ))
+                };
+                self.relocations.push(Relocation {
+                    kind: RelocationKind::Abs8,
+                    reloc_target,
+                    offset: reloc_at as u32,
+                    addend: 0,
+                });
+
+                // RAX is preserved on entry to `emit_call_sysv` callback.
+                // The Imm64 value is relocated by the JIT linker.
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Imm64(std::u64::MAX),
+                    Location::GPR(GPR::RAX),
+                );
+
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_location(Location::GPR(GPR::RAX));
+                    },
+                    params.iter().map(|x| *x),
                 )?;
 
-                self.machine.release_locations_only_stack(&mut self.assembler, &params);
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &params);
 
                 if return_types.len() > 0 {
                     let ret = self.machine.acquire_locations(
@@ -5020,11 +5178,13 @@ impl<'a> FuncGen<'a> {
                     )[0];
                     self.value_stack.push(ret);
                     if return_types[0].is_float() {
-                        self.assembler.emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                        self.assembler
+                            .emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
                         self.fp_stack
                             .push(FloatValue::new(self.value_stack.len() - 1));
                     } else {
-                        self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                        self.assembler
+                            .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
                     }
                 }
             }
@@ -5034,14 +5194,17 @@ impl<'a> FuncGen<'a> {
                         message: format!("CallIndirect: table_index is not 0"),
                     });
                 }
-                let sig = self.module.signatures.get(SignatureIndex::new(index as usize)).unwrap();
+                let sig = self
+                    .module
+                    .signatures
+                    .get(SignatureIndex::new(index as usize))
+                    .unwrap();
                 let param_types: SmallVec<[WpType; 8]> =
                     sig.params().iter().cloned().map(type_to_wp_type).collect();
                 let return_types: SmallVec<[WpType; 1]> =
                     sig.results().iter().cloned().map(type_to_wp_type).collect();
 
-                let func_index =
-                    self.pop_value_released();
+                let func_index = self.pop_value_released();
 
                 let params: SmallVec<[_; 8]> = self
                     .value_stack
@@ -5060,7 +5223,8 @@ impl<'a> FuncGen<'a> {
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(fp.canonicalization.unwrap().to_size(),
+                            self.canonicalize_nan(
+                                fp.canonicalization.unwrap().to_size(),
                                 params[index],
                                 params[index],
                             );
@@ -5098,13 +5262,15 @@ impl<'a> FuncGen<'a> {
                     Location::Memory(table_base, LocalTable::offset_base() as i32),
                     Location::GPR(table_base),
                 );
-                self.assembler.emit_cmp(Size::S32, func_index, Location::GPR(table_count));
-                self.mark_range_with_trap_code(
-                    TrapCode::TableAccessOutOfBounds,
-                    |this| this.assembler.emit_conditional_trap(Condition::BelowEqual),
-                );
-                self.assembler.emit_mov(Size::S32, func_index, Location::GPR(table_count));
-                self.assembler.emit_imul_imm32_gpr64(vm::Anyfunc::size() as u32, table_count);
+                self.assembler
+                    .emit_cmp(Size::S32, func_index, Location::GPR(table_count));
+                self.mark_range_with_trap_code(TrapCode::TableAccessOutOfBounds, |this| {
+                    this.assembler.emit_conditional_trap(Condition::BelowEqual)
+                });
+                self.assembler
+                    .emit_mov(Size::S32, func_index, Location::GPR(table_count));
+                self.assembler
+                    .emit_imul_imm32_gpr64(vm::Anyfunc::size() as u32, table_count);
                 self.assembler.emit_add(
                     Size::S64,
                     Location::GPR(table_base),
@@ -5128,10 +5294,9 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(sigidx),
                     Location::Memory(table_count, (vm::Anyfunc::offset_sig_id() as usize) as i32),
                 );
-                self.mark_range_with_trap_code(
-                    TrapCode::BadSignature,
-                    |this| this.assembler.emit_conditional_trap(Condition::NotEqual),
-                );
+                self.mark_range_with_trap_code(TrapCode::BadSignature, |this| {
+                    this.assembler.emit_conditional_trap(Condition::NotEqual)
+                });
 
                 self.machine.release_temp_gpr(sigidx);
                 self.machine.release_temp_gpr(table_count);
@@ -5147,12 +5312,15 @@ impl<'a> FuncGen<'a> {
 
                 self.machine.release_locations_only_osr_state(params.len());
 
-                self.emit_call_sysv(|this| {
+                self.emit_call_sysv(
+                    |this| {
                         if this.assembler.arch_requires_indirect_call_trampoline() {
-                            this.assembler.arch_emit_indirect_call_with_trampoline(Location::Memory(
-                                GPR::RAX,
-                                (vm::Anyfunc::offset_func() as usize) as i32,
-                            ));
+                            this.assembler.arch_emit_indirect_call_with_trampoline(
+                                Location::Memory(
+                                    GPR::RAX,
+                                    (vm::Anyfunc::offset_func() as usize) as i32,
+                                ),
+                            );
                         } else {
                             this.assembler.emit_call_location(Location::Memory(
                                 GPR::RAX,
@@ -5160,10 +5328,11 @@ impl<'a> FuncGen<'a> {
                             ));
                         }
                     },
-                    params.iter().map(|x| *x)
+                    params.iter().map(|x| *x),
                 )?;
 
-                self.machine.release_locations_only_stack(&mut self.assembler, &params);
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &params);
 
                 if return_types.len() > 0 {
                     let ret = self.machine.acquire_locations(
@@ -5176,11 +5345,13 @@ impl<'a> FuncGen<'a> {
                     )[0];
                     self.value_stack.push(ret);
                     if return_types[0].is_float() {
-                        self.assembler.emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                        self.assembler
+                            .emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
                         self.fp_stack
                             .push(FloatValue::new(self.value_stack.len() - 1));
                     } else {
-                        self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                        self.assembler
+                            .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
                     }
                 }
             }
@@ -5188,8 +5359,7 @@ impl<'a> FuncGen<'a> {
                 let label_end = self.assembler.get_label();
                 let label_else = self.assembler.get_label();
 
-                let cond =
-                    self.pop_value_released();
+                let cond = self.pop_value_released();
 
                 let frame = ControlFrame {
                     label: label_end,
@@ -5210,11 +5380,7 @@ impl<'a> FuncGen<'a> {
                     state_diff_id: self.get_state_diff(),
                 };
                 self.control_stack.push(frame);
-                self.emit_relaxed_binop(Assembler::emit_cmp,
-                    Size::S32,
-                    Location::Imm32(0),
-                    cond,
-                );
+                self.emit_relaxed_binop(Assembler::emit_cmp, Size::S32, Location::Imm32(0), cond);
                 self.assembler.emit_jmp(Condition::Equal, label_else);
             }
             Operator::Else => {
@@ -5229,7 +5395,8 @@ impl<'a> FuncGen<'a> {
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(match first_return {
+                            self.canonicalize_nan(
+                                match first_return {
                                     WpType::F32 => Size::S32,
                                     WpType::F64 => Size::S64,
                                     _ => unreachable!(),
@@ -5238,14 +5405,16 @@ impl<'a> FuncGen<'a> {
                                 Location::GPR(GPR::RAX),
                             );
                         } else {
-                            self.emit_relaxed_binop(Assembler::emit_mov,
+                            self.emit_relaxed_binop(
+                                Assembler::emit_mov,
                                 Size::S64,
                                 loc,
                                 Location::GPR(GPR::RAX),
                             );
                         }
                     } else {
-                        self.emit_relaxed_binop(Assembler::emit_mov,
+                        self.emit_relaxed_binop(
+                            Assembler::emit_mov,
                             Size::S64,
                             loc,
                             Location::GPR(GPR::RAX),
@@ -5256,7 +5425,8 @@ impl<'a> FuncGen<'a> {
                 let mut frame = self.control_stack.last_mut().unwrap();
 
                 let released: &[Location] = &self.value_stack[frame.value_stack_depth..];
-                self.machine.release_locations(&mut self.assembler, released);
+                self.machine
+                    .release_locations(&mut self.assembler, released);
                 self.value_stack.truncate(frame.value_stack_depth);
                 self.fp_stack.truncate(frame.fp_stack_depth);
 
@@ -5274,12 +5444,9 @@ impl<'a> FuncGen<'a> {
                 }
             }
             Operator::Select => {
-                let cond =
-                    self.pop_value_released();
-                let v_b =
-                    self.pop_value_released();
-                let v_a =
-                    self.pop_value_released();
+                let cond = self.pop_value_released();
+                let v_b = self.pop_value_released();
+                let v_a = self.pop_value_released();
                 let cncl: Option<(Option<CanonicalizeType>, Option<CanonicalizeType>)> =
                     if self.fp_stack.len() >= 2
                         && self.fp_stack[self.fp_stack.len() - 2].depth == self.value_stack.len()
@@ -5302,11 +5469,7 @@ impl<'a> FuncGen<'a> {
                 let end_label = self.assembler.get_label();
                 let zero_label = self.assembler.get_label();
 
-                self.emit_relaxed_binop(Assembler::emit_cmp,
-                    Size::S32,
-                    Location::Imm32(0),
-                    cond,
-                );
+                self.emit_relaxed_binop(Assembler::emit_cmp, Size::S32, Location::Imm32(0), cond);
                 self.assembler.emit_jmp(Condition::Equal, zero_label);
                 match cncl {
                     Some((Some(fp), _))
@@ -5317,11 +5480,7 @@ impl<'a> FuncGen<'a> {
                     }
                     _ => {
                         if v_a != ret {
-                            self.emit_relaxed_binop(Assembler::emit_mov,
-                                Size::S64,
-                                v_a,
-                                ret,
-                            );
+                            self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, v_a, ret);
                         }
                     }
                 }
@@ -5336,11 +5495,7 @@ impl<'a> FuncGen<'a> {
                     }
                     _ => {
                         if v_b != ret {
-                            self.emit_relaxed_binop(Assembler::emit_mov,
-                                Size::S64,
-                                v_b,
-                                ret,
-                            );
+                            self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, v_b, ret);
                         }
                     }
                 }
@@ -5369,8 +5524,7 @@ impl<'a> FuncGen<'a> {
             }
             Operator::Loop { ty } => {
                 let label = self.assembler.get_label();
-                let state_diff_id =
-                    self.get_state_diff();
+                let state_diff_id = self.get_state_diff();
                 let activate_offset = self.assembler.get_offset().0;
 
                 self.control_stack.push(ControlFrame {
@@ -5395,7 +5549,9 @@ impl<'a> FuncGen<'a> {
 
                 // Check interrupt signal without branching
                 // TODO: Re-enable this.
-                if false /* self.config.full_preemption */ {
+                if false
+                /* self.config.full_preemption */
+                {
                     self.assembler.emit_mov(
                         Size::S64,
                         Location::Memory(
@@ -5439,7 +5595,8 @@ impl<'a> FuncGen<'a> {
                     Location::Memory(GPR::RAX, vm::Intrinsics::offset_memory_size() as i32),
                     Location::GPR(GPR::RAX),
                 );
-                self.emit_call_sysv(|this| {
+                self.emit_call_sysv(
+                    |this| {
                         let label = this.assembler.get_label();
                         let after = this.assembler.get_label();
                         this.assembler.emit_jmp(Condition::None, after);
@@ -5448,7 +5605,7 @@ impl<'a> FuncGen<'a> {
                         this.assembler.emit_label(after);
                         this.assembler.emit_call_label(label);
                     },
-                    iter::once(Location::Imm32(memory_index.index() as u32))
+                    iter::once(Location::Imm32(memory_index.index() as u32)),
                 )?;
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
@@ -5456,7 +5613,8 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
             Operator::MemoryGrow { reserved } => {
                 let memory_index = MemoryIndex::new(reserved as usize);
@@ -5480,7 +5638,8 @@ impl<'a> FuncGen<'a> {
 
                 self.machine.release_locations_only_osr_state(1);
 
-                self.emit_call_sysv(|this| {
+                self.emit_call_sysv(
+                    |this| {
                         let label = this.assembler.get_label();
                         let after = this.assembler.get_label();
                         this.assembler.emit_jmp(Condition::None, after);
@@ -5490,10 +5649,11 @@ impl<'a> FuncGen<'a> {
                         this.assembler.emit_call_label(label);
                     },
                     iter::once(Location::Imm32(memory_index.index() as u32))
-                        .chain(iter::once(param_pages))
+                        .chain(iter::once(param_pages)),
                 )?;
 
-                self.machine.release_locations_only_stack(&mut self.assembler, &[param_pages]);
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[param_pages]);
 
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
@@ -5501,11 +5661,11 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
             Operator::I32Load { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5513,26 +5673,18 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    4,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S32,
-                            Location::Memory(addr, 0),
-                            ret,
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 4, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::Memory(addr, 0),
+                        ret,
+                    );
+                    Ok(())
+                })?;
             }
             Operator::F32Load { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5542,26 +5694,18 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1));
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    4,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S32,
-                            Location::Memory(addr, 0),
-                            ret,
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 4, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::Memory(addr, 0),
+                        ret,
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I32Load8U { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5569,27 +5713,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    1,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movzx,
-                            Size::S8,
-                            Location::Memory(addr, 0),
-                            Size::S32,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 1, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movzx,
+                        Size::S8,
+                        Location::Memory(addr, 0),
+                        Size::S32,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I32Load8S { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5597,27 +5733,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    1,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                            Size::S8,
-                            Location::Memory(addr, 0),
-                            Size::S32,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 1, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movsx,
+                        Size::S8,
+                        Location::Memory(addr, 0),
+                        Size::S32,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I32Load16U { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5625,27 +5753,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    2,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movzx,
-                            Size::S16,
-                            Location::Memory(addr, 0),
-                            Size::S32,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 2, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movzx,
+                        Size::S16,
+                        Location::Memory(addr, 0),
+                        Size::S32,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I32Load16S { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5653,132 +5773,85 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    2,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                            Size::S16,
-                            Location::Memory(addr, 0),
-                            Size::S32,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 2, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movsx,
+                        Size::S16,
+                        Location::Memory(addr, 0),
+                        Size::S32,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I32Store { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    false,
-                    4,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S32,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, false, 4, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S32,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::F32Store { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
                 let fp = self.fp_stack.pop1()?;
                 let config_nan_canonicalization = self.config.enable_nan_canonicalization;
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    false,
-                    4,
-                    |this, addr| {
-                        if !this.assembler.arch_supports_canonicalize_nan()
-                            || !config_nan_canonicalization
-                            || fp.canonicalization.is_none()
-                        {
-                            this.emit_relaxed_binop(Assembler::emit_mov,
-                                Size::S32,
-                                target_value,
-                                Location::Memory(addr, 0),
-                            );
-                        } else {
-                            this.canonicalize_nan(Size::S32,
-                                target_value,
-                                Location::Memory(addr, 0),
-                            );
-                        }
+                self.emit_memory_op(target_addr, memarg, false, 4, |this, addr| {
+                    if !this.assembler.arch_supports_canonicalize_nan()
+                        || !config_nan_canonicalization
+                        || fp.canonicalization.is_none()
+                    {
+                        this.emit_relaxed_binop(
+                            Assembler::emit_mov,
+                            Size::S32,
+                            target_value,
+                            Location::Memory(addr, 0),
+                        );
+                    } else {
+                        this.canonicalize_nan(Size::S32, target_value, Location::Memory(addr, 0));
+                    }
 
-                        Ok(())
-                    },
-                )?;
+                    Ok(())
+                })?;
             }
             Operator::I32Store8 { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    false,
-                    1,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S8,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, false, 1, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S8,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I32Store16 { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    false,
-                    2,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S16,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, false, 2, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S16,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64Load { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5786,26 +5859,18 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    8,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S64,
-                            Location::Memory(addr, 0),
-                            ret,
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 8, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::Memory(addr, 0),
+                        ret,
+                    );
+                    Ok(())
+                })?;
             }
             Operator::F64Load { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5815,26 +5880,18 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1));
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    8,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S64,
-                            Location::Memory(addr, 0),
-                            ret,
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 8, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::Memory(addr, 0),
+                        ret,
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64Load8U { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5842,27 +5899,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    1,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movzx,
-                            Size::S8,
-                            Location::Memory(addr, 0),
-                            Size::S64,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 1, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movzx,
+                        Size::S8,
+                        Location::Memory(addr, 0),
+                        Size::S64,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I64Load8S { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5870,27 +5919,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    1,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                            Size::S8,
-                            Location::Memory(addr, 0),
-                            Size::S64,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 1, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movsx,
+                        Size::S8,
+                        Location::Memory(addr, 0),
+                        Size::S64,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I64Load16U { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5898,27 +5939,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    2,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movzx,
-                            Size::S16,
-                            Location::Memory(addr, 0),
-                            Size::S64,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 2, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movzx,
+                        Size::S16,
+                        Location::Memory(addr, 0),
+                        Size::S64,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I64Load16S { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5926,27 +5959,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    2,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                            Size::S16,
-                            Location::Memory(addr, 0),
-                            Size::S64,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 2, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movsx,
+                        Size::S16,
+                        Location::Memory(addr, 0),
+                        Size::S64,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I64Load32U { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5954,41 +5979,33 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    4,
-                    |this, addr| {
-                        match ret {
-                            Location::GPR(_) => {}
-                            Location::Memory(base, offset) => {
-                                this.assembler.emit_mov(
-                                    Size::S32,
-                                    Location::Imm32(0),
-                                    Location::Memory(base, offset + 4),
-                                ); // clear upper bits
-                            }
-                            _ => {
-                                return Err(CodegenError {
-                                    message: format!("I64Load32U ret: unreachable code"),
-                                })
-                            }
+                self.emit_memory_op(target, memarg, false, 4, |this, addr| {
+                    match ret {
+                        Location::GPR(_) => {}
+                        Location::Memory(base, offset) => {
+                            this.assembler.emit_mov(
+                                Size::S32,
+                                Location::Imm32(0),
+                                Location::Memory(base, offset + 4),
+                            ); // clear upper bits
                         }
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S32,
-                            Location::Memory(addr, 0),
-                            ret,
-                        );
-                        Ok(())
-                    },
-                )?;
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("I64Load32U ret: unreachable code"),
+                            })
+                        }
+                    }
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::Memory(addr, 0),
+                        ret,
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64Load32S { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -5996,156 +6013,102 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    false,
-                    4,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movsx,
-                            Size::S32,
-                            Location::Memory(addr, 0),
-                            Size::S64,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, false, 4, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movsx,
+                        Size::S32,
+                        Location::Memory(addr, 0),
+                        Size::S64,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I64Store { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    false,
-                    8,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S64,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, false, 8, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S64,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::F64Store { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
                 let fp = self.fp_stack.pop1()?;
                 let config_nan_canonicalization = self.config.enable_nan_canonicalization;
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    false,
-                    8,
-                    |this, addr| {
-                        if !this.assembler.arch_supports_canonicalize_nan()
-                            || !config_nan_canonicalization
-                            || fp.canonicalization.is_none()
-                        {
-                            this.emit_relaxed_binop(Assembler::emit_mov,
-                                Size::S64,
-                                target_value,
-                                Location::Memory(addr, 0),
-                            );
-                        } else {
-                            this.canonicalize_nan(Size::S64,
-                                target_value,
-                                Location::Memory(addr, 0),
-                            );
-                        }
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, false, 8, |this, addr| {
+                    if !this.assembler.arch_supports_canonicalize_nan()
+                        || !config_nan_canonicalization
+                        || fp.canonicalization.is_none()
+                    {
+                        this.emit_relaxed_binop(
+                            Assembler::emit_mov,
+                            Size::S64,
+                            target_value,
+                            Location::Memory(addr, 0),
+                        );
+                    } else {
+                        this.canonicalize_nan(Size::S64, target_value, Location::Memory(addr, 0));
+                    }
+                    Ok(())
+                })?;
             }
             Operator::I64Store8 { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    false,
-                    1,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S8,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, false, 1, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S8,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64Store16 { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    false,
-                    2,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S16,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, false, 2, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S16,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64Store32 { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    false,
-                    4,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S32,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, false, 4, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S32,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::Unreachable => {
                 self.mark_trappable();
-                self.trap_table
-                    .offset_to_code
-                    .insert(self.assembler.get_offset().0, TrapCode::UnreachableCodeReached);
+                self.trap_table.offset_to_code.insert(
+                    self.assembler.get_offset().0,
+                    TrapCode::UnreachableCodeReached,
+                );
                 self.assembler.emit_ud2();
                 self.unreachable_depth = 1;
             }
@@ -6165,7 +6128,8 @@ impl<'a> FuncGen<'a> {
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(match first_return {
+                            self.canonicalize_nan(
+                                match first_return {
                                     WpType::F32 => Size::S32,
                                     WpType::F64 => Size::S64,
                                     _ => unreachable!(),
@@ -6174,14 +6138,16 @@ impl<'a> FuncGen<'a> {
                                 Location::GPR(GPR::RAX),
                             );
                         } else {
-                            self.emit_relaxed_binop(Assembler::emit_mov,
+                            self.emit_relaxed_binop(
+                                Assembler::emit_mov,
                                 Size::S64,
                                 loc,
                                 Location::GPR(GPR::RAX),
                             );
                         }
                     } else {
-                        self.emit_relaxed_binop(Assembler::emit_mov,
+                        self.emit_relaxed_binop(
+                            Assembler::emit_mov,
                             Size::S64,
                             loc,
                             Location::GPR(GPR::RAX),
@@ -6190,7 +6156,8 @@ impl<'a> FuncGen<'a> {
                 }
                 let frame = &self.control_stack[0];
                 let released = &self.value_stack[frame.value_stack_depth..];
-                self.machine.release_locations_keep_state(&mut self.assembler, released);
+                self.machine
+                    .release_locations_keep_state(&mut self.assembler, released);
                 self.assembler.emit_jmp(Condition::None, frame.label);
                 self.unreachable_depth = 1;
             }
@@ -6212,7 +6179,8 @@ impl<'a> FuncGen<'a> {
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(match first_return {
+                            self.canonicalize_nan(
+                                match first_return {
                                     WpType::F32 => Size::S32,
                                     WpType::F64 => Size::S64,
                                     _ => unreachable!(),
@@ -6221,33 +6189,31 @@ impl<'a> FuncGen<'a> {
                                 Location::GPR(GPR::RAX),
                             );
                         } else {
-                            self.emit_relaxed_binop(Assembler::emit_mov,
+                            self.emit_relaxed_binop(
+                                Assembler::emit_mov,
                                 Size::S64,
                                 loc,
                                 Location::GPR(GPR::RAX),
                             );
                         }
                     } else {
-                        self.assembler.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                        self.assembler
+                            .emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                     }
                 }
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
 
                 let released = &self.value_stack[frame.value_stack_depth..];
-                self.machine.release_locations_keep_state(&mut self.assembler, released);
+                self.machine
+                    .release_locations_keep_state(&mut self.assembler, released);
                 self.assembler.emit_jmp(Condition::None, frame.label);
                 self.unreachable_depth = 1;
             }
             Operator::BrIf { relative_depth } => {
                 let after = self.assembler.get_label();
-                let cond =
-                    self.pop_value_released();
-                self.emit_relaxed_binop(Assembler::emit_cmp,
-                    Size::S32,
-                    Location::Imm32(0),
-                    cond,
-                );
+                let cond = self.pop_value_released();
+                self.emit_relaxed_binop(Assembler::emit_cmp, Size::S32, Location::Imm32(0), cond);
                 self.assembler.emit_jmp(Condition::Equal, after);
 
                 let frame =
@@ -6267,7 +6233,8 @@ impl<'a> FuncGen<'a> {
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(match first_return {
+                            self.canonicalize_nan(
+                                match first_return {
                                     WpType::F32 => Size::S32,
                                     WpType::F64 => Size::S64,
                                     _ => unreachable!(),
@@ -6276,20 +6243,23 @@ impl<'a> FuncGen<'a> {
                                 Location::GPR(GPR::RAX),
                             );
                         } else {
-                            self.emit_relaxed_binop(Assembler::emit_mov,
+                            self.emit_relaxed_binop(
+                                Assembler::emit_mov,
                                 Size::S64,
                                 loc,
                                 Location::GPR(GPR::RAX),
                             );
                         }
                     } else {
-                        self.assembler.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                        self.assembler
+                            .emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                     }
                 }
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 let released = &self.value_stack[frame.value_stack_depth..];
-                self.machine.release_locations_keep_state(&mut self.assembler, released);
+                self.machine
+                    .release_locations_keep_state(&mut self.assembler, released);
                 self.assembler.emit_jmp(Condition::None, frame.label);
 
                 self.assembler.emit_label(after);
@@ -6298,24 +6268,31 @@ impl<'a> FuncGen<'a> {
                 let (targets, default_target) = table.read_table().map_err(|e| CodegenError {
                     message: format!("BrTable read_table: {:?}", e),
                 })?;
-                let cond =
-                    self.pop_value_released();
+                let cond = self.pop_value_released();
                 let table_label = self.assembler.get_label();
                 let mut table: Vec<DynamicLabel> = vec![];
                 let default_br = self.assembler.get_label();
-                self.emit_relaxed_binop(Assembler::emit_cmp,
+                self.emit_relaxed_binop(
+                    Assembler::emit_cmp,
                     Size::S32,
                     Location::Imm32(targets.len() as u32),
                     cond,
                 );
                 self.assembler.emit_jmp(Condition::AboveEqual, default_br);
 
-                self.assembler.emit_lea_label(table_label, Location::GPR(GPR::RCX));
-                self.assembler.emit_mov(Size::S32, cond, Location::GPR(GPR::RDX));
+                self.assembler
+                    .emit_lea_label(table_label, Location::GPR(GPR::RCX));
+                self.assembler
+                    .emit_mov(Size::S32, cond, Location::GPR(GPR::RDX));
 
                 let instr_size = self.assembler.get_jmp_instr_size();
-                self.assembler.emit_imul_imm32_gpr64(instr_size as _, GPR::RDX);
-                self.assembler.emit_add(Size::S64, Location::GPR(GPR::RCX), Location::GPR(GPR::RDX));
+                self.assembler
+                    .emit_imul_imm32_gpr64(instr_size as _, GPR::RDX);
+                self.assembler.emit_add(
+                    Size::S64,
+                    Location::GPR(GPR::RCX),
+                    Location::GPR(GPR::RDX),
+                );
                 self.assembler.emit_jmp_location(Location::GPR(GPR::RDX));
 
                 for target in targets.iter() {
@@ -6342,7 +6319,8 @@ impl<'a> FuncGen<'a> {
                                 && self.config.enable_nan_canonicalization
                                 && fp.canonicalization.is_some()
                             {
-                                self.canonicalize_nan(match first_return {
+                                self.canonicalize_nan(
+                                    match first_return {
                                         WpType::F32 => Size::S32,
                                         WpType::F64 => Size::S64,
                                         _ => unreachable!(),
@@ -6351,20 +6329,23 @@ impl<'a> FuncGen<'a> {
                                     Location::GPR(GPR::RAX),
                                 );
                             } else {
-                                self.emit_relaxed_binop(Assembler::emit_mov,
+                                self.emit_relaxed_binop(
+                                    Assembler::emit_mov,
                                     Size::S64,
                                     loc,
                                     Location::GPR(GPR::RAX),
                                 );
                             }
                         } else {
-                            self.assembler.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                            self.assembler
+                                .emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                         }
                     }
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
                     let released = &self.value_stack[frame.value_stack_depth..];
-                    self.machine.release_locations_keep_state(&mut self.assembler, released);
+                    self.machine
+                        .release_locations_keep_state(&mut self.assembler, released);
                     self.assembler.emit_jmp(Condition::None, frame.label);
                 }
                 self.assembler.emit_label(default_br);
@@ -6387,7 +6368,8 @@ impl<'a> FuncGen<'a> {
                                 && self.config.enable_nan_canonicalization
                                 && fp.canonicalization.is_some()
                             {
-                                self.canonicalize_nan(match first_return {
+                                self.canonicalize_nan(
+                                    match first_return {
                                         WpType::F32 => Size::S32,
                                         WpType::F64 => Size::S64,
                                         _ => unreachable!(),
@@ -6396,20 +6378,23 @@ impl<'a> FuncGen<'a> {
                                     Location::GPR(GPR::RAX),
                                 );
                             } else {
-                                self.emit_relaxed_binop(Assembler::emit_mov,
+                                self.emit_relaxed_binop(
+                                    Assembler::emit_mov,
                                     Size::S64,
                                     loc,
                                     Location::GPR(GPR::RAX),
                                 );
                             }
                         } else {
-                            self.assembler.emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                            self.assembler
+                                .emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
                         }
                     }
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
                     let released = &self.value_stack[frame.value_stack_depth..];
-                    self.machine.release_locations_keep_state(&mut self.assembler, released);
+                    self.machine
+                        .release_locations_keep_state(&mut self.assembler, released);
                     self.assembler.emit_jmp(Condition::None, frame.label);
                 }
 
@@ -6438,7 +6423,8 @@ impl<'a> FuncGen<'a> {
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(match frame.returns[0] {
+                            self.canonicalize_nan(
+                                match frame.returns[0] {
                                     WpType::F32 => Size::S32,
                                     WpType::F64 => Size::S64,
                                     _ => unreachable!(),
@@ -6447,14 +6433,16 @@ impl<'a> FuncGen<'a> {
                                 Location::GPR(GPR::RAX),
                             );
                         } else {
-                            self.emit_relaxed_binop(Assembler::emit_mov,
+                            self.emit_relaxed_binop(
+                                Assembler::emit_mov,
                                 Size::S64,
                                 loc,
                                 Location::GPR(GPR::RAX),
                             );
                         }
                     } else {
-                        self.emit_relaxed_binop(Assembler::emit_mov,
+                        self.emit_relaxed_binop(
+                            Assembler::emit_mov,
                             Size::S64,
                             loc,
                             Location::GPR(GPR::RAX),
@@ -6464,8 +6452,13 @@ impl<'a> FuncGen<'a> {
 
                 if self.control_stack.len() == 0 {
                     self.assembler.emit_label(frame.label);
-                    self.machine.finalize_locals(&mut self.assembler, &self.locals);
-                    self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RBP), Location::GPR(GPR::RSP));
+                    self.machine
+                        .finalize_locals(&mut self.assembler, &self.locals);
+                    self.assembler.emit_mov(
+                        Size::S64,
+                        Location::GPR(GPR::RBP),
+                        Location::GPR(GPR::RSP),
+                    );
                     self.assembler.emit_pop(Size::S64, Location::GPR(GPR::RBP));
 
                     // Make a copy of the return value in XMM0, as required by the SysV CC.
@@ -6482,7 +6475,8 @@ impl<'a> FuncGen<'a> {
                     self.assembler.emit_ret();
                 } else {
                     let released = &self.value_stack[frame.value_stack_depth..];
-                    self.machine.release_locations(&mut self.assembler, released);
+                    self.machine
+                        .release_locations(&mut self.assembler, released);
                     self.value_stack.truncate(frame.value_stack_depth);
                     self.fp_stack.truncate(frame.fp_stack_depth);
 
@@ -6508,7 +6502,8 @@ impl<'a> FuncGen<'a> {
                             )],
                             false,
                         )[0];
-                        self.assembler.emit_mov(Size::S64, Location::GPR(GPR::RAX), loc);
+                        self.assembler
+                            .emit_mov(Size::S64, Location::GPR(GPR::RAX), loc);
                         self.value_stack.push(loc);
                         if frame.returns[0].is_float() {
                             self.fp_stack
@@ -6528,8 +6523,7 @@ impl<'a> FuncGen<'a> {
                 // original source language.
             }
             Operator::I32AtomicLoad { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6537,26 +6531,18 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    4,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S32,
-                            Location::Memory(addr, 0),
-                            ret,
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 4, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::Memory(addr, 0),
+                        ret,
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6564,27 +6550,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movzx,
-                            Size::S8,
-                            Location::Memory(addr, 0),
-                            Size::S32,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movzx,
+                        Size::S8,
+                        Location::Memory(addr, 0),
+                        Size::S32,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I32AtomicLoad16U { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6592,96 +6570,61 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movzx,
-                            Size::S16,
-                            Location::Memory(addr, 0),
-                            Size::S32,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 2, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movzx,
+                        Size::S16,
+                        Location::Memory(addr, 0),
+                        Size::S32,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I32AtomicStore { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    true,
-                    4,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_xchg,
-                            Size::S32,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, true, 4, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_xchg,
+                        Size::S32,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I32AtomicStore8 { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_xchg,
-                            Size::S8,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, true, 1, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_xchg,
+                        Size::S8,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I32AtomicStore16 { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_xchg,
-                            Size::S16,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, true, 2, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_xchg,
+                        Size::S16,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64AtomicLoad { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6689,26 +6632,18 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    8,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S64,
-                            Location::Memory(addr, 0),
-                            ret,
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 8, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::Memory(addr, 0),
+                        ret,
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64AtomicLoad8U { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6716,27 +6651,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movzx,
-                            Size::S8,
-                            Location::Memory(addr, 0),
-                            Size::S64,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movzx,
+                        Size::S8,
+                        Location::Memory(addr, 0),
+                        Size::S64,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I64AtomicLoad16U { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6744,27 +6671,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.emit_relaxed_zx_sx(Assembler::emit_movzx,
-                            Size::S16,
-                            Location::Memory(addr, 0),
-                            Size::S64,
-                            ret,
-                        )?;
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 2, |this, addr| {
+                    this.emit_relaxed_zx_sx(
+                        Assembler::emit_movzx,
+                        Size::S16,
+                        Location::Memory(addr, 0),
+                        Size::S64,
+                        ret,
+                    )?;
+                    Ok(())
+                })?;
             }
             Operator::I64AtomicLoad32U { ref memarg } => {
-                let target =
-                    self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6772,135 +6691,90 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    4,
-                    |this, addr| {
-                        match ret {
-                            Location::GPR(_) => {}
-                            Location::Memory(base, offset) => {
-                                this.assembler.emit_mov(
-                                    Size::S32,
-                                    Location::Imm32(0),
-                                    Location::Memory(base, offset + 4),
-                                ); // clear upper bits
-                            }
-                            _ => {
-                                return Err(CodegenError {
-                                    message: format!("I64AtomicLoad32U ret: unreachable code"),
-                                })
-                            }
+                self.emit_memory_op(target, memarg, true, 4, |this, addr| {
+                    match ret {
+                        Location::GPR(_) => {}
+                        Location::Memory(base, offset) => {
+                            this.assembler.emit_mov(
+                                Size::S32,
+                                Location::Imm32(0),
+                                Location::Memory(base, offset + 4),
+                            ); // clear upper bits
                         }
-                        this.emit_relaxed_binop(Assembler::emit_mov,
-                            Size::S32,
-                            Location::Memory(addr, 0),
-                            ret,
-                        );
-                        Ok(())
-                    },
-                )?;
+                        _ => {
+                            return Err(CodegenError {
+                                message: format!("I64AtomicLoad32U ret: unreachable code"),
+                            })
+                        }
+                    }
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::Memory(addr, 0),
+                        ret,
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64AtomicStore { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    true,
-                    8,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_xchg,
-                            Size::S64,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, true, 8, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_xchg,
+                        Size::S64,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64AtomicStore8 { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_xchg,
-                            Size::S8,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, true, 1, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_xchg,
+                        Size::S8,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64AtomicStore16 { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_xchg,
-                            Size::S16,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, true, 2, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_xchg,
+                        Size::S16,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I64AtomicStore32 { ref memarg } => {
-                let target_value =
-                    self.pop_value_released();
-                let target_addr =
-                    self.pop_value_released();
+                let target_value = self.pop_value_released();
+                let target_addr = self.pop_value_released();
 
-                self.emit_memory_op(
-                   
-                    
-                    target_addr,
-                    memarg,
-                    true,
-                    4,
-                    |this, addr| {
-                        this.emit_relaxed_binop(Assembler::emit_xchg,
-                            Size::S32,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target_addr, memarg, true, 4, |this, addr| {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_xchg,
+                        Size::S32,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
             }
             Operator::I32AtomicRmwAdd { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6909,31 +6783,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_mov(Size::S32, loc, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    4,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.assembler
+                    .emit_mov(Size::S32, loc, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 4, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmwAdd { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6942,31 +6808,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_mov(Size::S64, loc, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    8,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(
-                            Size::S64,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.assembler
+                    .emit_mov(Size::S64, loc, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 8, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S64,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I32AtomicRmw8AddU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -6975,27 +6833,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S8, loc, Size::S32, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.assembler
+                    .emit_movzx(Size::S8, loc, Size::S32, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I32AtomicRmw16AddU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7004,31 +6858,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S16, loc, Size::S32, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(
-                            Size::S16,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.assembler
+                    .emit_movzx(Size::S16, loc, Size::S32, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 2, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmw8AddU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7037,27 +6883,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S8, loc, Size::S64, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.assembler
+                    .emit_movzx(Size::S8, loc, Size::S64, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmw16AddU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7066,31 +6908,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S16, loc, Size::S64, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(
-                            Size::S16,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.assembler
+                    .emit_movzx(Size::S16, loc, Size::S64, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 2, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmw32AddU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7099,31 +6933,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_mov(Size::S32, loc, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    4,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.assembler
+                    .emit_mov(Size::S32, loc, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 4, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I32AtomicRmwSub { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7132,32 +6958,24 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_mov(Size::S32, loc, Location::GPR(value));
+                self.assembler
+                    .emit_mov(Size::S32, loc, Location::GPR(value));
                 self.assembler.emit_neg(Size::S32, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    4,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.emit_memory_op(target, memarg, true, 4, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmwSub { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7166,32 +6984,24 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_mov(Size::S64, loc, Location::GPR(value));
+                self.assembler
+                    .emit_mov(Size::S64, loc, Location::GPR(value));
                 self.assembler.emit_neg(Size::S64, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    8,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(
-                            Size::S64,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.emit_memory_op(target, memarg, true, 8, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S64,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I32AtomicRmw8SubU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7200,28 +7010,24 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S8, loc, Size::S32, Location::GPR(value));
+                self.assembler
+                    .emit_movzx(Size::S8, loc, Size::S32, Location::GPR(value));
                 self.assembler.emit_neg(Size::S8, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I32AtomicRmw16SubU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7230,32 +7036,24 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S16, loc, Size::S32, Location::GPR(value));
+                self.assembler
+                    .emit_movzx(Size::S16, loc, Size::S32, Location::GPR(value));
                 self.assembler.emit_neg(Size::S16, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(
-                            Size::S16,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.emit_memory_op(target, memarg, true, 2, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmw8SubU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7264,28 +7062,24 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S8, loc, Size::S64, Location::GPR(value));
+                self.assembler
+                    .emit_movzx(Size::S8, loc, Size::S64, Location::GPR(value));
                 self.assembler.emit_neg(Size::S8, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmw16SubU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7294,32 +7088,24 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S16, loc, Size::S64, Location::GPR(value));
+                self.assembler
+                    .emit_movzx(Size::S16, loc, Size::S64, Location::GPR(value));
                 self.assembler.emit_neg(Size::S16, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(
-                            Size::S16,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.emit_memory_op(target, memarg, true, 2, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmw32SubU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7328,32 +7114,24 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_mov(Size::S32, loc, Location::GPR(value));
+                self.assembler
+                    .emit_mov(Size::S32, loc, Location::GPR(value));
                 self.assembler.emit_neg(Size::S32, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.assembler.emit_lock_xadd(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.emit_memory_op(target, memarg, true, 2, |this, addr| {
+                    this.assembler.emit_lock_xadd(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I32AtomicRmwAnd { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7362,8 +7140,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7372,15 +7148,14 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S32,
                     |this, src, dst| {
-                        this.assembler.emit_and(Size::S32, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_and(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmwAnd { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7389,8 +7164,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7399,15 +7172,14 @@ impl<'a> FuncGen<'a> {
                     Size::S64,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I32AtomicRmw8AndU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7416,8 +7188,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7426,15 +7196,14 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S32,
                     |this, src, dst| {
-                        this.assembler.emit_and(Size::S32, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_and(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I32AtomicRmw16AndU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7443,8 +7212,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7453,15 +7220,14 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S32,
                     |this, src, dst| {
-                        this.assembler.emit_and(Size::S32, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_and(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmw8AndU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7470,8 +7236,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7480,15 +7244,14 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmw16AndU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7497,8 +7260,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7507,15 +7268,14 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmw32AndU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7524,8 +7284,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7534,15 +7292,14 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I32AtomicRmwOr { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7551,8 +7308,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7561,15 +7316,14 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S32,
                     |this, src, dst| {
-                        this.assembler.emit_or(Size::S32, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_or(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmwOr { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7578,8 +7332,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7588,15 +7340,14 @@ impl<'a> FuncGen<'a> {
                     Size::S64,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I32AtomicRmw8OrU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7605,8 +7356,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7615,15 +7364,14 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S32,
                     |this, src, dst| {
-                        this.assembler.emit_or(Size::S32, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_or(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I32AtomicRmw16OrU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7632,8 +7380,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7642,15 +7388,14 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S32,
                     |this, src, dst| {
-                        this.assembler.emit_or(Size::S32, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_or(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmw8OrU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7659,8 +7404,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7669,15 +7412,14 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmw16OrU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7686,8 +7428,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7696,15 +7436,14 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmw32OrU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7713,8 +7452,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7723,15 +7460,14 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_or(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I32AtomicRmwXor { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7740,8 +7476,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7750,15 +7484,14 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S32,
                     |this, src, dst| {
-                        this.assembler.emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmwXor { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7767,8 +7500,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7777,15 +7508,14 @@ impl<'a> FuncGen<'a> {
                     Size::S64,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I32AtomicRmw8XorU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7794,8 +7524,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7804,15 +7532,14 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S32,
                     |this, src, dst| {
-                        this.assembler.emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I32AtomicRmw16XorU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7821,8 +7548,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7831,15 +7556,14 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S32,
                     |this, src, dst| {
-                        this.assembler.emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmw8XorU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7848,8 +7572,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7858,15 +7580,14 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmw16XorU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7875,8 +7596,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7885,15 +7604,14 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I64AtomicRmw32XorU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7902,8 +7620,6 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.emit_compare_and_swap(
-                   
-                    
                     loc,
                     target,
                     ret,
@@ -7912,15 +7628,14 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S64,
                     |this, src, dst| {
-                        this.assembler.emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
+                        this.assembler
+                            .emit_xor(Size::S64, Location::GPR(src), Location::GPR(dst));
                     },
                 )?;
             }
             Operator::I32AtomicRmwXchg { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7929,27 +7644,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_mov(Size::S32, loc, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    4,
-                    |this, addr| {
-                        this.assembler.emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.assembler
+                    .emit_mov(Size::S32, loc, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 4, |this, addr| {
+                    this.assembler.emit_xchg(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmwXchg { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7958,27 +7669,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_mov(Size::S64, loc, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    8,
-                    |this, addr| {
-                        this.assembler.emit_xchg(Size::S64, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.assembler
+                    .emit_mov(Size::S64, loc, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 8, |this, addr| {
+                    this.assembler.emit_xchg(
+                        Size::S64,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I32AtomicRmw8XchgU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -7987,27 +7694,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S8, loc, Size::S32, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.assembler
+                    .emit_movzx(Size::S8, loc, Size::S32, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_xchg(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I32AtomicRmw16XchgU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8016,27 +7719,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S16, loc, Size::S32, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.assembler.emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S32, Location::GPR(value), ret);
+                self.assembler
+                    .emit_movzx(Size::S16, loc, Size::S32, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 2, |this, addr| {
+                    this.assembler.emit_xchg(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmw8XchgU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8045,27 +7744,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S8, loc, Size::S64, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.assembler
+                    .emit_movzx(Size::S8, loc, Size::S64, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_xchg(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmw16XchgU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8074,27 +7769,23 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_movzx(Size::S16, loc, Size::S64, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    2,
-                    |this, addr| {
-                        this.assembler.emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.assembler
+                    .emit_movzx(Size::S16, loc, Size::S64, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 2, |this, addr| {
+                    this.assembler.emit_xchg(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I64AtomicRmw32XchgU { ref memarg } => {
-                let loc =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let loc = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8103,29 +7794,24 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 let value = self.machine.acquire_temp_gpr().unwrap();
-                self.assembler.emit_mov(Size::S32, loc, Location::GPR(value));
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    4,
-                    |this, addr| {
-                        this.assembler.emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0));
-                        Ok(())
-                    },
-                )?;
-                self.assembler.emit_mov(Size::S64, Location::GPR(value), ret);
+                self.assembler
+                    .emit_mov(Size::S32, loc, Location::GPR(value));
+                self.emit_memory_op(target, memarg, true, 4, |this, addr| {
+                    this.assembler.emit_xchg(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    Ok(())
+                })?;
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(value), ret);
                 self.machine.release_temp_gpr(value);
             }
             Operator::I32AtomicRmwCmpxchg { ref memarg } => {
-                let new =
-                    self.pop_value_released();
-                let cmp =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let new = self.pop_value_released();
+                let cmp = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8144,36 +7830,28 @@ impl<'a> FuncGen<'a> {
                     GPR::R14
                 };
                 self.assembler.emit_push(Size::S64, Location::GPR(value));
-                self.assembler.emit_mov(Size::S32, cmp, Location::GPR(compare));
-                self.assembler.emit_mov(Size::S32, new, Location::GPR(value));
+                self.assembler
+                    .emit_mov(Size::S32, cmp, Location::GPR(compare));
+                self.assembler
+                    .emit_mov(Size::S32, new, Location::GPR(value));
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    4,
-                    |this, addr| {
-                        this.assembler.emit_lock_cmpxchg(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        this.assembler.emit_mov(Size::S32, Location::GPR(compare), ret);
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 4, |this, addr| {
+                    this.assembler.emit_lock_cmpxchg(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    this.assembler
+                        .emit_mov(Size::S32, Location::GPR(compare), ret);
+                    Ok(())
+                })?;
                 self.assembler.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
             Operator::I64AtomicRmwCmpxchg { ref memarg } => {
-                let new =
-                    self.pop_value_released();
-                let cmp =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let new = self.pop_value_released();
+                let cmp = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8192,36 +7870,28 @@ impl<'a> FuncGen<'a> {
                     GPR::R14
                 };
                 self.assembler.emit_push(Size::S64, Location::GPR(value));
-                self.assembler.emit_mov(Size::S64, cmp, Location::GPR(compare));
-                self.assembler.emit_mov(Size::S64, new, Location::GPR(value));
+                self.assembler
+                    .emit_mov(Size::S64, cmp, Location::GPR(compare));
+                self.assembler
+                    .emit_mov(Size::S64, new, Location::GPR(value));
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    8,
-                    |this, addr| {
-                        this.assembler.emit_lock_cmpxchg(
-                            Size::S64,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        this.assembler.emit_mov(Size::S64, Location::GPR(compare), ret);
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 8, |this, addr| {
+                    this.assembler.emit_lock_cmpxchg(
+                        Size::S64,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    this.assembler
+                        .emit_mov(Size::S64, Location::GPR(compare), ret);
+                    Ok(())
+                })?;
                 self.assembler.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
             Operator::I32AtomicRmw8CmpxchgU { ref memarg } => {
-                let new =
-                    self.pop_value_released();
-                let cmp =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let new = self.pop_value_released();
+                let cmp = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8240,36 +7910,28 @@ impl<'a> FuncGen<'a> {
                     GPR::R14
                 };
                 self.assembler.emit_push(Size::S64, Location::GPR(value));
-                self.assembler.emit_mov(Size::S32, cmp, Location::GPR(compare));
-                self.assembler.emit_mov(Size::S32, new, Location::GPR(value));
+                self.assembler
+                    .emit_mov(Size::S32, cmp, Location::GPR(compare));
+                self.assembler
+                    .emit_mov(Size::S32, new, Location::GPR(value));
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_lock_cmpxchg(
-                            Size::S8,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        this.assembler.emit_movzx(Size::S8, Location::GPR(compare), Size::S32, ret);
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_lock_cmpxchg(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    this.assembler
+                        .emit_movzx(Size::S8, Location::GPR(compare), Size::S32, ret);
+                    Ok(())
+                })?;
                 self.assembler.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
             Operator::I32AtomicRmw16CmpxchgU { ref memarg } => {
-                let new =
-                    self.pop_value_released();
-                let cmp =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let new = self.pop_value_released();
+                let cmp = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8288,36 +7950,28 @@ impl<'a> FuncGen<'a> {
                     GPR::R14
                 };
                 self.assembler.emit_push(Size::S64, Location::GPR(value));
-                self.assembler.emit_mov(Size::S32, cmp, Location::GPR(compare));
-                self.assembler.emit_mov(Size::S32, new, Location::GPR(value));
+                self.assembler
+                    .emit_mov(Size::S32, cmp, Location::GPR(compare));
+                self.assembler
+                    .emit_mov(Size::S32, new, Location::GPR(value));
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_lock_cmpxchg(
-                            Size::S16,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        this.assembler.emit_movzx(Size::S16, Location::GPR(compare), Size::S32, ret);
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_lock_cmpxchg(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    this.assembler
+                        .emit_movzx(Size::S16, Location::GPR(compare), Size::S32, ret);
+                    Ok(())
+                })?;
                 self.assembler.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
             Operator::I64AtomicRmw8CmpxchgU { ref memarg } => {
-                let new =
-                    self.pop_value_released();
-                let cmp =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let new = self.pop_value_released();
+                let cmp = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8336,36 +7990,28 @@ impl<'a> FuncGen<'a> {
                     GPR::R14
                 };
                 self.assembler.emit_push(Size::S64, Location::GPR(value));
-                self.assembler.emit_mov(Size::S64, cmp, Location::GPR(compare));
-                self.assembler.emit_mov(Size::S64, new, Location::GPR(value));
+                self.assembler
+                    .emit_mov(Size::S64, cmp, Location::GPR(compare));
+                self.assembler
+                    .emit_mov(Size::S64, new, Location::GPR(value));
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_lock_cmpxchg(
-                            Size::S8,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        this.assembler.emit_movzx(Size::S8, Location::GPR(compare), Size::S64, ret);
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_lock_cmpxchg(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    this.assembler
+                        .emit_movzx(Size::S8, Location::GPR(compare), Size::S64, ret);
+                    Ok(())
+                })?;
                 self.assembler.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
             Operator::I64AtomicRmw16CmpxchgU { ref memarg } => {
-                let new =
-                    self.pop_value_released();
-                let cmp =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let new = self.pop_value_released();
+                let cmp = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8384,36 +8030,28 @@ impl<'a> FuncGen<'a> {
                     GPR::R14
                 };
                 self.assembler.emit_push(Size::S64, Location::GPR(value));
-                self.assembler.emit_mov(Size::S64, cmp, Location::GPR(compare));
-                self.assembler.emit_mov(Size::S64, new, Location::GPR(value));
+                self.assembler
+                    .emit_mov(Size::S64, cmp, Location::GPR(compare));
+                self.assembler
+                    .emit_mov(Size::S64, new, Location::GPR(value));
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_lock_cmpxchg(
-                            Size::S16,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        this.assembler.emit_movzx(Size::S16, Location::GPR(compare), Size::S64, ret);
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_lock_cmpxchg(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    this.assembler
+                        .emit_movzx(Size::S16, Location::GPR(compare), Size::S64, ret);
+                    Ok(())
+                })?;
                 self.assembler.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
             Operator::I64AtomicRmw32CmpxchgU { ref memarg } => {
-                let new =
-                    self.pop_value_released();
-                let cmp =
-                    self.pop_value_released();
-                let target =
-                    self.pop_value_released();
+                let new = self.pop_value_released();
+                let cmp = self.pop_value_released();
+                let target = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -8432,26 +8070,21 @@ impl<'a> FuncGen<'a> {
                     GPR::R14
                 };
                 self.assembler.emit_push(Size::S64, Location::GPR(value));
-                self.assembler.emit_mov(Size::S64, cmp, Location::GPR(compare));
-                self.assembler.emit_mov(Size::S64, new, Location::GPR(value));
+                self.assembler
+                    .emit_mov(Size::S64, cmp, Location::GPR(compare));
+                self.assembler
+                    .emit_mov(Size::S64, new, Location::GPR(value));
 
-                self.emit_memory_op(
-                   
-                    
-                    target,
-                    memarg,
-                    true,
-                    1,
-                    |this, addr| {
-                        this.assembler.emit_lock_cmpxchg(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        this.assembler.emit_mov(Size::S32, Location::GPR(compare), ret);
-                        Ok(())
-                    },
-                )?;
+                self.emit_memory_op(target, memarg, true, 1, |this, addr| {
+                    this.assembler.emit_lock_cmpxchg(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                    this.assembler
+                        .emit_mov(Size::S32, Location::GPR(compare), ret);
+                    Ok(())
+                })?;
                 self.assembler.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
             }
@@ -8463,6 +8096,18 @@ impl<'a> FuncGen<'a> {
         }
 
         Ok(())
+    }
+
+    pub fn finalize(self) -> CompiledFunction {
+        CompiledFunction {
+            body: FunctionBody {
+                body: self.assembler.finalize().unwrap().to_vec(),
+                unwind_info: CompiledFunctionUnwindInfo::None,
+            },
+            relocations: self.relocations,
+            jt_offsets: SecondaryMap::new(),
+            frame_info: Default::default(),
+        }
     }
 }
 
@@ -8540,6 +8185,233 @@ fn sort_call_movs(movs: &mut [(Location, GPR)]) {
         }
     }
     */
+}
+
+// Standard entry trampoline.
+pub fn gen_std_trampoline(sig: FuncType) -> FunctionBody {
+    let mut a = Assembler::new().unwrap();
+
+    // Calculate stack offset.
+    let mut stack_offset: u32 = 0;
+    for (i, _param) in sig.params().iter().enumerate() {
+        let loc = Machine::get_param_location(1 + i);
+        match loc {
+            Location::Memory(_, _) => {
+                stack_offset += 8;
+            }
+            _ => {}
+        }
+    }
+
+    // Align to 16 bytes. We push two 8-byte registers below, so here we need to ensure stack_offset % 16 == 8.
+    if stack_offset % 16 != 8 {
+        stack_offset += 8;
+    }
+
+    // Used callee-saved registers
+    a.emit_push(Size::S64, Location::GPR(GPR::R15));
+    a.emit_push(Size::S64, Location::GPR(GPR::R14));
+
+    // Prepare stack space.
+    a.emit_sub(
+        Size::S64,
+        Location::Imm32(stack_offset),
+        Location::GPR(GPR::RSP),
+    );
+
+    // Arguments
+    a.emit_mov(
+        Size::S64,
+        Machine::get_param_location(2),
+        Location::GPR(GPR::R15),
+    ); // func_ptr
+    a.emit_mov(
+        Size::S64,
+        Machine::get_param_location(3),
+        Location::GPR(GPR::R14),
+    ); // args_rets
+
+    // Move arguments to their locations.
+    // `callee_vmctx` is already in the first argument register, so no need to move.
+    {
+        let mut n_stack_args: usize = 0;
+        for (i, _param) in sig.params().iter().enumerate() {
+            let src_loc = Location::Memory(GPR::R14, (i * 8) as _); // args_rets[i]
+            let dst_loc = Machine::get_param_location(1 + i);
+
+            match dst_loc {
+                Location::GPR(_) => {
+                    a.emit_mov(Size::S64, src_loc, dst_loc);
+                }
+                Location::Memory(_, _) => {
+                    // This location is for reading arguments but we are writing arguments here.
+                    // So recalculate it.
+                    a.emit_mov(Size::S64, src_loc, Location::GPR(GPR::RAX));
+                    a.emit_mov(
+                        Size::S64,
+                        Location::GPR(GPR::RAX),
+                        Location::Memory(GPR::RSP, (n_stack_args * 8) as _),
+                    );
+                    n_stack_args += 1;
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    // Call.
+    a.emit_call_location(Location::GPR(GPR::R15));
+
+    // Restore stack.
+    a.emit_add(
+        Size::S64,
+        Location::Imm32(stack_offset),
+        Location::GPR(GPR::RSP),
+    );
+
+    // Write return value.
+    if sig.results().len() > 0 {
+        a.emit_mov(
+            Size::S64,
+            Location::GPR(GPR::RAX),
+            Location::Memory(GPR::R14, 0),
+        );
+    }
+
+    // Restore callee-saved registers.
+    a.emit_pop(Size::S64, Location::GPR(GPR::R14));
+    a.emit_pop(Size::S64, Location::GPR(GPR::R15));
+
+    a.emit_ret();
+
+    FunctionBody {
+        body: a.finalize().unwrap().to_vec(),
+        unwind_info: CompiledFunctionUnwindInfo::None,
+    }
+}
+
+// Singlepass calls import functions through a trampoline.
+pub fn gen_import_call_trampoline(index: FuncIndex, sig: FuncType) -> CustomSection {
+    let mut a = Assembler::new().unwrap();
+
+    // TODO: ARM entry trampoline is not emitted.
+
+    // Singlepass internally treats all arguments as integers, but the standard System V calling convention requires
+    // floating point arguments to be passed in XMM registers.
+    //
+    // FIXME: This is only a workaround. We should fix singlepass to use the standard CC.
+
+    // Translation is expensive, so only do it if needed.
+    if sig
+        .params()
+        .iter()
+        .find(|&&x| x == Type::F32 || x == Type::F64)
+        .is_some()
+    {
+        let mut param_locations: Vec<Location> = vec![];
+
+        // Allocate stack space for arguments.
+        let stack_offset: i32 = if sig.params().len() > 5 {
+            5 * 8
+        } else {
+            (sig.params().len() as i32) * 8
+        };
+        if stack_offset > 0 {
+            a.emit_sub(
+                Size::S64,
+                Location::Imm32(stack_offset as u32),
+                Location::GPR(GPR::RSP),
+            );
+        }
+
+        // Store all arguments to the stack to prevent overwrite.
+        for i in 0..sig.params().len() {
+            let loc = match i {
+                0..=4 => {
+                    static PARAM_REGS: &'static [GPR] =
+                        &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+                    let loc = Location::Memory(GPR::RSP, (i * 8) as i32);
+                    a.emit_mov(Size::S64, Location::GPR(PARAM_REGS[i]), loc);
+                    loc
+                }
+                _ => Location::Memory(GPR::RSP, stack_offset + 8 + ((i - 5) * 8) as i32),
+            };
+            param_locations.push(loc);
+        }
+
+        // Copy arguments.
+        let mut argalloc = ArgumentRegisterAllocator::default();
+        argalloc.next(Type::I32).unwrap(); // skip vm::Ctx
+        let mut caller_stack_offset: i32 = 0;
+        for (i, ty) in sig.params().iter().enumerate() {
+            let prev_loc = param_locations[i];
+            let target = match argalloc.next(*ty) {
+                Some(X64Register::GPR(gpr)) => Location::GPR(gpr),
+                Some(X64Register::XMM(xmm)) => Location::XMM(xmm),
+                None => {
+                    // No register can be allocated. Put this argument on the stack.
+                    //
+                    // Since here we never use fewer registers than by the original call, on the caller's frame
+                    // we always have enough space to store the rearranged arguments, and the copy "backward" between different
+                    // slots in the caller argument region will always work.
+                    a.emit_mov(Size::S64, prev_loc, Location::GPR(GPR::RAX));
+                    a.emit_mov(
+                        Size::S64,
+                        Location::GPR(GPR::RAX),
+                        Location::Memory(GPR::RSP, stack_offset + 8 + caller_stack_offset),
+                    );
+                    caller_stack_offset += 8;
+                    continue;
+                }
+            };
+            a.emit_mov(Size::S64, prev_loc, target);
+        }
+
+        // Restore stack pointer.
+        if stack_offset > 0 {
+            a.emit_add(
+                Size::S64,
+                Location::Imm32(stack_offset as u32),
+                Location::GPR(GPR::RSP),
+            );
+        }
+    }
+
+    // Emits a tail call trampoline that loads the address of the target import function
+    // from Ctx and jumps to it.
+
+    let imported_funcs_addr = vm::Ctx::offset_imported_funcs();
+    let imported_func = vm::ImportedFunc::size() as usize * index.index();
+    let imported_func_addr = imported_func + vm::ImportedFunc::offset_func() as usize;
+    let imported_func_ctx_addr = imported_func + vm::ImportedFunc::offset_func_ctx() as usize;
+    let imported_func_ctx_vmctx_addr = vm::FuncCtx::offset_vmctx() as usize;
+
+    a.emit_mov(
+        Size::S64,
+        Location::Memory(GPR::RDI, imported_funcs_addr as i32),
+        Location::GPR(GPR::RAX),
+    );
+    a.emit_mov(
+        Size::S64,
+        Location::Memory(GPR::RAX, imported_func_ctx_addr as i32),
+        Location::GPR(GPR::RDI),
+    );
+    a.emit_mov(
+        Size::S64,
+        Location::Memory(GPR::RDI, imported_func_ctx_vmctx_addr as i32),
+        Location::GPR(GPR::RDI),
+    );
+    a.emit_mov(
+        Size::S64,
+        Location::Memory(GPR::RAX, imported_func_addr as i32),
+        Location::GPR(GPR::RAX),
+    );
+    a.emit_host_redirection(GPR::RAX);
+
+    CustomSection {
+        protection: CustomSectionProtection::ReadExecute,
+        bytes: a.finalize().unwrap().to_vec(),
+    }
 }
 
 // Constants for the bounds of truncation operations. These are the least or

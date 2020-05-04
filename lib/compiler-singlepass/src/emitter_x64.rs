@@ -290,6 +290,12 @@ pub trait Emitter {
 
     // Emits entry trampoline just before the real function.
     fn arch_emit_entry_trampoline(&mut self) {}
+
+    // Byte offset from the beginning of a `mov Imm64, GPR` instruction to the imm64 value.
+    // Required to support emulation on Aarch64.
+    fn arch_mov64_imm_offset(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 macro_rules! unop_gpr {
@@ -1323,5 +1329,9 @@ impl Emitter for Assembler {
             ; int -1
             ; .byte ty as u8 as i8
         );
+    }
+
+    fn arch_mov64_imm_offset(&self) -> usize {
+        2
     }
 }
