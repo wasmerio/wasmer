@@ -91,6 +91,7 @@ impl StoreOptions {
     }
 
     /// Get the Compiler Config for the current options
+    #[allow(unused_variables)]
     fn get_config(&self, compiler: Compiler) -> Result<Box<dyn CompilerConfig>> {
         let config: Box<dyn CompilerConfig> = match compiler {
             #[cfg(feature = "compiler-singlepass")]
