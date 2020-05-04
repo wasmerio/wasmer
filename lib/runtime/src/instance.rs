@@ -1229,22 +1229,20 @@ fn initialize_memories(
 
 fn initialize_globals(instance: &Instance) {
     let module = Arc::clone(&instance.module);
-    let num_imports = module.num_imported_globals;
-    for (index, global) in module.globals.iter().skip(num_imports) {
-        let def_index = module.local_global_index(index).unwrap();
+    for (index, initializer) in module.global_initializers.iter() {
         unsafe {
-            let to = instance.global_ptr(def_index);
-            match global.initializer {
-                GlobalInit::I32Const(x) => *(*to).as_i32_mut() = x,
-                GlobalInit::I64Const(x) => *(*to).as_i64_mut() = x,
-                GlobalInit::F32Const(x) => *(*to).as_f32_mut() = x,
-                GlobalInit::F64Const(x) => *(*to).as_f64_mut() = x,
+            let to = instance.global_ptr(index);
+            match initializer {
+                GlobalInit::I32Const(x) => *(*to).as_i32_mut() = *x,
+                GlobalInit::I64Const(x) => *(*to).as_i64_mut() = *x,
+                GlobalInit::F32Const(x) => *(*to).as_f32_mut() = *x,
+                GlobalInit::F64Const(x) => *(*to).as_f64_mut() = *x,
                 GlobalInit::V128Const(x) => *(*to).as_u128_bits_mut() = *x.bytes(),
                 GlobalInit::GetGlobal(x) => {
-                    let from = if let Some(def_x) = module.local_global_index(x) {
+                    let from = if let Some(def_x) = module.local_global_index(*x) {
                         instance.global(def_x)
                     } else {
-                        *instance.imported_global(x).definition
+                        *instance.imported_global(*x).definition
                     };
                     *to = from;
                 }

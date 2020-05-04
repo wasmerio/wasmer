@@ -10,8 +10,8 @@ use wasm_common::entity::PrimaryMap;
 use wasm_common::FuncType;
 use wasm_common::{
     DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FuncIndex,
-    GlobalIndex, GlobalType, ImportIndex, LocalFuncIndex, MemoryIndex, MemoryType, SignatureIndex,
-    TableIndex, TableType,
+    GlobalIndex, GlobalInit, GlobalType, ImportIndex, LocalFuncIndex, MemoryIndex, MemoryType,
+    SignatureIndex, TableIndex, TableType,
 };
 use wasmer_runtime::{Module, TableElements};
 
@@ -263,8 +263,13 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn declare_global(&mut self, global: GlobalType) -> WasmResult<()> {
+    pub(crate) fn declare_global(
+        &mut self,
+        global: GlobalType,
+        initializer: GlobalInit,
+    ) -> WasmResult<()> {
         self.result.module.globals.push(global);
+        self.result.module.global_initializers.push(initializer);
         Ok(())
     }
 

@@ -113,14 +113,9 @@ impl Global {
         Self::from_type(store, GlobalType::new(val.ty(), Mutability::Var), val).unwrap()
     }
 
-    pub fn from_type(store: &Store, ty: GlobalType, val: Val) -> Result<Global, RuntimeError> {
+    fn from_type(store: &Store, ty: GlobalType, val: Val) -> Result<Global, RuntimeError> {
         if !val.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` globals are not supported"));
-        }
-        if val.ty() != ty.ty.clone() {
-            return Err(RuntimeError::new(
-                "value provided does not match the type of this global",
-            ));
         }
         let mut definition = VMGlobalDefinition::new();
         unsafe {

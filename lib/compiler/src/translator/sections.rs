@@ -130,7 +130,6 @@ pub fn parse_import_section<'data>(
                     GlobalType {
                         ty: wptype_to_type(ty.content_type).unwrap(),
                         mutability: ty.mutable.into(),
-                        initializer: GlobalInit::Import,
                     },
                     module_name,
                     field_name,
@@ -254,9 +253,8 @@ pub fn parse_global_section(
         let global = GlobalType {
             ty: wptype_to_type(content_type).unwrap(),
             mutability: mutable.into(),
-            initializer,
         };
-        environ.declare_global(global)?;
+        environ.declare_global(global, initializer)?;
     }
 
     Ok(())

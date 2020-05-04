@@ -110,20 +110,13 @@ pub enum ExternType {
 }
 
 fn is_global_compatible(exported: &GlobalType, imported: &GlobalType) -> bool {
-    match imported.initializer {
-        GlobalInit::Import => (),
-        _ => panic!("imported Global should have an Imported initializer"),
-    }
-
     let GlobalType {
         ty: exported_ty,
         mutability: exported_mutability,
-        initializer: _exported_initializer,
     } = exported;
     let GlobalType {
         ty: imported_ty,
         mutability: imported_mutability,
-        initializer: _imported_initializer,
     } = imported;
     exported_ty == imported_ty && imported_mutability == exported_mutability
 }
@@ -318,8 +311,6 @@ pub struct GlobalType {
     pub ty: Type,
     /// A flag indicating whether the value may change at runtime.
     pub mutability: Mutability,
-    /// The source of the initial value.
-    pub initializer: GlobalInit,
 }
 
 // Global Types
@@ -344,7 +335,6 @@ impl GlobalType {
         Self {
             ty: ty,
             mutability: mutability,
-            initializer: GlobalInit::Import,
         }
     }
 }

@@ -10,8 +10,9 @@ use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
     DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FuncIndex, FuncType, GlobalIndex,
-    GlobalType, ImportIndex, ImportType, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex,
-    LocalTableIndex, MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType,
+    GlobalInit, GlobalType, ImportIndex, ImportType, LocalFuncIndex, LocalGlobalIndex,
+    LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex,
+    TableType,
 };
 
 /// A WebAssembly table initializer.
@@ -124,6 +125,9 @@ pub struct Module {
     /// WebAssembly passive data segments.
     pub passive_data: HashMap<DataIndex, Arc<[u8]>>,
 
+    /// WebAssembly global initializers.
+    pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
+
     /// WebAssembly function names.
     pub func_names: HashMap<FuncIndex, String>,
 
@@ -167,6 +171,7 @@ impl Module {
             table_elements: Vec::new(),
             passive_elements: HashMap::new(),
             passive_data: HashMap::new(),
+            global_initializers: PrimaryMap::new(),
             func_names: HashMap::new(),
             signatures: PrimaryMap::new(),
             functions: PrimaryMap::new(),
