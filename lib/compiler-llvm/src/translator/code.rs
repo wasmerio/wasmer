@@ -174,15 +174,17 @@ impl FuncTranslator {
         let num_locals = reader.read_local_count().map_err(to_wasm_error)?;
         for _ in 0..num_locals {
             let mut counter = 0;
-            let (_count, ty) = reader
+            let (count, ty) = reader
                 .read_local_decl(&mut counter)
                 .map_err(to_wasm_error)?;
             let ty = wptype_to_type(ty)?;
             let ty = type_to_llvm(&intrinsics, ty);
             // TODO: don't interleave allocas and stores.
-            let alloca = cache_builder.build_alloca(ty, "local");
-            cache_builder.build_store(alloca, const_zero(ty));
-            locals.push(alloca);
+            for _ in 0..count {
+                let alloca = cache_builder.build_alloca(ty, "local");
+                cache_builder.build_store(alloca, const_zero(ty));
+                locals.push(alloca);
+            }
         }
 
         let mut params_locals = params.clone();
