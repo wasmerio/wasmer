@@ -359,8 +359,6 @@ pub enum GlobalInit {
     RefNullConst,
     /// A `ref.func <index>`.
     RefFunc(FuncIndex),
-    ///< The global is imported from, and thus initialized by, a different module.
-    Import,
 }
 
 impl GlobalInit {
