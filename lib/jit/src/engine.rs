@@ -29,7 +29,7 @@ pub struct JITEngine {
 impl JITEngine {
     const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
 
-    /// Create a new JIT Engine given config
+    /// Create a new `JITEngine` with the given config
     pub fn new<C: CompilerConfig>(config: &C, tunables: impl Tunables + 'static) -> Self
     where
         C: ?Sized,
@@ -37,7 +37,32 @@ impl JITEngine {
         let compiler = config.compiler();
         Self {
             inner: Arc::new(RefCell::new(JITEngineInner {
-                compiler,
+                compiler: Some(compiler),
+                trampolines: HashMap::new(),
+                code_memory: CodeMemory::new(),
+                signatures: SignatureRegistry::new(),
+            })),
+            tunables: Arc::new(Box::new(tunables)),
+        }
+    }
+
+    /// Create a headless `JITEngine`
+    ///
+    /// A headless engine is an engine without any compiler attached.
+    /// This is useful for assuring a minimal runtime for running
+    /// WebAssembly modules.
+    ///
+    /// For example, for running in IoT devices where compilers are very
+    /// expensive, or also to optimize startup speed.
+    ///
+    /// # Important
+    ///
+    /// Headless engines can't compile or validate any modules,
+    /// they just take already processed Modules (via `Module::serialize`).
+    pub fn headless(tunables: impl Tunables + 'static) -> Self {
+        Self {
+            inner: Arc::new(RefCell::new(JITEngineInner {
+                compiler: None,
                 trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
@@ -126,7 +151,7 @@ impl JITEngine {
 /// The inner contents of `JITEngine`
 pub struct JITEngineInner {
     /// The compiler
-    compiler: Box<dyn BaseCompiler>,
+    compiler: Option<Box<dyn BaseCompiler>>,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The code memory is responsible of publishing the compiled
@@ -139,13 +164,16 @@ pub struct JITEngineInner {
 
 impl JITEngineInner {
     /// Gets the compiler associated to this JIT
-    pub fn compiler(&self) -> &dyn BaseCompiler {
-        &*self.compiler
+    pub fn compiler(&self) -> Result<&dyn BaseCompiler, CompileError> {
+        if self.compiler.is_none() {
+            return Err(CompileError::Codegen("The JITEngine is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
+        }
+        Ok(&**self.compiler.as_ref().unwrap())
     }
 
     /// Validate the module
     pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
-        self.compiler().validate_module(data)
+        self.compiler()?.validate_module(data)
     }
 
     /// Compile the given function bodies.
@@ -157,7 +185,7 @@ impl JITEngineInner {
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
-        self.compiler.compile_module(
+        self.compiler()?.compile_module(
             module,
             module_translation,
             function_body_inputs,
@@ -173,7 +201,7 @@ impl JITEngineInner {
     ) -> Result<PrimaryMap<SignatureIndex, FunctionBody>, CompileError> {
         let func_types = signatures.values().cloned().collect::<Vec<_>>();
         Ok(self
-            .compiler
+            .compiler()?
             .compile_wasm_trampolines(&func_types)?
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, _>>())

@@ -10,7 +10,9 @@ use wasmer_compiler::{
 use wasmer_runtime::Module;
 
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{LocalFuncIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex};
+use wasm_common::{
+    Features, LocalFuncIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
+};
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// The compilation related data for a serialized modules
@@ -32,6 +34,7 @@ pub struct SerializableCompilation {
 #[derive(Serialize, Deserialize)]
 pub struct SerializableModule {
     pub compilation: SerializableCompilation,
+    pub features: Features,
     pub module: Arc<Module>,
     pub data_initializers: Box<[OwnedDataInitializer]>,
     // Plans for that module

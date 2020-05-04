@@ -96,6 +96,7 @@ impl CompiledModule {
         let serializable = SerializableModule {
             compilation: serializable_compilation,
             module: Arc::new(translation.module),
+            features: jit_compiler.compiler()?.features().clone(),
             data_initializers,
             memory_plans,
             table_plans,
@@ -189,7 +190,7 @@ impl CompiledModule {
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
         let jit_compiler = jit.compiler();
-        let is_bulk_memory: bool = jit_compiler.compiler().features().bulk_memory;
+        let is_bulk_memory: bool = self.serializable.features.bulk_memory;
         let sig_registry: &SignatureRegistry = jit_compiler.signatures();
         let data_initializers = self
             .serializable
