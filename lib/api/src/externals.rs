@@ -16,7 +16,7 @@ use wasmer_runtime::{
 
 #[derive(Clone)]
 pub enum Extern {
-    Function(Func),
+    Function(Function),
     Global(Global),
     Table(Table),
     Memory(Memory),
@@ -34,7 +34,7 @@ impl Extern {
 
     pub(crate) fn from_export(store: &Store, export: Export) -> Extern {
         match export {
-            Export::Function(f) => Extern::Function(Func::from_export(store, f)),
+            Export::Function(f) => Extern::Function(Function::from_export(store, f)),
             Export::Memory(m) => Extern::Memory(Memory::from_export(store, m)),
             Export::Global(g) => Extern::Global(Global::from_export(store, g)),
             Export::Table(t) => Extern::Table(Table::from_export(store, t)),
@@ -70,8 +70,8 @@ impl StoreObject for Extern {
     }
 }
 
-impl From<Func> for Extern {
-    fn from(r: Func) -> Self {
+impl From<Function> for Extern {
+    fn from(r: Function) -> Self {
         Extern::Function(r)
     }
 }
@@ -492,7 +492,7 @@ pub enum InnerFunc {
 
 /// A WebAssembly `function`.
 #[derive(Clone, PartialEq)]
-pub struct Func {
+pub struct Function {
     store: Store,
     // If the Function is owned by the Store, not the instance
     inner: InnerFunc,
@@ -500,12 +500,12 @@ pub struct Func {
     exported: ExportFunction,
 }
 
-impl Func {
+impl Function {
     /// Creates a new `Func` with the given parameters.
     ///
     /// * `store` - a global cache to store information in
     /// * `func` - the function.
-    pub fn new<F, Args, Rets, Env>(store: &Store, func: F) -> Func
+    pub fn new<F, Args, Rets, Env>(store: &Store, func: F) -> Self
     where
         F: HostFunction<Args, Rets, WithoutEnv, Env>,
         Args: WasmTypeList,
@@ -517,7 +517,7 @@ impl Func {
         let vmctx = (func.env().unwrap_or(std::ptr::null_mut()) as *mut _) as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
-        Func {
+        Self {
             store: store.clone(),
             owned_by_store: true,
             inner: InnerFunc::Host(HostFunc {
@@ -536,7 +536,7 @@ impl Func {
     /// * `store` - a global cache to store information in.
     /// * `env` - the function environment.
     /// * `func` - the function.
-    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: &mut Env, func: F) -> Func
+    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: &mut Env, func: F) -> Self
     where
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
@@ -548,7 +548,7 @@ impl Func {
         let vmctx = (func.env().unwrap_or(std::ptr::null_mut()) as *mut _) as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
-        Func {
+        Self {
             store: store.clone(),
             owned_by_store: true,
             inner: InnerFunc::Host(HostFunc {
@@ -662,9 +662,9 @@ impl Func {
         Ok(results.into_boxed_slice())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Func {
+    pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
         let trampoline = store.engine().trampoline(wasmer_export.signature).unwrap();
-        Func {
+        Self {
             store: store.clone(),
             owned_by_store: false,
             inner: InnerFunc::Wasm(WasmFunc { trampoline }),
@@ -681,7 +681,7 @@ impl Func {
     }
 }
 
-impl<'a> Exportable<'a> for Func {
+impl<'a> Exportable<'a> for Function {
     fn to_export(&self) -> Export {
         self.exported.clone().into()
     }
@@ -693,7 +693,7 @@ impl<'a> Exportable<'a> for Func {
     }
 }
 
-impl std::fmt::Debug for Func {
+impl std::fmt::Debug for Function {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Ok(())
     }

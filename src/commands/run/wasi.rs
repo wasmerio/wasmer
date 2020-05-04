@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use std::path::PathBuf;
 
-use wasmer::{Func, Instance, Memory, Module};
+use wasmer::{Function, Instance, Memory, Module};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, WasiEnv, WasiState, WasiVersion,
 };
@@ -114,7 +114,7 @@ impl Wasi {
         let memory: &Memory = instance.exports.get("memory")?;
         wasi_env.set_memory(memory);
 
-        let start: &Func = instance.exports.get("_start")?;
+        let start: &Function = instance.exports.get("_start")?;
 
         start.call(&[])?;
 

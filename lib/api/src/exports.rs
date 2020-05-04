@@ -1,4 +1,4 @@
-use crate::externals::{Extern, Func, Global, Memory, Table};
+use crate::externals::{Extern, Function, Global, Memory, Table};
 use crate::import_object::LikeNamespace;
 use indexmap::IndexMap;
 use std::iter::FromIterator;
@@ -103,7 +103,7 @@ impl Exports {
     }
 
     /// Get an export as a `Func`.
-    pub fn get_func(&self, name: &str) -> Result<&Func, ExportError> {
+    pub fn get_func(&self, name: &str) -> Result<&Function, ExportError> {
         self.get(name)
     }
 

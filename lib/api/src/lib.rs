@@ -13,7 +13,7 @@ mod tunables;
 mod types;
 
 pub use crate::exports::{ExportError, Exportable, Exports};
-pub use crate::externals::{Extern, Func, Global, Memory, Table};
+pub use crate::externals::{Extern, Function, Global, Memory, Table};
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::Instance;
 pub use crate::memory_view::MemoryView;
