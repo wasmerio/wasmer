@@ -71,6 +71,7 @@ impl CompiledModule {
             memory_plans.clone(),
             table_plans.clone(),
         )?;
+        let trampolines = jit_compiler.compile_trampolines(&translation.module.signatures)?;
         let data_initializers = translation
             .data_initializers
             .iter()
@@ -89,6 +90,7 @@ impl CompiledModule {
             function_relocations: compilation.get_relocations(),
             function_jt_offsets: compilation.get_jt_offsets(),
             function_frame_info: frame_infos,
+            trampolines,
             custom_sections: compilation.get_custom_sections(),
         };
         let serializable = SerializableModule {
@@ -127,9 +129,10 @@ impl CompiledModule {
         jit_compiler: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let finished_functions = jit_compiler.compile(
+        let finished_functions = jit_compiler.allocate(
             &serializable.module,
             &serializable.compilation.function_bodies,
+            &serializable.compilation.trampolines,
         )?;
 
         link_module(

@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
+use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::{
     Compilation, CompileError, Compiler as BaseCompiler, CompilerConfig, FunctionBody,
     FunctionBodyData, ModuleTranslationState, Target,
@@ -166,11 +166,25 @@ impl JITEngineInner {
         )
     }
 
+    /// Compile the module trampolines
+    pub(crate) fn compile_trampolines(
+        &self,
+        signatures: &PrimaryMap<SignatureIndex, FuncType>,
+    ) -> Result<PrimaryMap<SignatureIndex, FunctionBody>, CompileError> {
+        let func_types = signatures.values().cloned().collect::<Vec<_>>();
+        Ok(self
+            .compiler
+            .compile_wasm_trampolines(&func_types)?
+            .into_iter()
+            .collect::<PrimaryMap<SignatureIndex, _>>())
+    }
+
     /// Compile the given function bodies.
-    pub(crate) fn compile<'data>(
+    pub(crate) fn allocate<'data>(
         &mut self,
         module: &Module,
         functions: &PrimaryMap<LocalFuncIndex, FunctionBody>,
+        trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
     ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, CompileError> {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
@@ -184,35 +198,27 @@ impl JITEngineInner {
                     ))
                 })?;
 
-        // Trampoline generation.
-        // We do it in two steps:
-        // 1. Generate only the trampolines for the signatures that are unique
-        // 2. Push the compiled code to memory
-        let mut unique_signatures: HashMap<VMSharedSignatureIndex, FuncType> = HashMap::new();
-        // for sig in module.exported_signatures() {
-        for sig in module.signatures.values() {
-            let index = self.signatures.register(&sig);
-            if unique_signatures.contains_key(&index) {
+        for (sig_index, compiled_function) in trampolines.iter() {
+            let func_type = module.signatures.get(sig_index).unwrap();
+            let index = self.signatures.register(&func_type);
+            if self.trampolines.contains_key(&index) {
+                // We don't need to allocate the trampoline in case
+                // it's signature is already allocated.
                 continue;
             }
-            unique_signatures.insert(index, sig.clone());
-        }
-
-        let compiled_trampolines = self
-            .compiler
-            .compile_wasm_trampolines(&unique_signatures.values().cloned().collect::<Vec<_>>())?;
-
-        for ((index, _), compiled_function) in
-            unique_signatures.iter().zip(compiled_trampolines.iter())
-        {
             let ptr = self
                 .code_memory
                 .allocate_for_function(&compiled_function)
-                .map_err(|message| CompileError::Resource(message))?
+                .map_err(|message| {
+                    CompileError::Resource(format!(
+                        "failed to allocate memory for trampolines: {}",
+                        message
+                    ))
+                })?
                 .as_ptr();
             let trampoline =
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
-            self.trampolines.insert(*index, trampoline);
+            self.trampolines.insert(index, trampoline);
         }
         Ok(allocated_functions)
     }
