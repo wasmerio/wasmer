@@ -99,7 +99,8 @@ impl Run {
         }
 
         // If WASI is enabled, try to execute it with it
-        if cfg!(feature = "wasi") {
+        #[cfg(feature = "wasi")]
+        {
             let wasi_version = Wasi::get_version(&module);
             if let Some(version) = wasi_version {
                 let program_name = self
