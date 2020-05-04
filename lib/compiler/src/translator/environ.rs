@@ -9,8 +9,8 @@ use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::FunctionType;
 use wasm_common::{
-    DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FuncIndex,
-    GlobalIndex, GlobalInit, GlobalType, ImportIndex, LocalFuncIndex, MemoryIndex, MemoryType,
+    DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FunctionIndex,
+    GlobalIndex, GlobalInit, GlobalType, ImportIndex, LocalFunctionIndex, MemoryIndex, MemoryType,
     SignatureIndex, TableIndex, TableType,
 };
 use wasmer_runtime::{Module, TableElements};
@@ -34,7 +34,7 @@ pub struct ModuleTranslation<'data> {
     pub module: Module,
 
     /// References to the function bodies.
-    pub function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
+    pub function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
 
     /// References to the data initializers.
     pub data_initializers: Vec<DataInitializer<'data>>,
@@ -120,7 +120,7 @@ impl<'data> ModuleEnvironment<'data> {
             "Imported functions must be declared first"
         );
         self.declare_import(
-            ImportIndex::Function(FuncIndex::from_u32(
+            ImportIndex::Function(FunctionIndex::from_u32(
                 self.result.module.num_imported_funcs as _,
             )),
             module,
@@ -283,7 +283,7 @@ impl<'data> ModuleEnvironment<'data> {
 
     pub(crate) fn declare_func_export(
         &mut self,
-        func_index: FuncIndex,
+        func_index: FunctionIndex,
         name: &str,
     ) -> WasmResult<()> {
         self.declare_export(ExportIndex::Function(func_index), name)
@@ -313,7 +313,7 @@ impl<'data> ModuleEnvironment<'data> {
         self.declare_export(ExportIndex::Global(global_index), name)
     }
 
-    pub(crate) fn declare_start_func(&mut self, func_index: FuncIndex) -> WasmResult<()> {
+    pub(crate) fn declare_start_func(&mut self, func_index: FunctionIndex) -> WasmResult<()> {
         debug_assert!(self.result.module.start_func.is_none());
         self.result.module.start_func = Some(func_index);
         Ok(())
@@ -332,7 +332,7 @@ impl<'data> ModuleEnvironment<'data> {
         table_index: TableIndex,
         base: Option<GlobalIndex>,
         offset: usize,
-        elements: Box<[FuncIndex]>,
+        elements: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
         self.result.module.table_elements.push(TableElements {
             table_index,
@@ -346,7 +346,7 @@ impl<'data> ModuleEnvironment<'data> {
     pub(crate) fn declare_passive_element(
         &mut self,
         elem_index: ElemIndex,
-        segments: Box<[FuncIndex]>,
+        segments: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
         let old = self
             .result
@@ -428,7 +428,7 @@ impl<'data> ModuleEnvironment<'data> {
 
     pub(crate) fn declare_func_name(
         &mut self,
-        func_index: FuncIndex,
+        func_index: FunctionIndex,
         name: &'data str,
     ) -> WasmResult<()> {
         self.result

@@ -9,7 +9,7 @@ use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
-use wasm_common::{FuncIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::wasmparser::Operator;
 use wasmer_compiler::WasmResult;
 
@@ -146,7 +146,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn make_direct_func(
         &mut self,
         func: &mut ir::Function,
-        index: FuncIndex,
+        index: FunctionIndex,
     ) -> WasmResult<ir::FuncRef>;
 
     /// Translate a `call_indirect` WebAssembly instruction at `pos`.
@@ -180,7 +180,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn translate_call(
         &mut self,
         mut pos: FuncCursor,
-        _callee_index: FuncIndex,
+        _callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {

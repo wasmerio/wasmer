@@ -6,7 +6,7 @@ use crate::config::SinglepassConfig;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
-use wasm_common::{FuncIndex, FunctionType, LocalFuncIndex, MemoryIndex, TableIndex};
+use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, Compiler, FunctionBody};
@@ -52,7 +52,7 @@ impl Compiler for SinglepassCompiler {
         &self,
         _module: &Module,
         _module_translation: &ModuleTranslationState,
-        _function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'_>>,
+        _function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         _memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         _table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {

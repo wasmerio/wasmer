@@ -4,7 +4,7 @@ use region;
 use std::mem::ManuallyDrop;
 use std::{cmp, mem};
 use wasm_common::entity::PrimaryMap;
-use wasm_common::LocalFuncIndex;
+use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::FunctionBody;
 use wasmer_runtime::{Mmap, VMFunctionBody};
 
@@ -60,8 +60,8 @@ impl CodeMemory {
     /// Allocate a continuous memory blocks for a single compiled function.
     pub fn allocate_functions(
         &mut self,
-        functions: &PrimaryMap<LocalFuncIndex, FunctionBody>,
-    ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, String> {
+        functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
+    ) -> Result<PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>, String> {
         let fat_ptrs = self.allocate_for_compilation(functions)?;
 
         // Second, create a PrimaryMap from result vector of pointers.
@@ -94,7 +94,7 @@ impl CodeMemory {
     /// Allocates memory for both the function bodies as well as function unwind data.
     pub fn allocate_for_compilation(
         &mut self,
-        compilation: &PrimaryMap<LocalFuncIndex, FunctionBody>,
+        compilation: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
     ) -> Result<Box<[&mut [VMFunctionBody]]>, String> {
         let total_len = compilation
             .values()

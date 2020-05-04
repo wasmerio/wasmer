@@ -12,7 +12,7 @@ use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Re
 use serde::{Deserialize, Serialize};
 
 use wasm_common::entity::PrimaryMap;
-use wasm_common::LocalFuncIndex;
+use wasm_common::LocalFunctionIndex;
 
 /// The frame info for a Compiled function.
 ///
@@ -59,7 +59,7 @@ pub struct CompiledFunction {
 }
 
 /// The compiled functions map (index in the Wasm -> function)
-pub type Functions = PrimaryMap<LocalFuncIndex, CompiledFunction>;
+pub type Functions = PrimaryMap<LocalFunctionIndex, CompiledFunction>;
 
 /// The custom sections for a Compilation.
 pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
@@ -85,7 +85,7 @@ impl Compilation {
     }
 
     /// Gets the bytes of a single function
-    pub fn get(&self, func: LocalFuncIndex) -> &CompiledFunction {
+    pub fn get(&self, func: LocalFunctionIndex) -> &CompiledFunction {
         &self.functions[func]
     }
 
@@ -100,35 +100,35 @@ impl Compilation {
     }
 
     /// Gets functions jump table offsets.
-    pub fn get_relocations(&self) -> PrimaryMap<LocalFuncIndex, Vec<Relocation>> {
+    pub fn get_relocations(&self) -> PrimaryMap<LocalFunctionIndex, Vec<Relocation>> {
         self.functions
             .iter()
             .map(|(_, func)| func.relocations.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
     /// Gets functions jump table offsets.
-    pub fn get_function_bodies(&self) -> PrimaryMap<LocalFuncIndex, FunctionBody> {
+    pub fn get_function_bodies(&self) -> PrimaryMap<LocalFunctionIndex, FunctionBody> {
         self.functions
             .iter()
             .map(|(_, func)| func.body.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
     /// Gets functions jump table offsets.
-    pub fn get_jt_offsets(&self) -> PrimaryMap<LocalFuncIndex, JumpTableOffsets> {
+    pub fn get_jt_offsets(&self) -> PrimaryMap<LocalFunctionIndex, JumpTableOffsets> {
         self.functions
             .iter()
             .map(|(_, func)| func.jt_offsets.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
     /// Gets functions jump table offsets.
-    pub fn get_frame_info(&self) -> PrimaryMap<LocalFuncIndex, CompiledFunctionFrameInfo> {
+    pub fn get_frame_info(&self) -> PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
         self.functions
             .iter()
             .map(|(_, func)| func.frame_info.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
     /// Gets custom section data.

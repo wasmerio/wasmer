@@ -33,8 +33,8 @@ use std::collections::HashMap;
 use crate::config::LLVMConfig;
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
-    FuncIndex, FunctionType, GlobalIndex, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex,
-    Type,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex, Type,
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
@@ -102,12 +102,12 @@ impl FuncTranslator {
     pub fn translate(
         &mut self,
         wasm_module: &WasmerCompilerModule,
-        func_index: &LocalFuncIndex,
+        func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVMConfig,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
-        func_names: &SecondaryMap<FuncIndex, String>,
+        func_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<(CompiledFunction, Vec<LocalRelocation>, Vec<CustomSection>), CompileError> {
         let func_index = wasm_module.func_index(*func_index);
         let func_name = func_names.get(func_index).unwrap();
@@ -1308,8 +1308,8 @@ pub struct LLVMModuleCodeGenerator<'ctx> {
     intrinsics: Option<Intrinsics<'ctx>>,
     functions: Vec<LLVMFunctionCodeGenerator<'ctx>>,
     signatures: Map<SignatureIndex, FunctionType<'ctx>>,
-    function_signatures: Option<Arc<Map<FuncIndex, SignatureIndex>>>,
-    llvm_functions: Rc<RefCell<HashMap<FuncIndex, FunctionValue<'ctx>>>>,
+    function_signatures: Option<Arc<Map<FunctionIndex, SignatureIndex>>>,
+    llvm_functions: Rc<RefCell<HashMap<FunctionIndex, FunctionValue<'ctx>>>>,
     func_import_count: usize,
     personality_func: ManuallyDrop<FunctionValue<'ctx>>,
     module: ManuallyDrop<Rc<RefCell<Module<'ctx>>>>,
@@ -2147,7 +2147,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 state.push1_extra(res, info);
             }
             Operator::Call { function_index } => {
-                let func_index = FuncIndex::from_u32(function_index);
+                let func_index = FunctionIndex::from_u32(function_index);
                 let sigindex = module.functions.get(func_index).unwrap();
                 let func_type = module.signatures.get(*sigindex).unwrap();
                 let func_name = module.func_names.get(&func_index).unwrap();
@@ -9082,7 +9082,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Com
             ),
         };
 
-        let func_index = FuncIndex::new(self.func_import_count + self.functions.len());
+        let func_index = FunctionIndex::new(self.func_import_count + self.functions.len());
         let sig_id = self.function_signatures.as_ref().unwrap()[func_index];
         let func_sig = module_info.read().unwrap().signatures[sig_id].clone();
 
@@ -9291,7 +9291,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Com
 
     fn feed_function_signatures(
         &mut self,
-        assoc: Map<FuncIndex, SignatureIndex>,
+        assoc: Map<FunctionIndex, SignatureIndex>,
     ) -> Result<(), CompileError> {
         for (index, sig_id) in &assoc {
             if index.index() >= self.func_import_count {

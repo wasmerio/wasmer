@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{FunctionType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasm_common::{FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::{Compilation, CompileError, FunctionBody, Target};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
@@ -192,9 +192,9 @@ impl JITEngineInner {
     pub(crate) fn allocate<'data>(
         &mut self,
         module: &Module,
-        functions: &PrimaryMap<LocalFuncIndex, FunctionBody>,
+        functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
-    ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, CompileError> {
+    ) -> Result<PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>, CompileError> {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
         let allocated_functions =

@@ -18,7 +18,7 @@ use std::vec::Vec;
 use wasm_common::entity::packed_option::ReservedValue;
 use wasm_common::entity::EntityRef;
 use wasm_common::{
-    DataIndex, ElemIndex, FuncIndex, FunctionType, GlobalIndex, GlobalInit, GlobalType,
+    DataIndex, ElemIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalInit, GlobalType,
     MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, Type, V128,
 };
 use wasmparser::{
@@ -239,7 +239,7 @@ pub fn parse_global_section(
             }
             Operator::RefNull => GlobalInit::RefNullConst,
             Operator::RefFunc { function_index } => {
-                GlobalInit::RefFunc(FuncIndex::from_u32(function_index))
+                GlobalInit::RefFunc(FunctionIndex::from_u32(function_index))
             }
             Operator::GlobalGet { global_index } => {
                 GlobalInit::GetGlobal(GlobalIndex::from_u32(global_index))
@@ -280,7 +280,9 @@ pub fn parse_export_section<'data>(
         // becomes a concern here.
         let index = index as usize;
         match *kind {
-            ExternalKind::Function => environ.declare_func_export(FuncIndex::new(index), field)?,
+            ExternalKind::Function => {
+                environ.declare_func_export(FunctionIndex::new(index), field)?
+            }
             ExternalKind::Table => environ.declare_table_export(TableIndex::new(index), field)?,
             ExternalKind::Memory => {
                 environ.declare_memory_export(MemoryIndex::new(index), field)?
@@ -297,17 +299,17 @@ pub fn parse_export_section<'data>(
 
 /// Parses the Start section of the wasm module.
 pub fn parse_start_section(index: u32, environ: &mut ModuleEnvironment) -> WasmResult<()> {
-    environ.declare_start_func(FuncIndex::from_u32(index))?;
+    environ.declare_start_func(FunctionIndex::from_u32(index))?;
     Ok(())
 }
 
-fn read_elems(items: &ElementItems) -> WasmResult<Box<[FuncIndex]>> {
+fn read_elems(items: &ElementItems) -> WasmResult<Box<[FunctionIndex]>> {
     let items_reader = items.get_items_reader().map_err(to_wasm_error)?;
     let mut elems = Vec::with_capacity(usize::try_from(items_reader.get_count()).unwrap());
     for item in items_reader {
         let elem = match item.map_err(to_wasm_error)? {
-            ElementItem::Null => FuncIndex::reserved_value(),
-            ElementItem::Func(index) => FuncIndex::from_u32(index),
+            ElementItem::Null => FunctionIndex::reserved_value(),
+            ElementItem::Func(index) => FunctionIndex::from_u32(index),
         };
         elems.push(elem);
     }
@@ -461,7 +463,7 @@ pub fn parse_name_section<'data>(
 
 fn parse_function_name_subsection(
     mut naming_reader: NamingReader<'_>,
-) -> Option<HashMap<FuncIndex, &str>> {
+) -> Option<HashMap<FunctionIndex, &str>> {
     let mut function_names = HashMap::new();
     for _ in 0..naming_reader.get_count() {
         let Naming { index, name } = naming_reader.read().ok()?;
@@ -471,7 +473,7 @@ fn parse_function_name_subsection(
         }
 
         if function_names
-            .insert(FuncIndex::from_u32(index), name)
+            .insert(FunctionIndex::from_u32(index), name)
             .is_some()
         {
             // If the function index has been previously seen, then we

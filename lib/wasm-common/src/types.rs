@@ -1,4 +1,4 @@
-use crate::indexes::{FuncIndex, GlobalIndex};
+use crate::indexes::{FunctionIndex, GlobalIndex};
 use crate::units::Pages;
 use crate::values::Value;
 
@@ -358,7 +358,7 @@ pub enum GlobalInit {
     /// A `ref.null`.
     RefNullConst,
     /// A `ref.func <index>`.
-    RefFunc(FuncIndex),
+    RefFunc(FunctionIndex),
 }
 
 impl GlobalInit {

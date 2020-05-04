@@ -14,7 +14,8 @@ use cranelift_codegen::{binemit, isa, Context};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
-    Features, FuncIndex, FunctionType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex,
+    Features, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex,
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{
@@ -31,7 +32,7 @@ pub struct RelocSink<'a> {
     module: &'a Module,
 
     /// Current function index.
-    local_func_index: LocalFuncIndex,
+    local_func_index: LocalFunctionIndex,
 
     /// Relocations recorded for the function.
     pub func_relocs: Vec<Relocation>,
@@ -58,7 +59,7 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
             debug_assert_eq!(namespace, 0);
             RelocationTarget::LocalFunc(
                 self.module
-                    .local_func_index(FuncIndex::from_u32(index))
+                    .local_func_index(FunctionIndex::from_u32(index))
                     .expect("The provided function should be local"),
             )
         } else if let ExternalName::LibCall(libcall) = *name {
@@ -99,7 +100,7 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
 
 impl<'a> RelocSink<'a> {
     /// Return a new `RelocSink` instance.
-    pub fn new(module: &'a Module, func_index: FuncIndex) -> Self {
+    pub fn new(module: &'a Module, func_index: FunctionIndex) -> Self {
         let local_func_index = module
             .local_func_index(func_index)
             .expect("The provided function should be local");
@@ -200,7 +201,7 @@ impl Compiler for CraneliftCompiler {
         &self,
         module: &Module,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'_>>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
@@ -214,7 +215,7 @@ impl Compiler for CraneliftCompiler {
 
         let functions = function_body_inputs
             .into_iter()
-            .collect::<Vec<(LocalFuncIndex, &FunctionBodyData<'_>)>>()
+            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
                 let func_index = module.func_index(*i);
@@ -279,7 +280,7 @@ impl Compiler for CraneliftCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<LocalFuncIndex, _>>();
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         let custom_sections = PrimaryMap::new();
 

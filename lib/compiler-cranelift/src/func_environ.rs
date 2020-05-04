@@ -11,14 +11,14 @@ use cranelift_codegen::isa::TargetFrontendConfig;
 use std::convert::TryFrom;
 use wasm_common::entity::EntityRef;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{FuncIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_runtime::VMBuiltinFunctionIndex;
 use wasmer_runtime::VMOffsets;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
-pub fn get_func_name(func_index: FuncIndex) -> ir::ExternalName {
+pub fn get_func_name(func_index: FunctionIndex) -> ir::ExternalName {
     ir::ExternalName::user(0, func_index.as_u32())
 }
 
@@ -731,7 +731,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn make_direct_func(
         &mut self,
         func: &mut ir::Function,
-        index: FuncIndex,
+        index: FunctionIndex,
     ) -> WasmResult<ir::FuncRef> {
         let sigidx = self.module.functions[index];
         let signature = func.import_signature(self.signatures[sigidx].clone());
@@ -823,7 +823,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn translate_call(
         &mut self,
         mut pos: FuncCursor<'_>,
-        callee_index: FuncIndex,
+        callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
