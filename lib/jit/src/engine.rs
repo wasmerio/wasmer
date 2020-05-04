@@ -10,7 +10,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FuncType, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex};
-use wasmer_compiler::{Compilation, CompileError, Compiler, CompilerConfig, FunctionBody, Target};
+use wasmer_compiler::{Compilation, CompileError, FunctionBody, Target};
+#[cfg(feature = "compiler")]
+use wasmer_compiler::{Compiler, CompilerConfig};
 use wasmer_runtime::{
     InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
     VMSharedSignatureIndex, VMTrampoline,
@@ -27,6 +29,7 @@ impl JITEngine {
     const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
 
     /// Create a new `JITEngine` with the given config
+    #[cfg(feature = "compiler")]
     pub fn new<C: CompilerConfig>(config: &C, tunables: impl Tunables + 'static) -> Self
     where
         C: ?Sized,
@@ -59,6 +62,7 @@ impl JITEngine {
     pub fn headless(tunables: impl Tunables + 'static) -> Self {
         Self {
             inner: Arc::new(RefCell::new(JITEngineInner {
+                #[cfg(feature = "compiler")]
                 compiler: None,
                 trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
@@ -148,6 +152,7 @@ impl JITEngine {
 /// The inner contents of `JITEngine`
 pub struct JITEngineInner {
     /// The compiler
+    #[cfg(feature = "compiler")]
     compiler: Option<Box<dyn Compiler>>,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
@@ -161,6 +166,7 @@ pub struct JITEngineInner {
 
 impl JITEngineInner {
     /// Gets the compiler associated to this JIT
+    #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
             return Err(CompileError::Codegen("The JITEngine is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
@@ -169,8 +175,17 @@ impl JITEngineInner {
     }
 
     /// Validate the module
+    #[cfg(feature = "compiler")]
     pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
         self.compiler()?.validate_module(data)
+    }
+
+    /// Validate the module
+    #[cfg(not(feature = "compiler"))]
+    pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
+        Err(CompileError::Validate(
+            "Validation is only enabled with the compiler feature".to_string(),
+        ))
     }
 
     /// Compile the given function bodies.

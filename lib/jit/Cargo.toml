@@ -29,5 +29,10 @@ lazy_static = "1.4"
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3.8", features = ["winnt", "impl-default"] }
 
+[features]
+# Enable the `compiler` feature if you want the engine to compile
+# and not be only on headless mode.
+compiler = []
+
 [badges]
 maintenance = { status = "actively-developed" }

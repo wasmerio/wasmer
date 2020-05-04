@@ -60,6 +60,7 @@ default = ["wast", "wasi", "experimental-io-devices", "compiler-cranelift", "cac
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
+compiler = ["wasmer-jit/compiler"]
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices"
 ]
@@ -67,14 +68,17 @@ compiler-singlepass = [
     "test-utils/compiler-singlepass",
     "wasmer/compiler-singlepass",
     "wasmer-compiler-singlepass",
+    "compiler",
 ]
 compiler-cranelift = [
     "test-utils/compiler-cranelift",
     "wasmer/compiler-cranelift",
     "wasmer-compiler-cranelift",
+    "compiler",
 ]
 compiler-llvm = [
     "test-utils/compiler-llvm",
     "wasmer/compiler-llvm",
     "wasmer-compiler-llvm",
+    "compiler",
 ]

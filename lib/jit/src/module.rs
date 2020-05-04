@@ -41,6 +41,7 @@ pub struct CompiledModule {
 
 impl CompiledModule {
     /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
+    #[cfg(feature = "compiler")]
     pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let mut jit_compiler = jit.compiler_mut();
@@ -116,6 +117,14 @@ impl CompiledModule {
             table_plans,
         };
         Self::from_parts(&mut jit_compiler, serializable)
+    }
+
+    /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
+    #[cfg(not(feature = "compiler"))]
+    pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
+        Err(CompileError::Codegen(
+            "Compilation is not enabled in the engine".to_string(),
+        ))
     }
 
     /// Serialize a CompiledModule
