@@ -25,7 +25,7 @@ pub enum IoCompileError {
 ///
 /// ## Cloning a module
 ///
-/// Cloning a moudle is cheap: it does a shallow copy of the compiled
+/// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
 #[derive(Clone)]
 pub struct Module {
