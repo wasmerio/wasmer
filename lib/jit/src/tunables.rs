@@ -11,8 +11,8 @@ pub trait Tunables {
     fn table_plan(&self, table: TableType) -> TablePlan;
 
     /// Create a memory given a memory type
-    fn create_memory(&self, memory_type: MemoryType) -> Result<LinearMemory, String>;
+    fn create_memory(&self, memory_type: MemoryPlan) -> Result<LinearMemory, String>;
 
     /// Create a memory given a memory type
-    fn create_table(&self, table_type: TableType) -> Table;
+    fn create_table(&self, table_type: TablePlan) -> Table;
 }
