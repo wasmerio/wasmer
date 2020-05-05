@@ -1,4 +1,4 @@
-## Wasmer
+# Wasmer [![Build Status](https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square)](https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
 
 [`Wasmer`](https://wasmer.io/) is the most popular [WebAssembly](https://webassembly.org/)
 runtime for Rust. It supports JIT (Just in Time) and AOT (Ahead of time)
@@ -6,7 +6,7 @@ compilation as well as mulitple compiler implementations.
 
 It's designed to be safe and secure, and runnable in any kind of environment.
 
-### Usage
+## Usage
 
 Add to your `Cargo.toml`
 
@@ -41,7 +41,7 @@ fn main() -> error::Result<()> {
 }
 ```
 
-### Features
+## Features
 
 Wasmer is not only fast, but also designed to be highly customizable:
 * **Pluggable Engines**: do you have a fancy `dlopen` implementation? This is for you!
@@ -51,7 +51,7 @@ Wasmer is not only fast, but also designed to be highly customizable:
 * **Cross-compilation**: You can pre-compile a module and serialize it
   to then run it in other platform (via `Module::serialize()`).
 
-### Config flags
+## Config flags
 
 Wasmer supports multiple features, from different engines to different compilers:
 * `wat` (enabled by default): It allows to read WebAssembly files in their text format.
@@ -66,3 +66,7 @@ Wasmer supports multiple features, from different engines to different compilers
 
 > Note: if you want to use multiple compilers at the same time, it's also possible!
 > You will need to import them directly via each of the compiler crates.
+
+---
+
+Made with ❤️ by the Wasmer team, for the community
