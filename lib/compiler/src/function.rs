@@ -35,7 +35,7 @@ pub struct FunctionBody {
     pub body: Vec<u8>,
 
     /// The function unwind info
-    pub unwind_info: CompiledFunctionUnwindInfo,
+    pub unwind_info: Option<CompiledFunctionUnwindInfo>,
 }
 
 /// The result of compiling a WebAssembly function.

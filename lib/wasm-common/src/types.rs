@@ -339,6 +339,16 @@ impl GlobalType {
     }
 }
 
+impl std::fmt::Display for GlobalType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mutability = match self.mutability {
+            Mutability::Const => "constant",
+            Mutability::Var => "mutable",
+        };
+        write!(f, "{} ({})", self.ty, mutability)
+    }
+}
+
 /// Globals are initialized via the `const` operators or by referring to another import.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -414,6 +424,16 @@ impl TableType {
     }
 }
 
+impl std::fmt::Display for TableType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if let Some(maximum) = self.maximum {
+            write!(f, "{} ({}..{})", self.ty, self.minimum, maximum)
+        } else {
+            write!(f, "{} ({}..)", self.ty, self.minimum)
+        }
+    }
+}
+
 // Memory Types
 
 /// A descriptor for a WebAssembly memory type.
@@ -450,6 +470,17 @@ impl MemoryType {
     }
 }
 
+impl std::fmt::Display for MemoryType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let shared = if self.shared { "shared" } else { "not shared" };
+        if let Some(maximum) = self.maximum {
+            write!(f, "{} ({:?}..{:?})", shared, self.minimum, maximum)
+        } else {
+            write!(f, "{} ({:?}..)", shared, self.minimum)
+        }
+    }
+}
+
 // Import Types
 
 /// A descriptor for an imported value into a wasm module.
@@ -460,17 +491,17 @@ impl MemoryType {
 /// imported from as well as the type of item that's being imported.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct ImportType {
+pub struct ImportType<T = ExternType> {
     module: String,
     name: String,
-    ty: ExternType,
+    ty: T,
 }
 
-impl ImportType {
+impl<T> ImportType<T> {
     /// Creates a new import descriptor which comes from `module` and `name` and
     /// is of type `ty`.
-    pub fn new(module: &str, name: &str, ty: ExternType) -> ImportType {
-        ImportType {
+    pub fn new(module: &str, name: &str, ty: T) -> Self {
+        Self {
             module: module.to_owned(),
             name: name.to_owned(),
             ty,
@@ -489,7 +520,7 @@ impl ImportType {
     }
 
     /// Returns the expected type of this import.
-    pub fn ty(&self) -> &ExternType {
+    pub fn ty(&self) -> &T {
         &self.ty
     }
 }
@@ -502,17 +533,21 @@ impl ImportType {
 /// [`Module::exports`](crate::Module::exports) accessor and describes what
 /// names are exported from a wasm module and the type of the item that is
 /// exported.
+///
+/// The `<T>` refefers to `ExternType`, however it can also refer to use
+/// `MemoryType`, `TableType`, `FunctionType` and `GlobalType` for ease of
+/// use.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct ExportType {
+pub struct ExportType<T = ExternType> {
     name: String,
-    ty: ExternType,
+    ty: T,
 }
 
-impl ExportType {
+impl<T> ExportType<T> {
     /// Creates a new export which is exported with the given `name` and has the
     /// given `ty`.
-    pub fn new(name: &str, ty: ExternType) -> ExportType {
+    pub fn new(name: &str, ty: T) -> Self {
         ExportType {
             name: name.to_string(),
             ty,
@@ -525,7 +560,7 @@ impl ExportType {
     }
 
     /// Returns the type of this export.
-    pub fn ty(&self) -> &ExternType {
+    pub fn ty(&self) -> &T {
         &self.ty
     }
 }

@@ -18,9 +18,8 @@ use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
 };
 use wasmer_compiler::{
-    CodeOffset, CompiledFunction, CompiledFunctionUnwindInfo, CustomSection,
-    CustomSectionProtection, FunctionBody, Relocation, RelocationKind, RelocationTarget,
-    SectionBody, SectionIndex,
+    CodeOffset, CompiledFunction, CustomSection, CustomSectionProtection, FunctionBody, Relocation,
+    RelocationKind, RelocationTarget, SectionBody, SectionIndex,
 };
 use wasmer_runtime::{MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle, TrapCode};
 
@@ -8102,7 +8101,7 @@ impl<'a> FuncGen<'a> {
         CompiledFunction {
             body: FunctionBody {
                 body: self.assembler.finalize().unwrap().to_vec(),
-                unwind_info: CompiledFunctionUnwindInfo::None,
+                unwind_info: None,
             },
             relocations: self.relocations,
             jt_offsets: SecondaryMap::new(),
@@ -8286,7 +8285,7 @@ pub fn gen_std_trampoline(sig: FunctionType) -> FunctionBody {
 
     FunctionBody {
         body: a.finalize().unwrap().to_vec(),
-        unwind_info: CompiledFunctionUnwindInfo::None,
+        unwind_info: None,
     }
 }
 

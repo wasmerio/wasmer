@@ -5,7 +5,7 @@ use inkwell::{
     values::FunctionValue, AddressSpace,
 };
 use wasm_common::{FunctionType, Type};
-use wasmer_compiler::{CompileError, CompiledFunctionUnwindInfo, FunctionBody};
+use wasmer_compiler::{CompileError, FunctionBody};
 
 pub struct FuncTrampoline {
     ctx: Context,
@@ -97,7 +97,7 @@ impl FuncTrampoline {
 
         Ok(FunctionBody {
             body: bytes,
-            unwind_info: CompiledFunctionUnwindInfo::None,
+            unwind_info: None,
         })
     }
 }

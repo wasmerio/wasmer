@@ -8,7 +8,7 @@ use wasmer_compiler::{CompiledFunctionUnwindInfo, FDERelocEntry};
 pub fn compiled_function_unwind_info(
     isa: &dyn isa::TargetIsa,
     context: &Context,
-) -> CompiledFunctionUnwindInfo {
+) -> Option<CompiledFunctionUnwindInfo> {
     use cranelift_codegen::binemit::{FrameUnwindKind, FrameUnwindOffset, FrameUnwindSink, Reloc};
     use cranelift_codegen::isa::CallConv;
 
@@ -45,7 +45,7 @@ pub fn compiled_function_unwind_info(
         CallConv::SystemV | CallConv::Fast | CallConv::Cold => FrameUnwindKind::Libunwind,
         CallConv::WindowsFastcall => FrameUnwindKind::Fastcall,
         _ => {
-            return CompiledFunctionUnwindInfo::None;
+            return None;
         }
     };
 
@@ -54,11 +54,13 @@ pub fn compiled_function_unwind_info(
 
     let Sink(data, offset, relocs) = sink;
     if data.is_empty() {
-        return CompiledFunctionUnwindInfo::None;
+        return None;
     }
 
     match kind {
-        FrameUnwindKind::Fastcall => CompiledFunctionUnwindInfo::Windows(data),
-        FrameUnwindKind::Libunwind => CompiledFunctionUnwindInfo::FrameLayout(data, offset, relocs),
+        FrameUnwindKind::Fastcall => Some(CompiledFunctionUnwindInfo::Windows(data)),
+        FrameUnwindKind::Libunwind => Some(CompiledFunctionUnwindInfo::FrameLayout(
+            data, offset, relocs,
+        )),
     }
 }

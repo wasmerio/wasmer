@@ -1,7 +1,7 @@
 use anyhow::Result;
 #[cfg(feature = "wast")]
 use wasmer_bin::commands::Wast;
-use wasmer_bin::commands::{Cache, Compile, Run, SelfUpdate, Validate};
+use wasmer_bin::commands::{Cache, Compile, Inspect, Run, SelfUpdate, Validate};
 
 use structopt::{clap::ErrorKind, StructOpt};
 
@@ -29,6 +29,10 @@ enum WasmerCLIOptions {
     #[structopt(name = "self-update")]
     SelfUpdate(SelfUpdate),
 
+    /// Inspect a WebAssembly file
+    #[structopt(name = "inspect")]
+    Inspect(Inspect),
+
     /// Run spec testsuite
     #[cfg(feature = "wast")]
     #[structopt(name = "wast")]
@@ -43,6 +47,7 @@ impl WasmerCLIOptions {
             Self::Cache(cache) => cache.execute(),
             Self::Validate(validate) => validate.execute(),
             Self::Compile(compile) => compile.execute(),
+            Self::Inspect(inspect) => inspect.execute(),
             #[cfg(feature = "wast")]
             Self::Wast(wast) => wast.execute(),
         }
@@ -57,7 +62,9 @@ fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
     let command = args.get(1);
     let options = match command.unwrap_or(&"".to_string()).as_ref() {
-        "run" | "cache" | "validate" | "compile" | "self-update" => WasmerCLIOptions::from_args(),
+        "run" | "cache" | "validate" | "compile" | "self-update" | "inspect" => {
+            WasmerCLIOptions::from_args()
+        }
         _ => {
             WasmerCLIOptions::from_iter_safe(args.iter()).unwrap_or_else(|e| {
                 match e.kind {
