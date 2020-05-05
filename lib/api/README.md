@@ -29,7 +29,7 @@ fn main() -> anyhow::Result<()> {
     "#;
 
     let module = Module::new(&module_wat);
-    // We're not importing anything, so make an empty import object.
+    // The module doesn't import anything, so we create an empty import object.
     let import_object = imports! {};
     let instance = Instance::new(module, &import_object)?;
 
