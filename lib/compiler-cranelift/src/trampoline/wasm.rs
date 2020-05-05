@@ -6,8 +6,9 @@
 //! my_func.call([1, 2])
 //! ```
 use super::binemit::TrampolineRelocSink;
-use crate::translator::signature_to_cranelift_ir;
-use crate::{compiled_function_unwind_info, transform_jump_table};
+use crate::translator::{
+    compiled_function_unwind_info, signature_to_cranelift_ir, transform_jump_table,
+};
 use cranelift_codegen::ir::InstBuilder;
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::print_errors::pretty_error;
