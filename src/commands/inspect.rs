@@ -29,6 +29,22 @@ impl Inspect {
         println!("Wat: {}", if module.from_wat { "yes" } else { "no" });
         println!("Size: {}", ByteSize(module_contents.len() as _));
         println!("Imports:");
+        println!("  Functions:");
+        for f in module.imports().functions() {
+            println!("    \"{}\".\"{}\": {}", f.module(), f.name(), f.ty());
+        }
+        println!("  Memories:");
+        for f in module.imports().memories() {
+            println!("    \"{}\".\"{}\": {}", f.module(), f.name(), f.ty());
+        }
+        println!("  Tables:");
+        for f in module.imports().tables() {
+            println!("    \"{}\".\"{}\": {}", f.module(), f.name(), f.ty());
+        }
+        println!("  Globals:");
+        for f in module.imports().globals() {
+            println!("    \"{}\".\"{}\": {}", f.module(), f.name(), f.ty());
+        }
         println!("Exports:");
         println!("  Functions:");
         for f in module.exports().functions() {
