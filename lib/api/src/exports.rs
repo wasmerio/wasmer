@@ -16,9 +16,11 @@ use wasmer_runtime::Export;
 ///
 /// // This results with an error: `ExportError::IncompatibleType`.
 /// let missing_import: &Global = my_instance.exports.get("func")?;
+/// let missing_import = my_instance.exports.get_global("func")?;
 ///
 /// // This results with an error: `ExportError::Missing`.
-/// let missing_import: &Func = my_instance.exports.get("unknown")?;
+/// let missing_import: &Function = my_instance.exports.get("unknown")?;
+/// let missing_import = my_instance.exports.get_function("unknown")?;
 /// ```
 #[derive(Error, Debug)]
 pub enum ExportError {

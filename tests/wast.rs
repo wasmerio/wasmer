@@ -1,9 +1,11 @@
-#![cfg(feature = "compiler")]
+#![cfg(all(feature = "compiler", feature = "engine"))]
 
 use std::path::Path;
 use std::sync::Arc;
 use test_utils::get_compiler_config_from_str;
-use wasmer::{Features, JITEngine, Store, Tunables};
+use wasmer::{Features, Store, Tunables};
+#[cfg(feature = "jit")]
+use wasmer_engine_jit::JITEngine;
 use wasmer_wast::Wast;
 
 // The generated tests (from build.rs) look like:

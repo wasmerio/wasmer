@@ -167,13 +167,13 @@ pub fn with_test_module<T>(
     Ok(result)
 }
 
-pub fn with_backends(
+pub fn with_features(
     mut out: &mut Testsuite,
-    backends: &[&str],
+    features: &[&str],
     f: impl Fn(&mut Testsuite) -> anyhow::Result<()> + Copy,
 ) -> anyhow::Result<()> {
-    for compiler in backends.iter() {
-        writeln!(out.buffer, "#[cfg(feature=\"compiler-{}\")]", compiler)?;
+    for compiler in features.iter() {
+        writeln!(out.buffer, "#[cfg(feature=\"{}\")]", compiler)?;
         writeln!(out.buffer, "#[cfg(test)]")?;
         writeln!(out.buffer, "#[allow(non_snake_case)]")?;
         with_test_module(&mut out, &compiler, f)?;

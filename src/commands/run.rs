@@ -8,7 +8,7 @@ use std::sync::Arc;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, IoDeserializeError, WasmHash};
-#[cfg(feature = "engine-jit")]
+#[cfg(feature = "jit")]
 use wasmer_engine_jit::JITEngine;
 
 use structopt::StructOpt;
@@ -132,7 +132,7 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
-        #[cfg(feature = "engine-jit")]
+        #[cfg(feature = "jit")]
         {
             if JITEngine::is_deserializable(&contents) {
                 let tunables = Tunables::default();

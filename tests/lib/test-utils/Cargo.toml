@@ -16,15 +16,15 @@ wasmer-compiler-llvm = { path = "../../../lib/compiler-llvm", version = "0.16.2"
 
 [features]
 compiler = []
-compiler-singlepass = [
+singlepass = [
     "wasmer-compiler-singlepass",
     "compiler",
 ]
-compiler-cranelift = [
+cranelift = [
     "wasmer-compiler-cranelift",
     "compiler",
 ]
-compiler-llvm = [
+llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]

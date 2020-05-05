@@ -21,60 +21,6 @@ impl Store {
     pub fn same(a: &Store, b: &Store) -> bool {
         Arc::ptr_eq(&a.engine, &b.engine)
     }
-
-    #[cfg(any(
-        feature = "default-compiler-singlepass",
-        feature = "default-compiler-cranelift",
-        feature = "default-compiler-llvm",
-    ))]
-    pub fn default_compiler_config() -> impl CompilerConfig {
-        #[cfg(any(
-            all(
-                feature = "default-compiler-llvm",
-                any(
-                    feature = "default-compiler-cranelift",
-                    feature = "default-compiler-singlepass"
-                )
-            ),
-            all(
-                feature = "default-compiler-cranelift",
-                feature = "default-compiler-singlepass"
-            )
-        ))]
-        compile_error!(
-            "The `default-compiler-X` features are mutually exclusive. Please choose just one"
-        );
-
-        #[cfg(feature = "default-compiler-cranelift")]
-        return wasmer_compiler_cranelift::CraneliftConfig::default();
-
-        #[cfg(feature = "default-compiler-llvm")]
-        return wasmer_compiler_llvm::LLVMConfig::default();
-
-        #[cfg(feature = "default-compiler-singlepass")]
-        return wasmer_compiler_singlepass::SinglepassConfig::default();
-    }
-
-    #[cfg(all(
-        any(
-            feature = "default-compiler-singlepass",
-            feature = "default-compiler-cranelift",
-            feature = "default-compiler-llvm",
-        ),
-        any(feature = "default-engine-jit", feature = "default-engine-native",)
-    ))]
-    pub fn default_engine() -> impl Engine {
-        #[cfg(all(feature = "default-engine-jit", feature = "default-engine-native",))]
-        compile_error!(
-            "The `default-engine-X` features are mutually exclusive. Please choose just one"
-        );
-
-        let config = Self::default_compiler_config();
-        let tunables = Tunables::for_target(config.target().triple());
-
-        #[cfg(feature = "engine-jit")]
-        return wasmer_engine_jit::JITEngine::new(&config, tunables);
-    }
 }
 
 impl PartialEq for Store {
@@ -83,19 +29,36 @@ impl PartialEq for Store {
     }
 }
 
-// We only implement default if we have assigned a default compiler
-#[cfg(all(
-    any(
-        feature = "default-compiler-singlepass",
-        feature = "default-compiler-cranelift",
-        feature = "default-compiler-llvm",
-    ),
-    any(feature = "default-engine-jit", feature = "default-engine-native",)
-))]
+// We only implement default if we have assigned a default compiler and engine
+#[cfg(all(feature = "compiler", feature = "engine"))]
 impl Default for Store {
     fn default() -> Store {
-        let engine = Self::default_engine();
-        Store::new(Arc::new(engine))
+        // We store them on a function that returns to make
+        // sure this function doesn't emit a compile error even if
+        // more than one compiler is enabled.
+        #[allow(unreachable_code)]
+        fn get_config() -> Box<dyn CompilerConfig> {
+            #[cfg(feature = "cranelift")]
+            return Box::new(wasmer_compiler_cranelift::CraneliftConfig::default());
+
+            #[cfg(feature = "llvm")]
+            return Box::new(wasmer_compiler_llvm::LLVMConfig::default());
+
+            #[cfg(feature = "singlepass")]
+            return Box::new(wasmer_compiler_singlepass::SinglepassConfig::default());
+        }
+
+        #[allow(unreachable_code)]
+        fn get_engine(config: Box<dyn CompilerConfig>) -> Arc<dyn Engine> {
+            let tunables = Tunables::for_target(config.target().triple());
+
+            #[cfg(feature = "jit")]
+            return Arc::new(wasmer_engine_jit::JITEngine::new(&config, tunables));
+        }
+
+        let config = get_config();
+        let engine = get_engine(config);
+        Store::new(config)
     }
 }
 

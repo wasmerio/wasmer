@@ -8,7 +8,8 @@ use std::string::ToString;
 use std::sync::Arc;
 use structopt::StructOpt;
 use wasmer::*;
-#[cfg(feature = "engine-jit")]
+use wasmer_compiler::CompilerConfig;
+#[cfg(feature = "jit")]
 use wasmer_engine_jit::JITEngine;
 
 #[derive(Debug, Clone, StructOpt)]
@@ -82,11 +83,11 @@ impl StoreOptions {
             return Compiler::from_str(&backend);
         } else {
             // Auto mode, we choose the best compiler for that platform
-            if cfg!(feature = "compiler-cranelift") && cfg!(target_arch = "x86_64") {
+            if cfg!(feature = "cranelift") && cfg!(target_arch = "x86_64") {
                 return Ok(Compiler::Cranelift);
-            } else if cfg!(feature = "compiler-singlepass") && cfg!(target_arch = "x86_64") {
+            } else if cfg!(feature = "singlepass") && cfg!(target_arch = "x86_64") {
                 return Ok(Compiler::Singlepass);
-            } else if cfg!(feature = "compiler-llvm") {
+            } else if cfg!(feature = "llvm") {
                 return Ok(Compiler::LLVM);
             } else {
                 bail!("There are no available compilers for your architecture")
@@ -98,26 +99,22 @@ impl StoreOptions {
     #[allow(unused_variables)]
     fn get_config(&self, compiler: Compiler) -> Result<Box<dyn CompilerConfig>> {
         let config: Box<dyn CompilerConfig> = match compiler {
-            #[cfg(feature = "compiler-singlepass")]
+            #[cfg(feature = "singlepass")]
             Compiler::Singlepass => {
-                let config = SinglepassConfig::default();
+                let config = wasmer_compiler_singlepass::SinglepassConfig::default();
                 Box::new(config)
             }
-            #[cfg(feature = "compiler-cranelift")]
+            #[cfg(feature = "cranelift")]
             Compiler::Cranelift => {
-                let config = CraneliftConfig::default();
+                let config = wasmer_compiler_cranelift::CraneliftConfig::default();
                 Box::new(config)
             }
-            #[cfg(feature = "compiler-llvm")]
+            #[cfg(feature = "llvm")]
             Compiler::LLVM => {
-                let config = LLVMConfig::default();
+                let config = wasmer_compiler_llvm::LLVMConfig::default();
                 Box::new(config)
             }
-            #[cfg(not(all(
-                feature = "compiler-singlepass",
-                feature = "compiler-cranelift",
-                feature = "compiler-llvm",
-            )))]
+            #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
             compiler => bail!(
                 "The `{}` compiler is not included in this binary.",
                 compiler.to_string()
@@ -126,7 +123,7 @@ impl StoreOptions {
         return Ok(config);
     }
 
-    /// Get's the compiler config
+    /// Gets the compiler config
     fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, String)> {
         let compiler = self.get_compiler()?;
         let compiler_name = compiler.to_string();
@@ -134,16 +131,16 @@ impl StoreOptions {
         Ok((compiler_config, compiler_name))
     }
 
-    /// Get's the tunables for the compiler target
+    /// Gets the tunables for the compiler target
     pub fn get_tunables(&self, compiler_config: &dyn CompilerConfig) -> Tunables {
         Tunables::for_target(compiler_config.target().triple())
     }
 
-    /// Get's the store
+    /// Gets the store
     pub fn get_store(&self) -> Result<(Store, String)> {
         let (compiler_config, compiler_name) = self.get_compiler_config()?;
         let tunables = self.get_tunables(&*compiler_config);
-        #[cfg(feature = "engine-jit")]
+        #[cfg(feature = "jit")]
         let engine = JITEngine::new(&*compiler_config, tunables);
         let store = Store::new(Arc::new(engine));
         Ok((store, compiler_name))

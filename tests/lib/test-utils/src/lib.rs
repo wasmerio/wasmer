@@ -11,21 +11,21 @@ pub fn get_compiler_config_from_str(
     let target = Target::default();
 
     match compiler_name {
-        #[cfg(feature = "compiler-singlepass")]
+        #[cfg(feature = "singlepass")]
         "singlepass" => {
             let mut singlepass_config =
                 wasmer_compiler_singlepass::SinglepassConfig::new(features, target);
             singlepass_config.enable_nan_canonicalization = try_nan_canonicalization;
             Box::new(singlepass_config)
         }
-        #[cfg(feature = "compiler-cranelift")]
+        #[cfg(feature = "cranelift")]
         "cranelift" => {
             let mut cranelift_config =
                 wasmer_compiler_cranelift::CraneliftConfig::new(features, target);
             cranelift_config.enable_nan_canonicalization = try_nan_canonicalization;
             Box::new(cranelift_config)
         }
-        #[cfg(feature = "compiler-llvm")]
+        #[cfg(feature = "llvm")]
         "llvm" => {
             let mut llvm_config = wasmer_compiler_llvm::LLVMConfig::new(features, target);
             llvm_config.enable_nan_canonicalization = try_nan_canonicalization;
