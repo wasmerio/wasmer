@@ -34,12 +34,12 @@ pub trait Engine {
     /// Instantiates a WebAssembly module
     unsafe fn instantiate(
         &self,
-        compiled_module: &Arc<CompiledModule>,
+        compiled_module: &dyn CompiledModule,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError>;
 
     /// Serializes a WebAssembly module
-    fn serialize(&self, compiled_module: &Arc<CompiledModule>) -> Result<Vec<u8>, SerializeError>;
+    fn serialize(&self, compiled_module: &dyn CompiledModule) -> Result<Vec<u8>, SerializeError>;
 
     /// Deserializes a WebAssembly module
     fn deserialize(&self, bytes: &[u8]) -> Result<Arc<CompiledModule>, DeserializeError>;

@@ -1,6 +1,7 @@
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
 use crate::InstantiationError;
+use std::borrow::Borrow;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
@@ -155,7 +156,7 @@ impl Module {
     /// let serialized = module.serialize()?;
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.store.engine().serialize(&self.compiled)
+        self.store.engine().serialize(self.compiled.borrow())
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
@@ -197,7 +198,10 @@ impl Module {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
-            let instance_handle = self.store.engine().instantiate(&self.compiled, resolver)?;
+            let instance_handle = self
+                .store
+                .engine()
+                .instantiate(self.compiled.borrow(), resolver)?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any

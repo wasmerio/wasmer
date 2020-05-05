@@ -123,7 +123,7 @@ impl Engine for JITEngine {
     /// Instantiates a WebAssembly module
     unsafe fn instantiate(
         &self,
-        compiled_module: &Arc<dyn BaseCompiledModule>,
+        compiled_module: &dyn BaseCompiledModule,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
@@ -133,7 +133,7 @@ impl Engine for JITEngine {
     /// Serializes a WebAssembly module
     fn serialize(
         &self,
-        compiled_module: &Arc<dyn BaseCompiledModule>,
+        compiled_module: &dyn BaseCompiledModule,
     ) -> Result<Vec<u8>, SerializeError> {
         let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
         // We append the header
