@@ -2176,9 +2176,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let func_name = module.func_names.get(&func_index).unwrap();
                 let llvm_func_type = func_type_to_llvm(&self.context, &intrinsics, func_type);
 
-                let func =
+                let func = self.module.get_function(func_name);
+                // TODO: we could do this by comparing function indices instead
+                // of going through LLVM APIs and string comparisons.
+                let func = if func.is_none() {
                     self.module
-                        .add_function(func_name, llvm_func_type, Some(Linkage::External));
+                        .add_function(func_name, llvm_func_type, Some(Linkage::External))
+                } else {
+                    func.unwrap()
+                };
 
                 let params: Vec<_> = std::iter::once(ctx.basic())
                     .chain(
