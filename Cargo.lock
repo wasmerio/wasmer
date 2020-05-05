@@ -354,6 +354,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "distance"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d9d8664cf849d7d0f3114a3a387d2f5e4303176d746d5a951aaddc66dfe9240"
+
+[[package]]
 name = "either"
 version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1477,6 +1483,7 @@ version = "0.16.2"
 dependencies = [
  "anyhow",
  "atty",
+ "distance",
  "glob",
  "rustc_version",
  "structopt",

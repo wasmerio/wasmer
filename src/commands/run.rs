@@ -1,5 +1,6 @@
 use crate::common::get_cache_dir;
 use crate::store::StoreOptions;
+use crate::suggestions::suggest_function_exports;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -185,7 +186,34 @@ impl Run {
         invoke: &str,
         args: &Vec<String>,
     ) -> Result<Box<[Val]>> {
-        let func: &Function = instance.exports.get(&invoke)?;
+        let func: &Function = instance.exports.get(&invoke).map_err(|e| {
+            if instance.module().info().functions.len() == 0 {
+                anyhow!("The module has no exported functions to call.")
+            } else {
+                let suggested_functions = suggest_function_exports(instance.module(), "");
+                let names = suggested_functions.join(", ");
+                let suggested_command = format!(
+                    "wasmer {} -i {} {}",
+                    self.path.display(),
+                    suggested_functions.get(0).unwrap(),
+                    args.join(" ")
+                );
+                let suggestion =
+                    format!("Perhaps you mean to use: {}?\n{}", names, suggested_command);
+                match e {
+                    ExportError::Missing(_) => anyhow!(
+                        "No export `{}` found in the module.\n{}",
+                        invoke,
+                        suggestion
+                    ),
+                    ExportError::IncompatibleType => anyhow!(
+                        "Export `{}` found, but is not a function.\n{}",
+                        invoke,
+                        suggestion
+                    ),
+                }
+            }
+        })?;
         let func_ty = func.ty();
         let required_arguments = func_ty.params().len();
         let provided_arguments = args.len();

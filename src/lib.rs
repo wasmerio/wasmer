@@ -18,6 +18,7 @@ pub mod common;
 #[cfg(feature = "debug")]
 pub mod logging;
 pub mod store;
+pub mod suggestions;
 pub mod utils;
 
 /// Version number of this crate.

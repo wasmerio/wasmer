@@ -33,6 +33,7 @@ wasmer-cache = { version = "0.16.2", path = "lib/cache", optional = true }
 atty = "0.2"
 anyhow = "1.0.28"
 structopt = { version = "0.3", features = ["suggestions"] }
+distance = "0.4"
 
 [workspace]
 members = [
@@ -51,13 +52,14 @@ test-utils = { path = "tests/lib/test-utils" }
 [features]
 # Don't add the backend features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wast", "wasi", "experimental-io-devices", "compiler-cranelift", "cache"]
+default = ["wast", "compiler-cranelift", "cache"]
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
 compiler = ["wasmer-jit/compiler"]
 experimental-io-devices = [
-    "wasmer-wasi-experimental-io-devices"
+    "wasmer-wasi-experimental-io-devices",
+    "wasi"
 ]
 compiler-singlepass = [
     "test-utils/compiler-singlepass",
