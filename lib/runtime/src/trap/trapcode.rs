@@ -65,7 +65,7 @@ pub enum TrapCode {
 }
 
 impl TrapCode {
-    /// Get's the message for this trap code
+    /// Gets the message for this trap code
     pub fn message(&self) -> &str {
         match self {
             Self::StackOverflow => "call stack exhausted",

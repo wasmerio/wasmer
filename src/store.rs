@@ -123,7 +123,7 @@ impl StoreOptions {
         return Ok(config);
     }
 
-    /// Get's the compiler config
+    /// Gets the compiler config
     fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, String)> {
         let compiler = self.get_compiler()?;
         let compiler_name = compiler.to_string();
@@ -131,12 +131,12 @@ impl StoreOptions {
         Ok((compiler_config, compiler_name))
     }
 
-    /// Get's the tunables for the compiler target
+    /// Gets the tunables for the compiler target
     pub fn get_tunables(&self, compiler_config: &dyn CompilerConfig) -> Tunables {
         Tunables::for_target(compiler_config.target().triple())
     }
 
-    /// Get's the store
+    /// Gets the store
     pub fn get_store(&self) -> Result<(Store, String)> {
         let (compiler_config, compiler_name) = self.get_compiler_config()?;
         let tunables = self.get_tunables(&*compiler_config);

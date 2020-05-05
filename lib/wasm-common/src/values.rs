@@ -87,7 +87,7 @@ impl<T> Value<T> {
         }
     }
 
-    /// Get's a `Value` given a pointer and a `Type`
+    /// Gets a `Value` given a pointer and a `Type`
     pub unsafe fn read_value_from(p: *const i128, ty: Type) -> Value<T> {
         match ty {
             Type::I32 => Value::I32(ptr::read(p as *const i32)),
