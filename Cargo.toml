@@ -20,7 +20,7 @@ publish = false
 autoexamples = false
 
 [dependencies]
-wasmer = { version = "0.16.2", path = "lib/api" }
+wasmer = { version = "0.16.2", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "0.16.2", path = "lib/compiler" }
 wasmer-compiler-cranelift = { version = "0.16.2", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "0.16.2", path = "lib/compiler-singlepass", optional = true }
@@ -53,33 +53,34 @@ anyhow = "1.0.28"
 test-utils = { path = "tests/lib/test-utils" }
 
 [features]
-# Don't add the backend features in default, please add them on the Makefile
+# Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wast", "wasi", "compiler-cranelift", "cache"]
+default = ["wat", "wast", "wasi", "cranelift", "cache"]
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
+wat = ["wasmer/wat"]
 compiler = ["wasmer-jit/compiler"]
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices",
     "wasi"
 ]
-compiler-singlepass = [
-    "test-utils/compiler-singlepass",
-    "wasmer/compiler-singlepass",
+singlepass = [
     "wasmer-compiler-singlepass",
+    "test-utils/singlepass",
+    "wasmer/singlepass",
     "compiler",
 ]
-compiler-cranelift = [
-    "test-utils/compiler-cranelift",
-    "wasmer/compiler-cranelift",
+cranelift = [
     "wasmer-compiler-cranelift",
+    "test-utils/cranelift",
+    "wasmer/cranelift",
     "compiler",
 ]
-compiler-llvm = [
-    "test-utils/compiler-llvm",
-    "wasmer/compiler-llvm",
+llvm = [
     "wasmer-compiler-llvm",
+    "test-utils/llvm",
+    "wasmer/llvm",
     "compiler",
 ]
 

@@ -35,14 +35,32 @@ pub use wasmer_jit::{
     DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
 
-#[cfg(feature = "compiler-singlepass")]
-pub use wasmer_compiler_singlepass::SinglepassConfig;
+// The compilers are mutually exclusive
+#[cfg(any(
+    all(feature = "llvm", any(feature = "cranelift", feature = "singlepass")),
+    all(feature = "cranelift", feature = "singlepass")
+))]
+compile_error!(
+    r#"The `singlepass`, `cranelift` and `llvm` features are mutually exclusive.
+If you wish to use more than one compiler, you can simply import it from it's own crate. Eg.:
 
-#[cfg(feature = "compiler-cranelift")]
-pub use wasmer_compiler_cranelift::CraneliftConfig;
+```
+use wasmer::{Store, Engine};
+use wasmer_compiler_singlepass::SinglepassConfig;
 
-#[cfg(feature = "compiler-llvm")]
-pub use wasmer_compiler_llvm::LLVMConfig;
+let engine = Engine::new(SinglepassConfig::default());
+let store = Store::new_config(&engine);
+```"#
+);
+
+#[cfg(feature = "singlepass")]
+pub use wasmer_compiler_singlepass::SinglepassConfig as DefaultCompilerConfig;
+
+#[cfg(feature = "cranelift")]
+pub use wasmer_compiler_cranelift::CraneliftConfig as DefaultCompilerConfig;
+
+#[cfg(feature = "llvm")]
+pub use wasmer_compiler_llvm::LLVMConfig as DefaultCompilerConfig;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

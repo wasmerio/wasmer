@@ -26,37 +26,10 @@ impl Store {
         Arc::ptr_eq(&a.engine, &b.engine)
     }
 
-    #[cfg(any(
-        feature = "default-compiler-singlepass",
-        feature = "default-compiler-cranelift",
-        feature = "default-compiler-llvm",
-    ))]
-    pub fn default_compiler_config() -> impl CompilerConfig {
-        #[cfg(any(
-            all(
-                feature = "default-compiler-llvm",
-                any(
-                    feature = "default-compiler-cranelift",
-                    feature = "default-compiler-singlepass"
-                )
-            ),
-            all(
-                feature = "default-compiler-cranelift",
-                feature = "default-compiler-singlepass"
-            )
-        ))]
-        compile_error!(
-            "The `default-compiler-X` features are mutually exclusive. Please choose just one"
-        );
-
-        #[cfg(feature = "default-compiler-cranelift")]
-        return wasmer_compiler_cranelift::CraneliftConfig::default();
-
-        #[cfg(feature = "default-compiler-llvm")]
-        return wasmer_compiler_llvm::LLVMConfig::default();
-
-        #[cfg(feature = "default-compiler-singlepass")]
-        return wasmer_compiler_singlepass::SinglepassConfig::default();
+    #[cfg(feature = "compiler")]
+    fn new_config(config: impl CompilerConfig) -> Self {
+        let tunables = Tunables::for_target(config.target().triple());
+        Self::new(&Engine::new(&config, tunables))
     }
 }
 
@@ -67,16 +40,11 @@ impl PartialEq for Store {
 }
 
 // We only implement default if we have assigned a default compiler
-#[cfg(any(
-    feature = "default-compiler-singlepass",
-    feature = "default-compiler-cranelift",
-    feature = "default-compiler-llvm",
-))]
+#[cfg(feature = "compiler")]
 impl Default for Store {
     fn default() -> Store {
-        let config = Self::default_compiler_config();
-        let tunables = Tunables::for_target(config.target().triple());
-        Store::new(&Engine::new(&config, tunables))
+        let config = crate::DefaultCompilerConfig::default();
+        Store::new_config(config)
     }
 }
 
