@@ -491,17 +491,17 @@ impl std::fmt::Display for MemoryType {
 /// imported from as well as the type of item that's being imported.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct ImportType {
+pub struct ImportType<T = ExternType> {
     module: String,
     name: String,
-    ty: ExternType,
+    ty: T,
 }
 
-impl ImportType {
+impl<T> ImportType<T> {
     /// Creates a new import descriptor which comes from `module` and `name` and
     /// is of type `ty`.
-    pub fn new(module: &str, name: &str, ty: ExternType) -> ImportType {
-        ImportType {
+    pub fn new(module: &str, name: &str, ty: T) -> Self {
+        Self {
             module: module.to_owned(),
             name: name.to_owned(),
             ty,
@@ -520,7 +520,7 @@ impl ImportType {
     }
 
     /// Returns the expected type of this import.
-    pub fn ty(&self) -> &ExternType {
+    pub fn ty(&self) -> &T {
         &self.ty
     }
 }

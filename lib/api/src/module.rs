@@ -7,7 +7,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::{CompileError, WasmError};
 use wasmer_jit::{CompiledModule, DeserializeError, Resolver, SerializeError};
-use wasmer_runtime::{ExportsIterator, InstanceHandle, Module as ModuleInfo};
+use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, Module as ModuleInfo};
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -263,7 +263,7 @@ impl Module {
     ///     import.ty();
     /// }
     /// ```
-    pub fn imports<'a>(&'a self) -> impl Iterator<Item = ImportType> + 'a {
+    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
         self.compiled.module().imports()
     }
 

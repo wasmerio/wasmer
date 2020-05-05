@@ -237,8 +237,9 @@ impl Module {
     }
 
     /// Get the export types of the module
-    pub fn imports<'a>(&'a self) -> impl Iterator<Item = ImportType> + 'a {
-        self.imports
+    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+        let iter = self
+            .imports
             .iter()
             .map(move |((module, field, _), import_index)| {
                 let extern_type = match import_index {
@@ -261,7 +262,11 @@ impl Module {
                     }
                 };
                 ImportType::new(module, field, extern_type)
-            })
+            });
+        ImportsIterator {
+            iter,
+            size: self.imports.len(),
+        }
     }
 
     /// Convert a `LocalFunctionIndex` into a `FunctionIndex`.
@@ -356,7 +361,9 @@ impl fmt::Display for Module {
 
 // Code inspired from
 // https://www.reddit.com/r/rust/comments/9vspv4/extending_iterators_ergonomically/
-/// This iterator allows us to iterate
+
+/// This iterator allows us to iterate over the exports
+/// and offer nice API ergonomics over it.
 pub struct ExportsIterator<I: Iterator<Item = ExportType> + Sized> {
     iter: I,
     size: usize,
@@ -402,6 +409,74 @@ impl<I: Iterator<Item = ExportType> + Sized> ExportsIterator<I> {
 
 impl<I: Iterator<Item = ExportType> + Sized> Iterator for ExportsIterator<I> {
     type Item = ExportType;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+/// This iterator allows us to iterate over the imports
+/// and offer nice API ergonomics over it.
+pub struct ImportsIterator<I: Iterator<Item = ImportType> + Sized> {
+    iter: I,
+    size: usize,
+}
+
+impl<I: Iterator<Item = ImportType> + Sized> ExactSizeIterator for ImportsIterator<I> {
+    // We can easily calculate the remaining number of iterations.
+    fn len(&self) -> usize {
+        self.size
+    }
+}
+
+impl<I: Iterator<Item = ImportType> + Sized> ImportsIterator<I> {
+    /// Get only the functions
+    pub fn functions(self) -> impl Iterator<Item = ImportType<FunctionType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Function(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
+            _ => None,
+        })
+    }
+    /// Get only the memories
+    pub fn memories(self) -> impl Iterator<Item = ImportType<MemoryType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Memory(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
+            _ => None,
+        })
+    }
+    /// Get only the tables
+    pub fn tables(self) -> impl Iterator<Item = ImportType<TableType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Table(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
+            _ => None,
+        })
+    }
+    /// Get only the globals
+    pub fn globals(self) -> impl Iterator<Item = ImportType<GlobalType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Global(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
+            _ => None,
+        })
+    }
+}
+
+impl<I: Iterator<Item = ImportType> + Sized> Iterator for ImportsIterator<I> {
+    type Item = ImportType;
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
