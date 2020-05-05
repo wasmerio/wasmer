@@ -34,7 +34,7 @@
 
 use crate::probestack::PROBESTACK;
 use crate::table::Table;
-use crate::trap::raise_lib_trap;
+use crate::trap::{Trap, TrapCode, raise_lib_trap};
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -319,6 +319,15 @@ pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32
     instance.data_drop(data_index)
 }
 
+
+/// Implementation for raising a trap
+pub unsafe extern "C" fn wasmer_raise_trap(
+    trap_code: TrapCode
+) -> ! {
+    let trap = Trap::wasm(trap_code);
+    raise_lib_trap(trap)
+}
+
 /// The name of a runtime library routine.
 ///
 /// Runtime library calls are generated for Cranelift IR instructions that don't have an equivalent
@@ -348,6 +357,8 @@ pub enum LibCall {
     NearestF32,
     /// nearest.f64
     NearestF64,
+    /// A custom trap
+    RaiseTrap,
     // /// libc.memcpy
     // Memcpy,
     // /// libc.memset
@@ -371,6 +382,7 @@ impl LibCall {
             Self::FloorF64 => wasmer_f64_floor as usize,
             Self::TruncF64 => wasmer_f64_trunc as usize,
             Self::NearestF64 => wasmer_f64_nearest as usize,
+            Self::RaiseTrap => wasmer_raise_trap as usize,
             Self::Probestack => PROBESTACK as usize,
             // other => panic!("unexpected libcall: {}", other),
         }

@@ -644,9 +644,13 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_data_drop_index() -> Self {
         Self(12)
     }
+    /// Returns an index for wasm's `raise_trap` instruction.
+    pub const fn get_raise_trap_index() -> Self {
+        Self(13)
+    }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        13
+        14
     }
 
     /// Return the index as an u32 number.
@@ -702,6 +706,8 @@ impl VMBuiltinFunctionsArray {
             wasmer_memory_init as usize;
         ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() as usize] =
             wasmer_data_drop as usize;
+        ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as usize] =
+            wasmer_raise_trap as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 

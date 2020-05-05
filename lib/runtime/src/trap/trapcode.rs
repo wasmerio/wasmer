@@ -8,60 +8,61 @@ use serde::{Deserialize, Serialize};
 ///
 /// All trap instructions have an explicit trap code.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
+#[repr(u32)]
 pub enum TrapCode {
     /// The current stack space was exhausted.
     ///
     /// On some platforms, a stack overflow may also be indicated by a segmentation fault from the
     /// stack guard page.
-    StackOverflow,
+    StackOverflow =  0,
 
     /// Memory data doesn't fit the memory size.
     ///
     /// This only can happen during instantiation.
-    HeapSetterOutOfBounds,
+    HeapSetterOutOfBounds = 1,
 
     /// A `heap_addr` instruction detected an out-of-bounds error.
     ///
     /// Note that not all out-of-bounds heap accesses are reported this way;
     /// some are detected by a segmentation fault on the heap unmapped or
     /// offset-guard pages.
-    HeapAccessOutOfBounds,
+    HeapAccessOutOfBounds = 2,
 
     /// Table Elements doesn't fit the table size.
     ///
     /// This only can happen during instantiation.
-    TableSetterOutOfBounds,
+    TableSetterOutOfBounds = 3,
 
     /// A `table_addr` instruction detected an out-of-bounds error.
-    TableAccessOutOfBounds,
+    TableAccessOutOfBounds = 4,
 
     /// Other bounds checking error.
-    OutOfBounds,
+    OutOfBounds = 5,
 
     /// Indirect call to a null table entry.
-    IndirectCallToNull,
+    IndirectCallToNull = 6,
 
     /// Signature mismatch on indirect call.
-    BadSignature,
+    BadSignature = 7,
 
     /// An integer arithmetic operation caused an overflow.
-    IntegerOverflow,
+    IntegerOverflow = 8,
 
     /// An integer division by zero.
-    IntegerDivisionByZero,
+    IntegerDivisionByZero = 9,
 
     /// Failed float-to-int conversion.
-    BadConversionToInteger,
+    BadConversionToInteger = 10,
 
     /// Code that was supposed to have been unreachable was reached.
-    UnreachableCodeReached,
+    UnreachableCodeReached = 11,
 
     /// Execution has potentially run too long and may be interrupted.
     /// This trap is resumable.
-    Interrupt,
+    Interrupt = 12,
 
-    /// A user-defined trap code.
-    User(u16),
+    // /// A user-defined trap code.
+    // User(u16),
 }
 
 impl TrapCode {
@@ -81,7 +82,7 @@ impl TrapCode {
             Self::BadConversionToInteger => "invalid conversion to integer",
             Self::UnreachableCodeReached => "unreachable",
             Self::Interrupt => "interrupt",
-            Self::User(_) => unreachable!(),
+            // Self::User(_) => unreachable!(),
         }
     }
 }
@@ -103,7 +104,7 @@ impl Display for TrapCode {
             BadConversionToInteger => "bad_toint",
             UnreachableCodeReached => "unreachable",
             Interrupt => "interrupt",
-            User(x) => return write!(f, "user{}", x),
+            // User(x) => return write!(f, "user{}", x),
         };
         f.write_str(identifier)
     }
@@ -128,7 +129,7 @@ impl FromStr for TrapCode {
             "bad_toint" => Ok(BadConversionToInteger),
             "unreachable" => Ok(UnreachableCodeReached),
             "interrupt" => Ok(Interrupt),
-            _ if s.starts_with("user") => s[4..].parse().map(User).map_err(|_| ()),
+            // _ if s.starts_with("user") => s[4..].parse().map(User).map_err(|_| ()),
             _ => Err(()),
         }
     }
@@ -163,8 +164,8 @@ mod tests {
         }
         assert_eq!("bogus".parse::<TrapCode>(), Err(()));
 
-        assert_eq!(TrapCode::User(17).to_string(), "user17");
-        assert_eq!("user22".parse(), Ok(TrapCode::User(22)));
+        // assert_eq!(TrapCode::User(17).to_string(), "user17");
+        // assert_eq!("user22".parse(), Ok(TrapCode::User(22)));
         assert_eq!("user".parse::<TrapCode>(), Err(()));
         assert_eq!("user-1".parse::<TrapCode>(), Err(()));
         assert_eq!("users".parse::<TrapCode>(), Err(()));
