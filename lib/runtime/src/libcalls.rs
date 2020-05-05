@@ -34,7 +34,7 @@
 
 use crate::probestack::PROBESTACK;
 use crate::table::Table;
-use crate::trap::{Trap, TrapCode, raise_lib_trap};
+use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -319,11 +319,8 @@ pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32
     instance.data_drop(data_index)
 }
 
-
 /// Implementation for raising a trap
-pub unsafe extern "C" fn wasmer_raise_trap(
-    trap_code: TrapCode
-) -> ! {
+pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
     let trap = Trap::wasm(trap_code);
     raise_lib_trap(trap)
 }

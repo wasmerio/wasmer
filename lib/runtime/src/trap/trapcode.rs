@@ -14,7 +14,7 @@ pub enum TrapCode {
     ///
     /// On some platforms, a stack overflow may also be indicated by a segmentation fault from the
     /// stack guard page.
-    StackOverflow =  0,
+    StackOverflow = 0,
 
     /// Memory data doesn't fit the memory size.
     ///
@@ -60,7 +60,6 @@ pub enum TrapCode {
     /// Execution has potentially run too long and may be interrupted.
     /// This trap is resumable.
     Interrupt = 12,
-
     // /// A user-defined trap code.
     // User(u16),
 }
