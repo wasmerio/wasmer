@@ -213,6 +213,7 @@ impl FuncTranslator {
 
         // TODO: use phf?
         let mut libcalls = HashMap::new();
+        libcalls.insert("vm.exception.trap".to_string(), LibCall::RaiseTrap);
         libcalls.insert("truncf".to_string(), LibCall::TruncF32);
         libcalls.insert("trunc".to_string(), LibCall::TruncF64);
         libcalls.insert("ceilf".to_string(), LibCall::CeilF32);
