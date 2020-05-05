@@ -11,8 +11,8 @@ use wasm_common::{
 };
 use wasm_common::{
     DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FunctionIndex,
-    GlobalIndex, GlobalType, ImportIndex, LocalFunctionIndex, MemoryIndex, MemoryType,
-    SignatureIndex, TableIndex, TableType, Type,
+    GlobalIndex, GlobalType, ImportIndex, LocalFunctionIndex, LocalGlobalIndex, MemoryIndex,
+    MemoryType, SignatureIndex, TableIndex, TableType, Type,
 };
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
@@ -21,7 +21,7 @@ use wasmer_compiler::{
     CodeOffset, CompiledFunction, CustomSection, CustomSectionProtection, FunctionBody, Relocation,
     RelocationKind, RelocationTarget, SectionBody, SectionIndex,
 };
-use wasmer_runtime::{MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle, TrapCode};
+use wasmer_runtime::{MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle, TrapCode, VMOffsets};
 
 // Placeholder
 use crate::vm::{self, LocalTable};
@@ -34,6 +34,9 @@ pub struct FuncGen<'a> {
 
     /// Module compilation config.
     config: &'a SinglepassConfig,
+
+    /// Offsets of vmctx fields.
+    vmoffsets: VMOffsets,
 
     // Memory plans.
     memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
@@ -1740,9 +1743,13 @@ impl<'a> FuncGen<'a> {
                 .collect(),
         );
 
+        // Pointer size is 8
+        let vmoffsets = VMOffsets::new(8, module);
+
         let mut fg = FuncGen {
             module,
             config,
+            vmoffsets,
             memory_plans,
             table_plans,
             signature,
@@ -1805,152 +1812,77 @@ impl<'a> FuncGen<'a> {
 
         match op {
             Operator::GlobalGet { global_index } => {
-                unimplemented!();
-                /*
                 let global_index = global_index as usize;
-
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-
-                let loc = match GlobalIndex::new(global_index).local_or_import(module_info) {
-                    LocalOrImport::Local(local_index) => {
-                        self.assembler.emit_mov(
-                            Size::S64,
-                            Location::Memory(
-                                Machine::get_vmctx_reg(),
-                                vm::Ctx::offset_globals() as i32,
-                            ),
-                            Location::GPR(tmp),
-                        );
-                        self.assembler.emit_mov(
-                            Size::S64,
-                            Location::Memory(tmp, (local_index.index() as i32) * 8),
-                            Location::GPR(tmp),
-                        );
-                        let ty = type_to_wp_type(module_info.globals[local_index].desc.ty);
-                        if ty.is_float() {
-                            self.fp_stack.push(FloatValue::new(self.value_stack.len()));
-                        }
-                        self.machine.acquire_locations(
-                            &mut self.assembler,
-                            &[(ty, MachineValue::WasmStack(self.value_stack.len()))],
-                            false,
-                        )[0]
-                    }
-                    LocalOrImport::Import(import_index) => {
-                        self.assembler.emit_mov(
-                            Size::S64,
-                            Location::Memory(
-                                Machine::get_vmctx_reg(),
-                                vm::Ctx::offset_imported_globals() as i32,
-                            ),
-                            Location::GPR(tmp),
-                        );
-                        self.assembler.emit_mov(
-                            Size::S64,
-                            Location::Memory(tmp, (import_index.index() as i32) * 8),
-                            Location::GPR(tmp),
-                        );
-                        let ty = type_to_wp_type(module_info.imported_globals[import_index].1.ty);
-                        if ty.is_float() {
-                            self.fp_stack.push(FloatValue::new(self.value_stack.len()));
-                        }
-                        self.machine.acquire_locations(
-                            &mut self.assembler,
-                            &[(ty, MachineValue::WasmStack(self.value_stack.len()))],
-                            false,
-                        )[0]
-                    }
+                let offset = if global_index < self.module.num_imported_globals {
+                    self.vmoffsets
+                        .vmctx_vmglobal_import(GlobalIndex::new(global_index))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmglobal_definition(LocalGlobalIndex::new(
+                            global_index - self.module.num_imported_globals,
+                        ))
                 };
+                let ty = type_to_wp_type(self.module.globals[GlobalIndex::new(global_index)].ty);
+                if ty.is_float() {
+                    self.fp_stack.push(FloatValue::new(self.value_stack.len()));
+                }
+                let loc = self.machine.acquire_locations(
+                    &mut self.assembler,
+                    &[(ty, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
                 self.value_stack.push(loc);
-
-                self.emit_relaxed_binop(Assembler::emit_mov,
+                self.emit_relaxed_binop(
+                    Assembler::emit_mov,
                     Size::S64,
-                    Location::Memory(tmp, LocalGlobal::offset_data() as i32),
+                    Location::Memory(Machine::get_vmctx_reg(), offset as i32),
                     loc,
                 );
-
-                self.machine.release_temp_gpr(tmp);
-                */
             }
             Operator::GlobalSet { global_index } => {
-                unimplemented!();
-                /*
-                let mut global_index = global_index as usize;
-                let loc =
-                    self.pop_value_released();
-
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-
-                let ty = if global_index < module_info.imported_globals.len() {
-                    self.assembler.emit_mov(
-                        Size::S64,
-                        Location::Memory(
-                            Machine::get_vmctx_reg(),
-                            vm::Ctx::offset_imported_globals() as i32,
-                        ),
-                        Location::GPR(tmp),
-                    );
-                    type_to_wp_type(
-                        module_info.imported_globals[ImportedGlobalIndex::new(global_index)]
-                            .1
-                            .ty,
-                    )
+                let global_index = global_index as usize;
+                let offset = if global_index < self.module.num_imported_globals {
+                    self.vmoffsets
+                        .vmctx_vmglobal_import(GlobalIndex::new(global_index))
                 } else {
-                    global_index -= module_info.imported_globals.len();
-                    if global_index >= module_info.globals.len() {
-                        return Err(CodegenError {
-                            message: format!("SetGlobal: incorrect global_index value"),
-                        });
-                    }
-                    self.assembler.emit_mov(
-                        Size::S64,
-                        Location::Memory(
-                            Machine::get_vmctx_reg(),
-                            vm::Ctx::offset_globals() as i32,
-                        ),
-                        Location::GPR(tmp),
-                    );
-                    type_to_wp_type(
-                        module_info.globals[LocalGlobalIndex::new(global_index)]
-                            .desc
-                            .ty,
-                    )
+                    self.vmoffsets
+                        .vmctx_vmglobal_definition(LocalGlobalIndex::new(
+                            global_index - self.module.num_imported_globals,
+                        ))
                 };
-                self.assembler.emit_mov(
-                    Size::S64,
-                    Location::Memory(tmp, (global_index as i32) * 8),
-                    Location::GPR(tmp),
-                );
+                let ty = type_to_wp_type(self.module.globals[GlobalIndex::new(global_index)].ty);
+                let loc = self.pop_value_released();
                 if ty.is_float() {
                     let fp = self.fp_stack.pop1()?;
                     if self.assembler.arch_supports_canonicalize_nan()
                         && self.config.enable_nan_canonicalization
                         && fp.canonicalization.is_some()
                     {
-                        self.canonicalize_nan(match ty {
+                        self.canonicalize_nan(
+                            match ty {
                                 WpType::F32 => Size::S32,
                                 WpType::F64 => Size::S64,
                                 _ => unreachable!(),
                             },
                             loc,
-                            Location::Memory(tmp, LocalGlobal::offset_data() as i32),
+                            Location::Memory(Machine::get_vmctx_reg(), offset as i32),
                         );
                     } else {
-                        self.emit_relaxed_binop(Assembler::emit_mov,
+                        self.emit_relaxed_binop(
+                            Assembler::emit_mov,
                             Size::S64,
                             loc,
-                            Location::Memory(tmp, LocalGlobal::offset_data() as i32),
+                            Location::Memory(Machine::get_vmctx_reg(), offset as i32),
                         );
                     }
                 } else {
-                    self.emit_relaxed_binop(Assembler::emit_mov,
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
                         Size::S64,
                         loc,
-                        Location::Memory(tmp, LocalGlobal::offset_data() as i32),
+                        Location::Memory(Machine::get_vmctx_reg(), offset as i32),
                     );
                 }
-                self.machine.release_temp_gpr(tmp);
-                */
             }
             Operator::LocalGet { local_index } => {
                 let local_index = local_index as usize;
