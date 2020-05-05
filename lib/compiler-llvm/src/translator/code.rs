@@ -102,14 +102,14 @@ impl FuncTranslator {
     pub fn translate(
         &mut self,
         wasm_module: &WasmerCompilerModule,
-        func_index: &LocalFunctionIndex,
+        local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVMConfig,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<(CompiledFunction, Vec<LocalRelocation>, Vec<CustomSection>), CompileError> {
-        let func_index = wasm_module.func_index(*func_index);
+        let func_index = wasm_module.func_index(*local_func_index);
         let func_name = func_names.get(func_index).unwrap();
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {}", func_name),
@@ -373,6 +373,16 @@ impl FuncTranslator {
                     local_relocations.push(LocalRelocation {
                         kind,
                         local_section_index,
+                        offset,
+                        addend,
+                    });
+                } else if target.st_type() == goblin::elf::sym::STT_FUNC
+                    && target.st_shndx == wasmer_function_idx
+                {
+                    // This is a function referencing its own byte stream.
+                    relocations.push(Relocation {
+                        kind,
+                        reloc_target: RelocationTarget::LocalFunc(*local_func_index),
                         offset,
                         addend,
                     });
