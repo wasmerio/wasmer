@@ -40,8 +40,8 @@ use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator}
 use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, Addend, CodeOffset, CompileError, CompiledFunction,
     CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, FunctionAddressMap,
-    FunctionBody, FunctionBodyData, Relocation, RelocationKind, RelocationTarget, SectionBody,
-    SourceLoc, WasmResult,
+    FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation, RelocationKind,
+    RelocationTarget, SectionBody, SourceLoc, WasmResult,
 };
 use wasmer_runtime::libcalls::LibCall;
 use wasmer_runtime::Module as WasmerCompilerModule;
@@ -426,11 +426,15 @@ impl FuncTranslator {
         }
 
         let address_map = FunctionAddressMap {
-            instructions: vec![],
+            instructions: vec![InstructionAddressMap {
+                srcloc: SourceLoc::default(),
+                code_offset: 0,
+                code_len: bytes.len(),
+            }],
             start_srcloc: SourceLoc::default(),
             end_srcloc: SourceLoc::default(),
             body_offset: 0,
-            body_len: 0, // TODO
+            body_len: bytes.len(),
         };
 
         Ok((
