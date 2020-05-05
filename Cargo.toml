@@ -68,19 +68,16 @@ experimental-io-devices = [
 singlepass = [
     "wasmer-compiler-singlepass",
     "test-utils/singlepass",
-    "wasmer/singlepass",
     "compiler",
 ]
 cranelift = [
     "wasmer-compiler-cranelift",
     "test-utils/cranelift",
-    "wasmer/cranelift",
     "compiler",
 ]
 llvm = [
     "wasmer-compiler-llvm",
     "test-utils/llvm",
-    "wasmer/llvm",
     "compiler",
 ]
 
