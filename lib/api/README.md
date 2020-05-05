@@ -44,11 +44,11 @@ fn main() -> error::Result<()> {
 ### Features
 
 Wasmer is not only fast, but also designed to be highly customizable:
-* Pluggable Engines: do you have a fancy `dlopen` implementation? This is for you!
-* Pluggable Compilers: you want to emit code with DynASM or other compiler? We got you!
-* Headless mode: that means that no compilers will be required
+* **Pluggable Engines**: do you have a fancy `dlopen` implementation? This is for you!
+* **Pluggable Compilers**: you want to emit code with DynASM or other compiler? We got you!
+* **Headless mode**: that means that no compilers will be required
   to run a `serialized` Module (via `Module::deserialize()`).
-* Cross-compilation: You can pre-compile a module and serialize it
+* **Cross-compilation**: You can pre-compile a module and serialize it
   to then run it in other platform (via `Module::serialize()`).
 
 ### Config flags
