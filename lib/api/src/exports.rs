@@ -18,7 +18,7 @@ use wasmer_runtime::Export;
 /// let missing_import: &Global = my_instance.exports.get("func")?;
 ///
 /// // This results with an error: `ExportError::Missing`.
-/// let missing_import: &Func = my_instance.exports.get("unknown")?;
+/// let missing_import: &Function= my_instance.exports.get("unknown")?;
 /// ```
 #[derive(Error, Debug)]
 pub enum ExportError {
