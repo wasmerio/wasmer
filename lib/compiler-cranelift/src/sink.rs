@@ -1,8 +1,8 @@
 //! Support for compiling with Cranelift.
 
 use crate::translator::{
-    compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
-    signature_to_cranelift_ir, transform_jump_table, FuncTranslator,
+    irlibcall_to_libcall, irreloc_to_relocationkind, signature_to_cranelift_ir,
+    transform_jump_table, FuncTranslator,
 };
 use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName};
