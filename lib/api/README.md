@@ -58,11 +58,11 @@ Wasmer supports multiple features, from different engines to different compilers
   *This feature is normally used only in development environments*
 * Compilers (mutually exclusive):
   - `singlepass`: it will use `wasmer-compiler-singlepass` as the default
-     compiler for compiling the WebAssembly module to machine code.
+     compiler.
   - `cranelift`: it will use `wasmer-compiler-cranelift` as the default
-     compiler for compiling the WebAssembly module to machine code.
+     compiler.
   - `llvm`: it will use `wasmer-compiler-llvm` as the default
-     compiler for compiling the WebAssembly module to machine code.
+     compiler.
 
 > Note: if you want to use multiple compilers at the same time, it's also possible!
 > You will need to import them directly via each of the compiler crates.
