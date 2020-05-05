@@ -3,11 +3,11 @@ use std::sync::Arc;
 use wasmer_runtime::InstanceHandle;
 use wasmer_runtime::Module;
 
-use downcast_rs::{impl_downcast, DowncastSync};
+use downcast_rs::{impl_downcast, Downcast};
 
 /// The `CompiledModule` trait is used by engine implementors, such
 /// as a JIT or Native execution.
-pub trait CompiledModule: DowncastSync {
+pub trait CompiledModule: Downcast {
     /// Finish instantiation of a `InstanceHandle`
     ///
     /// # Unsafety
@@ -25,4 +25,4 @@ pub trait CompiledModule: DowncastSync {
     fn module_mut(&mut self) -> &mut Module;
 }
 
-impl_downcast!(sync CompiledModule); // `sync` => also produce `Arc` downcasts.
+impl_downcast!(CompiledModule); // `sync` => also produce `Arc` downcasts.

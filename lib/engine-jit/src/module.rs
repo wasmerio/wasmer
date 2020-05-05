@@ -275,9 +275,6 @@ impl CompiledModule {
     }
 }
 
-unsafe impl Sync for CompiledModule {}
-unsafe impl Send for CompiledModule {}
-
 impl BaseCompiledModule for CompiledModule {
     unsafe fn finish_instantiation(
         &self,
