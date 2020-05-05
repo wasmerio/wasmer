@@ -122,7 +122,7 @@ impl Run {
         // Try to instantiate the wasm file, with no provided imports
         let imports = imports! {};
         let instance = Instance::new(&module, &imports)?;
-        let start: &Function = instance.exports.get("_start")?;
+        let start: Function = self.try_find_function(&instance, "_start", &vec![])?;
         start.call(&[])?;
 
         Ok(())
@@ -180,47 +180,58 @@ impl Run {
         Ok(module)
     }
 
+    fn try_find_function(
+        &self,
+        instance: &Instance,
+        name: &str,
+        args: &Vec<String>,
+    ) -> Result<Function> {
+        Ok(instance
+            .exports
+            .get_function(&name)
+            .map_err(|e| {
+                if instance.module().info().functions.len() == 0 {
+                    anyhow!("The module has no exported functions to call.")
+                } else {
+                    let suggested_functions = suggest_function_exports(instance.module(), "");
+                    let names = suggested_functions
+                        .iter()
+                        .take(3)
+                        .map(|arg| format!("`{}`", arg))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let suggested_command = format!(
+                        "wasmer {} -i {} {}",
+                        self.path.display(),
+                        suggested_functions.get(0).unwrap(),
+                        args.join(" ")
+                    );
+                    let suggestion = format!(
+                        "Similar functions found: {}\nTry with: {}",
+                        names, suggested_command
+                    );
+                    match e {
+                        ExportError::Missing(_) => {
+                            anyhow!("No export `{}` found in the module.\n{}", name, suggestion)
+                        }
+                        ExportError::IncompatibleType => anyhow!(
+                            "Export `{}` found, but is not a function.\n{}",
+                            name,
+                            suggestion
+                        ),
+                    }
+                }
+            })?
+            .clone())
+    }
+
     fn invoke_function(
         &self,
         instance: &Instance,
         invoke: &str,
         args: &Vec<String>,
     ) -> Result<Box<[Val]>> {
-        let func: &Function = instance.exports.get(&invoke).map_err(|e| {
-            if instance.module().info().functions.len() == 0 {
-                anyhow!("The module has no exported functions to call.")
-            } else {
-                let suggested_functions = suggest_function_exports(instance.module(), "");
-                let names = suggested_functions
-                    .iter()
-                    .take(3)
-                    .map(|arg| format!("`{}`", arg))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                let suggested_command = format!(
-                    "wasmer {} -i {} {}",
-                    self.path.display(),
-                    suggested_functions.get(0).unwrap(),
-                    args.join(" ")
-                );
-                let suggestion = format!(
-                    "Similar functions found: {}\nTry with: {}",
-                    names, suggested_command
-                );
-                match e {
-                    ExportError::Missing(_) => anyhow!(
-                        "No export `{}` found in the module.\n{}",
-                        invoke,
-                        suggestion
-                    ),
-                    ExportError::IncompatibleType => anyhow!(
-                        "Export `{}` found, but is not a function.\n{}",
-                        invoke,
-                        suggestion
-                    ),
-                }
-            }
-        })?;
+        let func: Function = self.try_find_function(&instance, invoke, args)?;
         let func_ty = func.ty();
         let required_arguments = func_ty.params().len();
         let provided_arguments = args.len();

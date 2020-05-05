@@ -339,6 +339,16 @@ impl GlobalType {
     }
 }
 
+impl std::fmt::Display for GlobalType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mutability = match self.mutability {
+            Mutability::Const => "constant",
+            Mutability::Var => "mutable",
+        };
+        write!(f, "{} ({})", self.ty, mutability)
+    }
+}
+
 /// Globals are initialized via the `const` operators or by referring to another import.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -414,6 +424,16 @@ impl TableType {
     }
 }
 
+impl std::fmt::Display for TableType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if let Some(maximum) = self.maximum {
+            write!(f, "{} ({}..{})", self.ty, self.minimum, maximum)
+        } else {
+            write!(f, "{} ({}..)", self.ty, self.minimum)
+        }
+    }
+}
+
 // Memory Types
 
 /// A descriptor for a WebAssembly memory type.
@@ -446,6 +466,17 @@ impl MemoryType {
             minimum: minimum.into(),
             maximum: maximum.map(|m| m.into()),
             shared,
+        }
+    }
+}
+
+impl std::fmt::Display for MemoryType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let shared = if self.shared { "shared" } else { "not shared" };
+        if let Some(maximum) = self.maximum {
+            write!(f, "{} ({:?}..{:?})", shared, self.minimum, maximum)
+        } else {
+            write!(f, "{} ({:?}..)", shared, self.minimum)
         }
     }
 }

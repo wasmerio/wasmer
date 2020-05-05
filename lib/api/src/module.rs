@@ -31,6 +31,11 @@ pub enum IoCompileError {
 pub struct Module {
     store: Store,
     compiled: Arc<CompiledModule>,
+
+    #[cfg(feature = "wat")]
+    #[doc(hidden)]
+    // If the module was compiled from a wat file.
+    pub from_wat: bool,
 }
 
 impl Module {
@@ -71,13 +76,18 @@ impl Module {
     pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Module, CompileError> {
         #[cfg(feature = "wat")]
         {
+            let might_be_wat = !bytes.as_ref().starts_with(b"\0asm");
             let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
                 CompileError::Wasm(WasmError::Generic(format!(
                     "Error when converting wat: {}",
                     e
                 )))
             })?;
-            return Module::from_binary(store, bytes.as_ref());
+            let mut module = Module::from_binary(store, bytes.as_ref())?;
+            // We can assume it was a wat file if is not "wasm" looking
+            // and the previous step succeeded.
+            module.from_wat = might_be_wat;
+            return Ok(module);
         }
 
         Module::from_binary(store, bytes.as_ref())
@@ -177,6 +187,8 @@ impl Module {
         Module {
             store: store.clone(),
             compiled: Arc::new(compiled),
+            #[cfg(feature = "wat")]
+            from_wat: false,
         }
     }
 
