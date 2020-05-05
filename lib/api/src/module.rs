@@ -1,12 +1,13 @@
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
 use crate::InstantiationError;
+use std::borrow::Borrow;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::{CompileError, WasmError};
-use wasmer_jit::{CompiledModule, DeserializeError, Resolver, SerializeError};
+use wasmer_engine::{CompiledModule, DeserializeError, Engine, Resolver, SerializeError};
 use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, Module as ModuleInfo};
 
 #[derive(Error, Debug)]
@@ -30,7 +31,7 @@ pub enum IoCompileError {
 #[derive(Clone)]
 pub struct Module {
     store: Store,
-    compiled: Arc<CompiledModule>,
+    compiled: Arc<dyn CompiledModule>,
 
     #[cfg(feature = "wat")]
     #[doc(hidden)]
@@ -155,7 +156,7 @@ impl Module {
     /// let serialized = module.serialize()?;
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.store.engine().serialize(&self.compiled)
+        self.store.engine().serialize(self.compiled.borrow())
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
@@ -183,10 +184,10 @@ impl Module {
         Ok(Self::from_compiled_module(store, compiled))
     }
 
-    fn from_compiled_module(store: &Store, compiled: CompiledModule) -> Self {
+    fn from_compiled_module(store: &Store, compiled: Arc<CompiledModule>) -> Self {
         Module {
             store: store.clone(),
-            compiled: Arc::new(compiled),
+            compiled,
             #[cfg(feature = "wat")]
             from_wat: false,
         }
@@ -197,7 +198,10 @@ impl Module {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
-            let instance_handle = self.store.engine().instantiate(&self.compiled, resolver)?;
+            let instance_handle = self
+                .store
+                .engine()
+                .instantiate(self.compiled.borrow(), resolver)?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
@@ -240,7 +244,7 @@ impl Module {
     /// ```
     pub fn set_name(&mut self, name: &str) {
         let compiled = Arc::get_mut(&mut self.compiled).unwrap();
-        Arc::get_mut(compiled.module_mut()).unwrap().name = Some(name.to_string());
+        compiled.module_mut().name = Some(name.to_string());
     }
 
     /// Returns an iterator over the imported types in the Module.

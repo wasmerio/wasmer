@@ -3,7 +3,7 @@ use crate::externals::Extern;
 use crate::module::Module;
 use crate::store::Store;
 use crate::InstantiationError;
-use wasmer_jit::Resolver;
+use wasmer_engine::Resolver;
 use wasmer_runtime::InstanceHandle;
 
 /// A WebAssembly Instance is a stateful, executable

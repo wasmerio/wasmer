@@ -2,17 +2,8 @@
 //! done as separate steps.
 
 use crate::engine::{JITEngine, JITEngineInner};
-use crate::error::{DeserializeError, SerializeError};
-use crate::error::{InstantiationError, LinkError};
 use crate::link::link_module;
-use crate::resolver::{resolve_imports, Resolver};
-use crate::serialize::{
-    SerializableCompilation, SerializableFunctionFrameInfo, SerializableModule,
-};
-use crate::trap::register as register_frame_info;
-use crate::trap::GlobalFrameInfoRegistration;
-use crate::trap::RuntimeError;
-use crate::tunables::Tunables;
+use crate::serialize::{SerializableCompilation, SerializableModule};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
@@ -24,6 +15,11 @@ use wasm_common::{
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
+use wasmer_engine::{
+    register_frame_info, resolve_imports, CompiledModule as BaseCompiledModule, DeserializeError,
+    Engine, GlobalFrameInfoRegistration, InstantiationError, LinkError, Resolver, RuntimeError,
+    SerializableFunctionFrameInfo, SerializeError, Tunables,
+};
 use wasmer_runtime::{
     InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
     VMGlobalDefinition, VMSharedSignatureIndex,
@@ -213,7 +209,7 @@ impl CompiledModule {
         let tunables = jit.tunables();
         let sig_registry: &SignatureRegistry = jit_compiler.signatures();
         let imports = resolve_imports(
-            &self.serializable.module,
+            &self.module(),
             &sig_registry,
             resolver,
             self.memory_plans(),
@@ -222,15 +218,15 @@ impl CompiledModule {
         .map_err(InstantiationError::Link)?;
 
         let finished_memories = tunables
-            .create_memories(&self.serializable.module, self.memory_plans())
+            .create_memories(&self.module(), self.memory_plans())
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_tables = tunables
-            .create_tables(&self.serializable.module, self.table_plans())
+            .create_tables(&self.module(), self.table_plans())
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_globals = tunables
-            .create_globals(&self.serializable.module)
+            .create_globals(&self.module())
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
 
@@ -250,21 +246,6 @@ impl CompiledModule {
         .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 
-    /// Finish instantiation of a `InstanceHandle`
-    ///
-    /// # Unsafety
-    ///
-    /// See `InstanceHandle::finish_instantiation`
-    pub unsafe fn finish_instantiation(
-        &self,
-        handle: &InstanceHandle,
-    ) -> Result<(), InstantiationError> {
-        let is_bulk_memory: bool = self.serializable.features.bulk_memory;
-        handle
-            .finish_instantiation(is_bulk_memory, &self.data_initializers())
-            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
-    }
-
     /// Returns data initializers to pass to `InstanceHandle::initialize`
     pub fn data_initializers(&self) -> Vec<DataInitializer<'_>> {
         self.serializable
@@ -276,22 +257,6 @@ impl CompiledModule {
             })
             .collect::<Vec<_>>()
     }
-
-    /// Return a reference-counting pointer to a module.
-    pub fn module(&self) -> &Arc<Module> {
-        &self.serializable.module
-    }
-
-    /// Return a reference-counting pointer to a module.
-    pub fn module_mut(&mut self) -> &mut Arc<Module> {
-        &mut self.serializable.module
-    }
-
-    /// Return a reference to a module.
-    pub fn module_ref(&self) -> &Module {
-        &self.serializable.module
-    }
-
     /// Register this module's stack frame information into the global scope.
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
@@ -303,9 +268,29 @@ impl CompiledModule {
         let frame_infos = &self.serializable.compilation.function_frame_info;
         let finished_functions = &self.finished_functions;
         *info = Some(register_frame_info(
-            &self.module(),
+            self.serializable.module.clone(),
             finished_functions,
             frame_infos.clone(),
         ));
+    }
+}
+
+impl BaseCompiledModule for CompiledModule {
+    unsafe fn finish_instantiation(
+        &self,
+        handle: &InstanceHandle,
+    ) -> Result<(), InstantiationError> {
+        let is_bulk_memory: bool = self.serializable.features.bulk_memory;
+        handle
+            .finish_instantiation(is_bulk_memory, &self.data_initializers())
+            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    }
+
+    fn module(&self) -> &Module {
+        &self.serializable.module
+    }
+
+    fn module_mut(&mut self) -> &mut Module {
+        Arc::get_mut(&mut self.serializable.module).unwrap()
     }
 }

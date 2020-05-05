@@ -20,7 +20,7 @@ getrandom = "0.1"
 time = "0.1"
 typetag = "0.1"
 serde = { version = "1", features = ["derive"] }
-wasmer = { path = "../api", version = "0.16.2" }
+wasmer = { path = "../api", version = "0.16.2", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"

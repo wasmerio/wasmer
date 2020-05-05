@@ -8,6 +8,8 @@ use std::sync::Arc;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, IoDeserializeError, WasmHash};
+#[cfg(feature = "jit")]
+use wasmer_engine_jit::JITEngine;
 
 use structopt::StructOpt;
 
@@ -130,13 +132,15 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
-        if Engine::is_deserializable(&contents) {
-            // We get the tunables for the current host
-            let tunables = Tunables::default();
-            let engine = Engine::headless(tunables);
-            let store = Store::new(&engine);
-            let module = unsafe { Module::deserialize(&store, &contents)? };
-            return Ok(module);
+        #[cfg(feature = "jit")]
+        {
+            if JITEngine::is_deserializable(&contents) {
+                let tunables = Tunables::default();
+                let engine = JITEngine::headless(tunables);
+                let store = Store::new(Arc::new(engine));
+                let module = unsafe { Module::deserialize(&store, &contents)? };
+                return Ok(module);
+            }
         }
         let (store, compiler_name) = self.compiler.get_store()?;
         // We try to get it from cache, in case caching is enabled

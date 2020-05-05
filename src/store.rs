@@ -5,8 +5,10 @@ use crate::common::WasmFeatures;
 use anyhow::{bail, Error, Result};
 use std::str::FromStr;
 use std::string::ToString;
+use std::sync::Arc;
 use structopt::StructOpt;
 use wasmer::*;
+use wasmer_compiler::CompilerConfig;
 
 #[derive(Debug, Clone, StructOpt)]
 /// The compiler options
@@ -62,7 +64,7 @@ impl FromStr for Compiler {
     }
 }
 
-#[cfg(feature = "compiler")]
+#[cfg(all(feature = "compiler", feature = "engine"))]
 impl StoreOptions {
     fn get_compiler(&self) -> Result<Compiler> {
         if self.cranelift {
@@ -136,13 +138,15 @@ impl StoreOptions {
     pub fn get_store(&self) -> Result<(Store, String)> {
         let (compiler_config, compiler_name) = self.get_compiler_config()?;
         let tunables = self.get_tunables(&*compiler_config);
-        let engine = Engine::new(&*compiler_config, tunables);
-        let store = Store::new(&engine);
+        #[cfg(feature = "jit")]
+        let engine = wasmer_engine_jit::JITEngine::new(&*compiler_config, tunables);
+        let store = Store::new(Arc::new(engine));
         Ok((store, compiler_name))
     }
 }
 
-#[cfg(not(feature = "compiler"))]
+// If we don't have a compiler, but we have an engine
+#[cfg(all(not(feature = "compiler"), feature = "engine"))]
 impl StoreOptions {
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, String)> {
@@ -151,5 +155,14 @@ impl StoreOptions {
         let engine = Engine::headless(tunables);
         let store = Store::new(&engine);
         Ok((store, "headless".to_string()))
+    }
+}
+
+// If we don't have any engine enabled
+#[cfg(not(feature = "engine"))]
+impl StoreOptions {
+    /// Get the store (headless engine)
+    pub fn get_store(&self) -> Result<(Store, String)> {
+        bail!("No engines are enabled");
     }
 }

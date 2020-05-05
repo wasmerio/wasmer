@@ -8,7 +8,7 @@ use std::{
     ffi::c_void,
     sync::{Arc, Mutex},
 };
-use wasmer_jit::Resolver;
+use wasmer_engine::Resolver;
 use wasmer_runtime::Export;
 
 /// The `LikeNamespace` trait represents objects that act as a namespace for imports.

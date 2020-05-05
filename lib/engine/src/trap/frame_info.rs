@@ -225,7 +225,7 @@ impl Drop for GlobalFrameInfoRegistration {
 /// then `None` will be returned. Otherwise the returned object, when
 /// dropped, will be used to unregister all name information from this map.
 pub fn register(
-    module: &Arc<Module>,
+    module: Arc<Module>,
     finished_functions: &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     frame_infos: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {

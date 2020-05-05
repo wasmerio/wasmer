@@ -1,4 +1,3 @@
-// TODO: Move this errors into a common engine crate.
 //! The WebAssembly possible errors
 use crate::trap::RuntimeError;
 use thiserror::Error;

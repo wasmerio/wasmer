@@ -19,7 +19,7 @@ pub use crate::instance::Instance;
 pub use crate::memory_view::MemoryView;
 pub use crate::module::Module;
 pub use crate::ptr::{Array, Item, WasmPtr};
-pub use crate::store::{Engine, Store, StoreObject};
+pub use crate::store::{Store, StoreObject};
 pub use crate::tunables::Tunables;
 pub use crate::types::{
     AnyRef, ExportType, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
@@ -30,9 +30,8 @@ pub use wasm_common::{ValueType, WasmExternType, WasmTypeList};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;
 pub use wasmer_compiler::{Features, Target};
-
-pub use wasmer_jit::{
-    DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
+pub use wasmer_engine::{
+    DeserializeError, Engine, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
 
 // The compilers are mutually exclusive
@@ -61,6 +60,9 @@ pub use wasmer_compiler_cranelift::CraneliftConfig;
 
 #[cfg(feature = "llvm")]
 pub use wasmer_compiler_llvm::LLVMConfig;
+
+#[cfg(feature = "jit")]
+pub use wasmer_engine_jit::JITEngine;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

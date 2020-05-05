@@ -366,6 +366,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d9d8664cf849d7d0f3114a3a387d2f5e4303176d746d5a951aaddc66dfe9240"
 
 [[package]]
+name = "downcast-rs"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52ba6eb47c2131e784a38b726eb54c1e1484904f013e576a25354d0124161af6"
+
+[[package]]
 name = "either"
 version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1477,7 +1483,8 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-jit",
+ "wasmer-engine",
+ "wasmer-engine-jit",
  "wasmer-runtime",
  "wat",
  "winapi",
@@ -1502,7 +1509,8 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-jit",
+ "wasmer-engine",
+ "wasmer-engine-jit",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
@@ -1589,7 +1597,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-jit"
+name = "wasmer-engine"
+version = "0.16.2"
+dependencies = [
+ "backtrace",
+ "bincode",
+ "downcast-rs",
+ "lazy_static",
+ "more-asserts",
+ "region",
+ "rustc-demangle",
+ "serde",
+ "serde_bytes",
+ "target-lexicon",
+ "thiserror",
+ "wasm-common",
+ "wasmer-compiler",
+ "wasmer-runtime",
+ "winapi",
+]
+
+[[package]]
+name = "wasmer-engine-jit"
 version = "0.16.2"
 dependencies = [
  "backtrace",
@@ -1604,6 +1633,7 @@ dependencies = [
  "thiserror",
  "wasm-common",
  "wasmer-compiler",
+ "wasmer-engine",
  "wasmer-runtime",
  "winapi",
 ]

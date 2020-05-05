@@ -1,10 +1,6 @@
 //! JIT compilation.
 
-use crate::error::InstantiationError;
-use crate::resolver::Resolver;
-use crate::tunables::Tunables;
-use crate::CodeMemory;
-use crate::{CompiledModule, DeserializeError, SerializeError};
+use crate::{CodeMemory, CompiledModule};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -13,6 +9,10 @@ use wasm_common::{FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex,
 use wasmer_compiler::{Compilation, CompileError, FunctionBody, Target};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
+use wasmer_engine::{
+    CompiledModule as BaseCompiledModule, DeserializeError, Engine, InstantiationError, Resolver,
+    SerializeError, Tunables,
+};
 use wasmer_runtime::{
     InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
     VMSharedSignatureIndex, VMTrampoline,
@@ -72,11 +72,6 @@ impl JITEngine {
         }
     }
 
-    /// Get the tunables
-    pub fn tunables(&self) -> &dyn Tunables {
-        &**self.tunables
-    }
-
     pub(crate) fn compiler(&self) -> std::cell::Ref<'_, JITEngineInner> {
         self.inner.borrow()
     }
@@ -90,45 +85,57 @@ impl JITEngine {
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         bytes.starts_with(Self::MAGIC_HEADER)
     }
+}
+
+impl Engine for JITEngine {
+    /// Get the tunables
+    fn tunables(&self) -> &dyn Tunables {
+        &**self.tunables
+    }
 
     /// Register a signature
-    pub fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
+    fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
         let compiler = self.compiler();
         compiler.signatures().register(func_type)
     }
 
     /// Lookup a signature
-    pub fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
+    fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
         let compiler = self.compiler();
         compiler.signatures().lookup(sig)
     }
 
     /// Retrieves a trampoline given a signature
-    pub fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
+    fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
         self.compiler().trampoline(sig)
     }
 
     /// Validates a WebAssembly module
-    pub fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
+    fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
         self.compiler().validate(binary)
     }
 
     /// Compile a WebAssembly binary
-    pub fn compile(&self, binary: &[u8]) -> Result<CompiledModule, CompileError> {
-        CompiledModule::new(&self, binary)
+    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, CompileError> {
+        Ok(Arc::new(CompiledModule::new(&self, binary)?))
     }
 
     /// Instantiates a WebAssembly module
-    pub unsafe fn instantiate(
+    unsafe fn instantiate(
         &self,
-        compiled_module: &CompiledModule,
+        compiled_module: &dyn BaseCompiledModule,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
+        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
         unsafe { compiled_module.instantiate(&self, resolver, Box::new(())) }
     }
 
     /// Serializes a WebAssembly module
-    pub fn serialize(&self, compiled_module: &CompiledModule) -> Result<Vec<u8>, SerializeError> {
+    fn serialize(
+        &self,
+        compiled_module: &dyn BaseCompiledModule,
+    ) -> Result<Vec<u8>, SerializeError> {
+        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
         // We append the header
         let mut serialized = Self::MAGIC_HEADER.to_vec();
         serialized.extend(compiled_module.serialize()?);
@@ -136,16 +143,16 @@ impl JITEngine {
     }
 
     /// Deserializes a WebAssembly module
-    pub fn deserialize(&self, bytes: &[u8]) -> Result<CompiledModule, DeserializeError> {
+    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
         if !Self::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not wasmer-jit".to_string(),
             ));
         }
-        Ok(CompiledModule::deserialize(
+        Ok(Arc::new(CompiledModule::deserialize(
             &self,
             &bytes[Self::MAGIC_HEADER.len()..],
-        )?)
+        )?))
     }
 }
 

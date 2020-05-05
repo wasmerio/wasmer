@@ -2,34 +2,24 @@ use crate::tunables::Tunables;
 use std::sync::Arc;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
-use wasmer_jit::JITEngine;
-
-pub type Engine = JITEngine;
+use wasmer_engine::Engine;
 
 #[derive(Clone)]
 pub struct Store {
-    engine: Arc<Engine>,
+    engine: Arc<dyn Engine>,
 }
 
 impl Store {
-    pub fn new(engine: &Engine) -> Store {
-        Store {
-            engine: Arc::new(engine.clone()),
-        }
+    pub fn new(engine: Arc<dyn Engine>) -> Store {
+        Store { engine }
     }
 
-    pub fn engine(&self) -> &Engine {
+    pub fn engine(&self) -> &Arc<dyn Engine> {
         &self.engine
     }
 
     pub fn same(a: &Store, b: &Store) -> bool {
         Arc::ptr_eq(&a.engine, &b.engine)
-    }
-
-    #[cfg(feature = "compiler")]
-    fn new_config(config: Box<dyn CompilerConfig>) -> Self {
-        let tunables = Tunables::for_target(config.target().triple());
-        Self::new(&Engine::new(&*config, tunables))
     }
 }
 
@@ -39,8 +29,8 @@ impl PartialEq for Store {
     }
 }
 
-// We only implement default if we have assigned a default compiler
-#[cfg(feature = "compiler")]
+// We only implement default if we have assigned a default compiler and engine
+#[cfg(all(feature = "compiler", feature = "engine"))]
 impl Default for Store {
     fn default() -> Store {
         // We store them on a function that returns to make
@@ -57,7 +47,18 @@ impl Default for Store {
             #[cfg(feature = "singlepass")]
             return Box::new(wasmer_compiler_singlepass::SinglepassConfig::default());
         }
-        Store::new_config(get_config())
+
+        #[allow(unreachable_code)]
+        fn get_engine(config: Box<dyn CompilerConfig>) -> Arc<dyn Engine> {
+            let tunables = Tunables::for_target(config.target().triple());
+
+            #[cfg(feature = "jit")]
+            return Arc::new(wasmer_engine_jit::JITEngine::new(&config, tunables));
+        }
+
+        let config = get_config();
+        let engine = get_engine(config);
+        Store::new(config)
     }
 }
 
