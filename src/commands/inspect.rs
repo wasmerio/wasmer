@@ -26,7 +26,7 @@ impl Inspect {
         let (store, _compiler_name) = self.compiler.get_store()?;
         let module_contents = std::fs::read(&self.path)?;
         let module = Module::new(&store, &module_contents)?;
-        println!("Wat: {}", if module.from_wat { "yes" } else { "no" });
+        println!("Type: {}", if module.from_wat { "wat" } else { "wasm" });
         println!("Size: {}", ByteSize(module_contents.len() as _));
         println!("Imports:");
         println!("  Functions:");
