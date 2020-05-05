@@ -3,7 +3,6 @@
 
 use crate::error::{ImportError, LinkError};
 use more_asserts::assert_ge;
-use std::collections::HashSet;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{ExternType, ImportIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::{
@@ -41,7 +40,7 @@ fn get_extern_from_import(module: &Module, import_index: &ImportIndex) -> Extern
     match import_index {
         ImportIndex::Function(index) => {
             let func = module.signatures[module.functions[*index]].clone();
-            ExternType::Func(func)
+            ExternType::Function(func)
         }
         ImportIndex::Table(index) => {
             let table = module.tables[*index].clone();
@@ -67,7 +66,7 @@ fn get_extern_from_export(
     match export {
         Export::Function(ref f) => {
             let func = signatures.lookup(f.signature).unwrap().clone();
-            ExternType::Func(func)
+            ExternType::Function(func)
         }
         Export::Table(ref t) => {
             let table = t.plan().table.clone();
@@ -95,8 +94,6 @@ pub fn resolve_imports(
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     _table_plans: &PrimaryMap<TableIndex, TablePlan>,
 ) -> Result<Imports, LinkError> {
-    let dependencies = HashSet::new();
-
     let mut function_imports = PrimaryMap::with_capacity(module.num_imported_funcs);
     let mut table_imports = PrimaryMap::with_capacity(module.num_imported_tables);
     let mut memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
@@ -110,7 +107,7 @@ pub fn resolve_imports(
                 return Err(LinkError::Import(
                     module_name.to_string(),
                     field.to_string(),
-                    ImportError::Unknown(import_extern),
+                    ImportError::UnknownImport(import_extern),
                 ));
             }
             Some(r) => r,
@@ -125,16 +122,12 @@ pub fn resolve_imports(
         }
         match resolved {
             Export::Function(ref f) => {
-                // TODO: Syrus - fix this
-                // dependencies.insert(unsafe { InstanceHandle::from_vmctx(f.vmctx) });
                 function_imports.push(VMFunctionImport {
                     body: f.address,
                     vmctx: f.vmctx,
                 });
             }
             Export::Table(ref t) => {
-                // TODO: Syrus - fix this
-                // dependencies.insert(unsafe { InstanceHandle::from_vmctx(t.vmctx) });
                 table_imports.push(VMTableImport {
                     definition: t.definition,
                     from: t.from,
@@ -168,16 +161,13 @@ pub fn resolve_imports(
                     }
                 }
 
-                // TODO: Syrus - fix this
-                // dependencies.insert(unsafe { InstanceHandle::from_vmctx(m.vmctx) });
                 memory_imports.push(VMMemoryImport {
                     definition: m.definition,
                     from: m.from,
                 });
             }
+
             Export::Global(ref g) => {
-                // TODO: Syrus - fix this
-                // dependencies.insert(unsafe { InstanceHandle::from_vmctx(g.vmctx) });
                 global_imports.push(VMGlobalImport {
                     definition: g.definition,
                 });
@@ -186,7 +176,6 @@ pub fn resolve_imports(
     }
 
     Ok(Imports::new(
-        dependencies,
         function_imports,
         table_imports,
         memory_imports,

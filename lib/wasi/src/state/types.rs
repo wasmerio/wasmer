@@ -10,6 +10,7 @@ use std::{
     time::SystemTime,
 };
 use thiserror::Error;
+use tracing::debug;
 
 /// Error type for external users
 #[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]

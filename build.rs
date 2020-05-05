@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use test_generator::{
     build_ignores_from_textfile, test_directory, test_directory_module, wast_processor,
-    with_backends, with_test_module, Testsuite,
+    with_features, with_test_module, Testsuite,
 };
 
 fn is_truthy_env(name: &str) -> bool {
@@ -34,9 +34,15 @@ fn main() -> anyhow::Result<()> {
     };
 
     let backends = vec!["singlepass", "cranelift", "llvm"];
-    with_backends(&mut spectests, &backends, |mut spectests| {
+    with_features(&mut spectests, &backends, |mut spectests| {
         with_test_module(&mut spectests, "spec", |spectests| {
             let _spec_tests = test_directory(spectests, "tests/wast/spec", wast_processor)?;
+            test_directory_module(
+                spectests,
+                "tests/wast/spec/proposals/multi-value",
+                wast_processor,
+            )?;
+            // test_directory_module(spectests, "tests/wast/spec/proposals/bulk-memory-operations", wast_processor)?;
             Ok(())
         })?;
         with_test_module(&mut spectests, "wasmer", |spectests| {

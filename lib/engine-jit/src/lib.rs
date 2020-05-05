@@ -27,27 +27,16 @@
 
 mod code_memory;
 mod engine;
-mod error;
 mod function_table;
-mod instantiate;
 mod link;
-mod resolver;
-mod trap;
-mod tunables;
+mod module;
+mod serialize;
 
 pub use crate::code_memory::CodeMemory;
 pub use crate::engine::JITEngine;
-pub use crate::error::{
-    DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
-};
 pub use crate::function_table::FunctionTable;
-pub use crate::instantiate::CompiledModule;
 pub use crate::link::link_module;
-pub use crate::resolver::{resolve_imports, NullResolver, Resolver};
-pub use crate::trap::*;
-pub use crate::tunables::Tunables;
-
-pub use wasmer_compiler::CompilerConfig;
+pub use crate::module::CompiledModule;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

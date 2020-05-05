@@ -6,10 +6,10 @@ use crate::config::SinglepassConfig;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
-use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
+use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::TrapInformation;
-use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler};
+use wasmer_compiler::{Compilation, CompileError, Compiler, FunctionBody};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_runtime::Module;
 use wasmer_runtime::TrapCode;
@@ -52,7 +52,7 @@ impl Compiler for SinglepassCompiler {
         &self,
         _module: &Module,
         _module_translation: &ModuleTranslationState,
-        _function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'_>>,
+        _function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         _memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         _table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
@@ -67,8 +67,8 @@ impl Compiler for SinglepassCompiler {
 
     fn compile_wasm_trampolines(
         &self,
-        _signatures: &[FuncType],
-    ) -> Result<Vec<CompiledFunction>, CompileError> {
+        _signatures: &[FunctionType],
+    ) -> Result<Vec<FunctionBody>, CompileError> {
         // Note: do not implement this yet
         Err(CompileError::Codegen(
             "Singlepass trampoline compilation not supported yet".to_owned(),

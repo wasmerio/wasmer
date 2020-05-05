@@ -2,6 +2,8 @@ use more_asserts::assert_ge;
 use std::cmp::min;
 use target_lexicon::{OperatingSystem, PointerWidth, Triple, HOST};
 use wasm_common::{MemoryType, Pages, TableType};
+use wasmer_engine::Tunables as BaseTunables;
+use wasmer_runtime::{LinearMemory, Table};
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, TableStyle};
 
 /// Tunable parameters for WebAssembly compilation.
@@ -54,9 +56,11 @@ impl Tunables {
             dynamic_memory_offset_guard_size,
         }
     }
+}
 
+impl BaseTunables for Tunables {
     /// Get a `MemoryPlan` for the provided `MemoryType`
-    pub fn memory_plan(&self, memory: MemoryType) -> MemoryPlan {
+    fn memory_plan(&self, memory: MemoryType) -> MemoryPlan {
         // A heap with a maximum that doesn't exceed the static memory bound specified by the
         // tunables make it static.
         //
@@ -81,16 +85,26 @@ impl Tunables {
     }
 
     /// Get a `TablePlan` for the provided `TableType`
-    pub fn table_plan(&self, table: TableType) -> TablePlan {
+    fn table_plan(&self, table: TableType) -> TablePlan {
         TablePlan {
             table,
             style: TableStyle::CallerChecksSignature,
         }
     }
+
+    /// Create a memory given a memory type
+    fn create_memory(&self, plan: MemoryPlan) -> Result<LinearMemory, String> {
+        LinearMemory::new(&plan)
+    }
+
+    /// Create a memory given a memory type
+    fn create_table(&self, plan: TablePlan) -> Result<Table, String> {
+        Table::new(&plan)
+    }
 }
 
 impl Default for Tunables {
     fn default() -> Self {
-        Tunables::for_target(&HOST)
+        Self::for_target(&HOST)
     }
 }

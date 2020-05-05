@@ -1,4 +1,4 @@
-use crate::externals::{Extern, Func, Global, Memory, Table};
+use crate::externals::{Extern, Function, Global, Memory, Table};
 use crate::import_object::LikeNamespace;
 use indexmap::IndexMap;
 use std::iter::FromIterator;
@@ -16,9 +16,11 @@ use wasmer_runtime::Export;
 ///
 /// // This results with an error: `ExportError::IncompatibleType`.
 /// let missing_import: &Global = my_instance.exports.get("func")?;
+/// let missing_import = my_instance.exports.get_global("func")?;
 ///
 /// // This results with an error: `ExportError::Missing`.
-/// let missing_import: &Func = my_instance.exports.get("unknown")?;
+/// let missing_import: &Function = my_instance.exports.get("unknown")?;
+/// let missing_import = my_instance.exports.get_function("unknown")?;
 /// ```
 #[derive(Error, Debug)]
 pub enum ExportError {
@@ -103,7 +105,7 @@ impl Exports {
     }
 
     /// Get an export as a `Func`.
-    pub fn get_func(&self, name: &str) -> Result<&Func, ExportError> {
+    pub fn get_function(&self, name: &str) -> Result<&Function, ExportError> {
         self.get(name)
     }
 

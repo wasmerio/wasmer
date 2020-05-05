@@ -2,43 +2,41 @@
 
 use std::ptr::write_unaligned;
 use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::LocalFuncIndex;
-use wasmer_compiler::{JumpTable, JumpTableOffsets, RelocationKind, RelocationTarget, Relocations};
+use wasm_common::LocalFunctionIndex;
+use wasmer_compiler::{
+    JumpTable, JumpTableOffsets, RelocationKind, RelocationTarget, Relocations, SectionBody,
+    SectionIndex,
+};
 use wasmer_runtime::Module;
 use wasmer_runtime::VMFunctionBody;
 
-/// Links a module that has been compiled with `compiled_module` in `wasmer-compiler::Compiler`.
-///
-/// Performs all required relocations inside the function code, provided the necessary metadata.
+/// Links a module, patching the allocated functions with the
+/// required relocations and jump tables.
 pub fn link_module(
     module: &Module,
-    allocated_functions: &PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>,
-    jt_offsets: &PrimaryMap<LocalFuncIndex, JumpTableOffsets>,
+    allocated_functions: &PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     relocations: Relocations,
+    allocated_sections: &PrimaryMap<SectionIndex, SectionBody>,
 ) {
     for (i, function_relocs) in relocations.into_iter() {
         for r in function_relocs {
             let target_func_address: usize = match r.reloc_target {
-                RelocationTarget::UserFunc(index) => match module.local_func_index(index) {
-                    Some(f) => {
-                        let fatptr: *const [VMFunctionBody] = allocated_functions[f];
-                        fatptr as *const VMFunctionBody as usize
-                    }
-                    None => panic!("direct call to import"),
-                },
+                RelocationTarget::LocalFunc(index) => {
+                    let fatptr: *const [VMFunctionBody] = allocated_functions[index];
+                    fatptr as *const VMFunctionBody as usize
+                }
                 RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
+                RelocationTarget::CustomSection(custom_section) => {
+                    allocated_sections[custom_section].as_ptr() as usize
+                }
                 RelocationTarget::JumpTable(func_index, jt) => {
-                    match module.local_func_index(func_index) {
-                        Some(f) => {
-                            let offset = *jt_offsets
-                                .get(f)
-                                .and_then(|ofs| ofs.get(JumpTable::new(jt.index())))
-                                .expect("func jump table");
-                            let fatptr: *const [VMFunctionBody] = allocated_functions[f];
-                            fatptr as *const VMFunctionBody as usize + offset as usize
-                        }
-                        None => panic!("func index of jump table"),
-                    }
+                    let offset = *jt_offsets
+                        .get(func_index)
+                        .and_then(|ofs| ofs.get(JumpTable::new(jt.index())))
+                        .expect("func jump table");
+                    let fatptr: *const [VMFunctionBody] = allocated_functions[func_index];
+                    fatptr as *const VMFunctionBody as usize + offset as usize
                 }
             };
 
@@ -73,10 +71,8 @@ pub fn link_module(
                         .wrapping_add(reloc_addend as u32);
                     write_unaligned(reloc_address as *mut u32, reloc_delta_u32);
                 }
-                RelocationKind::X86PCRelRodata4 => {
-                    // ignore
-                }
-                _ => panic!("unsupported reloc kind"),
+                RelocationKind::X86PCRelRodata4 => {}
+                _ => panic!("Relocation kind unsupported"),
             }
         }
     }

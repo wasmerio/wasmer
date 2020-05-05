@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 /// that can't be given a real source location.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
+#[repr(transparent)]
 pub struct SourceLoc(u32);
 
 impl SourceLoc {
@@ -51,6 +52,7 @@ impl fmt::Display for SourceLoc {
 #[cfg(test)]
 mod tests {
     use super::SourceLoc;
+    use crate::std::string::ToString;
 
     #[test]
     fn display() {

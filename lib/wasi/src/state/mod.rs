@@ -32,6 +32,7 @@ use std::{
     path::{Path, PathBuf},
     time::SystemTime,
 };
+use tracing::debug;
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;

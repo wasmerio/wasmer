@@ -4,8 +4,8 @@ use region;
 use std::mem::ManuallyDrop;
 use std::{cmp, mem};
 use wasm_common::entity::PrimaryMap;
-use wasm_common::LocalFuncIndex;
-use wasmer_compiler::{Compilation, CompiledFunction};
+use wasm_common::LocalFunctionIndex;
+use wasmer_compiler::FunctionBody;
 use wasmer_runtime::{Mmap, VMFunctionBody};
 
 struct CodeMemoryEntry {
@@ -60,12 +60,12 @@ impl CodeMemory {
     /// Allocate a continuous memory blocks for a single compiled function.
     pub fn allocate_functions(
         &mut self,
-        compilation: &Compilation,
-    ) -> Result<PrimaryMap<LocalFuncIndex, *mut [VMFunctionBody]>, String> {
-        let fat_ptrs = self.allocate_for_compilation(compilation)?;
+        functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
+    ) -> Result<PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>, String> {
+        let fat_ptrs = self.allocate_for_compilation(functions)?;
 
         // Second, create a PrimaryMap from result vector of pointers.
-        let mut result = PrimaryMap::with_capacity(compilation.len());
+        let mut result = PrimaryMap::with_capacity(functions.len());
         for i in 0..fat_ptrs.len() {
             let fat_ptr: *mut [VMFunctionBody] = fat_ptrs[i];
             result.push(fat_ptr);
@@ -78,7 +78,7 @@ impl CodeMemory {
     /// mmap region rather than into a Vec that we need to copy in.
     pub fn allocate_for_function(
         &mut self,
-        func: &CompiledFunction,
+        func: &FunctionBody,
     ) -> Result<&mut [VMFunctionBody], String> {
         let size = Self::function_allocation_size(func);
 
@@ -94,17 +94,17 @@ impl CodeMemory {
     /// Allocates memory for both the function bodies as well as function unwind data.
     pub fn allocate_for_compilation(
         &mut self,
-        compilation: &Compilation,
+        compilation: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
     ) -> Result<Box<[&mut [VMFunctionBody]]>, String> {
         let total_len = compilation
-            .into_iter()
+            .values()
             .fold(0, |acc, func| acc + Self::function_allocation_size(func));
 
         let (mut buf, mut table, start) = self.allocate(total_len)?;
         let mut result = Vec::with_capacity(compilation.len());
         let mut start = start as u32;
 
-        for func in compilation.into_iter() {
+        for func in compilation.values() {
             let (next_start, next_buf, next_table, vmfunc) =
                 Self::copy_function(func, start, buf, table);
 
@@ -167,12 +167,12 @@ impl CodeMemory {
     }
 
     /// Calculates the allocation size of the given compiled function.
-    fn function_allocation_size(func: &CompiledFunction) -> usize {
-        if func.unwind_info.is_empty() {
-            func.body.len()
-        } else {
+    fn function_allocation_size(func: &FunctionBody) -> usize {
+        if let Some(unwind_info) = &func.unwind_info {
             // Account for necessary unwind information alignment padding (32-bit)
-            ((func.body.len() + 3) & !3) + func.unwind_info.len()
+            ((func.body.len() + 3) & !3) + unwind_info.len()
+        } else {
+            func.body.len()
         }
     }
 
@@ -180,7 +180,7 @@ impl CodeMemory {
     ///
     /// This will also add the function to the current function table.
     fn copy_function<'a>(
-        func: &CompiledFunction,
+        func: &FunctionBody,
         func_start: u32,
         buf: &'a mut [u8],
         table: &'a mut FunctionTable,
@@ -196,19 +196,19 @@ impl CodeMemory {
         body.copy_from_slice(&func.body);
         let vmfunc = Self::view_as_mut_vmfunc_slice(body);
 
-        if func.unwind_info.is_empty() {
+        if func.unwind_info.is_none() {
             return (func_end, remainder, table, vmfunc);
         }
+        let unwind_info = func.unwind_info.as_ref().unwrap();
 
         // Keep unwind information 32-bit aligned (round up to the nearest 4 byte boundary)
         let padding = ((func.body.len() + 3) & !3) - func.body.len();
-        let (unwind, remainder) = remainder.split_at_mut(padding + func.unwind_info.len());
+        let (unwind, remainder) = remainder.split_at_mut(padding + unwind_info.len());
         let mut relocs = Vec::new();
-        func.unwind_info
-            .serialize(&mut unwind[padding..], &mut relocs);
+        unwind_info.serialize(&mut unwind[padding..], &mut relocs);
 
         let unwind_start = func_end + (padding as u32);
-        let unwind_end = unwind_start + (func.unwind_info.len() as u32);
+        let unwind_end = unwind_start + (unwind_info.len() as u32);
 
         relocs.iter_mut().for_each(move |r| {
             r.offset += unwind_start;

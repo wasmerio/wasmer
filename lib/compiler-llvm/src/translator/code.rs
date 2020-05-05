@@ -14,9 +14,7 @@ use inkwell::{
     passes::PassManager,
     //targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
     targets::FileType,
-    types::{
-        BasicType, BasicTypeEnum, FloatMathType, FunctionType, IntType, PointerType, VectorType,
-    },
+    types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
         VectorValue,
@@ -30,20 +28,22 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 use std::any::Any;
+use std::collections::HashMap;
 
 use crate::config::LLVMConfig;
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
-    FuncIndex, FuncType, GlobalIndex, LocalFuncIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex, Type,
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
-    to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, WasmResult,
+    to_wasm_error, wasm_unsupported, Addend, CodeOffset, CompileError, CompiledFunction,
+    CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, FunctionAddressMap,
+    FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation, RelocationKind,
+    RelocationTarget, SectionBody, SourceLoc, WasmResult,
 };
-use wasmer_compiler::{
-    CompiledFunctionUnwindInfo, FunctionAddressMap, FunctionBodyData, Relocation, RelocationKind,
-    RelocationTarget, SourceLoc,
-};
+use wasmer_runtime::libcalls::LibCall;
 use wasmer_runtime::Module as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan};
 
@@ -83,6 +83,15 @@ fn const_zero<'ctx>(ty: BasicTypeEnum<'ctx>) -> BasicValueEnum<'ctx> {
     }
 }
 
+// Relocation against a per-function section.
+#[derive(Debug)]
+pub struct LocalRelocation {
+    pub kind: RelocationKind,
+    pub local_section_index: u32,
+    pub offset: CodeOffset,
+    pub addend: Addend,
+}
+
 impl FuncTranslator {
     pub fn new() -> Self {
         Self {
@@ -93,14 +102,14 @@ impl FuncTranslator {
     pub fn translate(
         &mut self,
         wasm_module: &WasmerCompilerModule,
-        func_index: &LocalFuncIndex,
+        local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVMConfig,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
-        func_names: &SecondaryMap<FuncIndex, String>,
-    ) -> Result<CompiledFunction, CompileError> {
-        let func_index = wasm_module.func_index(*func_index);
+        func_names: &SecondaryMap<FunctionIndex, String>,
+    ) -> Result<(CompiledFunction, Vec<LocalRelocation>, Vec<CustomSection>), CompileError> {
+        let func_index = wasm_module.func_index(*local_func_index);
         let func_name = func_names.get(func_index).unwrap();
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {}", func_name),
@@ -166,15 +175,17 @@ impl FuncTranslator {
         let num_locals = reader.read_local_count().map_err(to_wasm_error)?;
         for _ in 0..num_locals {
             let mut counter = 0;
-            let (_count, ty) = reader
+            let (count, ty) = reader
                 .read_local_decl(&mut counter)
                 .map_err(to_wasm_error)?;
             let ty = wptype_to_type(ty)?;
             let ty = type_to_llvm(&intrinsics, ty);
             // TODO: don't interleave allocas and stores.
-            let alloca = cache_builder.build_alloca(ty, "local");
-            cache_builder.build_store(alloca, const_zero(ty));
-            locals.push(alloca);
+            for _ in 0..count {
+                let alloca = cache_builder.build_alloca(ty, "local");
+                cache_builder.build_store(alloca, const_zero(ty));
+                locals.push(alloca);
+            }
         }
 
         let mut params_locals = params.clone();
@@ -199,6 +210,18 @@ impl FuncTranslator {
             let op = reader.read_operator().map_err(to_wasm_error)?;
             fcg.translate_operator(op, wasm_module, pos)?;
         }
+
+        // TODO: use phf?
+        let mut libcalls = HashMap::new();
+        libcalls.insert("vm.exception.trap".to_string(), LibCall::RaiseTrap);
+        libcalls.insert("truncf".to_string(), LibCall::TruncF32);
+        libcalls.insert("trunc".to_string(), LibCall::TruncF64);
+        libcalls.insert("ceilf".to_string(), LibCall::CeilF32);
+        libcalls.insert("ceil".to_string(), LibCall::CeilF64);
+        libcalls.insert("floorf".to_string(), LibCall::FloorF32);
+        libcalls.insert("floor".to_string(), LibCall::FloorF64);
+        libcalls.insert("nearbyintf".to_string(), LibCall::NearestF32);
+        libcalls.insert("nearbyint".to_string(), LibCall::NearestF64);
 
         let results = fcg.state.popn_save_extra(wasm_fn_type.results().len())?;
         match results.as_slice() {
@@ -283,78 +306,163 @@ impl FuncTranslator {
             pos += file.write(&mem_buf_slice[pos..]).unwrap();
         }
 
-        let object = memory_buffer.create_object_file().map_err(|()| {
-            CompileError::Codegen("failed to create object file from llvm ir".to_string())
-        })?;
+        let mem_buf_slice = memory_buffer.as_slice();
+        let object = goblin::Object::parse(&mem_buf_slice).unwrap();
+        let elf = match object {
+            goblin::Object::Elf(elf) => elf,
+            _ => unimplemented!("native object file type not supported"),
+        };
 
-        let mut bytes = vec![];
+        let get_section_name = |section: &goblin::elf::section_header::SectionHeader| {
+            if section.sh_name == goblin::elf::section_header::SHN_UNDEF as _ {
+                return None;
+            }
+            let name = elf.strtab.get(section.sh_name);
+            if name.is_none() {
+                return None;
+            }
+            let name = name.unwrap();
+            if name.is_err() {
+                return None;
+            }
+            Some(name.unwrap())
+        };
+
+        let wasmer_function_idx = elf
+            .section_headers
+            .iter()
+            .enumerate()
+            .filter(|(_, section)| get_section_name(section) == Some("wasmer_function"))
+            .map(|(idx, _)| idx)
+            .take(1)
+            .collect::<Vec<_>>();
+        // TODO: handle errors here instead of asserting.
+        assert!(wasmer_function_idx.len() == 1);
+        let wasmer_function_idx = wasmer_function_idx[0];
+
+        let bytes = elf.section_headers[wasmer_function_idx].file_range();
+        let bytes = mem_buf_slice[bytes.start..bytes.end].to_vec();
+
         let mut relocations = vec![];
-        for section in object.get_sections() {
-            match section.get_name().map(std::ffi::CStr::to_bytes) {
-                Some(b"wasmer_function") => {
-                    bytes.extend(section.get_contents().to_vec());
-                }
-                Some(b".relawasmer_function") | Some(b".relwasmer_function") => {
-                    for rel in section.get_relocations() {
-                        let (i, cs) = rel.get_type();
-                        let kind = match (i, cs.to_bytes()) {
-                            (1, b"R_X86_64_64") => RelocationKind::Abs8,
-                            _ => unimplemented!("unknown relocation kind {:?}", rel.get_type()),
-                        };
-                        let mut reloc_target = None;
-                        let mut target = None;
-                        // TODO: fix inkwell API so we don't have a for loop
-                        // which always breaks after the first entry.
-                        for symbol in rel.get_symbols() {
-                            target = symbol
-                                .get_name()
-                                .map(|cs| String::from(cs.to_str().unwrap()));
-                            break;
-                        }
-                        // TODO: use a lookup table instead of a linear scan
-                        if let Some(ref target) = &target {
-                            if let Some((index, _)) =
-                                func_names.iter().find(|(_, name)| *name == target)
-                            {
-                                reloc_target = Some(RelocationTarget::UserFunc(index));
-                            }
-                        }
-                        if reloc_target.is_none() {
-                            unimplemented!("reference to non-user function {:?}", &target);
-                        }
-                        let reloc_target = reloc_target.unwrap();
+        let mut local_relocations = vec![];
+        let mut required_custom_sections = HashMap::new();
 
-                        let relocation = Relocation {
+        for (section_index, reloc_section) in &elf.shdr_relocs {
+            let section_name = get_section_name(&elf.section_headers[*section_index]);
+            if section_name != Some(".relawasmer_function")
+                && section_name != Some(".relwasmer_function")
+            {
+                continue;
+            }
+            for reloc in reloc_section.iter() {
+                let kind = match reloc.r_type {
+                    // TODO: these constants are not per-arch, we'll need to
+                    // make the whole match per-arch.
+                    goblin::elf::reloc::R_X86_64_64 => RelocationKind::Abs8,
+                    _ => unimplemented!("unknown relocation {}", reloc.r_type),
+                };
+                let offset = reloc.r_offset as u32;
+                let addend = reloc.r_addend.unwrap_or(0);
+                let target = reloc.r_sym;
+                // TODO: error handling
+                let target = elf.syms.get(target).unwrap();
+                if target.st_type() == goblin::elf::sym::STT_SECTION {
+                    let len = required_custom_sections.len();
+                    let entry = required_custom_sections.entry(target.st_shndx);
+                    let local_section_index = *entry.or_insert(len) as _;
+                    local_relocations.push(LocalRelocation {
+                        kind,
+                        local_section_index,
+                        offset,
+                        addend,
+                    });
+                } else if target.st_type() == goblin::elf::sym::STT_FUNC
+                    && target.st_shndx == wasmer_function_idx
+                {
+                    // This is a function referencing its own byte stream.
+                    relocations.push(Relocation {
+                        kind,
+                        reloc_target: RelocationTarget::LocalFunc(*local_func_index),
+                        offset,
+                        addend,
+                    });
+                } else if target.st_type() == goblin::elf::sym::STT_NOTYPE
+                    && target.st_shndx == goblin::elf::section_header::SHN_UNDEF as _
+                {
+                    // Not defined in this .o file. Maybe another local function?
+                    let name = target.st_name;
+                    let name = elf.strtab.get(name).unwrap().unwrap();
+                    if let Some((index, _)) =
+                        func_names.iter().find(|(_, func_name)| *func_name == name)
+                    {
+                        let local_index = wasm_module
+                            .local_func_index(index)
+                            .expect("Relocation to non-local function");
+                        relocations.push(Relocation {
                             kind,
-                            reloc_target,
-                            offset: rel.get_offset() as u32,
-                            // TODO: it appears the LLVM C API has no way to
-                            // retrieve the addend.
-                            addend: 0,
-                        };
-                        relocations.push(relocation);
+                            reloc_target: RelocationTarget::LocalFunc(local_index),
+                            offset,
+                            addend,
+                        });
+                    // Maybe a libcall then?
+                    } else if let Some(libcall) = libcalls.get(name) {
+                        relocations.push(Relocation {
+                            kind,
+                            reloc_target: RelocationTarget::LibCall(*libcall),
+                            offset,
+                            addend,
+                        });
+                    } else {
+                        unimplemented!("reference to unknown symbol {}", name);
                     }
+                } else {
+                    unimplemented!("unknown relocation {:?} with target {:?}", reloc, target);
                 }
-                _ => {}
-            };
+            }
+        }
+
+        let mut custom_sections = vec![];
+        custom_sections.resize(
+            required_custom_sections.len(),
+            CustomSection {
+                protection: CustomSectionProtection::Read,
+                bytes: SectionBody::default(),
+            },
+        );
+        for (section_idx, local_section_idx) in required_custom_sections {
+            let bytes = elf.section_headers[section_idx as usize].file_range();
+            let bytes = &mem_buf_slice[bytes.start..bytes.end];
+            custom_sections[local_section_idx].bytes.extend(bytes);
         }
 
         let address_map = FunctionAddressMap {
-            instructions: vec![],
+            instructions: vec![InstructionAddressMap {
+                srcloc: SourceLoc::default(),
+                code_offset: 0,
+                code_len: bytes.len(),
+            }],
             start_srcloc: SourceLoc::default(),
             end_srcloc: SourceLoc::default(),
             body_offset: 0,
-            body_len: 0, // TODO
+            body_len: bytes.len(),
         };
 
-        Ok(CompiledFunction {
-            address_map,
-            body: bytes,
-            jt_offsets: SecondaryMap::new(),
-            unwind_info: CompiledFunctionUnwindInfo::None,
-            relocations,
-            traps: vec![],
-        })
+        Ok((
+            CompiledFunction {
+                body: FunctionBody {
+                    body: bytes,
+                    unwind_info: None,
+                },
+                jt_offsets: SecondaryMap::new(),
+                relocations,
+                frame_info: CompiledFunctionFrameInfo {
+                    address_map,
+                    traps: vec![],
+                },
+            },
+            local_relocations,
+            custom_sections,
+        ))
     }
 }
 
@@ -1238,8 +1346,8 @@ pub struct LLVMModuleCodeGenerator<'ctx> {
     intrinsics: Option<Intrinsics<'ctx>>,
     functions: Vec<LLVMFunctionCodeGenerator<'ctx>>,
     signatures: Map<SignatureIndex, FunctionType<'ctx>>,
-    function_signatures: Option<Arc<Map<FuncIndex, SignatureIndex>>>,
-    llvm_functions: Rc<RefCell<HashMap<FuncIndex, FunctionValue<'ctx>>>>,
+    function_signatures: Option<Arc<Map<FunctionIndex, SignatureIndex>>>,
+    llvm_functions: Rc<RefCell<HashMap<FunctionIndex, FunctionValue<'ctx>>>>,
     func_import_count: usize,
     personality_func: ManuallyDrop<FunctionValue<'ctx>>,
     module: ManuallyDrop<Rc<RefCell<Module<'ctx>>>>,
@@ -2077,15 +2185,21 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 state.push1_extra(res, info);
             }
             Operator::Call { function_index } => {
-                let func_index = FuncIndex::from_u32(function_index);
+                let func_index = FunctionIndex::from_u32(function_index);
                 let sigindex = module.functions.get(func_index).unwrap();
                 let func_type = module.signatures.get(*sigindex).unwrap();
                 let func_name = module.func_names.get(&func_index).unwrap();
                 let llvm_func_type = func_type_to_llvm(&self.context, &intrinsics, func_type);
 
-                let func =
+                let func = self.module.get_function(func_name);
+                // TODO: we could do this by comparing function indices instead
+                // of going through LLVM APIs and string comparisons.
+                let func = if func.is_none() {
                     self.module
-                        .add_function(func_name, llvm_func_type, Some(Linkage::External));
+                        .add_function(func_name, llvm_func_type, Some(Linkage::External))
+                } else {
+                    func.unwrap()
+                };
 
                 let params: Vec<_> = std::iter::once(ctx.basic())
                     .chain(
@@ -9012,7 +9126,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Com
             ),
         };
 
-        let func_index = FuncIndex::new(self.func_import_count + self.functions.len());
+        let func_index = FunctionIndex::new(self.func_import_count + self.functions.len());
         let sig_id = self.function_signatures.as_ref().unwrap()[func_index];
         let func_sig = module_info.read().unwrap().signatures[sig_id].clone();
 
@@ -9221,7 +9335,7 @@ impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, Com
 
     fn feed_function_signatures(
         &mut self,
-        assoc: Map<FuncIndex, SignatureIndex>,
+        assoc: Map<FunctionIndex, SignatureIndex>,
     ) -> Result<(), CompileError> {
         for (index, sig_id) in &assoc {
             if index.index() >= self.func_import_count {

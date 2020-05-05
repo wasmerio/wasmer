@@ -26,7 +26,7 @@ use wasmer_runtime_core::{
     module::ModuleInfo,
     structures::TypedIndex,
     types::{
-        GlobalIndex, ImportedFuncIndex, LocalOrImport, MemoryIndex, SignatureIndex, TableIndex, Type,
+        GlobalIndex, ImportedFunctionIndex, LocalOrImport, MemoryIndex, SignatureIndex, TableIndex, Type,
     },
     units::Pages,
     vm::{Ctx, INTERNALS_SIZE},
@@ -34,11 +34,11 @@ use wasmer_runtime_core::{
 */
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    FuncIndex, FuncType, GlobalIndex, MemoryIndex, Mutability, Pages, SignatureIndex, TableIndex,
-    Type,
+    FunctionIndex, FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, Pages,
+    SignatureIndex, TableIndex, Type,
 };
 use wasmer_runtime::Module as WasmerCompilerModule;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, VMOffsets};
+use wasmer_runtime::{MemoryPlan, MemoryStyle, TrapCode, VMOffsets};
 
 fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerType<'ctx> {
     match ty {
@@ -462,12 +462,26 @@ impl<'ctx> Intrinsics<'ctx> {
             f32x4_zero,
             f64x2_zero,
 
-            trap_unreachable: i32_zero.as_basic_value_enum(),
-            trap_call_indirect_sig: i32_ty.const_int(1, false).as_basic_value_enum(),
-            trap_call_indirect_oob: i32_ty.const_int(3, false).as_basic_value_enum(),
-            trap_memory_oob: i32_ty.const_int(2, false).as_basic_value_enum(),
-            trap_illegal_arithmetic: i32_ty.const_int(4, false).as_basic_value_enum(),
-            trap_misaligned_atomic: i32_ty.const_int(5, false).as_basic_value_enum(),
+            trap_unreachable: i32_ty
+                .const_int(TrapCode::UnreachableCodeReached as _, false)
+                .as_basic_value_enum(),
+            trap_call_indirect_sig: i32_ty
+                .const_int(TrapCode::BadSignature as _, false)
+                .as_basic_value_enum(),
+            trap_call_indirect_oob: i32_ty
+                .const_int(TrapCode::OutOfBounds as _, false)
+                .as_basic_value_enum(),
+            trap_memory_oob: i32_ty
+                .const_int(TrapCode::OutOfBounds as _, false)
+                .as_basic_value_enum(),
+            // TODO: split out div-by-zero and float-to-int
+            trap_illegal_arithmetic: i32_ty
+                .const_int(TrapCode::IntegerOverflow as _, false)
+                .as_basic_value_enum(),
+            // TODO: add misaligned atomic traps to wasmer runtime
+            trap_misaligned_atomic: i32_ty
+                .const_int(TrapCode::Interrupt as _, false)
+                .as_basic_value_enum(),
 
             // VM intrinsics.
             memory_grow_dynamic_local: module.add_function(
@@ -637,7 +651,7 @@ pub struct CtxType<'ctx, 'a> {
     cached_tables: HashMap<TableIndex, TableCache<'ctx>>,
     cached_sigindices: HashMap<SignatureIndex, IntValue<'ctx>>,
     cached_globals: HashMap<GlobalIndex, GlobalCache<'ctx>>,
-    cached_imported_functions: HashMap<FuncIndex, ImportedFuncCache<'ctx>>,
+    cached_imported_functions: HashMap<FunctionIndex, ImportedFuncCache<'ctx>>,
 
     offsets: VMOffsets,
 }
@@ -1114,7 +1128,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
     pub fn imported_func(
         &mut self,
-        index: FuncIndex,
+        index: FunctionIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {

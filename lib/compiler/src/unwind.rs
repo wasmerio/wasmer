@@ -31,9 +31,6 @@ pub struct FunctionTableReloc {
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CompiledFunctionUnwindInfo {
-    /// No unwind information.
-    None,
-
     /// Windows UNWIND_INFO.
     Windows(Vec<u8>),
 
@@ -45,7 +42,6 @@ impl CompiledFunctionUnwindInfo {
     /// Retuns true is no unwind info data.
     pub fn is_empty(&self) -> bool {
         match self {
-            CompiledFunctionUnwindInfo::None => true,
             CompiledFunctionUnwindInfo::Windows(d) => d.is_empty(),
             CompiledFunctionUnwindInfo::FrameLayout(c, _, _) => c.is_empty(),
         }
@@ -54,7 +50,6 @@ impl CompiledFunctionUnwindInfo {
     /// Returns size of serilized unwind info.
     pub fn len(&self) -> usize {
         match self {
-            CompiledFunctionUnwindInfo::None => 0,
             CompiledFunctionUnwindInfo::Windows(d) => d.len(),
             CompiledFunctionUnwindInfo::FrameLayout(c, _, _) => c.len(),
         }
@@ -63,7 +58,6 @@ impl CompiledFunctionUnwindInfo {
     /// Serializes data into byte array.
     pub fn serialize(&self, dest: &mut [u8], relocs: &mut Vec<FunctionTableReloc>) {
         match self {
-            CompiledFunctionUnwindInfo::None => (),
             CompiledFunctionUnwindInfo::Windows(d) => {
                 dest.copy_from_slice(d);
             }

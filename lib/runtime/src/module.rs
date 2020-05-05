@@ -5,13 +5,15 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FuncIndex, FuncType, GlobalIndex,
-    GlobalType, ImportIndex, ImportType, LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex,
-    LocalTableIndex, MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType,
+    DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex, FunctionType,
+    GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, Pages,
+    SignatureIndex, TableIndex, TableType,
 };
 
 /// A WebAssembly table initializer.
@@ -24,7 +26,7 @@ pub struct TableElements {
     /// The offset to add to the base.
     pub offset: usize,
     /// The values to write into the table elements.
-    pub elements: Box<[FuncIndex]>,
+    pub elements: Box<[FunctionIndex]>,
 }
 
 /// Implemenation styles for WebAssembly linear memory.
@@ -113,25 +115,28 @@ pub struct Module {
     pub exports: IndexMap<String, ExportIndex>,
 
     /// The module "start" function, if present.
-    pub start_func: Option<FuncIndex>,
+    pub start_func: Option<FunctionIndex>,
 
     /// WebAssembly table initializers.
     pub table_elements: Vec<TableElements>,
 
     /// WebAssembly passive elements.
-    pub passive_elements: HashMap<ElemIndex, Box<[FuncIndex]>>,
+    pub passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
 
     /// WebAssembly passive data segments.
     pub passive_data: HashMap<DataIndex, Arc<[u8]>>,
 
+    /// WebAssembly global initializers.
+    pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
+
     /// WebAssembly function names.
-    pub func_names: HashMap<FuncIndex, String>,
+    pub func_names: HashMap<FunctionIndex, String>,
 
     /// WebAssembly function signatures.
-    pub signatures: PrimaryMap<SignatureIndex, FuncType>,
+    pub signatures: PrimaryMap<SignatureIndex, FunctionType>,
 
-    /// Types of functions (imported and local).
-    pub functions: PrimaryMap<FuncIndex, SignatureIndex>,
+    /// WebAssembly functions (imported and local).
+    pub functions: PrimaryMap<FunctionIndex, SignatureIndex>,
 
     /// WebAssembly tables (imported and local).
     pub tables: PrimaryMap<TableIndex, TableType>,
@@ -167,6 +172,7 @@ impl Module {
             table_elements: Vec::new(),
             passive_elements: HashMap::new(),
             passive_data: HashMap::new(),
+            global_initializers: PrimaryMap::new(),
             func_names: HashMap::new(),
             signatures: PrimaryMap::new(),
             functions: PrimaryMap::new(),
@@ -181,12 +187,12 @@ impl Module {
     }
 
     /// Get the given passive element, if it exists.
-    pub fn get_passive_element(&self, index: ElemIndex) -> Option<&[FuncIndex]> {
+    pub fn get_passive_element(&self, index: ElemIndex) -> Option<&[FunctionIndex]> {
         self.passive_elements.get(&index).map(|es| &**es)
     }
 
     /// Get the exported signatures of the module
-    pub fn exported_signatures(&self) -> Vec<FuncType> {
+    pub fn exported_signatures(&self) -> Vec<FunctionType> {
         self.exports
             .iter()
             .filter_map(|(_name, export_index)| match export_index {
@@ -197,17 +203,17 @@ impl Module {
                 }
                 _ => None,
             })
-            .collect::<Vec<FuncType>>()
+            .collect::<Vec<FunctionType>>()
     }
 
     /// Get the export types of the module
-    pub fn exports<'a>(&'a self) -> impl Iterator<Item = ExportType> + 'a {
-        self.exports.iter().map(move |(name, export_index)| {
+    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+        let iter = self.exports.iter().map(move |(name, export_index)| {
             let extern_type = match export_index {
                 ExportIndex::Function(i) => {
                     let signature = self.functions.get(i.clone()).unwrap();
                     let func_type = self.signatures.get(signature.clone()).unwrap();
-                    ExternType::Func(func_type.clone())
+                    ExternType::Function(func_type.clone())
                 }
                 ExportIndex::Table(i) => {
                     let table_type = self.tables.get(i.clone()).unwrap();
@@ -223,19 +229,24 @@ impl Module {
                 }
             };
             ExportType::new(name, extern_type)
-        })
+        });
+        ExportsIterator {
+            iter,
+            size: self.exports.len(),
+        }
     }
 
     /// Get the export types of the module
-    pub fn imports<'a>(&'a self) -> impl Iterator<Item = ImportType> + 'a {
-        self.imports
+    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+        let iter = self
+            .imports
             .iter()
             .map(move |((module, field, _), import_index)| {
                 let extern_type = match import_index {
                     ImportIndex::Function(i) => {
                         let signature = self.functions.get(i.clone()).unwrap();
                         let func_type = self.signatures.get(signature.clone()).unwrap();
-                        ExternType::Func(func_type.clone())
+                        ExternType::Function(func_type.clone())
                     }
                     ImportIndex::Table(i) => {
                         let table_type = self.tables.get(i.clone()).unwrap();
@@ -251,24 +262,28 @@ impl Module {
                     }
                 };
                 ImportType::new(module, field, extern_type)
-            })
+            });
+        ImportsIterator {
+            iter,
+            size: self.imports.len(),
+        }
     }
 
-    /// Convert a `LocalFuncIndex` into a `FuncIndex`.
-    pub fn func_index(&self, local_func: LocalFuncIndex) -> FuncIndex {
-        FuncIndex::new(self.num_imported_funcs + local_func.index())
+    /// Convert a `LocalFunctionIndex` into a `FunctionIndex`.
+    pub fn func_index(&self, local_func: LocalFunctionIndex) -> FunctionIndex {
+        FunctionIndex::new(self.num_imported_funcs + local_func.index())
     }
 
-    /// Convert a `FuncIndex` into a `LocalFuncIndex`. Returns None if the
+    /// Convert a `FunctionIndex` into a `LocalFunctionIndex`. Returns None if the
     /// index is an imported function.
-    pub fn local_func_index(&self, func: FuncIndex) -> Option<LocalFuncIndex> {
+    pub fn local_func_index(&self, func: FunctionIndex) -> Option<LocalFunctionIndex> {
         func.index()
             .checked_sub(self.num_imported_funcs)
-            .map(LocalFuncIndex::new)
+            .map(LocalFunctionIndex::new)
     }
 
     /// Test whether the given function index is for an imported function.
-    pub fn is_imported_function(&self, index: FuncIndex) -> bool {
+    pub fn is_imported_function(&self, index: FunctionIndex) -> bool {
         index.index() < self.num_imported_funcs
     }
 
@@ -341,5 +356,128 @@ impl Module {
 impl fmt::Display for Module {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name())
+    }
+}
+
+// Code inspired from
+// https://www.reddit.com/r/rust/comments/9vspv4/extending_iterators_ergonomically/
+
+/// This iterator allows us to iterate over the exports
+/// and offer nice API ergonomics over it.
+pub struct ExportsIterator<I: Iterator<Item = ExportType> + Sized> {
+    iter: I,
+    size: usize,
+}
+
+impl<I: Iterator<Item = ExportType> + Sized> ExactSizeIterator for ExportsIterator<I> {
+    // We can easily calculate the remaining number of iterations.
+    fn len(&self) -> usize {
+        self.size
+    }
+}
+
+impl<I: Iterator<Item = ExportType> + Sized> ExportsIterator<I> {
+    /// Get only the functions
+    pub fn functions(self) -> impl Iterator<Item = ExportType<FunctionType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Function(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            _ => None,
+        })
+    }
+    /// Get only the memories
+    pub fn memories(self) -> impl Iterator<Item = ExportType<MemoryType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Memory(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            _ => None,
+        })
+    }
+    /// Get only the tables
+    pub fn tables(self) -> impl Iterator<Item = ExportType<TableType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Table(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            _ => None,
+        })
+    }
+    /// Get only the globals
+    pub fn globals(self) -> impl Iterator<Item = ExportType<GlobalType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Global(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            _ => None,
+        })
+    }
+}
+
+impl<I: Iterator<Item = ExportType> + Sized> Iterator for ExportsIterator<I> {
+    type Item = ExportType;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+/// This iterator allows us to iterate over the imports
+/// and offer nice API ergonomics over it.
+pub struct ImportsIterator<I: Iterator<Item = ImportType> + Sized> {
+    iter: I,
+    size: usize,
+}
+
+impl<I: Iterator<Item = ImportType> + Sized> ExactSizeIterator for ImportsIterator<I> {
+    // We can easily calculate the remaining number of iterations.
+    fn len(&self) -> usize {
+        self.size
+    }
+}
+
+impl<I: Iterator<Item = ImportType> + Sized> ImportsIterator<I> {
+    /// Get only the functions
+    pub fn functions(self) -> impl Iterator<Item = ImportType<FunctionType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Function(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
+            _ => None,
+        })
+    }
+    /// Get only the memories
+    pub fn memories(self) -> impl Iterator<Item = ImportType<MemoryType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Memory(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
+            _ => None,
+        })
+    }
+    /// Get only the tables
+    pub fn tables(self) -> impl Iterator<Item = ImportType<TableType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Table(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
+            _ => None,
+        })
+    }
+    /// Get only the globals
+    pub fn globals(self) -> impl Iterator<Item = ImportType<GlobalType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Global(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
+            _ => None,
+        })
+    }
+}
+
+impl<I: Iterator<Item = ImportType> + Sized> Iterator for ImportsIterator<I> {
+    type Item = ImportType;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
     }
 }

@@ -7,16 +7,17 @@ use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::ir::{self, AbiParam};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
-use wasm_common::{FuncType, Type};
+use wasm_common::entity::{EntityRef, SecondaryMap};
+use wasm_common::{FunctionType, Type};
 use wasmer_compiler::wasm_unsupported;
 use wasmer_compiler::wasmparser;
-use wasmer_compiler::RelocationKind;
+use wasmer_compiler::{JumpTable, RelocationKind};
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_runtime::libcalls::LibCall;
 
 /// Helper function translate a Funciton signature into Cranelift Ir
 pub fn signature_to_cranelift_ir(
-    signature: &FuncType,
+    signature: &FunctionType,
     target_config: &TargetFrontendConfig,
 ) -> ir::Signature {
     let mut sig = ir::Signature::new(target_config.default_call_conv);
@@ -146,4 +147,17 @@ pub fn f64_translation(x: wasmparser::Ieee64) -> ir::immediates::Ieee64 {
 pub fn get_vmctx_value_label() -> ir::ValueLabel {
     const VMCTX_LABEL: u32 = 0xffff_fffe;
     ir::ValueLabel::from_u32(VMCTX_LABEL)
+}
+
+/// Transforms Cranelift JumpTable's into runtime JumpTables
+pub fn transform_jump_table(
+    jt_offsets: SecondaryMap<ir::JumpTable, u32>,
+) -> SecondaryMap<JumpTable, u32> {
+    let mut func_jt_offsets = SecondaryMap::with_capacity(jt_offsets.capacity());
+
+    for (key, value) in jt_offsets.iter() {
+        let new_key = JumpTable::new(key.index());
+        func_jt_offsets[new_key] = *value;
+    }
+    func_jt_offsets
 }

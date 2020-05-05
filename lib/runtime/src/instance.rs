@@ -5,7 +5,7 @@ use crate::export::Export;
 use crate::imports::Imports;
 use crate::memory::LinearMemory;
 use crate::table::Table;
-use crate::trap::{catch_traps, init_traphandlers, Trap, TrapCode};
+use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
     VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex,
@@ -24,8 +24,8 @@ use std::sync::Arc;
 use std::{mem, ptr, slice};
 use wasm_common::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataIndex, DataInitializer, ElemIndex, ExportIndex, FuncIndex, GlobalIndex, GlobalInit,
-    LocalFuncIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, Pages,
+    DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, Pages,
     SignatureIndex, TableIndex,
 };
 
@@ -35,7 +35,7 @@ cfg_if::cfg_if! {
 
         impl InstanceHandle {
             /// Set a custom signal handler
-            pub fn set_signal_handler<H>(&mut self, handler: H)
+            pub fn set_signal_handler<H>(&self, handler: H)
             where
                 H: 'static + Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool,
             {
@@ -47,7 +47,7 @@ cfg_if::cfg_if! {
 
         impl InstanceHandle {
             /// Set a custom signal handler
-            pub fn set_signal_handler<H>(&mut self, handler: H)
+            pub fn set_signal_handler<H>(&self, handler: H)
             where
                 H: 'static + Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool,
             {
@@ -62,14 +62,6 @@ cfg_if::cfg_if! {
 /// This is repr(C) to ensure that the vmctx field is last.
 #[repr(C)]
 pub(crate) struct Instance {
-    /// The number of references to this `Instance`.
-    refcount: Cell<usize>,
-
-    /// `Instance`s from which this `Instance` imports. These won't
-    /// create reference cycles because wasm instances can't cyclically
-    /// import from each other.
-    dependencies: HashSet<InstanceHandle>,
-
     /// The `Module` this `Instance` was instantiated from.
     module: Arc<Module>,
 
@@ -92,7 +84,7 @@ pub(crate) struct Instance {
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
 
     /// Pointers to functions in executable memory.
-    finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
+    finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -136,7 +128,7 @@ impl Instance {
     }
 
     /// Return the indexed `VMFunctionImport`.
-    fn imported_function(&self, index: FuncIndex) -> &VMFunctionImport {
+    fn imported_function(&self, index: FunctionIndex) -> &VMFunctionImport {
         let index = usize::try_from(index.as_u32()).unwrap();
         unsafe { &*self.imported_functions_ptr().add(index) }
     }
@@ -347,7 +339,7 @@ impl Instance {
 
     /// Return an iterator over the exports of this instance.
     ///
-    /// Specifically, it provides access to the key-value pairs, where they keys
+    /// Specifically, it provides access to the key-value pairs, where the keys
     /// are export names, and the values are export declarations which can be
     /// resolved `lookup_by_declaration`.
     pub fn exports(&self) -> indexmap::map::Iter<String, ExportIndex> {
@@ -544,9 +536,9 @@ impl Instance {
         Layout::from_size_align(size, align).unwrap()
     }
 
-    /// Get a `VMCallerCheckedAnyfunc` for the given `FuncIndex`.
-    fn get_caller_checked_anyfunc(&self, index: FuncIndex) -> VMCallerCheckedAnyfunc {
-        if index == FuncIndex::reserved_value() {
+    /// Get a `VMCallerCheckedAnyfunc` for the given `FunctionIndex`.
+    fn get_caller_checked_anyfunc(&self, index: FunctionIndex) -> VMCallerCheckedAnyfunc {
+        if index == FunctionIndex::reserved_value() {
             return VMCallerCheckedAnyfunc::default();
         }
 
@@ -783,14 +775,12 @@ impl InstanceHandle {
     /// safety.
     pub unsafe fn new(
         module: Arc<Module>,
-        finished_functions: BoxedSlice<LocalFuncIndex, *mut [VMFunctionBody]>,
+        finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
         finished_memories: BoxedSlice<LocalMemoryIndex, LinearMemory>,
         finished_tables: BoxedSlice<LocalTableIndex, Table>,
         finished_globals: BoxedSlice<LocalGlobalIndex, VMGlobalDefinition>,
         imports: Imports,
-        data_initializers: &[DataInitializer<'_>],
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-        is_bulk_memory: bool,
         host_state: Box<dyn Any>,
     ) -> Result<Self, Trap> {
         let vmctx_tables = finished_tables
@@ -813,8 +803,6 @@ impl InstanceHandle {
 
         let handle = {
             let instance = Instance {
-                refcount: Cell::new(1),
-                dependencies: imports.dependencies,
                 module,
                 offsets,
                 memories: finished_memories,
@@ -883,30 +871,42 @@ impl InstanceHandle {
             VMBuiltinFunctionsArray::initialized(),
         );
 
+        // Ensure that our signal handlers are ready for action.
+        init_traps();
+
+        // Perform infallible initialization in this constructor, while fallible
+        // initialization is deferred to the `initialize` method.
+        initialize_passive_elements(instance);
+        initialize_globals(instance);
+
+        Ok(handle)
+    }
+
+    /// Finishes the instantiation process started by `Instance::new`.
+    ///
+    /// Only safe to call immediately after instantiation.
+    pub unsafe fn finish_instantiation(
+        &self,
+        is_bulk_memory: bool,
+        data_initializers: &[DataInitializer<'_>],
+    ) -> Result<(), Trap> {
         // Check initializer bounds before initializing anything. Only do this
         // when bulk memory is disabled, since the bulk memory proposal changes
         // instantiation such that the intermediate results of failed
         // initializations are visible.
         if !is_bulk_memory {
-            check_table_init_bounds(instance)?;
-            check_memory_init_bounds(instance, data_initializers)?;
+            check_table_init_bounds(self.instance())?;
+            check_memory_init_bounds(self.instance(), data_initializers)?;
         }
 
         // Apply the initializers.
-        initialize_tables(instance)?;
-        initialize_passive_elements(instance);
-        initialize_memories(instance, data_initializers)?;
-        initialize_globals(instance);
-
-        // Ensure that our signal handlers are ready for action.
-        // TODO: Move these calls out of `InstanceHandle`.
-        init_traphandlers();
+        initialize_tables(self.instance())?;
+        initialize_memories(self.instance(), data_initializers)?;
 
         // The WebAssembly spec specifies that the start function is
         // invoked automatically at instantiation time.
-        instance.invoke_start_function()?;
-
-        Ok(handle)
+        self.instance().invoke_start_function()?;
+        Ok(())
     }
 
     /// Create a new `InstanceHandle` pointing at the instance
@@ -917,7 +917,6 @@ impl InstanceHandle {
     /// be a `VMContext` allocated as part of an `Instance`.
     pub unsafe fn from_vmctx(vmctx: *mut VMContext) -> Self {
         let instance = (&mut *vmctx).instance();
-        instance.refcount.set(instance.refcount.get() + 1);
         Self {
             instance: instance as *const Instance as *mut Instance,
         }
@@ -1032,32 +1031,36 @@ impl InstanceHandle {
     pub(crate) fn instance(&self) -> &Instance {
         unsafe { &*(self.instance as *const Instance) }
     }
+
+    /// Deallocates memory associated with this instance.
+    ///
+    /// Note that this is unsafe because there might be other handles to this
+    /// `InstanceHandle` elsewhere, and there's nothing preventing usage of
+    /// this handle after this function is called.
+    pub unsafe fn dealloc(&self) {
+        let instance = self.instance();
+        let layout = instance.alloc_layout();
+        ptr::drop_in_place(self.instance);
+        alloc::dealloc(self.instance.cast(), layout);
+    }
 }
 
 impl Clone for InstanceHandle {
     fn clone(&self) -> Self {
-        let instance = self.instance();
-        instance.refcount.set(instance.refcount.get() + 1);
         Self {
             instance: self.instance,
         }
     }
 }
 
-impl Drop for InstanceHandle {
-    fn drop(&mut self) {
-        let instance = self.instance();
-        let count = instance.refcount.get();
-        instance.refcount.set(count - 1);
-        if count == 1 {
-            let layout = instance.alloc_layout();
-            unsafe {
-                ptr::drop_in_place(self.instance);
-                alloc::dealloc(self.instance.cast(), layout);
-            }
-        }
-    }
-}
+// TODO: uncomment this, as we need to store the handles
+// in the store, and once the store is dropped, then the instances
+// will too.
+// impl Drop for InstanceHandle {
+//     fn drop(&mut self) {
+//         unsafe { self.dealloc() }
+//     }
+// }
 
 fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);
@@ -1170,7 +1173,7 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
 }
 
 /// Initialize the `Instance::passive_elements` map by resolving the
-/// `Module::passive_elements`'s `FuncIndex`s into `VMCallerCheckedAnyfunc`s for
+/// `Module::passive_elements`'s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
 /// this instance.
 fn initialize_passive_elements(instance: &Instance) {
     let mut passive_elements = instance.passive_elements.borrow_mut();
@@ -1226,26 +1229,23 @@ fn initialize_memories(
 
 fn initialize_globals(instance: &Instance) {
     let module = Arc::clone(&instance.module);
-    let num_imports = module.num_imported_globals;
-    for (index, global) in module.globals.iter().skip(num_imports) {
-        let def_index = module.local_global_index(index).unwrap();
+    for (index, initializer) in module.global_initializers.iter() {
         unsafe {
-            let to = instance.global_ptr(def_index);
-            match global.initializer {
-                GlobalInit::I32Const(x) => *(*to).as_i32_mut() = x,
-                GlobalInit::I64Const(x) => *(*to).as_i64_mut() = x,
-                GlobalInit::F32Const(x) => *(*to).as_f32_mut() = x,
-                GlobalInit::F64Const(x) => *(*to).as_f64_mut() = x,
+            let to = instance.global_ptr(index);
+            match initializer {
+                GlobalInit::I32Const(x) => *(*to).as_i32_mut() = *x,
+                GlobalInit::I64Const(x) => *(*to).as_i64_mut() = *x,
+                GlobalInit::F32Const(x) => *(*to).as_f32_mut() = *x,
+                GlobalInit::F64Const(x) => *(*to).as_f64_mut() = *x,
                 GlobalInit::V128Const(x) => *(*to).as_u128_bits_mut() = *x.bytes(),
                 GlobalInit::GetGlobal(x) => {
-                    let from = if let Some(def_x) = module.local_global_index(x) {
+                    let from = if let Some(def_x) = module.local_global_index(*x) {
                         instance.global(def_x)
                     } else {
-                        *instance.imported_global(x).definition
+                        *instance.imported_global(*x).definition
                     };
                     *to = from;
                 }
-                GlobalInit::Import => panic!("locally-defined global initialized as import"),
                 GlobalInit::RefNullConst | GlobalInit::RefFunc(_) => unimplemented!(),
             }
         }

@@ -37,10 +37,10 @@ pub mod entity {
     pub use cranelift_entity::*;
 }
 
-pub use crate::data_initializer::{DataInitializer, DataInitializerLocation};
+pub use crate::data_initializer::{DataInitializer, DataInitializerLocation, OwnedDataInitializer};
 pub use crate::features::Features;
 pub use crate::indexes::{
-    DataIndex, ElemIndex, ExportIndex, FuncIndex, GlobalIndex, ImportIndex, LocalFuncIndex,
+    DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex, LocalFunctionIndex,
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 pub use crate::native::{
@@ -51,8 +51,8 @@ pub use crate::r#ref::{AnyRef, HostInfo, HostRef};
 pub use crate::units::{Bytes, Pages};
 pub use crate::values::Value;
 pub use types::{
-    ExportType, ExternType, FuncType, GlobalInit, GlobalType, ImportType, MemoryType, Mutability,
-    TableType, Type, V128,
+    ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
+    Mutability, TableType, Type, V128,
 };
 
 /// Version number of this crate.

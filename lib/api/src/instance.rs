@@ -3,7 +3,7 @@ use crate::externals::Extern;
 use crate::module::Module;
 use crate::store::Store;
 use crate::InstantiationError;
-use wasmer_jit::Resolver;
+use wasmer_engine::Resolver;
 use wasmer_runtime::InstanceHandle;
 
 /// A WebAssembly Instance is a stateful, executable
@@ -25,7 +25,8 @@ impl Instance {
     /// set of imports resolved by the [`Resolver`].
     ///
     /// The resolver can be anything that implements the [`Resolver`] trait,
-    /// so you can plug custom resolution for the imports.
+    /// so you can plug custom resolution for the imports, if you wish not
+    /// to use [`ImportObject`].
     ///
     /// The [`ImportObject`] is the easiest way to provide imports to the instance.
     ///
@@ -53,9 +54,7 @@ impl Instance {
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Instance, InstantiationError> {
         let store = module.store();
 
-        let handle = store
-            .engine()
-            .instantiate(module.compiled_module(), resolver)?;
+        let handle = module.instantiate(resolver)?;
 
         let exports = module
             .exports()

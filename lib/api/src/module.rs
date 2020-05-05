@@ -1,11 +1,14 @@
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
+use crate::InstantiationError;
+use std::borrow::Borrow;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::{CompileError, WasmError};
-use wasmer_jit::{CompiledModule, DeserializeError, SerializeError};
+use wasmer_engine::{CompiledModule, DeserializeError, Engine, Resolver, SerializeError};
+use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, Module as ModuleInfo};
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -23,12 +26,17 @@ pub enum IoCompileError {
 ///
 /// ## Cloning a module
 ///
-/// Cloning a moudle is cheap: it does a shallow copy of the compiled
+/// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
 #[derive(Clone)]
 pub struct Module {
     store: Store,
-    compiled: Arc<CompiledModule>,
+    compiled: Arc<dyn CompiledModule>,
+
+    #[cfg(feature = "wat")]
+    #[doc(hidden)]
+    // If the module was compiled from a wat file.
+    pub from_wat: bool,
 }
 
 impl Module {
@@ -67,28 +75,23 @@ impl Module {
     /// let module = Module::new(&store, bytes)?;
     /// ```
     pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Module, CompileError> {
-        // We try to parse it with WAT: it will be a no-op on
-        // wasm files.
-        if bytes.as_ref().starts_with(b"\0asm") {
-            return Module::from_binary(store, bytes.as_ref());
-        }
-
         #[cfg(feature = "wat")]
         {
-            let bytes = wat::parse_bytes(bytes.as_ref())
-                .map_err(|e| CompileError::Wasm(WasmError::Generic(format!("{}", e))))?;
-            // We can assume the binary is valid WebAssembly if returned
-            // without errors from from wat. However, by skipping validation
-            // we are not checking if it's using WebAssembly features not enabled
-            // in the store.
-            // This is a good tradeoff, as we can assume the "wat" feature is only
-            // going to be used in development mode.
-            return unsafe { Module::from_binary_unchecked(store, bytes.as_ref()) };
+            let might_be_wat = !bytes.as_ref().starts_with(b"\0asm");
+            let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+                CompileError::Wasm(WasmError::Generic(format!(
+                    "Error when converting wat: {}",
+                    e
+                )))
+            })?;
+            let mut module = Module::from_binary(store, bytes.as_ref())?;
+            // We can assume it was a wat file if is not "wasm" looking
+            // and the previous step succeeded.
+            module.from_wat = might_be_wat;
+            return Ok(module);
         }
 
-        Err(CompileError::Validate(
-            "The module is not a valid WebAssembly file.".to_string(),
-        ))
+        Module::from_binary(store, bytes.as_ref())
     }
 
     pub fn from_file(store: &Store, file: impl AsRef<Path>) -> Result<Module, IoCompileError> {
@@ -153,7 +156,7 @@ impl Module {
     /// let serialized = module.serialize()?;
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.store.engine().serialize(self.compiled_module())
+        self.store.engine().serialize(self.compiled.borrow())
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
@@ -181,15 +184,33 @@ impl Module {
         Ok(Self::from_compiled_module(store, compiled))
     }
 
-    fn from_compiled_module(store: &Store, compiled: CompiledModule) -> Self {
+    fn from_compiled_module(store: &Store, compiled: Arc<CompiledModule>) -> Self {
         Module {
             store: store.clone(),
-            compiled: Arc::new(compiled),
+            compiled,
+            #[cfg(feature = "wat")]
+            from_wat: false,
         }
     }
 
-    pub(crate) fn compiled_module(&self) -> &CompiledModule {
-        &self.compiled
+    pub(crate) fn instantiate(
+        &self,
+        resolver: &dyn Resolver,
+    ) -> Result<InstanceHandle, InstantiationError> {
+        unsafe {
+            let instance_handle = self
+                .store
+                .engine()
+                .instantiate(self.compiled.borrow(), resolver)?;
+
+            // After the instance handle is created, we need to initialize
+            // the data, call the start function and so. However, if any
+            // of this steps traps, we still need to keep the instance alive
+            // as some of the Instance elements may have placed in other
+            // instance tables.
+            self.compiled.finish_instantiation(&instance_handle)?;
+            Ok(instance_handle)
+        }
     }
 
     /// Returns the name of the current module.
@@ -223,7 +244,7 @@ impl Module {
     /// ```
     pub fn set_name(&mut self, name: &str) {
         let compiled = Arc::get_mut(&mut self.compiled).unwrap();
-        Arc::get_mut(compiled.module_mut()).unwrap().name = Some(name.to_string());
+        compiled.module_mut().name = Some(name.to_string());
     }
 
     /// Returns an iterator over the imported types in the Module.
@@ -246,8 +267,8 @@ impl Module {
     ///     import.ty();
     /// }
     /// ```
-    pub fn imports<'a>(&'a self) -> impl Iterator<Item = ImportType> + 'a {
-        self.compiled.module_ref().imports()
+    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+        self.compiled.module().imports()
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -269,11 +290,21 @@ impl Module {
     ///     export.ty();
     /// }
     /// ```
-    pub fn exports<'a>(&'a self) -> impl Iterator<Item = ExportType> + 'a {
-        self.compiled.module_ref().exports()
+    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+        self.compiled.module().exports()
     }
 
     pub fn store(&self) -> &Store {
         &self.store
+    }
+
+    // The ABI of the ModuleInfo is very unstable, we refactor it very often.
+    // This funciton is public because in some cases it can be useful to get some
+    // extra information from the module.
+    //
+    // However, the usage is highly discouraged.
+    #[doc(hidden)]
+    pub fn info(&self) -> &ModuleInfo {
+        &self.compiled.module()
     }
 }

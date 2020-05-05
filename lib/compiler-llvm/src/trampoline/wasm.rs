@@ -1,23 +1,11 @@
 use crate::config::LLVMConfig;
-use crate::translator::intrinsics::{func_type_to_llvm, type_to_llvm, Intrinsics};
+use crate::translator::intrinsics::{func_type_to_llvm, Intrinsics};
 use inkwell::{
-    context::Context,
-    module::{Linkage, Module},
-    passes::PassManager,
-    targets::FileType,
-    types::{BasicType, FunctionType},
-    values::FunctionValue,
-    AddressSpace,
+    context::Context, module::Linkage, passes::PassManager, targets::FileType, types::BasicType,
+    values::FunctionValue, AddressSpace,
 };
-use wasm_common::entity::SecondaryMap;
-use wasm_common::{FuncType, Type};
-use wasmer_compiler::{
-    Compilation, CompileError, CompiledFunction, CompiledFunctionUnwindInfo, Compiler,
-    FunctionAddressMap, SourceLoc,
-};
-
-use std::fs;
-use std::io::Write;
+use wasm_common::{FunctionType, Type};
+use wasmer_compiler::{CompileError, FunctionBody};
 
 pub struct FuncTrampoline {
     ctx: Context,
@@ -32,9 +20,9 @@ impl FuncTrampoline {
 
     pub fn trampoline(
         &mut self,
-        ty: &FuncType,
+        ty: &FunctionType,
         config: &LLVMConfig,
-    ) -> Result<CompiledFunction, CompileError> {
+    ) -> Result<FunctionBody, CompileError> {
         let mut module = self.ctx.create_module("");
         let target_triple = config.target_triple();
         let target_machine = config.target_machine();
@@ -107,28 +95,16 @@ impl FuncTrampoline {
         // TODO: remove debugging
         //dbg!(&bytes);
 
-        let address_map = FunctionAddressMap {
-            instructions: vec![],
-            start_srcloc: SourceLoc::default(),
-            end_srcloc: SourceLoc::default(),
-            body_offset: 0,
-            body_len: 0, // TODO
-        };
-
-        Ok(CompiledFunction {
-            address_map,
+        Ok(FunctionBody {
             body: bytes,
-            jt_offsets: SecondaryMap::new(),
-            unwind_info: CompiledFunctionUnwindInfo::None,
-            relocations: vec![],
-            traps: vec![],
+            unwind_info: None,
         })
     }
 }
 
 fn generate_trampoline<'ctx>(
     trampoline_func: FunctionValue,
-    func_sig: &FuncType,
+    func_sig: &FunctionType,
     context: &'ctx Context,
     intrinsics: &Intrinsics<'ctx>,
 ) -> Result<(), CompileError> {

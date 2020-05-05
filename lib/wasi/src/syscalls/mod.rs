@@ -26,6 +26,7 @@ use std::borrow::Borrow;
 use std::cell::Cell;
 use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
+use tracing::{debug, trace};
 use wasmer::{Memory, RuntimeError};
 
 #[cfg(any(
