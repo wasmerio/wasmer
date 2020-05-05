@@ -158,8 +158,8 @@ impl StoreOptions {
     }
 }
 
-// If we don't have neither a compiler nor an engine
-#[cfg(not(all(feature = "compiler", feature = "engine")))]
+// If we don't have any engine enabled
+#[cfg(not(feature = "engine"))]
 impl StoreOptions {
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, String)> {
