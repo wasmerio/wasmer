@@ -54,13 +54,13 @@ let store = Store::new_config(&engine);
 );
 
 #[cfg(feature = "singlepass")]
-pub use wasmer_compiler_singlepass::SinglepassConfig as DefaultCompilerConfig;
+pub use wasmer_compiler_singlepass::SinglepassConfig;
 
 #[cfg(feature = "cranelift")]
-pub use wasmer_compiler_cranelift::CraneliftConfig as DefaultCompilerConfig;
+pub use wasmer_compiler_cranelift::CraneliftConfig;
 
 #[cfg(feature = "llvm")]
-pub use wasmer_compiler_llvm::LLVMConfig as DefaultCompilerConfig;
+pub use wasmer_compiler_llvm::LLVMConfig;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

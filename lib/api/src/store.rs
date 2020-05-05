@@ -27,9 +27,9 @@ impl Store {
     }
 
     #[cfg(feature = "compiler")]
-    fn new_config(config: impl CompilerConfig) -> Self {
+    fn new_config(config: Box<dyn CompilerConfig>) -> Self {
         let tunables = Tunables::for_target(config.target().triple());
-        Self::new(&Engine::new(&config, tunables))
+        Self::new(&Engine::new(&*config, tunables))
     }
 }
 
@@ -43,8 +43,21 @@ impl PartialEq for Store {
 #[cfg(feature = "compiler")]
 impl Default for Store {
     fn default() -> Store {
-        let config = crate::DefaultCompilerConfig::default();
-        Store::new_config(config)
+        // We store them on a function that returns to make
+        // sure this function doesn't emit a compile error even if
+        // more than one compiler is enabled.
+        #[allow(unreachable_code)]
+        fn get_config() -> Box<dyn CompilerConfig> {
+            #[cfg(feature = "cranelift")]
+            return Box::new(wasmer_compiler_cranelift::CraneliftConfig::default());
+
+            #[cfg(feature = "llvm")]
+            return Box::new(wasmer_compiler_llvm::LLVMConfig::default());
+
+            #[cfg(feature = "singlepass")]
+            return Box::new(wasmer_compiler_singlepass::SinglepassConfig::default());
+        }
+        Store::new_config(get_config())
     }
 }
 
