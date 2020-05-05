@@ -715,7 +715,7 @@ impl VMBuiltinFunctionsArray {
     }
 }
 
-/// The VM "context", which is pointed to by the `vmctx` arg in Cranelift.
+/// The VM "context", which is pointed to by the `vmctx` arg in the compiler.
 /// This has information about globals, memories, tables, and other runtime
 /// state associated with the current instance.
 ///

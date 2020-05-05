@@ -327,11 +327,6 @@ pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
 
 /// The name of a runtime library routine.
 ///
-/// Runtime library calls are generated for Cranelift IR instructions that don't have an equivalent
-/// ISA instruction or an easy macro expansion. A `LibCall` is used as a well-known name to refer to
-/// the runtime library routine. This way, Cranelift doesn't have to know about the naming
-/// convention in the embedding VM's runtime library.
-///
 /// This list is likely to grow over time.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LibCall {
