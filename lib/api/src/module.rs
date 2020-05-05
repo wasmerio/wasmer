@@ -7,7 +7,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::{CompileError, WasmError};
 use wasmer_jit::{CompiledModule, DeserializeError, Resolver, SerializeError};
-use wasmer_runtime::InstanceHandle;
+use wasmer_runtime::{ExportsIterator, InstanceHandle, Module as ModuleInfo};
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -274,11 +274,21 @@ impl Module {
     ///     export.ty();
     /// }
     /// ```
-    pub fn exports<'a>(&'a self) -> impl Iterator<Item = ExportType> + 'a {
+    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
         self.compiled.module().exports()
     }
 
     pub fn store(&self) -> &Store {
         &self.store
+    }
+
+    // The ABI of the ModuleInfo is very unstable, we refactor it very often.
+    // This funciton is public because in some cases it can be useful to get some
+    // extra information from the module.
+    //
+    // However, the usage is highly discouraged.
+    #[doc(hidden)]
+    pub fn info(&self) -> &ModuleInfo {
+        &self.compiled.module()
     }
 }

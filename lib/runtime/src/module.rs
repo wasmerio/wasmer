@@ -5,6 +5,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
@@ -134,7 +135,7 @@ pub struct Module {
     /// WebAssembly function signatures.
     pub signatures: PrimaryMap<SignatureIndex, FunctionType>,
 
-    /// Types of functions (imported and local).
+    /// WebAssembly functions (imported and local).
     pub functions: PrimaryMap<FunctionIndex, SignatureIndex>,
 
     /// WebAssembly tables (imported and local).
@@ -206,8 +207,8 @@ impl Module {
     }
 
     /// Get the export types of the module
-    pub fn exports<'a>(&'a self) -> impl Iterator<Item = ExportType> + 'a {
-        self.exports.iter().map(move |(name, export_index)| {
+    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+        let iter = self.exports.iter().map(move |(name, export_index)| {
             let extern_type = match export_index {
                 ExportIndex::Function(i) => {
                     let signature = self.functions.get(i.clone()).unwrap();
@@ -228,7 +229,11 @@ impl Module {
                 }
             };
             ExportType::new(name, extern_type)
-        })
+        });
+        ExportsIterator {
+            iter,
+            size: self.exports.len(),
+        }
     }
 
     /// Get the export types of the module
@@ -346,5 +351,58 @@ impl Module {
 impl fmt::Display for Module {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name())
+    }
+}
+
+// Code inspired from
+// https://www.reddit.com/r/rust/comments/9vspv4/extending_iterators_ergonomically/
+/// This iterator allows us to iterate
+pub struct ExportsIterator<I: Iterator<Item = ExportType> + Sized> {
+    iter: I,
+    size: usize,
+}
+
+impl<I: Iterator<Item = ExportType> + Sized> ExactSizeIterator for ExportsIterator<I> {
+    // We can easily calculate the remaining number of iterations.
+    fn len(&self) -> usize {
+        self.size
+    }
+}
+
+impl<I: Iterator<Item = ExportType> + Sized> ExportsIterator<I> {
+    /// Get only the functions
+    pub fn functions(self) -> impl Iterator<Item = ExportType<FunctionType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Function(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            _ => None,
+        })
+    }
+    /// Get only the memories
+    pub fn memories(self) -> impl Iterator<Item = ExportType<MemoryType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Memory(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            _ => None,
+        })
+    }
+    /// Get only the tables
+    pub fn tables(self) -> impl Iterator<Item = ExportType<TableType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Table(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            _ => None,
+        })
+    }
+    /// Get only the globals
+    pub fn globals(self) -> impl Iterator<Item = ExportType<GlobalType>> + Sized {
+        self.iter.filter_map(|extern_| match extern_.ty() {
+            ExternType::Global(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            _ => None,
+        })
+    }
+}
+
+impl<I: Iterator<Item = ExportType> + Sized> Iterator for ExportsIterator<I> {
+    type Item = ExportType;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
     }
 }

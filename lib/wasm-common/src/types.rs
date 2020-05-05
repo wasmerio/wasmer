@@ -502,17 +502,21 @@ impl ImportType {
 /// [`Module::exports`](crate::Module::exports) accessor and describes what
 /// names are exported from a wasm module and the type of the item that is
 /// exported.
+///
+/// The `<T>` refefers to `ExternType`, however it can also refer to use
+/// `MemoryType`, `TableType`, `FunctionType` and `GlobalType` for ease of
+/// use.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct ExportType {
+pub struct ExportType<T = ExternType> {
     name: String,
-    ty: ExternType,
+    ty: T,
 }
 
-impl ExportType {
+impl<T> ExportType<T> {
     /// Creates a new export which is exported with the given `name` and has the
     /// given `ty`.
-    pub fn new(name: &str, ty: ExternType) -> ExportType {
+    pub fn new(name: &str, ty: T) -> Self {
         ExportType {
             name: name.to_string(),
             ty,
@@ -525,7 +529,7 @@ impl ExportType {
     }
 
     /// Returns the type of this export.
-    pub fn ty(&self) -> &ExternType {
+    pub fn ty(&self) -> &T {
         &self.ty
     }
 }
