@@ -28,7 +28,6 @@
 mod code_memory;
 mod engine;
 mod error;
-mod function_table;
 mod link;
 mod module;
 mod resolver;
@@ -41,7 +40,6 @@ pub use crate::engine::JITEngine;
 pub use crate::error::{
     DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
 };
-pub use crate::function_table::FunctionTable;
 pub use crate::link::link_module;
 pub use crate::module::CompiledModule;
 pub use crate::resolver::{resolve_imports, NullResolver, Resolver};
