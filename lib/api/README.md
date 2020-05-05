@@ -18,7 +18,7 @@ wasmer = "0.16.2"
 ```rust
 use wasmer::{Instance, Function, Value, imports, DefaultStore as _};
 
-fn main() -> error::Result<()> {
+fn main() -> anyhow::Result<()> {
     let module_wat = r#"
     (module
     (type $t0 (func (param i32) (result i32)))
@@ -53,7 +53,7 @@ Wasmer is not only fast, but also designed to be highly customizable:
 
 ## Config flags
 
-Wasmer supports multiple features, from different engines to different compilers:
+Wasmer has the following configuration flags:
 * `wat` (enabled by default): It allows to read WebAssembly files in their text format.
   *This feature is normally used only in development environments*
 * Compilers (mutually exclusive):
