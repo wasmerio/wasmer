@@ -7,7 +7,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::{CompileError, WasmError};
 use wasmer_engine::{CompiledModule, DeserializeError, Engine, Resolver, SerializeError};
-use wasmer_runtime::InstanceHandle;
+use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, Module as ModuleInfo};
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -25,12 +25,17 @@ pub enum IoCompileError {
 ///
 /// ## Cloning a module
 ///
-/// Cloning a moudle is cheap: it does a shallow copy of the compiled
+/// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
 #[derive(Clone)]
 pub struct Module {
     store: Store,
     compiled: Arc<dyn CompiledModule>,
+
+    #[cfg(feature = "wat")]
+    #[doc(hidden)]
+    // If the module was compiled from a wat file.
+    pub from_wat: bool,
 }
 
 impl Module {
@@ -71,13 +76,18 @@ impl Module {
     pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Module, CompileError> {
         #[cfg(feature = "wat")]
         {
+            let might_be_wat = !bytes.as_ref().starts_with(b"\0asm");
             let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
                 CompileError::Wasm(WasmError::Generic(format!(
                     "Error when converting wat: {}",
                     e
                 )))
             })?;
-            return Module::from_binary(store, bytes.as_ref());
+            let mut module = Module::from_binary(store, bytes.as_ref())?;
+            // We can assume it was a wat file if is not "wasm" looking
+            // and the previous step succeeded.
+            module.from_wat = might_be_wat;
+            return Ok(module);
         }
 
         Module::from_binary(store, bytes.as_ref())
@@ -177,6 +187,8 @@ impl Module {
         Module {
             store: store.clone(),
             compiled,
+            #[cfg(feature = "wat")]
+            from_wat: false,
         }
     }
 
@@ -251,7 +263,7 @@ impl Module {
     ///     import.ty();
     /// }
     /// ```
-    pub fn imports<'a>(&'a self) -> impl Iterator<Item = ImportType> + 'a {
+    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
         self.compiled.module().imports()
     }
 
@@ -274,11 +286,21 @@ impl Module {
     ///     export.ty();
     /// }
     /// ```
-    pub fn exports<'a>(&'a self) -> impl Iterator<Item = ExportType> + 'a {
+    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
         self.compiled.module().exports()
     }
 
     pub fn store(&self) -> &Store {
         &self.store
+    }
+
+    // The ABI of the ModuleInfo is very unstable, we refactor it very often.
+    // This funciton is public because in some cases it can be useful to get some
+    // extra information from the module.
+    //
+    // However, the usage is highly discouraged.
+    #[doc(hidden)]
+    pub fn info(&self) -> &ModuleInfo {
+        &self.compiled.module()
     }
 }

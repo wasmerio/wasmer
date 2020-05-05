@@ -339,7 +339,7 @@ impl Instance {
 
     /// Return an iterator over the exports of this instance.
     ///
-    /// Specifically, it provides access to the key-value pairs, where they keys
+    /// Specifically, it provides access to the key-value pairs, where the keys
     /// are export names, and the values are export declarations which can be
     /// resolved `lookup_by_declaration`.
     pub fn exports(&self) -> indexmap::map::Iter<String, ExportIndex> {
