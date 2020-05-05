@@ -168,11 +168,11 @@ impl CodeMemory {
 
     /// Calculates the allocation size of the given compiled function.
     fn function_allocation_size(func: &FunctionBody) -> usize {
-        if func.unwind_info.is_empty() {
-            func.body.len()
-        } else {
+        if let Some(unwind_info) = &func.unwind_info {
             // Account for necessary unwind information alignment padding (32-bit)
-            ((func.body.len() + 3) & !3) + func.unwind_info.len()
+            ((func.body.len() + 3) & !3) + unwind_info.len()
+        } else {
+            func.body.len()
         }
     }
 
@@ -196,19 +196,19 @@ impl CodeMemory {
         body.copy_from_slice(&func.body);
         let vmfunc = Self::view_as_mut_vmfunc_slice(body);
 
-        if func.unwind_info.is_empty() {
+        if func.unwind_info.is_none() {
             return (func_end, remainder, table, vmfunc);
         }
+        let unwind_info = func.unwind_info.as_ref().unwrap();
 
         // Keep unwind information 32-bit aligned (round up to the nearest 4 byte boundary)
         let padding = ((func.body.len() + 3) & !3) - func.body.len();
-        let (unwind, remainder) = remainder.split_at_mut(padding + func.unwind_info.len());
+        let (unwind, remainder) = remainder.split_at_mut(padding + unwind_info.len());
         let mut relocs = Vec::new();
-        func.unwind_info
-            .serialize(&mut unwind[padding..], &mut relocs);
+        unwind_info.serialize(&mut unwind[padding..], &mut relocs);
 
         let unwind_start = func_end + (padding as u32);
-        let unwind_end = unwind_start + (func.unwind_info.len() as u32);
+        let unwind_end = unwind_start + (unwind_info.len() as u32);
 
         relocs.iter_mut().for_each(move |r| {
             r.offset += unwind_start;

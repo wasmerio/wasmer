@@ -39,9 +39,9 @@ use wasm_common::{
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, Addend, CodeOffset, CompileError, CompiledFunction,
-    CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, CustomSection, CustomSectionProtection,
-    FunctionAddressMap, FunctionBody, FunctionBodyData, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, SourceLoc, WasmResult,
+    CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, FunctionAddressMap,
+    FunctionBody, FunctionBodyData, Relocation, RelocationKind, RelocationTarget, SectionBody,
+    SourceLoc, WasmResult,
 };
 use wasmer_runtime::libcalls::LibCall;
 use wasmer_runtime::Module as WasmerCompilerModule;
@@ -413,7 +413,7 @@ impl FuncTranslator {
             CompiledFunction {
                 body: FunctionBody {
                     body: bytes,
-                    unwind_info: CompiledFunctionUnwindInfo::None,
+                    unwind_info: None,
                 },
                 jt_offsets: SecondaryMap::new(),
                 relocations,
