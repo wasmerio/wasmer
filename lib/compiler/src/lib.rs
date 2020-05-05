@@ -74,7 +74,7 @@ pub use crate::translator::{
     ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;
-pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTableReloc};
+pub use crate::unwind::CompiledFunctionUnwindInfo;
 
 pub use wasm_common::Features;
 

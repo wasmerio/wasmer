@@ -5,22 +5,10 @@
 //! function called that one, and so forth.
 //!
 //! More info: https://en.wikipedia.org/wiki/Call_stack
+
 use crate::std::vec::Vec;
 use crate::{Addend, CodeOffset};
 use serde::{Deserialize, Serialize};
-
-/// Relocation Entry data
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct FDERelocEntry(pub i64, pub usize, pub u8);
-
-/// Relocation entry for unwind info.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct FunctionTableReloc {
-    /// Entry offest in the code block.
-    pub offset: CodeOffset,
-    /// Entry addend relative to the code block.
-    pub addend: Addend,
-}
 
 /// Compiled function unwind information.
 ///
@@ -32,45 +20,26 @@ pub struct FunctionTableReloc {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum CompiledFunctionUnwindInfo {
     /// Windows UNWIND_INFO.
-    Windows(Vec<u8>),
+    WindowsX64(Vec<u8>),
 
-    /// Unix frame layout info.
-    FrameLayout(Vec<u8>, usize, Vec<FDERelocEntry>),
+    /// SystemV frame layout info.
+    SystemV(Vec<u8>),
 }
 
 impl CompiledFunctionUnwindInfo {
     /// Retuns true is no unwind info data.
     pub fn is_empty(&self) -> bool {
         match self {
-            CompiledFunctionUnwindInfo::Windows(d) => d.is_empty(),
-            CompiledFunctionUnwindInfo::FrameLayout(c, _, _) => c.is_empty(),
+            CompiledFunctionUnwindInfo::WindowsX64(d) => d.is_empty(),
+            CompiledFunctionUnwindInfo::SystemV(c) => c.is_empty(),
         }
     }
 
     /// Returns size of serilized unwind info.
     pub fn len(&self) -> usize {
         match self {
-            CompiledFunctionUnwindInfo::Windows(d) => d.len(),
-            CompiledFunctionUnwindInfo::FrameLayout(c, _, _) => c.len(),
-        }
-    }
-
-    /// Serializes data into byte array.
-    pub fn serialize(&self, dest: &mut [u8], relocs: &mut Vec<FunctionTableReloc>) {
-        match self {
-            CompiledFunctionUnwindInfo::Windows(d) => {
-                dest.copy_from_slice(d);
-            }
-            CompiledFunctionUnwindInfo::FrameLayout(code, _fde_offset, r) => {
-                dest.copy_from_slice(code);
-                r.iter().for_each(move |r| {
-                    assert_eq!(r.2, 8);
-                    relocs.push(FunctionTableReloc {
-                        offset: r.1 as _,
-                        addend: r.0,
-                    })
-                });
-            }
+            CompiledFunctionUnwindInfo::WindowsX64(d) => d.len(),
+            CompiledFunctionUnwindInfo::SystemV(c) => c.len(),
         }
     }
 }

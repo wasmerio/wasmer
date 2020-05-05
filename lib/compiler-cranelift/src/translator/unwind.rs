@@ -1,66 +1,31 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module.
 
+use cranelift_codegen::isa::unwind::UnwindInfo;
+use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{isa, Context};
-use wasmer_compiler::{CompiledFunctionUnwindInfo, FDERelocEntry};
+use wasmer_compiler::{CompileError, CompiledFunctionUnwindInfo};
 
 /// Constructs unwind info object from Cranelift IR
 pub fn compiled_function_unwind_info(
     isa: &dyn isa::TargetIsa,
     context: &Context,
-) -> Option<CompiledFunctionUnwindInfo> {
-    use cranelift_codegen::binemit::{FrameUnwindKind, FrameUnwindOffset, FrameUnwindSink, Reloc};
-    use cranelift_codegen::isa::CallConv;
+) -> Result<Option<CompiledFunctionUnwindInfo>, CompileError> {
+    let unwind_info = context
+        .create_unwind_info(isa)
+        .map_err(|error| CompileError::Codegen(pretty_error(&context.func, Some(isa), error)))?;
 
-    struct Sink(Vec<u8>, usize, Vec<FDERelocEntry>);
-    impl FrameUnwindSink for Sink {
-        fn len(&self) -> FrameUnwindOffset {
-            self.0.len()
+    match unwind_info {
+        Some(UnwindInfo::WindowsX64(unwind)) => {
+            let size = unwind.emit_size();
+            let mut data = Vec::with_capacity(size);
+            unwind.emit(&mut data);
+            Ok(Some(CompiledFunctionUnwindInfo::WindowsX64(data)))
         }
-        fn bytes(&mut self, b: &[u8]) {
-            self.0.extend_from_slice(b);
+        Some(UnwindInfo::SystemV(unwind)) => {
+            Ok(None)
+            // Ok(Some(CompiledFunctionUnwindInfo::SystemV(data)))
         }
-        fn reserve(&mut self, len: usize) {
-            self.0.reserve(len)
-        }
-        fn reloc(&mut self, r: Reloc, off: FrameUnwindOffset) {
-            self.2.push(FDERelocEntry(
-                0,
-                off,
-                match r {
-                    Reloc::Abs4 => 4,
-                    Reloc::Abs8 => 8,
-                    _ => {
-                        panic!("unexpected reloc type");
-                    }
-                },
-            ))
-        }
-        fn set_entry_offset(&mut self, off: FrameUnwindOffset) {
-            self.1 = off;
-        }
-    }
-
-    let kind = match context.func.signature.call_conv {
-        CallConv::SystemV | CallConv::Fast | CallConv::Cold => FrameUnwindKind::Libunwind,
-        CallConv::WindowsFastcall => FrameUnwindKind::Fastcall,
-        _ => {
-            return None;
-        }
-    };
-
-    let mut sink = Sink(Vec::new(), 0, Vec::new());
-    context.emit_unwind_info(isa, kind, &mut sink);
-
-    let Sink(data, offset, relocs) = sink;
-    if data.is_empty() {
-        return None;
-    }
-
-    match kind {
-        FrameUnwindKind::Fastcall => Some(CompiledFunctionUnwindInfo::Windows(data)),
-        FrameUnwindKind::Libunwind => Some(CompiledFunctionUnwindInfo::FrameLayout(
-            data, offset, relocs,
-        )),
+        None => Ok(None),
     }
 }

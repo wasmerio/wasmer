@@ -48,7 +48,7 @@ use std::collections::{
 mod address_map;
 mod compiler;
 mod config;
-mod debug;
+// mod debug;
 mod func_environ;
 mod sink;
 mod trampoline;
@@ -56,8 +56,8 @@ mod translator;
 
 pub use crate::compiler::CraneliftCompiler;
 pub use crate::config::CraneliftConfig;
-pub use crate::debug::{FrameLayout, FrameLayoutChange, FrameLayouts};
-pub use crate::debug::{ModuleMemoryOffset, ModuleVmctxInfo, ValueLabelsRanges};
+// pub use crate::debug::{FrameLayout, FrameLayoutChange, FrameLayouts};
+// pub use crate::debug::{ModuleMemoryOffset, ModuleVmctxInfo, ValueLabelsRanges};
 pub use crate::trampoline::make_wasm_trampoline;
 
 /// Version number of this crate.

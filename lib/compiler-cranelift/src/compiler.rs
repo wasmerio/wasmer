@@ -101,7 +101,6 @@ impl Compiler for CraneliftCompiler {
                 );
                 context.func.name = get_func_name(func_index);
                 context.func.signature = signatures[module.functions[func_index]].clone();
-                context.func.collect_frame_layout_info();
                 // if generate_debug_info {
                 //     context.func.collect_debug_info();
                 // }
@@ -130,7 +129,7 @@ impl Compiler for CraneliftCompiler {
                         CompileError::Codegen(pretty_error(&context.func, Some(isa), error))
                     })?;
 
-                let unwind_info = compiled_function_unwind_info(isa, &context);
+                let unwind_info = compiled_function_unwind_info(isa, &context)?;
 
                 let address_map = get_function_address_map(&context, input, code_buf.len(), isa);
 

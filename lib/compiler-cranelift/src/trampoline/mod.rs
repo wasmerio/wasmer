@@ -38,6 +38,7 @@ pub mod binemit {
         fn reloc_external(
             &mut self,
             _offset: binemit::CodeOffset,
+            _source_loc: ir::SourceLoc,
             _reloc: binemit::Reloc,
             _name: &ir::ExternalName,
             _addend: binemit::Addend,

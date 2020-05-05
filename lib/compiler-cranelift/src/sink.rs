@@ -35,6 +35,7 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
     fn reloc_external(
         &mut self,
         offset: binemit::CodeOffset,
+        _source_loc: ir::SourceLoc,
         reloc: binemit::Reloc,
         name: &ExternalName,
         addend: binemit::Addend,

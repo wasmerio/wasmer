@@ -47,7 +47,6 @@ pub fn make_wasm_trampoline(
 
     let mut context = Context::new();
     context.func = ir::Function::with_name_signature(ir::ExternalName::user(0, 0), wrapper_sig);
-    context.func.collect_frame_layout_info();
 
     {
         let mut builder = FunctionBuilder::new(&mut context.func, fn_builder_ctx);
@@ -120,7 +119,7 @@ pub fn make_wasm_trampoline(
         )
         .map_err(|error| CompileError::Codegen(pretty_error(&context.func, Some(isa), error)))?;
 
-    let unwind_info = compiled_function_unwind_info(isa, &context);
+    let unwind_info = compiled_function_unwind_info(isa, &context)?;
 
     Ok(FunctionBody {
         body: code_buf,
