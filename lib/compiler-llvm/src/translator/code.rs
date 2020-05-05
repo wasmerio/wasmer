@@ -378,11 +378,23 @@ impl FuncTranslator {
                 } else if target.st_type() == goblin::elf::sym::STT_NOTYPE
                     && target.st_shndx == goblin::elf::section_header::SHN_UNDEF as _
                 {
-                    // Not defined in this .o file implies that it should
-                    // be a libcall.
+                    // Not defined in this .o file. Maybe another local function?
                     let name = target.st_name;
                     let name = elf.strtab.get(name).unwrap().unwrap();
-                    if let Some(libcall) = libcalls.get(name) {
+                    if let Some((index, _)) =
+                        func_names.iter().find(|(_, func_name)| *func_name == name)
+                    {
+                        let local_index = wasm_module
+                            .local_func_index(index)
+                            .expect("Relocation to non-local function");
+                        relocations.push(Relocation {
+                            kind,
+                            reloc_target: RelocationTarget::LocalFunc(local_index),
+                            offset,
+                            addend,
+                        });
+                    // Maybe a libcall then?
+                    } else if let Some(libcall) = libcalls.get(name) {
                         relocations.push(Relocation {
                             kind,
                             reloc_target: RelocationTarget::LibCall(*libcall),
@@ -390,7 +402,7 @@ impl FuncTranslator {
                             addend,
                         });
                     } else {
-                        unimplemented!("reference to unknown libcall {}", name);
+                        unimplemented!("reference to unknown symbol {}", name);
                     }
                 } else {
                     unimplemented!("unknown relocation {:?} with target {:?}", reloc, target);
