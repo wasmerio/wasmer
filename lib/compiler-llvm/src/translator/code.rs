@@ -305,6 +305,82 @@ impl FuncTranslator {
             pos += file.write(&mem_buf_slice[pos..]).unwrap();
         }
 
+        let mem_buf_slice = memory_buffer.as_slice();
+        let object = goblin::Object::parse(&mem_buf_slice).unwrap();
+        let elf = match object {
+            goblin::Object::Elf(elf) => elf,
+            _ => unimplemented!("native object file type not supported"),
+        };
+
+        let get_section_name = |section: &goblin::elf::section_header::SectionHeader| {
+            if section.sh_name == goblin::elf::section_header::SHN_UNDEF as _ {
+                return None;
+            }
+            let name = elf.strtab.get(section.sh_name);
+            if name.is_none() {
+                return None;
+            }
+            let name = name.unwrap();
+            if name.is_err() {
+                return None;
+            }
+            Some(name.unwrap())
+        };
+
+        let wasmer_function_idx = elf
+            .section_headers
+            .iter()
+            .enumerate()
+            .filter(|(_, section)| get_section_name(section) == Some("wasmer_function"))
+            .map(|(idx, _)| idx)
+            .take(1)
+            .collect::<Vec<_>>();
+        // TODO: handle errors here instead of asserting.
+        assert!(wasmer_function_idx.len() == 1);
+        let wasmer_function_idx = wasmer_function_idx[0];
+
+        let bytes = elf.section_headers[wasmer_function_idx].file_range();
+        let bytes = mem_buf_slice[bytes.start..bytes.end].to_vec();
+
+        let mut relocations = vec![];
+        let mut local_relocations = vec![];
+        let mut required_custom_sections = HashMap::new();
+
+        for (section_index, reloc_section) in &elf.shdr_relocs {
+            let section_name = get_section_name(&elf.section_headers[*section_index]);
+            if section_name != Some(".relawasmer_function")
+                && section_name != Some(".relwasmer_function")
+            {
+                continue;
+            }
+            for reloc in reloc_section.iter() {
+                let kind = match reloc.r_type {
+                    // TODO: these constants are not per-arch, we'll need to
+                    // make the whole match per-arch.
+                    goblin::elf::reloc::R_X86_64_64 => RelocationKind::Abs8,
+                    _ => unimplemented!("unknown relocation {}", reloc.r_type),
+                };
+                let offset = reloc.r_offset as u32;
+                let addend = reloc.r_addend.unwrap_or(0);
+                let target = reloc.r_sym;
+                // TODO: error handling
+                let target = elf.syms.get(target).unwrap();
+                if target.st_type() == goblin::elf::sym::STT_SECTION {
+                    let len = required_custom_sections.len();
+                    let entry = required_custom_sections.entry(target.st_shndx);
+                    let local_section_index = *entry.or_insert(len) as _;
+                    local_relocations.push(LocalRelocation {
+                        kind,
+                        local_section_index,
+                        offset,
+                        addend,
+                    });
+                }
+                // TODO: runtime functions
+            }
+        }
+
+        /*
         let object = memory_buffer.create_object_file().map_err(|()| {
             CompileError::Codegen("failed to create object file from llvm ir".to_string())
         })?;
@@ -399,6 +475,21 @@ impl FuncTranslator {
                     custom_sections[index].bytes.extend(section.get_contents());
                 }
             }
+        }
+        */
+
+        let mut custom_sections = vec![];
+        custom_sections.resize(
+            required_custom_sections.len(),
+            CustomSection {
+                protection: CustomSectionProtection::Read,
+                bytes: SectionBody::default(),
+            },
+        );
+        for (section_idx, local_section_idx) in required_custom_sections {
+            let bytes = elf.section_headers[section_idx as usize].file_range();
+            let bytes = &mem_buf_slice[bytes.start..bytes.end];
+            custom_sections[local_section_idx].bytes.extend(bytes);
         }
 
         let address_map = FunctionAddressMap {
