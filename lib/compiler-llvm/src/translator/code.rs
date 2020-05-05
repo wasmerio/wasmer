@@ -375,8 +375,26 @@ impl FuncTranslator {
                         offset,
                         addend,
                     });
+                } else if target.st_type() == goblin::elf::sym::STT_NOTYPE
+                    && target.st_shndx == goblin::elf::section_header::SHN_UNDEF as _
+                {
+                    // Not defined in this .o file implies that it should
+                    // be a libcall.
+                    let name = target.st_name;
+                    let name = elf.strtab.get(name).unwrap().unwrap();
+                    if let Some(libcall) = libcalls.get(name) {
+                        relocations.push(Relocation {
+                            kind,
+                            reloc_target: RelocationTarget::LibCall(*libcall),
+                            offset,
+                            addend,
+                        });
+                    } else {
+                        unimplemented!("reference to unknown libcall {}", name);
+                    }
+                } else {
+                    unimplemented!("unknown relocation {:?} with target {:?}", reloc, target);
                 }
-                // TODO: runtime functions
             }
         }
 
