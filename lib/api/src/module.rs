@@ -244,7 +244,7 @@ impl Module {
     /// ```
     pub fn set_name(&mut self, name: &str) {
         let compiled = Arc::get_mut(&mut self.compiled).unwrap();
-        Arc::get_mut(compiled.module_mut()).unwrap().name = Some(name.to_string());
+        compiled.module_mut().name = Some(name.to_string());
     }
 
     /// Returns an iterator over the imported types in the Module.

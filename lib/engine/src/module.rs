@@ -19,13 +19,10 @@ pub trait CompiledModule: DowncastSync {
     ) -> Result<(), InstantiationError>;
 
     /// Return a reference-counting pointer to a module.
-    fn module(&self) -> &Arc<Module>;
+    fn module(&self) -> &Module;
 
     /// Return a reference-counting pointer to a module.
-    fn module_mut(&mut self) -> &mut Arc<Module>;
-
-    /// Return a reference to a module.
-    fn module_ref(&self) -> &Module;
+    fn module_mut(&mut self) -> &mut Module;
 }
 
 impl_downcast!(sync CompiledModule); // `sync` => also produce `Arc` downcasts.

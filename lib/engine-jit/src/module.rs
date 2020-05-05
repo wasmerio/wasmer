@@ -209,7 +209,7 @@ impl CompiledModule {
         let tunables = jit.tunables();
         let sig_registry: &SignatureRegistry = jit_compiler.signatures();
         let imports = resolve_imports(
-            &self.serializable.module,
+            &self.module(),
             &sig_registry,
             resolver,
             self.memory_plans(),
@@ -218,15 +218,15 @@ impl CompiledModule {
         .map_err(InstantiationError::Link)?;
 
         let finished_memories = tunables
-            .create_memories(&self.serializable.module, self.memory_plans())
+            .create_memories(&self.module(), self.memory_plans())
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_tables = tunables
-            .create_tables(&self.serializable.module, self.table_plans())
+            .create_tables(&self.module(), self.table_plans())
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_globals = tunables
-            .create_globals(&self.serializable.module)
+            .create_globals(&self.module())
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
 
@@ -268,7 +268,7 @@ impl CompiledModule {
         let frame_infos = &self.serializable.compilation.function_frame_info;
         let finished_functions = &self.finished_functions;
         *info = Some(register_frame_info(
-            &self.module(),
+            self.serializable.module.clone(),
             finished_functions,
             frame_infos.clone(),
         ));
@@ -289,15 +289,11 @@ impl BaseCompiledModule for CompiledModule {
             .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 
-    fn module(&self) -> &Arc<Module> {
+    fn module(&self) -> &Module {
         &self.serializable.module
     }
 
-    fn module_mut(&mut self) -> &mut Arc<Module> {
-        &mut self.serializable.module
-    }
-
-    fn module_ref(&self) -> &Module {
-        &self.serializable.module
+    fn module_mut(&mut self) -> &mut Module {
+        Arc::get_mut(&mut self.serializable.module).unwrap()
     }
 }
