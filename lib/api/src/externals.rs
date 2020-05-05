@@ -644,7 +644,7 @@ impl Function {
         self.ty().results().len()
     }
 
-    /// Call the [`Func`] function.
+    /// Call the [`Function`] function.
     ///
     /// Depending on where the Function is defined, it will call it.
     /// 1. If the function is defined inside a WebAssembly, it will call the trampoline
