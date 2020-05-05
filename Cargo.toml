@@ -55,7 +55,7 @@ test-utils = { path = "tests/lib/test-utils" }
 [features]
 # Don't add the backend features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wast", "compiler-cranelift", "cache"]
+default = ["wast", "wasi", "compiler-cranelift", "cache"]
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
