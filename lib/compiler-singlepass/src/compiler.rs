@@ -15,7 +15,7 @@ use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_runtime::Module;
 use wasmer_runtime::TrapCode;
-use wasmer_runtime::{MemoryPlan, TablePlan};
+use wasmer_runtime::{MemoryPlan, TablePlan, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
@@ -58,11 +58,12 @@ impl Compiler for SinglepassCompiler {
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
+        let vmoffsets = VMOffsets::new(8, module);
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|i| gen_import_call_trampoline(i, module.signatures[module.functions[i]].clone()))
+            .map(|i| gen_import_call_trampoline(&vmoffsets, i, module.signatures[module.functions[i]].clone()))
             .collect::<Vec<_>>()
             .into_iter()
             .collect();
@@ -89,6 +90,7 @@ impl Compiler for SinglepassCompiler {
                 let mut generator = FuncGen::new(
                     module,
                     &self.config,
+                    &vmoffsets,
                     &memory_plans,
                     &table_plans,
                     *i,

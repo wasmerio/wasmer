@@ -12,7 +12,7 @@ use wasm_common::{
 use wasm_common::{
     DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FunctionIndex,
     GlobalIndex, GlobalType, ImportIndex, LocalFunctionIndex, LocalGlobalIndex, MemoryIndex,
-    MemoryType, SignatureIndex, TableIndex, TableType, Type,
+    MemoryType, SignatureIndex, TableIndex, TableType, Type, LocalMemoryIndex, LocalTableIndex,
 };
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
@@ -36,7 +36,7 @@ pub struct FuncGen<'a> {
     config: &'a SinglepassConfig,
 
     /// Offsets of vmctx fields.
-    vmoffsets: VMOffsets,
+    vmoffsets: &'a VMOffsets,
 
     // Memory plans.
     memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
@@ -1215,12 +1215,16 @@ impl<'a> FuncGen<'a> {
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
         let tmp_base = self.machine.acquire_temp_gpr().unwrap();
 
+        // XXX: Here we assume the memory is local, since we don't yet support imported memories (?).
+        // Change this if the assumption is no longer valid.
+        let vmctx_offset = self.vmoffsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(0));
+
         // Load base into temporary register.
         self.assembler.emit_mov(
             Size::S64,
             Location::Memory(
                 Machine::get_vmctx_reg(),
-                vm::Ctx::offset_memory_base() as i32,
+                vmctx_offset as i32,
             ),
             Location::GPR(tmp_base),
         );
@@ -1232,7 +1236,7 @@ impl<'a> FuncGen<'a> {
                 Size::S64,
                 Location::Memory(
                     Machine::get_vmctx_reg(),
-                    vm::Ctx::offset_memory_bound() as i32,
+                    vmctx_offset as i32 + 8,
                 ),
                 Location::GPR(tmp_bound),
             );
@@ -1718,6 +1722,7 @@ impl<'a> FuncGen<'a> {
     pub fn new(
         module: &'a Module,
         config: &'a SinglepassConfig,
+        vmoffsets: &'a VMOffsets,
         memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
         local_func_index: LocalFunctionIndex,
@@ -1742,9 +1747,6 @@ impl<'a> FuncGen<'a> {
                 .map(|_| WasmAbstractValue::Runtime)
                 .collect(),
         );
-
-        // Pointer size is 8
-        let vmoffsets = VMOffsets::new(8, module);
 
         let mut fg = FuncGen {
             module,
@@ -5170,28 +5172,25 @@ impl<'a> FuncGen<'a> {
                 let table_count = self.machine.acquire_temp_gpr().unwrap();
                 let sigidx = self.machine.acquire_temp_gpr().unwrap();
 
+                // XXX: Here we assume imported tables are not yet supported.
+                let vmctx_offset_base = self.vmoffsets.vmctx_vmtable_definition_base(LocalTableIndex::new(0));
+                let vmctx_offset_len = self.vmoffsets.vmctx_vmtable_definition_current_elements(LocalTableIndex::new(0));
+
                 self.assembler.emit_mov(
                     Size::S64,
                     Location::Memory(
                         Machine::get_vmctx_reg(),
-                        vm::Ctx::offset_tables() as i32, // !!! FIXME: Local/imported tables
+                        vmctx_offset_base as i32,
                     ),
                     Location::GPR(table_base),
                 );
                 self.assembler.emit_mov(
-                    Size::S64,
-                    Location::Memory(table_base, 0),
-                    Location::GPR(table_base),
-                );
-                self.assembler.emit_mov(
                     Size::S32,
-                    Location::Memory(table_base, LocalTable::offset_count() as i32),
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        vmctx_offset_len as i32,
+                    ),
                     Location::GPR(table_count),
-                );
-                self.assembler.emit_mov(
-                    Size::S64,
-                    Location::Memory(table_base, LocalTable::offset_base() as i32),
-                    Location::GPR(table_base),
                 );
                 self.assembler
                     .emit_cmp(Size::S32, func_index, Location::GPR(table_count));
@@ -8222,7 +8221,7 @@ pub fn gen_std_trampoline(sig: FunctionType) -> FunctionBody {
 }
 
 // Singlepass calls import functions through a trampoline.
-pub fn gen_import_call_trampoline(index: FunctionIndex, sig: FunctionType) -> CustomSection {
+pub fn gen_import_call_trampoline(vmoffsets: &VMOffsets, index: FunctionIndex, sig: FunctionType) -> CustomSection {
     let mut a = Assembler::new().unwrap();
 
     // TODO: ARM entry trampoline is not emitted.
@@ -8311,31 +8310,17 @@ pub fn gen_import_call_trampoline(index: FunctionIndex, sig: FunctionType) -> Cu
     // Emits a tail call trampoline that loads the address of the target import function
     // from Ctx and jumps to it.
 
-    let imported_funcs_addr = vm::Ctx::offset_imported_funcs();
-    let imported_func = vm::ImportedFunc::size() as usize * index.index();
-    let imported_func_addr = imported_func + vm::ImportedFunc::offset_func() as usize;
-    let imported_func_ctx_addr = imported_func + vm::ImportedFunc::offset_func_ctx() as usize;
-    let imported_func_ctx_vmctx_addr = vm::FuncCtx::offset_vmctx() as usize;
+    let offset = vmoffsets.vmctx_vmfunction_import(index);
 
     a.emit_mov(
         Size::S64,
-        Location::Memory(GPR::RDI, imported_funcs_addr as i32),
+        Location::Memory(GPR::RDI, offset as i32), // function pointer
         Location::GPR(GPR::RAX),
     );
     a.emit_mov(
         Size::S64,
-        Location::Memory(GPR::RAX, imported_func_ctx_addr as i32),
+        Location::Memory(GPR::RDI, offset as i32 + 8), // target vmctx
         Location::GPR(GPR::RDI),
-    );
-    a.emit_mov(
-        Size::S64,
-        Location::Memory(GPR::RDI, imported_func_ctx_vmctx_addr as i32),
-        Location::GPR(GPR::RDI),
-    );
-    a.emit_mov(
-        Size::S64,
-        Location::Memory(GPR::RAX, imported_func_addr as i32),
-        Location::GPR(GPR::RAX),
     );
     a.emit_host_redirection(GPR::RAX);
 
