@@ -56,6 +56,10 @@ impl WasmerCLIOptions {
 }
 
 fn main() {
+    // We allow windows to print properly colors
+    #[cfg(windows)]
+    colored::control::set_virtual_terminal(true).unwrap();
+
     // We try to run wasmer with the normal arguments.
     // Eg. `wasmer <SUBCOMMAND>`
     // In case that fails, we fallback trying the Run subcommand directly.
