@@ -1,6 +1,8 @@
 //! Offsets and sizes of various structs in wasmer-runtime's vmcontext
 //! module.
 
+#![deny(intra_doc_link_resolution_failure)]
+
 use crate::module::Module;
 use crate::VMBuiltinFunctionIndex;
 use more_asserts::assert_lt;
@@ -24,8 +26,10 @@ const fn align(offset: u32, width: u32) -> u32 {
     (offset + (width - 1)) / width * width
 }
 
-/// This class computes offsets to fields within `VMContext` and other
+/// This class computes offsets to fields within [`VMContext`] and other
 /// related structs that JIT code accesses directly.
+///
+/// [`VMContext`]: crate::vmcontext::VMContext
 pub struct VMOffsets {
     /// The size in bytes of a pointer on the target.
     pub pointer_size: u8,
@@ -64,7 +68,9 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for `VMFunctionImport`.
+/// Offsets for [`VMFunctionImport`].
+///
+/// [`VMFunctionImport`]: crate::vmcontext::VMFunctionImport
 impl VMOffsets {
     /// The offset of the `body` field.
     #[allow(clippy::erasing_op)]
@@ -78,7 +84,9 @@ impl VMOffsets {
         1 * self.pointer_size
     }
 
-    /// Return the size of `VMFunctionImport`.
+    /// Return the size of [`VMFunctionImport`].
+    ///
+    /// [`VMFunctionImport`]: crate::vmcontext::VMFunctionImport
     pub fn size_of_vmfunction_import(&self) -> u8 {
         2 * self.pointer_size
     }
@@ -93,7 +101,9 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for `VMTableImport`.
+/// Offsets for [`VMTableImport`].
+///
+/// [`VMTableImport`]: crate::vmcontext::VMTableImport
 impl VMOffsets {
     /// The offset of the `from` field.
     #[allow(clippy::erasing_op)]
@@ -107,13 +117,17 @@ impl VMOffsets {
         1 * self.pointer_size
     }
 
-    /// Return the size of `VMTableImport`.
+    /// Return the size of [`VMTableImport`].
+    ///
+    /// [`VMTableImport`]: crate::vmcontext::VMTableImport
     pub const fn size_of_vmtable_import(&self) -> u8 {
         2 * self.pointer_size
     }
 }
 
-/// Offsets for `VMTableDefinition`.
+/// Offsets for [`VMTableDefinition`].
+///
+/// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
 impl VMOffsets {
     /// The offset of the `base` field.
     #[allow(clippy::erasing_op)]
@@ -132,13 +146,17 @@ impl VMOffsets {
         4
     }
 
-    /// Return the size of `VMTableDefinition`.
+    /// Return the size of [`VMTableDefinition`].
+    ///
+    /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
     pub const fn size_of_vmtable_definition(&self) -> u8 {
         2 * self.pointer_size
     }
 }
 
-/// Offsets for `VMMemoryImport`.
+/// Offsets for [`VMMemoryImport`].
+///
+/// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
 impl VMOffsets {
     /// The offset of the `from` field.
     #[allow(clippy::erasing_op)]
@@ -152,13 +170,17 @@ impl VMOffsets {
         1 * self.pointer_size
     }
 
-    /// Return the size of `VMMemoryImport`.
+    /// Return the size of [`VMMemoryImport`].
+    ///
+    /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
     pub const fn size_of_vmmemory_import(&self) -> u8 {
         2 * self.pointer_size
     }
 }
 
-/// Offsets for `VMMemoryDefinition`.
+/// Offsets for [`VMMemoryDefinition`].
+///
+/// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
 impl VMOffsets {
     /// The offset of the `base` field.
     #[allow(clippy::erasing_op)]
@@ -177,13 +199,17 @@ impl VMOffsets {
         4
     }
 
-    /// Return the size of `VMMemoryDefinition`.
+    /// Return the size of [`VMMemoryDefinition`].
+    ///
+    /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
     pub const fn size_of_vmmemory_definition(&self) -> u8 {
         2 * self.pointer_size
     }
 }
 
-/// Offsets for `VMGlobalImport`.
+/// Offsets for [`VMGlobalImport`].
+///
+/// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
 impl VMOffsets {
     /// The offset of the `from` field.
     #[allow(clippy::erasing_op)]
@@ -191,31 +217,43 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// Return the size of `VMGlobalImport`.
+    /// Return the size of [`VMGlobalImport`].
+    ///
+    /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
     #[allow(clippy::identity_op)]
     pub const fn size_of_vmglobal_import(&self) -> u8 {
         1 * self.pointer_size
     }
 }
 
-/// Offsets for `VMGlobalDefinition`.
+/// Offsets for [`VMGlobalDefinition`].
+///
+/// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
 impl VMOffsets {
-    /// Return the size of `VMGlobalDefinition`; this is the size of the largest value type (i.e. a
+    /// Return the size of [`VMGlobalDefinition`]; this is the size of the largest value type (i.e. a
     /// V128).
+    ///
+    /// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
     pub const fn size_of_vmglobal_definition(&self) -> u8 {
         16
     }
 }
 
-/// Offsets for `VMSharedSignatureIndex`.
+/// Offsets for [`VMSharedSignatureIndex`].
+///
+/// [`VMSharedSignatureIndex`]: crate::vmcontext::VMSharedSignatureIndex
 impl VMOffsets {
-    /// Return the size of `VMSharedSignatureIndex`.
+    /// Return the size of [`VMSharedSignatureIndex`].
+    ///
+    /// [`VMSharedSignatureIndex`]: crate::vmcontext::VMSharedSignatureIndex
     pub const fn size_of_vmshared_signature_index(&self) -> u8 {
         4
     }
 }
 
-/// Offsets for `VMCallerCheckedAnyfunc`.
+/// Offsets for [`VMCallerCheckedAnyfunc`].
+///
+/// [`VMCallerCheckedAnyfunc`]: crate::vmcontext::VMCallerCheckedAnyfunc
 impl VMOffsets {
     /// The offset of the `func_ptr` field.
     #[allow(clippy::erasing_op)]
@@ -234,13 +272,17 @@ impl VMOffsets {
         2 * self.pointer_size
     }
 
-    /// Return the size of `VMCallerCheckedAnyfunc`.
+    /// Return the size of [`VMCallerCheckedAnyfunc`].
+    ///
+    /// [`VMCallerCheckedAnyfunc`]: crate::vmcontext::VMCallerCheckedAnyfunc
     pub const fn size_of_vmcaller_checked_anyfunc(&self) -> u8 {
         3 * self.pointer_size
     }
 }
 
-/// Offsets for `VMContext`.
+/// Offsets for [`VMContext`].
+///
+/// [`VMContext`]: crate::vmcontext::VMContext
 impl VMOffsets {
     /// The offset of the `signature_ids` array.
     pub fn vmctx_signature_ids_begin(&self) -> u32 {
@@ -339,7 +381,9 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the size of the `VMContext` allocation.
+    /// Return the size of the [`VMContext`] allocation.
+    ///
+    /// [`VMContext`]: crate::vmcontext::VMContext
     pub fn size_of_vmctx(&self) -> u32 {
         self.vmctx_builtin_functions_begin()
             .checked_add(
@@ -350,7 +394,9 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to `VMSharedSignatureId` index `index`.
+    /// Return the offset to [`VMSharedSignatureIndex`] index `index`.
+    ///
+    /// [`VMSharedSignatureIndex`]: crate::vmcontext::VMSharedSignatureIndex
     pub fn vmctx_vmshared_signature_id(&self, index: SignatureIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_signature_ids);
         self.vmctx_signature_ids_begin()
@@ -363,7 +409,9 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to `VMFunctionImport` index `index`.
+    /// Return the offset to [`VMFunctionImport`] index `index`.
+    ///
+    /// [`VMFunctionImport`]: crate::vmcontext::VMFunctionImport
     pub fn vmctx_vmfunction_import(&self, index: FunctionIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_functions);
         self.vmctx_imported_functions_begin()
@@ -376,7 +424,9 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to `VMTableImport` index `index`.
+    /// Return the offset to [`VMTableImport`] index `index`.
+    ///
+    /// [`VMTableImport`]: crate::vmcontext::VMTableImport
     pub fn vmctx_vmtable_import(&self, index: TableIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_tables);
         self.vmctx_imported_tables_begin()
@@ -389,7 +439,9 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to `VMMemoryImport` index `index`.
+    /// Return the offset to [`VMMemoryImport`] index `index`.
+    ///
+    /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
     pub fn vmctx_vmmemory_import(&self, index: MemoryIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_memories);
         self.vmctx_imported_memories_begin()
@@ -402,7 +454,9 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to `VMGlobalImport` index `index`.
+    /// Return the offset to [`VMGlobalImport`] index `index`.
+    ///
+    /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
     pub fn vmctx_vmglobal_import(&self, index: GlobalIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_globals);
         self.vmctx_imported_globals_begin()
@@ -415,7 +469,9 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to `VMTableDefinition` index `index`.
+    /// Return the offset to [`VMTableDefinition`] index `index`.
+    ///
+    /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
     pub fn vmctx_vmtable_definition(&self, index: LocalTableIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_local_tables);
         self.vmctx_tables_begin()
@@ -428,7 +484,9 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to `VMMemoryDefinition` index `index`.
+    /// Return the offset to [`VMMemoryDefinition`] index `index`.
+    ///
+    /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
     pub fn vmctx_vmmemory_definition(&self, index: LocalMemoryIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_local_memories);
         self.vmctx_memories_begin()
@@ -441,7 +499,9 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to the `VMGlobalDefinition` index `index`.
+    /// Return the offset to the [`VMGlobalDefinition`] index `index`.
+    ///
+    /// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
     pub fn vmctx_vmglobal_definition(&self, index: LocalGlobalIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_local_globals);
         self.vmctx_globals_begin()
@@ -468,63 +528,81 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to the `from` field in `VMTableImport` index `index`.
+    /// Return the offset to the `from` field in [`VMTableImport`] index `index`.
+    ///
+    /// [`VMTableImport`]: crate::vmcontext::VMTableImport
     pub fn vmctx_vmtable_import_definition(&self, index: TableIndex) -> u32 {
         self.vmctx_vmtable_import(index)
             .checked_add(u32::from(self.vmtable_import_definition()))
             .unwrap()
     }
 
-    /// Return the offset to the `base` field in `VMTableDefinition` index `index`.
+    /// Return the offset to the `base` field in [`VMTableDefinition`] index `index`.
+    ///
+    /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
     pub fn vmctx_vmtable_definition_base(&self, index: LocalTableIndex) -> u32 {
         self.vmctx_vmtable_definition(index)
             .checked_add(u32::from(self.vmtable_definition_base()))
             .unwrap()
     }
 
-    /// Return the offset to the `current_elements` field in `VMTableDefinition` index `index`.
+    /// Return the offset to the `current_elements` field in [`VMTableDefinition`] index `index`.
+    ///
+    /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
     pub fn vmctx_vmtable_definition_current_elements(&self, index: LocalTableIndex) -> u32 {
         self.vmctx_vmtable_definition(index)
             .checked_add(u32::from(self.vmtable_definition_current_elements()))
             .unwrap()
     }
 
-    /// Return the offset to the `from` field in `VMMemoryImport` index `index`.
+    /// Return the offset to the `from` field in [`VMMemoryImport`] index `index`.
+    ///
+    /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
     pub fn vmctx_vmmemory_import_definition(&self, index: MemoryIndex) -> u32 {
         self.vmctx_vmmemory_import(index)
             .checked_add(u32::from(self.vmmemory_import_definition()))
             .unwrap()
     }
 
-    /// Return the offset to the `vmctx` field in `VMMemoryImport` index `index`.
+    /// Return the offset to the `vmctx` field in [`VMMemoryImport`] index `index`.
+    ///
+    /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
     pub fn vmctx_vmmemory_import_from(&self, index: MemoryIndex) -> u32 {
         self.vmctx_vmmemory_import(index)
             .checked_add(u32::from(self.vmmemory_import_from()))
             .unwrap()
     }
 
-    /// Return the offset to the `base` field in `VMMemoryDefinition` index `index`.
+    /// Return the offset to the `base` field in [`VMMemoryDefinition`] index `index`.
+    ///
+    /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
     pub fn vmctx_vmmemory_definition_base(&self, index: LocalMemoryIndex) -> u32 {
         self.vmctx_vmmemory_definition(index)
             .checked_add(u32::from(self.vmmemory_definition_base()))
             .unwrap()
     }
 
-    /// Return the offset to the `current_length` field in `VMMemoryDefinition` index `index`.
+    /// Return the offset to the `current_length` field in [`VMMemoryDefinition`] index `index`.
+    ///
+    /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
     pub fn vmctx_vmmemory_definition_current_length(&self, index: LocalMemoryIndex) -> u32 {
         self.vmctx_vmmemory_definition(index)
             .checked_add(u32::from(self.vmmemory_definition_current_length()))
             .unwrap()
     }
 
-    /// Return the offset to the `from` field in `VMGlobalImport` index `index`.
+    /// Return the offset to the `from` field in [`VMGlobalImport`] index `index`.
+    ///
+    /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
     pub fn vmctx_vmglobal_import_definition(&self, index: GlobalIndex) -> u32 {
         self.vmctx_vmglobal_import(index)
             .checked_add(u32::from(self.vmglobal_import_definition()))
             .unwrap()
     }
 
-    /// Return the offset to builtin function in `VMBuiltinFunctionsArray` index `index`.
+    /// Return the offset to builtin function in [`VMBuiltinFunctionsArray`] index `index`.
+    ///
+    /// [`VMBuiltinFunctionsArray`]: crate::vmcontext::VMBuiltinFunctionsArray
     pub fn vmctx_builtin_function(&self, index: VMBuiltinFunctionIndex) -> u32 {
         self.vmctx_builtin_functions_begin()
             .checked_add(
