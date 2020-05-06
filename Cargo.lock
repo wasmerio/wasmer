@@ -1633,16 +1633,10 @@ dependencies = [
 name = "wasmer-engine-jit"
 version = "0.16.2"
 dependencies = [
- "backtrace",
  "bincode",
- "lazy_static",
- "more-asserts",
  "region",
- "rustc-demangle",
  "serde",
  "serde_bytes",
- "target-lexicon",
- "thiserror",
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",

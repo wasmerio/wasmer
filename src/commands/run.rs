@@ -117,7 +117,8 @@ impl Run {
                     .unwrap_or("".to_string());
                 return self
                     .wasi
-                    .execute(module, version, program_name, self.args.clone());
+                    .execute(module, version, program_name, self.args.clone())
+                    .with_context(|| format!("WASI execution failed"));
             }
         }
 
