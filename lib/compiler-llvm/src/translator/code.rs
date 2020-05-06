@@ -2110,6 +2110,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let global_index = GlobalIndex::from_u32(global_index);
                 let global_type = module.globals[global_index];
                 let global_value_type = global_type.ty;
+
+                // TODO: cache loads of const globals.
                 let _global_mutability = global_type.mutability;
 
                 let global_ptr =
