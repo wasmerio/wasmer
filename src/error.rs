@@ -14,7 +14,7 @@ pub struct PrettyError {
 macro_rules! warning {
     ($($arg:tt)*) => ({
         use colored::*;
-        eprintln!("{}", format!("{}: {}", "warning".yellow(), format!($($arg)*)).bold());
+        eprintln!("{}: {}", "warning".yellow().bold(), format!($($arg)*));
     })
 }
 
