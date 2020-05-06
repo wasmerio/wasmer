@@ -32,6 +32,7 @@ wasmer-wasi-experimental-io-devices = { version = "0.16.2", path = "lib/wasi-exp
 wasmer-wast = { version = "0.16.2", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "0.16.2", path = "lib/cache", optional = true }
 atty = "0.2"
+colored = "1.9"
 anyhow = "1.0.28"
 structopt = { version = "0.3", features = ["suggestions"] }
 # For the function names autosuggestion

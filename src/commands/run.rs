@@ -82,14 +82,14 @@ impl Run {
             .context(format!("failed to run `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let module = self.get_module()?;
+        let module = self
+            .get_module()
+            .with_context(|| format!("module instantiation failed"))?;
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
             let instance = Instance::new(&module, &imports)?;
-            let result = self
-                .invoke_function(&instance, &invoke, &self.args)
-                .with_context(|| format!("failed to invoke `{}`", invoke))?;
+            let result = self.invoke_function(&instance, &invoke, &self.args)?;
             println!(
                 "{}",
                 result
@@ -211,7 +211,7 @@ impl Run {
                         args.join(" ")
                     );
                     let suggestion = format!(
-                        "Similar functions found: {}\nTry with: {}",
+                        "Similar functions found: {}.\nTry with: {}",
                         names, suggested_command
                     );
                     match e {

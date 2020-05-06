@@ -15,6 +15,7 @@
 
 pub mod commands;
 pub mod common;
+pub mod error;
 #[cfg(feature = "debug")]
 pub mod logging;
 pub mod store;
