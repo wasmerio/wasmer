@@ -16,6 +16,7 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 libc = "0.2.60"
+paste = "0.1"
 
 [dependencies.wasmer]
 default-features = false
