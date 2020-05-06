@@ -74,8 +74,8 @@ impl StoreOptions {
         } else if self.singlepass {
             return Ok(Compiler::Singlepass);
         } else if let Some(backend) = self.backend.clone() {
-            eprintln!(
-                "warning: the `--backend={0}` flag is deprecated, please use `--{0}` instead",
+            warning!(
+                "the `--backend={0}` flag is deprecated, please use `--{0}` instead",
                 backend
             );
             return Compiler::from_str(&backend);

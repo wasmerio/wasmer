@@ -9,6 +9,15 @@ pub struct PrettyError {
     error: Error,
 }
 
+/// A macro that prints a warning with nice colors
+#[macro_export]
+macro_rules! warning {
+    ($($arg:tt)*) => ({
+        use colored::*;
+        eprintln!("{}", format!("{}: {}", "warning".yellow(), format!($($arg)*)).bold());
+    })
+}
+
 impl PrettyError {
     /// Process a `Result` printing any errors and exiting
     /// the process after

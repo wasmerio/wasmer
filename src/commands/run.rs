@@ -1,6 +1,7 @@
 use crate::common::get_cache_dir;
 use crate::store::StoreOptions;
 use crate::suggestions::suggest_function_exports;
+use crate::warning;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -163,7 +164,7 @@ impl Run {
                     Err(e) => {
                         match e {
                             IoDeserializeError::Deserialize(e) => {
-                                eprintln!("Warning: error while getting module from cache: {}", e);
+                                warning!("cached module is corrupted: {}", e);
                             }
                             IoDeserializeError::Io(_) => {
                                 // Do not notify on IO errors

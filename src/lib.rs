@@ -15,6 +15,7 @@
 
 pub mod commands;
 pub mod common;
+#[macro_use]
 pub mod error;
 #[cfg(feature = "debug")]
 pub mod logging;
