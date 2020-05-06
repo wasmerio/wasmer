@@ -130,6 +130,16 @@ impl Engine for JITEngine {
         unsafe { compiled_module.instantiate(&self, resolver, Box::new(())) }
     }
 
+    /// Finish the instantiation of a WebAssembly module
+    unsafe fn finish_instantiation(
+        &self,
+        compiled_module: &dyn BaseCompiledModule,
+        handle: &InstanceHandle,
+    ) -> Result<(), InstantiationError> {
+        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
+        unsafe { compiled_module.finish_instantiation(&handle) }
+    }
+
     /// Serializes a WebAssembly module
     fn serialize(
         &self,

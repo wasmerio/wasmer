@@ -208,7 +208,10 @@ impl Module {
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.compiled.finish_instantiation(&instance_handle)?;
+            self.store
+                .engine()
+                .finish_instantiation(self.compiled.borrow(), &instance_handle)?;
+
             Ok(instance_handle)
         }
     }

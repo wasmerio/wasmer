@@ -246,6 +246,21 @@ impl CompiledModule {
         .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 
+    /// Finishes the instantiation of a just created `InstanceHandle`.
+    ///
+    /// # Unsafety
+    ///
+    /// See `InstanceHandle::finish_instantiation`
+    pub unsafe fn finish_instantiation(
+        &self,
+        handle: &InstanceHandle,
+    ) -> Result<(), InstantiationError> {
+        let is_bulk_memory: bool = self.serializable.features.bulk_memory;
+        handle
+            .finish_instantiation(is_bulk_memory, &self.data_initializers())
+            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    }
+
     /// Returns data initializers to pass to `InstanceHandle::initialize`
     pub fn data_initializers(&self) -> Vec<DataInitializer<'_>> {
         self.serializable
@@ -276,16 +291,6 @@ impl CompiledModule {
 }
 
 impl BaseCompiledModule for CompiledModule {
-    unsafe fn finish_instantiation(
-        &self,
-        handle: &InstanceHandle,
-    ) -> Result<(), InstantiationError> {
-        let is_bulk_memory: bool = self.serializable.features.bulk_memory;
-        handle
-            .finish_instantiation(is_bulk_memory, &self.data_initializers())
-            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
-    }
-
     fn module(&self) -> &Module {
         &self.serializable.module
     }

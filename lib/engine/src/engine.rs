@@ -38,6 +38,13 @@ pub trait Engine {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError>;
 
+    /// Finish the instantiation of a WebAssembly module
+    unsafe fn finish_instantiation(
+        &self,
+        compiled_module: &dyn CompiledModule,
+        handle: &InstanceHandle,
+    ) -> Result<(), InstantiationError>;
+
     /// Serializes a WebAssembly module
     fn serialize(&self, compiled_module: &dyn CompiledModule) -> Result<Vec<u8>, SerializeError>;
 
