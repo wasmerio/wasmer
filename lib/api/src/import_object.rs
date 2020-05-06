@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use wasmer_engine::Resolver;
-use wasmer_runtime::Export;
+pub use wasmer_runtime::{Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 
 /// The `LikeNamespace` trait represents objects that act as a namespace for imports.
 /// For example, an `Instance` or `Namespace` could be

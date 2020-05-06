@@ -180,7 +180,7 @@ struct wasmer_value_t {
   wasmer_value value;
 };
 
-/// Opaque pointer to `NamedExport`.
+/// Opaque pointer to `ImportType`.
 struct wasmer_export_t {
 
 };

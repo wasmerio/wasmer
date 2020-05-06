@@ -2,17 +2,18 @@
 
 use crate::{
     error::{update_last_error, CApiError},
-    export::{wasmer_exports_t, wasmer_import_export_kind, NamedExport, NamedExports},
+    export::{wasmer_exports_t, NamedExports},
     import::wasmer_import_t,
     memory::wasmer_memory_t,
-    value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
+    value::wasmer_value_t,
+    //value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_result_t,
 };
 use libc::{c_char, c_int, c_void};
-use std::{collections::HashMap, ffi::CStr, ptr, slice};
-use wasmer::import::{ImportObject, Namespace};
-use wasmer::vm::Ctx;
-use wasmer::wasm::{Export, Global, Instance, Memory, Table, Value};
+//use std::{collections::HashMap, ptr, slice};
+use std::ptr;
+//use wasmer::{ExportType, Exports, Global, ImportObject, Instance, Memory, Table};
+use wasmer::{ExportType, Instance};
 
 /// Opaque pointer to a `wasmer_runtime::Instance` value in Rust.
 ///
@@ -107,6 +108,8 @@ pub unsafe extern "C" fn wasmer_instantiate(
         });
         return wasmer_result_t::WASMER_ERROR;
     }
+    todo!("Figure out how instantiating works")
+    /*
     let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
@@ -136,7 +139,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
             return wasmer_result_t::WASMER_ERROR;
         };
 
-        let namespace = namespaces.entry(module_name).or_insert_with(Namespace::new);
+        let namespace = namespaces.entry(module_name).or_insert_with(Exports::new);
 
         // TODO check that tag is actually in bounds here
         let export = match import.tag {
@@ -164,7 +167,9 @@ pub unsafe extern "C" fn wasmer_instantiate(
     }
 
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
-    let module_result = wasmer::compiler::compile(bytes);
+    let store = todo!("Get global store");
+    */
+    /*let module_result = Module::compile(store, bytes);
     let module = match module_result {
         Ok(module) => module,
         Err(error) => {
@@ -182,6 +187,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
     };
     *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
+    */
 }
 
 /// Returns the instance context. Learn more by looking at the
@@ -207,10 +213,13 @@ pub extern "C" fn wasmer_instance_context_get(
         return ptr::null() as _;
     }
 
+    unimplemented!("wasmer_instance_context_get: API changed")
+    /*
     let instance = unsafe { &*(instance as *const Instance) };
     let context: *const Ctx = instance.context() as *const _;
 
     context as *const wasmer_instance_context_t
+    */
 }
 
 /// Calls an exported function of a WebAssembly instance by `name`
@@ -272,6 +281,8 @@ pub unsafe extern "C" fn wasmer_instance_call(
     results: *mut wasmer_value_t,
     results_len: u32,
 ) -> wasmer_result_t {
+    unimplemented!("wasmer_instance_call: DynFunc not yet implemented!")
+    /*
     if instance.is_null() {
         update_last_error(CApiError {
             msg: "instance ptr is null".to_string(),
@@ -297,7 +308,7 @@ pub unsafe extern "C" fn wasmer_instance_call(
     }
 
     let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
-    let params: Vec<Value> = params.iter().cloned().map(|x| x.into()).collect();
+    let params: Vec<Val> = params.iter().cloned().map(|x| x.into()).collect();
 
     let func_name_c = CStr::from_ptr(name);
     let func_name_r = func_name_c.to_str().unwrap();
@@ -309,23 +320,23 @@ pub unsafe extern "C" fn wasmer_instance_call(
         Ok(results_vec) => {
             if !results_vec.is_empty() {
                 let ret = match results_vec[0] {
-                    Value::I32(x) => wasmer_value_t {
+                    Val::I32(x) => wasmer_value_t {
                         tag: wasmer_value_tag::WASM_I32,
                         value: wasmer_value { I32: x },
                     },
-                    Value::I64(x) => wasmer_value_t {
+                    Val::I64(x) => wasmer_value_t {
                         tag: wasmer_value_tag::WASM_I64,
                         value: wasmer_value { I64: x },
                     },
-                    Value::F32(x) => wasmer_value_t {
+                    Val::F32(x) => wasmer_value_t {
                         tag: wasmer_value_tag::WASM_F32,
                         value: wasmer_value { F32: x },
                     },
-                    Value::F64(x) => wasmer_value_t {
+                    Val::F64(x) => wasmer_value_t {
                         tag: wasmer_value_tag::WASM_F64,
                         value: wasmer_value { F64: x },
                     },
-                    Value::V128(_) => unimplemented!("calling function with V128 parameter"),
+                    Val::V128(_) => unimplemented!("calling function with V128 parameter"),
                 };
                 results[0] = ret;
             }
@@ -336,6 +347,7 @@ pub unsafe extern "C" fn wasmer_instance_call(
             wasmer_result_t::WASMER_ERROR
         }
     }
+    */
 }
 
 /// Gets all the exports of the given WebAssembly instance.
@@ -391,15 +403,7 @@ pub unsafe extern "C" fn wasmer_instance_exports(
     }
 
     let instance_ref = &mut *(instance as *mut Instance);
-    let mut exports_vec: Vec<NamedExport> = Vec::with_capacity(instance_ref.exports().count());
-
-    for export_descriptor in instance_ref.module.exports().into_iter() {
-        exports_vec.push(NamedExport {
-            name: export_descriptor.name.to_string(),
-            extern_descriptor: export_descriptor.ty,
-            instance: instance as *mut Instance,
-        });
-    }
+    let mut exports_vec: Vec<ExportType> = instance_ref.module().exports().collect();
 
     let named_exports: Box<NamedExports> = Box::new(NamedExports(exports_vec));
 
@@ -440,6 +444,10 @@ pub extern "C" fn wasmer_instance_context_data_set(
     instance: *mut wasmer_instance_t,
     data_ptr: *mut c_void,
 ) {
+    unimplemented!(
+        "wasmer_instance_context_data_set: API changed in a way that this is non-obvious"
+    )
+    /*
     if instance.is_null() {
         return;
     }
@@ -447,6 +455,7 @@ pub extern "C" fn wasmer_instance_context_data_set(
     let instance = unsafe { &mut *(instance as *mut Instance) };
 
     instance.context_mut().data = data_ptr;
+    */
 }
 
 /// Gets the `memory_idx`th memory of the instance.
@@ -476,9 +485,11 @@ pub extern "C" fn wasmer_instance_context_memory(
     ctx: *const wasmer_instance_context_t,
     _memory_idx: u32,
 ) -> *const wasmer_memory_t {
-    let ctx = unsafe { &*(ctx as *const Ctx) };
+    unimplemented!("wasmer_instance_context_memory: API changed")
+    /*let ctx = unsafe { &*(ctx as *const Ctx) };
     let memory = ctx.memory(0);
     memory as *const Memory as *const wasmer_memory_t
+        */
 }
 
 /// Gets the data that can be hold by an instance.
@@ -494,6 +505,8 @@ pub extern "C" fn wasmer_instance_context_memory(
 pub extern "C" fn wasmer_instance_context_data_get(
     ctx: *const wasmer_instance_context_t,
 ) -> *mut c_void {
+    unimplemented!("wasmer_instance_context_data_get: API changed")
+    /*
     if ctx.is_null() {
         return ptr::null_mut() as _;
     }
@@ -501,6 +514,7 @@ pub extern "C" fn wasmer_instance_context_data_get(
     let ctx = unsafe { &*(ctx as *const Ctx) };
 
     ctx.data
+    */
 }
 
 /// Frees memory for the given `wasmer_instance_t`.

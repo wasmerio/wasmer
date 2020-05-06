@@ -2,16 +2,17 @@
 
 use crate::{
     error::{update_last_error, CApiError},
-    export::wasmer_import_export_kind,
+    //export::wasmer_import_export_kind,
     import::{wasmer_import_object_t, wasmer_import_t},
     instance::wasmer_instance_t,
-    wasmer_byte_array, wasmer_result_t,
+    wasmer_byte_array,
+    wasmer_result_t,
 };
 use libc::c_int;
-use std::{collections::HashMap, slice};
-use wasmer::compiler::{compile, default_compiler};
-use wasmer::{Export, Global, ImportObject, Namespace, Table};
-use wasmer::{Instance, Memory, Module};
+use std::slice;
+//use wasmer::compiler::{compile, default_compiler};
+//use wasmer::{Exports, Global, ImportObject, Module, Exports, Table};
+use wasmer::Module;
 //use wasmer_runtime_core::{cache::Artifact, load_cache_with};
 
 #[repr(C)]
@@ -33,8 +34,11 @@ pub unsafe extern "C" fn wasmer_compile(
     wasm_bytes: *mut u8,
     wasm_bytes_len: u32,
 ) -> wasmer_result_t {
+    unimplemented!("Blocked on global store");
+    /*
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
-    let result = compile(bytes);
+    let store = todo!("implement global store");
+    let result = Module::compile(store, bytes);
     let new_module = match result {
         Ok(instance) => instance,
         Err(error) => {
@@ -44,6 +48,7 @@ pub unsafe extern "C" fn wasmer_compile(
     };
     *module = Box::into_raw(Box::new(new_module)) as *mut wasmer_module_t;
     wasmer_result_t::WASMER_OK
+    */
 }
 
 /// Validates a sequence of bytes hoping it represents a valid WebAssembly module.
@@ -68,7 +73,8 @@ pub unsafe extern "C" fn wasmer_validate(wasm_bytes: *const u8, wasm_bytes_len: 
 
     let bytes: &[u8] = slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
 
-    wasmer_runtime_core::validate(bytes)
+    let store = todo!("implement global store");
+    //Module::validate(store, bytes).is_ok()
 }
 
 /// Creates a new Instance from the given module and imports.
@@ -85,6 +91,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     imports: *mut wasmer_import_t,
     imports_len: c_int,
 ) -> wasmer_result_t {
+    /*
     let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
@@ -114,8 +121,12 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
             return wasmer_result_t::WASMER_ERROR;
         };
 
-        let namespace = namespaces.entry(module_name).or_insert_with(Namespace::new);
+        let namespace = namespaces.entry(module_name).or_insert_with(Exports::new);
+    */
 
+    todo!("figure out how to instantiate")
+
+    /*
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
                 let mem = import.value.memory as *mut Memory;
@@ -151,6 +162,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
 
     *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
+        */
 }
 
 /// Given:
@@ -164,6 +176,8 @@ pub unsafe extern "C" fn wasmer_module_import_instantiate(
     module: *const wasmer_module_t,
     import_object: *const wasmer_import_object_t,
 ) -> wasmer_result_t {
+    todo!("Figure out how to instanitate")
+    /*
     let import_object: &ImportObject = &*(import_object as *const ImportObject);
     let module: &Module = &*(module as *const Module);
 
@@ -177,6 +191,7 @@ pub unsafe extern "C" fn wasmer_module_import_instantiate(
     *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
 
     return wasmer_result_t::WASMER_OK;
+    */
 }
 
 /// Serialize the given Module.

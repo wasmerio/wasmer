@@ -236,7 +236,7 @@ typedef struct {
 } wasmer_value_t;
 
 /**
- * Opaque pointer to `NamedExport`.
+ * Opaque pointer to `ImportType`.
  */
 typedef struct {
 

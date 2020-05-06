@@ -1,7 +1,7 @@
 //! Create, set, get and destroy global variables of an instance.
 
 use crate::value::{wasmer_value_t, wasmer_value_tag};
-use wasmer::wasm::Global;
+use wasmer::Global;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -21,12 +21,14 @@ pub unsafe extern "C" fn wasmer_global_new(
     value: wasmer_value_t,
     mutable: bool,
 ) -> *mut wasmer_global_t {
-    let global = if mutable {
-        Global::new_mutable(value.into())
+    let global_store = todo!("Implement global store");
+    /*let global = if mutable {
+        Global::new_mut(value.into())
     } else {
         Global::new(value.into())
     };
     Box::into_raw(Box::new(global)) as *mut wasmer_global_t
+    */
 }
 
 /// Gets the value stored by the given Global
@@ -53,9 +55,9 @@ pub extern "C" fn wasmer_global_get_descriptor(
     global: *mut wasmer_global_t,
 ) -> wasmer_global_descriptor_t {
     let global = unsafe { &*(global as *mut Global) };
-    let descriptor = global.descriptor();
+    let descriptor = global.ty();
     wasmer_global_descriptor_t {
-        mutable: descriptor.mutable,
+        mutable: descriptor.mutability.into(),
         kind: descriptor.ty.into(),
     }
 }

@@ -1,8 +1,7 @@
 //! Create, grow, destroy tables of an instance.
 
 use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
-use wasmer::types::{ElementType, TableDescriptor};
-use wasmer::wasm::Table;
+use wasmer::{Table, Val, ValType};
 
 #[repr(C)]
 #[derive(Clone)]
@@ -22,13 +21,14 @@ pub unsafe extern "C" fn wasmer_table_new(
     table: *mut *mut wasmer_table_t,
     limits: wasmer_limits_t,
 ) -> wasmer_result_t {
-    let max = if limits.max.has_some {
+    unimplemented!("wasmer_table_new needs a global store")
+    /*let max = if limits.max.has_some {
         Some(limits.max.some)
     } else {
         None
     };
-    let desc = TableDescriptor {
-        element: ElementType::Anyfunc,
+    let desc = TableType {
+        ty: Type::FuncRef,
         minimum: limits.min,
         maximum: max,
     };
@@ -42,6 +42,7 @@ pub unsafe extern "C" fn wasmer_table_new(
     };
     *table = Box::into_raw(Box::new(new_table)) as *mut wasmer_table_t;
     wasmer_result_t::WASMER_OK
+    */
 }
 
 /// Grows a Table by the given number of elements.
@@ -54,7 +55,18 @@ pub unsafe extern "C" fn wasmer_table_new(
 #[no_mangle]
 pub extern "C" fn wasmer_table_grow(table: *mut wasmer_table_t, delta: u32) -> wasmer_result_t {
     let table = unsafe { &*(table as *mut Table) };
-    let delta_result = table.grow(delta);
+    let table_type = table.ty().ty;
+    // TODO: this logic should be in wasmer itself
+    let table_default_value = match table_type {
+        ValType::I32 => Val::I32(0),
+        ValType::I64 => Val::I64(0),
+        ValType::F32 => Val::F32(0.),
+        ValType::F64 => Val::F64(0.),
+        ValType::V128 => Val::V128(0),
+        ValType::AnyRef => todo!("Figure out what the default AnyRef value is"),
+        ValType::FuncRef => todo!("Figure out what the default FuncRef value is"),
+    };
+    let delta_result = table.grow(delta, table_default_value);
     match delta_result {
         Ok(_) => wasmer_result_t::WASMER_OK,
         Err(grow_error) => {

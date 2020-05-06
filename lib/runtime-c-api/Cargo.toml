@@ -38,9 +38,9 @@ optional = true
 
 [features]
 default = ["cranelift-backend", "wasi"]
-singlepass-backend = ["wasmer/compiler-singlepass", "wasmer/default-compiler-singlepass"]
-cranelift-backend = ["wasmer/compiler-cranelift", "wasmer/default-compiler-cranelift"]
-llvm-backend = ["wasmer/compiler-llvm", "wasmer/default-compiler-llvm"]
+singlepass-backend = ["wasmer/singlepass"]
+cranelift-backend = ["wasmer/cranelift"]
+llvm-backend = ["wasmer/llvm"]
 wasi = ["wasmer-wasi"]
 #emscripten = ["wasmer-emscripten"]
 # used to avoid generating standard Wasm C API types in our header files

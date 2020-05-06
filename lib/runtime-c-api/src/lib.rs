@@ -86,13 +86,11 @@
 #![deny(
     dead_code,
     unused_imports,
-    unused_variables,
+    // temporarily disabled
+    //unused_variables,
     unused_unsafe,
     unreachable_patterns
 )]
-
-#[cbindgen::ignore]
-mod wasm_c_api;
 
 pub mod error;
 pub mod export;

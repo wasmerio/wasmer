@@ -210,6 +210,8 @@ impl ExternType {
     }
 }
 
+// TODO: `shrink_to_fit` these or change it to `Box<[Type]>` if not using
+// Cow or something else
 /// The signature of a function that is either implemented
 /// in a Wasm module or exposed to Wasm by the host.
 ///
@@ -332,10 +334,7 @@ impl GlobalType {
     /// let global = GlobalType::new(Type::I64, Mutability::Var);
     /// ```
     pub fn new(ty: Type, mutability: Mutability) -> Self {
-        Self {
-            ty: ty,
-            mutability: mutability,
-        }
+        Self { ty, mutability }
     }
 }
 

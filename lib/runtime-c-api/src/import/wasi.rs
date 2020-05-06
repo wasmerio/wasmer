@@ -68,6 +68,8 @@ pub unsafe extern "C" fn wasmer_wasi_generate_import_object(
     mapped_dirs: *const wasmer_wasi_map_dir_entry_t,
     mapped_dirs_len: c_uint,
 ) -> *mut wasmer_import_object_t {
+    todo!("wasmer_wasi_generate_import_object: blocked on global store")
+    /*
     let arg_list = get_slice_checked(args, args_len as usize);
     let env_list = get_slice_checked(envs, envs_len as usize);
     let preopened_file_list = get_slice_checked(preopened_files, preopened_files_len as usize);
@@ -81,6 +83,7 @@ pub unsafe extern "C" fn wasmer_wasi_generate_import_object(
         mapped_dir_list,
     )
     .unwrap_or(ptr::null_mut())
+    */
 }
 
 /// Creates a WASI import object for a specific version.
@@ -145,6 +148,8 @@ fn wasmer_wasi_generate_import_object_inner(
     preopened_file_list: &[wasmer_byte_array],
     mapped_dir_list: &[wasmer_wasi_map_dir_entry_t],
 ) -> Result<*mut wasmer_import_object_t, str::Utf8Error> {
+    todo!("wasmer_wasi_generate_import_object_inner: blocked on global store")
+    /*
     let arg_vec = arg_list.iter().map(|arg| unsafe { arg.as_vec() }).collect();
     let env_vec = env_list
         .iter()
@@ -174,6 +179,7 @@ fn wasmer_wasi_generate_import_object_inner(
         mapped_dir_vec,
     ));
     Ok(Box::into_raw(import_object) as *mut wasmer_import_object_t)
+    */
 }
 
 /// Convenience function that creates a WASI import object with no arguments,
@@ -184,9 +190,20 @@ fn wasmer_wasi_generate_import_object_inner(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wasmer_import_object_t
 {
-    let import_object = Box::new(wasi::generate_import_object(vec![], vec![], vec![], vec![]));
+    /*  let mut wasi_state_builder = wasi::WasiState::new();
+    let wasi_state = wasi_state_builder.build().unwrap();
+    let mut wasi_env = WasiEnv::new(wasi_state);
+    // this API will now leak a `Memory`
+    let memory = todo!("get a memory");
+    let store = todo!("somehow get a store");
+    wasi_env.set_memory(memory);
+    let import_object = Box::new(wasi::generate_import_object_from_env(store, ));
 
     Box::into_raw(import_object) as *mut wasmer_import_object_t
+    */
+    unimplemented!(
+        "This function can't be implemented until more backwards compatibilty code exists"
+    );
 }
 
 #[cfg(test)]
