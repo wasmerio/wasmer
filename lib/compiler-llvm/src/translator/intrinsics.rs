@@ -40,7 +40,7 @@ use wasm_common::{
 use wasmer_runtime::Module as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TrapCode, VMOffsets};
 
-fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerType<'ctx> {
+pub fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerType<'ctx> {
     match ty {
         Type::I32 => intrinsics.i32_ptr_ty,
         Type::I64 => intrinsics.i64_ptr_ty,
@@ -640,7 +640,7 @@ struct ImportedFuncCache<'ctx> {
 }
 
 pub struct CtxType<'ctx, 'a> {
-    ctx_ptr_value: PointerValue<'ctx>,
+    pub ctx_ptr_value: PointerValue<'ctx>,
 
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,

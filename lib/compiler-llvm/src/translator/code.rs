@@ -1,6 +1,7 @@
 use super::{
     intrinsics::{
-        func_type_to_llvm, tbaa_label, type_to_llvm, CtxType, GlobalCache, Intrinsics, MemoryCache,
+        func_type_to_llvm, tbaa_label, type_to_llvm, type_to_llvm_ptr, CtxType, GlobalCache,
+        Intrinsics, MemoryCache,
     },
     read_info::blocktype_to_type,
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
@@ -33,8 +34,8 @@ use std::collections::HashMap;
 use crate::config::LLVMConfig;
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
-    TableIndex, Type,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, Mutability,
+    SignatureIndex, TableIndex, Type,
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
@@ -45,7 +46,7 @@ use wasmer_compiler::{
 };
 use wasmer_runtime::libcalls::LibCall;
 use wasmer_runtime::Module as WasmerCompilerModule;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan};
+use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, VMOffsets};
 
 // TODO: debugging
 use std::fs;
@@ -203,6 +204,8 @@ impl FuncTranslator {
             memory_plans,
             table_plans,
             module: &module,
+            // TODO: pointer width
+            vmoffsets: VMOffsets::new(8, &wasm_module),
         };
 
         while fcg.state.has_control_frames() {
@@ -1378,6 +1381,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     track_state: bool,
     */
     module: &'a Module<'ctx>,
+    vmoffsets: VMOffsets,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
@@ -1500,6 +1504,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let locals = &self.locals;
         //let _signatures = &self.signatures;
         let mut ctx = &mut self.ctx;
+
+        let vmctx = &ctx.ctx_ptr_value; //: func_value.get_nth_param(0).unwrap().into_pointer_value(),
 
         //let opcode_offset: Option<usize> = None;
 
@@ -2101,45 +2107,92 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
 
             Operator::GlobalGet { global_index } => {
-                let index = GlobalIndex::from_u32(global_index);
-                let global_cache = ctx.global_cache(index, intrinsics, self.module);
-                match global_cache {
-                    GlobalCache::Const { value } => {
-                        state.push1(value);
-                    }
-                    GlobalCache::Mut { ptr_to_value } => {
-                        let value = builder.build_load(ptr_to_value, "global_value");
-                        tbaa_label(
-                            &self.module,
-                            intrinsics,
-                            "global",
-                            value.as_instruction_value().unwrap(),
-                            Some(global_index),
-                        );
-                        state.push1(value);
-                    }
-                }
+                let global_index = GlobalIndex::from_u32(global_index);
+                let global_type = module.globals[global_index];
+                let global_value_type = global_type.ty;
+                let _global_mutability = global_type.mutability;
+
+                let global_ptr =
+                    if let Some(local_global_index) = module.local_global_index(global_index) {
+                        let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
+                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                        unsafe { builder.build_gep(*vmctx, &[offset], "") }
+                    } else {
+                        let offset = self.vmoffsets.vmctx_vmglobal_import(global_index);
+                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                        let global_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
+                        let global_ptr_ptr = builder
+                            .build_bitcast(global_ptr_ptr, intrinsics.i8_ptr_ty, "")
+                            .into_pointer_value();
+                        builder.build_load(global_ptr_ptr, "").into_pointer_value()
+                    };
+                let global_ptr = builder
+                    .build_bitcast(
+                        global_ptr,
+                        type_to_llvm_ptr(&intrinsics, global_value_type),
+                        "",
+                    )
+                    .into_pointer_value();
+                let value = builder.build_load(global_ptr, "");
+                // TODO: add TBAA info.
+                state.push1(value);
             }
             Operator::GlobalSet { global_index } => {
+                let global_index = GlobalIndex::from_u32(global_index);
+                let global_type = module.globals[global_index];
+                let global_value_type = global_type.ty;
+
+                // Note that we don't check mutability, assuming that's already
+                // been checked by some other verifier.
+
+                let global_ptr =
+                    if let Some(local_global_index) = module.local_global_index(global_index) {
+                        let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
+                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                        unsafe { builder.build_gep(*vmctx, &[offset], "") }
+                    } else {
+                        let offset = self.vmoffsets.vmctx_vmglobal_import(global_index);
+                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                        let global_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
+                        let global_ptr_ptr = builder
+                            .build_bitcast(global_ptr_ptr, intrinsics.i8_ptr_ty, "")
+                            .into_pointer_value();
+                        builder.build_load(global_ptr_ptr, "").into_pointer_value()
+                    };
+                let global_ptr = builder
+                    .build_bitcast(
+                        global_ptr,
+                        type_to_llvm_ptr(&intrinsics, global_value_type),
+                        "",
+                    )
+                    .into_pointer_value();
+
                 let (value, info) = state.pop1_extra()?;
                 let value = apply_pending_canonicalization(builder, intrinsics, value, info);
-                let index = GlobalIndex::from_u32(global_index);
-                let global_cache = ctx.global_cache(index, intrinsics, self.module);
-                match global_cache {
-                    GlobalCache::Mut { ptr_to_value } => {
-                        let store = builder.build_store(ptr_to_value, value);
-                        tbaa_label(
-                            &self.module,
-                            intrinsics,
-                            "global",
-                            store,
-                            Some(global_index),
-                        );
-                    }
-                    GlobalCache::Const { value: _ } => {
-                        return Err(CompileError::Codegen("global is immutable".to_string()));
-                    }
-                }
+                builder.build_store(global_ptr, value);
+                // TODO: add TBAA info
+
+                /*
+                                let (value, info) = state.pop1_extra()?;
+                                let value = apply_pending_canonicalization(builder, intrinsics, value, info);
+                                let index = GlobalIndex::from_u32(global_index);
+                                let global_cache = ctx.global_cache(index, intrinsics, self.module);
+                                match global_cache {
+                                    GlobalCache::Mut { ptr_to_value } => {
+                                        let store = builder.build_store(ptr_to_value, value);
+                                        tbaa_label(
+                                            &self.module,
+                                            intrinsics,
+                                            "global",
+                                            store,
+                                            Some(global_index),
+                                        );
+                                    }
+                                    GlobalCache::Const { value: _ } => {
+                                        return Err(CompileError::Codegen("global is immutable".to_string()));
+                                    }
+                                }
+                */
             }
 
             Operator::Select => {
