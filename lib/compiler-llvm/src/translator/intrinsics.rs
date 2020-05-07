@@ -169,6 +169,11 @@ pub struct Intrinsics<'ctx> {
 
     pub experimental_stackmap: FunctionValue<'ctx>,
 
+    pub memory32_grow_ptr_ty: PointerType<'ctx>,
+    pub imported_memory32_grow_ptr_ty: PointerType<'ctx>,
+    pub memory32_size_ptr_ty: PointerType<'ctx>,
+    pub imported_memory32_size_ptr_ty: PointerType<'ctx>,
+
     pub ctx_ptr_ty: PointerType<'ctx>,
 }
 
@@ -566,6 +571,26 @@ impl<'ctx> Intrinsics<'ctx> {
                 void_ty.fn_type(&[i64_ty_basic], false),
                 None,
             ),
+
+            memory32_grow_ptr_ty: i32_ty
+                .fn_type(
+                    &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            imported_memory32_grow_ptr_ty: i32_ty
+                .fn_type(
+                    &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            memory32_size_ptr_ty: i32_ty
+                .fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+            imported_memory32_size_ptr_ty: i32_ty
+                .fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+
             ctx_ptr_ty,
         };
 

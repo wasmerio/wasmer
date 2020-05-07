@@ -46,7 +46,7 @@ use wasmer_compiler::{
 };
 use wasmer_runtime::libcalls::LibCall;
 use wasmer_runtime::Module as WasmerCompilerModule;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, VMOffsets};
+use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, VMBuiltinFunctionIndex, VMOffsets};
 
 // TODO: debugging
 use std::fs;
@@ -8939,67 +8939,83 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             Operator::MemoryGrow { reserved } => {
                 let mem_index = MemoryIndex::from_u32(reserved);
-                let func_value = if let Some(local_mem_index) = module.local_memory_index(mem_index)
-                {
-                    match self
-                        .memory_plans
-                        .get(module.memory_index(local_mem_index))
-                        .unwrap()
-                        .style
-                    {
-                        MemoryStyle::Dynamic => intrinsics.memory_grow_dynamic_local,
-                        MemoryStyle::Static { bound: _ } => intrinsics.memory_grow_static_local,
-                    }
-                } else {
-                    match self.memory_plans.get(mem_index).unwrap().style {
-                        MemoryStyle::Dynamic => intrinsics.memory_grow_dynamic_import,
-                        MemoryStyle::Static { bound: _ } => intrinsics.memory_grow_static_import,
-                    }
-                };
-
-                let memory_index_const = intrinsics
-                    .i32_ty
-                    .const_int(reserved as u64, false)
-                    .as_basic_value_enum();
                 let delta = state.pop1()?;
+                let (grow_fn, grow_fn_ty) =
+                    if let Some(local_mem_index) = module.local_memory_index(mem_index) {
+                        (
+                            VMBuiltinFunctionIndex::get_memory32_grow_index(),
+                            intrinsics.memory32_grow_ptr_ty,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory32_grow_index(),
+                            intrinsics.imported_memory32_grow_ptr_ty,
+                        )
+                    };
+                let offset = self.vmoffsets.vmctx_builtin_function(grow_fn);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                let grow_fn_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
 
-                let result = builder.build_call(
-                    func_value,
-                    &[ctx.basic(), memory_index_const, delta],
-                    &state.var_name(),
+                let grow_fn_ptr_ptr = builder
+                    .build_bitcast(
+                        grow_fn_ptr_ptr,
+                        grow_fn_ty.ptr_type(AddressSpace::Generic),
+                        "",
+                    )
+                    .into_pointer_value();
+                let grow_fn_ptr = builder.build_load(grow_fn_ptr_ptr, "").into_pointer_value();
+                let grow = builder.build_call(
+                    grow_fn_ptr,
+                    &[
+                        vmctx.as_basic_value_enum(),
+                        delta,
+                        intrinsics
+                            .i32_ty
+                            .const_int(reserved.into(), false)
+                            .as_basic_value_enum(),
+                    ],
+                    "",
                 );
-                state.push1(result.try_as_basic_value().left().unwrap());
+                state.push1(grow.try_as_basic_value().left().unwrap());
             }
             Operator::MemorySize { reserved } => {
                 let mem_index = MemoryIndex::from_u32(reserved);
-                let func_value = if let Some(local_mem_index) = module.local_memory_index(mem_index)
-                {
-                    match self
-                        .memory_plans
-                        .get(module.memory_index(local_mem_index))
-                        .unwrap()
-                        .style
-                    {
-                        MemoryStyle::Dynamic => intrinsics.memory_size_dynamic_local,
-                        MemoryStyle::Static { bound: _ } => intrinsics.memory_size_static_local,
-                    }
-                } else {
-                    match self.memory_plans.get(mem_index).unwrap().style {
-                        MemoryStyle::Dynamic => intrinsics.memory_size_dynamic_import,
-                        MemoryStyle::Static { bound: _ } => intrinsics.memory_size_static_import,
-                    }
-                };
+                let (size_fn, size_fn_ty) =
+                    if let Some(local_mem_index) = module.local_memory_index(mem_index) {
+                        (
+                            VMBuiltinFunctionIndex::get_memory32_size_index(),
+                            intrinsics.memory32_size_ptr_ty,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory32_size_index(),
+                            intrinsics.imported_memory32_size_ptr_ty,
+                        )
+                    };
+                let offset = self.vmoffsets.vmctx_builtin_function(size_fn);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                let size_fn_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
 
-                let memory_index_const = intrinsics
-                    .i32_ty
-                    .const_int(reserved as u64, false)
-                    .as_basic_value_enum();
-                let result = builder.build_call(
-                    func_value,
-                    &[ctx.basic(), memory_index_const],
-                    &state.var_name(),
+                let size_fn_ptr_ptr = builder
+                    .build_bitcast(
+                        size_fn_ptr_ptr,
+                        size_fn_ty.ptr_type(AddressSpace::Generic),
+                        "",
+                    )
+                    .into_pointer_value();
+                let size_fn_ptr = builder.build_load(size_fn_ptr_ptr, "").into_pointer_value();
+                let size = builder.build_call(
+                    size_fn_ptr,
+                    &[
+                        vmctx.as_basic_value_enum(),
+                        intrinsics
+                            .i32_ty
+                            .const_int(reserved.into(), false)
+                            .as_basic_value_enum(),
+                    ],
+                    "",
                 );
-                state.push1(result.try_as_basic_value().left().unwrap());
+                state.push1(size.try_as_basic_value().left().unwrap());
             }
             _ => {
                 return Err(CompileError::Codegen(format!(
