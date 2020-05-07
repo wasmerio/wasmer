@@ -18,8 +18,9 @@ use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
 };
 use wasmer_compiler::{
-    CodeOffset, CompiledFunction, CustomSection, CustomSectionProtection, FunctionBody, Relocation,
-    RelocationKind, RelocationTarget, SectionBody, SectionIndex,
+    CodeOffset, CompiledFunction, CompiledFunctionFrameInfo, CustomSection,
+    CustomSectionProtection, FunctionBody, Relocation, RelocationKind, RelocationTarget,
+    SectionBody, SectionIndex, TrapInformation,
 };
 use wasmer_runtime::{
     MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle, TrapCode, VMBuiltinFunctionIndex,
@@ -8017,7 +8018,19 @@ impl<'a> FuncGen<'a> {
             },
             relocations: self.relocations,
             jt_offsets: SecondaryMap::new(),
-            frame_info: Default::default(),
+            frame_info: CompiledFunctionFrameInfo {
+                traps: self
+                    .trap_table
+                    .offset_to_code
+                    .into_iter()
+                    .map(|(offset, code)| TrapInformation {
+                        code_offset: offset as u32,
+                        source_loc: Default::default(),
+                        trap_code: code,
+                    })
+                    .collect(),
+                ..Default::default()
+            },
         }
     }
 }
@@ -8147,7 +8160,7 @@ pub fn gen_std_trampoline(sig: FunctionType) -> FunctionBody {
     {
         let mut n_stack_args: usize = 0;
         for (i, _param) in sig.params().iter().enumerate() {
-            let src_loc = Location::Memory(GPR::R14, (i * 8) as _); // args_rets[i]
+            let src_loc = Location::Memory(GPR::R14, (i * 16) as _); // args_rets[i]
             let dst_loc = Machine::get_param_location(1 + i);
 
             match dst_loc {

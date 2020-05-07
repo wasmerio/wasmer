@@ -28,7 +28,10 @@ pub struct SinglepassConfig {
 impl SinglepassConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(features: Features, target: Target) -> Self {
+    pub fn new(mut features: Features, target: Target) -> Self {
+        // Override the default multi-value switch
+        features.multi_value = false;
+
         Self {
             enable_nan_canonicalization: true,
             enable_stack_check: false,
