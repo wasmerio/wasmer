@@ -11,8 +11,8 @@ use wasm_common::{
 };
 use wasm_common::{
     DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FunctionIndex,
-    GlobalIndex, GlobalType, ImportIndex, LocalFunctionIndex, LocalGlobalIndex, MemoryIndex,
-    MemoryType, SignatureIndex, TableIndex, TableType, Type, LocalMemoryIndex, LocalTableIndex,
+    GlobalIndex, GlobalType, ImportIndex, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex,
+    LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType, Type,
 };
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
@@ -21,7 +21,10 @@ use wasmer_compiler::{
     CodeOffset, CompiledFunction, CustomSection, CustomSectionProtection, FunctionBody, Relocation,
     RelocationKind, RelocationTarget, SectionBody, SectionIndex,
 };
-use wasmer_runtime::{MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle, TrapCode, VMOffsets};
+use wasmer_runtime::{
+    MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle, TrapCode, VMBuiltinFunctionIndex,
+    VMOffsets,
+};
 
 // Placeholder
 use crate::vm::{self, LocalTable};
@@ -1215,17 +1218,18 @@ impl<'a> FuncGen<'a> {
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
         let tmp_base = self.machine.acquire_temp_gpr().unwrap();
 
-        // XXX: Here we assume the memory is local, since we don't yet support imported memories (?).
-        // Change this if the assumption is no longer valid.
-        let vmctx_offset = self.vmoffsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(0));
+        let vmctx_offset = if self.module.num_imported_memories != 0 {
+            self.vmoffsets
+                .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+        } else {
+            self.vmoffsets
+                .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+        };
 
         // Load base into temporary register.
         self.assembler.emit_mov(
             Size::S64,
-            Location::Memory(
-                Machine::get_vmctx_reg(),
-                vmctx_offset as i32,
-            ),
+            Location::Memory(Machine::get_vmctx_reg(), vmctx_offset as i32),
             Location::GPR(tmp_base),
         );
 
@@ -1234,10 +1238,7 @@ impl<'a> FuncGen<'a> {
 
             self.assembler.emit_mov(
                 Size::S64,
-                Location::Memory(
-                    Machine::get_vmctx_reg(),
-                    vmctx_offset as i32 + 8,
-                ),
+                Location::Memory(Machine::get_vmctx_reg(), vmctx_offset as i32 + 8),
                 Location::GPR(tmp_bound),
             );
             // Adds base to bound so `tmp_bound` now holds the end of linear memory.
@@ -5127,11 +5128,9 @@ impl<'a> FuncGen<'a> {
                         message: format!("CallIndirect: table_index is not 0"),
                     });
                 }
-                let sig = self
-                    .module
-                    .signatures
-                    .get(SignatureIndex::new(index as usize))
-                    .unwrap();
+                let table_index = TableIndex::new(table_index as _);
+                let index = SignatureIndex::new(index as usize);
+                let sig = self.module.signatures.get(index).unwrap();
                 let param_types: SmallVec<[WpType; 8]> =
                     sig.params().iter().cloned().map(type_to_wp_type).collect();
                 let return_types: SmallVec<[WpType; 1]> =
@@ -5172,24 +5171,29 @@ impl<'a> FuncGen<'a> {
                 let table_count = self.machine.acquire_temp_gpr().unwrap();
                 let sigidx = self.machine.acquire_temp_gpr().unwrap();
 
-                // XXX: Here we assume imported tables are not yet supported.
-                let vmctx_offset_base = self.vmoffsets.vmctx_vmtable_definition_base(LocalTableIndex::new(0));
-                let vmctx_offset_len = self.vmoffsets.vmctx_vmtable_definition_current_elements(LocalTableIndex::new(0));
+                let (vmctx_offset_base, vmctx_offset_len) = if table_index.index()
+                    < self.module.num_imported_tables
+                {
+                    // Some complex indirection required here
+                    unimplemented!("imported tables are not yet supported");
+                } else {
+                    let local_index =
+                        LocalTableIndex::new(table_index.index() - self.module.num_imported_tables);
+                    (
+                        self.vmoffsets.vmctx_vmtable_definition(local_index),
+                        self.vmoffsets
+                            .vmctx_vmtable_definition_current_elements(local_index),
+                    )
+                };
 
                 self.assembler.emit_mov(
                     Size::S64,
-                    Location::Memory(
-                        Machine::get_vmctx_reg(),
-                        vmctx_offset_base as i32,
-                    ),
+                    Location::Memory(Machine::get_vmctx_reg(), vmctx_offset_base as i32),
                     Location::GPR(table_base),
                 );
                 self.assembler.emit_mov(
                     Size::S32,
-                    Location::Memory(
-                        Machine::get_vmctx_reg(),
-                        vmctx_offset_len as i32,
-                    ),
+                    Location::Memory(Machine::get_vmctx_reg(), vmctx_offset_len as i32),
                     Location::GPR(table_count),
                 );
                 self.assembler
@@ -5199,8 +5203,10 @@ impl<'a> FuncGen<'a> {
                 });
                 self.assembler
                     .emit_mov(Size::S32, func_index, Location::GPR(table_count));
-                self.assembler
-                    .emit_imul_imm32_gpr64(vm::Anyfunc::size() as u32, table_count);
+                self.assembler.emit_imul_imm32_gpr64(
+                    self.vmoffsets.size_of_vmcaller_checked_anyfunc() as u32,
+                    table_count,
+                );
                 self.assembler.emit_add(
                     Size::S64,
                     Location::GPR(table_base),
@@ -5210,19 +5216,17 @@ impl<'a> FuncGen<'a> {
                     Size::S64,
                     Location::Memory(
                         Machine::get_vmctx_reg(),
-                        vm::Ctx::offset_signatures() as i32,
+                        self.vmoffsets.vmctx_vmshared_signature_id(index) as i32,
                     ),
-                    Location::GPR(sigidx),
-                );
-                self.assembler.emit_mov(
-                    Size::S32,
-                    Location::Memory(sigidx, (index * 4) as i32),
                     Location::GPR(sigidx),
                 );
                 self.assembler.emit_cmp(
                     Size::S32,
                     Location::GPR(sigidx),
-                    Location::Memory(table_count, (vm::Anyfunc::offset_sig_id() as usize) as i32),
+                    Location::Memory(
+                        table_count,
+                        (self.vmoffsets.vmcaller_checked_anyfunc_type_index() as usize) as i32,
+                    ),
                 );
                 self.mark_range_with_trap_code(TrapCode::BadSignature, |this| {
                     this.assembler.emit_conditional_trap(Condition::NotEqual)
@@ -5242,19 +5246,22 @@ impl<'a> FuncGen<'a> {
 
                 self.machine.release_locations_only_osr_state(params.len());
 
+                let vmcaller_checked_anyfunc_func_ptr =
+                    self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize;
+
                 self.emit_call_sysv(
                     |this| {
                         if this.assembler.arch_requires_indirect_call_trampoline() {
                             this.assembler.arch_emit_indirect_call_with_trampoline(
                                 Location::Memory(
                                     GPR::RAX,
-                                    (vm::Anyfunc::offset_func() as usize) as i32,
+                                    vmcaller_checked_anyfunc_func_ptr as i32,
                                 ),
                             );
                         } else {
                             this.assembler.emit_call_location(Location::Memory(
                                 GPR::RAX,
-                                (vm::Anyfunc::offset_func() as usize) as i32,
+                                vmcaller_checked_anyfunc_func_ptr as i32,
                             ));
                         }
                     },
@@ -5477,37 +5484,7 @@ impl<'a> FuncGen<'a> {
                 });
                 self.assembler.emit_label(label);
 
-                // Check interrupt signal without branching
-                // TODO: Re-enable this.
-                if false
-                /* self.config.full_preemption */
-                {
-                    self.assembler.emit_mov(
-                        Size::S64,
-                        Location::Memory(
-                            Machine::get_vmctx_reg(),
-                            vm::Ctx::offset_interrupt_signal_mem() as i32,
-                        ),
-                        Location::GPR(GPR::RAX),
-                    );
-                    self.fsm.loop_offsets.insert(
-                        self.assembler.get_offset().0,
-                        OffsetInfo {
-                            end_offset: self.assembler.get_offset().0 + 1,
-                            activate_offset,
-                            diff_id: state_diff_id,
-                        },
-                    );
-                    self.fsm.wasm_offset_to_target_offset.insert(
-                        self.machine.state.wasm_inst_offset,
-                        SuspendOffset::Loop(self.assembler.get_offset().0),
-                    );
-                    self.assembler.emit_mov(
-                        Size::S64,
-                        Location::Memory(GPR::RAX, 0),
-                        Location::GPR(GPR::RAX),
-                    );
-                }
+                // TODO: Re-enable interrupt signal check without branching
             }
             Operator::Nop => {}
             Operator::MemorySize { reserved } => {
@@ -5516,13 +5493,14 @@ impl<'a> FuncGen<'a> {
                     Size::S64,
                     Location::Memory(
                         Machine::get_vmctx_reg(),
-                        vm::Ctx::offset_intrinsics() as i32,
+                        self.vmoffsets.vmctx_builtin_function(
+                            if memory_index.index() < self.module.num_imported_memories {
+                                VMBuiltinFunctionIndex::get_imported_memory32_size_index()
+                            } else {
+                                VMBuiltinFunctionIndex::get_memory32_size_index()
+                            },
+                        ) as i32,
                     ),
-                    Location::GPR(GPR::RAX),
-                );
-                self.assembler.emit_mov(
-                    Size::S64,
-                    Location::Memory(GPR::RAX, vm::Intrinsics::offset_memory_size() as i32),
                     Location::GPR(GPR::RAX),
                 );
                 self.emit_call_sysv(
@@ -5535,6 +5513,7 @@ impl<'a> FuncGen<'a> {
                         this.assembler.emit_label(after);
                         this.assembler.emit_call_label(label);
                     },
+                    // [vmctx, memory_index]
                     iter::once(Location::Imm32(memory_index.index() as u32)),
                 )?;
                 let ret = self.machine.acquire_locations(
@@ -5556,13 +5535,14 @@ impl<'a> FuncGen<'a> {
                     Size::S64,
                     Location::Memory(
                         Machine::get_vmctx_reg(),
-                        vm::Ctx::offset_intrinsics() as i32,
+                        self.vmoffsets.vmctx_builtin_function(
+                            if memory_index.index() < self.module.num_imported_memories {
+                                VMBuiltinFunctionIndex::get_imported_memory32_grow_index()
+                            } else {
+                                VMBuiltinFunctionIndex::get_memory32_grow_index()
+                            },
+                        ) as i32,
                     ),
-                    Location::GPR(GPR::RAX),
-                );
-                self.assembler.emit_mov(
-                    Size::S64,
-                    Location::Memory(GPR::RAX, vm::Intrinsics::offset_memory_grow() as i32),
                     Location::GPR(GPR::RAX),
                 );
 
@@ -5578,8 +5558,9 @@ impl<'a> FuncGen<'a> {
                         this.assembler.emit_label(after);
                         this.assembler.emit_call_label(label);
                     },
-                    iter::once(Location::Imm32(memory_index.index() as u32))
-                        .chain(iter::once(param_pages)),
+                    // [vmctx, val, memory_index]
+                    iter::once(param_pages)
+                        .chain(iter::once(Location::Imm32(memory_index.index() as u32))),
                 )?;
 
                 self.machine
@@ -8221,7 +8202,11 @@ pub fn gen_std_trampoline(sig: FunctionType) -> FunctionBody {
 }
 
 // Singlepass calls import functions through a trampoline.
-pub fn gen_import_call_trampoline(vmoffsets: &VMOffsets, index: FunctionIndex, sig: FunctionType) -> CustomSection {
+pub fn gen_import_call_trampoline(
+    vmoffsets: &VMOffsets,
+    index: FunctionIndex,
+    sig: FunctionType,
+) -> CustomSection {
     let mut a = Assembler::new().unwrap();
 
     // TODO: ARM entry trampoline is not emitted.
@@ -8271,7 +8256,7 @@ pub fn gen_import_call_trampoline(vmoffsets: &VMOffsets, index: FunctionIndex, s
 
         // Copy arguments.
         let mut argalloc = ArgumentRegisterAllocator::default();
-        argalloc.next(Type::I32).unwrap(); // skip vm::Ctx
+        argalloc.next(Type::I32).unwrap(); // skip VMContext
         let mut caller_stack_offset: i32 = 0;
         for (i, ty) in sig.params().iter().enumerate() {
             let prev_loc = param_locations[i];

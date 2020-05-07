@@ -63,7 +63,13 @@ impl Compiler for SinglepassCompiler {
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|i| gen_import_call_trampoline(&vmoffsets, i, module.signatures[module.functions[i]].clone()))
+            .map(|i| {
+                gen_import_call_trampoline(
+                    &vmoffsets,
+                    i,
+                    module.signatures[module.functions[i]].clone(),
+                )
+            })
             .collect::<Vec<_>>()
             .into_iter()
             .collect();
