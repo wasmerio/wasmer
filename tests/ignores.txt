@@ -1,4 +1,5 @@
 # Compilers
+singlepass::spec::multi_value
 
 # Frontends
 

@@ -1,7 +1,7 @@
 use crate::error::{DirectiveError, DirectiveErrors};
 use crate::spectest::spectest_importobject;
 use anyhow::{anyhow, bail, Result};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::str;
 use wasmer::*;
@@ -16,6 +16,10 @@ pub struct Wast {
     import_object: ImportObject,
     /// The instances in the test
     instances: HashMap<String, Instance>,
+    /// Allowed failures (ideally this should be empty)
+    allowed_instantiation_failures: HashSet<String>,
+    /// If the current module was an allowed failure, we allow test to fail
+    current_is_allowed_failure: bool,
     /// The wasm Store
     store: Store,
     /// A flag indicating if Wast tests should stop as soon as one test fails.
@@ -29,8 +33,18 @@ impl Wast {
             current: None,
             store,
             import_object,
+            allowed_instantiation_failures: HashSet::new(),
+            current_is_allowed_failure: false,
             instances: HashMap::new(),
             fail_fast: true,
+        }
+    }
+
+    /// A list of instantiation failures to allow
+    pub fn allow_instantiation_failures(&mut self, failures: &[&str]) {
+        for failure_str in failures.iter() {
+            self.allowed_instantiation_failures
+                .insert(failure_str.to_string());
         }
     }
 
@@ -226,11 +240,21 @@ impl Wast {
             let sp = directive.span();
             match self.run_directive(directive) {
                 Err(e) => {
+                    let message = format!("{}", e);
+                    // If depends on an instance that doesn't exist
+                    if message.contains("no previous instance found") {
+                        continue;
+                    }
+                    // We don't compute it, comes from instantiating an instance
+                    // that we expected to fail.
+                    if self.current.is_none() && self.current_is_allowed_failure {
+                        continue;
+                    }
                     let (line, col) = sp.linecol_in(wast);
                     errors.push(DirectiveError {
                         line: line + 1,
                         col,
-                        message: format!("{}", e),
+                        message: message,
                     });
                     if self.fail_fast {
                         break;
@@ -262,12 +286,26 @@ impl Wast {
     fn module(&mut self, instance_name: Option<&str>, module: &[u8]) -> Result<()> {
         let instance = match self.instantiate(module) {
             Ok(i) => i,
-            Err(e) => bail!("instantiation failed with: {}", e),
+            Err(e) => {
+                // We set the current to None to allow running other
+                // spectests when `fail_fast` is `false`.
+                self.current = None;
+                let error_message = format!("{}", e);
+                self.current_is_allowed_failure = false;
+                for allowed_failure in self.allowed_instantiation_failures.iter() {
+                    if error_message.contains(allowed_failure) {
+                        self.current_is_allowed_failure = true;
+                        break;
+                    }
+                }
+                bail!("instantiation failed with: {}", e)
+            }
         };
         if let Some(name) = instance_name {
             self.instances.insert(name.to_string(), instance.clone());
         }
         self.current = Some(instance);
+        self.current_is_allowed_failure = false;
         Ok(())
     }
 
