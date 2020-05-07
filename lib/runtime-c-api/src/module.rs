@@ -2,18 +2,15 @@
 
 use crate::{
     error::{update_last_error, CApiError},
-    //export::wasmer_import_export_kind,
+    export::wasmer_import_export_kind,
     import::{wasmer_import_object_t, wasmer_import_t},
     instance::wasmer_instance_t,
-    wasmer_byte_array,
-    wasmer_result_t,
+    wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_int;
+use std::collections::HashMap;
 use std::slice;
-//use wasmer::compiler::{compile, default_compiler};
-//use wasmer::{Exports, Global, ImportObject, Module, Exports, Table};
-use wasmer::Module;
-//use wasmer_runtime_core::{cache::Artifact, load_cache_with};
+use wasmer::{Exports, Extern, Function, Global, ImportObject, Instance, Memory, Module, Table};
 
 #[repr(C)]
 pub struct wasmer_module_t;
@@ -34,11 +31,9 @@ pub unsafe extern "C" fn wasmer_compile(
     wasm_bytes: *mut u8,
     wasm_bytes_len: u32,
 ) -> wasmer_result_t {
-    unimplemented!("Blocked on global store");
-    /*
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
-    let store = todo!("implement global store");
-    let result = Module::compile(store, bytes);
+    let store = crate::get_global_store();
+    let result = Module::from_binary(store, bytes);
     let new_module = match result {
         Ok(instance) => instance,
         Err(error) => {
@@ -48,7 +43,6 @@ pub unsafe extern "C" fn wasmer_compile(
     };
     *module = Box::into_raw(Box::new(new_module)) as *mut wasmer_module_t;
     wasmer_result_t::WASMER_OK
-    */
 }
 
 /// Validates a sequence of bytes hoping it represents a valid WebAssembly module.
@@ -73,8 +67,8 @@ pub unsafe extern "C" fn wasmer_validate(wasm_bytes: *const u8, wasm_bytes_len: 
 
     let bytes: &[u8] = slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
 
-    let store = todo!("implement global store");
-    //Module::validate(store, bytes).is_ok()
+    let store = crate::get_global_store();
+    Module::validate(store, bytes).is_ok()
 }
 
 /// Creates a new Instance from the given module and imports.
@@ -91,7 +85,6 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     imports: *mut wasmer_import_t,
     imports_len: c_int,
 ) -> wasmer_result_t {
-    /*
     let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
@@ -122,27 +115,23 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
         };
 
         let namespace = namespaces.entry(module_name).or_insert_with(Exports::new);
-    */
 
-    todo!("figure out how to instantiate")
-
-    /*
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
                 let mem = import.value.memory as *mut Memory;
-                Export::Memory((&*mem).clone())
+                Extern::Memory((&*mem).clone())
             }
             wasmer_import_export_kind::WASM_FUNCTION => {
-                let func_export = import.value.func as *mut Export;
-                (&*func_export).clone()
+                let func_export = import.value.func as *mut Function;
+                Extern::Function((&*func_export).clone())
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
                 let global = import.value.global as *mut Global;
-                Export::Global((&*global).clone())
+                Extern::Global((&*global).clone())
             }
             wasmer_import_export_kind::WASM_TABLE => {
                 let table = import.value.table as *mut Table;
-                Export::Table((&*table).clone())
+                Extern::Table((&*table).clone())
             }
         };
         namespace.insert(import_name, export);
@@ -152,7 +141,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     }
 
     let module = &*(module as *const Module);
-    let new_instance = match module.instantiate(&import_object) {
+    let new_instance = match Instance::new(module, &import_object) {
         Ok(instance) => instance,
         Err(error) => {
             update_last_error(error);
@@ -162,7 +151,6 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
 
     *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
-        */
 }
 
 /// Given:
@@ -176,12 +164,10 @@ pub unsafe extern "C" fn wasmer_module_import_instantiate(
     module: *const wasmer_module_t,
     import_object: *const wasmer_import_object_t,
 ) -> wasmer_result_t {
-    todo!("Figure out how to instanitate")
-    /*
     let import_object: &ImportObject = &*(import_object as *const ImportObject);
     let module: &Module = &*(module as *const Module);
 
-    let new_instance: Instance = match module.instantiate(import_object) {
+    let new_instance: Instance = match Instance::new(module, import_object) {
         Ok(instance) => instance,
         Err(error) => {
             update_last_error(error);
@@ -191,7 +177,6 @@ pub unsafe extern "C" fn wasmer_module_import_instantiate(
     *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
 
     return wasmer_result_t::WASMER_OK;
-    */
 }
 
 /// Serialize the given Module.
@@ -205,26 +190,18 @@ pub unsafe extern "C" fn wasmer_module_import_instantiate(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_module_serialize(
-    serialized_module: *mut *mut wasmer_serialized_module_t,
+    serialized_module_out: *mut *mut wasmer_serialized_module_t,
     module: *const wasmer_module_t,
 ) -> wasmer_result_t {
     let module = &*(module as *const Module);
 
-    /*
-    match module.cache() {
-        Ok(artifact) => match artifact.serialize() {
-            Ok(serialized_artifact) => {
-                *serialized_module = Box::into_raw(Box::new(serialized_artifact)) as _;
+    match module.serialize() {
+        Ok(mut serialized_module) => {
+            let boxed_slice = serialized_module.into_boxed_slice();
+            *serialized_module_out = Box::into_raw(Box::new(boxed_slice)) as _;
 
-                wasmer_result_t::WASMER_OK
-            }
-            Err(_) => {
-                update_last_error(CApiError {
-                    msg: "Failed to serialize the module artifact".to_string(),
-                });
-                wasmer_result_t::WASMER_ERROR
-            }
-        },
+            wasmer_result_t::WASMER_OK
+        }
         Err(_) => {
             update_last_error(CApiError {
                 msg: "Failed to serialize the module".to_string(),
@@ -232,8 +209,6 @@ pub unsafe extern "C" fn wasmer_module_serialize(
             wasmer_result_t::WASMER_ERROR
         }
     }
-    */
-    panic!("Temporarily broken in refactor");
 }
 
 /// Get bytes of the serialized module.
@@ -302,28 +277,20 @@ pub unsafe extern "C" fn wasmer_module_deserialize(
     }
 
     let serialized_module: &[u8] = &*(serialized_module as *const &[u8]);
+    let store = crate::get_global_store();
 
-    /*match Artifact::deserialize(serialized_module) {
-        Ok(artifact) => match load_cache_with(artifact, &default_compiler()) {
-            Ok(deserialized_module) => {
-                *module = Box::into_raw(Box::new(deserialized_module)) as _;
-                wasmer_result_t::WASMER_OK
-            }
-            Err(_) => {
-                update_last_error(CApiError {
-                    msg: "Failed to compile the serialized module".to_string(),
-                });
-                wasmer_result_t::WASMER_ERROR
-            }
-        },
+    match Module::deserialize(store, serialized_module) {
+        Ok(deserialized_module) => {
+            *module = Box::into_raw(Box::new(deserialized_module)) as _;
+            wasmer_result_t::WASMER_OK
+        }
         Err(_) => {
             update_last_error(CApiError {
-                msg: "Failed to deserialize the module".to_string(),
+                msg: "Failed to compile the serialized module".to_string(),
             });
             wasmer_result_t::WASMER_ERROR
         }
-    }*/
-    panic!("Temporarily broken in refactor");
+    }
 }
 
 /// Frees memory for the given serialized Module.
@@ -332,6 +299,7 @@ pub unsafe extern "C" fn wasmer_module_deserialize(
 pub extern "C" fn wasmer_serialized_module_destroy(
     serialized_module: *mut wasmer_serialized_module_t,
 ) {
+    // TODO(mark): review all serialized logic memory logic
     if !serialized_module.is_null() {
         unsafe { Box::from_raw(serialized_module as *mut &[u8]) };
     }

@@ -1,9 +1,8 @@
 //! JIT compilation.
 
 use crate::{CodeMemory, CompiledModule};
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::{Compilation, CompileError, FunctionBody, Target};
@@ -21,8 +20,8 @@ use wasmer_runtime::{
 /// A WebAssembly `JIT` Engine.
 #[derive(Clone)]
 pub struct JITEngine {
-    inner: Arc<RefCell<JITEngineInner>>,
-    tunables: Arc<Box<dyn Tunables>>,
+    inner: Arc<Mutex<JITEngineInner>>,
+    tunables: Arc<dyn Tunables + Send + Sync>,
 }
 
 impl JITEngine {
@@ -30,19 +29,22 @@ impl JITEngine {
 
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new<C: CompilerConfig>(config: &C, tunables: impl Tunables + 'static) -> Self
+    pub fn new<C: CompilerConfig>(
+        config: &C,
+        tunables: impl Tunables + 'static + Send + Sync,
+    ) -> Self
     where
         C: ?Sized,
     {
         let compiler = config.compiler();
         Self {
-            inner: Arc::new(RefCell::new(JITEngineInner {
+            inner: Arc::new(Mutex::new(JITEngineInner {
                 compiler: Some(compiler),
                 trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
             })),
-            tunables: Arc::new(Box::new(tunables)),
+            tunables: Arc::new(tunables),
         }
     }
 
@@ -59,25 +61,25 @@ impl JITEngine {
     ///
     /// Headless engines can't compile or validate any modules,
     /// they just take already processed Modules (via `Module::serialize`).
-    pub fn headless(tunables: impl Tunables + 'static) -> Self {
+    pub fn headless(tunables: impl Tunables + 'static + Send + Sync) -> Self {
         Self {
-            inner: Arc::new(RefCell::new(JITEngineInner {
+            inner: Arc::new(Mutex::new(JITEngineInner {
                 #[cfg(feature = "compiler")]
                 compiler: None,
                 trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
             })),
-            tunables: Arc::new(Box::new(tunables)),
+            tunables: Arc::new(tunables),
         }
     }
 
-    pub(crate) fn compiler(&self) -> std::cell::Ref<'_, JITEngineInner> {
-        self.inner.borrow()
+    pub(crate) fn compiler(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
+        self.inner.lock().unwrap()
     }
 
-    pub(crate) fn compiler_mut(&self) -> std::cell::RefMut<'_, JITEngineInner> {
-        self.inner.borrow_mut()
+    pub(crate) fn compiler_mut(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
+        self.inner.lock().unwrap()
     }
 
     /// Check if the provided bytes look like a serialized
@@ -90,7 +92,7 @@ impl JITEngine {
 impl Engine for JITEngine {
     /// Get the tunables
     fn tunables(&self) -> &dyn Tunables {
-        &**self.tunables
+        &*self.tunables
     }
 
     /// Register a signature
@@ -160,7 +162,7 @@ impl Engine for JITEngine {
 pub struct JITEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
-    compiler: Option<Box<dyn Compiler>>,
+    compiler: Option<Box<dyn Compiler + Send>>,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The code memory is responsible of publishing the compiled

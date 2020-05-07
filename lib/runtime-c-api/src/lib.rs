@@ -92,6 +92,9 @@
     unreachable_patterns
 )]
 
+#[macro_use]
+extern crate lazy_static;
+
 pub mod error;
 pub mod export;
 pub mod global;
@@ -107,6 +110,8 @@ TODO: reenable `trampoline` module when the refactor gains feature parity with W
 #[cfg(all(not(target_family = "windows"), target_arch = "x86_64"))]
 pub mod trampoline;*/
 pub mod value;
+
+use std::sync::Arc;
 
 /// The `wasmer_result_t` enum is a type that represents either a
 /// success, or a failure.
@@ -178,4 +183,12 @@ pub(crate) unsafe fn get_slice_checked<'a, T>(ptr: *const T, len: usize) -> &'a 
     } else {
         std::slice::from_raw_parts(ptr, len)
     }
+}
+
+lazy_static! {
+    pub(crate) static ref GLOBAL_STORE: Arc<wasmer::Store> = Arc::new(wasmer::Store::default());
+}
+
+pub(crate) fn get_global_store() -> &'static wasmer::Store {
+    &*GLOBAL_STORE
 }

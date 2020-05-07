@@ -5,7 +5,7 @@ use crate::{
     wasmer_limits_t, wasmer_result_t,
 };
 use std::{cell::Cell, ptr};
-use wasmer::{Bytes, Memory, Pages};
+use wasmer::{Bytes, Memory, MemoryType, Pages};
 
 /// Opaque pointer to a `wasmer_runtime::Memory` value in Rust.
 ///
@@ -62,25 +62,16 @@ pub unsafe extern "C" fn wasmer_memory_new(
     memory: *mut *mut wasmer_memory_t,
     limits: wasmer_limits_t,
 ) -> wasmer_result_t {
-    unimplemented!("wasmer_memory_new needs the global store")
-    /*
     let max = if limits.max.has_some {
         Some(Pages(limits.max.some))
     } else {
         None
     };
+    let store = crate::get_global_store();
     let desc = MemoryType::new(Pages(limits.min), max, false);
-    let result = Memory::new(desc);
-    let new_memory = match result {
-        Ok(memory) => memory,
-        Err(error) => {
-            update_last_error(error);
-            return wasmer_result_t::WASMER_ERROR;
-        }
-    };
+    let new_memory = Memory::new(store, desc);
     *memory = Box::into_raw(Box::new(new_memory)) as *mut wasmer_memory_t;
     wasmer_result_t::WASMER_OK
-    */
 }
 
 /// Grows a memory by the given number of pages (of 65Kb each).

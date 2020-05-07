@@ -1710,6 +1710,7 @@ name = "wasmer-runtime-c-api"
 version = "0.16.2"
 dependencies = [
  "cbindgen",
+ "lazy_static",
  "libc",
  "wasmer",
  "wasmer-wasi",

@@ -6,15 +6,15 @@ use wasmer_engine::Engine;
 
 #[derive(Clone)]
 pub struct Store {
-    engine: Arc<dyn Engine>,
+    engine: Arc<dyn Engine + Send + Sync>,
 }
 
 impl Store {
-    pub fn new(engine: Arc<dyn Engine>) -> Store {
+    pub fn new(engine: Arc<dyn Engine + Send + Sync>) -> Store {
         Store { engine }
     }
 
-    pub fn engine(&self) -> &Arc<dyn Engine> {
+    pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
         &self.engine
     }
 
@@ -37,28 +37,30 @@ impl Default for Store {
         // sure this function doesn't emit a compile error even if
         // more than one compiler is enabled.
         #[allow(unreachable_code)]
-        fn get_config() -> Box<dyn CompilerConfig> {
+        fn get_config() -> Arc<dyn CompilerConfig + Send + Sync> {
             #[cfg(feature = "cranelift")]
-            return Box::new(wasmer_compiler_cranelift::CraneliftConfig::default());
+            return Arc::new(wasmer_compiler_cranelift::CraneliftConfig::default());
 
             #[cfg(feature = "llvm")]
-            return Box::new(wasmer_compiler_llvm::LLVMConfig::default());
+            return Arc::new(wasmer_compiler_llvm::LLVMConfig::default());
 
             #[cfg(feature = "singlepass")]
-            return Box::new(wasmer_compiler_singlepass::SinglepassConfig::default());
+            return Arc::new(wasmer_compiler_singlepass::SinglepassConfig::default());
         }
 
         #[allow(unreachable_code)]
-        fn get_engine(config: Box<dyn CompilerConfig>) -> Arc<dyn Engine> {
+        fn get_engine(
+            config: Arc<dyn CompilerConfig + Send + Sync>,
+        ) -> Arc<dyn Engine + Send + Sync> {
             let tunables = Tunables::for_target(config.target().triple());
 
             #[cfg(feature = "jit")]
-            return Arc::new(wasmer_engine_jit::JITEngine::new(&config, tunables));
+            return Arc::new(wasmer_engine_jit::JITEngine::new(&*config, tunables));
         }
 
         let config = get_config();
         let engine = get_engine(config);
-        Store::new(config)
+        Store::new(engine)
     }
 }
 

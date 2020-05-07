@@ -2,6 +2,7 @@ use super::*;
 use crate::get_slice_checked;
 use libc::c_uchar;
 use std::{path::PathBuf, ptr, str};
+use wasmer::{Memory, MemoryType};
 use wasmer_wasi as wasi;
 
 #[derive(Debug, PartialEq)]
@@ -148,10 +149,10 @@ fn wasmer_wasi_generate_import_object_inner(
     preopened_file_list: &[wasmer_byte_array],
     mapped_dir_list: &[wasmer_wasi_map_dir_entry_t],
 ) -> Result<*mut wasmer_import_object_t, str::Utf8Error> {
-    todo!("wasmer_wasi_generate_import_object_inner: blocked on global store")
+    todo!("Arg and env parsing need to be done here; this logic already exists and it's important to get it right, so we should probably reorganize code to make it easier to do the right thing.")
     /*
-    let arg_vec = arg_list.iter().map(|arg| unsafe { arg.as_vec() }).collect();
-    let env_vec = env_list
+    let arg_vec: Vec<_> = arg_list.iter().map(|arg| unsafe { arg.as_vec() }).collect();
+    let env_vec: Vec<_> = env_list
         .iter()
         .map(|env_var| unsafe { env_var.as_vec() })
         .collect();
@@ -171,12 +172,28 @@ fn wasmer_wasi_generate_import_object_inner(
         _ => panic!("Version {:?} is invalid.", version),
     };
 
-    let import_object = Box::new(wasi::generate_import_object_for_version(
+    let store = crate::get_global_store();
+
+    let mut wasi_state_builder = wasi::WasiState::new(
+        arg_vec
+            .first()
+            .unwrap_or_else("wasmer-wasi-default-program-name"),
+    );
+    wasi_state_builder
+        .args(&arg_vec[1..])
+        .envs(env_vec)
+        .preopen_dirs(po_file_vec)?
+        .map_dirs(mapped_dir_vec)?;
+    let wasi_state = wasi_state_builder.build().unwrap();
+    let mut wasi_env = wasi::WasiEnv::new(wasi_state);
+    let memory_type = MemoryType::new(0, None, false);
+    let memory = Memory::new(store, memory_type);
+    wasi_env.set_memory(&memory);
+
+    let import_object = Box::new(wasi::generate_import_object_from_env(
+        store,
+        &mut wasi_env,
         version,
-        arg_vec,
-        env_vec,
-        po_file_vec,
-        mapped_dir_vec,
     ));
     Ok(Box::into_raw(import_object) as *mut wasmer_import_object_t)
     */
@@ -190,20 +207,22 @@ fn wasmer_wasi_generate_import_object_inner(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wasmer_import_object_t
 {
-    /*  let mut wasi_state_builder = wasi::WasiState::new();
+    let store = crate::get_global_store();
+    let mut wasi_state_builder = wasi::WasiState::new("wasmer-wasi-default-program-name");
     let wasi_state = wasi_state_builder.build().unwrap();
-    let mut wasi_env = WasiEnv::new(wasi_state);
+    let mut wasi_env = wasi::WasiEnv::new(wasi_state);
     // this API will now leak a `Memory`
-    let memory = todo!("get a memory");
-    let store = todo!("somehow get a store");
-    wasi_env.set_memory(memory);
-    let import_object = Box::new(wasi::generate_import_object_from_env(store, ));
+    let memory_type = MemoryType::new(0, None, false);
+    let memory = Memory::new(store, memory_type);
+    wasi_env.set_memory(&memory);
+    // TODO(mark): review lifetime of `Memory` here
+    let import_object = Box::new(wasi::generate_import_object_from_env(
+        store,
+        &mut wasi_env,
+        wasi::WasiVersion::Latest,
+    ));
 
     Box::into_raw(import_object) as *mut wasmer_import_object_t
-    */
-    unimplemented!(
-        "This function can't be implemented until more backwards compatibilty code exists"
-    );
 }
 
 #[cfg(test)]

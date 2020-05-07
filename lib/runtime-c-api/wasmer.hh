@@ -1088,7 +1088,7 @@ wasmer_result_t wasmer_module_instantiate(const wasmer_module_t *module,
 ///
 /// Returns `wasmer_result_t::WASMER_ERROR` upon failure. Use `wasmer_last_error_length`
 /// and `wasmer_last_error_message` to get an error message.
-wasmer_result_t wasmer_module_serialize(wasmer_serialized_module_t **serialized_module,
+wasmer_result_t wasmer_module_serialize(wasmer_serialized_module_t **serialized_module_out,
                                         const wasmer_module_t *module);
 
 /// Get bytes of the serialized module.

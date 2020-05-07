@@ -27,7 +27,7 @@ pub trait CompilerConfig {
     fn target(&self) -> &Target;
 
     /// Gets the custom compiler config
-    fn compiler(&self) -> Box<dyn Compiler>;
+    fn compiler(&self) -> Box<dyn Compiler + Send>;
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.

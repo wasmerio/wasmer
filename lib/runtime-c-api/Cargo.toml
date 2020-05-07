@@ -15,6 +15,7 @@ readme = "README.md"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
+lazy_static = "1"
 libc = "0.2.60"
 # for generating code in the same way thot the wasm-c-api does
 # Commented out for now until we can find a solution to the exported function problem
@@ -22,6 +23,7 @@ libc = "0.2.60"
 
 [dependencies.wasmer]
 default-features = false
+features = ["compiler", "engine", "jit", "cranelift"]
 path = "../api"
 version = "0.16.2"
 

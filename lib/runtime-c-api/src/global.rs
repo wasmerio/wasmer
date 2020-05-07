@@ -21,14 +21,13 @@ pub unsafe extern "C" fn wasmer_global_new(
     value: wasmer_value_t,
     mutable: bool,
 ) -> *mut wasmer_global_t {
-    let global_store = todo!("Implement global store");
-    /*let global = if mutable {
-        Global::new_mut(value.into())
+    let store = crate::get_global_store();
+    let global = if mutable {
+        Global::new_mut(store, value.into())
     } else {
-        Global::new(value.into())
+        Global::new(store, value.into())
     };
     Box::into_raw(Box::new(global)) as *mut wasmer_global_t
-    */
 }
 
 /// Gets the value stored by the given Global

@@ -2,7 +2,7 @@
 
 use crate::{
     error::{update_last_error, CApiError},
-    export::{wasmer_exports_t, NamedExports},
+    export::{wasmer_exports_t, wasmer_import_export_kind, NamedExports},
     import::wasmer_import_t,
     memory::wasmer_memory_t,
     value::wasmer_value_t,
@@ -10,10 +10,12 @@ use crate::{
     wasmer_result_t,
 };
 use libc::{c_char, c_int, c_void};
-//use std::{collections::HashMap, ptr, slice};
+use std::collections::HashMap;
 use std::ptr;
-//use wasmer::{ExportType, Exports, Global, ImportObject, Instance, Memory, Table};
-use wasmer::{ExportType, Instance};
+use std::slice;
+use wasmer::{
+    ExportType, Exports, Extern, Function, Global, ImportObject, Instance, Memory, Module, Table,
+};
 
 /// Opaque pointer to a `wasmer_runtime::Instance` value in Rust.
 ///
@@ -108,8 +110,6 @@ pub unsafe extern "C" fn wasmer_instantiate(
         });
         return wasmer_result_t::WASMER_ERROR;
     }
-    todo!("Figure out how instantiating works")
-    /*
     let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
@@ -145,19 +145,19 @@ pub unsafe extern "C" fn wasmer_instantiate(
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
                 let mem = import.value.memory as *mut Memory;
-                Export::Memory((&*mem).clone())
+                Extern::Memory((&*mem).clone())
             }
             wasmer_import_export_kind::WASM_FUNCTION => {
-                let func_export = import.value.func as *mut Export;
-                (&*func_export).clone()
+                let func_export = import.value.func as *mut Function;
+                Extern::Function((&*func_export).clone())
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
                 let global = import.value.global as *mut Global;
-                Export::Global((&*global).clone())
+                Extern::Global((&*global).clone())
             }
             wasmer_import_export_kind::WASM_TABLE => {
                 let table = import.value.table as *mut Table;
-                Export::Table((&*table).clone())
+                Extern::Table((&*table).clone())
             }
         };
         namespace.insert(import_name, export);
@@ -167,9 +167,9 @@ pub unsafe extern "C" fn wasmer_instantiate(
     }
 
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
-    let store = todo!("Get global store");
-    */
-    /*let module_result = Module::compile(store, bytes);
+    let store = crate::get_global_store();
+
+    let module_result = Module::from_binary(store, bytes);
     let module = match module_result {
         Ok(module) => module,
         Err(error) => {
@@ -177,7 +177,8 @@ pub unsafe extern "C" fn wasmer_instantiate(
             return wasmer_result_t::WASMER_ERROR;
         }
     };
-    let result = module.instantiate(&import_object);
+    // TODO(mark): module is being freed here?  This looks like a mistake
+    let result = Instance::new(&module, &import_object);
     let new_instance = match result {
         Ok(instance) => instance,
         Err(error) => {
@@ -187,7 +188,6 @@ pub unsafe extern "C" fn wasmer_instantiate(
     };
     *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
-    */
 }
 
 /// Returns the instance context. Learn more by looking at the

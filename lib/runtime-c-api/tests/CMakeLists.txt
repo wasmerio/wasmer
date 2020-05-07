@@ -4,7 +4,8 @@ project (WasmerRuntimeCApiTests)
 add_executable(test-exported-memory test-exported-memory.c)
 add_executable(test-exports test-exports.c)
 add_executable(test-globals test-globals.c)
-add_executable(test-import-function test-import-function.c)
+# functionality not yet implemented in wasmer reborn
+#add_executable(test-import-function test-import-function.c)
 add_executable(test-import-trap test-import-trap.c)
 add_executable(test-imports test-imports.c)
 add_executable(test-import-object test-import-object.c)
@@ -70,9 +71,10 @@ target_link_libraries(test-globals general ${WASMER_LIB})
 target_compile_options(test-globals PRIVATE ${COMPILER_OPTIONS})
 add_test(test-globals test-globals)
 
-target_link_libraries(test-import-function general ${WASMER_LIB})
-target_compile_options(test-import-function PRIVATE ${COMPILER_OPTIONS})
-add_test(test-import-function test-import-function)
+# functionality not yet implemented in wasmer reborn
+#target_link_libraries(test-import-function general ${WASMER_LIB})
+#target_compile_options(test-import-function PRIVATE ${COMPILER_OPTIONS})
+#add_test(test-import-function test-import-function)
 
 target_link_libraries(test-import-trap general ${WASMER_LIB})
 target_compile_options(test-import-trap PRIVATE ${COMPILER_OPTIONS})
