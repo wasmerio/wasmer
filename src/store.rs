@@ -25,6 +25,14 @@ pub struct StoreOptions {
     #[structopt(long, conflicts_with_all = &["singlepass", "cranelift", "backend"])]
     llvm: bool,
 
+    /// Use JIT Engine
+    #[structopt(long, conflicts_with_all = &["native"])]
+    jit: bool,
+
+    /// Use Native Engine
+    #[structopt(long, conflicts_with_all = &["jit"])]
+    native: bool,
+
     /// The deprecated backend flag - Please not use
     #[structopt(long = "backend", hidden = true, conflicts_with_all = &["singlepass", "cranelift", "llvm"])]
     backend: Option<String>,
@@ -138,22 +146,103 @@ impl StoreOptions {
     pub fn get_store(&self) -> Result<(Store, String)> {
         let (compiler_config, compiler_name) = self.get_compiler_config()?;
         let tunables = self.get_tunables(&*compiler_config);
-        #[cfg(feature = "jit")]
-        let engine = wasmer_engine_jit::JITEngine::new(&*compiler_config, tunables);
-        let store = Store::new(Arc::new(engine));
+        let engine = self.get_engine_with_compiler(tunables, compiler_config)?;
+        let store = Store::new(engine);
         Ok((store, compiler_name))
+    }
+
+    fn get_engine_with_compiler(
+        &self,
+        tunables: Tunables,
+        compiler_config: Box<dyn CompilerConfig>,
+    ) -> Result<Arc<dyn Engine>> {
+        match self.get_engine()? {
+            #[cfg(feature = "jit")]
+            EngineOptions::JIT => {
+                return Ok(Arc::new(wasmer_engine_jit::JITEngine::new(
+                    &*compiler_config,
+                    tunables,
+                )));
+            }
+            #[cfg(feature = "native")]
+            EngineOptions::Native => {
+                return Ok(Arc::new(wasmer_engine_native::NativeEngine::new(
+                    &*compiler_config,
+                    tunables,
+                )));
+            }
+            #[cfg(not(all(feature = "jit", feature = "native",)))]
+            engine => bail!(
+                "The `{}` engine is not included in this binary.",
+                engine.to_string()
+            ),
+        }
+    }
+}
+
+enum EngineOptions {
+    JIT,
+    Native,
+}
+
+impl ToString for EngineOptions {
+    fn to_string(&self) -> String {
+        match self {
+            Self::JIT => "jit".to_string(),
+            Self::Native => "native".to_string(),
+        }
+    }
+}
+
+#[cfg(feature = "engine")]
+impl StoreOptions {
+    fn get_engine(&self) -> Result<EngineOptions> {
+        if self.jit {
+            return Ok(EngineOptions::JIT);
+        } else if self.native {
+            return Ok(EngineOptions::Native);
+        } else {
+            // Auto mode, we choose the best engine for that platform
+            if cfg!(feature = "jit") {
+                return Ok(EngineOptions::JIT);
+            } else if cfg!(feature = "native") {
+                return Ok(EngineOptions::Native);
+            } else {
+                bail!("There are no available engines for your architecture")
+            }
+        }
     }
 }
 
 // If we don't have a compiler, but we have an engine
 #[cfg(all(not(feature = "compiler"), feature = "engine"))]
 impl StoreOptions {
+    fn get_engine_headless(&self, tunables: Tunables) -> Result<Arc<dyn Engine>> {
+        match self.get_engine()? {
+            #[cfg(feature = "jit")]
+            EngineOptions::JIT => {
+                return Ok(Arc::new(wasmer_engine_jit::JITEngine::headless(tunables)));
+            }
+            #[cfg(feature = "native")]
+            EngineOptions::Native => {
+                return Ok(Arc::new(wasmer_engine_native::NativeEngine::headless(
+                    tunables,
+                )));
+            }
+            #[cfg(not(all(feature = "jit", feature = "native",)))]
+            engine => bail!(
+                "The `{}` engine is not included in this binary.",
+                engine.to_string()
+            ),
+        }
+    }
+
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, String)> {
         // Get the tunables for the current host
         let tunables = Tunables::default();
-        let engine = Engine::headless(tunables);
-        let store = Store::new(&engine);
+        let engine = self.get_engine_headless(tunables)?;
+        let store = Store::new(engine);
         Ok((store, "headless".to_string()))
     }
 }
