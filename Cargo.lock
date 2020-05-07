@@ -649,6 +649,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99e85c08494b21a9054e7fe1374a732aeadaff3980b6990b94bfd3a70f690005"
 
 [[package]]
+name = "libloading"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cadb8e769f070c45df05c78c7520eb4cd17061d4ab262e43cfc68b4d00ac71c"
+dependencies = [
+ "winapi",
+]
+
+[[package]]
 name = "llvm-sys"
 version = "100.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1686,8 +1695,10 @@ version = "0.16.2"
 dependencies = [
  "bincode",
  "faerie",
+ "libloading",
  "serde",
  "serde_bytes",
+ "tempfile",
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
