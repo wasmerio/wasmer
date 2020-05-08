@@ -168,7 +168,7 @@ impl Engine for NativeEngine {
         let mut buffer = [0; 4];
         // read up to 4 bytes
         file.read(&mut buffer).expect("Can't read from file");
-        if !Self::is_deserializable(bytes) {
+        if !Self::is_deserializable(&buffer) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
             ));
