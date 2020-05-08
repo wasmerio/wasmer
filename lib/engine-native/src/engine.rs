@@ -180,9 +180,9 @@ impl Engine for NativeEngine {
             ));
         }
         // Dump the bytes into a file, so we can read it with our `dlopen`
-        let named_file = NamedTempFile::new().unwrap();
-        let (mut file, path) = named_file.keep().expect("Can't persist file");
-        file.write_all(&bytes).expect("Can't write the files");
+        let named_file = NamedTempFile::new()?;
+        let (mut file, path) = named_file.keep().map_err(|e| e.error)?;
+        file.write_all(&bytes)?;
         self.deserialize_from_file(&path)
     }
 
@@ -193,10 +193,10 @@ impl Engine for NativeEngine {
         file_ref: &Path,
     ) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
         // TODO: Return an IoDeserializeError, so we don't need to map the error
-        let mut file = File::open(&file_ref).expect("Can't open file");
+        let mut file = File::open(&file_ref)?;
         let mut buffer = [0; 5];
         // read up to 5 bytes
-        file.read(&mut buffer).expect("Can't read from file");
+        file.read(&mut buffer)?;
         if !Self::is_deserializable(&buffer) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),

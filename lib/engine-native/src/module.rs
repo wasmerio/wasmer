@@ -317,8 +317,7 @@ impl NativeModule {
 
     /// Serialize a NativeModule
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        std::fs::read(&self.sharedobject_path)
-            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))
+        Ok(std::fs::read(&self.sharedobject_path)?)
     }
 
     /// Deserialize a NativeModule

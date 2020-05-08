@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use wasmer::*;
 #[cfg(feature = "cache")]
-use wasmer_cache::{Cache, FileSystemCache, IoDeserializeError, WasmHash};
+use wasmer_cache::{Cache, FileSystemCache, WasmHash};
 
 use structopt::StructOpt;
 
@@ -174,11 +174,11 @@ impl Run {
                     Ok(module) => module,
                     Err(e) => {
                         match e {
-                            IoDeserializeError::Deserialize(e) => {
-                                warning!("cached module is corrupted: {}", e);
-                            }
-                            IoDeserializeError::Io(_) => {
+                            DeserializeError::Io(_) => {
                                 // Do not notify on IO errors
+                            }
+                            err => {
+                                warning!("cached module is corrupted: {}", err);
                             }
                         }
                         let module = Module::new(&store, &contents)?;

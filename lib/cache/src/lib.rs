@@ -25,7 +25,7 @@ mod filesystem;
 mod hash;
 
 pub use crate::cache::Cache;
-pub use crate::filesystem::{FileSystemCache, IoDeserializeError, IoSerializeError};
+pub use crate::filesystem::FileSystemCache;
 pub use crate::hash::WasmHash;
 
 // We re-export those for convinience of users
