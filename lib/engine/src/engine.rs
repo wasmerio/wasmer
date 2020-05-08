@@ -4,6 +4,7 @@ use crate::error::InstantiationError;
 use crate::resolver::Resolver;
 use crate::tunables::Tunables;
 use crate::{CompiledModule, DeserializeError, SerializeError};
+use std::path::Path;
 use std::sync::Arc;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
@@ -50,4 +51,15 @@ pub trait Engine {
 
     /// Deserializes a WebAssembly module
     fn deserialize(&self, bytes: &[u8]) -> Result<Arc<CompiledModule>, DeserializeError>;
+
+    /// Deserializes a WebAssembly module from a path
+    fn deserialize_from_file(
+        &self,
+        file_ref: &Path,
+    ) -> Result<Arc<CompiledModule>, DeserializeError> {
+        // TODO: Return an IoDeserializeError, so we don't need to map the error
+        let bytes =
+            std::fs::read(file_ref).map_err(|e| DeserializeError::Generic(format!("{}", e)))?;
+        self.deserialize(&bytes)
+    }
 }

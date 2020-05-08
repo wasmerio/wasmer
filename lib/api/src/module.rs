@@ -162,9 +162,9 @@ impl Module {
     /// Deserializes a a serialized Module binary into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
     ///
-    /// # Unsafety
+    /// # Safety
     ///
-    /// This function is inherently `unsafe` as the provided bytes:
+    /// This function is inherently **unsafe** as the provided bytes:
     /// 1. Are going to be deserialized directly into Rust objects.
     /// 2. Contains the function assembly bodies and, if intercepted,
     ///    a malicious actor could inject code into executable
@@ -181,6 +181,28 @@ impl Module {
     /// ```
     pub unsafe fn deserialize(store: &Store, bytes: &[u8]) -> Result<Self, DeserializeError> {
         let compiled = store.engine().deserialize(bytes)?;
+        Ok(Self::from_compiled_module(store, compiled))
+    }
+
+    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// > Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// # Safety
+    ///
+    /// Please check [`Module::deserialize`].
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # let store = Store::default();
+    /// let module = Module::deserialize_from_file(&store, path)?;
+    /// ```
+    pub unsafe fn deserialize_from_file(
+        store: &Store,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        let compiled = store.engine().deserialize_from_file(path.as_ref())?;
         Ok(Self::from_compiled_module(store, compiled))
     }
 
