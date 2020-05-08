@@ -9,8 +9,6 @@ use std::sync::Arc;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, IoDeserializeError, WasmHash};
-#[cfg(feature = "jit")]
-use wasmer_engine_jit::JITEngine;
 
 use structopt::StructOpt;
 
@@ -134,13 +132,25 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
+        #[cfg(feature = "native")]
+        {
+            use wasmer_engine_native::NativeEngine;
+            if NativeEngine::is_deserializable(&contents) {
+                let tunables = Tunables::default();
+                let engine = NativeEngine::headless(tunables);
+                let store = Store::new(Arc::new(engine));
+                let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
+                return Ok(module);
+            }
+        }
         #[cfg(feature = "jit")]
         {
+            use wasmer_engine_jit::JITEngine;
             if JITEngine::is_deserializable(&contents) {
                 let tunables = Tunables::default();
                 let engine = JITEngine::headless(tunables);
                 let store = Store::new(Arc::new(engine));
-                let module = unsafe { Module::deserialize(&store, &contents)? };
+                let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
                 return Ok(module);
             }
         }

@@ -3,6 +3,9 @@
 use crate::NativeModule;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex};
@@ -26,6 +29,9 @@ pub struct NativeEngine {
 }
 
 impl NativeEngine {
+    // Mach-O header in Mac
+    const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
+
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new<C: CompilerConfig>(config: &C, tunables: impl Tunables + 'static) -> Self
@@ -79,7 +85,8 @@ impl NativeEngine {
     /// Check if the provided bytes look like a serialized
     /// module by the `Native` implementation.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
-        false
+        let head = &bytes[..4];
+        return head == Self::MAGIC_HEADER_MH_CIGAM_64;
     }
 }
 
@@ -148,12 +155,29 @@ impl Engine for NativeEngine {
 
     /// Deserializes a WebAssembly module
     fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
+        unimplemented!("Deserialize from bytes not yet implemented.");
+    }
+
+    /// Deserializes a WebAssembly module from a path
+    fn deserialize_from_file(
+        &self,
+        file_ref: &Path,
+    ) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
+        // TODO: Return an IoDeserializeError, so we don't need to map the error
+        let mut file = File::open(&file_ref).expect("Can't open file");
+        let mut buffer = [0; 4];
+        // read up to 4 bytes
+        file.read(&mut buffer).expect("Can't read from file");
         if !Self::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
-                "The provided bytes are not wasmer-jit".to_string(),
+                "The provided bytes are not in any native format Wasmer can understand".to_string(),
             ));
         }
-        Ok(Arc::new(NativeModule::deserialize(&self, &bytes)?))
+        unsafe {
+            Ok(Arc::new(NativeModule::deserialize_from_file(
+                &self, &file_ref,
+            )?))
+        }
     }
 }
 

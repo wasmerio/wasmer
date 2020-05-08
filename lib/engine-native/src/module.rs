@@ -11,7 +11,7 @@ use std::error::Error;
 use std::ffi::c_void;
 use std::fmt::Debug;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use tempfile::NamedTempFile;
@@ -227,7 +227,7 @@ impl NativeModule {
                 std::str::from_utf8(&output.stderr).unwrap().trim_right()
             )));
         }
-        let lib = Library::new(&shared_filepath).unwrap();
+        let lib = Library::new(&shared_filepath).map_err(to_compile_error)?;
 
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
             PrimaryMap::new();
@@ -300,10 +300,16 @@ impl NativeModule {
     }
 
     /// Deserialize a NativeModule
-    pub fn deserialize(
+    pub unsafe fn deserialize_from_file(
         engine: &NativeEngine,
-        bytes: &[u8],
+        path: &Path,
     ) -> Result<NativeModule, DeserializeError> {
+        let lib = Library::new(&path).expect("can't load native file");
+        let shared_path: PathBuf = PathBuf::from(path);
+        let symbol: Symbol<*mut u32> = lib.get(b"WASMER_METADATA").expect("Can't get metadata");
+        // let x = symbol.into_raw().cast::<Box<[u8]>>();
+        // println!("Symbol {:?}", *x);
+        // let metadata:
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         unimplemented!();
