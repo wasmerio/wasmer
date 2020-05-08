@@ -17,7 +17,7 @@ wasmer-runtime = { path = "../runtime", version = "0.16.2" }
 wasmer-engine = { path = "../engine", version = "0.16.2" }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 region = "2.1.2"
-serde = { version = "1.0.106", sfeatures = ["derive", "rc"] }
+serde = { version = "1.0.106", features = ["derive", "rc"] }
 serde_bytes = { version = "0.11.3" }
 bincode = "1.2.1"
 

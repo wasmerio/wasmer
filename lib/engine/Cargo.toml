@@ -21,7 +21,7 @@ rustc-demangle = "0.1.16"
 more-asserts = "0.2.1"
 thiserror = "1.0.16"
 region = "2.1.2"
-serde = { version = "1.0.106", sfeatures = ["derive", "rc"] }
+serde = { version = "1.0.106", features = ["derive", "rc"] }
 serde_bytes = { version = "0.11.3" }
 bincode = "1.2.1"
 lazy_static = "1.4"

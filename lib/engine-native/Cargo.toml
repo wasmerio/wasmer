@@ -16,7 +16,7 @@ wasmer-compiler = { path = "../compiler", version = "0.16.2", default-features =
 wasmer-runtime = { path = "../runtime", version = "0.16.2" }
 wasmer-engine = { path = "../engine", version = "0.16.2" }
 faerie = "0.15.0"
-serde = { version = "1.0.106", sfeatures = ["derive", "rc"] }
+serde = { version = "1.0.106", features = ["derive", "rc"] }
 serde_bytes = { version = "0.11.3" }
 cfg-if = "0.1.10"
 bincode = "1.2.1"
