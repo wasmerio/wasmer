@@ -1694,6 +1694,7 @@ name = "wasmer-engine-native"
 version = "0.16.2"
 dependencies = [
  "bincode",
+ "cfg-if",
  "faerie",
  "leb128",
  "libloading",

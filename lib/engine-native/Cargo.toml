@@ -18,6 +18,7 @@ wasmer-engine = { path = "../engine", version = "0.16.2" }
 faerie = "0.15.0"
 serde = { version = "1.0.106", sfeatures = ["derive", "rc"] }
 serde_bytes = { version = "0.11.3" }
+cfg-if = "0.1.10"
 bincode = "1.2.1"
 leb128 = "0.2.4"
 libloading = "0.6.2"

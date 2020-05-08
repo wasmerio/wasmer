@@ -32,6 +32,12 @@ impl NativeEngine {
     // Mach-O header in Mac
     const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
 
+    // ELF Magic header for Linux (32 bit)
+    const MAGIC_HEADER_ELF_32: &'static [u8] = &[0x7f, b'E', b'L', b'F', 0];
+
+    // ELF Magic header for Linux (64 bit)
+    const MAGIC_HEADER_ELF_64: &'static [u8] = &[0x7f, b'E', b'L', b'F', 1];
+
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new<C: CompilerConfig>(config: &C, tunables: impl Tunables + 'static) -> Self
@@ -85,8 +91,20 @@ impl NativeEngine {
     /// Check if the provided bytes look like a serialized
     /// module by the `Native` implementation.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
-        let head = &bytes[..4];
-        return head == Self::MAGIC_HEADER_MH_CIGAM_64;
+        cfg_if::cfg_if! {
+            if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
+                return &bytes[..4] == Self::MAGIC_HEADER_MH_CIGAM_64;
+            }
+            else if #[cfg(all(target_pointer_width = "64", target_os="linux"))] {
+                return &bytes[..5] == Self::MAGIC_HEADER_ELF_64;
+            }
+            else if #[cfg(all(target_pointer_width = "32", target_os="linux"))] {
+                return &bytes[..5] == Self::MAGIC_HEADER_ELF_32;
+            }
+            else {
+                false
+            }
+        }
     }
 }
 
