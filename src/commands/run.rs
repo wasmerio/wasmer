@@ -154,7 +154,7 @@ impl Run {
                 return Ok(module);
             }
         }
-        let (store, compiler_name) = self.compiler.get_store()?;
+        let (store, _engine_name, compiler_name) = self.compiler.get_store()?;
         // We try to get it from cache, in case caching is enabled
         // and the file length is greater than 4KB.
         // For files smaller than 4KB caching is not worth,
