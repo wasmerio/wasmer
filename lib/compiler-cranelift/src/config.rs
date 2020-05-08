@@ -124,6 +124,8 @@ impl CraneliftConfig {
             .enable("avoid_div_traps")
             .expect("should be valid flag");
 
+        flags.enable("is_pic").expect("should be a valid flag");
+
         // Invert cranelift's default-on verification to instead default off.
         let enable_verifier = if self.enable_verifier {
             "true"
