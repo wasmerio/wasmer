@@ -23,9 +23,9 @@
     <span> • </span>
     <a href="https://medium.com/wasmer/">Blog</a>
     <span> • </span>
-    <a href="https://slack.wasmer.io/">Slack</a>
-    <span> • </span>
     <a href="https://twitter.com/wasmerio">Twitter</a>
+    <span> • </span>
+    <a href="https://slack.wasmer.io/">Community Chat</a>
   </h3>
 
 </div>
