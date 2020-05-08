@@ -10,6 +10,8 @@ fn test_c_api() {
         "-DWASI_TESTS=ON",
         #[cfg(feature = "emscripten")]
         "-DEMSCRIPTEN_TESTS=ON",
+        // We need something like this to get this working on Windows, but this doesn't seem
+        // quite right -- perhaps it's double escaping the quotes?
         #[cfg(target_os = "windows")]
         r#"-G "MinGW Makefiles""#,
     ];
