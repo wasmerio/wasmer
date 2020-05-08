@@ -1,4 +1,4 @@
-//! JIT compilation.
+//! Native Engine.
 
 use crate::NativeModule;
 use std::cell::RefCell;

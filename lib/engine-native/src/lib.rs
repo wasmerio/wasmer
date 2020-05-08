@@ -1,8 +1,9 @@
-//! JIT backend for Wasmer compilers.
+//! Native backend for Wasmer compilers.
 //!
 //! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)
-//! it generates the compiled machine code, and publishes it into
-//! memory so it can be used externally.
+//! it generates a shared object file (`.so` or `.dylib` depending on
+//! the target), saves it temporarily to disk and uses it natively
+//! via `dlopen` and `dlsym` (using the `libloading` library).
 
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
