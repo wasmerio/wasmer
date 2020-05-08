@@ -43,3 +43,9 @@ jobs:
       - run: cargo test --release
         env:
           RUST_BACKTRACE: 1
+      - name: Test C API
+        run: |
+          make capi
+          make test-capi-cranelift
+        env:
+          RUST_BACKTRACE: 1
