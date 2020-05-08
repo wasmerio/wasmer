@@ -10,6 +10,8 @@ fn test_c_api() {
         "-DWASI_TESTS=ON",
         #[cfg(feature = "emscripten")]
         "-DEMSCRIPTEN_TESTS=ON",
+        #[cfg(target_os = "windows")]
+        r#"-G "MinGW Makefiles""#,
     ];
     // we use -f so it doesn't fail if the file doesn't exist
     run_command("rm", project_tests_dir, vec!["-f", "CMakeCache.txt"]);
