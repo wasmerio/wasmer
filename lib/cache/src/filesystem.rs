@@ -1,6 +1,5 @@
 use crate::cache::Cache;
 use crate::hash::WasmHash;
-use memmap::Mmap;
 use std::fs::{create_dir_all, File};
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -98,13 +97,7 @@ impl Cache for FileSystemCache {
         let filename = key.to_string();
         let mut new_path_buf = self.path.clone();
         new_path_buf.push(filename);
-
-        let file = File::open(new_path_buf)?;
-        // Note: this is unsafe, but as the `load` function is unsafe
-        // we don't need to wrap it again with the `unsafe { .. }`
-        let mmap = Mmap::map(&file)?;
-
-        Ok(Module::deserialize(&store, &mmap[..])?)
+        Ok(Module::deserialize_from_file(&store, new_path_buf)?)
     }
 
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::SerializeError> {

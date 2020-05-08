@@ -45,34 +45,24 @@ pub fn link_module(
             match r.kind {
                 #[cfg(target_pointer_width = "64")]
                 RelocationKind::Abs8 => unsafe {
-                    let reloc_address = body.add(r.offset as usize) as usize;
-                    let reloc_addend = r.addend as isize;
-                    let reloc_abs = (target_func_address as u64)
-                        .checked_add(reloc_addend as u64)
-                        .unwrap();
-                    write_unaligned(reloc_address as *mut u64, reloc_abs);
+                    let (reloc_address, reloc_delta) =
+                        r.for_address(body as usize, target_func_address as u64);
+                    write_unaligned(reloc_address as *mut u64, reloc_delta);
                 },
                 #[cfg(target_pointer_width = "32")]
                 RelocationKind::X86PCRel4 => unsafe {
-                    let reloc_address = body.add(r.offset as usize) as usize;
-                    let reloc_addend = r.addend as isize;
-                    let reloc_delta_u32 = (target_func_address as u32)
-                        .wrapping_sub(reloc_address as u32)
-                        .checked_add(reloc_addend as u32)
-                        .unwrap();
-                    write_unaligned(reloc_address as *mut u32, reloc_delta_u32);
+                    let (reloc_address, reloc_delta) =
+                        r.for_address(body as usize, target_func_address as u64);
+                    write_unaligned(reloc_address as *mut u32, reloc_delta);
                 },
                 #[cfg(target_pointer_width = "32")]
                 RelocationKind::X86CallPCRel4 => {
-                    let reloc_address = body.add(r.offset as usize) as usize;
-                    let reloc_addend = r.addend as isize;
-                    let reloc_delta_u32 = (target_func_address as u32)
-                        .wrapping_sub(reloc_address as u32)
-                        .wrapping_add(reloc_addend as u32);
-                    write_unaligned(reloc_address as *mut u32, reloc_delta_u32);
+                    let (reloc_address, reloc_delta) =
+                        r.for_address(body as usize, target_func_address as u64);
+                    write_unaligned(reloc_address as *mut u32, reloc_delta);
                 }
                 RelocationKind::X86PCRelRodata4 => {}
-                _ => panic!("Relocation kind unsupported"),
+                _ => panic!("Relocation kind unsupported in the current architecture"),
             }
         }
     }
