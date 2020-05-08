@@ -202,4 +202,14 @@ impl NativeEngineInner {
     pub fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
         self.trampolines.get(&sig).cloned()
     }
+
+    pub(crate) fn add_trampoline(&mut self, func_type: &FunctionType, trampoline: VMTrampoline) {
+        let index = self.signatures.register(&func_type);
+        if self.trampolines.contains_key(&index) {
+            // We don't need to allocate the trampoline in case
+            // it's signature is already allocated.
+            return;
+        }
+        self.trampolines.insert(index, trampoline);
+    }
 }
