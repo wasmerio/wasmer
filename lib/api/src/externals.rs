@@ -664,7 +664,10 @@ impl Function {
     }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        let trampoline = store.engine().trampoline(wasmer_export.signature).unwrap();
+        let trampoline = store
+            .engine()
+            .trampoline(wasmer_export.signature)
+            .expect("Can't get trampoline for the function");
         Self {
             store: store.clone(),
             owned_by_store: false,
