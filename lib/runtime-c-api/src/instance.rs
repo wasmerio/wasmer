@@ -2,19 +2,19 @@
 
 use crate::{
     error::{update_last_error, CApiError},
-    export::{wasmer_exports_t, wasmer_import_export_kind, NamedExports},
+    export::{wasmer_exports_t, wasmer_import_export_kind, NamedExport, NamedExports},
     import::wasmer_import_t,
     memory::wasmer_memory_t,
-    value::wasmer_value_t,
-    //value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
+    value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_result_t,
 };
 use libc::{c_char, c_int, c_void};
 use std::collections::HashMap;
+use std::ffi::CStr;
 use std::ptr;
 use std::slice;
 use wasmer::{
-    ExportType, Exports, Extern, Function, Global, ImportObject, Instance, Memory, Module, Table,
+    Exports, Extern, Function, Global, ImportObject, Instance, Memory, Module, Table, Val,
 };
 
 /// Opaque pointer to a `wasmer_runtime::Instance` value in Rust.
@@ -177,7 +177,6 @@ pub unsafe extern "C" fn wasmer_instantiate(
             return wasmer_result_t::WASMER_ERROR;
         }
     };
-    // TODO(mark): module is being freed here?  This looks like a mistake
     let result = Instance::new(&module, &import_object);
     let new_instance = match result {
         Ok(instance) => instance,
@@ -281,8 +280,6 @@ pub unsafe extern "C" fn wasmer_instance_call(
     results: *mut wasmer_value_t,
     results_len: u32,
 ) -> wasmer_result_t {
-    unimplemented!("wasmer_instance_call: DynFunc not yet implemented!")
-    /*
     if instance.is_null() {
         update_last_error(CApiError {
             msg: "instance ptr is null".to_string(),
@@ -314,7 +311,17 @@ pub unsafe extern "C" fn wasmer_instance_call(
     let func_name_r = func_name_c.to_str().unwrap();
 
     let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
-    let result = (&*(instance as *mut Instance)).call(func_name_r, &params[..]);
+
+    let instance = &*(instance as *mut Instance);
+    let f: &Function = match instance.exports.get(func_name_r) {
+        Ok(f) => f,
+        Err(err) => {
+            update_last_error(err);
+            return wasmer_result_t::WASMER_ERROR;
+        }
+    };
+
+    let result = f.call(&params[..]);
 
     match result {
         Ok(results_vec) => {
@@ -337,6 +344,8 @@ pub unsafe extern "C" fn wasmer_instance_call(
                         value: wasmer_value { F64: x },
                     },
                     Val::V128(_) => unimplemented!("calling function with V128 parameter"),
+                    Val::AnyRef(_) => unimplemented!("returning AnyRef type"),
+                    Val::FuncRef(_) => unimplemented!("returning FuncRef type"),
                 };
                 results[0] = ret;
             }
@@ -347,7 +356,6 @@ pub unsafe extern "C" fn wasmer_instance_call(
             wasmer_result_t::WASMER_ERROR
         }
     }
-    */
 }
 
 /// Gets all the exports of the given WebAssembly instance.
@@ -403,7 +411,14 @@ pub unsafe extern "C" fn wasmer_instance_exports(
     }
 
     let instance_ref = &mut *(instance as *mut Instance);
-    let mut exports_vec: Vec<ExportType> = instance_ref.module().exports().collect();
+    let mut exports_vec: Vec<NamedExport> = instance_ref
+        .module()
+        .exports()
+        .map(|export_type| NamedExport {
+            export_type,
+            instance: instance as *mut Instance,
+        })
+        .collect();
 
     let named_exports: Box<NamedExports> = Box::new(NamedExports(exports_vec));
 

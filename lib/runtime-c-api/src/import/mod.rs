@@ -11,7 +11,7 @@ use crate::{
 };
 use libc::c_uint;
 use std::{
-    convert::TryFrom,
+    //convert::TryFrom,
     ffi::c_void,
     os::raw::c_char,
     ptr,
@@ -19,8 +19,7 @@ use std::{
     //sync::Arc,
 };
 use wasmer::{
-    Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable, Global, ImportObject,
-    ImportObjectIterator, ImportType, Memory, Module, Table,
+    Function, Global, ImportObject, ImportObjectIterator, ImportType, Memory, Module, Table,
 };
 //use wasmer::wasm::{Export, FuncSig, Global, Memory, Module, Table, Type};
 /*use wasmer_runtime_core::{
@@ -92,6 +91,8 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
     import_export_value: *mut wasmer_import_export_value,
     tag: u32,
 ) -> wasmer_result_t {
+    todo!("Disabled until ImportObject APIs are updated")
+    /*
     let tag: wasmer_import_export_kind = if let Ok(t) = TryFrom::try_from(tag) {
         t
     } else {
@@ -127,7 +128,7 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
     let import_export_value_out = &mut *import_export_value;
     if let Some(export) = import_object.get_export(namespace_str, name_str) {
         match export {
-            Export::Function(function) => {
+            Extern::Function(function) => {
                 if tag != wasmer_import_export_kind::WASM_FUNCTION {
                     update_last_error(CApiError {
                         msg: format!("Found function, expected {}", tag.to_str()),
@@ -135,10 +136,10 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
                     return wasmer_result_t::WASMER_ERROR;
                 }
                 import_out.tag = wasmer_import_export_kind::WASM_FUNCTION;
-                let writer = import_export_value_out.func as *mut ExportFunction;
+                let writer = import_export_value_out.func as *mut Function;
                 *writer = function.clone();
             }
-            Export::Memory(memory) => {
+            Extern::Memory(memory) => {
                 if tag != wasmer_import_export_kind::WASM_MEMORY {
                     update_last_error(CApiError {
                         msg: format!("Found memory, expected {}", tag.to_str()),
@@ -146,10 +147,10 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
                     return wasmer_result_t::WASMER_ERROR;
                 }
                 import_out.tag = wasmer_import_export_kind::WASM_MEMORY;
-                let writer = import_export_value_out.func as *mut ExportMemory;
+                let writer = import_export_value_out.func as *mut Memory;
                 *writer = memory.clone();
             }
-            Export::Table(table) => {
+            Extern::Table(table) => {
                 if tag != wasmer_import_export_kind::WASM_TABLE {
                     update_last_error(CApiError {
                         msg: format!("Found table, expected {}", tag.to_str()),
@@ -157,10 +158,10 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
                     return wasmer_result_t::WASMER_ERROR;
                 }
                 import_out.tag = wasmer_import_export_kind::WASM_TABLE;
-                let writer = import_export_value_out.func as *mut ExportTable;
+                let writer = import_export_value_out.func as *mut Table;
                 *writer = table.clone();
             }
-            Export::Global(global) => {
+            Extern::Global(global) => {
                 if tag != wasmer_import_export_kind::WASM_GLOBAL {
                     update_last_error(CApiError {
                         msg: format!("Found global, expected {}", tag.to_str()),
@@ -168,7 +169,7 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
                     return wasmer_result_t::WASMER_ERROR;
                 }
                 import_out.tag = wasmer_import_export_kind::WASM_GLOBAL;
-                let writer = import_export_value_out.func as *mut ExportGlobal;
+                let writer = import_export_value_out.func as *mut Global;
                 *writer = global.clone();
             }
         }
@@ -180,10 +181,11 @@ pub unsafe extern "C" fn wasmer_import_object_get_import(
         wasmer_result_t::WASMER_OK
     } else {
         update_last_error(CApiError {
-            msg: format!("Export {} {} not found", namespace_str, name_str),
+            msg: format!("Extern {} {} not found", namespace_str, name_str),
         });
         wasmer_result_t::WASMER_ERROR
     }
+    */
 }
 
 /// private wrapper data type used for casting
@@ -199,6 +201,8 @@ struct WasmerImportObjectIterator(
 pub unsafe extern "C" fn wasmer_import_object_iterate_functions(
     import_object: *const wasmer_import_object_t,
 ) -> *mut wasmer_import_object_iter_t {
+    todo!("Disabled until ImportObject APIs are updated")
+    /*
     if import_object.is_null() {
         update_last_error(CApiError {
             msg: "import_object must not be null".to_owned(),
@@ -207,7 +211,7 @@ pub unsafe extern "C" fn wasmer_import_object_iterate_functions(
     }
     let import_object: &ImportObject = &*(import_object as *const ImportObject);
     let iter_inner = Box::new(import_object.clone_ref().into_iter().filter(|((_, _), e)| {
-        if let Export::Function(_) = e {
+        if let Extern::Function(_) = e {
             true
         } else {
             false
@@ -216,6 +220,7 @@ pub unsafe extern "C" fn wasmer_import_object_iterate_functions(
     let iterator = Box::new(WasmerImportObjectIterator(iter_inner.peekable()));
 
     Box::into_raw(iterator) as *mut wasmer_import_object_iter_t
+    */
 }
 
 /// Writes the next value to `import`.  `WASMER_ERROR` is returned if there
@@ -228,6 +233,8 @@ pub unsafe extern "C" fn wasmer_import_object_iter_next(
     import_object_iter: *mut wasmer_import_object_iter_t,
     import: *mut wasmer_import_t,
 ) -> wasmer_result_t {
+    todo!("Disabled until ImportObject APIs are updated")
+    /*
     if import_object_iter.is_null() || import.is_null() {
         update_last_error(CApiError {
             msg: "import_object_iter and import must not be null".to_owned(),
@@ -267,7 +274,7 @@ pub unsafe extern "C" fn wasmer_import_object_iter_next(
         std::mem::forget(name);
 
         match export {
-            Export::Function(function) => {
+            Extern::Function(function) => {
                 let func = Box::new(function.clone());
 
                 out.tag = wasmer_import_export_kind::WASM_FUNCTION;
@@ -275,7 +282,7 @@ pub unsafe extern "C" fn wasmer_import_object_iter_next(
                     func: Box::into_raw(func) as *mut _ as *const _,
                 };
             }
-            Export::Global(global) => {
+            Extern::Global(global) => {
                 let glbl = Box::new(global.clone());
 
                 out.tag = wasmer_import_export_kind::WASM_GLOBAL;
@@ -283,7 +290,7 @@ pub unsafe extern "C" fn wasmer_import_object_iter_next(
                     global: Box::into_raw(glbl) as *mut _ as *const _,
                 };
             }
-            Export::Memory(memory) => {
+            Extern::Memory(memory) => {
                 let mem = Box::new(memory.clone());
 
                 out.tag = wasmer_import_export_kind::WASM_MEMORY;
@@ -291,7 +298,7 @@ pub unsafe extern "C" fn wasmer_import_object_iter_next(
                     memory: Box::into_raw(mem) as *mut _ as *const _,
                 };
             }
-            Export::Table(table) => {
+            Extern::Table(table) => {
                 let tbl = Box::new(table.clone());
 
                 out.tag = wasmer_import_export_kind::WASM_TABLE;
@@ -305,6 +312,7 @@ pub unsafe extern "C" fn wasmer_import_object_iter_next(
     } else {
         wasmer_result_t::WASMER_ERROR
     }
+    */
 }
 
 /// Returns true if further calls to `wasmer_import_object_iter_next` will
@@ -360,7 +368,7 @@ pub unsafe extern "C" fn wasmer_import_object_imports_destroy(
         );
         match import.tag {
             wasmer_import_export_kind::WASM_FUNCTION => {
-                let _: Box<Export> = Box::from_raw(import.value.func as *mut _);
+                let _: Box<Function> = Box::from_raw(import.value.func as *mut _);
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
                 let _: Box<Global> = Box::from_raw(import.value.global as *mut _);
@@ -383,6 +391,8 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
     imports: *const wasmer_import_t,
     imports_len: c_uint,
 ) -> wasmer_result_t {
+    todo!("Disabled until import object APIs change")
+    /*
     let import_object: &mut ImportObject = &mut *(import_object as *mut ImportObject);
 
     let mut extensions: Vec<((String, String), Export)> = Vec::new();
@@ -416,20 +426,20 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
 
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
-                let mem = import.value.memory as *mut ExportMemory;
-                Export::Memory((&*mem).clone())
+                let mem = import.value.memory as *mut Memory;
+                Extern::Memory((&*mem).clone())
             }
             wasmer_import_export_kind::WASM_FUNCTION => {
-                let func_export = import.value.func as *mut ExportFunction;
-                Export::Function((&*func_export).clone())
+                let func_export = import.value.func as *mut Function;
+                Extern::Function((&*func_export).clone())
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
-                let global = import.value.global as *mut ExportGlobal;
-                Export::Global((&*global).clone())
+                let global = import.value.global as *mut Global;
+                Extern::Global((&*global).clone())
             }
             wasmer_import_export_kind::WASM_TABLE => {
-                let table = import.value.table as *mut ExportTable;
-                Export::Table((&*table).clone())
+                let table = import.value.table as *mut Table;
+                Extern::Table((&*table).clone())
             }
         };
 
@@ -440,6 +450,7 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
     import_object.extend(extensions);
 
     return wasmer_result_t::WASMER_OK;
+    */
 }
 
 /// Gets import descriptors for the given module
@@ -551,9 +562,9 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
     func: *const wasmer_import_func_t,
     result: *mut u32,
 ) -> wasmer_result_t {
-    todo!("Figure out how to get a usable siganture from an ExportFunction")
-    /*let function = &*(func as *const ExportFunction);
-    if let Export::Function(function) = *export {
+    todo!("Figure out how to get a usable siganture from an Function")
+    /*let function = &*(func as *const Function);
+    if let Extren::Function(function) = *export {
         *result = signature.params().len() as u32;
         wasmer_result_t::WASMER_OK
     } else {
@@ -598,7 +609,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
     let returns: &[wasmer_value_tag] = slice::from_raw_parts(returns, returns_len as usize);
     let returns: Vec<Type> = returns.iter().cloned().map(|x| x.into()).collect();
 
-    let export = Box::new(Export::Function {
+    let export = Box::new(Extern::Function {
         func: FuncPointer::new(func as _),
         ctx: Context::Internal,
         signature: Arc::new(FuncSig::new(params, returns)),
@@ -676,10 +687,10 @@ pub unsafe extern "C" fn wasmer_import_func_params(
     params: *mut wasmer_value_tag,
     params_len: c_uint,
 ) -> wasmer_result_t {
-    todo!("Figure out how to get a usable signature from an `ExportFunction`")
+    todo!("Figure out how to get a usable signature from an `Function`")
     /*
-    let function = &*(func as *const ExportFunction);
-    if let Export::Function(function) = *export {
+    let function = &*(func as *const Function);
+    if let Extern::Function(function) = *export {
         let params: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(params, params_len as usize);
         for (i, item) in signature.params().iter().enumerate() {
@@ -708,9 +719,9 @@ pub unsafe extern "C" fn wasmer_import_func_returns(
     returns: *mut wasmer_value_tag,
     returns_len: c_uint,
 ) -> wasmer_result_t {
-    todo!("Figure out how to get a usable signature from an `ExportFunction`")
+    todo!("Figure out how to get a usable signature from an `Function`")
     /*
-    let function = &*(func as *const ExportFunction);
+    let function = &*(func as *const Function);
         let returns: &mut [wasmer_value_tag] =
             slice::from_raw_parts_mut(returns, returns_len as usize);
         for (i, item) in signature.returns().iter().enumerate() {
@@ -732,9 +743,9 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
     func: *const wasmer_import_func_t,
     result: *mut u32,
 ) -> wasmer_result_t {
-    todo!("Figure out how to get a usable signature from an `ExportFunction`")
+    todo!("Figure out how to get a usable signature from an `Function`")
     /*
-    let function = &*(func as *const ExportFunction);
+    let function = &*(func as *const Function);
     *result = signature.returns().len() as u32;
     wasmer_result_t::WASMER_OK
     */
@@ -745,7 +756,7 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
 #[no_mangle]
 pub extern "C" fn wasmer_import_func_destroy(func: *mut wasmer_import_func_t) {
     if !func.is_null() {
-        unsafe { Box::from_raw(func as *mut ExportFunction) };
+        unsafe { Box::from_raw(func as *mut Function) };
     }
 }
 

@@ -1,7 +1,7 @@
 //! Create, grow, destroy tables of an instance.
 
 use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
-use wasmer::{Table, TableType, Val, ValType};
+use wasmer::{AnyRef, Table, TableType, Val, ValType};
 
 #[repr(C)]
 #[derive(Clone)]
@@ -15,8 +15,8 @@ fn get_default_table_value(table_type: ValType) -> Val {
         ValType::F32 => Val::F32(0.),
         ValType::F64 => Val::F64(0.),
         ValType::V128 => Val::V128(0),
-        ValType::AnyRef => todo!("Figure out what the default AnyRef value is"),
-        ValType::FuncRef => todo!("Figure out what the default FuncRef value is"),
+        ValType::AnyRef => Val::AnyRef(AnyRef::null()), // todo!("Figure out what the default AnyRef value is"),
+        ValType::FuncRef => Val::AnyRef(AnyRef::null()), //todo!("Figure out what the default FuncRef value is"),
     }
 }
 

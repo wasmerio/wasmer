@@ -14,10 +14,7 @@ mod types;
 
 pub use crate::exports::{ExportError, Exportable, Exports};
 pub use crate::externals::{Extern, Function, Global, Memory, Table};
-pub use crate::import_object::{
-    Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable, ImportObject,
-    ImportObjectIterator, LikeNamespace,
-};
+pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::Instance;
 pub use crate::memory_view::MemoryView;
 pub use crate::module::Module;

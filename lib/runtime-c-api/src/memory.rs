@@ -102,9 +102,9 @@ pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -
     }
 
     let memory = unsafe { &*(memory as *mut Memory) };
-    let delta_result = memory.grow(Pages(delta));
+    let grow_result = memory.grow(Pages(delta));
 
-    match delta_result {
+    match grow_result {
         Some(_) => wasmer_result_t::WASMER_OK,
         _ => wasmer_result_t::WASMER_ERROR,
     }

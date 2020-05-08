@@ -8,12 +8,12 @@ use crate::{
     memory::wasmer_memory_t,
     module::wasmer_module_t,
     table::wasmer_table_t,
-    value::{/*wasmer_value,*/ wasmer_value_t, wasmer_value_tag},
+    value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::{c_int, c_uint};
 use std::{ptr, slice};
-use wasmer::{ExportType, ExternType, ImportType, Instance, Memory, Module};
+use wasmer::{ExportType, ExternType, Function, ImportType, Instance, Memory, Module, Val};
 
 /// Intermediate representation of an `Export` instance that is
 /// exposed to C.
@@ -37,7 +37,7 @@ pub struct wasmer_export_func_t;
 
 /// Intermediate representation of a vector of `NamedExport` that is
 /// exposed to C.
-pub(crate) struct NamedExports(pub Vec<ExportType>);
+pub(crate) struct NamedExports(pub Vec<NamedExport>);
 
 /// Opaque pointer to the opaque structure `crate::NamedExports`,
 /// which is a wrapper around a vector of the opaque structure
@@ -254,7 +254,7 @@ pub unsafe extern "C" fn wasmer_exports_get(
         return ptr::null_mut();
     }
     let named_exports = &mut *(exports as *mut NamedExports);
-    &mut (*named_exports).0[idx as usize] as *mut ExportType as *mut wasmer_export_t
+    &mut (*named_exports).0[idx as usize] as *mut NamedExport as *mut wasmer_export_t
 }
 
 /// Gets wasmer_export kind
@@ -445,7 +445,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     results: *mut wasmer_value_t,
     results_len: c_uint,
 ) -> wasmer_result_t {
-    /*if func.is_null() {
+    if func.is_null() {
         update_last_error(CApiError {
             msg: "func ptr is null".to_string(),
         });
@@ -474,17 +474,18 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     let named_export = &*(func as *mut NamedExport);
 
     let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
-    */
 
-    /* let instance = &*named_export.instance;
-    let get_result = || {
-        let f: DynFunc = instanec.exports.get(&named_export.name)?;
-        f.call(&params[..])
+    let instance = &*named_export.instance;
+    let f: &Function = match instance.exports.get(&named_export.export_type.name()) {
+        Ok(f) => f,
+        Err(err) => {
+            update_last_error(err);
+            return wasmer_result_t::WASMER_ERROR;
+        }
     };
 
-    let result = get_result();*/
-    unimplemented!("DynFunc not yet implemented")
-    /*
+    let result = f.call(&params[..]);
+
     match result {
         Ok(results_vec) => {
             if !results_vec.is_empty() {
@@ -506,6 +507,8 @@ pub unsafe extern "C" fn wasmer_export_func_call(
                         value: wasmer_value { F64: x },
                     },
                     Val::V128(_) => unimplemented!("returning V128 type"),
+                    Val::AnyRef(_) => unimplemented!("returning AnyRef type"),
+                    Val::FuncRef(_) => unimplemented!("returning FuncRef type"),
                 };
                 results[0] = ret;
             }
@@ -516,7 +519,6 @@ pub unsafe extern "C" fn wasmer_export_func_call(
             wasmer_result_t::WASMER_ERROR
         }
     }
-        */
 }
 
 impl From<ExportType> for NamedExportDescriptor {

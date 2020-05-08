@@ -40,7 +40,6 @@ int main()
     assert(results[0].value.I32 == 15);
     assert(call_result == WASMER_OK);
 
-
     wasmer_result_t call_result2 = wasmer_instance_call(instance, "sum", params, 1, results, 1);
     printf("Call result bad:  %d\n", call_result2);
     assert(call_result2 == WASMER_ERROR);
@@ -51,7 +50,7 @@ int main()
     int error_result = wasmer_last_error_message(error_str, error_len);
     assert(error_len == error_result);
     printf("Error str: `%s`\n", error_str);
-    assert(0 == strcmp(error_str, "Call error: Parameters of type [I32] did not match signature [I32, I32] -> [I32]"));
+    assert(0 == strcmp(error_str, "RuntimeError: expected 2 arguments, got 1: Parameters of type [I32] did not match signature [I32, I32] -> [I32]"));
     free(error_str);
 
     printf("Destroy instance\n");

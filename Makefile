@@ -28,7 +28,7 @@ test-capi-singlepass: capi-singlepass
 
 test-capi-cranelift: capi-cranelift
 	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
-		--no-default-features --features cranelift-backend,wasi
+		--no-default-features --features cranelift-backend,wasi -- --nocapture --test-threads=1
 
 test-capi-llvm: capi-llvm
 	cargo test --manifest-path lib/runtime-c-api/Cargo.toml --release \
