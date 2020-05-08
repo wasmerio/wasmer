@@ -70,8 +70,9 @@ pub struct Run {
 impl Run {
     #[cfg(feature = "cache")]
     /// Get the Compiler Filesystem cache
-    fn get_cache(&self, compiler_name: String) -> Result<FileSystemCache> {
+    fn get_cache(&self, engine_name: String, compiler_name: String) -> Result<FileSystemCache> {
         let mut cache_dir_root = get_cache_dir();
+        cache_dir_root.push(engine_name);
         cache_dir_root.push(compiler_name);
         Ok(FileSystemCache::new(cache_dir_root)?)
     }
@@ -154,14 +155,14 @@ impl Run {
                 return Ok(module);
             }
         }
-        let (store, _engine_name, compiler_name) = self.compiler.get_store()?;
+        let (store, engine_name, compiler_name) = self.compiler.get_store()?;
         // We try to get it from cache, in case caching is enabled
         // and the file length is greater than 4KB.
         // For files smaller than 4KB caching is not worth,
         // as it takes space and the speedup is minimal.
         let mut module =
             if cfg!(feature = "cache") && !self.disable_cache && contents.len() > 0x1000 {
-                let mut cache = self.get_cache(compiler_name)?;
+                let mut cache = self.get_cache(engine_name, compiler_name)?;
                 // Try to get the hash from the provided `--cache-key`, otherwise
                 // generate one from the provided file `.wasm` contents.
                 let hash = self

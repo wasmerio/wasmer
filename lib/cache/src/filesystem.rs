@@ -97,7 +97,14 @@ impl Cache for FileSystemCache {
         let filename = key.to_string();
         let mut new_path_buf = self.path.clone();
         new_path_buf.push(filename);
-        Ok(Module::deserialize_from_file(&store, new_path_buf)?)
+        if new_path_buf.exists() {
+            Ok(Module::deserialize_from_file(&store, new_path_buf)?)
+        } else {
+            Err(IoDeserializeError::Io(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("The path `{}` doesn't exist", new_path_buf.display()),
+            )))
+        }
     }
 
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::SerializeError> {
