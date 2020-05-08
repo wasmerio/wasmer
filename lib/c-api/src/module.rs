@@ -284,10 +284,8 @@ pub unsafe extern "C" fn wasmer_module_deserialize(
             *module = Box::into_raw(Box::new(deserialized_module)) as _;
             wasmer_result_t::WASMER_OK
         }
-        Err(_) => {
-            update_last_error(CApiError {
-                msg: "Failed to compile the serialized module".to_string(),
-            });
+        Err(e) => {
+            update_last_error(CApiError { msg: e.to_string() });
             wasmer_result_t::WASMER_ERROR
         }
     }

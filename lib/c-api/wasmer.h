@@ -358,9 +358,9 @@ typedef struct {
 } wasmer_limit_option_t;
 
 /**
- * The `wasmer_limits_t` struct is a type that describes a memory
- * options. See the `wasmer_memory_t` struct or the
- * `wasmer_memory_new()` function to get more information.
+ * The `wasmer_limits_t` struct is a type that describes the limits of something
+ * such as a memory or a table. See the `wasmer_memory_new()` function to get
+ * more information.
  */
 typedef struct {
   /**

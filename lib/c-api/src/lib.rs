@@ -111,8 +111,6 @@ TODO: reenable `trampoline` module when the refactor gains feature parity with W
 pub mod trampoline;*/
 pub mod value;
 
-use std::sync::Arc;
-
 /// The `wasmer_result_t` enum is a type that represents either a
 /// success, or a failure.
 #[allow(non_camel_case_types)]
@@ -125,9 +123,9 @@ pub enum wasmer_result_t {
     WASMER_ERROR = 2,
 }
 
-/// The `wasmer_limits_t` struct is a type that describes a memory
-/// options. See the `wasmer_memory_t` struct or the
-/// `wasmer_memory_new()` function to get more information.
+/// The `wasmer_limits_t` struct is a type that describes the limits of something
+/// such as a memory or a table. See the `wasmer_memory_new()` function to get
+/// more information.
 #[repr(C)]
 pub struct wasmer_limits_t {
     /// The minimum number of allowed pages.
@@ -186,7 +184,7 @@ pub(crate) unsafe fn get_slice_checked<'a, T>(ptr: *const T, len: usize) -> &'a 
 }
 
 lazy_static! {
-    pub(crate) static ref GLOBAL_STORE: Arc<wasmer::Store> = Arc::new(wasmer::Store::default());
+    pub(crate) static ref GLOBAL_STORE: wasmer::Store = wasmer::Store::default();
 }
 
 pub(crate) fn get_global_store() -> &'static wasmer::Store {

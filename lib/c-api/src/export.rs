@@ -12,7 +12,8 @@ use crate::{
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::{c_int, c_uint};
-use std::{ptr, slice};
+use std::ptr::{self, NonNull};
+use std::slice;
 use wasmer::{ExportType, ExternType, Function, ImportType, Instance, Memory, Module, Val};
 
 /// Intermediate representation of an `Export` instance that is
@@ -236,25 +237,25 @@ pub extern "C" fn wasmer_exports_destroy(exports: *mut wasmer_exports_t) {
 /// Gets the length of the exports
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_exports_len(exports: *mut wasmer_exports_t) -> c_int {
-    if exports.is_null() {
-        return 0;
+pub unsafe extern "C" fn wasmer_exports_len(exports: Option<NonNull<wasmer_exports_t>>) -> c_int {
+    if let Some(exports_inner) = exports {
+        exports_inner.cast::<NamedExports>().as_ref().0.len() as c_int
+    } else {
+        0
     }
-    (*(exports as *mut NamedExports)).0.len() as c_int
 }
 
 /// Gets wasmer_export by index
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_exports_get(
-    exports: *mut wasmer_exports_t,
+    exports: Option<NonNull<wasmer_exports_t>>,
     idx: c_int,
-) -> *mut wasmer_export_t {
-    if exports.is_null() {
-        return ptr::null_mut();
-    }
-    let named_exports = &mut *(exports as *mut NamedExports);
-    &mut (*named_exports).0[idx as usize] as *mut NamedExport as *mut wasmer_export_t
+) -> Option<NonNull<wasmer_export_t>> {
+    let named_exports = &mut *(exports?.as_ptr() as *mut NamedExports);
+    Some(NonNull::new_unchecked(
+        &mut (*named_exports).0[idx as usize] as *mut NamedExport as *mut wasmer_export_t,
+    ))
 }
 
 /// Gets wasmer_export kind

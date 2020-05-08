@@ -286,9 +286,9 @@ struct wasmer_limit_option_t {
   uint32_t some;
 };
 
-/// The `wasmer_limits_t` struct is a type that describes a memory
-/// options. See the `wasmer_memory_t` struct or the
-/// `wasmer_memory_new()` function to get more information.
+/// The `wasmer_limits_t` struct is a type that describes the limits of something
+/// such as a memory or a table. See the `wasmer_memory_new()` function to get
+/// more information.
 struct wasmer_limits_t {
   /// The minimum number of allowed pages.
   uint32_t min;
