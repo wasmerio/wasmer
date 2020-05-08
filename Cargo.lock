@@ -1695,6 +1695,7 @@ version = "0.16.2"
 dependencies = [
  "bincode",
  "faerie",
+ "leb128",
  "libloading",
  "serde",
  "serde_bytes",

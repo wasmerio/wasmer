@@ -10,7 +10,7 @@ use wasmer_runtime::Module;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// Serializable struct that represents the compiled metadata.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ModuleMetadata {
     pub features: Features,
     pub module: Arc<Module>,

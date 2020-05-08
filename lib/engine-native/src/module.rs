@@ -123,7 +123,14 @@ impl NativeModule {
 
         obj.declare("WASMER_METADATA", Decl::data().global().read_only())
             .map_err(to_compile_error)?;
-        obj.define("WASMER_METADATA", serialized_data)
+
+        let mut metadata_length = vec![0; 10];
+        let mut writable = &mut metadata_length[..];
+        leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
+            .expect("Should write number");
+        // println!("metadata length {:?} {}", metadata_length, serialized_data.len());
+        metadata_length.extend(serialized_data);
+        obj.define("WASMER_METADATA", metadata_length)
             .map_err(to_compile_error)?;
 
         let function_bodies = compilation.get_function_bodies();
@@ -228,10 +235,25 @@ impl NativeModule {
             )));
         }
         let lib = Library::new(&shared_filepath).map_err(to_compile_error)?;
+        Self::from_parts(&mut engine_inner, metadata, shared_filepath, lib)
+    }
 
+    /// Construct a `NativeModule` from component parts.
+    pub fn from_parts(
+        engine_inner: &mut NativeEngineInner,
+        metadata: ModuleMetadata,
+        sharedobject_path: PathBuf,
+        lib: Library,
+    ) -> Result<Self, CompileError> {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
             PrimaryMap::new();
-        for (function_local_index, function) in function_bodies.iter() {
+        for (function_index, function) in metadata
+            .module
+            .functions
+            .iter()
+            .skip(metadata.module.num_imported_funcs)
+        {
+            let function_local_index = metadata.module.local_func_index(function_index).unwrap();
             let function_name = format!("wasmer_function_{}", function_local_index.index());
             unsafe {
                 let func: Symbol<unsafe extern "C" fn(i64, i64, i64) -> i64> = lib
@@ -259,7 +281,7 @@ impl NativeModule {
                 .collect::<PrimaryMap<_, _>>()
         };
 
-        for (sig_index, _) in trampolines.iter() {
+        for (sig_index, _) in metadata.module.signatures.iter() {
             let function_name = format!("wasmer_trampoline_{}", sig_index.index());
             unsafe {
                 let trampoline: Symbol<VMTrampoline> = lib
@@ -277,7 +299,7 @@ impl NativeModule {
         // Self::from_parts(&mut engine_inner, lib, metadata, )
 
         Ok(Self {
-            sharedobject_path: shared_filepath,
+            sharedobject_path,
             metadata,
             library: lib,
             finished_functions: finished_functions.into_boxed_slice(),
@@ -306,27 +328,24 @@ impl NativeModule {
     ) -> Result<NativeModule, DeserializeError> {
         let lib = Library::new(&path).expect("can't load native file");
         let shared_path: PathBuf = PathBuf::from(path);
-        let symbol: Symbol<*mut u32> = lib.get(b"WASMER_METADATA").expect("Can't get metadata");
-        // let x = symbol.into_raw().cast::<Box<[u8]>>();
-        // println!("Symbol {:?}", *x);
-        // let metadata:
-        // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-        // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-        unimplemented!();
-        // let serializable: SerializableModule = bincode::deserialize(bytes)
-        //     .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+        let symbol: Symbol<*mut [u8; 200]> =
+            lib.get(b"WASMER_METADATA").expect("Can't get metadata");
+        use std::ops::Deref;
+        use std::slice;
+        use std::slice::from_raw_parts;
 
-        // Self::from_parts(&mut engine.inner_mut(), serializable)
-        //     .map_err(|e| DeserializeError::Compiler(e))
-    }
+        let mut size = &mut **symbol.deref();
+        // println!("Size {:?}", size.to_vec());
+        let mut readable = &size[..];
+        let metadata_len = leb128::read::unsigned(&mut readable).expect("Should read number");
+        let metadata_slice: &'static [u8] =
+            unsafe { slice::from_raw_parts(&size[10] as *const u8, metadata_len as usize) };
+        let metadata: ModuleMetadata = bincode::deserialize(metadata_slice)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+        let mut engine_inner = engine.inner_mut();
 
-    /// Construct a `NativeModule` from component parts.
-    pub fn from_parts(
-        engine_inner: &mut NativeEngineInner,
-        metadata: ModuleMetadata,
-        dl_handle: Handle,
-    ) -> Result<Self, CompileError> {
-        unimplemented!();
+        Self::from_parts(&mut engine_inner, metadata, shared_path, lib)
+            .map_err(|e| DeserializeError::Compiler(e))
     }
 
     fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
