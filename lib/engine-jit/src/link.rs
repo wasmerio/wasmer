@@ -61,6 +61,11 @@ pub fn link_module(
                         r.for_address(body as usize, target_func_address as u64);
                     write_unaligned(reloc_address as *mut u32, reloc_delta);
                 }
+                RelocationKind::X86CallPLTRel4 => unsafe {
+                    let (reloc_address, reloc_delta) =
+                        r.for_address(body as usize, target_func_address as u64);
+                    write_unaligned(reloc_address as *mut u32, reloc_delta as u32);
+                },
                 RelocationKind::X86PCRelRodata4 => {}
                 _ => panic!("Relocation kind unsupported in the current architecture"),
             }
