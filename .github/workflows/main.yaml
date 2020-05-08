@@ -43,3 +43,13 @@ jobs:
       - run: cargo test --release
         env:
           RUST_BACKTRACE: 1
+      - name: Build and Test C API
+        run: |
+          make capi
+          make test-capi-cranelift
+        if: matrix.os != 'windows-latest'
+      - name: Build C API on Windows
+        run: make capi
+        if: matrix.os == 'windows-latest'
+        env:
+          RUST_BACKTRACE: 1
