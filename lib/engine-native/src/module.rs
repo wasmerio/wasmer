@@ -332,7 +332,11 @@ impl NativeModule {
             DeserializeError::CorruptedBinary(format!("Library loading failed: {}", e))
         })?;
         let shared_path: PathBuf = PathBuf::from(path);
-        let symbol: Symbol<*mut [u8; 10]> = lib.get(b"WASMER_METADATA").map_err(|e| {
+        // We use 10 + 1, as the length of the module will take 10 bytes
+        // (we construct it like that in `metadata_length`) and we also want
+        // to take the first element of the data to construct the slice from
+        // it.
+        let symbol: Symbol<*mut [u8; 10 + 1]> = lib.get(b"WASMER_METADATA").map_err(|e| {
             DeserializeError::CorruptedBinary(format!("Symbol metadata loading failed: {}", e))
         })?;
         use std::ops::Deref;
