@@ -202,9 +202,11 @@ impl NativeModule {
                         })
                         .map_err(to_compile_error)?;
                     }
-                    RelocationTarget::CustomSection(custom_section) => {}
+                    RelocationTarget::CustomSection(custom_section) => {
+                        // do nothing
+                    }
                     RelocationTarget::JumpTable(func_index, jt) => {
-                        // panic!("THERE SHOULDN'T BE JUMP TABLES");
+                        // do nothing
                     }
                 };
             }
