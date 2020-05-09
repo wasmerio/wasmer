@@ -26,7 +26,7 @@ use wasmer_runtime::{
 #[derive(Clone)]
 pub struct NativeEngine {
     inner: Arc<RefCell<NativeEngineInner>>,
-    tunables: Arc<Box<dyn Tunables>>,
+    tunables: Arc<dyn Tunables>,
 }
 
 impl NativeEngine {
@@ -52,7 +52,7 @@ impl NativeEngine {
                 trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
             })),
-            tunables: Arc::new(Box::new(tunables)),
+            tunables: Arc::new(tunables),
         }
     }
 
@@ -77,7 +77,7 @@ impl NativeEngine {
                 trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
             })),
-            tunables: Arc::new(Box::new(tunables)),
+            tunables: Arc::new(tunables),
         }
     }
 
@@ -112,7 +112,7 @@ impl NativeEngine {
 impl Engine for NativeEngine {
     /// Get the tunables
     fn tunables(&self) -> &dyn Tunables {
-        &**self.tunables
+        &*self.tunables
     }
 
     /// Register a signature

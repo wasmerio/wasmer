@@ -22,7 +22,7 @@ use wasmer_runtime::{
 #[derive(Clone)]
 pub struct JITEngine {
     inner: Arc<RefCell<JITEngineInner>>,
-    tunables: Arc<Box<dyn Tunables>>,
+    tunables: Arc<dyn Tunables>,
 }
 
 impl JITEngine {
@@ -42,7 +42,7 @@ impl JITEngine {
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
             })),
-            tunables: Arc::new(Box::new(tunables)),
+            tunables: Arc::new(tunables),
         }
     }
 
@@ -68,7 +68,7 @@ impl JITEngine {
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
             })),
-            tunables: Arc::new(Box::new(tunables)),
+            tunables: Arc::new(tunables),
         }
     }
 
@@ -90,7 +90,7 @@ impl JITEngine {
 impl Engine for JITEngine {
     /// Get the tunables
     fn tunables(&self) -> &dyn Tunables {
-        &**self.tunables
+        &*self.tunables
     }
 
     /// Register a signature
