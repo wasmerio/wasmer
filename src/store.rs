@@ -155,9 +155,9 @@ impl StoreOptions {
         &self,
         tunables: Tunables,
         compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<(Arc<dyn Engine>, String)> {
+    ) -> Result<(Arc<dyn Engine + Send + Sync>, String)> {
         let engine_type = self.get_engine()?;
-        let engine: Arc<dyn Engine> = match engine_type {
+        let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
             EngineOptions::JIT => Arc::new(wasmer_engine_jit::JITEngine::new(
                 &*compiler_config,

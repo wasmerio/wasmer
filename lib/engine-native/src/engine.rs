@@ -1,12 +1,12 @@
 //! Native Engine.
 
 use crate::NativeModule;
-use std::sync::Mutex;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::Mutex;
 use tempfile::NamedTempFile;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex};
@@ -217,7 +217,7 @@ impl Engine for NativeEngine {
 pub struct NativeEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
-    compiler: Option<Box<dyn Compiler>>,
+    compiler: Option<Box<dyn Compiler + Send>>,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The signature registry is used mainly to operate with trampolines
