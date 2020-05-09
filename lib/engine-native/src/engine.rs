@@ -26,7 +26,7 @@ use wasmer_runtime::{
 #[derive(Clone)]
 pub struct NativeEngine {
     inner: Arc<RefCell<NativeEngineInner>>,
-    tunables: Arc<dyn Tunables>,
+    tunables: Arc<dyn Tunables + Send + Sync>,
 }
 
 impl NativeEngine {
@@ -41,7 +41,10 @@ impl NativeEngine {
 
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new<C: CompilerConfig>(config: &C, tunables: impl Tunables + 'static) -> Self
+    pub fn new<C: CompilerConfig>(
+        config: &C,
+        tunables: impl Tunables + 'static + Send + Sync,
+    ) -> Self
     where
         C: ?Sized,
     {
@@ -69,7 +72,7 @@ impl NativeEngine {
     ///
     /// Headless engines can't compile or validate any modules,
     /// they just take already processed Modules (via `Module::serialize`).
-    pub fn headless(tunables: impl Tunables + 'static) -> Self {
+    pub fn headless(tunables: impl Tunables + 'static + Send + Sync) -> Self {
         Self {
             inner: Arc::new(RefCell::new(NativeEngineInner {
                 #[cfg(feature = "compiler")]
