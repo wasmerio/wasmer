@@ -195,7 +195,6 @@ impl Engine for NativeEngine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
-        // TODO: Return an IoDeserializeError, so we don't need to map the error
         let mut file = File::open(&file_ref)?;
         let mut buffer = [0; 5];
         // read up to 5 bytes

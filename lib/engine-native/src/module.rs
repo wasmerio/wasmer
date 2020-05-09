@@ -283,16 +283,17 @@ impl NativeModule {
                 .collect::<PrimaryMap<_, _>>()
         };
 
-        for (sig_index, _) in metadata.module.signatures.iter() {
+        for (sig_index, func_type) in metadata.module.signatures.iter() {
             let function_name = format!("wasmer_trampoline_{}", sig_index.index());
             unsafe {
                 let trampoline: Symbol<VMTrampoline> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
-                let func_type = metadata.module.signatures.get(sig_index).unwrap();
                 engine_inner.add_trampoline(&func_type, *trampoline);
             }
         }
+        // Leaving frame infos from now, as they are not yet used
+        // however they might be useful for the future.
         // let frame_infos = compilation
         //     .get_frame_info()
         //     .values()
@@ -327,10 +328,13 @@ impl NativeModule {
         engine: &NativeEngine,
         path: &Path,
     ) -> Result<NativeModule, DeserializeError> {
-        let lib = Library::new(&path).expect("can't load native file");
+        let lib = Library::new(&path).map_err(|e| {
+            DeserializeError::CorruptedBinary(format!("Library loading failed: {}", e))
+        })?;
         let shared_path: PathBuf = PathBuf::from(path);
-        let symbol: Symbol<*mut [u8; 200]> =
-            lib.get(b"WASMER_METADATA").expect("Can't get metadata");
+        let symbol: Symbol<*mut [u8; 10]> = lib.get(b"WASMER_METADATA").map_err(|e| {
+            DeserializeError::CorruptedBinary(format!("Symbol metadata loading failed: {}", e))
+        })?;
         use std::ops::Deref;
         use std::slice;
         use std::slice::from_raw_parts;
@@ -338,7 +342,9 @@ impl NativeModule {
         let mut size = &mut **symbol.deref();
         // println!("Size {:?}", size.to_vec());
         let mut readable = &size[..];
-        let metadata_len = leb128::read::unsigned(&mut readable).expect("Should read number");
+        let metadata_len = leb128::read::unsigned(&mut readable).map_err(|e| {
+            DeserializeError::CorruptedBinary("Can't read metadata size".to_string())
+        })?;
         let metadata_slice: &'static [u8] =
             unsafe { slice::from_raw_parts(&size[10] as *const u8, metadata_len as usize) };
         let metadata: ModuleMetadata = bincode::deserialize(metadata_slice)
