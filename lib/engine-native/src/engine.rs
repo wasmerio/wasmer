@@ -34,10 +34,10 @@ impl NativeEngine {
     const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
 
     // ELF Magic header for Linux (32 bit)
-    const MAGIC_HEADER_ELF_32: &'static [u8] = &[0x7f, b'E', b'L', b'F', 0];
+    const MAGIC_HEADER_ELF_32: &'static [u8] = &[0x7f, b'E', b'L', b'F', 1];
 
     // ELF Magic header for Linux (64 bit)
-    const MAGIC_HEADER_ELF_64: &'static [u8] = &[0x7f, b'E', b'L', b'F', 1];
+    const MAGIC_HEADER_ELF_64: &'static [u8] = &[0x7f, b'E', b'L', b'F', 2];
 
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
