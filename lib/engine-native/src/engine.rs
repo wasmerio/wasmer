@@ -231,7 +231,7 @@ impl NativeEngineInner {
         if self.compiler.is_none() {
             return Err(CompileError::Codegen("The NativeEngine is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
         }
-        Ok(&**self.compiler.as_ref().unwrap())
+        Ok(&**self.compiler.as_ref().expect("Can't get compiler reference"))
     }
 
     /// Validate the module
