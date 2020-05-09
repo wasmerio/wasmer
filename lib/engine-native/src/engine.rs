@@ -1,7 +1,7 @@
 //! Native Engine.
 
 use crate::NativeModule;
-use std::cell::RefCell;
+use std::sync::Mutex;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -25,7 +25,7 @@ use wasmer_runtime::{
 /// A WebAssembly `Native` Engine.
 #[derive(Clone)]
 pub struct NativeEngine {
-    inner: Arc<RefCell<NativeEngineInner>>,
+    inner: Arc<Mutex<NativeEngineInner>>,
     tunables: Arc<dyn Tunables + Send + Sync>,
 }
 
@@ -50,7 +50,7 @@ impl NativeEngine {
     {
         let compiler = config.compiler();
         Self {
-            inner: Arc::new(RefCell::new(NativeEngineInner {
+            inner: Arc::new(Mutex::new(NativeEngineInner {
                 compiler: Some(compiler),
                 trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
@@ -74,7 +74,7 @@ impl NativeEngine {
     /// they just take already processed Modules (via `Module::serialize`).
     pub fn headless(tunables: impl Tunables + 'static + Send + Sync) -> Self {
         Self {
-            inner: Arc::new(RefCell::new(NativeEngineInner {
+            inner: Arc::new(Mutex::new(NativeEngineInner {
                 #[cfg(feature = "compiler")]
                 compiler: None,
                 trampolines: HashMap::new(),
@@ -84,12 +84,12 @@ impl NativeEngine {
         }
     }
 
-    pub(crate) fn inner(&self) -> std::cell::Ref<'_, NativeEngineInner> {
-        self.inner.borrow()
+    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, NativeEngineInner> {
+        self.inner.lock().unwrap()
     }
 
-    pub(crate) fn inner_mut(&self) -> std::cell::RefMut<'_, NativeEngineInner> {
-        self.inner.borrow_mut()
+    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, NativeEngineInner> {
+        self.inner.lock().unwrap()
     }
 
     /// Check if the provided bytes look like a serialized
