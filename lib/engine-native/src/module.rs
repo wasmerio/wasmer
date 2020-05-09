@@ -266,7 +266,7 @@ impl NativeModule {
                 // is only used when retrieving the trap information which is not yet
                 // implemented in this backend. That's why se set a lengh 0.
                 // TODO: Use the real function length
-                let func_pointer = (raw as *const (), 0);
+                let func_pointer = std::slice::from_raw_parts(raw as *const (), 0);
                 let func_pointer = std::mem::transmute::<_, *mut [VMFunctionBody]>(func_pointer);
                 finished_functions.push(func_pointer);
             }
