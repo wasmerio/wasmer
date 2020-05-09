@@ -33,7 +33,7 @@ impl Compile {
             .output
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
-            .unwrap_or("".to_string());
+            .unwrap_or_default();
         let recommended_extension = match engine_name.as_ref() {
             "native" => "so",
             "jit" => "wjit",

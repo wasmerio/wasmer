@@ -114,7 +114,7 @@ impl Run {
                             .file_name()
                             .map(|f| f.to_string_lossy().to_string())
                     })
-                    .unwrap_or("".to_string());
+                    .unwrap_or_default();
                 return self
                     .wasi
                     .execute(module, version, program_name, self.args.clone())
