@@ -43,6 +43,7 @@ bytesize = "1.0.0"
 
 [workspace]
 members = [
+    "lib/c-api",
 ]
 
 [build-dependencies]

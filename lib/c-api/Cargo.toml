@@ -1,0 +1,52 @@
+[package]
+name = "wasmer-runtime-c-api"
+version = "0.16.2"
+description = "Wasmer C API library"
+documentation = "https://wasmerio.github.io/wasmer/c/runtime-c-api/"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "runtime"]
+categories = ["wasm"]
+edition = "2018"
+readme = "README.md"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+lazy_static = "1"
+libc = "0.2.60"
+# for generating code in the same way thot the wasm-c-api does
+# Commented out for now until we can find a solution to the exported function problem
+# wasmer-wasm-c-api = { version = "0.16.2", path = "crates/wasm-c-api" }
+
+[dependencies.wasmer]
+default-features = false
+features = ["compiler", "engine", "jit", "cranelift"]
+path = "../api"
+version = "0.16.2"
+
+[dependencies.wasmer-wasi]
+default-features = false
+path = "../wasi"
+version = "0.16.2"
+optional = true
+
+#[dependencies.wasmer-emscripten]
+#path = "../emscripten"
+#version = "0.16.2"
+#optional = true
+
+[features]
+default = ["cranelift-backend", "wasi"]
+singlepass-backend = ["wasmer/singlepass"]
+cranelift-backend = ["wasmer/cranelift"]
+llvm-backend = ["wasmer/llvm"]
+wasi = ["wasmer-wasi"]
+#emscripten = ["wasmer-emscripten"]
+# used to avoid generating standard Wasm C API types in our header files
+ignore-wasm-c-api = []
+
+[build-dependencies]
+cbindgen = "0.14"

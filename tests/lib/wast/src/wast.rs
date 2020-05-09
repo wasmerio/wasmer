@@ -48,7 +48,7 @@ impl Wast {
         }
     }
 
-    /// Construcet a new instance of `Wast` with the spectests imports.
+    /// Construct a new instance of `Wast` with the spectests imports.
     pub fn new_with_spectest(store: Store) -> Self {
         let import_object = spectest_importobject(&store);
         Self::new(store, import_object)

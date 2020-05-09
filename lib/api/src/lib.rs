@@ -26,7 +26,7 @@ pub use crate::types::{
     MemoryType, Mutability, TableType, Val, ValType,
 };
 
-pub use wasm_common::{ValueType, WasmExternType, WasmTypeList};
+pub use wasm_common::{Bytes, Pages, ValueType, WasmExternType, WasmTypeList};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;
 pub use wasmer_compiler::{Features, Target};
