@@ -196,15 +196,15 @@ impl ToString for EngineOptions {
 impl StoreOptions {
     fn get_engine(&self) -> Result<EngineOptions> {
         if self.jit {
-            return Ok(EngineOptions::JIT);
+            Ok(EngineOptions::JIT)
         } else if self.native {
-            return Ok(EngineOptions::Native);
+            Ok(EngineOptions::Native)
         } else {
             // Auto mode, we choose the best engine for that platform
             if cfg!(feature = "jit") {
-                return Ok(EngineOptions::JIT);
+                Ok(EngineOptions::JIT)
             } else if cfg!(feature = "native") {
-                return Ok(EngineOptions::Native);
+                Ok(EngineOptions::Native)
             } else {
                 bail!("There are no available engines for your architecture")
             }
