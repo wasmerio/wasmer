@@ -1,12 +1,13 @@
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
 use crate::InstantiationError;
+use std::borrow::Borrow;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::{CompileError, WasmError};
-use wasmer_jit::{CompiledModule, DeserializeError, Resolver, SerializeError};
+use wasmer_engine::{CompiledModule, DeserializeError, Engine, Resolver, SerializeError};
 use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, Module as ModuleInfo};
 
 #[derive(Error, Debug)]
@@ -30,7 +31,7 @@ pub enum IoCompileError {
 #[derive(Clone)]
 pub struct Module {
     store: Store,
-    compiled: Arc<CompiledModule>,
+    compiled: Arc<dyn CompiledModule>,
 
     #[cfg(feature = "wat")]
     #[doc(hidden)]
@@ -155,15 +156,15 @@ impl Module {
     /// let serialized = module.serialize()?;
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.store.engine().serialize(&self.compiled)
+        self.store.engine().serialize(self.compiled.borrow())
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
     ///
-    /// # Unsafety
+    /// # Safety
     ///
-    /// This function is inherently `unsafe` as the provided bytes:
+    /// This function is inherently **unsafe** as the provided bytes:
     /// 1. Are going to be deserialized directly into Rust objects.
     /// 2. Contains the function assembly bodies and, if intercepted,
     ///    a malicious actor could inject code into executable
@@ -183,10 +184,32 @@ impl Module {
         Ok(Self::from_compiled_module(store, compiled))
     }
 
-    fn from_compiled_module(store: &Store, compiled: CompiledModule) -> Self {
+    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// > Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// # Safety
+    ///
+    /// Please check [`Module::deserialize`].
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # let store = Store::default();
+    /// let module = Module::deserialize_from_file(&store, path)?;
+    /// ```
+    pub unsafe fn deserialize_from_file(
+        store: &Store,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        let compiled = store.engine().deserialize_from_file(path.as_ref())?;
+        Ok(Self::from_compiled_module(store, compiled))
+    }
+
+    fn from_compiled_module(store: &Store, compiled: Arc<CompiledModule>) -> Self {
         Module {
             store: store.clone(),
-            compiled: Arc::new(compiled),
+            compiled,
             #[cfg(feature = "wat")]
             from_wat: false,
         }
@@ -197,14 +220,20 @@ impl Module {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
-            let instance_handle = self.store.engine().instantiate(&self.compiled, resolver)?;
+            let instance_handle = self
+                .store
+                .engine()
+                .instantiate(self.compiled.borrow(), resolver)?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.compiled.finish_instantiation(&instance_handle)?;
+            self.store
+                .engine()
+                .finish_instantiation(self.compiled.borrow(), &instance_handle)?;
+
             Ok(instance_handle)
         }
     }
@@ -240,7 +269,7 @@ impl Module {
     /// ```
     pub fn set_name(&mut self, name: &str) {
         let compiled = Arc::get_mut(&mut self.compiled).unwrap();
-        Arc::get_mut(compiled.module_mut()).unwrap().name = Some(name.to_string());
+        compiled.module_mut().name = Some(name.to_string());
     }
 
     /// Returns an iterator over the imported types in the Module.

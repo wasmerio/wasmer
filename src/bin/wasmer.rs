@@ -2,6 +2,7 @@ use anyhow::Result;
 #[cfg(feature = "wast")]
 use wasmer_bin::commands::Wast;
 use wasmer_bin::commands::{Cache, Compile, Inspect, Run, SelfUpdate, Validate};
+use wasmer_bin::error::PrettyError;
 
 use structopt::{clap::ErrorKind, StructOpt};
 
@@ -54,7 +55,11 @@ impl WasmerCLIOptions {
     }
 }
 
-fn main() -> Result<()> {
+fn main() {
+    // We allow windows to print properly colors
+    #[cfg(windows)]
+    colored::control::set_virtual_terminal(true).unwrap();
+
     // We try to run wasmer with the normal arguments.
     // Eg. `wasmer <SUBCOMMAND>`
     // In case that fails, we fallback trying the Run subcommand directly.
@@ -77,5 +82,6 @@ fn main() -> Result<()> {
             })
         }
     };
-    options.execute()
+
+    PrettyError::report(options.execute());
 }

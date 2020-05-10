@@ -136,6 +136,7 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
         ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
         ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
         ir::TrapCode::Interrupt => TrapCode::Interrupt,
-        ir::TrapCode::User(user_code) => TrapCode::User(user_code),
+        ir::TrapCode::User(user_code) => unimplemented!("User trap code not supported"),
+        // ir::TrapCode::User(user_code) => TrapCode::User(user_code),
     }
 }

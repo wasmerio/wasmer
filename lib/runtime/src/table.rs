@@ -24,6 +24,14 @@ impl Table {
             Type::FuncRef => (),
             ty => return Err(format!("tables of types other than anyfunc ({})", ty)),
         };
+        if let Some(max) = plan.table.maximum {
+            if max < plan.table.minimum {
+                return Err(format!(
+                    "Table minimum ({}) is larger than maximum ({})!",
+                    plan.table.minimum, max
+                ));
+            }
+        }
         match plan.style {
             TableStyle::CallerChecksSignature => Ok(Self {
                 vec: RefCell::new(vec![

@@ -12,9 +12,13 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.28"
-wasmer = { path = "../../../lib/api", version = "0.16.2" }
+wasmer = { path = "../../../lib/api", version = "0.16.2", default-features = false }
 wast = "14.0.0"
 thiserror = "1.0.15"
+
+[features]
+default = ["wat"]
+wat = ["wasmer/wat"]
 
 [badges]
 maintenance = { status = "actively-developed" }

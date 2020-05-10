@@ -1,6 +1,7 @@
 use crate::common::get_cache_dir;
 use crate::store::StoreOptions;
 use crate::suggestions::suggest_function_exports;
+use crate::warning;
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -8,6 +9,8 @@ use std::sync::Arc;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, IoDeserializeError, WasmHash};
+#[cfg(feature = "jit")]
+use wasmer_engine_jit::JITEngine;
 
 use structopt::StructOpt;
 
@@ -80,14 +83,14 @@ impl Run {
             .context(format!("failed to run `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let module = self.get_module()?;
+        let module = self
+            .get_module()
+            .with_context(|| format!("module instantiation failed"))?;
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
             let instance = Instance::new(&module, &imports)?;
-            let result = self
-                .invoke_function(&instance, &invoke, &self.args)
-                .with_context(|| format!("failed to invoke `{}`", invoke))?;
+            let result = self.invoke_function(&instance, &invoke, &self.args)?;
             println!(
                 "{}",
                 result
@@ -115,7 +118,8 @@ impl Run {
                     .unwrap_or("".to_string());
                 return self
                     .wasi
-                    .execute(module, version, program_name, self.args.clone());
+                    .execute(module, version, program_name, self.args.clone())
+                    .with_context(|| format!("WASI execution failed"));
             }
         }
 
@@ -130,13 +134,15 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
-        if Engine::is_deserializable(&contents) {
-            // We get the tunables for the current host
-            let tunables = Tunables::default();
-            let engine = Engine::headless(tunables);
-            let store = Store::new(&engine);
-            let module = unsafe { Module::deserialize(&store, &contents)? };
-            return Ok(module);
+        #[cfg(feature = "jit")]
+        {
+            if JITEngine::is_deserializable(&contents) {
+                let tunables = Tunables::default();
+                let engine = JITEngine::headless(tunables);
+                let store = Store::new(Arc::new(engine));
+                let module = unsafe { Module::deserialize(&store, &contents)? };
+                return Ok(module);
+            }
         }
         let (store, compiler_name) = self.compiler.get_store()?;
         // We try to get it from cache, in case caching is enabled
@@ -158,7 +164,7 @@ impl Run {
                     Err(e) => {
                         match e {
                             IoDeserializeError::Deserialize(e) => {
-                                eprintln!("Warning: error while getting module from cache: {}", e);
+                                warning!("cached module is corrupted: {}", e);
                             }
                             IoDeserializeError::Io(_) => {
                                 // Do not notify on IO errors
@@ -207,7 +213,7 @@ impl Run {
                         args.join(" ")
                     );
                     let suggestion = format!(
-                        "Similar functions found: {}\nTry with: {}",
+                        "Similar functions found: {}.\nTry with: {}",
                         names, suggested_command
                     );
                     match e {

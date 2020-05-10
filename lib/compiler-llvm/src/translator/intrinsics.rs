@@ -38,9 +38,9 @@ use wasm_common::{
     SignatureIndex, TableIndex, Type,
 };
 use wasmer_runtime::Module as WasmerCompilerModule;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, VMOffsets};
+use wasmer_runtime::{MemoryPlan, MemoryStyle, TrapCode, VMOffsets};
 
-fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerType<'ctx> {
+pub fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerType<'ctx> {
     match ty {
         Type::I32 => intrinsics.i32_ptr_ty,
         Type::I64 => intrinsics.i64_ptr_ty,
@@ -169,6 +169,15 @@ pub struct Intrinsics<'ctx> {
 
     pub experimental_stackmap: FunctionValue<'ctx>,
 
+    pub vmmemory_definition_ptr_ty: PointerType<'ctx>,
+    pub vmmemory_definition_base_element: u32,
+    pub vmmemory_definition_current_length_element: u32,
+
+    pub memory32_grow_ptr_ty: PointerType<'ctx>,
+    pub imported_memory32_grow_ptr_ty: PointerType<'ctx>,
+    pub memory32_size_ptr_ty: PointerType<'ctx>,
+    pub imported_memory32_size_ptr_ty: PointerType<'ctx>,
+
     pub ctx_ptr_ty: PointerType<'ctx>,
 }
 
@@ -221,6 +230,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let f32x4_ty_basic = f32x4_ty.as_basic_type_enum();
         let f64x2_ty_basic = f64x2_ty.as_basic_type_enum();
         let i8_ptr_ty_basic = i8_ptr_ty.as_basic_type_enum();
+        let i64_ptr_ty_basic = i64_ptr_ty.as_basic_type_enum();
 
         let ctx_ty = i8_ty;
         let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::Generic);
@@ -462,12 +472,26 @@ impl<'ctx> Intrinsics<'ctx> {
             f32x4_zero,
             f64x2_zero,
 
-            trap_unreachable: i32_zero.as_basic_value_enum(),
-            trap_call_indirect_sig: i32_ty.const_int(1, false).as_basic_value_enum(),
-            trap_call_indirect_oob: i32_ty.const_int(3, false).as_basic_value_enum(),
-            trap_memory_oob: i32_ty.const_int(2, false).as_basic_value_enum(),
-            trap_illegal_arithmetic: i32_ty.const_int(4, false).as_basic_value_enum(),
-            trap_misaligned_atomic: i32_ty.const_int(5, false).as_basic_value_enum(),
+            trap_unreachable: i32_ty
+                .const_int(TrapCode::UnreachableCodeReached as _, false)
+                .as_basic_value_enum(),
+            trap_call_indirect_sig: i32_ty
+                .const_int(TrapCode::BadSignature as _, false)
+                .as_basic_value_enum(),
+            trap_call_indirect_oob: i32_ty
+                .const_int(TrapCode::OutOfBounds as _, false)
+                .as_basic_value_enum(),
+            trap_memory_oob: i32_ty
+                .const_int(TrapCode::OutOfBounds as _, false)
+                .as_basic_value_enum(),
+            // TODO: split out div-by-zero and float-to-int
+            trap_illegal_arithmetic: i32_ty
+                .const_int(TrapCode::IntegerOverflow as _, false)
+                .as_basic_value_enum(),
+            // TODO: add misaligned atomic traps to wasmer runtime
+            trap_misaligned_atomic: i32_ty
+                .const_int(TrapCode::Interrupt as _, false)
+                .as_basic_value_enum(),
 
             // VM intrinsics.
             memory_grow_dynamic_local: module.add_function(
@@ -552,6 +576,33 @@ impl<'ctx> Intrinsics<'ctx> {
                 void_ty.fn_type(&[i64_ty_basic], false),
                 None,
             ),
+
+            // TODO: this i64 is actually a rust usize
+            vmmemory_definition_ptr_ty: context
+                .struct_type(&[i8_ptr_ty_basic, i64_ptr_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+            vmmemory_definition_base_element: 0,
+            vmmemory_definition_current_length_element: 1,
+
+            memory32_grow_ptr_ty: i32_ty
+                .fn_type(
+                    &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            imported_memory32_grow_ptr_ty: i32_ty
+                .fn_type(
+                    &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            memory32_size_ptr_ty: i32_ty
+                .fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+            imported_memory32_size_ptr_ty: i32_ty
+                .fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+
             ctx_ptr_ty,
         };
 

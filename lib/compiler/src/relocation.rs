@@ -99,5 +99,45 @@ pub enum RelocationTarget {
     CustomSection(SectionIndex),
 }
 
+impl Relocation {
+    /// Given a function start address, provide the relocation relative
+    /// to that address.
+    ///
+    /// The function returns the relocation address and the delta.
+    pub fn for_address(&self, start: usize, target_func_address: u64) -> (usize, u64) {
+        match self.kind {
+            RelocationKind::Abs8 => unsafe {
+                let reloc_address = start + self.offset as usize;
+                let reloc_addend = self.addend as isize;
+                let reloc_abs = (target_func_address)
+                    .checked_add(reloc_addend as u64)
+                    .unwrap();
+                (reloc_address, reloc_abs)
+            },
+            RelocationKind::X86PCRel4 => unsafe {
+                let reloc_address = start + self.offset as usize;
+                let reloc_addend = self.addend as isize;
+                let reloc_delta_u32 = (target_func_address as u32)
+                    .wrapping_sub(reloc_address as u32)
+                    .checked_add(reloc_addend as u32)
+                    .unwrap();
+                (reloc_address, reloc_delta_u32 as u64)
+            },
+            RelocationKind::X86CallPCRel4 => {
+                let reloc_address = start + self.offset as usize;
+                let reloc_addend = self.addend as isize;
+                let reloc_delta_u32 = (target_func_address as u32)
+                    .wrapping_sub(reloc_address as u32)
+                    .wrapping_add(reloc_addend as u32);
+                (reloc_address, reloc_delta_u32 as u64)
+            }
+            // RelocationKind::X86PCRelRodata4 => {
+            //     (start, target_func_address)
+            // }
+            _ => panic!("Relocation kind unsupported"),
+        }
+    }
+}
+
 /// Relocations to apply to function bodies.
 pub type Relocations = PrimaryMap<LocalFunctionIndex, Vec<Relocation>>;

@@ -8,6 +8,7 @@ use crate::{ExternType, FunctionType, GlobalType, MemoryType, TableType, ValType
 use std::cmp::max;
 use std::slice;
 use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
+use wasmer_engine::Engine as _;
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
     LinearMemory, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
@@ -228,7 +229,9 @@ impl Table {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.engine().tunables();
         let table_plan = tunables.table_plan(ty);
-        let table = tunables.create_table(table_plan).unwrap();
+        let table = tunables
+            .create_table(table_plan)
+            .map_err(RuntimeError::new)?;
 
         let definition = table.vmtable();
         for i in 0..definition.current_elements {
@@ -581,19 +584,30 @@ impl Function {
         params: &[Val],
         results: &mut [Val],
     ) -> Result<(), RuntimeError> {
+        let format_types_for_error_message = |items: &[Val]| {
+            items
+                .iter()
+                .map(|param| param.ty().to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        };
         let signature = self.ty();
         if signature.params().len() != params.len() {
             return Err(RuntimeError::new(format!(
-                "expected {} arguments, got {}",
+                "expected {} arguments, got {}: Parameters of type [{}] did not match signature {}",
                 signature.params().len(),
-                params.len()
+                params.len(),
+                format_types_for_error_message(params),
+                &signature
             )));
         }
         if signature.results().len() != results.len() {
             return Err(RuntimeError::new(format!(
-                "expected {} results, got {}",
+                "expected {} results, got {}: Results of type [{}] did not match signature {}",
                 signature.results().len(),
-                results.len()
+                results.len(),
+                format_types_for_error_message(results),
+                &signature,
             )));
         }
 
@@ -603,7 +617,11 @@ impl Function {
         let param_tys = signature.params().iter();
         for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
             if arg.ty() != ty.clone() {
-                return Err(RuntimeError::new("argument type mismatch"));
+                let param_types = format_types_for_error_message(params);
+                return Err(RuntimeError::new(format!(
+                    "Parameters of type [{}] did not match signature {}",
+                    param_types, &signature,
+                )));
             }
             unsafe {
                 arg.write_value_to(slot);
@@ -644,7 +662,7 @@ impl Function {
         self.ty().results().len()
     }
 
-    /// Call the [`Func`] function.
+    /// Call the [`Function`] function.
     ///
     /// Depending on where the Function is defined, it will call it.
     /// 1. If the function is defined inside a WebAssembly, it will call the trampoline

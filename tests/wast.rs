@@ -1,8 +1,11 @@
-#![cfg(feature = "compiler")]
+#![cfg(all(feature = "compiler", feature = "engine"))]
 
 use std::path::Path;
+use std::sync::Arc;
 use test_utils::get_compiler_config_from_str;
-use wasmer::{Engine, Features, Store, Tunables};
+use wasmer::{Features, Store, Tunables};
+#[cfg(feature = "jit")]
+use wasmer_engine_jit::JITEngine;
 use wasmer_wast::Wast;
 
 // The generated tests (from build.rs) look like:
@@ -30,7 +33,7 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     let compiler_config =
         get_compiler_config_from_str(compiler, try_nan_canonicalization, features);
     let tunables = Tunables::for_target(compiler_config.target().triple());
-    let store = Store::new(&Engine::new(&*compiler_config, tunables));
+    let store = Store::new(Arc::new(JITEngine::new(&*compiler_config, tunables)));
     let mut wast = Wast::new_with_spectest(store);
     if compiler == "singlepass" {
         // We don't support multivalue yet in singlepass
