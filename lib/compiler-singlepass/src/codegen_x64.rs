@@ -1219,18 +1219,31 @@ impl<'a> FuncGen<'a> {
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
         let tmp_base = self.machine.acquire_temp_gpr().unwrap();
 
-        let vmctx_offset = if self.module.num_imported_memories != 0 {
-            self.vmoffsets
-                .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+        // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
+        let (base_loc, bound_loc) = if self.module.num_imported_memories != 0 {
+            // Imported memories require one level of indirection.
+            let offset = self.vmoffsets
+                .vmctx_vmmemory_import_definition(MemoryIndex::new(0));
+            self.emit_relaxed_binop(
+                Assembler::emit_mov,
+                Size::S64,
+                Location::Memory(Machine::get_vmctx_reg(), offset as i32),
+                Location::GPR(tmp_addr),
+            );
+            (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
         } else {
-            self.vmoffsets
-                .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+            let offset = self.vmoffsets
+                .vmctx_vmmemory_definition(LocalMemoryIndex::new(0));
+            (
+                Location::Memory(Machine::get_vmctx_reg(), offset as i32),
+                Location::Memory(Machine::get_vmctx_reg(), (offset + 8) as i32),
+            )
         };
 
         // Load base into temporary register.
         self.assembler.emit_mov(
             Size::S64,
-            Location::Memory(Machine::get_vmctx_reg(), vmctx_offset as i32),
+            base_loc,
             Location::GPR(tmp_base),
         );
 
@@ -1239,7 +1252,7 @@ impl<'a> FuncGen<'a> {
 
             self.assembler.emit_mov(
                 Size::S64,
-                Location::Memory(Machine::get_vmctx_reg(), vmctx_offset as i32 + 8),
+                bound_loc,
                 Location::GPR(tmp_bound),
             );
             // Adds base to bound so `tmp_bound` now holds the end of linear memory.
@@ -1817,15 +1830,7 @@ impl<'a> FuncGen<'a> {
         match op {
             Operator::GlobalGet { global_index } => {
                 let global_index = global_index as usize;
-                let offset = if global_index < self.module.num_imported_globals {
-                    self.vmoffsets
-                        .vmctx_vmglobal_import(GlobalIndex::new(global_index))
-                } else {
-                    self.vmoffsets
-                        .vmctx_vmglobal_definition(LocalGlobalIndex::new(
-                            global_index - self.module.num_imported_globals,
-                        ))
-                };
+
                 let ty = type_to_wp_type(self.module.globals[GlobalIndex::new(global_index)].ty);
                 if ty.is_float() {
                     self.fp_stack.push(FloatValue::new(self.value_stack.len()));
@@ -1836,23 +1841,56 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(loc);
+
+                let tmp = self.machine.acquire_temp_gpr().unwrap();
+
+                let src = if global_index < self.module.num_imported_globals {
+                    // Imported globals require one level of indirection.
+                    let offset = self.vmoffsets
+                        .vmctx_vmglobal_import_definition(GlobalIndex::new(global_index));
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::Memory(Machine::get_vmctx_reg(), offset as i32),
+                        Location::GPR(tmp),
+                    );
+                    Location::Memory(tmp, 0)
+                } else {
+                    let offset = self.vmoffsets
+                        .vmctx_vmglobal_definition(LocalGlobalIndex::new(
+                            global_index - self.module.num_imported_globals,
+                        ));
+                    Location::Memory(Machine::get_vmctx_reg(), offset as i32)
+                };
                 self.emit_relaxed_binop(
                     Assembler::emit_mov,
                     Size::S64,
-                    Location::Memory(Machine::get_vmctx_reg(), offset as i32),
+                    src,
                     loc,
                 );
+
+                self.machine.release_temp_gpr(tmp);
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = global_index as usize;
-                let offset = if global_index < self.module.num_imported_globals {
-                    self.vmoffsets
-                        .vmctx_vmglobal_import(GlobalIndex::new(global_index))
+                let tmp = self.machine.acquire_temp_gpr().unwrap();
+                let dst = if global_index < self.module.num_imported_globals {
+                    // Imported globals require one level of indirection.
+                    let offset = self.vmoffsets
+                        .vmctx_vmglobal_import_definition(GlobalIndex::new(global_index));
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::Memory(Machine::get_vmctx_reg(), offset as i32),
+                        Location::GPR(tmp),
+                    );
+                    Location::Memory(tmp, 0)
                 } else {
-                    self.vmoffsets
+                    let offset = self.vmoffsets
                         .vmctx_vmglobal_definition(LocalGlobalIndex::new(
                             global_index - self.module.num_imported_globals,
-                        ))
+                        ));
+                    Location::Memory(Machine::get_vmctx_reg(), offset as i32)
                 };
                 let ty = type_to_wp_type(self.module.globals[GlobalIndex::new(global_index)].ty);
                 let loc = self.pop_value_released();
@@ -1869,14 +1907,14 @@ impl<'a> FuncGen<'a> {
                                 _ => unreachable!(),
                             },
                             loc,
-                            Location::Memory(Machine::get_vmctx_reg(), offset as i32),
+                            dst,
                         );
                     } else {
                         self.emit_relaxed_binop(
                             Assembler::emit_mov,
                             Size::S64,
                             loc,
-                            Location::Memory(Machine::get_vmctx_reg(), offset as i32),
+                            dst,
                         );
                     }
                 } else {
@@ -1884,9 +1922,10 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S64,
                         loc,
-                        Location::Memory(Machine::get_vmctx_reg(), offset as i32),
+                        dst,
                     );
                 }
+                self.machine.release_temp_gpr(tmp);
             }
             Operator::LocalGet { local_index } => {
                 let local_index = local_index as usize;
