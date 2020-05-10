@@ -1,4 +1,3 @@
-use crate::common_decl::InlineBreakpointType;
 pub use crate::x64_decl::{GPR, XMM};
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
@@ -198,7 +197,6 @@ pub trait Emitter {
     fn emit_bkpt(&mut self);
 
     fn emit_host_redirection(&mut self, target: GPR);
-    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType);
 
     fn arch_has_itruncf(&self) -> bool {
         false
@@ -1320,15 +1318,6 @@ impl Emitter for Assembler {
 
     fn emit_host_redirection(&mut self, target: GPR) {
         self.emit_jmp_location(Location::GPR(target));
-    }
-
-    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType) {
-        dynasm!(self
-            ; ud2
-            ; .byte 0x0f ; .byte 0xb9u8 as i8 // ud
-            ; int -1
-            ; .byte ty as u8 as i8
-        );
     }
 
     fn arch_mov64_imm_offset(&self) -> usize {

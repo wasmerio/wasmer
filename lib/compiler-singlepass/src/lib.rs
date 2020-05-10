@@ -18,7 +18,6 @@ mod compiler;
 mod config;
 mod emitter_x64;
 mod machine;
-mod vm;
 mod x64_decl;
 
 pub use crate::compiler::SinglepassCompiler;

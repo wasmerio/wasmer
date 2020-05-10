@@ -3,26 +3,6 @@ use std::collections::BTreeMap;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RegisterIndex(pub usize);
 
-/// Information of an inline breakpoint.
-///
-/// TODO: Move this into runtime.
-#[derive(Clone, Debug)]
-pub struct InlineBreakpoint {
-    /// Size in bytes taken by this breakpoint's instruction sequence.
-    pub size: usize,
-
-    /// Type of the inline breakpoint.
-    pub ty: InlineBreakpointType,
-}
-
-/// The type of an inline breakpoint.
-#[repr(u8)]
-#[derive(Copy, Clone, Debug)]
-pub enum InlineBreakpointType {
-    /// A middleware invocation breakpoint.
-    Middleware,
-}
-
 /// A kind of wasm or constant value
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum WasmAbstractValue {
@@ -44,6 +24,8 @@ pub struct MachineState {
     /// Wasm stack.
     pub wasm_stack: Vec<WasmAbstractValue>,
     /// Private depth of the wasm stack.
+    /// 
+    /// 
     pub wasm_stack_private_depth: usize,
     /// Wasm instruction offset.
     pub wasm_inst_offset: usize,
@@ -52,25 +34,30 @@ pub struct MachineState {
 /// A diff of two `MachineState`s.
 #[derive(Clone, Debug, Default)]
 pub struct MachineStateDiff {
-    /// Last.
+    /// Link to the previous diff this diff is based on, or `None` if this is the first diff.
     pub last: Option<usize>,
-    /// Stack push.
+    
+    /// What values are pushed onto the stack?
     pub stack_push: Vec<MachineValue>,
-    /// Stack pop.
+
+    /// How many values are popped from the stack?
     pub stack_pop: usize,
 
     /// Register diff.
     pub reg_diff: Vec<(RegisterIndex, MachineValue)>,
 
-    /// Previous frame diff.
+    /// Changes in the previous frame's data.
     pub prev_frame_diff: BTreeMap<usize, Option<MachineValue>>, // None for removal
 
-    /// Wasm stack push.
+    /// Values pushed to the Wasm stack.
     pub wasm_stack_push: Vec<WasmAbstractValue>,
-    /// Wasm stack pop.
+
+    /// # of values popped from the Wasm stack.
     pub wasm_stack_pop: usize,
+
     /// Private depth of the wasm stack.
     pub wasm_stack_private_depth: usize, // absolute value; not a diff.
+
     /// Wasm instruction offset.
     pub wasm_inst_offset: usize, // absolute value; not a diff.
 }
@@ -143,15 +130,6 @@ pub struct OffsetInfo {
     pub diff_id: usize,
     /// Activate offset.
     pub activate_offset: usize,
-}
-
-/// A map of module state.
-#[derive(Clone, Debug)]
-pub struct ModuleStateMap {
-    /// Local functions.
-    pub local_functions: BTreeMap<usize, FunctionStateMap>,
-    /// Total size.
-    pub total_size: usize,
 }
 
 impl FunctionStateMap {

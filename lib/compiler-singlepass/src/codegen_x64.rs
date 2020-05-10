@@ -27,9 +27,6 @@ use wasmer_runtime::{
     VMOffsets,
 };
 
-// Placeholder
-use crate::vm::{self, LocalTable};
-
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a> {
     // Immutable properties assigned at creation time.
@@ -1703,8 +1700,6 @@ impl<'a> FuncGen<'a> {
         let state_diff_id = self.fsm.diffs.len();
         self.fsm.diffs.push(diff);
 
-        //println!("initial state = {:?}", self.machine.state);
-
         self.assembler
             .emit_sub(Size::S64, Location::Imm32(32), Location::GPR(GPR::RSP)); // simulate "red zone" if not supported by the platform
 
@@ -1829,9 +1824,9 @@ impl<'a> FuncGen<'a> {
 
         match op {
             Operator::GlobalGet { global_index } => {
-                let global_index = global_index as usize;
+                let global_index = GlobalIndex::new(global_index as usize);
 
-                let ty = type_to_wp_type(self.module.globals[GlobalIndex::new(global_index)].ty);
+                let ty = type_to_wp_type(self.module.globals[global_index].ty);
                 if ty.is_float() {
                     self.fp_stack.push(FloatValue::new(self.value_stack.len()));
                 }
@@ -1844,10 +1839,14 @@ impl<'a> FuncGen<'a> {
 
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
 
-                let src = if global_index < self.module.num_imported_globals {
+                let src = if let Some(local_global_index) = self.module.local_global_index(global_index) {
+                    let offset = self.vmoffsets
+                        .vmctx_vmglobal_definition(local_global_index);
+                    Location::Memory(Machine::get_vmctx_reg(), offset as i32)
+                } else {
                     // Imported globals require one level of indirection.
                     let offset = self.vmoffsets
-                        .vmctx_vmglobal_import_definition(GlobalIndex::new(global_index));
+                        .vmctx_vmglobal_import_definition(global_index);
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S64,
@@ -1855,13 +1854,8 @@ impl<'a> FuncGen<'a> {
                         Location::GPR(tmp),
                     );
                     Location::Memory(tmp, 0)
-                } else {
-                    let offset = self.vmoffsets
-                        .vmctx_vmglobal_definition(LocalGlobalIndex::new(
-                            global_index - self.module.num_imported_globals,
-                        ));
-                    Location::Memory(Machine::get_vmctx_reg(), offset as i32)
                 };
+
                 self.emit_relaxed_binop(
                     Assembler::emit_mov,
                     Size::S64,
@@ -5534,11 +5528,11 @@ impl<'a> FuncGen<'a> {
                     Location::Memory(
                         Machine::get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(
-                            if memory_index.index() < self.module.num_imported_memories {
-                                VMBuiltinFunctionIndex::get_imported_memory32_size_index()
-                            } else {
+                            if let Some(_) = self.module.local_memory_index(memory_index) {
                                 VMBuiltinFunctionIndex::get_memory32_size_index()
-                            },
+                            } else {
+                                VMBuiltinFunctionIndex::get_imported_memory32_size_index()
+                            }
                         ) as i32,
                     ),
                     Location::GPR(GPR::RAX),
@@ -5576,11 +5570,11 @@ impl<'a> FuncGen<'a> {
                     Location::Memory(
                         Machine::get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(
-                            if memory_index.index() < self.module.num_imported_memories {
-                                VMBuiltinFunctionIndex::get_imported_memory32_grow_index()
-                            } else {
+                            if let Some(_) = self.module.local_memory_index(memory_index) {
                                 VMBuiltinFunctionIndex::get_memory32_grow_index()
-                            },
+                            } else {
+                                VMBuiltinFunctionIndex::get_imported_memory32_grow_index()
+                            }
                         ) as i32,
                     ),
                     Location::GPR(GPR::RAX),
