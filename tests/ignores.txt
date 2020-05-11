@@ -100,8 +100,7 @@ singlepass::spec::int_exprs on aarch64
 singlepass::spec::traps on aarch64
 
 # NaN canonicalization is not yet implemented for aarch64.
-singlepass::spec::wasmer on aarch64
-
+singlepass::spec::custom::nan_canonicalization on aarch64
 
 # Emscripten
 
