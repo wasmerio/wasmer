@@ -110,11 +110,18 @@ impl NativeModule {
             .name("module".to_string())
             .library(true)
             .finish();
+        let function_bodies = compilation.get_function_bodies();
+
+        // We construct the function body lengths
+        let function_body_lengths = function_bodies.values().map(|function_body| {
+            function_body.body.len() as u64
+        }).collect::<PrimaryMap<LocalFunctionIndex, u64>>();
 
         let metadata = ModuleMetadata {
             features: compiler.features().clone(),
             module: Arc::new(translation.module),
             data_initializers,
+            function_body_lengths,
             memory_plans,
             table_plans,
         };
@@ -133,12 +140,27 @@ impl NativeModule {
         obj.define("WASMER_METADATA", metadata_length)
             .map_err(to_compile_error)?;
 
-        let function_bodies = compilation.get_function_bodies();
         let function_relocations = compilation.get_relocations();
 
-        obj.declare("wasmer_libcall_f32_ceil", Decl::function_import())
-            .map_err(to_compile_error)?;
+        // Libcall declarations
+        let libcalls = vec![
+            "wasmer_f32_ceil",
+            "wasmer_f32_floor",
+            "wasmer_f32_trunc",
+            "wasmer_f32_nearest",
+            "wasmer_f64_ceil",
+            "wasmer_f64_floor",
+            "wasmer_f64_trunc",
+            "wasmer_f64_nearest",
+            "wasmer_raise_trap",
+            "wasmer_probestack",
+        ];
+        for libcall in libcalls.into_iter() {
+            obj.declare(libcall, Decl::function_import())
+                .map_err(to_compile_error)?;
+        }
 
+        // Declare imported functions
         for i in 0..metadata.module.num_imported_funcs {
             let imported_function_name = format!("wasmer_imported_function_{}", i);
             obj.declare(imported_function_name, Decl::function_import())
@@ -181,16 +203,16 @@ impl NativeModule {
                     RelocationTarget::LibCall(libcall) => {
                         use wasmer_runtime::libcalls::LibCall;
                         let libcall_fn_name = match libcall {
-                            LibCall::CeilF32 => "wasmer_libcall_f32_ceil",
-                            LibCall::FloorF32 => "wasmer_libcall_f32_floor",
-                            LibCall::TruncF32 => "wasmer_libcall_f32_trunc",
-                            LibCall::NearestF32 => "wasmer_libcall_f32_nearest",
-                            LibCall::CeilF64 => "wasmer_libcall_f64_ceil",
-                            LibCall::FloorF64 => "wasmer_libcall_f64_floor",
-                            LibCall::TruncF64 => "wasmer_libcall_f64_trunc",
-                            LibCall::NearestF64 => "wasmer_libcall_f64_nearest",
-                            LibCall::RaiseTrap => "wasmer_libcall_raise_trap",
-                            LibCall::Probestack => "PROBESTACK",
+                            LibCall::CeilF32 => "wasmer_f32_ceil",
+                            LibCall::FloorF32 => "wasmer_f32_floor",
+                            LibCall::TruncF32 => "wasmer_f32_trunc",
+                            LibCall::NearestF32 => "wasmer_f32_nearest",
+                            LibCall::CeilF64 => "wasmer_f64_ceil",
+                            LibCall::FloorF64 => "wasmer_f64_floor",
+                            LibCall::TruncF64 => "wasmer_f64_trunc",
+                            LibCall::NearestF64 => "wasmer_f64_nearest",
+                            LibCall::RaiseTrap => "wasmer_raise_trap",
+                            LibCall::Probestack => "wasmer_probestack",
                             libcall => {
                                 unimplemented!("The `{:?}` libcall is not yet implemented", libcall)
                             }
@@ -223,6 +245,7 @@ impl NativeModule {
         let (file, shared_filepath) = shared_file.keep().map_err(to_compile_error)?;
         let output = Command::new("gcc")
             .arg(&filepath)
+            .arg("-Wl,-U,_wasmer_probestack")
             .arg("-o")
             .arg(&shared_filepath)
             .arg("-shared")
@@ -249,13 +272,14 @@ impl NativeModule {
     ) -> Result<Self, CompileError> {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
             PrimaryMap::new();
-        for (function_index, function) in metadata
+        for ((function_local_index, function_len), function) in metadata.function_body_lengths.iter().zip(
+            metadata
             .module
             .functions
-            .iter()
+            .values()
             .skip(metadata.module.num_imported_funcs)
+        )
         {
-            let function_local_index = metadata.module.local_func_index(function_index).unwrap();
             let function_name = format!("wasmer_function_{}", function_local_index.index());
             unsafe {
                 // We use a fake funciton signature `fn()` because we just
@@ -266,9 +290,8 @@ impl NativeModule {
                 let raw = *func.into_raw();
                 // The function pointer is a fat pointer, however this information
                 // is only used when retrieving the trap information which is not yet
-                // implemented in this engine. That's why se set a lengh 0.
-                // TODO: Use the real function length
-                let func_pointer = std::slice::from_raw_parts(raw as *const (), 0);
+                // implemented in this engine.
+                let func_pointer = std::slice::from_raw_parts(raw as *const (), *function_len as usize);
                 let func_pointer = std::mem::transmute::<_, *mut [VMFunctionBody]>(func_pointer);
                 finished_functions.push(func_pointer);
             }
