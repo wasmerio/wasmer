@@ -322,8 +322,8 @@ pub unsafe extern "C" fn wasmer_import_object_iter_next(
 pub unsafe extern "C" fn wasmer_import_object_iter_at_end(
     import_object_iter: Option<NonNull<wasmer_import_object_iter_t>>,
 ) -> bool {
-    let mut import_object_iter = if let Some(ioi) = import_object_iter {
-        ioi.cast::<WasmerImportObjectIterator>()
+    let mut import_object_iter = if let Some(import_object_iter) = import_object_iter {
+        import_object_iter.cast::<WasmerImportObjectIterator>()
     } else {
         update_last_error(CApiError {
             msg: "import_object_iter must not be null".to_owned(),
@@ -340,8 +340,12 @@ pub unsafe extern "C" fn wasmer_import_object_iter_at_end(
 pub unsafe extern "C" fn wasmer_import_object_iter_destroy(
     import_object_iter: Option<NonNull<wasmer_import_object_iter_t>>,
 ) {
-    if let Some(ioi) = import_object_iter {
-        let _ = Box::from_raw(ioi.cast::<WasmerImportObjectIterator>().as_ptr());
+    if let Some(import_object_iter) = import_object_iter {
+        let _ = Box::from_raw(
+            import_object_iter
+                .cast::<WasmerImportObjectIterator>()
+                .as_ptr(),
+        );
     }
 }
 
