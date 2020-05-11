@@ -113,9 +113,10 @@ impl NativeModule {
         let function_bodies = compilation.get_function_bodies();
 
         // We construct the function body lengths
-        let function_body_lengths = function_bodies.values().map(|function_body| {
-            function_body.body.len() as u64
-        }).collect::<PrimaryMap<LocalFunctionIndex, u64>>();
+        let function_body_lengths = function_bodies
+            .values()
+            .map(|function_body| function_body.body.len() as u64)
+            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
 
         let metadata = ModuleMetadata {
             features: compiler.features().clone(),
@@ -272,13 +273,14 @@ impl NativeModule {
     ) -> Result<Self, CompileError> {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
             PrimaryMap::new();
-        for ((function_local_index, function_len), function) in metadata.function_body_lengths.iter().zip(
-            metadata
-            .module
-            .functions
-            .values()
-            .skip(metadata.module.num_imported_funcs)
-        )
+        for ((function_local_index, function_len), function) in
+            metadata.function_body_lengths.iter().zip(
+                metadata
+                    .module
+                    .functions
+                    .values()
+                    .skip(metadata.module.num_imported_funcs),
+            )
         {
             let function_name = format!("wasmer_function_{}", function_local_index.index());
             unsafe {
@@ -291,7 +293,8 @@ impl NativeModule {
                 // The function pointer is a fat pointer, however this information
                 // is only used when retrieving the trap information which is not yet
                 // implemented in this engine.
-                let func_pointer = std::slice::from_raw_parts(raw as *const (), *function_len as usize);
+                let func_pointer =
+                    std::slice::from_raw_parts(raw as *const (), *function_len as usize);
                 let func_pointer = std::mem::transmute::<_, *mut [VMFunctionBody]>(func_pointer);
                 finished_functions.push(func_pointer);
             }
