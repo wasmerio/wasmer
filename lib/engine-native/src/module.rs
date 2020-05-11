@@ -258,13 +258,15 @@ impl NativeModule {
             let function_local_index = metadata.module.local_func_index(function_index).unwrap();
             let function_name = format!("wasmer_function_{}", function_local_index.index());
             unsafe {
-                let func: Symbol<unsafe extern "C" fn(i64, i64, i64) -> i64> = lib
+                // We use a fake funciton signature `fn()` because we just
+                // want to get the function address.
+                let func: Symbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
                 let raw = *func.into_raw();
                 // The function pointer is a fat pointer, however this information
                 // is only used when retrieving the trap information which is not yet
-                // implemented in this backend. That's why se set a lengh 0.
+                // implemented in this engine. That's why se set a lengh 0.
                 // TODO: Use the real function length
                 let func_pointer = std::slice::from_raw_parts(raw as *const (), 0);
                 let func_pointer = std::mem::transmute::<_, *mut [VMFunctionBody]>(func_pointer);
