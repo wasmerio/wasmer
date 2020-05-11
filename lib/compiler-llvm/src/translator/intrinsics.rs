@@ -890,7 +890,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
     pub fn table_prepare(
         &mut self,
-        index: TableIndex,
+        table_index: TableIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
@@ -904,74 +904,71 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         let TableCache {
             ptr_to_base_ptr,
             ptr_to_bounds,
-        } = *cached_tables.entry(index).or_insert_with(|| {
-            let (table_array_ptr_ptr, index, field_name) =
-                if let Some(local_table_index) = wasm_module.local_table_index(index) {
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_tables_begin()),
-                                    "table_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        local_table_index.index() as u64,
-                        "context_field_ptr_to_local_table",
-                    )
+        } = *cached_tables.entry(table_index).or_insert_with(|| {
+            let (ptr_to_base_ptr, ptr_to_bounds) =
+                if let Some(local_table_index) = wasm_module.local_table_index(table_index) {
+                    let offset = intrinsics.i64_ty.const_int(
+                        offsets
+                            .vmctx_vmtable_definition_base(local_table_index)
+                            .into(),
+                        false,
+                    );
+                    let ptr_to_base_ptr =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let ptr_to_base_ptr = cache_builder
+                        .build_bitcast(
+                            ptr_to_base_ptr,
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
+                        .into_pointer_value();
+                    let offset = intrinsics.i64_ty.const_int(
+                        offsets
+                            .vmctx_vmtable_definition_current_elements(local_table_index)
+                            .into(),
+                        false,
+                    );
+                    let ptr_to_bounds =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    (ptr_to_base_ptr, ptr_to_bounds)
                 } else {
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_imported_tables_begin()),
-                                    "table_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        index.index() as u64,
-                        "context_field_ptr_to_import_table",
-                    )
+                    let offset = intrinsics.i64_ty.const_int(
+                        offsets.vmctx_vmtable_import_definition(table_index).into(),
+                        false,
+                    );
+                    let definition_ptr_ptr =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let definition_ptr_ptr = cache_builder
+                        .build_bitcast(
+                            definition_ptr_ptr,
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
+                        .into_pointer_value();
+                    let definition_ptr = cache_builder
+                        .build_load(definition_ptr_ptr, "")
+                        .into_pointer_value();
+                    // TODO: TBAA label
+
+                    let offset = intrinsics
+                        .i64_ty
+                        .const_int(offsets.vmtable_definition_base().into(), false);
+                    let ptr_to_base_ptr =
+                        unsafe { cache_builder.build_gep(definition_ptr, &[offset], "") };
+                    let ptr_to_base_ptr = cache_builder
+                        .build_bitcast(
+                            ptr_to_base_ptr,
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
+                        .into_pointer_value();
+                    let offset = intrinsics
+                        .i64_ty
+                        .const_int(offsets.vmtable_definition_current_elements().into(), false);
+                    let ptr_to_bounds =
+                        unsafe { cache_builder.build_gep(definition_ptr, &[offset], "") };
+                    (ptr_to_base_ptr, ptr_to_bounds)
                 };
-
-            let table_array_ptr = cache_builder
-                .build_load(table_array_ptr_ptr, "table_array_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                field_name,
-                table_array_ptr.as_instruction_value().unwrap(),
-                None,
-            );
-            let const_index = intrinsics.i32_ty.const_int(index, false);
-            let table_ptr_ptr = unsafe {
-                cache_builder.build_in_bounds_gep(table_array_ptr, &[const_index], "table_ptr_ptr")
-            };
-            let table_ptr = cache_builder
-                .build_load(table_ptr_ptr, "table_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                "table_ptr",
-                table_array_ptr.as_instruction_value().unwrap(),
-                Some(index as u32),
-            );
-
-            let (ptr_to_base_ptr, ptr_to_bounds) = unsafe {
-                (
-                    cache_builder
-                        .build_struct_gep(table_ptr, 0, "base_ptr")
-                        .unwrap(),
-                    cache_builder
-                        .build_struct_gep(table_ptr, 1, "bounds_ptr")
-                        .unwrap(),
-                )
-            };
-
             TableCache {
                 ptr_to_base_ptr,
                 ptr_to_bounds,
