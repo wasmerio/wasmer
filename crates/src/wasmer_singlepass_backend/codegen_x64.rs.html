@@ -10935,6 +10935,20 @@
 <span id="10935">10935</span>
 <span id="10936">10936</span>
 <span id="10937">10937</span>
+<span id="10938">10938</span>
+<span id="10939">10939</span>
+<span id="10940">10940</span>
+<span id="10941">10941</span>
+<span id="10942">10942</span>
+<span id="10943">10943</span>
+<span id="10944">10944</span>
+<span id="10945">10945</span>
+<span id="10946">10946</span>
+<span id="10947">10947</span>
+<span id="10948">10948</span>
+<span id="10949">10949</span>
+<span id="10950">10950</span>
+<span id="10951">10951</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">forget_copy</span>)]</span> <span class="comment">// Used by dynasm.</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">unused_imports</span>)]</span>
@@ -14981,6 +14995,7 @@
                     <span class="bool-val">false</span>,
                 )[<span class="number">0</span>];
                 <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">push</span>(<span class="ident">ret</span>);
+
                 <span class="self">Self</span>::<span class="ident">emit_relaxed_binop</span>(
                     <span class="ident">a</span>,
                     <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">machine</span>,
@@ -14989,6 +15004,19 @@
                     <span class="ident">loc</span>,
                     <span class="ident">ret</span>,
                 );
+
+                <span class="comment">// A 32-bit memory write does not automatically clear the upper 32 bits of a 64-bit word.</span>
+                <span class="comment">// So, we need to explicitly write zero to the upper half here.</span>
+                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">base</span>, <span class="ident">off</span>) <span class="op">=</span> <span class="ident">ret</span> {
+                    <span class="self">Self</span>::<span class="ident">emit_relaxed_binop</span>(
+                        <span class="ident">a</span>,
+                        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">machine</span>,
+                        <span class="ident">Assembler</span>::<span class="ident">emit_mov</span>,
+                        <span class="ident">Size</span>::<span class="ident">S32</span>,
+                        <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="number">0</span>),
+                        <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">base</span>, <span class="ident">off</span> <span class="op">+</span> <span class="number">4</span>),
+                    );
+                }
             }
             <span class="ident">Operator</span>::<span class="ident">I64ExtendI32S</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span>
