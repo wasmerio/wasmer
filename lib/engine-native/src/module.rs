@@ -3,7 +3,7 @@
 
 use crate::engine::{NativeEngine, NativeEngineInner};
 use crate::serialize::ModuleMetadata;
-use faerie::{ArtifactBuilder, Decl, Link, Reloc, SectionKind};
+use faerie::{ArtifactBuilder, ArtifactError, Decl, Link, Reloc, SectionKind};
 use libloading::{Library, Symbol};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -344,7 +344,6 @@ impl NativeModule {
         use std::slice::from_raw_parts;
 
         let mut size = &mut **symbol.deref();
-        // println!("Size {:?}", size.to_vec());
         let mut readable = &size[..];
         let metadata_len = leb128::read::unsigned(&mut readable).map_err(|e| {
             DeserializeError::CorruptedBinary("Can't read metadata size".to_string())

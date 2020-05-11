@@ -35,7 +35,17 @@ impl Compile {
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
         let recommended_extension = match engine_name.as_ref() {
-            "native" => "so",
+            "native" => {
+                // TODO: Match it depending on the `BinaryFormat` instead of the
+                // `OperatingSystem`.
+                let target = self.compiler.get_target()?;
+                match target.triple().operating_system {
+                    OperatingSystem::Darwin
+                    | OperatingSystem::Ios
+                    | OperatingSystem::MacOSX { .. } => "dylib",
+                    _ => "so",
+                }
+            }
             "jit" => "wjit",
             _ => "?",
         };

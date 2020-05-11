@@ -101,23 +101,35 @@ impl StoreOptions {
         }
     }
 
+    /// Get the Target architecture
+    pub fn get_features(&self) -> Result<Features> {
+        Ok(Features::default())
+    }
+
+    /// Get the Target architecture
+    pub fn get_target(&self) -> Result<Target> {
+        Ok(Target::default())
+    }
+
     /// Get the Compiler Config for the current options
     #[allow(unused_variables)]
     fn get_config(&self, compiler: Compiler) -> Result<Box<dyn CompilerConfig>> {
+        let features = self.get_features()?;
+        let target = self.get_target()?;
         let config: Box<dyn CompilerConfig> = match compiler {
             #[cfg(feature = "singlepass")]
             Compiler::Singlepass => {
-                let config = wasmer_compiler_singlepass::SinglepassConfig::default();
+                let config = wasmer_compiler_singlepass::SinglepassConfig::new(features, target);
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
             Compiler::Cranelift => {
-                let config = wasmer_compiler_cranelift::CraneliftConfig::default();
+                let config = wasmer_compiler_cranelift::CraneliftConfig::new(features, target);
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
             Compiler::LLVM => {
-                let config = wasmer_compiler_llvm::LLVMConfig::default();
+                let config = wasmer_compiler_llvm::LLVMConfig::new(features, target);
                 Box::new(config)
             }
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
