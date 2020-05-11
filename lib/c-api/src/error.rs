@@ -1,12 +1,11 @@
 //! Read runtime errors.
 
 use libc::{c_char, c_int};
-use std::{
-    cell::RefCell,
-    error::Error,
-    fmt::{self, Display, Formatter},
-    ptr, slice,
-};
+use std::cell::RefCell;
+use std::error::Error;
+use std::fmt::{self, Display, Formatter};
+use std::ptr::{self, NonNull};
+use std::slice;
 
 thread_local! {
     static LAST_ERROR: RefCell<Option<Box<dyn Error>>> = RefCell::new(None);
@@ -66,11 +65,16 @@ pub extern "C" fn wasmer_last_error_length() -> c_int {
 /// }
 /// ```
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: c_int) -> c_int {
-    if buffer.is_null() {
+pub unsafe extern "C" fn wasmer_last_error_message(
+    buffer: Option<NonNull<c_char>>,
+    length: c_int,
+) -> c_int {
+    let buffer = if let Some(buffer_inner) = buffer {
+        buffer_inner
+    } else {
         // buffer pointer is null
         return -1;
-    }
+    };
 
     let error_message = match take_last_error() {
         Some(err) => err.to_string(),
@@ -84,7 +88,7 @@ pub unsafe extern "C" fn wasmer_last_error_message(buffer: *mut c_char, length: 
         return -1;
     }
 
-    let buffer = slice::from_raw_parts_mut(buffer as *mut u8, length);
+    let buffer = slice::from_raw_parts_mut(buffer.cast::<u8>().as_ptr(), length);
 
     ptr::copy_nonoverlapping(
         error_message.as_ptr(),
