@@ -34,11 +34,11 @@ impl Compile {
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
+        let target = self.compiler.get_target()?;
         let recommended_extension = match engine_name.as_ref() {
             "native" => {
                 // TODO: Match it depending on the `BinaryFormat` instead of the
                 // `OperatingSystem`.
-                let target = self.compiler.get_target()?;
                 match target.triple().operating_system {
                     OperatingSystem::Darwin
                     | OperatingSystem::Ios
@@ -50,14 +50,18 @@ impl Compile {
             _ => "?",
         };
         match self.output.extension() {
-            Some(_ext) => {},
+            Some(ext) => {
+                if ext != recommended_extension {
+                    warning!("the output file has a wrong extension. We recommend using `{}.{}` for the chosen target", &output_filename, &recommended_extension)
+                }
+            },
             None => {
-                warning!("the output file has no extension. We recommend using `{}.{}` for the chosen compiled target", &output_filename, &recommended_extension)
+                warning!("the output file has no extension. We recommend using `{}.{}` for the chosen target", &output_filename, &recommended_extension)
             }
         }
         println!("Engine: {}", engine_name);
         println!("Compiler: {}", compiler_name);
-        println!("Target: {}", "CURRENT HOST");
+        println!("Target: {}", target.triple());
         let module = Module::from_file(&store, &self.path)?;
         let serialized = module.serialize()?;
         fs::write(&self.output, serialized)?;
