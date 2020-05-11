@@ -209,7 +209,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_get(
     instance: Option<NonNull<wasmer_instance_t>>,
-) -> Option<NonNull<wasmer_instance_context_t>> {
+) -> Option<&'static wasmer_instance_context_t> {
     unimplemented!("wasmer_instance_context_get: API changed")
     /*
     let instance = instance?.as_ref();
@@ -553,8 +553,8 @@ pub extern "C" fn wasmer_instance_context_data_get(
 /// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_instance_destroy(instance: Option<NonNull<wasmer_instance_t>>) {
+pub unsafe extern "C" fn wasmer_instance_destroy(instance: Option<NonNull<wasmer_instance_t>>) {
     if let Some(instance_inner) = instance {
-        unsafe { Box::from_raw(instance_inner.cast::<Instance>().as_ptr()) };
+        Box::from_raw(instance_inner.cast::<Instance>().as_ptr());
     }
 }
