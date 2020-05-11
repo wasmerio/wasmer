@@ -5,6 +5,7 @@ authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 publish = true
 description = "The high-level public API of the Wasmer WebAssembly runtime"
+readme = "README.md"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -20,6 +21,7 @@ optional = true
 
 [dependencies.wasmer-llvm-backend]
 path = "../llvm-backend"
+version = "0.17.0"
 optional = true
 
 [dependencies.wasmer-clif-backend]

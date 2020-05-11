@@ -1,6 +1,7 @@
 [package]
 name = "wasmer-llvm-backend"
 version = "0.16.2"
+description = "Wasmer runtime LLVM compiler backend"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
