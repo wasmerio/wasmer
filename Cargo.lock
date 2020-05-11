@@ -2871,7 +2871,7 @@ version = "0.17.0"
 dependencies = [
  "nom",
  "serde",
- "wast 8.0.0",
+ "wast",
 ]
 
 [[package]]
@@ -3022,7 +3022,7 @@ dependencies = [
  "anyhow",
  "thiserror",
  "wasmer",
- "wast 9.0.0",
+ "wast",
 ]
 
 [[package]]
@@ -3040,15 +3040,6 @@ name = "wasmparser"
 version = "0.51.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aeb1956b19469d1c5e63e459d29e7b5aa0f558d9f16fcef09736f8a265e6c10a"
-
-[[package]]
-name = "wast"
-version = "8.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f9df3d716118a503b2f6bbb6ff46b21997ab0cc167b01de7a188e45e4b01e8d"
-dependencies = [
- "leb128",
-]
 
 [[package]]
 name = "wast"
