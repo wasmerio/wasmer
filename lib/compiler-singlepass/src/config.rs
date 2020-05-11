@@ -41,7 +41,7 @@ impl CompilerConfig for SinglepassConfig {
     }
 
     /// Transform it into the compiler
-    fn compiler(&self) -> Box<dyn Compiler> {
+    fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(SinglepassCompiler::new(&self))
     }
 }
