@@ -1,4 +1,4 @@
-;; https://github.com/wasmerio/wasmer/pull/1436
+;; https://github.com/wasmerio/wasmer/issues/1429
 ;;
 ;; When doing an I64ExtendI32U or other integer extension operations, the
 ;; upper bits in the underlying storage must be cleared.
