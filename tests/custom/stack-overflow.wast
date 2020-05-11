@@ -7,4 +7,4 @@
       (export "stack-overflow" (func 0))
       (elem (;0;) (i32.const 0) 0))
 
-(assert_exhaustion (invoke "stack-overflow"))
+(assert_exhaustion (invoke "stack-overflow") "stack overflow")

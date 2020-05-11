@@ -64,8 +64,12 @@ fn main() -> anyhow::Result<()> {
     };
     let backends = vec!["singlepass", "cranelift", "llvm"];
     with_backends(&mut spectests, &backends, |mut spectests| {
-        with_test_module(&mut spectests, "spec", |spectests| {
+        with_test_module(&mut spectests, "spec", |mut spectests| {
             let _spec_tests = test_directory(spectests, "tests/spectests", wast_processor)?;
+            with_test_module(&mut spectests, "custom", |spectests| {
+                let _spec_tests = test_directory(spectests, "tests/custom", wast_processor)?;
+                Ok(())
+            })?;
             Ok(())
         })?;
         Ok(())
