@@ -1,6 +1,7 @@
 //! Create, grow, destroy tables of an instance.
 
 use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
+use std::ptr::NonNull;
 use wasmer::{AnyRef, Table, TableType, Val, ValType};
 
 #[repr(C)]
@@ -15,8 +16,8 @@ fn get_default_table_value(table_type: ValType) -> Val {
         ValType::F32 => Val::F32(0.),
         ValType::F64 => Val::F64(0.),
         ValType::V128 => Val::V128(0),
-        ValType::AnyRef => Val::AnyRef(AnyRef::null()), // todo!("Figure out what the default AnyRef value is"),
-        ValType::FuncRef => Val::AnyRef(AnyRef::null()), //todo!("Figure out what the default FuncRef value is"),
+        ValType::AnyRef => Val::AnyRef(AnyRef::null()),
+        ValType::FuncRef => Val::AnyRef(AnyRef::null()),
     }
 }
 
@@ -65,8 +66,11 @@ pub unsafe extern "C" fn wasmer_table_new(
 /// and `wasmer_last_error_message` to get an error message.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_table_grow(table: *mut wasmer_table_t, delta: u32) -> wasmer_result_t {
-    let table = unsafe { &*(table as *mut Table) };
+pub unsafe extern "C" fn wasmer_table_grow(
+    table: *mut wasmer_table_t,
+    delta: u32,
+) -> wasmer_result_t {
+    let table = &*(table as *mut Table);
     let table_type = table.ty().ty;
     let table_default_value = get_default_table_value(table_type);
     let delta_result = table.grow(delta, table_default_value);
@@ -82,16 +86,16 @@ pub extern "C" fn wasmer_table_grow(table: *mut wasmer_table_t, delta: u32) -> w
 /// Returns the current length of the given Table
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> u32 {
-    let table = unsafe { &*(table as *mut Table) };
+pub unsafe extern "C" fn wasmer_table_length(table: *mut wasmer_table_t) -> u32 {
+    let table = &*(table as *mut Table);
     table.size()
 }
 
 /// Frees memory for the given Table
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_table_destroy(table: *mut wasmer_table_t) {
-    if !table.is_null() {
-        unsafe { Box::from_raw(table as *mut Table) };
+pub unsafe extern "C" fn wasmer_table_destroy(table: Option<NonNull<wasmer_table_t>>) {
+    if let Some(table_inner) = table {
+        Box::from_raw(table_inner.cast::<Table>().as_ptr());
     }
 }

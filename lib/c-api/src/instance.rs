@@ -11,7 +11,7 @@ use crate::{
 use libc::{c_char, c_int, c_void};
 use std::collections::HashMap;
 use std::ffi::CStr;
-use std::ptr;
+use std::ptr::NonNull;
 use std::slice;
 use wasmer::{
     Exports, Extern, Function, Global, ImportObject, Instance, Memory, Module, Table, Val,
@@ -99,17 +99,19 @@ pub struct wasmer_instance_context_t;
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instantiate(
     instance: *mut *mut wasmer_instance_t,
-    wasm_bytes: *mut u8,
+    wasm_bytes: Option<NonNull<u8>>,
     wasm_bytes_len: u32,
     imports: *mut wasmer_import_t,
     imports_len: c_int,
 ) -> wasmer_result_t {
-    if wasm_bytes.is_null() {
+    let wasm_bytes = if let Some(wasm_bytes_inner) = wasm_bytes {
+        wasm_bytes_inner
+    } else {
         update_last_error(CApiError {
             msg: "wasm bytes ptr is null".to_string(),
         });
         return wasmer_result_t::WASMER_ERROR;
-    }
+    };
     let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
@@ -166,7 +168,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
         import_object.register(module_name, namespace);
     }
 
-    let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
+    let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes.as_ptr(), wasm_bytes_len as usize);
     let store = crate::get_global_store();
 
     let module_result = Module::from_binary(store, bytes);
@@ -206,15 +208,11 @@ pub unsafe extern "C" fn wasmer_instantiate(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_instance_context_get(
-    instance: *mut wasmer_instance_t,
-) -> *const wasmer_instance_context_t {
-    if instance.is_null() {
-        return ptr::null() as _;
-    }
-
+    instance: Option<NonNull<wasmer_instance_t>>,
+) -> Option<NonNull<wasmer_instance_context_t>> {
     unimplemented!("wasmer_instance_context_get: API changed")
     /*
-    let instance = unsafe { &*(instance as *const Instance) };
+    let instance = instance?.as_ref();
     let context: *const Ctx = instance.context() as *const _;
 
     context as *const wasmer_instance_context_t
@@ -403,20 +401,24 @@ pub unsafe extern "C" fn wasmer_instance_call(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_instance_exports(
-    instance: *mut wasmer_instance_t,
+    instance: Option<NonNull<wasmer_instance_t>>,
     exports: *mut *mut wasmer_exports_t,
 ) {
-    if instance.is_null() {
+    let instance = if let Some(instance) = instance {
+        instance.cast::<Instance>()
+    } else {
         return;
-    }
+    };
 
-    let instance_ref = &mut *(instance as *mut Instance);
-    let mut exports_vec: Vec<NamedExport> = instance_ref
+    let mut instance_ref_copy = instance.clone();
+    let instance_ref = instance_ref_copy.as_mut();
+
+    let exports_vec: Vec<NamedExport> = instance_ref
         .module()
         .exports()
         .map(|export_type| NamedExport {
             export_type,
-            instance: instance as *mut Instance,
+            instance,
         })
         .collect();
 
@@ -551,8 +553,8 @@ pub extern "C" fn wasmer_instance_context_data_get(
 /// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_instance_destroy(instance: *mut wasmer_instance_t) {
-    if !instance.is_null() {
-        unsafe { Box::from_raw(instance as *mut Instance) };
+pub extern "C" fn wasmer_instance_destroy(instance: Option<NonNull<wasmer_instance_t>>) {
+    if let Some(instance_inner) = instance {
+        unsafe { Box::from_raw(instance_inner.cast::<Instance>().as_ptr()) };
     }
 }

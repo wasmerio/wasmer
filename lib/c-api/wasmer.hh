@@ -751,7 +751,7 @@ void wasmer_instance_context_data_set(wasmer_instance_t *instance,
 /// ```
 ///
 /// It is often useful with `wasmer_instance_context_data_set()`.
-const wasmer_instance_context_t *wasmer_instance_context_get(wasmer_instance_t *instance);
+wasmer_instance_context_t *wasmer_instance_context_get(wasmer_instance_t *instance);
 
 /// Gets the `memory_idx`th memory of the instance.
 ///
