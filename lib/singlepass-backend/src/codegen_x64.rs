@@ -4052,6 +4052,9 @@ impl FunctionCodeGenerator<CodegenError> for X64FunctionCode {
                     loc,
                     ret,
                 );
+
+                // A 32-bit memory write does not automatically clear the upper 32 bits of a 64-bit word.
+                // So, we need to explicitly write zero to the upper half here.
                 if let Location::Memory(base, off) = ret {
                     Self::emit_relaxed_binop(
                         a,
