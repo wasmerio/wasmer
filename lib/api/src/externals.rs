@@ -361,8 +361,8 @@ impl Memory {
         }
     }
 
-    fn definition(&self) -> &VMMemoryDefinition {
-        unsafe { &*self.exported.definition }
+    fn definition(&self) -> VMMemoryDefinition {
+        self.memory().vmmemory()
     }
 
     pub fn ty(&self) -> &MemoryType {
@@ -391,7 +391,7 @@ impl Memory {
     }
 
     pub fn size(&self) -> Pages {
-        Bytes(self.data_size()).into()
+        self.memory().size()
     }
 
     fn memory(&self) -> &LinearMemory {
