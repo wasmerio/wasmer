@@ -2425,7 +2425,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 };
 
                 // Load things from the anyfunc data structure.
-                let (func_ptr, ctx_ptr, found_dynamic_sigindex) = unsafe {
+                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = unsafe {
                     (
                         builder
                             .build_load(
@@ -2435,20 +2435,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                                 "func_ptr",
                             )
                             .into_pointer_value(),
-                        builder.build_load(
-                            builder
-                                .build_struct_gep(anyfunc_struct_ptr, 1, "ctx_ptr_ptr")
-                                .unwrap(),
-                            "ctx_ptr",
-                        ),
                         builder
                             .build_load(
                                 builder
-                                    .build_struct_gep(anyfunc_struct_ptr, 2, "sigindex_ptr")
+                                    .build_struct_gep(anyfunc_struct_ptr, 1, "sigindex_ptr")
                                     .unwrap(),
                                 "sigindex",
                             )
                             .into_int_value(),
+                        builder.build_load(
+                            builder
+                                .build_struct_gep(anyfunc_struct_ptr, 2, "ctx_ptr_ptr")
+                                .unwrap(),
+                            "ctx_ptr",
+                        ),
                     )
                 };
 
