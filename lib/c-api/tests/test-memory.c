@@ -40,7 +40,7 @@ int main()
     char *error_str = malloc(error_len);
     wasmer_last_error_message(error_str, error_len);
     printf("Error str: `%s`\n", error_str);
-    assert(0 == strcmp(error_str, "Failed to add pages because would exceed maximum number of pages for the memory. Left: 22, Added: 15"));
+    assert(0 == strcmp(error_str, "Memory could not grow 10 more pages (12 pages currently) without exceeding the maximum of 15 pages"));
     free(error_str);
 
     wasmer_memory_t *bad_memory = NULL;
@@ -58,7 +58,7 @@ int main()
     char *error_str2 = malloc(error_len2);
     wasmer_last_error_message(error_str2, error_len2);
     printf("Error str 2: `%s`\n", error_str2);
-    assert(0 == strcmp(error_str2, "Unable to create because the supplied descriptor is invalid: \"Max number of memory pages is less than the minimum number of pages\""));
+    assert(0 == strcmp(error_str2, "The given memory plan was invalid because the maximum allowed memory (10 pages) is less than the minimum required memory (15 pages)"));
     free(error_str2);
 
     printf("Destroy memory\n");

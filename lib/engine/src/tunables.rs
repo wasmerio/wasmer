@@ -4,6 +4,7 @@ use wasm_common::{
     GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
     TableIndex, TableType,
 };
+use wasmer_runtime::MemoryError;
 use wasmer_runtime::{LinearMemory, Module, Table, VMGlobalDefinition};
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
@@ -16,7 +17,7 @@ pub trait Tunables {
     fn table_plan(&self, table: TableType) -> TablePlan;
 
     /// Create a memory given a memory type
-    fn create_memory(&self, memory_type: MemoryPlan) -> Result<LinearMemory, String>;
+    fn create_memory(&self, memory_type: MemoryPlan) -> Result<LinearMemory, MemoryError>;
 
     /// Create a memory given a memory type
     fn create_table(&self, table_type: TablePlan) -> Result<Table, String>;
@@ -32,7 +33,11 @@ pub trait Tunables {
             PrimaryMap::with_capacity(module.memories.len() - num_imports);
         for index in num_imports..module.memories.len() {
             let plan = memory_plans[MemoryIndex::new(index)].clone();
-            memories.push(self.create_memory(plan).map_err(LinkError::Resource)?);
+            memories.push(
+                self.create_memory(plan).map_err(|e| {
+                    LinkError::Resource(format!("Failed to create memories: {}", e))
+                })?,
+            );
         }
         Ok(memories)
     }

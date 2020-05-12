@@ -11,8 +11,8 @@ use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, 
 use wasmer_engine::Engine as _;
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
-    LinearMemory, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
-    VMGlobalDefinition, VMMemoryDefinition, VMTrampoline,
+    LinearMemory, MemoryError, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext,
+    VMFunctionBody, VMGlobalDefinition, VMMemoryDefinition, VMTrampoline,
 };
 
 #[derive(Clone)]
@@ -344,21 +344,21 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub fn new(store: &Store, ty: MemoryType) -> Memory {
+    pub fn new(store: &Store, ty: MemoryType) -> Result<Memory, MemoryError> {
         let tunables = store.engine().tunables();
         let memory_plan = tunables.memory_plan(ty);
-        let memory = tunables.create_memory(memory_plan).unwrap();
+        let memory = tunables.create_memory(memory_plan)?;
 
         let definition = memory.vmmemory();
 
-        Memory {
+        Ok(Memory {
             store: store.clone(),
             owned_by_store: true,
             exported: ExportMemory {
                 from: Box::leak(Box::new(memory)),
                 definition: Box::leak(Box::new(definition)),
             },
-        }
+        })
     }
 
     fn definition(&self) -> VMMemoryDefinition {
@@ -398,7 +398,7 @@ impl Memory {
         unsafe { &*self.exported.from }
     }
 
-    pub fn grow(&self, delta: Pages) -> Option<Pages> {
+    pub fn grow(&self, delta: Pages) -> Result<Pages, MemoryError> {
         self.memory().grow(delta)
     }
 
