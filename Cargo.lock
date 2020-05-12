@@ -1600,6 +1600,7 @@ version = "0.16.2"
 dependencies = [
  "anyhow",
  "atty",
+ "blake3",
  "bytesize",
  "colored",
  "distance",
