@@ -303,12 +303,14 @@ impl FuncTranslator {
             .unwrap();
 
         // TODO: remove debugging.
+        /*
         let mem_buf_slice = memory_buffer.as_slice();
         let mut file = fs::File::create(format!("/home/nicholas/code{}.o", func_name)).unwrap();
         let mut pos = 0;
         while pos < mem_buf_slice.len() {
             pos += file.write(&mem_buf_slice[pos..]).unwrap();
         }
+        */
 
         let mem_buf_slice = memory_buffer.as_slice();
         let object = goblin::Object::parse(&mem_buf_slice).unwrap();
