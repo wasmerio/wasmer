@@ -14,6 +14,7 @@ use wasmer_runtime::{MemoryPlan, TablePlan};
 pub struct ModuleMetadata {
     pub features: Features,
     pub module: Arc<Module>,
+    pub prefix: String,
     pub data_initializers: Box<[OwnedDataInitializer]>,
     // The function body lengths (used for reverse-locate traps in the function)
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,

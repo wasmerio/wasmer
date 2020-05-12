@@ -121,6 +121,7 @@ impl NativeModule {
         let metadata = ModuleMetadata {
             features: compiler.features().clone(),
             module: Arc::new(translation.module),
+            prefix: engine_inner.get_prefix(&data),
             data_initializers,
             function_body_lengths,
             memory_plans,
@@ -136,7 +137,6 @@ impl NativeModule {
         let mut writable = &mut metadata_length[..];
         leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
             .expect("Should write number");
-        // println!("metadata length {:?} {}", metadata_length, serialized_data.len());
         metadata_length.extend(serialized_data);
         obj.define("WASMER_METADATA", metadata_length)
             .map_err(to_compile_error)?;
@@ -159,17 +159,20 @@ impl NativeModule {
         for libcall in libcalls.into_iter() {
             obj.declare(libcall, Decl::function_import())
                 .map_err(to_compile_error)?;
+            obj.declare(&format!("_{}", libcall), Decl::function_import())
+                .map_err(to_compile_error)?;
         }
 
         // Declare imported functions
-        for i in 0..metadata.module.num_imported_funcs {
-            let imported_function_name = format!("wasmer_imported_function_{}", i);
-            obj.declare(imported_function_name, Decl::function_import())
-                .map_err(to_compile_error)?;
-        }
+        // for i in 0..metadata.module.num_imported_funcs {
+        //     let imported_function_name = format!("wasmer_imported_function_{}", i);
+        //     obj.declare(imported_function_name, Decl::function_import())
+        //         .map_err(to_compile_error)?;
+        // }
+
         // Add functions
         for (function_local_index, function) in function_bodies.iter() {
-            let function_name = format!("wasmer_function_{}", function_local_index.index());
+            let function_name = Self::get_function_name(&metadata, function_local_index);
             obj.declare(&function_name, Decl::function().global())
                 .map_err(to_compile_error)?;
             obj.define(&function_name, function.body.clone())
@@ -178,7 +181,7 @@ impl NativeModule {
 
         // Add trampolines
         for (signature_index, function) in trampolines.iter() {
-            let function_name = format!("wasmer_trampoline_{}", signature_index.index());
+            let function_name = Self::get_trampoline_name(&metadata, signature_index);
             obj.declare(&function_name, Decl::function().global())
                 .map_err(to_compile_error)?;
             obj.define(&function_name, function.body.clone())
@@ -187,12 +190,12 @@ impl NativeModule {
 
         // Add function relocations
         for (function_local_index, function_relocs) in function_relocations.into_iter() {
-            let function_name = format!("wasmer_function_{}", function_local_index.index());
+            let function_name = Self::get_function_name(&metadata, function_local_index);
             for r in function_relocs {
                 // assert_eq!(r.addend, 0);
                 match r.reloc_target {
                     RelocationTarget::LocalFunc(index) => {
-                        let target_name = format!("wasmer_function_{}", index.index());
+                        let target_name = Self::get_function_name(&metadata, index);
                         // println!("DOING RELOCATION offset: {} addend: {}", r.offset, r.addend);
                         obj.link(Link {
                             from: &function_name,
@@ -264,6 +267,14 @@ impl NativeModule {
         Self::from_parts(&mut engine_inner, metadata, shared_filepath, lib)
     }
 
+    fn get_function_name(metadata: &ModuleMetadata, index: LocalFunctionIndex) -> String {
+        format!("wasmer_function_{}_{}", metadata.prefix, index.index())
+    }
+
+    fn get_trampoline_name(metadata: &ModuleMetadata, index: SignatureIndex) -> String {
+        format!("wasmer_trampoline_{}_{}", metadata.prefix, index.index())
+    }
+
     /// Construct a `NativeModule` from component parts.
     pub fn from_parts(
         engine_inner: &mut NativeEngineInner,
@@ -273,16 +284,8 @@ impl NativeModule {
     ) -> Result<Self, CompileError> {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
             PrimaryMap::new();
-        for ((function_local_index, function_len), function) in
-            metadata.function_body_lengths.iter().zip(
-                metadata
-                    .module
-                    .functions
-                    .values()
-                    .skip(metadata.module.num_imported_funcs),
-            )
-        {
-            let function_name = format!("wasmer_function_{}", function_local_index.index());
+        for (function_local_index, function_len) in metadata.function_body_lengths.iter() {
+            let function_name = Self::get_function_name(&metadata, function_local_index);
             unsafe {
                 // We use a fake funciton signature `fn()` because we just
                 // want to get the function address.
@@ -312,7 +315,7 @@ impl NativeModule {
         };
 
         for (sig_index, func_type) in metadata.module.signatures.iter() {
-            let function_name = format!("wasmer_trampoline_{}", sig_index.index());
+            let function_name = Self::get_trampoline_name(&metadata, sig_index);
             unsafe {
                 let trampoline: Symbol<VMTrampoline> = lib
                     .get(function_name.as_bytes())

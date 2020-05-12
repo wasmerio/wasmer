@@ -54,6 +54,7 @@ impl NativeEngine {
                 compiler: Some(compiler),
                 trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
+                prefixer: None,
             })),
             tunables: Arc::new(tunables),
         }
@@ -79,9 +80,28 @@ impl NativeEngine {
                 compiler: None,
                 trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
+                prefixer: None,
             })),
             tunables: Arc::new(tunables),
         }
+    }
+
+    /// Sets a prefixer for the wasm module, so we can avoid any collisions
+    /// in the exported function names on the generated shared object.
+    ///
+    /// This, allows us to rather than have functions named `wasmer_function_1`
+    /// to be named `wasmer_function_PREFIX_1`.
+    ///
+    /// # Important
+    ///
+    /// This prefixer function should be deterministic, so the compilation
+    /// remains deterministic.
+    pub fn set_deterministic_prefixer<F>(&mut self, prefixer: F)
+    where
+        F: Fn(&[u8]) -> String + Send + 'static,
+    {
+        let mut inner = self.inner_mut();
+        inner.prefixer = Some(Box::new(prefixer));
     }
 
     pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, NativeEngineInner> {
@@ -222,6 +242,8 @@ pub struct NativeEngineInner {
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
+    /// The prefixer (if any)
+    prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>>,
 }
 
 impl NativeEngineInner {
@@ -235,6 +257,14 @@ impl NativeEngineInner {
             .compiler
             .as_ref()
             .expect("Can't get compiler reference"))
+    }
+
+    pub(crate) fn get_prefix(&self, bytes: &[u8]) -> String {
+        if let Some(prefixer) = &self.prefixer {
+            prefixer(&bytes)
+        } else {
+            "".to_string()
+        }
     }
 
     /// Validate the module
