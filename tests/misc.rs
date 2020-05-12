@@ -26,8 +26,17 @@ fn growing_memory_with_api() {
     let bad_desc = MemoryType::new(Pages(15), Some(Pages(10)), false);
     let bad_result = Memory::new(&store, bad_desc);
 
-    assert!(matches!(
+    // due to stack overflow with a modern nightly, we can't update CI to use a version of nightly which will make this work
+    /*assert!(matches!(
         bad_result,
         Err(MemoryError::InvalidMemoryPlan { .. })
-    ));
+    ));*/
+
+    assert!(
+        if let Err(MemoryError::InvalidMemoryPlan { .. }) = bad_result {
+            true
+        } else {
+            false
+        }
+    );
 }
