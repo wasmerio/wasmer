@@ -3,14 +3,11 @@
 
 use crate::engine::{NativeEngine, NativeEngineInner};
 use crate::serialize::ModuleMetadata;
-use faerie::{ArtifactBuilder, ArtifactError, Decl, Link, Reloc, SectionKind};
+use faerie::{ArtifactBuilder, Decl, Link};
 use libloading::{Library, Symbol};
-use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::error::Error;
 use std::ffi::c_void;
-use std::fmt::Debug;
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -371,7 +368,6 @@ impl NativeModule {
         })?;
         use std::ops::Deref;
         use std::slice;
-        use std::slice::from_raw_parts;
 
         let mut size = &mut **symbol.deref();
         let mut readable = &size[..];
