@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- [#1439](https://github.com/wasmerio/wasmer/pull/1439) Move `wasmer-interface-types` into its own repository
+
 ## 0.17.0 - 2020-05-11
 
 - [#1401](https://github.com/wasmerio/wasmer/pull/1401) Make breaking change to `RuntimeError`: `RuntimeError` is now more explicit about its possible error values allowing for better insight into why a call into Wasm failed.

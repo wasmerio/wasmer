@@ -60,7 +60,6 @@ members = [
     "lib/kernel-loader",
     "lib/kernel-net",
     "lib/wasi-experimental-io-devices",
-    "lib/interface-types",
     "examples/parallel",
     "examples/plugin-for-example",
     "examples/parallel-guest",
