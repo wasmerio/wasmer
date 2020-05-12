@@ -249,7 +249,6 @@ impl NativeModule {
         let (file, shared_filepath) = shared_file.keep().map_err(to_compile_error)?;
         let output = Command::new("gcc")
             .arg(&filepath)
-            .arg("-Wl,-U,_wasmer_probestack")
             .arg("-o")
             .arg(&shared_filepath)
             .arg("-shared")
