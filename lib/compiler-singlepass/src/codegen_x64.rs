@@ -8044,7 +8044,8 @@ impl<'a> FuncGen<'a> {
         Ok(())
     }
 
-    pub fn finalize(self) -> CompiledFunction {
+    pub fn finalize(mut self) -> CompiledFunction {
+        self.assembler.finalize_function();
         CompiledFunction {
             body: FunctionBody {
                 body: self.assembler.finalize().unwrap().to_vec(),

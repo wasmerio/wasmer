@@ -66,6 +66,8 @@ pub trait Emitter {
     fn get_offset(&self) -> Self::Offset;
     fn get_jmp_instr_size(&self) -> u8;
 
+    fn finalize_function(&mut self) {}
+
     fn emit_u64(&mut self, x: u64);
 
     fn emit_label(&mut self, label: Self::Label);
@@ -640,6 +642,18 @@ impl Emitter for Assembler {
         5
     }
 
+    fn finalize_function(&mut self) {
+        dynasm!(
+            self
+            ; const_neg_one_32:
+            ; .dword -1
+            ; const_zero_32:
+            ; .dword 0
+            ; const_pos_one_32:
+            ; .dword 1
+        );
+    }
+
     fn emit_u64(&mut self, x: u64) {
         self.push_u64(x);
     }
@@ -837,9 +851,28 @@ impl Emitter for Assembler {
         }
     }
     fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) {
-        binop_all_nofp!(cmp, self, sz, left, right, {
-            panic!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
-        });
+        // Constant elimination for comparision between consts.
+        //
+        // Only needed for `emit_cmp`, since other binary operators actually write to `right` and `right` must
+        // be a writable location for them.
+        let consts = match (left, right) {
+            (Location::Imm32(x), Location::Imm32(y)) => Some((x as i32 as i64, y as i32 as i64)),
+            (Location::Imm32(x), Location::Imm64(y)) => Some((x as i32 as i64, y as i64)),
+            (Location::Imm64(x), Location::Imm32(y)) => Some((x as i64, y as i32 as i64)),
+            (Location::Imm64(x), Location::Imm64(y)) => Some((x as i64, y as i64)),
+            _ => None
+        };
+        use std::cmp::Ordering;
+        match consts {
+            Some((x, y)) => match x.cmp(&y) {
+                Ordering::Less => dynasm!(self ; cmp DWORD [>const_neg_one_32], 0),
+                Ordering::Equal => dynasm!(self ; cmp DWORD [>const_zero_32], 0),
+                Ordering::Greater => dynasm!(self ; cmp DWORD [>const_pos_one_32], 0),
+            }
+            None => binop_all_nofp!(cmp, self, sz, left, right, {
+                panic!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
+            })
+        }
     }
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(add, self, sz, src, dst, {
