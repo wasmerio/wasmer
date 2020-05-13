@@ -1087,6 +1087,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let offset = self.vmoffsets.vmctx_vmmemory_import(memory_index);
                 let offset = intrinsics.i32_ty.const_int(offset.into(), false);
                 let memory_definition_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
+                let memory_definition_ptr_ptr = builder
+                    .build_bitcast(
+                        memory_definition_ptr_ptr,
+                        intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                        "",
+                    )
+                    .into_pointer_value();
                 builder
                     .build_load(memory_definition_ptr_ptr, "")
                     .into_pointer_value()
@@ -2166,7 +2173,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         let global_ptr_ptr = builder
                             .build_bitcast(global_ptr_ptr, intrinsics.i8_ptr_ty, "")
                             .into_pointer_value();
-                        builder.build_load(global_ptr_ptr, "").into_pointer_value()
+                        let global_ptr = builder.build_load(global_ptr_ptr, "");
+                        builder
+                            .build_bitcast(global_ptr, intrinsics.i8_ptr_ty, "")
+                            .into_pointer_value()
                     };
                 let global_ptr = builder
                     .build_bitcast(
