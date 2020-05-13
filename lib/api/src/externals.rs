@@ -7,8 +7,7 @@ use crate::RuntimeError;
 use crate::{ExternType, FunctionType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
 use std::slice;
-use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
-use wasmer_engine::Engine as _;
+use wasm_common::{HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
     LinearMemory, MemoryError, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext,
@@ -377,6 +376,9 @@ impl Memory {
         self.data_unchecked_mut()
     }
 
+    /// TODO: document this function, it's trivial to cause UB/break soundness with this
+    /// method.
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
         let definition = self.definition();
         slice::from_raw_parts_mut(definition.base, definition.current_length)

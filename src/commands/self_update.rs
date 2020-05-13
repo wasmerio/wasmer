@@ -1,5 +1,5 @@
 //! When wasmer self-update is executed, this is what gets executed
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 #[cfg(not(target_os = "windows"))]
 use std::process::{Command, Stdio};
 use structopt::StructOpt;

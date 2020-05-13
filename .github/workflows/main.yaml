@@ -2,19 +2,37 @@ on: [push]
 
 name: build
 
+env:
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects -D mutable-borrow-reservation-conflict" # TODO: add `-D missing-docs`
+
+
 jobs:
   lint:
     name: Code lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install Rust nightly
+      - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2019-12-19
+          toolchain: 1.42.0
+          override: true
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy_lint:
+    name: Clippy lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.42.0
           override: true
           components: rustfmt, clippy
-      - run: cargo fmt --all -- --check
+      - run: cargo clippy # --workspace # --workspace commented out until LLVM gets set up in CI
 
   test:
     name: Test in ${{ matrix.build }}
@@ -41,8 +59,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - run: cargo test --release
-        env:
-          RUST_BACKTRACE: 1
       - name: Build and Test C API
         run: |
           make capi
@@ -51,5 +67,3 @@ jobs:
       - name: Build C API on Windows
         run: make capi
         if: matrix.os == 'windows-latest'
-        env:
-          RUST_BACKTRACE: 1

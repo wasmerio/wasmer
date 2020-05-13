@@ -16,6 +16,7 @@ use wasmer_compiler::WasmResult;
 /// The value of a WebAssembly global variable.
 #[derive(Clone, Copy)]
 pub enum GlobalVariable {
+    #[allow(dead_code)]
     /// This is a constant global with a value known at compile time.
     Const(ir::Value),
 
@@ -29,10 +30,12 @@ pub enum GlobalVariable {
         ty: ir::Type,
     },
 
+    #[allow(dead_code)]
     /// This is a global variable that needs to be handled by the environment.
     Custom,
 }
 
+#[allow(dead_code)]
 /// How to return from functions.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ReturnMode {

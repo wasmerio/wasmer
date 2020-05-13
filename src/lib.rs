@@ -13,6 +13,9 @@
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
+#[macro_use]
+extern crate anyhow;
+
 pub mod commands;
 pub mod common;
 #[macro_use]

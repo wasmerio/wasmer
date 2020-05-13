@@ -1,8 +1,8 @@
 use crate::error::LinkError;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
-    TableIndex, TableType,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, TableIndex,
+    TableType,
 };
 use wasmer_runtime::MemoryError;
 use wasmer_runtime::{LinearMemory, Module, Table, VMGlobalDefinition};

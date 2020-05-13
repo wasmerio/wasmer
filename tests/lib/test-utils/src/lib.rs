@@ -10,7 +10,7 @@ pub fn get_compiler_config_from_str(
     try_nan_canonicalization: bool,
     features: Features,
 ) -> Box<dyn CompilerConfig> {
-    /// We use the current host target for testing locally
+    // We use the current host target for testing locally
     let target = Target::default();
 
     match compiler_name {

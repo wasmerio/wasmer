@@ -1,5 +1,4 @@
 use crate::vmcontext::{VMFunctionImport, VMGlobalImport, VMMemoryImport, VMTableImport};
-use std::collections::HashSet;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 

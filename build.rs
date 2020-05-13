@@ -13,10 +13,6 @@ use test_generator::{
     with_features, with_test_module, Testsuite,
 };
 
-fn is_truthy_env(name: &str) -> bool {
-    env::var(name).map(|n| n == "1").unwrap_or_default()
-}
-
 fn main() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=tests/ignores.txt");
