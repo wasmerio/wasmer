@@ -34,8 +34,8 @@ use std::collections::HashMap;
 use crate::config::LLVMConfig;
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, Mutability,
-    SignatureIndex, TableIndex, Type,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryType,
+    Mutability, SignatureIndex, TableIndex, Type,
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
@@ -1104,71 +1104,28 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         // Compute the offset over the memory_base.
         let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
-        //let var_offset_i32 = self.state.pop1()?.into_int_value();
         let var_offset = builder.build_int_z_extend(var_offset, intrinsics.i64_ty, "");
         let offset = builder.build_int_add(var_offset, imm_offset, "");
 
-        // TODO: must bounds check here or before this point (if applicable)
         let value_ptr = unsafe { builder.build_gep(base, &[offset], "") };
-        Ok(builder
-            .build_bitcast(value_ptr, ptr_ty, "")
-            .into_pointer_value())
-        /*
-            let memory_cache = ctx.memory(MemoryIndex::from_u32(0), intrinsics, module, &memory_plans);
-            let (mem_base, mem_bound, minimum, _maximum) = match memory_cache {
-                MemoryCache::Dynamic {
-                    ptr_to_base_ptr,
-                    ptr_to_bounds,
-                    minimum,
-                    maximum,
-                } => {
-                    let base = builder
-                        .build_load(ptr_to_base_ptr, "base")
-                        .into_pointer_value();
-                    let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
-                    tbaa_label(
-                        &module,
-                        intrinsics,
-                        "dynamic_memory_base",
-                        base.as_instruction_value().unwrap(),
-                        Some(0),
-                    );
-                    tbaa_label(
-                        &module,
-                        intrinsics,
-                        "dynamic_memory_bounds",
-                        bounds.as_instruction_value().unwrap(),
-                        Some(0),
-                    );
-                    (base, bounds, minimum, maximum)
-                }
-                MemoryCache::Static {
-                    base_ptr,
-                    bounds,
-                    minimum,
-                    maximum,
-                } => (base_ptr, bounds, minimum, maximum),
-            };
-            let mem_base = builder
-                .build_bitcast(mem_base, intrinsics.i8_ptr_ty, &state.var_name())
-                .into_pointer_value();
-
-            // Compute the offset over the memory_base.
-            let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
-            let var_offset_i32 = state.pop1()?.into_int_value();
-            let var_offset =
-                builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
-            let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
-
-            if let MemoryCache::Dynamic { .. } = memory_cache {
+        match memory_plans[memory_index] {
+            MemoryPlan {
+                style: MemoryStyle::Dynamic,
+                offset_guard_size: _,
+                memory:
+                    MemoryType {
+                        minimum,
+                        maximum,
+                        shared: _,
+                    },
+            } => {
                 // If the memory is dynamic, do a bounds check. For static we rely on
                 // the size being a multiple of the page size and hitting a guard page.
                 let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
-                let ptr_in_bounds = if effective_offset.is_const() {
-                    let load_offset_end = effective_offset.const_add(value_size_v);
+                let ptr_in_bounds = if offset.is_const() {
+                    let load_offset_end = offset.const_add(value_size_v);
                     let ptr_in_bounds = load_offset_end.const_int_compare(
                         IntPredicate::ULE,
-                        // TODO: Pages to bytes conversion here
                         intrinsics.i64_ty.const_int(minimum.bytes().0 as u64, false),
                     );
                     if ptr_in_bounds.get_zero_extended_constant() == Some(1) {
@@ -1180,14 +1137,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     None
                 }
                 .unwrap_or_else(|| {
-                    let load_offset_end =
-                        builder.build_int_add(effective_offset, value_size_v, &state.var_name());
+                    let load_offset_end = builder.build_int_add(offset, value_size_v, "");
+
+                    let current_length =
+                        builder.build_load(current_length_ptr, "").into_int_value();
 
                     builder.build_int_compare(
                         IntPredicate::ULE,
                         load_offset_end,
-                        mem_bound,
-                        &state.var_name(),
+                        current_length,
+                        "",
                     )
                 });
                 if !ptr_in_bounds.is_constant_int()
@@ -1214,7 +1173,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                     let in_bounds_continue_block =
                         context.append_basic_block(*function, "in_bounds_continue_block");
-                    let not_in_bounds_block = context.append_basic_block(*function, "not_in_bounds_block");
+                    let not_in_bounds_block =
+                        context.append_basic_block(*function, "not_in_bounds_block");
                     builder.build_conditional_branch(
                         ptr_in_bounds,
                         in_bounds_continue_block,
@@ -1230,12 +1190,19 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     builder.position_at_end(in_bounds_continue_block);
                 }
             }
+            MemoryPlan {
+                style: MemoryStyle::Static { bound: _ },
+                offset_guard_size: _,
+                memory: _,
+            } => {
+                // No bounds checks of any kind! Out of bounds memory accesses
+                // will hit the guard pages.
+            }
+        };
 
-            let ptr = unsafe { builder.build_gep(mem_base, &[effective_offset], &state.var_name()) };
-            Ok(builder
-                .build_bitcast(ptr, ptr_ty, &state.var_name())
-                .into_pointer_value())
-        */
+        Ok(builder
+            .build_bitcast(value_ptr, ptr_ty, "")
+            .into_pointer_value())
     }
 }
 
