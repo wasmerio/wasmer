@@ -1359,10 +1359,12 @@ dependencies = [
 name = "test-utils"
 version = "0.16.2"
 dependencies = [
+ "wasmer",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
+ "wasmer-engine-jit",
 ]
 
 [[package]]

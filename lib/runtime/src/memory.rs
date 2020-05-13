@@ -7,7 +7,34 @@ use crate::module::{MemoryPlan, MemoryStyle};
 use crate::vmcontext::VMMemoryDefinition;
 use more_asserts::{assert_ge, assert_le};
 use std::cell::RefCell;
-use wasm_common::Pages;
+use thiserror::Error;
+use wasm_common::{Bytes, Pages};
+
+/// Error type describing things that can go wrong when operating on Wasm Memories.
+#[derive(Error, Debug, Clone, PartialEq, Hash)]
+pub enum MemoryError {
+    /// Low level error with mmap.
+    #[error("Error when allocating memory: {0}")]
+    Region(String),
+    /// The operation would cause the size of the memory to exceed the maximum or would cause
+    /// an overflow leading to unindexable memory.
+    #[error("The memory could not grow: current size {} pages, requested increase: {} pages", current.0, attempted_delta.0)]
+    CouldNotGrow {
+        /// The current size in pages.
+        current: Pages,
+        /// The attempted amount to grow by in pages.
+        attempted_delta: Pages,
+    },
+    /// The operation would cause the size of the memory size exceed the maximum.
+    #[error("The memory plan is invalid because {}", reason)]
+    InvalidMemoryPlan {
+        /// The reason why the memory plan is invalid.
+        reason: String,
+    },
+    /// A user defined error value, used for error cases not listed above.
+    #[error("A user-defined error occurred: {0}")]
+    Generic(String),
+}
 
 /// A linear memory instance.
 #[derive(Debug)]
@@ -40,12 +67,22 @@ struct WasmMmap {
 
 impl LinearMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
-    pub fn new(plan: &MemoryPlan) -> Result<Self, String> {
+    pub fn new(plan: &MemoryPlan) -> Result<Self, MemoryError> {
         // `maximum` cannot be set to more than `65536` pages.
         assert_le!(plan.memory.minimum, Pages::max_value());
         assert!(
             plan.memory.maximum.is_none() || plan.memory.maximum.unwrap() <= Pages::max_value()
         );
+
+        if plan.memory.maximum.is_some() && plan.memory.maximum.unwrap() < plan.memory.minimum {
+            return Err(MemoryError::InvalidMemoryPlan {
+                reason: format!(
+                    "the maximum ({} pages) is less than the minimum ({} pages)",
+                    plan.memory.maximum.unwrap().0,
+                    plan.memory.minimum.0
+                ),
+            });
+        }
 
         let offset_guard_bytes = plan.offset_guard_size as usize;
 
@@ -71,7 +108,8 @@ impl LinearMemory {
         let mapped_bytes = mapped_pages.bytes();
 
         let mmap = WasmMmap {
-            alloc: Mmap::accessible_reserved(mapped_bytes.0, request_bytes)?,
+            alloc: Mmap::accessible_reserved(mapped_bytes.0, request_bytes)
+                .map_err(MemoryError::Region)?,
             size: plan.memory.minimum,
         };
 
@@ -98,7 +136,7 @@ impl LinearMemory {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
-    pub fn grow<IntoPages>(&self, delta: IntoPages) -> Option<Pages>
+    pub fn grow<IntoPages>(&self, delta: IntoPages) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
@@ -106,20 +144,24 @@ impl LinearMemory {
         let delta: Pages = delta.into();
         let mut mmap = self.mmap.borrow_mut();
         if delta.0 == 0 {
-            return Some(mmap.size);
+            return Ok(mmap.size);
         }
 
-        let new_pages = match mmap.size.checked_add(delta) {
-            Some(new_pages) => new_pages,
-            // Linear memory size overflow.
-            None => return None,
-        };
+        let new_pages = mmap
+            .size
+            .checked_add(delta)
+            .ok_or_else(|| MemoryError::CouldNotGrow {
+                current: mmap.size,
+                attempted_delta: delta,
+            })?;
         let prev_pages = mmap.size;
 
         if let Some(maximum) = self.maximum {
             if new_pages > maximum {
-                // Linear memory size would exceed the declared maximum.
-                return None;
+                return Err(MemoryError::CouldNotGrow {
+                    current: mmap.size,
+                    attempted_delta: delta,
+                });
             }
         }
 
@@ -128,7 +170,10 @@ impl LinearMemory {
         // limit here.
         if new_pages >= Pages::max_value() {
             // Linear memory size would exceed the index range.
-            return None;
+            return Err(MemoryError::CouldNotGrow {
+                current: mmap.size,
+                attempted_delta: delta,
+            });
         }
 
         let delta_bytes = delta.bytes().0;
@@ -139,9 +184,16 @@ impl LinearMemory {
             // If the new size is within the declared maximum, but needs more memory than we
             // have on hand, it's a dynamic heap and it can move.
             let guard_bytes = self.offset_guard_size;
-            let request_bytes = new_bytes.checked_add(guard_bytes)?;
+            let request_bytes =
+                new_bytes
+                    .checked_add(guard_bytes)
+                    .ok_or_else(|| MemoryError::CouldNotGrow {
+                        current: new_pages,
+                        attempted_delta: Bytes(guard_bytes).into(),
+                    })?;
 
-            let mut new_mmap = Mmap::accessible_reserved(new_bytes, request_bytes).ok()?;
+            let mut new_mmap =
+                Mmap::accessible_reserved(new_bytes, request_bytes).map_err(MemoryError::Region)?;
 
             let copy_len = mmap.alloc.len() - self.offset_guard_size;
             new_mmap.as_mut_slice()[..copy_len].copy_from_slice(&mmap.alloc.as_slice()[..copy_len]);
@@ -149,12 +201,14 @@ impl LinearMemory {
             mmap.alloc = new_mmap;
         } else if delta_bytes > 0 {
             // Make the newly allocated pages accessible.
-            mmap.alloc.make_accessible(prev_bytes, delta_bytes).ok()?;
+            mmap.alloc
+                .make_accessible(prev_bytes, delta_bytes)
+                .map_err(MemoryError::Region)?;
         }
 
         mmap.size = new_pages;
 
-        Some(prev_pages)
+        Ok(prev_pages)
     }
 
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.

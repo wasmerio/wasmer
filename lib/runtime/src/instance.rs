@@ -3,7 +3,7 @@
 //! `InstanceHandle` is a reference-counting handle for an `Instance`.
 use crate::export::Export;
 use crate::imports::Imports;
-use crate::memory::LinearMemory;
+use crate::memory::{LinearMemory, MemoryError};
 use crate::table::Table;
 use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
@@ -431,7 +431,7 @@ impl Instance {
         &self,
         memory_index: LocalMemoryIndex,
         delta: IntoPages,
-    ) -> Option<Pages>
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
@@ -459,7 +459,7 @@ impl Instance {
         &self,
         memory_index: MemoryIndex,
         delta: IntoPages,
-    ) -> Option<Pages>
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
@@ -979,7 +979,7 @@ impl InstanceHandle {
         &self,
         memory_index: LocalMemoryIndex,
         delta: IntoPages,
-    ) -> Option<Pages>
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
