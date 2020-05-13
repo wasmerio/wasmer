@@ -165,7 +165,7 @@ impl FuncTranslator {
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty);
-            let value = func.get_nth_param((idx + 1) as u32).unwrap();
+            let value = func.get_nth_param((idx + 2) as u32).unwrap();
             // TODO: don't interleave allocas and stores.
             let alloca = cache_builder.build_alloca(ty, "param");
             cache_builder.build_store(alloca, value);
@@ -2275,17 +2275,55 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let func_name = &self.func_names[func_index];
                 let llvm_func_type = func_type_to_llvm(&self.context, &intrinsics, func_type);
 
-                let func = self.module.get_function(func_name);
-                // TODO: we could do this by comparing function indices instead
-                // of going through LLVM APIs and string comparisons.
-                let func = if func.is_none() {
-                    self.module
-                        .add_function(func_name, llvm_func_type, Some(Linkage::External))
+                let (func, callee_vmctx) = if let Some(local_func_index) =
+                    module.local_func_index(func_index)
+                {
+                    // TODO: we could do this by comparing function indices instead
+                    // of going through LLVM APIs and string comparisons.
+                    let func = self.module.get_function(func_name);
+                    let func = if func.is_none() {
+                        self.module
+                            .add_function(func_name, llvm_func_type, Some(Linkage::External))
+                    } else {
+                        func.unwrap()
+                    };
+                    (func.as_global_value().as_pointer_value(), ctx.basic())
                 } else {
-                    func.unwrap()
+                    let offset = self.vmoffsets.vmctx_vmfunction_import(func_index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                    let vmfunction_import_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
+                    let vmfunction_import_ptr = builder
+                        .build_bitcast(
+                            vmfunction_import_ptr,
+                            intrinsics.vmfunction_import_ptr_ty,
+                            "",
+                        )
+                        .into_pointer_value();
+
+                    let body_ptr_ptr = builder
+                        .build_struct_gep(
+                            vmfunction_import_ptr,
+                            intrinsics.vmfunction_import_body_element,
+                            "",
+                        )
+                        .unwrap();
+                    let body_ptr = builder.build_load(body_ptr_ptr, "");
+                    let body_ptr = builder
+                        .build_bitcast(body_ptr, llvm_func_type.ptr_type(AddressSpace::Generic), "")
+                        .into_pointer_value();
+                    let vmctx_ptr_ptr = builder
+                        .build_struct_gep(
+                            vmfunction_import_ptr,
+                            intrinsics.vmfunction_import_body_element,
+                            "",
+                        )
+                        .unwrap();
+                    let vmctx_ptr = builder.build_load(vmctx_ptr_ptr, "");
+                    (body_ptr, vmctx_ptr)
                 };
 
-                let params: Vec<_> = std::iter::once(ctx.basic())
+                let params: Vec<_> = std::iter::repeat(callee_vmctx)
+                    .take(2)
                     .chain(
                         self.state
                             .peekn_extra(func_type.params().len())?
@@ -2515,7 +2553,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let pushed_args = self.state.popn_save_extra(func_type.params().len())?;
 
-                let args: Vec<_> = std::iter::once(ctx_ptr)
+                let args: Vec<_> = std::iter::repeat(ctx_ptr).take(2)
                     .chain(pushed_args.into_iter().enumerate().map(|(i, (v, info))| {
                         match func_type.params()[i] {
                             Type::F32 => builder.build_bitcast(

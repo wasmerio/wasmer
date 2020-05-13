@@ -169,6 +169,10 @@ pub struct Intrinsics<'ctx> {
 
     pub experimental_stackmap: FunctionValue<'ctx>,
 
+    pub vmfunction_import_ptr_ty: PointerType<'ctx>,
+    pub vmfunction_import_body_element: u32,
+    pub vmfunction_import_vmctx_element: u32,
+
     pub vmmemory_definition_ptr_ty: PointerType<'ctx>,
     pub vmmemory_definition_base_element: u32,
     pub vmmemory_definition_current_length_element: u32,
@@ -576,6 +580,12 @@ impl<'ctx> Intrinsics<'ctx> {
                 void_ty.fn_type(&[i64_ty_basic], false),
                 None,
             ),
+
+            vmfunction_import_ptr_ty: context
+                .struct_type(&[i8_ptr_ty_basic, i8_ptr_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+            vmfunction_import_body_element: 0,
+            vmfunction_import_vmctx_element: 1,
 
             // TODO: this i64 is actually a rust usize
             vmmemory_definition_ptr_ty: context
@@ -1342,7 +1352,8 @@ pub fn func_type_to_llvm<'ctx>(
         .params()
         .iter()
         .map(|&ty| type_to_llvm(intrinsics, ty));
-    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+    let param_types: Vec<_> = std::iter::repeat(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+        .take(2)
         .chain(user_param_types)
         .collect();
 

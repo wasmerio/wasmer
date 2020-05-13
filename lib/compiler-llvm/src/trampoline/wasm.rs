@@ -145,8 +145,9 @@ fn generate_trampoline<'ctx>(
         Type::FuncRef => unimplemented!("funcref unimplemented in trampoline"),
     };
 
-    let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
+    let mut args_vec = Vec::with_capacity(func_sig.params().len() + 2);
     args_vec.push(callee_vmctx_ptr);
+    args_vec.push(caller_vmctx_ptr);
 
     let mut i = 0;
     for param_ty in func_sig.params().iter() {
