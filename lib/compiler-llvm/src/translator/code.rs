@@ -780,13 +780,14 @@ fn trap_if_zero_or_overflow<'ctx>(
         unreachable!()
     };
 
+    let divisor_is_zero = builder.build_int_compare(
+        IntPredicate::EQ,
+        right,
+        int_type.const_int(0, false),
+        "divisor_is_zero",
+    );
     let should_trap = builder.build_or(
-        builder.build_int_compare(
-            IntPredicate::EQ,
-            right,
-            int_type.const_int(0, false),
-            "divisor_is_zero",
-        ),
+        divisor_is_zero,
         builder.build_and(
             builder.build_int_compare(IntPredicate::EQ, left, min_value, "left_is_min"),
             builder.build_int_compare(IntPredicate::EQ, right, neg_one_value, "right_is_neg_one"),
@@ -813,11 +814,13 @@ fn trap_if_zero_or_overflow<'ctx>(
     let should_trap_block = context.append_basic_block(*function, "should_trap_block");
     builder.build_conditional_branch(should_trap, should_trap_block, shouldnt_trap_block);
     builder.position_at_end(should_trap_block);
-    builder.build_call(
-        intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
-        "throw",
+    let trap_code = builder.build_select(
+        divisor_is_zero,
+        intrinsics.trap_integer_division_by_zero,
+        intrinsics.trap_illegal_arithmetic,
+        "",
     );
+    builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
     builder.build_unreachable();
     builder.position_at_end(shouldnt_trap_block);
 }
@@ -857,7 +860,7 @@ fn trap_if_zero<'ctx>(
     builder.position_at_end(should_trap_block);
     builder.build_call(
         intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
+        &[intrinsics.trap_integer_division_by_zero],
         "throw",
     );
     builder.build_unreachable();
