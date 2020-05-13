@@ -21,7 +21,7 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all -- --check
 
-  lint:
+  clippy_lint:
     name: Clippy lint
     runs-on: ubuntu-latest
     steps:
