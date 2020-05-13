@@ -16,7 +16,7 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 lazy_static = "1"
-libc = "0.2.60"
+libc = { version = "0.2.70", default-features = false }
 # for generating code in the same way thot the wasm-c-api does
 # Commented out for now until we can find a solution to the exported function problem
 # wasmer-wasm-c-api = { version = "0.16.2", path = "crates/wasm-c-api" }

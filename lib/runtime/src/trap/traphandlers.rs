@@ -161,18 +161,11 @@ cfg_if::cfg_if! {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.gregs[libc::REG_EIP as usize] as *const u8
                 } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
-                    // libc doesn't seem to support Linux/aarch64 at the moment?
-                    extern "C" {
-                        fn GetPcFromUContext(cx: *mut libc::c_void) -> *const u8;
-                    }
-                    GetPcFromUContext(cx)
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.pc as *const u8
                 } else if #[cfg(target_os = "macos")] {
-                    // FIXME(rust-lang/libc#1702) - once that lands and is
-                    // released we should inline the definition here
-                    extern "C" {
-                        fn GetPcFromUContext(cx: *mut libc::c_void) -> *const u8;
-                    }
-                    GetPcFromUContext(cx)
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    (*cx.uc_mcontext).__ss.__rip as *const u8
                 } else {
                     compile_error!("unsupported platform");
                 }
