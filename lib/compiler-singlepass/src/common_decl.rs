@@ -24,8 +24,8 @@ pub struct MachineState {
     /// Wasm stack.
     pub wasm_stack: Vec<WasmAbstractValue>,
     /// Private depth of the wasm stack.
-    /// 
-    /// 
+    ///
+    ///
     pub wasm_stack_private_depth: usize,
     /// Wasm instruction offset.
     pub wasm_inst_offset: usize,
@@ -36,7 +36,7 @@ pub struct MachineState {
 pub struct MachineStateDiff {
     /// Link to the previous diff this diff is based on, or `None` if this is the first diff.
     pub last: Option<usize>,
-    
+
     /// What values are pushed onto the stack?
     pub stack_push: Vec<MachineValue>,
 

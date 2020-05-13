@@ -3,7 +3,7 @@ use crate::{
 };
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use smallvec::{smallvec, SmallVec};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::iter;
 use wasm_common::{
     entity::{EntityRef, PrimaryMap, SecondaryMap},
@@ -90,7 +90,7 @@ pub struct FuncGen<'a> {
 #[derive(Clone, Debug, Default)]
 pub struct TrapTable {
     /// Mappings from offsets in generated machine code to the corresponding trap code.
-    pub offset_to_code: HashMap<usize, TrapCode>,
+    pub offset_to_code: BTreeMap<usize, TrapCode>,
 }
 
 /// Metadata about a floating-point value.
@@ -358,22 +358,26 @@ impl<'a> FuncGen<'a> {
         loc: Location,
     ) {
         self.machine.state.wasm_stack_private_depth += 1;
+
+        self.assembler.emit_cmp(sz, Location::Imm32(0), loc);
+        self.mark_range_with_trap_code(TrapCode::IntegerDivisionByZero, |this| {
+            this.assembler.emit_conditional_trap(Condition::Equal)
+        });
+
         match loc {
             Location::Imm64(_) | Location::Imm32(_) => {
                 self.assembler.emit_mov(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
                 self.mark_trappable();
-                self.trap_table.offset_to_code.insert(
-                    self.assembler.get_offset().0,
-                    TrapCode::IntegerDivisionByZero,
-                );
+                self.trap_table
+                    .offset_to_code
+                    .insert(self.assembler.get_offset().0, TrapCode::IntegerOverflow);
                 op(&mut self.assembler, sz, Location::GPR(GPR::RCX));
             }
             _ => {
                 self.mark_trappable();
-                self.trap_table.offset_to_code.insert(
-                    self.assembler.get_offset().0,
-                    TrapCode::IntegerDivisionByZero,
-                );
+                self.trap_table
+                    .offset_to_code
+                    .insert(self.assembler.get_offset().0, TrapCode::IntegerOverflow);
                 op(&mut self.assembler, sz, loc);
             }
         }
@@ -906,14 +910,19 @@ impl<'a> FuncGen<'a> {
         Ok(())
     }
 
-    /// Floating point (AVX) binary operation with both operands popped from the virtual stack.
+    /// Floating point (AVX) unop with both operands popped from the virtual stack.
     fn emit_fp_unop_avx(
         &mut self,
         f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
     ) -> Result<(), CodegenError> {
-        let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
-
-        self.emit_relaxed_avx(f, loc_a, loc_b, ret)?;
+        let loc = self.pop_value_released();
+        let ret = self.machine.acquire_locations(
+            &mut self.assembler,
+            &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+            false,
+        )[0];
+        self.value_stack.push(ret);
+        self.emit_relaxed_avx(f, loc, loc, ret)?;
         Ok(())
     }
 
@@ -1208,18 +1217,15 @@ impl<'a> FuncGen<'a> {
         value_size: usize,
         cb: F,
     ) -> Result<(), CodegenError> {
-        let need_check = match self.memory_plans[MemoryIndex::new(0)].style {
-            MemoryStyle::Dynamic => true,
-            MemoryStyle::Static { .. } => false,
-        };
-
+        let need_check = true;
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
         let tmp_base = self.machine.acquire_temp_gpr().unwrap();
 
         // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
         let (base_loc, bound_loc) = if self.module.num_imported_memories != 0 {
             // Imported memories require one level of indirection.
-            let offset = self.vmoffsets
+            let offset = self
+                .vmoffsets
                 .vmctx_vmmemory_import_definition(MemoryIndex::new(0));
             self.emit_relaxed_binop(
                 Assembler::emit_mov,
@@ -1229,7 +1235,8 @@ impl<'a> FuncGen<'a> {
             );
             (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
         } else {
-            let offset = self.vmoffsets
+            let offset = self
+                .vmoffsets
                 .vmctx_vmmemory_definition(LocalMemoryIndex::new(0));
             (
                 Location::Memory(Machine::get_vmctx_reg(), offset as i32),
@@ -1238,20 +1245,14 @@ impl<'a> FuncGen<'a> {
         };
 
         // Load base into temporary register.
-        self.assembler.emit_mov(
-            Size::S64,
-            base_loc,
-            Location::GPR(tmp_base),
-        );
+        self.assembler
+            .emit_mov(Size::S64, base_loc, Location::GPR(tmp_base));
 
         if need_check {
             let tmp_bound = self.machine.acquire_temp_gpr().unwrap();
 
-            self.assembler.emit_mov(
-                Size::S64,
-                bound_loc,
-                Location::GPR(tmp_bound),
-            );
+            self.assembler
+                .emit_mov(Size::S64, bound_loc, Location::GPR(tmp_bound));
             // Adds base to bound so `tmp_bound` now holds the end of linear memory.
             self.assembler
                 .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
@@ -1839,13 +1840,15 @@ impl<'a> FuncGen<'a> {
 
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
 
-                let src = if let Some(local_global_index) = self.module.local_global_index(global_index) {
-                    let offset = self.vmoffsets
-                        .vmctx_vmglobal_definition(local_global_index);
+                let src = if let Some(local_global_index) =
+                    self.module.local_global_index(global_index)
+                {
+                    let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
                     Location::Memory(Machine::get_vmctx_reg(), offset as i32)
                 } else {
                     // Imported globals require one level of indirection.
-                    let offset = self.vmoffsets
+                    let offset = self
+                        .vmoffsets
                         .vmctx_vmglobal_import_definition(global_index);
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
@@ -1856,12 +1859,7 @@ impl<'a> FuncGen<'a> {
                     Location::Memory(tmp, 0)
                 };
 
-                self.emit_relaxed_binop(
-                    Assembler::emit_mov,
-                    Size::S64,
-                    src,
-                    loc,
-                );
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, src, loc);
 
                 self.machine.release_temp_gpr(tmp);
             }
@@ -1870,7 +1868,8 @@ impl<'a> FuncGen<'a> {
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
                 let dst = if global_index < self.module.num_imported_globals {
                     // Imported globals require one level of indirection.
-                    let offset = self.vmoffsets
+                    let offset = self
+                        .vmoffsets
                         .vmctx_vmglobal_import_definition(GlobalIndex::new(global_index));
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
@@ -1880,7 +1879,8 @@ impl<'a> FuncGen<'a> {
                     );
                     Location::Memory(tmp, 0)
                 } else {
-                    let offset = self.vmoffsets
+                    let offset = self
+                        .vmoffsets
                         .vmctx_vmglobal_definition(LocalGlobalIndex::new(
                             global_index - self.module.num_imported_globals,
                         ));
@@ -1904,20 +1904,10 @@ impl<'a> FuncGen<'a> {
                             dst,
                         );
                     } else {
-                        self.emit_relaxed_binop(
-                            Assembler::emit_mov,
-                            Size::S64,
-                            loc,
-                            dst,
-                        );
+                        self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, dst);
                     }
                 } else {
-                    self.emit_relaxed_binop(
-                        Assembler::emit_mov,
-                        Size::S64,
-                        loc,
-                        dst,
-                    );
+                    self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, dst);
                 }
                 self.machine.release_temp_gpr(tmp);
             }
@@ -2510,6 +2500,17 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
                 self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, ret);
+
+                // A 32-bit memory write does not automatically clear the upper 32 bits of a 64-bit word.
+                // So, we need to explicitly write zero to the upper half here.
+                if let Location::Memory(base, off) = ret {
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S32,
+                        Location::Imm32(0),
+                        Location::Memory(base, off + 4),
+                    );
+                }
             }
             Operator::I64ExtendI32S => {
                 let loc = self.pop_value_released();
@@ -5532,7 +5533,7 @@ impl<'a> FuncGen<'a> {
                                 VMBuiltinFunctionIndex::get_memory32_size_index()
                             } else {
                                 VMBuiltinFunctionIndex::get_imported_memory32_size_index()
-                            }
+                            },
                         ) as i32,
                     ),
                     Location::GPR(GPR::RAX),
@@ -5574,7 +5575,7 @@ impl<'a> FuncGen<'a> {
                                 VMBuiltinFunctionIndex::get_memory32_grow_index()
                             } else {
                                 VMBuiltinFunctionIndex::get_imported_memory32_grow_index()
-                            }
+                            },
                         ) as i32,
                     ),
                     Location::GPR(GPR::RAX),

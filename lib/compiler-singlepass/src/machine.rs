@@ -288,7 +288,12 @@ impl Machine {
     }
 
     pub fn release_locations_only_osr_state(&mut self, n: usize) {
-        let new_length = self.state.wasm_stack.len().checked_sub(n).expect("release_locations_only_osr_state: length underflow");
+        let new_length = self
+            .state
+            .wasm_stack
+            .len()
+            .checked_sub(n)
+            .expect("release_locations_only_osr_state: length underflow");
         self.state.wasm_stack.truncate(new_length);
     }
 
