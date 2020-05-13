@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 // Version of the llvm-sys crate that we (through inkwell) depend on.
-const LLVM_SYS_MAJOR_VERSION: &str = "80";
+const LLVM_SYS_MAJOR_VERSION: &str = "100";
 const LLVM_SYS_MINOR_VERSION: &str = "0";
 
 // Environment variables that can guide compilation
