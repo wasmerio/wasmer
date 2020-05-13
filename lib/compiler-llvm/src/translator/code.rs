@@ -2501,7 +2501,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 builder.position_at_end(not_in_bounds_block);
                 builder.build_call(
                     intrinsics.throw_trap,
-                    &[intrinsics.trap_call_indirect_oob],
+                    &[intrinsics.trap_table_access_oob],
                     "throw",
                 );
                 builder.build_unreachable();
@@ -2553,7 +2553,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let pushed_args = self.state.popn_save_extra(func_type.params().len())?;
 
-                let args: Vec<_> = std::iter::repeat(ctx_ptr).take(2)
+                let args: Vec<_> = std::iter::repeat(ctx_ptr)
+                    .take(2)
                     .chain(pushed_args.into_iter().enumerate().map(|(i, (v, info))| {
                         match func_type.params()[i] {
                             Type::F32 => builder.build_bitcast(

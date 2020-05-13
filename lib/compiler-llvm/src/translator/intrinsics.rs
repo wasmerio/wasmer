@@ -144,10 +144,10 @@ pub struct Intrinsics<'ctx> {
 
     pub trap_unreachable: BasicValueEnum<'ctx>,
     pub trap_call_indirect_sig: BasicValueEnum<'ctx>,
-    pub trap_call_indirect_oob: BasicValueEnum<'ctx>,
     pub trap_memory_oob: BasicValueEnum<'ctx>,
     pub trap_illegal_arithmetic: BasicValueEnum<'ctx>,
     pub trap_misaligned_atomic: BasicValueEnum<'ctx>,
+    pub trap_table_access_oob: BasicValueEnum<'ctx>,
 
     // VM intrinsics.
     pub memory_grow_dynamic_local: FunctionValue<'ctx>,
@@ -482,9 +482,6 @@ impl<'ctx> Intrinsics<'ctx> {
             trap_call_indirect_sig: i32_ty
                 .const_int(TrapCode::BadSignature as _, false)
                 .as_basic_value_enum(),
-            trap_call_indirect_oob: i32_ty
-                .const_int(TrapCode::OutOfBounds as _, false)
-                .as_basic_value_enum(),
             trap_memory_oob: i32_ty
                 .const_int(TrapCode::OutOfBounds as _, false)
                 .as_basic_value_enum(),
@@ -495,6 +492,9 @@ impl<'ctx> Intrinsics<'ctx> {
             // TODO: add misaligned atomic traps to wasmer runtime
             trap_misaligned_atomic: i32_ty
                 .const_int(TrapCode::Interrupt as _, false)
+                .as_basic_value_enum(),
+            trap_table_access_oob: i32_ty
+                .const_int(TrapCode::TableAccessOutOfBounds as _, false)
                 .as_basic_value_enum(),
 
             // VM intrinsics.
