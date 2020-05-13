@@ -214,7 +214,6 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 capi-test: test-capi
 
 test-rest:
-	cargo test --release -p wasmer-interface-types
 	cargo test --release -p wasmer-runtime
 	cargo test --release -p wasmer-runtime-core
 	cargo test --release -p wasmer-wasi-experimental-io-devices
@@ -274,7 +273,7 @@ check-nightly: check-kernel-net
 
 # TODO: We wanted `--workspace --exclude wasmer-runtime`, but can't due
 # to https://github.com/rust-lang/cargo/issues/6745 .
-NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader -p wasmer-interface-types
+NOT_RUNTIME_CRATES = -p wasmer-clif-backend -p wasmer-singlepass-backend -p wasmer-middleware-common -p wasmer-runtime-core -p wasmer-emscripten -p wasmer-llvm-backend -p wasmer-wasi -p wasmer-kernel-loader
 RUNTIME_CHECK = cargo check --manifest-path lib/runtime/Cargo.toml --no-default-features
 check: check-bench
 	cargo check $(NOT_RUNTIME_CRATES)
