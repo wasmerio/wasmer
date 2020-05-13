@@ -8,7 +8,7 @@ use inkwell::targets::{
 use inkwell::OptimizationLevel;
 use itertools::Itertools;
 use target_lexicon::Architecture;
-use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, Features, Target};
+use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, Features, Target, Triple};
 
 /// The InkWell Module type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
@@ -47,6 +47,14 @@ impl LLVMConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
     pub fn new(features: Features, target: Target) -> Self {
+        let triple = Triple {
+            architecture: target.triple().architecture,
+            vendor: target.triple().vendor.clone(),
+            operating_system: target.triple().operating_system,
+            environment: target.triple().environment,
+            binary_format: target_lexicon::BinaryFormat::Elf,
+        };
+        let target = Target::new(triple, *target.cpu_features());
         Self {
             enable_nan_canonicalization: true,
             enable_verifier: false,
