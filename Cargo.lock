@@ -1364,6 +1364,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
+ "wasmer-engine-jit",
 ]
 
 [[package]]

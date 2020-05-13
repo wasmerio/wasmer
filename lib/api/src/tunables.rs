@@ -3,7 +3,7 @@ use std::cmp::min;
 use target_lexicon::{OperatingSystem, PointerWidth, Triple, HOST};
 use wasm_common::{MemoryType, Pages, TableType};
 use wasmer_engine::Tunables as BaseTunables;
-pub use wasmer_runtime::MemoryError;
+use wasmer_runtime::MemoryError;
 use wasmer_runtime::{LinearMemory, Table};
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, TableStyle};
 

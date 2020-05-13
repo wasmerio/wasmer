@@ -20,7 +20,7 @@ pub use crate::memory_view::MemoryView;
 pub use crate::module::Module;
 pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
-pub use crate::tunables::{MemoryError, Tunables};
+pub use crate::tunables::Tunables;
 pub use crate::types::{
     AnyRef, ExportType, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Val, ValType,
@@ -33,6 +33,7 @@ pub use wasmer_compiler::{Features, Target};
 pub use wasmer_engine::{
     DeserializeError, Engine, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
+pub use wasmer_runtime::MemoryError;
 
 // The compilers are mutually exclusive
 #[cfg(any(

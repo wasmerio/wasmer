@@ -34,9 +34,8 @@ pub trait Tunables {
         for index in num_imports..module.memories.len() {
             let plan = memory_plans[MemoryIndex::new(index)].clone();
             memories.push(
-                self.create_memory(plan).map_err(|e| {
-                    LinkError::Resource(format!("Failed to create memories: {}", e))
-                })?,
+                self.create_memory(plan)
+                    .map_err(|e| LinkError::Resource(format!("Failed to create memory: {}", e)))?,
             );
         }
         Ok(memories)

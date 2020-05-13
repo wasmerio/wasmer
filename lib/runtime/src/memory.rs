@@ -7,16 +7,19 @@ use crate::module::{MemoryPlan, MemoryStyle};
 use crate::vmcontext::VMMemoryDefinition;
 use more_asserts::{assert_ge, assert_le};
 use std::cell::RefCell;
-use std::fmt;
+use thiserror::Error;
 use wasm_common::{Bytes, Pages};
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Error, Debug, Clone, PartialEq, Hash)]
 pub enum MemoryError {
     /// Low level error with mmap.
+    #[error("There was an error when `mmap`ing memory: {0}")]
     MmapError(String),
     /// The operation would cause the size of the memory size to overflow or otherwise
     /// create memory that is not indexable.
+
+    #[error("Memory address space overflow: current size: {}, requested increase: {}", current.0, attempted_delta.0)]
     SizeOverflow {
         /// The current size in pages.
         current: Pages,
@@ -24,6 +27,7 @@ pub enum MemoryError {
         attempted_delta: Pages,
     },
     /// The operation would cause the size of the memory size exceed the maximum.
+    #[error("Maximum memory size exceeded: current size: {}, requested increase: {}, maximum: {}", current.0, attempted_delta.0, maximum.0)]
     SizeExceeded {
         /// The current size in pages.
         current: Pages,
@@ -33,38 +37,15 @@ pub enum MemoryError {
         maximum: Pages,
     },
     /// The operation would cause the size of the memory size exceed the maximum.
+    #[error("The given memory plan was invalid because {}", reason)]
     InvalidMemoryPlan {
         /// The reason why the memory plan is invalid.
         reason: String,
     },
     // TODO: review this; consider alternatives
     /// A user defined error value, used for error cases not listed above.
+    #[error("A user-defined error occurred: {0}")]
     Other(String),
-}
-
-impl std::error::Error for MemoryError {}
-
-impl fmt::Display for MemoryError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            MemoryError::MmapError(err) => {
-                write!(f, "There was an error when `mmap`ing memory: {}", err)
-            }
-            MemoryError::SizeOverflow {
-                current,
-                attempted_delta,
-            } => write!(f, "Memory could not grow {} more pages ({} pages currently) without overflowing the indexable space", attempted_delta.0, current.0),
-            MemoryError::SizeExceeded {
-                current,
-                attempted_delta,
-                maximum,
-            } => write!(f, "Memory could not grow {} more pages ({} pages currently) without exceeding the maximum of {} pages", attempted_delta.0, current.0, maximum.0),
-            MemoryError::InvalidMemoryPlan {
-                reason
-            } => write!(f, "The given memory plan was invalid because {}", reason),
-            MemoryError::Other(other) => write!(f, "A user-defined error occurred: {}", other),
-        }
-    }
 }
 
 /// A linear memory instance.

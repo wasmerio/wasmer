@@ -1,8 +1,9 @@
 #![cfg(feature = "compiler")]
 
 use std::sync::Arc;
-use wasmer::{JITEngine, Store, Tunables};
+use wasmer::{Store, Tunables};
 use wasmer_compiler::{CompilerConfig, Features, Target};
+use wasmer_engine_jit::JITEngine;
 
 pub fn get_compiler_config_from_str(
     compiler_name: &str,

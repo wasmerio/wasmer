@@ -40,7 +40,7 @@ int main()
     char *error_str = malloc(error_len);
     wasmer_last_error_message(error_str, error_len);
     printf("Error str: `%s`\n", error_str);
-    assert(0 == strcmp(error_str, "Memory could not grow 10 more pages (12 pages currently) without exceeding the maximum of 15 pages"));
+    assert(0 == strcmp(error_str, "Maximum memory size exceeded: current size: 12, requested increase: 10, maximum: 15"));
     free(error_str);
 
     wasmer_memory_t *bad_memory = NULL;
