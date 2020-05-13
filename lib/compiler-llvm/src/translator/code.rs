@@ -207,6 +207,7 @@ impl FuncTranslator {
             // TODO: pointer width
             vmoffsets: VMOffsets::new(8, &wasm_module),
             wasm_module,
+            func_names,
         };
 
         while fcg.state.has_control_frames() {
@@ -1409,6 +1410,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module: &'a Module<'ctx>,
     vmoffsets: VMOffsets,
     wasm_module: &'a WasmerCompilerModule,
+    func_names: &'a SecondaryMap<FunctionIndex, String>,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
@@ -2270,7 +2272,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let func_index = FunctionIndex::from_u32(function_index);
                 let sigindex = &module.functions[func_index];
                 let func_type = &module.signatures[*sigindex];
-                let func_name = &module.func_names[&func_index];
+                let func_name = &self.func_names[func_index];
                 let llvm_func_type = func_type_to_llvm(&self.context, &intrinsics, func_type);
 
                 let func = self.module.get_function(func_name);
