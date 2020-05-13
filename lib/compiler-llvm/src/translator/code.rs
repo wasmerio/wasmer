@@ -111,7 +111,7 @@ impl FuncTranslator {
         func_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<(CompiledFunction, Vec<LocalRelocation>, Vec<CustomSection>), CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
-        let func_name = func_names.get(func_index).unwrap();
+        let func_name = &func_names[func_index];
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {}", func_name),
             Some(module_name) => format!("module {} function {}", module_name, func_name),
@@ -124,7 +124,7 @@ impl FuncTranslator {
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let wasm_fn_type = wasm_module
             .signatures
-            .get(*wasm_module.functions.get(func_index).unwrap())
+            .get(wasm_module.functions[func_index])
             .unwrap();
 
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
@@ -2268,9 +2268,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::Call { function_index } => {
                 let func_index = FunctionIndex::from_u32(function_index);
-                let sigindex = module.functions.get(func_index).unwrap();
-                let func_type = module.signatures.get(*sigindex).unwrap();
-                let func_name = module.func_names.get(&func_index).unwrap();
+                let sigindex = &module.functions[func_index];
+                let func_type = &module.signatures[*sigindex];
+                let func_name = &module.func_names[&func_index];
                 let llvm_func_type = func_type_to_llvm(&self.context, &intrinsics, func_type);
 
                 let func = self.module.get_function(func_name);
@@ -2368,7 +2368,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::CallIndirect { index, table_index } => {
                 let sigindex = SignatureIndex::from_u32(index);
-                let func_type = module.signatures.get(sigindex).unwrap();
+                let func_type = &module.signatures[sigindex];
                 let expected_dynamic_sigindex = ctx.dynamic_sigindex(sigindex, intrinsics);
                 let (table_base, table_bound) = ctx.table(
                     TableIndex::from_u32(table_index),
