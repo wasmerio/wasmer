@@ -2,7 +2,7 @@ use crate::common::get_cache_dir;
 use crate::store::StoreOptions;
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;

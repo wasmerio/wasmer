@@ -6,7 +6,9 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
-use wasmer_compiler::{CompileError, WasmError};
+use wasmer_compiler::CompileError;
+#[cfg(feature = "wat")]
+use wasmer_compiler::WasmError;
 use wasmer_engine::{CompiledModule, DeserializeError, Resolver, SerializeError};
 use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, Module as ModuleInfo};
 

@@ -35,6 +35,6 @@ impl SelfUpdate {
 
     #[cfg(target_os = "windows")]
     fn inner_execute(&self) -> Result<()> {
-        anyhow::bail!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
+        bail!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
     }
 }

@@ -2,7 +2,7 @@
 //! commands.
 
 use crate::common::WasmFeatures;
-use anyhow::{bail, Error, Result};
+use anyhow::{Error, Result};
 use std::str::FromStr;
 use std::string::ToString;
 use std::sync::Arc;
