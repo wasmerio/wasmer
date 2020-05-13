@@ -124,12 +124,16 @@ impl RuntimeError {
             .any(|pc| info.should_process_frame(*pc).unwrap_or(false))
         {
             // We drop the read lock, to get a write one.
+            // Note: this is not guaranteed because it's a RwLock:
+            // the following code may cause deadlocks.
+            // TODO: clean up this code
             drop(info);
-            let mut info = FRAME_INFO.write().unwrap();
-            for pc in frames.iter() {
-                drop(info.maybe_process_frame(*pc));
+            {
+                let mut info = FRAME_INFO.write().unwrap();
+                for pc in frames.iter() {
+                    info.maybe_process_frame(*pc);
+                }
             }
-            drop(info);
             FRAME_INFO.read().unwrap()
         } else {
             info

@@ -28,5 +28,3 @@ pub mod utils;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-fn dead_code(hello: i32) {}

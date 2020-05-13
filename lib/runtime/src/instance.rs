@@ -815,6 +815,7 @@ impl InstanceHandle {
                 vmctx: VMContext {},
             };
             let layout = instance.alloc_layout();
+            #[allow(clippy::cast_ptr_alignment)]
             let instance_ptr = alloc::alloc(layout) as *mut Instance;
             if instance_ptr.is_null() {
                 alloc::handle_alloc_error(layout);
@@ -1095,6 +1096,7 @@ fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usi
     start
 }
 
+#[allow(clippy::mut_from_ref)]
 /// Return a byte-slice view of a memory's data.
 unsafe fn get_memory_slice<'instance>(
     init: &DataInitializer<'_>,

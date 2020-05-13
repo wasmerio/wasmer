@@ -376,6 +376,9 @@ impl Memory {
         self.data_unchecked_mut()
     }
 
+    /// TODO: document this function, it's trivial to cause UB/break soundness with this
+    /// method.
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
         let definition = self.definition();
         slice::from_raw_parts_mut(definition.base, definition.current_length)
