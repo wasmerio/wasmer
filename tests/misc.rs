@@ -16,10 +16,9 @@ fn growing_memory_with_api() {
     let result = memory.grow(Pages(10));
     assert_eq!(
         result,
-        Err(MemoryError::SizeExceeded {
+        Err(MemoryError::CouldNotGrow {
             current: 12.into(),
             attempted_delta: 10.into(),
-            maximum: 16.into(),
         })
     );
 

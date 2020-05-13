@@ -14,38 +14,26 @@ use wasm_common::{Bytes, Pages};
 #[derive(Error, Debug, Clone, PartialEq, Hash)]
 pub enum MemoryError {
     /// Low level error with mmap.
-    #[error("There was an error when `mmap`ing memory: {0}")]
-    MmapError(String),
-    /// The operation would cause the size of the memory size to overflow or otherwise
-    /// create memory that is not indexable.
-
-    #[error("Memory address space overflow: current size: {}, requested increase: {}", current.0, attempted_delta.0)]
-    SizeOverflow {
+    #[error("Error when allocating memory: {0}")]
+    Region(String),
+    /// The operation would cause the size of the memory to exceed the maximum or would cause
+    /// an overflow leading to unindexable memory.
+    #[error("The memory could not grow: current size {} pages, requested increase: {} pages", current.0, attempted_delta.0)]
+    CouldNotGrow {
         /// The current size in pages.
         current: Pages,
         /// The attempted amount to grow by in pages.
         attempted_delta: Pages,
     },
     /// The operation would cause the size of the memory size exceed the maximum.
-    #[error("Maximum memory size exceeded: current size: {}, requested increase: {}, maximum: {}", current.0, attempted_delta.0, maximum.0)]
-    SizeExceeded {
-        /// The current size in pages.
-        current: Pages,
-        /// The attempted amount to grow by in pages.
-        attempted_delta: Pages,
-        /// The maximum number of pages this memory may have.
-        maximum: Pages,
-    },
-    /// The operation would cause the size of the memory size exceed the maximum.
-    #[error("The given memory plan was invalid because {}", reason)]
+    #[error("The memory plan is invalid because {}", reason)]
     InvalidMemoryPlan {
         /// The reason why the memory plan is invalid.
         reason: String,
     },
-    // TODO: review this; consider alternatives
     /// A user defined error value, used for error cases not listed above.
     #[error("A user-defined error occurred: {0}")]
-    Other(String),
+    Generic(String),
 }
 
 /// A linear memory instance.
@@ -88,7 +76,11 @@ impl LinearMemory {
 
         if plan.memory.maximum.is_some() && plan.memory.maximum.unwrap() < plan.memory.minimum {
             return Err(MemoryError::InvalidMemoryPlan {
-                reason: format!("the maximum allowed memory ({} pages) is less than the minimum required memory ({} pages)", plan.memory.maximum.unwrap().0, plan.memory.minimum.0),
+                reason: format!(
+                    "the maximum ({} pages) is less than the minimum ({} pages)",
+                    plan.memory.maximum.unwrap().0,
+                    plan.memory.minimum.0
+                ),
             });
         }
 
@@ -117,7 +109,7 @@ impl LinearMemory {
 
         let mmap = WasmMmap {
             alloc: Mmap::accessible_reserved(mapped_bytes.0, request_bytes)
-                .map_err(MemoryError::MmapError)?,
+                .map_err(MemoryError::Region)?,
             size: plan.memory.minimum,
         };
 
@@ -158,7 +150,7 @@ impl LinearMemory {
         let new_pages = mmap
             .size
             .checked_add(delta)
-            .ok_or_else(|| MemoryError::SizeOverflow {
+            .ok_or_else(|| MemoryError::CouldNotGrow {
                 current: mmap.size,
                 attempted_delta: delta,
             })?;
@@ -166,10 +158,9 @@ impl LinearMemory {
 
         if let Some(maximum) = self.maximum {
             if new_pages > maximum {
-                return Err(MemoryError::SizeExceeded {
+                return Err(MemoryError::CouldNotGrow {
                     current: mmap.size,
                     attempted_delta: delta,
-                    maximum,
                 });
             }
         }
@@ -179,7 +170,7 @@ impl LinearMemory {
         // limit here.
         if new_pages >= Pages::max_value() {
             // Linear memory size would exceed the index range.
-            return Err(MemoryError::SizeOverflow {
+            return Err(MemoryError::CouldNotGrow {
                 current: mmap.size,
                 attempted_delta: delta,
             });
@@ -196,13 +187,13 @@ impl LinearMemory {
             let request_bytes =
                 new_bytes
                     .checked_add(guard_bytes)
-                    .ok_or_else(|| MemoryError::SizeOverflow {
+                    .ok_or_else(|| MemoryError::CouldNotGrow {
                         current: new_pages,
                         attempted_delta: Bytes(guard_bytes).into(),
                     })?;
 
-            let mut new_mmap = Mmap::accessible_reserved(new_bytes, request_bytes)
-                .map_err(MemoryError::MmapError)?;
+            let mut new_mmap =
+                Mmap::accessible_reserved(new_bytes, request_bytes).map_err(MemoryError::Region)?;
 
             let copy_len = mmap.alloc.len() - self.offset_guard_size;
             new_mmap.as_mut_slice()[..copy_len].copy_from_slice(&mmap.alloc.as_slice()[..copy_len]);
@@ -212,7 +203,7 @@ impl LinearMemory {
             // Make the newly allocated pages accessible.
             mmap.alloc
                 .make_accessible(prev_bytes, delta_bytes)
-                .map_err(MemoryError::MmapError)?;
+                .map_err(MemoryError::Region)?;
         }
 
         mmap.size = new_pages;
