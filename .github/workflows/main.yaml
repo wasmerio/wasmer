@@ -32,7 +32,7 @@ jobs:
           toolchain: 1.42.0
           override: true
           components: rustfmt, clippy
-      - run: cargo clippy --workspace
+      - run: cargo clippy # --workspace # --workspace commented out until LLVM gets set up in CI
 
   test:
     name: Test in ${{ matrix.build }}
