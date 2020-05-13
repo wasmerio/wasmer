@@ -20,7 +20,9 @@ use wasm_common::LocalFunctionIndex;
 /// the frame information after a `Trap`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct CompiledFunctionFrameInfo {
-    /// The traps (in the function body)
+    /// The traps (in the function body).
+    ///
+    /// Code offsets of the traps MUST be in ascending order.
     pub traps: Vec<TrapInformation>,
 
     /// The address map.
