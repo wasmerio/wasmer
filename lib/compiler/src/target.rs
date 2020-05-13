@@ -2,7 +2,6 @@
 use enumset::{EnumSet, EnumSetType};
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple};
 
-use crate::std::boxed::Box;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use raw_cpuid::CpuId;
 

@@ -1,7 +1,9 @@
+#[cfg(all(feature = "compiler", feature = "engine"))]
 use crate::tunables::Tunables;
-use std::sync::Arc;
-#[cfg(feature = "compiler")]
+#[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
+
+use std::sync::Arc;
 use wasmer_engine::Engine;
 
 #[derive(Clone)]

@@ -1,4 +1,4 @@
-use wasmer::{ExternType, ImportType, Module};
+use wasmer::{ExternType, Module};
 
 #[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.

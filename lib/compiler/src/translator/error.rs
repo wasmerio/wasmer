@@ -1,5 +1,4 @@
 use crate::WasmError;
-use thiserror::Error;
 use wasmparser::BinaryReaderError;
 
 /// Return an `Err(WasmError::Unsupported(msg))` where `msg` the string built by calling `format!`

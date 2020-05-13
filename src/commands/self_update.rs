@@ -1,5 +1,5 @@
 //! When wasmer self-update is executed, this is what gets executed
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 #[cfg(not(target_os = "windows"))]
 use std::process::{Command, Stdio};
 use structopt::StructOpt;
@@ -35,6 +35,6 @@ impl SelfUpdate {
 
     #[cfg(target_os = "windows")]
     fn inner_execute(&self) -> Result<()> {
-        bail!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
+        anyhow::bail!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
     }
 }

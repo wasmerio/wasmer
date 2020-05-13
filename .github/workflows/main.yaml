@@ -43,13 +43,18 @@ jobs:
       - run: cargo test --release
         env:
           RUST_BACKTRACE: 1
+          RUSTFLAGS: "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects -D mutable-borrow-reservation-conflict" # TODO: add `-D missing-docs`
       - name: Build and Test C API
         run: |
           make capi
           make test-capi-cranelift
+        env:
+          RUST_BACKTRACE: 1
+          RUSTFLAGS: "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects -D mutable-borrow-reservation-conflict" # TODO: add `-D missing-docs`
         if: matrix.os != 'windows-latest'
       - name: Build C API on Windows
         run: make capi
         if: matrix.os == 'windows-latest'
         env:
           RUST_BACKTRACE: 1
+          RUSTFLAGS: "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects -D mutable-borrow-reservation-conflict" # TODO: add `-D missing-docs`

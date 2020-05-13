@@ -4,25 +4,23 @@
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
 use crate::serialize::{SerializableCompilation, SerializableModule};
-use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
-use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
+use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
-    DataInitializer, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-    MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
+    DataInitializer, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
 };
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{
     register_frame_info, resolve_imports, CompiledModule as BaseCompiledModule, DeserializeError,
-    Engine, GlobalFrameInfoRegistration, InstantiationError, LinkError, Resolver, RuntimeError,
-    SerializableFunctionFrameInfo, SerializeError, Tunables,
+    Engine, GlobalFrameInfoRegistration, InstantiationError, Resolver, RuntimeError,
+    SerializableFunctionFrameInfo, SerializeError,
 };
 use wasmer_runtime::{
-    InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
-    VMGlobalDefinition, VMSharedSignatureIndex,
+    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};

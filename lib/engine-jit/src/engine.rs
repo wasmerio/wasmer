@@ -4,8 +4,8 @@ use crate::{CodeMemory, CompiledModule};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex};
-use wasmer_compiler::{Compilation, CompileError, FunctionBody, Target};
+use wasm_common::{FunctionType, LocalFunctionIndex, SignatureIndex};
+use wasmer_compiler::{CompileError, FunctionBody};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
 use wasmer_engine::{
@@ -13,8 +13,7 @@ use wasmer_engine::{
     SerializeError, Tunables,
 };
 use wasmer_runtime::{
-    InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
-    VMSharedSignatureIndex, VMTrampoline,
+    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
@@ -129,7 +128,7 @@ impl Engine for JITEngine {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
-        unsafe { compiled_module.instantiate(&self, resolver, Box::new(())) }
+        compiled_module.instantiate(&self, resolver, Box::new(()))
     }
 
     /// Finish the instantiation of a WebAssembly module
@@ -139,7 +138,7 @@ impl Engine for JITEngine {
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
         let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
-        unsafe { compiled_module.finish_instantiation(&handle) }
+        compiled_module.finish_instantiation(&handle)
     }
 
     /// Serializes a WebAssembly module

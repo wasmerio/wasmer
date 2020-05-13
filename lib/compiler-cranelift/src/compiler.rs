@@ -6,26 +6,22 @@ use crate::func_environ::{get_func_name, FuncEnvironment};
 use crate::sink::{RelocSink, TrapSink};
 use crate::trampoline::{make_wasm_trampoline, FunctionBuilderContext};
 use crate::translator::{
-    compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
-    signature_to_cranelift_ir, transform_jump_table, FuncTranslator,
+    compiled_function_unwind_info, signature_to_cranelift_ir, transform_jump_table, FuncTranslator,
 };
-use cranelift_codegen::ir::{self, ExternalName};
+use cranelift_codegen::ir;
 use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{binemit, isa, Context};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use wasm_common::entity::{EntityRef, PrimaryMap};
+use wasm_common::entity::PrimaryMap;
 use wasm_common::{
-    Features, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex,
-    TableIndex,
+    Features, FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, Compiler, FunctionBody,
-    FunctionBodyData, SourceLoc, TrapInformation,
+    FunctionBodyData,
 };
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
-use wasmer_compiler::{Relocation, RelocationTarget};
-use wasmer_runtime::TrapCode;
 use wasmer_runtime::{MemoryPlan, Module, TablePlan};
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
