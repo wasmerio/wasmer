@@ -147,6 +147,7 @@ pub struct Intrinsics<'ctx> {
     pub trap_memory_oob: BasicValueEnum<'ctx>,
     pub trap_illegal_arithmetic: BasicValueEnum<'ctx>,
     pub trap_integer_division_by_zero: BasicValueEnum<'ctx>,
+    pub trap_bad_conversion_to_integer: BasicValueEnum<'ctx>,
     pub trap_misaligned_atomic: BasicValueEnum<'ctx>,
     pub trap_table_access_oob: BasicValueEnum<'ctx>,
 
@@ -492,6 +493,9 @@ impl<'ctx> Intrinsics<'ctx> {
                 .as_basic_value_enum(),
             trap_integer_division_by_zero: i32_ty
                 .const_int(TrapCode::IntegerDivisionByZero as _, false)
+                .as_basic_value_enum(),
+            trap_bad_conversion_to_integer: i32_ty
+                .const_int(TrapCode::BadConversionToInteger as _, false)
                 .as_basic_value_enum(),
             // TODO: add misaligned atomic traps to wasmer runtime
             trap_misaligned_atomic: i32_ty

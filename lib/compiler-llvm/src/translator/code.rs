@@ -749,11 +749,14 @@ fn trap_if_not_representable_as_int<'ctx>(
 
     builder.build_conditional_branch(out_of_bounds, failure_block, continue_block);
     builder.position_at_end(failure_block);
-    builder.build_call(
-        intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
-        "throw",
+    let is_nan = builder.build_float_compare(FloatPredicate::UNO, value, value, "is_nan");
+    let trap_code = builder.build_select(
+        is_nan,
+        intrinsics.trap_bad_conversion_to_integer,
+        intrinsics.trap_illegal_arithmetic,
+        "",
     );
+    builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
     builder.build_unreachable();
     builder.position_at_end(continue_block);
 }
