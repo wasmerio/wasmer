@@ -356,6 +356,11 @@ impl FuncTranslator {
 
         for (section_index, reloc_section) in &elf.shdr_relocs {
             let section_name = get_section_name(&elf.section_headers[*section_index]);
+            if section_name == Some(".rel.rodata") || section_name == Some(".rela.rodata") {
+                return Err(CompileError::Codegen(
+                    "jump tables not yet implemented".to_string(),
+                ));
+            }
             if section_name != Some(".relawasmer_function")
                 && section_name != Some(".relwasmer_function")
             {
