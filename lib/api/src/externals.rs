@@ -539,14 +539,14 @@ impl Function {
     #[allow(clippy::cast_ptr_alignment)]
     pub fn new_dynamic<F>(store: &Store, ty: &FunctionType, func: F) -> Self
     where
-        F: Fn(&[Val], &mut [Val]) -> Result<(), RuntimeError> + 'static,
+        F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
     {
         use std::panic::{self, AssertUnwindSafe};
         // The `DynamicCtx` holds the function type as well
         // as the function that we will be calling in the wrapper.
         struct DynamicCtx {
             ty: FunctionType,
-            func: Box<dyn Fn(&[Val], &mut [Val]) -> Result<(), RuntimeError> + 'static>,
+            func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
         }
         // This function wraps our func, to make it compatible with the
         // reverse trampoline signature
@@ -560,9 +560,22 @@ impl Function {
                 for (i, ty) in dynamic_ctx.ty.params().iter().enumerate() {
                     args.push(Val::read_value_from(values_vec.add(i), *ty));
                 }
-                let mut returns = vec![Val::null(); dynamic_ctx.ty.results().len()];
-                (*dynamic_ctx.func)(&args, &mut returns)
-                // println!("CALLED {:?}", args);
+                let returns = (*dynamic_ctx.func)(&args)?;
+
+                // We need to dynamically check that the returns
+                // match the expected types, as well as expected length.
+                let return_types = returns.iter().map(|ret| ret.ty()).collect::<Vec<_>>();
+                if return_types != dynamic_ctx.ty.results() {
+                    return Err(RuntimeError::new(format!(
+                        "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
+                        dynamic_ctx.ty.results(),
+                        return_types
+                    )));
+                }
+                for (i, ret) in returns.iter().enumerate() {
+                    ret.write_value_to(values_vec.add(i));
+                }
+                Ok(())
             }));
 
             match result {
