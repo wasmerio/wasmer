@@ -63,10 +63,17 @@ pub fn link_module(
     _module: &Module,
     allocated_functions: &PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
-    relocations: Relocations,
+    body_relocations: Relocations,
     allocated_sections: &PrimaryMap<SectionIndex, SectionBody>,
+    section_relocations: &PrimaryMap<SectionIndex, Vec<Relocation>>,
 ) {
-    for (i, function_relocs) in relocations.into_iter() {
+    for (i, section_relocs) in section_relocations.iter() {
+        let body = allocated_sections[i].as_ptr() as usize;
+        for r in section_relocs {
+            apply_relocation(body, r, allocated_functions, jt_offsets, allocated_sections);
+        }
+    }
+    for (i, function_relocs) in body_relocations.into_iter() {
         let fatptr: *const [VMFunctionBody] = allocated_functions[i];
         let body = fatptr as *const VMFunctionBody as usize;
         for r in function_relocs {
