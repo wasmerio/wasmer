@@ -143,6 +143,7 @@ pub struct Intrinsics<'ctx> {
     pub f64x2_zero: VectorValue<'ctx>,
 
     pub trap_unreachable: BasicValueEnum<'ctx>,
+    pub trap_call_indirect_null: BasicValueEnum<'ctx>,
     pub trap_call_indirect_sig: BasicValueEnum<'ctx>,
     pub trap_memory_oob: BasicValueEnum<'ctx>,
     pub trap_illegal_arithmetic: BasicValueEnum<'ctx>,
@@ -480,6 +481,9 @@ impl<'ctx> Intrinsics<'ctx> {
 
             trap_unreachable: i32_ty
                 .const_int(TrapCode::UnreachableCodeReached as _, false)
+                .as_basic_value_enum(),
+            trap_call_indirect_null: i32_ty
+                .const_int(TrapCode::IndirectCallToNull as _, false)
                 .as_basic_value_enum(),
             trap_call_indirect_sig: i32_ty
                 .const_int(TrapCode::BadSignature as _, false)

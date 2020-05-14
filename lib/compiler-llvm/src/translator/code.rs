@@ -2528,6 +2528,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 builder.build_unreachable();
                 builder.position_at_end(in_bounds_continue_block);
 
+                // Next, check if the table element is initialized.
+
+                let elem_initialized = builder.build_is_not_null(func_ptr, "");
+
                 // Next, check if the signature id is correct.
 
                 let sigindices_equal = builder.build_int_compare(
@@ -2537,15 +2541,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     "sigindices_equal",
                 );
 
+                let initialized_and_sigindices_match =
+                    builder.build_and(elem_initialized, sigindices_equal, "");
+
                 // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
-                let sigindices_equal = builder
+                let initialized_and_sigindices_match = builder
                     .build_call(
                         intrinsics.expect_i1,
                         &[
-                            sigindices_equal.as_basic_value_enum(),
+                            initialized_and_sigindices_match.as_basic_value_enum(),
                             intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
                         ],
-                        "sigindices_equal_expect",
+                        "initialized_and_sigindices_match_expect",
                     )
                     .try_as_basic_value()
                     .left()
@@ -2556,17 +2563,19 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let sigindices_notequal_block =
                     context.append_basic_block(function, "sigindices_notequal_block");
                 builder.build_conditional_branch(
-                    sigindices_equal,
+                    initialized_and_sigindices_match,
                     continue_block,
                     sigindices_notequal_block,
                 );
 
                 builder.position_at_end(sigindices_notequal_block);
-                builder.build_call(
-                    intrinsics.throw_trap,
-                    &[intrinsics.trap_call_indirect_sig],
-                    "throw",
+                let trap_code = builder.build_select(
+                    elem_initialized,
+                    intrinsics.trap_call_indirect_sig,
+                    intrinsics.trap_call_indirect_null,
+                    "",
                 );
+                builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
                 builder.build_unreachable();
                 builder.position_at_end(continue_block);
 
