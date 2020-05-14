@@ -2335,7 +2335,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     let vmctx_ptr_ptr = builder
                         .build_struct_gep(
                             vmfunction_import_ptr,
-                            intrinsics.vmfunction_import_body_element,
+                            intrinsics.vmfunction_import_vmctx_element,
                             "",
                         )
                         .unwrap();
