@@ -143,9 +143,12 @@ pub struct Intrinsics<'ctx> {
     pub f64x2_zero: VectorValue<'ctx>,
 
     pub trap_unreachable: BasicValueEnum<'ctx>,
+    pub trap_call_indirect_null: BasicValueEnum<'ctx>,
     pub trap_call_indirect_sig: BasicValueEnum<'ctx>,
     pub trap_memory_oob: BasicValueEnum<'ctx>,
     pub trap_illegal_arithmetic: BasicValueEnum<'ctx>,
+    pub trap_integer_division_by_zero: BasicValueEnum<'ctx>,
+    pub trap_bad_conversion_to_integer: BasicValueEnum<'ctx>,
     pub trap_misaligned_atomic: BasicValueEnum<'ctx>,
     pub trap_table_access_oob: BasicValueEnum<'ctx>,
 
@@ -479,6 +482,9 @@ impl<'ctx> Intrinsics<'ctx> {
             trap_unreachable: i32_ty
                 .const_int(TrapCode::UnreachableCodeReached as _, false)
                 .as_basic_value_enum(),
+            trap_call_indirect_null: i32_ty
+                .const_int(TrapCode::IndirectCallToNull as _, false)
+                .as_basic_value_enum(),
             trap_call_indirect_sig: i32_ty
                 .const_int(TrapCode::BadSignature as _, false)
                 .as_basic_value_enum(),
@@ -488,6 +494,12 @@ impl<'ctx> Intrinsics<'ctx> {
             // TODO: split out div-by-zero and float-to-int
             trap_illegal_arithmetic: i32_ty
                 .const_int(TrapCode::IntegerOverflow as _, false)
+                .as_basic_value_enum(),
+            trap_integer_division_by_zero: i32_ty
+                .const_int(TrapCode::IntegerDivisionByZero as _, false)
+                .as_basic_value_enum(),
+            trap_bad_conversion_to_integer: i32_ty
+                .const_int(TrapCode::BadConversionToInteger as _, false)
                 .as_basic_value_enum(),
             // TODO: add misaligned atomic traps to wasmer runtime
             trap_misaligned_atomic: i32_ty

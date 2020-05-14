@@ -356,6 +356,11 @@ impl FuncTranslator {
 
         for (section_index, reloc_section) in &elf.shdr_relocs {
             let section_name = get_section_name(&elf.section_headers[*section_index]);
+            if section_name == Some(".rel.rodata") || section_name == Some(".rela.rodata") {
+                return Err(CompileError::Codegen(
+                    "jump tables not yet implemented".to_string(),
+                ));
+            }
             if section_name != Some(".relawasmer_function")
                 && section_name != Some(".relwasmer_function")
             {
@@ -744,11 +749,14 @@ fn trap_if_not_representable_as_int<'ctx>(
 
     builder.build_conditional_branch(out_of_bounds, failure_block, continue_block);
     builder.position_at_end(failure_block);
-    builder.build_call(
-        intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
-        "throw",
+    let is_nan = builder.build_float_compare(FloatPredicate::UNO, value, value, "is_nan");
+    let trap_code = builder.build_select(
+        is_nan,
+        intrinsics.trap_bad_conversion_to_integer,
+        intrinsics.trap_illegal_arithmetic,
+        "",
     );
+    builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
     builder.build_unreachable();
     builder.position_at_end(continue_block);
 }
@@ -775,13 +783,14 @@ fn trap_if_zero_or_overflow<'ctx>(
         unreachable!()
     };
 
+    let divisor_is_zero = builder.build_int_compare(
+        IntPredicate::EQ,
+        right,
+        int_type.const_int(0, false),
+        "divisor_is_zero",
+    );
     let should_trap = builder.build_or(
-        builder.build_int_compare(
-            IntPredicate::EQ,
-            right,
-            int_type.const_int(0, false),
-            "divisor_is_zero",
-        ),
+        divisor_is_zero,
         builder.build_and(
             builder.build_int_compare(IntPredicate::EQ, left, min_value, "left_is_min"),
             builder.build_int_compare(IntPredicate::EQ, right, neg_one_value, "right_is_neg_one"),
@@ -808,11 +817,13 @@ fn trap_if_zero_or_overflow<'ctx>(
     let should_trap_block = context.append_basic_block(*function, "should_trap_block");
     builder.build_conditional_branch(should_trap, should_trap_block, shouldnt_trap_block);
     builder.position_at_end(should_trap_block);
-    builder.build_call(
-        intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
-        "throw",
+    let trap_code = builder.build_select(
+        divisor_is_zero,
+        intrinsics.trap_integer_division_by_zero,
+        intrinsics.trap_illegal_arithmetic,
+        "",
     );
+    builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
     builder.build_unreachable();
     builder.position_at_end(shouldnt_trap_block);
 }
@@ -852,7 +863,7 @@ fn trap_if_zero<'ctx>(
     builder.position_at_end(should_trap_block);
     builder.build_call(
         intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
+        &[intrinsics.trap_integer_division_by_zero],
         "throw",
     );
     builder.build_unreachable();
@@ -1076,6 +1087,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let offset = self.vmoffsets.vmctx_vmmemory_import(memory_index);
                 let offset = intrinsics.i32_ty.const_int(offset.into(), false);
                 let memory_definition_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
+                let memory_definition_ptr_ptr = builder
+                    .build_bitcast(
+                        memory_definition_ptr_ptr,
+                        intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                        "",
+                    )
+                    .into_pointer_value();
                 builder
                     .build_load(memory_definition_ptr_ptr, "")
                     .into_pointer_value()
@@ -2155,7 +2173,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         let global_ptr_ptr = builder
                             .build_bitcast(global_ptr_ptr, intrinsics.i8_ptr_ty, "")
                             .into_pointer_value();
-                        builder.build_load(global_ptr_ptr, "").into_pointer_value()
+                        let global_ptr = builder.build_load(global_ptr_ptr, "");
+                        builder
+                            .build_bitcast(global_ptr, intrinsics.i8_ptr_ty, "")
+                            .into_pointer_value()
                     };
                 let global_ptr = builder
                     .build_bitcast(
@@ -2507,6 +2528,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 builder.build_unreachable();
                 builder.position_at_end(in_bounds_continue_block);
 
+                // Next, check if the table element is initialized.
+
+                let elem_initialized = builder.build_is_not_null(func_ptr, "");
+
                 // Next, check if the signature id is correct.
 
                 let sigindices_equal = builder.build_int_compare(
@@ -2516,15 +2541,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     "sigindices_equal",
                 );
 
+                let initialized_and_sigindices_match =
+                    builder.build_and(elem_initialized, sigindices_equal, "");
+
                 // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
-                let sigindices_equal = builder
+                let initialized_and_sigindices_match = builder
                     .build_call(
                         intrinsics.expect_i1,
                         &[
-                            sigindices_equal.as_basic_value_enum(),
+                            initialized_and_sigindices_match.as_basic_value_enum(),
                             intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
                         ],
-                        "sigindices_equal_expect",
+                        "initialized_and_sigindices_match_expect",
                     )
                     .try_as_basic_value()
                     .left()
@@ -2535,17 +2563,19 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let sigindices_notequal_block =
                     context.append_basic_block(function, "sigindices_notequal_block");
                 builder.build_conditional_branch(
-                    sigindices_equal,
+                    initialized_and_sigindices_match,
                     continue_block,
                     sigindices_notequal_block,
                 );
 
                 builder.position_at_end(sigindices_notequal_block);
-                builder.build_call(
-                    intrinsics.throw_trap,
-                    &[intrinsics.trap_call_indirect_sig],
-                    "throw",
+                let trap_code = builder.build_select(
+                    elem_initialized,
+                    intrinsics.trap_call_indirect_sig,
+                    intrinsics.trap_call_indirect_null,
+                    "",
                 );
+                builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
                 builder.build_unreachable();
                 builder.position_at_end(continue_block);
 

@@ -4,8 +4,6 @@ name: build
 
 env:
   RUST_BACKTRACE: 1
-  RUSTFLAGS: "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects -D mutable-borrow-reservation-conflict" # TODO: add `-D missing-docs`
-
 
 jobs:
   lint:
@@ -31,8 +29,10 @@ jobs:
         with:
           toolchain: 1.42.0
           override: true
-          components: rustfmt, clippy
+          components: clippy
       - run: cargo clippy # --workspace # --workspace commented out until LLVM gets set up in CI
+        env:
+          RUSTFLAGS: "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects -D mutable-borrow-reservation-conflict" # TODO: add `-D missing-docs`
 
   test:
     name: Test in ${{ matrix.build }}
