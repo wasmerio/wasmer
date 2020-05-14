@@ -144,8 +144,7 @@ target_compile_options(test-context PRIVATE ${COMPILER_OPTIONS})
 
 target_link_libraries(test-module-import-instantiate general ${WASMER_LIB})
 target_compile_options(test-module-import-instantiate PRIVATE ${COMPILER_OPTIONS})
-# TODO: reenable this test
-#add_test(test-module-import-instantiate test-module-import-instantiate)
+add_test(test-module-import-instantiate test-module-import-instantiate)
 
 # Commented out until we can find a solution to the exported function problem
 #

@@ -19,7 +19,8 @@ use std::{
     //sync::Arc,
 };
 use wasmer::{
-    Function, Global, ImportObject, ImportObjectIterator, ImportType, Memory, Module, Table,
+    Function, FunctionType, Global, ImportObject, ImportObjectIterator, ImportType, Memory, Module,
+    Table,
 };
 //use wasmer::wasm::{Export, FuncSig, Global, Memory, Module, Table, Type};
 /*use wasmer_runtime_core::{
@@ -615,20 +616,29 @@ pub unsafe extern "C" fn wasmer_import_func_new(
     returns: *const wasmer_value_tag,
     returns_len: c_uint,
 ) -> *mut wasmer_import_func_t {
-    unimplemented!("`wasmer_import_func_new` cannot be implemented yet")
-    /*
     let params: &[wasmer_value_tag] = slice::from_raw_parts(params, params_len as usize);
     let params: Vec<Type> = params.iter().cloned().map(|x| x.into()).collect();
     let returns: &[wasmer_value_tag] = slice::from_raw_parts(returns, returns_len as usize);
     let returns: Vec<Type> = returns.iter().cloned().map(|x| x.into()).collect();
+    let func_type = FunctionType::new(params, returns);
 
-    let export = Box::new(Extern::Function {
+    let store = crate::get_global_store();
+
+    let func = Function::new_dynamic(store, &func_type, |args| {
+        // todo: translate args
+        // first arg is context pointer then normal arguments?
+        let args = args;
+        unsafe { func(args) }
+        // todo: call function
+        // todo: translate returns
+    });
+
+    /*let export = Box::new(Extern::Function {
         func: FuncPointer::new(func as _),
         ctx: Context::Internal,
         signature: Arc::new(FuncSig::new(params, returns)),
     });
-    Box::into_raw(export) as *mut wasmer_import_func_t
-    */
+    Box::into_raw(export) as *mut wasmer_import_func_t*/
 }
 
 /// Stop the execution of a host function, aka imported function. The
