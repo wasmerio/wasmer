@@ -522,6 +522,7 @@ impl Function {
         let vmctx = (func.env().unwrap_or(std::ptr::null_mut()) as *mut _) as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
+        let dynamic_address = std::ptr::null() as *const VMFunctionBody;
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -530,6 +531,7 @@ impl Function {
             }),
             exported: ExportFunction {
                 address,
+                dynamic_address,
                 vmctx,
                 signature,
             },
@@ -594,12 +596,14 @@ impl Function {
         // let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
         let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
         let signature = store.engine().register_signature(&ty);
+        let dynamic_address = func_wrapper as *const () as *const VMFunctionBody;
         Self {
             store: store.clone(),
             owned_by_store: true,
             inner: InnerFunc::Host(HostFunc {}),
             exported: ExportFunction {
                 address,
+                dynamic_address,
                 vmctx,
                 signature,
             },
@@ -623,6 +627,7 @@ impl Function {
         let vmctx = (func.env().unwrap_or(std::ptr::null_mut()) as *mut _) as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
+        let dynamic_address = std::ptr::null() as *const VMFunctionBody;
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -631,6 +636,7 @@ impl Function {
             }),
             exported: ExportFunction {
                 address,
+                dynamic_address,
                 vmctx,
                 signature,
             },

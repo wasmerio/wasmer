@@ -282,18 +282,22 @@ impl Instance {
         match export {
             ExportIndex::Function(index) => {
                 let signature = self.signature_id(self.module.functions[*index]);
-                let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
-                {
-                    (
-                        self.finished_functions[def_index] as *const _,
-                        self.vmctx_ptr(),
-                    )
-                } else {
-                    let import = self.imported_function(*index);
-                    (import.body, import.vmctx)
-                };
+                let (address, dynamic_address, vmctx) =
+                    if let Some(def_index) = self.module.local_func_index(*index) {
+                        (
+                            self.finished_functions[def_index] as *const _,
+                            // This is a locally-defined function, so it's dynamic
+                            // address is null.
+                            std::ptr::null() as *const VMFunctionBody,
+                            self.vmctx_ptr(),
+                        )
+                    } else {
+                        let import = self.imported_function(*index);
+                        (import.body, import.dynamic_body, import.vmctx)
+                    };
                 ExportFunction {
                     address,
+                    dynamic_address,
                     signature,
                     vmctx,
                 }

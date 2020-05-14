@@ -28,6 +28,12 @@ pub enum Export {
 pub struct ExportFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
+    /// The address of the dynamic function.
+    ///
+    /// In case is not null, `address` will be the native address
+    /// of the trampoline, and `dynamic_address` will be the address
+    /// of the dynamic function.
+    pub dynamic_address: *const VMFunctionBody,
     /// Pointer to the containing `VMContext`.
     pub vmctx: *mut VMContext,
     /// The function signature declaration, used for compatibilty checking.

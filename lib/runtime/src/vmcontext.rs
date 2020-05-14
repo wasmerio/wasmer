@@ -16,6 +16,12 @@ pub struct VMFunctionImport {
     /// A pointer to the imported function body.
     pub body: *const VMFunctionBody,
 
+    /// A pointer to the imported trampoline body.
+    ///
+    /// This is used in case the imported function is defined as a
+    /// dynamic function instead of a static one.
+    pub dynamic_body: *const VMFunctionBody,
+
     /// A pointer to the `VMContext` that owns the function.
     pub vmctx: *mut VMContext,
 }
@@ -38,6 +44,10 @@ mod test_vmfunction_import {
         assert_eq!(
             offset_of!(VMFunctionImport, body),
             usize::from(offsets.vmfunction_import_body())
+        );
+        assert_eq!(
+            offset_of!(VMFunctionImport, dynamic_body),
+            usize::from(offsets.vmfunction_import_dynamic_body())
         );
         assert_eq!(
             offset_of!(VMFunctionImport, vmctx),

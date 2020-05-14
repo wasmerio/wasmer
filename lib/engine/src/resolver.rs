@@ -124,6 +124,7 @@ pub fn resolve_imports(
             Export::Function(ref f) => {
                 function_imports.push(VMFunctionImport {
                     body: f.address,
+                    dynamic_body: f.dynamic_address,
                     vmctx: f.vmctx,
                 });
             }

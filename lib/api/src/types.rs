@@ -63,6 +63,7 @@ impl ValAnyFunc for Val {
         }
         let export = wasmer_runtime::ExportFunction {
             address: item.func_ptr,
+            dynamic_address: std::ptr::null() as _,
             signature: item.type_index,
             vmctx: item.vmctx,
         };
