@@ -100,6 +100,7 @@ impl CompiledModule {
             function_frame_info: frame_infos,
             trampolines,
             custom_sections: compilation.get_custom_sections(),
+            custom_section_relocations: compilation.get_custom_section_relocations(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -157,6 +158,7 @@ impl CompiledModule {
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
             &serializable.compilation.custom_sections,
+            &serializable.compilation.custom_section_relocations,
         );
 
         // Compute indices into the shared signature table.

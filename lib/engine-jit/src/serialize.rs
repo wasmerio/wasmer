@@ -21,6 +21,7 @@ pub struct SerializableCompilation {
     pub function_frame_info: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
     pub trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
     pub custom_sections: PrimaryMap<SectionIndex, SectionBody>,
+    pub custom_section_relocations: PrimaryMap<SectionIndex, Vec<Relocation>>,
 }
 
 /// Serializable struct that is able to serialize from and to
