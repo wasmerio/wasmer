@@ -25,10 +25,10 @@ pub enum Extern {
 impl Extern {
     pub fn ty(&self) -> ExternType {
         match self {
-            Extern::Function(ft) => ExternType::Function(ft.ty().clone()),
-            Extern::Memory(ft) => ExternType::Memory(ft.ty().clone()),
-            Extern::Table(tt) => ExternType::Table(tt.ty().clone()),
-            Extern::Global(gt) => ExternType::Global(gt.ty().clone()),
+            Extern::Function(ft) => ExternType::Function(ft.ty()),
+            Extern::Memory(ft) => ExternType::Memory(*ft.ty()),
+            Extern::Table(tt) => ExternType::Table(*tt.ty()),
+            Extern::Global(gt) => ExternType::Global(*gt.ty()),
         }
     }
 
@@ -161,7 +161,9 @@ impl Global {
 
     pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
         if self.ty().mutability != Mutability::Var {
-            return Err(RuntimeError::new(format!("immutable global cannot be set")));
+            return Err(RuntimeError::new(
+                "immutable global cannot be set".to_string(),
+            ));
         }
         if val.ty() != self.ty().ty {
             return Err(RuntimeError::new(format!(
@@ -309,7 +311,7 @@ impl Table {
             src_index,
             len,
         )
-        .map_err(|e| RuntimeError::from_trap(e))?;
+        .map_err(RuntimeError::from_trap)?;
         Ok(())
     }
 
@@ -447,7 +449,7 @@ impl Memory {
         Memory {
             store: store.clone(),
             owned_by_store: false,
-            exported: wasmer_export.clone(),
+            exported: wasmer_export,
         }
     }
 }
@@ -644,10 +646,10 @@ impl Function {
         }
 
         // Load the return values out of `values_vec`.
-        for (index, value_type) in signature.results().iter().enumerate() {
+        for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
                 let ptr = values_vec.as_ptr().add(index);
-                results[index] = Val::read_value_from(ptr, value_type.clone());
+                results[index] = Val::read_value_from(ptr, value_type);
             }
         }
 

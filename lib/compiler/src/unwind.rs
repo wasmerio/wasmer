@@ -42,26 +42,26 @@ impl CompiledFunctionUnwindInfo {
     /// Retuns true is no unwind info data.
     pub fn is_empty(&self) -> bool {
         match self {
-            CompiledFunctionUnwindInfo::Windows(d) => d.is_empty(),
-            CompiledFunctionUnwindInfo::FrameLayout(c, _, _) => c.is_empty(),
+            Self::Windows(d) => d.is_empty(),
+            Self::FrameLayout(c, _, _) => c.is_empty(),
         }
     }
 
     /// Returns size of serilized unwind info.
     pub fn len(&self) -> usize {
         match self {
-            CompiledFunctionUnwindInfo::Windows(d) => d.len(),
-            CompiledFunctionUnwindInfo::FrameLayout(c, _, _) => c.len(),
+            Self::Windows(d) => d.len(),
+            Self::FrameLayout(c, _, _) => c.len(),
         }
     }
 
     /// Serializes data into byte array.
     pub fn serialize(&self, dest: &mut [u8], relocs: &mut Vec<FunctionTableReloc>) {
         match self {
-            CompiledFunctionUnwindInfo::Windows(d) => {
+            Self::Windows(d) => {
                 dest.copy_from_slice(d);
             }
-            CompiledFunctionUnwindInfo::FrameLayout(code, _fde_offset, r) => {
+            Self::FrameLayout(code, _fde_offset, r) => {
                 dest.copy_from_slice(code);
                 r.iter().for_each(move |r| {
                     assert_eq!(r.2, 8);

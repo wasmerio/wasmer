@@ -78,12 +78,12 @@ impl AnyRef {
             any: data,
             host_info: None,
         };
-        AnyRef::Other(OtherRef(Rc::new(RefCell::new(info))))
+        Self::Other(OtherRef(Rc::new(RefCell::new(info))))
     }
 
     /// Creates a `Null` reference.
     pub fn null() -> Self {
-        AnyRef::Null
+        Self::Null
     }
 
     /// Returns the data stored in the reference if available.
@@ -93,7 +93,7 @@ impl AnyRef {
     /// Panics if the variant isn't `AnyRef::Other`.
     pub fn data(&self) -> cell::Ref<Box<dyn Any>> {
         match self {
-            AnyRef::Other(OtherRef(r)) => cell::Ref::map(r.borrow(), |r| &r.any),
+            Self::Other(OtherRef(r)) => cell::Ref::map(r.borrow(), |r| &r.any),
             _ => panic!("expected AnyRef::Other"),
         }
     }
@@ -102,11 +102,9 @@ impl AnyRef {
     /// values that compare as equal).
     pub fn ptr_eq(&self, other: &AnyRef) -> bool {
         match (self, other) {
-            (AnyRef::Null, AnyRef::Null) => true,
-            (AnyRef::Ref(InternalRef(ref a)), AnyRef::Ref(InternalRef(ref b))) => {
-                a.ptr_eq(b.as_ref())
-            }
-            (AnyRef::Other(OtherRef(ref a)), AnyRef::Other(OtherRef(ref b))) => Rc::ptr_eq(a, b),
+            (Self::Null, AnyRef::Null) => true,
+            (Self::Ref(InternalRef(ref a)), Self::Ref(InternalRef(ref b))) => a.ptr_eq(b.as_ref()),
+            (Self::Other(OtherRef(ref a)), Self::Other(OtherRef(ref b))) => Rc::ptr_eq(a, b),
             _ => false,
         }
     }
@@ -118,9 +116,9 @@ impl AnyRef {
     /// Panics if `AnyRef` is already borrowed or `AnyRef` is `Null`.
     pub fn host_info(&self) -> Option<cell::RefMut<Box<dyn HostInfo>>> {
         match self {
-            AnyRef::Null => panic!("null"),
-            AnyRef::Ref(r) => r.0.host_info(),
-            AnyRef::Other(r) => {
+            Self::Null => panic!("null"),
+            Self::Ref(r) => r.0.host_info(),
+            Self::Other(r) => {
                 let info = cell::RefMut::map(r.0.borrow_mut(), |b| &mut b.host_info);
                 if info.is_none() {
                     return None;
@@ -137,9 +135,9 @@ impl AnyRef {
     /// Panics if `AnyRef` is already borrowed or `AnyRef` is `Null`.
     pub fn set_host_info(&self, info: Option<Box<dyn HostInfo>>) {
         match self {
-            AnyRef::Null => panic!("null"),
-            AnyRef::Ref(r) => r.0.set_host_info(info),
-            AnyRef::Other(r) => {
+            Self::Null => panic!("null"),
+            Self::Ref(r) => r.0.set_host_info(info),
+            Self::Other(r) => {
                 r.0.borrow_mut().host_info = info;
             }
         }
@@ -149,9 +147,9 @@ impl AnyRef {
 impl fmt::Debug for AnyRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AnyRef::Null => write!(f, "null"),
-            AnyRef::Ref(_) => write!(f, "anyref"),
-            AnyRef::Other(_) => write!(f, "other ref"),
+            Self::Null => write!(f, "null"),
+            Self::Ref(_) => write!(f, "anyref"),
+            Self::Other(_) => write!(f, "other ref"),
         }
     }
 }
@@ -175,14 +173,14 @@ pub struct HostRef<T>(Rc<RefCell<ContentBox<T>>>);
 
 impl<T: 'static> HostRef<T> {
     /// Creates a new `HostRef<T>` from `T`.
-    pub fn new(item: T) -> HostRef<T> {
-        let anyref_data: Weak<HostRef<T>> = Weak::new();
+    pub fn new(item: T) -> Self {
+        let anyref_data: Weak<Self> = Weak::new();
         let content = ContentBox {
             content: item,
             host_info: None,
             anyref_data,
         };
-        HostRef(Rc::new(RefCell::new(content)))
+        Self(Rc::new(RefCell::new(content)))
     }
 
     /// Immutably borrows the wrapped data.
@@ -205,7 +203,7 @@ impl<T: 'static> HostRef<T> {
 
     /// Returns true if the two `HostRef<T>`'s point to the same value (not just
     /// values that compare as equal).
-    pub fn ptr_eq(&self, other: &HostRef<T>) -> bool {
+    pub fn ptr_eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.0, &other.0)
     }
 
@@ -253,8 +251,8 @@ impl<T: 'static> InternalRefBase for HostRef<T> {
 }
 
 impl<T> Clone for HostRef<T> {
-    fn clone(&self) -> HostRef<T> {
-        HostRef(self.0.clone())
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
 

@@ -48,47 +48,47 @@ impl CpuFeature {
 
         if let Some(info) = cpuid.get_feature_info() {
             if info.has_sse2() {
-                features.insert(CpuFeature::SSE2);
+                features.insert(Self::SSE2);
             }
             if info.has_sse3() {
-                features.insert(CpuFeature::SSE3);
+                features.insert(Self::SSE3);
             }
             if info.has_ssse3() {
-                features.insert(CpuFeature::SSSE3);
+                features.insert(Self::SSSE3);
             }
             if info.has_sse41() {
-                features.insert(CpuFeature::SSE41);
+                features.insert(Self::SSE41);
             }
             if info.has_sse42() {
-                features.insert(CpuFeature::SSE42);
+                features.insert(Self::SSE42);
             }
             if info.has_popcnt() {
-                features.insert(CpuFeature::POPCNT);
+                features.insert(Self::POPCNT);
             }
             if info.has_avx() {
-                features.insert(CpuFeature::AVX);
+                features.insert(Self::AVX);
             }
         }
         if let Some(info) = cpuid.get_extended_feature_info() {
             if info.has_bmi1() {
-                features.insert(CpuFeature::BMI1);
+                features.insert(Self::BMI1);
             }
             if info.has_bmi2() {
-                features.insert(CpuFeature::BMI2);
+                features.insert(Self::BMI2);
             }
             if info.has_avx2() {
-                features.insert(CpuFeature::AVX2);
+                features.insert(Self::AVX2);
             }
             if info.has_avx512dq() {
-                features.insert(CpuFeature::AVX512DQ);
+                features.insert(Self::AVX512DQ);
             }
             if info.has_avx512vl() {
-                features.insert(CpuFeature::AVX512VL);
+                features.insert(Self::AVX512VL);
             }
         }
         if let Some(info) = cpuid.get_extended_function_info() {
             if info.has_lzcnt() {
-                features.insert(CpuFeature::LZCNT);
+                features.insert(Self::LZCNT);
             }
         }
         features
@@ -111,8 +111,8 @@ pub struct Target {
 
 impl Target {
     /// Creates a new target given a triple
-    pub fn new(triple: Triple, cpu_features: EnumSet<CpuFeature>) -> Target {
-        Target {
+    pub fn new(triple: Triple, cpu_features: EnumSet<CpuFeature>) -> Self {
+        Self {
             triple,
             cpu_features,
         }
@@ -131,8 +131,8 @@ impl Target {
 
 /// The default for the Target will use the HOST as the triple
 impl Default for Target {
-    fn default() -> Target {
-        Target {
+    fn default() -> Self {
+        Self {
             triple: Triple::host(),
             cpu_features: CpuFeature::for_host(),
         }

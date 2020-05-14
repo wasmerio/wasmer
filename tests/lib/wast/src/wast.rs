@@ -42,7 +42,7 @@ impl Wast {
 
     /// A list of instantiation failures to allow
     pub fn allow_instantiation_failures(&mut self, failures: &[&str]) {
-        for failure_str in failures.iter() {
+        for &failure_str in failures.iter() {
             self.allowed_instantiation_failures
                 .insert(failure_str.to_string());
         }
@@ -195,7 +195,7 @@ impl Wast {
                     wast::QuoteModule::Quote(_) => return Ok(()),
                 };
                 let bytes = module.encode()?;
-                if let Ok(_) = self.module(None, &bytes) {
+                if self.module(None, &bytes).is_ok() {
                     bail!("expected malformed module to fail to instantiate");
                 }
             }
@@ -238,29 +238,26 @@ impl Wast {
         let mut errors = Vec::with_capacity(ast.directives.len());
         for directive in ast.directives {
             let sp = directive.span();
-            match self.run_directive(directive) {
-                Err(e) => {
-                    let message = format!("{}", e);
-                    // If depends on an instance that doesn't exist
-                    if message.contains("no previous instance found") {
-                        continue;
-                    }
-                    // We don't compute it, comes from instantiating an instance
-                    // that we expected to fail.
-                    if self.current.is_none() && self.current_is_allowed_failure {
-                        continue;
-                    }
-                    let (line, col) = sp.linecol_in(wast);
-                    errors.push(DirectiveError {
-                        line: line + 1,
-                        col,
-                        message: message,
-                    });
-                    if self.fail_fast {
-                        break;
-                    }
+            if let Err(e) = self.run_directive(directive) {
+                let message = format!("{}", e);
+                // If depends on an instance that doesn't exist
+                if message.contains("no previous instance found") {
+                    continue;
                 }
-                Ok(_) => {}
+                // We don't compute it, comes from instantiating an instance
+                // that we expected to fail.
+                if self.current.is_none() && self.current_is_allowed_failure {
+                    continue;
+                }
+                let (line, col) = sp.linecol_in(wast);
+                errors.push(DirectiveError {
+                    line: line + 1,
+                    col,
+                    message,
+                });
+                if self.fail_fast {
+                    break;
+                }
             }
         }
         if !errors.is_empty() {
@@ -491,7 +488,7 @@ impl NaNCheck for f32 {
     }
 
     fn is_canonical_nan(&self) -> bool {
-        return (self.to_bits() & 0x7fff_ffff) == 0x7fc0_0000;
+        (self.to_bits() & 0x7fff_ffff) == 0x7fc0_0000
     }
 }
 

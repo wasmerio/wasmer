@@ -60,6 +60,11 @@ impl Exports {
         self.map.len()
     }
 
+    /// Return whether or not there are no exports
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Insert a new export into this `Exports` map.
     pub fn insert<S, E>(&mut self, name: S, value: E)
     where
@@ -84,7 +89,7 @@ impl Exports {
     /// type checking manually, please use `get_extern`.
     pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Result<&T, ExportError> {
         match self.map.get(name) {
-            None => return Err(ExportError::Missing(name.to_string())),
+            None => Err(ExportError::Missing(name.to_string())),
             Some(extern_) => T::get_self_from_extern(extern_),
         }
     }

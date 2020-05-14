@@ -321,6 +321,7 @@ mod test_vmtable_definition {
 #[derive(Debug, Copy, Clone)]
 #[repr(C, align(16))]
 pub struct VMGlobalDefinition {
+    // TODO: use `UnsafeCell` here, make this not Copy; there's probably a ton of UB in this code right now
     storage: [u8; 16],
     // If more elements are added here, remember to add offset_of tests below!
 }

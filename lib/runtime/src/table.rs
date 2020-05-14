@@ -156,7 +156,7 @@ impl Table {
     ///
     /// This function is used in the `wasmer_runtime::Instance` to retrieve
     /// the host table pointer and interact with the host table directly.
-    pub fn as_mut_ptr(&self) -> *mut Table {
-        self as *const Table as *mut Table
+    pub fn as_mut_ptr(&self) -> *mut Self {
+        self as *const Self as *mut Self
     }
 }
