@@ -439,6 +439,7 @@ impl FuncTranslator {
             CustomSection {
                 protection: CustomSectionProtection::Read,
                 bytes: SectionBody::default(),
+                relocations: vec![],
             },
         );
         for (section_idx, local_section_idx) in required_custom_sections {

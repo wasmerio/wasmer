@@ -72,6 +72,7 @@ impl Compiler for LLVMCompiler {
         let mut readonly_section = CustomSection {
             protection: CustomSectionProtection::Read,
             bytes: SectionBody::default(),
+            relocations: vec![],
         };
 
         for (func_index, _) in &module.functions {
