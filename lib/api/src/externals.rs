@@ -536,6 +536,7 @@ impl Function {
         }
     }
 
+    #[allow(clippy::cast_ptr_alignment)]
     pub fn new_dynamic<F>(store: &Store, ty: &FunctionType, func: F) -> Self
     where
         F: Fn(&[Val], &mut [Val]) -> Result<(), RuntimeError> + 'static,
