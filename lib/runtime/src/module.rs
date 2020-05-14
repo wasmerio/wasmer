@@ -258,7 +258,7 @@ impl Module {
                     }
                     ImportIndex::Global(i) => {
                         let global_type = self.globals.get(i.clone()).unwrap();
-                        ExternType::Global(global_type.clone())
+                        ExternType::Global(*global_type)
                     }
                 };
                 ImportType::new(module, field, extern_type)
@@ -347,7 +347,7 @@ impl Module {
     /// Get the Module name
     pub fn name(&self) -> String {
         match self.name {
-            Some(ref name) => format!("{}", name),
+            Some(ref name) => name.to_string(),
             None => "<module>".to_string(),
         }
     }
@@ -387,21 +387,21 @@ impl<I: Iterator<Item = ExportType> + Sized> ExportsIterator<I> {
     /// Get only the memories
     pub fn memories(self) -> impl Iterator<Item = ExportType<MemoryType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Memory(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            ExternType::Memory(ty) => Some(ExportType::new(extern_.name(), *ty)),
             _ => None,
         })
     }
     /// Get only the tables
     pub fn tables(self) -> impl Iterator<Item = ExportType<TableType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Table(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            ExternType::Table(ty) => Some(ExportType::new(extern_.name(), *ty)),
             _ => None,
         })
     }
     /// Get only the globals
     pub fn globals(self) -> impl Iterator<Item = ExportType<GlobalType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Global(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            ExternType::Global(ty) => Some(ExportType::new(extern_.name(), *ty)),
             _ => None,
         })
     }
@@ -443,33 +443,21 @@ impl<I: Iterator<Item = ImportType> + Sized> ImportsIterator<I> {
     /// Get only the memories
     pub fn memories(self) -> impl Iterator<Item = ImportType<MemoryType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Memory(ty) => Some(ImportType::new(
-                extern_.module(),
-                extern_.name(),
-                ty.clone(),
-            )),
+            ExternType::Memory(ty) => Some(ImportType::new(extern_.module(), extern_.name(), *ty)),
             _ => None,
         })
     }
     /// Get only the tables
     pub fn tables(self) -> impl Iterator<Item = ImportType<TableType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Table(ty) => Some(ImportType::new(
-                extern_.module(),
-                extern_.name(),
-                ty.clone(),
-            )),
+            ExternType::Table(ty) => Some(ImportType::new(extern_.module(), extern_.name(), *ty)),
             _ => None,
         })
     }
     /// Get only the globals
     pub fn globals(self) -> impl Iterator<Item = ImportType<GlobalType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Global(ty) => Some(ImportType::new(
-                extern_.module(),
-                extern_.name(),
-                ty.clone(),
-            )),
+            ExternType::Global(ty) => Some(ImportType::new(extern_.module(), extern_.name(), *ty)),
             _ => None,
         })
     }

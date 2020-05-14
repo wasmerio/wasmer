@@ -34,7 +34,7 @@ impl Type {
     /// `I64`, `F32`, `F64`, `V128`).
     pub fn is_num(&self) -> bool {
         match self {
-            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::V128 => true,
+            Self::I32 | Self::I64 | Self::F32 | Self::F64 | Self::V128 => true,
             _ => false,
         }
     }
@@ -42,7 +42,7 @@ impl Type {
     /// Returns true if `Type` matches either of the reference types.
     pub fn is_ref(&self) -> bool {
         match self {
-            Type::AnyRef | Type::FuncRef => true,
+            Self::AnyRef | Self::FuncRef => true,
             _ => false,
         }
     }
@@ -171,7 +171,7 @@ macro_rules! accessors {
         /// Attempt to return the underlying type of this external type,
         /// returning `None` if it is a different type.
         pub fn $get(&self) -> Option<&$ty> {
-            if let ExternType::$variant(e) = self {
+            if let Self::$variant(e) = self {
                 Some(e)
             } else {
                 None
@@ -200,10 +200,10 @@ impl ExternType {
     /// Check if two externs are compatible
     pub fn is_compatible_with(&self, other: &Self) -> bool {
         match (self, other) {
-            (ExternType::Function(a), ExternType::Function(b)) => a == b,
-            (ExternType::Global(a), ExternType::Global(b)) => is_global_compatible(a, b),
-            (ExternType::Table(a), ExternType::Table(b)) => is_table_compatible(a, b),
-            (ExternType::Memory(a), ExternType::Memory(b)) => is_memory_compatible(a, b),
+            (Self::Function(a), Self::Function(b)) => a == b,
+            (Self::Global(a), Self::Global(b)) => is_global_compatible(a, b),
+            (Self::Table(a), Self::Table(b)) => is_table_compatible(a, b),
+            (Self::Memory(a), Self::Memory(b)) => is_memory_compatible(a, b),
             // The rest of possibilities, are not compatible
             _ => false,
         }
@@ -288,16 +288,16 @@ pub enum Mutability {
 }
 
 impl From<bool> for Mutability {
-    fn from(val: bool) -> Mutability {
+    fn from(val: bool) -> Self {
         match val {
-            false => Mutability::Const,
-            true => Mutability::Var,
+            false => Self::Const,
+            true => Self::Var,
         }
     }
 }
 
 impl From<Mutability> for bool {
-    fn from(val: Mutability) -> bool {
+    fn from(val: Mutability) -> Self {
         match val {
             Mutability::Const => false,
             Mutability::Var => true,
@@ -374,20 +374,20 @@ impl GlobalInit {
     /// Get the `GlobalInit` from a given `Value`
     pub fn from_value<T>(value: Value<T>) -> Self {
         match value {
-            Value::I32(i) => GlobalInit::I32Const(i),
-            Value::I64(i) => GlobalInit::I64Const(i),
-            Value::F32(f) => GlobalInit::F32Const(f),
-            Value::F64(f) => GlobalInit::F64Const(f),
+            Value::I32(i) => Self::I32Const(i),
+            Value::I64(i) => Self::I64Const(i),
+            Value::F32(f) => Self::F32Const(f),
+            Value::F64(f) => Self::F64Const(f),
             _ => unimplemented!("GlobalInit from_value for {:?}", value),
         }
     }
     /// Get the `Value` from the Global init value
     pub fn to_value<T>(&self) -> Value<T> {
         match self {
-            GlobalInit::I32Const(i) => Value::I32(*i),
-            GlobalInit::I64Const(i) => Value::I64(*i),
-            GlobalInit::F32Const(f) => Value::F32(*f),
-            GlobalInit::F64Const(f) => Value::F64(*f),
+            Self::I32Const(i) => Value::I32(*i),
+            Self::I64Const(i) => Value::I64(*i),
+            Self::F32Const(f) => Value::F32(*f),
+            Self::F64Const(f) => Value::F64(*f),
             _ => unimplemented!("GlobalInit to_value for {:?}", self),
         }
     }
@@ -414,8 +414,8 @@ pub struct TableType {
 impl TableType {
     /// Creates a new table descriptor which will contain the specified
     /// `element` and have the `limits` applied to its length.
-    pub fn new(ty: Type, minimum: u32, maximum: Option<u32>) -> TableType {
-        TableType {
+    pub fn new(ty: Type, minimum: u32, maximum: Option<u32>) -> Self {
+        Self {
             ty,
             minimum,
             maximum,
@@ -453,15 +453,11 @@ pub struct MemoryType {
 impl MemoryType {
     /// Creates a new descriptor for a WebAssembly memory given the specified
     /// limits of the memory.
-    pub fn new<IntoPages>(
-        minimum: IntoPages,
-        maximum: Option<IntoPages>,
-        shared: bool,
-    ) -> MemoryType
+    pub fn new<IntoPages>(minimum: IntoPages, maximum: Option<IntoPages>, shared: bool) -> Self
     where
         IntoPages: Into<Pages>,
     {
-        MemoryType {
+        Self {
             minimum: minimum.into(),
             maximum: maximum.map(|m| m.into()),
             shared,

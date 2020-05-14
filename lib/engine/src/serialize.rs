@@ -100,7 +100,7 @@ impl<'de> Deserialize<'de> for SerializableFunctionFrameInfo {
     where
         D: Deserializer<'de>,
     {
-        Ok(SerializableFunctionFrameInfo::Unprocessed(
+        Ok(Self::Unprocessed(
             deserializer.deserialize_byte_buf(FunctionFrameInfoVisitor)?,
         ))
     }

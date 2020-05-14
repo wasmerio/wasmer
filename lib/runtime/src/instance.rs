@@ -1071,7 +1071,7 @@ fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
 
         let size = usize::try_from(table.size()).unwrap();
         if size < start + init.elements.len() {
-            return Err(Trap::wasm(TrapCode::TableSetterOutOfBounds).into());
+            return Err(Trap::wasm(TrapCode::TableSetterOutOfBounds));
         }
     }
 
@@ -1123,7 +1123,7 @@ fn check_memory_init_bounds(
         unsafe {
             let mem_slice = get_memory_slice(init, instance);
             if mem_slice.get_mut(start..start + init.data.len()).is_none() {
-                return Err(Trap::wasm(TrapCode::HeapSetterOutOfBounds).into());
+                return Err(Trap::wasm(TrapCode::HeapSetterOutOfBounds));
             }
         }
     }
@@ -1160,7 +1160,7 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
             .checked_add(init.elements.len())
             .map_or(true, |end| end > table.size() as usize)
         {
-            return Err(Trap::wasm(TrapCode::TableAccessOutOfBounds).into());
+            return Err(Trap::wasm(TrapCode::TableAccessOutOfBounds));
         }
 
         for (i, func_idx) in init.elements.iter().enumerate() {
@@ -1215,7 +1215,7 @@ fn initialize_memories(
             .checked_add(init.data.len())
             .map_or(true, |end| end > memory.current_length)
         {
-            return Err(Trap::wasm(TrapCode::HeapAccessOutOfBounds).into());
+            return Err(Trap::wasm(TrapCode::HeapAccessOutOfBounds));
         }
 
         unsafe {

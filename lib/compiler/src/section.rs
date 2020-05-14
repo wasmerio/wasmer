@@ -55,7 +55,7 @@ impl SectionBody {
     }
 
     /// Extends the section by appending bytes from another section.
-    pub fn append(&mut self, body: &SectionBody) {
+    pub fn append(&mut self, body: &Self) {
         self.0.extend(&body.0);
     }
 
@@ -67,5 +67,10 @@ impl SectionBody {
     /// Returns the length of this section in bytes.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Returns whether or not the section body is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }

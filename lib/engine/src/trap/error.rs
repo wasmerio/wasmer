@@ -186,7 +186,7 @@ impl fmt::Display for RuntimeError {
         for frame in self.trace().iter() {
             let name = frame.module_name();
             let func_index = frame.func_index();
-            writeln!(f, "")?;
+            writeln!(f)?;
             write!(f, "    at ")?;
             match frame.func_name() {
                 Some(name) => match rustc_demangle::try_demangle(name) {
