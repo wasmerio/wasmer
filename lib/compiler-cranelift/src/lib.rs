@@ -58,7 +58,7 @@ pub use crate::compiler::CraneliftCompiler;
 pub use crate::config::CraneliftConfig;
 pub use crate::debug::{FrameLayout, FrameLayoutChange, FrameLayouts};
 pub use crate::debug::{ModuleMemoryOffset, ModuleVmctxInfo, ValueLabelsRanges};
-pub use crate::trampoline::make_wasm_trampoline;
+pub use crate::trampoline::make_host2wasm_trampoline;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

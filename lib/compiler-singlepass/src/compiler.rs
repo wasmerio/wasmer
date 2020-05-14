@@ -65,7 +65,7 @@ impl Compiler for SinglepassCompiler {
         ))
     }
 
-    fn compile_wasm_trampolines(
+    fn compile_host2wasm_trampolines(
         &self,
         _signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {

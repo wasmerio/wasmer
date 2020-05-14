@@ -536,6 +536,64 @@ impl Function {
         }
     }
 
+    pub fn new_dynamic<F>(store: &Store, ty: &FunctionType, func: F) -> Self
+    where
+        F: Fn(&[Val], &mut [Val]) -> Result<(), RuntimeError> + 'static,
+    {
+        use std::panic::{self, AssertUnwindSafe};
+        // The `DynamicCtx` holds the function type as well
+        // as the function that we will be calling in the wrapper.
+        struct DynamicCtx {
+            ty: FunctionType,
+            func: Box<dyn Fn(&[Val], &mut [Val]) -> Result<(), RuntimeError> + 'static>,
+        }
+        // This function wraps our func, to make it compatible with the
+        // reverse trampoline signature
+        unsafe fn func_wrapper(
+            dynamic_ctx: &DynamicCtx,
+            _caller_vmctx: *mut VMContext,
+            values_vec: *mut i128,
+        ) {
+            let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                let mut args = Vec::with_capacity(dynamic_ctx.ty.params().len());
+                for (i, ty) in dynamic_ctx.ty.params().iter().enumerate() {
+                    args.push(Val::read_value_from(values_vec.add(i), *ty));
+                }
+                let mut returns = vec![Val::null(); dynamic_ctx.ty.results().len()];
+                (*dynamic_ctx.func)(&args, &mut returns)
+                // println!("CALLED {:?}", args);
+            }));
+
+            match result {
+                Ok(Ok(())) => {}
+                Ok(Err(trap)) => {
+                    wasmer_runtime::raise_user_trap(Box::new(trap))
+                }
+                Err(panic) => wasmer_runtime::resume_panic(panic),
+            }
+        };
+        let dynamic_ctx = DynamicCtx {
+            ty: ty.clone(),
+            func: Box::new(func),
+        };
+        let address = store
+            .engine()
+            .reverse_trampoline(&ty, func_wrapper as *const () as usize);
+        // let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
+        let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
+        let signature = store.engine().register_signature(&ty);
+        Self {
+            store: store.clone(),
+            owned_by_store: true,
+            inner: InnerFunc::Host(HostFunc {}),
+            exported: ExportFunction {
+                address,
+                vmctx,
+                signature,
+            },
+        }
+    }
+
     /// Creates a new `Func` with the given parameters.
     ///
     /// * `store` - a global cache to store information in.

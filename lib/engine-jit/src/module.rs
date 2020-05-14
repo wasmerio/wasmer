@@ -78,7 +78,7 @@ impl CompiledModule {
             .cloned()
             .collect::<Vec<_>>();
         let trampolines = compiler
-            .compile_wasm_trampolines(&func_types)?
+            .compile_host2wasm_trampolines(&func_types)?
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, _>>();
 

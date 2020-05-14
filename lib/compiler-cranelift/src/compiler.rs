@@ -4,7 +4,9 @@ use crate::address_map::get_function_address_map;
 use crate::config::CraneliftConfig;
 use crate::func_environ::{get_func_name, FuncEnvironment};
 use crate::sink::{RelocSink, TrapSink};
-use crate::trampoline::{make_wasm_trampoline, FunctionBuilderContext};
+use crate::trampoline::{
+    make_host2wasm_trampoline, make_wasm2host_trampoline, FunctionBuilderContext,
+};
 use crate::translator::{
     compiled_function_unwind_info, signature_to_cranelift_ir, transform_jump_table, FuncTranslator,
 };
@@ -155,15 +157,30 @@ impl Compiler for CraneliftCompiler {
         Ok(Compilation::new(functions, custom_sections))
     }
 
-    fn compile_wasm_trampolines(
+    fn compile_host2wasm_trampolines(
         &self,
         signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, sig| {
-                make_wasm_trampoline(&*self.isa, &mut cx, sig, std::mem::size_of::<u128>())
+                make_host2wasm_trampoline(&*self.isa, &mut cx, sig)
             })
             .collect::<Result<Vec<_>, CompileError>>()
+    }
+
+    fn compile_wasm2host_trampoline(
+        &self,
+        signature: &FunctionType,
+        callee_address: usize,
+    ) -> Result<FunctionBody, CompileError> {
+        let mut cx = FunctionBuilderContext::new();
+        make_wasm2host_trampoline(&*self.isa, &mut cx, signature, callee_address as _)
+        // signatures
+        //     .par_iter()
+        //     .map_init(FunctionBuilderContext::new, |mut cx, sig| {
+        //         make_wasm2host_trampoline(&*self.isa, &mut cx, sig)
+        //     })
+        //     .collect::<Result<Vec<_>, CompileError>>()
     }
 }

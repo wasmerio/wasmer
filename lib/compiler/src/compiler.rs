@@ -80,8 +80,35 @@ pub trait Compiler {
     /// let func = instance.exports.func("my_func");
     /// func.call(&[Value::I32(1)]);
     /// ```
-    fn compile_wasm_trampolines(
+    fn compile_host2wasm_trampolines(
         &self,
         signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError>;
+
+    /// Compile the trampolines to call a dynamic function defined in
+    /// a host, from a Wasm module.
+    ///
+    /// This allows us to create dynamic Wasm functions, such as:
+    ///
+    /// ```ignore
+    /// fn my_func(values: Vec<Val>) -> Vec<Val> {
+    /// // do something
+    /// }
+    ///
+    /// let my_func_type = FuncType::new(vec![Type::I32], vec![Type::I32]);
+    /// let imports = imports!{
+    ///   "namespace" => {
+    ///     "my_func" => Func::new_dynamic(my_func_type, my_func),s
+    ///   }
+    /// }
+    /// ```
+    fn compile_wasm2host_trampoline(
+        &self,
+        signature: &FunctionType,
+        callee_address: usize,
+    ) -> Result<FunctionBody, CompileError>;
+    // fn compile_wasm2host_trampolines(
+    //     &self,
+    //     signatures: &[FunctionType],
+    // ) -> Result<Vec<FunctionBody>, CompileError>;
 }

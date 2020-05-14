@@ -139,7 +139,7 @@ impl Compiler for LLVMCompiler {
         Ok(Compilation::new(functions, custom_sections))
     }
 
-    fn compile_wasm_trampolines(
+    fn compile_host2wasm_trampolines(
         &self,
         signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
