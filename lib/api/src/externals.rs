@@ -566,9 +566,7 @@ impl Function {
 
             match result {
                 Ok(Ok(())) => {}
-                Ok(Err(trap)) => {
-                    wasmer_runtime::raise_user_trap(Box::new(trap))
-                }
+                Ok(Err(trap)) => wasmer_runtime::raise_user_trap(Box::new(trap)),
                 Err(panic) => wasmer_runtime::resume_panic(panic),
             }
         };

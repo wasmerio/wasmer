@@ -13,14 +13,11 @@ use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use std::cmp;
 use std::mem;
-use std::panic::{self, AssertUnwindSafe};
 
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use wasm_common::FunctionType;
 use wasmer_compiler::{CompileError, FunctionBody};
-use wasmer_runtime::{
-    raise_user_trap, resume_panic, InstanceHandle, Trap, VMContext, VMFunctionBody,
-};
+use wasmer_runtime::VMFunctionBody;
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_wasm2host_trampoline(
