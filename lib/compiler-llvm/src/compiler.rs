@@ -82,6 +82,7 @@ impl Compiler for LLVMCompiler {
                 .cloned()
                 .unwrap_or_else(|| format!("fn{}", func_index.index()));
         }
+        let mut module_custom_sections = PrimaryMap::new();
         let mut functions = function_body_inputs
             .into_iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -100,44 +101,41 @@ impl Compiler for LLVMCompiler {
                 )
             })
             .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .map(|(mut function, local_relocations, custom_sections)| {
-                /// We collect the sections data
-                for (local_idx, custom_section) in custom_sections.iter().enumerate() {
-                    let local_idx = local_idx as u32;
-                    // TODO: these section numbers are potentially wrong, if there's
-                    // no Read and only a ReadExecute then ReadExecute is 0.
-                    let (ref mut section, section_num) = match &custom_section.protection {
-                        CustomSectionProtection::Read => {
-                            (&mut readonly_section, SectionIndex::from_u32(0))
-                        }
-                    };
-                    let offset = section.bytes.len() as i64;
-                    section.bytes.append(&custom_section.bytes);
-                    // TODO: we're needlessly rescanning the whole list.
-                    for local_relocation in &local_relocations {
-                        if local_relocation.local_section_index == local_idx {
-                            used_readonly_section = true;
-                            function.relocations.push(Relocation {
-                                kind: local_relocation.kind,
-                                reloc_target: RelocationTarget::CustomSection(section_num),
-                                offset: local_relocation.offset,
-                                addend: local_relocation.addend + offset,
-                            });
+            .iter()
+            .map(|(compiled_function, function_custom_sections)| {
+                // TODO: remove usage of clone
+                let first_section = module_custom_sections.len() as u32;
+                for (_, custom_section) in function_custom_sections.iter() {
+                    let mut custom_section = custom_section.clone();
+                    for mut reloc in &mut custom_section.relocations {
+                        match reloc.reloc_target {
+                            RelocationTarget::CustomSection(index) => {
+                                reloc.reloc_target = RelocationTarget::CustomSection(
+                                    SectionIndex::from_u32(first_section + index.as_u32()),
+                                )
+                            }
+                            _ => {}
                         }
                     }
+                    module_custom_sections.push(custom_section);
                 }
-                Ok(function)
+                let mut compiled_function = compiled_function.clone();
+                for mut reloc in &mut compiled_function.relocations {
+                    match reloc.reloc_target {
+                        RelocationTarget::CustomSection(index) => {
+                            reloc.reloc_target = RelocationTarget::CustomSection(
+                                SectionIndex::from_u32(first_section + index.as_u32()),
+                            )
+                        }
+                        _ => {}
+                    }
+                }
+                compiled_function
             })
-            .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        let mut custom_sections = PrimaryMap::new();
-        if used_readonly_section {
-            custom_sections.push(readonly_section);
-        }
-        Ok(Compilation::new(functions, custom_sections))
+        Ok(Compilation::new(functions, module_custom_sections))
     }
 
     fn compile_wasm_trampolines(

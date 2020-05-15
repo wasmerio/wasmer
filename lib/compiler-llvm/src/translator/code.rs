@@ -29,7 +29,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::config::LLVMConfig;
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
@@ -40,9 +40,9 @@ use wasm_common::{
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, Addend, CodeOffset, CompileError, CompiledFunction,
-    CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, FunctionAddressMap,
-    FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, SourceLoc, WasmResult,
+    CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, CustomSections,
+    FunctionAddressMap, FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation,
+    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc, WasmResult,
 };
 use wasmer_runtime::libcalls::LibCall;
 use wasmer_runtime::Module as WasmerCompilerModule;
@@ -84,15 +84,6 @@ fn const_zero<'ctx>(ty: BasicTypeEnum<'ctx>) -> BasicValueEnum<'ctx> {
     }
 }
 
-// Relocation against a per-function section.
-#[derive(Debug)]
-pub struct LocalRelocation {
-    pub kind: RelocationKind,
-    pub local_section_index: u32,
-    pub offset: CodeOffset,
-    pub addend: Addend,
-}
-
 impl FuncTranslator {
     pub fn new() -> Self {
         Self {
@@ -109,7 +100,7 @@ impl FuncTranslator {
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FunctionIndex, String>,
-    ) -> Result<(CompiledFunction, Vec<LocalRelocation>, Vec<CustomSection>), CompileError> {
+    ) -> Result<(CompiledFunction, CustomSections), CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
         let func_name = &func_names[func_index];
         let module_name = match wasm_module.name.as_ref() {
@@ -135,7 +126,7 @@ impl FuncTranslator {
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         // TODO: mark vmctx nofree
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section("wasmer_function");
+        func.as_global_value().set_section(".wasmer_function");
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
@@ -335,43 +326,80 @@ impl FuncTranslator {
             Some(name.unwrap())
         };
 
-        let wasmer_function_idx = elf
+        // Build up a mapping from a section to its relocation sections.
+        let reloc_sections = elf.shdr_relocs.iter().fold(
+            HashMap::new(),
+            |mut map: HashMap<_, Vec<_>>, (section_index, reloc_section)| {
+                let target_section = elf.section_headers[*section_index].sh_info as usize;
+                map.entry(target_section).or_default().push(reloc_section);
+                map
+            },
+        );
+
+        let mut visited: HashSet<usize> = HashSet::new();
+        let mut worklist: Vec<usize> = Vec::new();
+        let mut section_targets: HashMap<usize, RelocationTarget> = HashMap::new();
+
+        let wasmer_function_index = elf
             .section_headers
             .iter()
             .enumerate()
-            .filter(|(_, section)| get_section_name(section) == Some("wasmer_function"))
-            .map(|(idx, _)| idx)
-            .take(1)
+            .filter(|(_, section)| get_section_name(section) == Some(".wasmer_function"))
+            .map(|(index, _)| index)
             .collect::<Vec<_>>();
-        // TODO: handle errors here instead of asserting.
-        assert!(wasmer_function_idx.len() == 1);
-        let wasmer_function_idx = wasmer_function_idx[0];
+        if wasmer_function_index.len() != 1 {
+            return Err(CompileError::Codegen(format!(
+                "found {} sections named .wasmer_function",
+                wasmer_function_index.len()
+            )));
+        }
+        let wasmer_function_index = wasmer_function_index[0];
 
-        let bytes = elf.section_headers[wasmer_function_idx].file_range();
-        let bytes = mem_buf_slice[bytes.start..bytes.end].to_vec();
+        let mut section_to_custom_section = HashMap::new();
 
-        let mut relocations = vec![];
-        let mut local_relocations = vec![];
-        let mut required_custom_sections = HashMap::new();
+        section_targets.insert(
+            wasmer_function_index,
+            RelocationTarget::LocalFunc(*local_func_index),
+        );
 
-        for (section_index, reloc_section) in &elf.shdr_relocs {
-            let section_name = get_section_name(&elf.section_headers[*section_index]);
-            if section_name == Some(".rel.rodata") || section_name == Some(".rela.rodata") {
-                return Err(CompileError::Codegen(
-                    "jump tables not yet implemented".to_string(),
-                ));
-            }
-            if section_name != Some(".relawasmer_function")
-                && section_name != Some(".relwasmer_function")
+        let mut next_custom_section: u32 = 0;
+        let mut elf_section_to_target = |elf_section_index| {
+            *section_targets.entry(elf_section_index).or_insert_with(|| {
+                let next = SectionIndex::from_u32(next_custom_section);
+                section_to_custom_section.insert(elf_section_index, next);
+                let target = RelocationTarget::CustomSection(next);
+                next_custom_section += 1;
+                target
+            })
+        };
+
+        let section_bytes = |elf_section_index: usize| {
+            let byte_range = elf.section_headers[elf_section_index].file_range();
+            mem_buf_slice[byte_range.start..byte_range.end].to_vec()
+        };
+
+        // From elf section index to list of Relocations.
+        let mut relocations: HashMap<usize, Vec<Relocation>> = HashMap::new();
+
+        worklist.push(wasmer_function_index);
+        visited.insert(wasmer_function_index);
+        while !worklist.is_empty() {
+            let section_index = worklist.pop().unwrap();
+            for reloc in reloc_sections
+                .get(&section_index)
+                .iter()
+                .flat_map(|inner| inner.iter().flat_map(|inner2| inner2.iter()))
             {
-                continue;
-            }
-            for reloc in reloc_section.iter() {
                 let kind = match reloc.r_type {
                     // TODO: these constants are not per-arch, we'll need to
                     // make the whole match per-arch.
                     goblin::elf::reloc::R_X86_64_64 => RelocationKind::Abs8,
-                    _ => unimplemented!("unknown relocation {}", reloc.r_type),
+                    _ => {
+                        return Err(CompileError::Codegen(format!(
+                            "unknown ELF relocation {}",
+                            reloc.r_type
+                        )));
+                    }
                 };
                 let offset = reloc.r_offset as u32;
                 let addend = reloc.r_addend.unwrap_or(0);
@@ -379,25 +407,31 @@ impl FuncTranslator {
                 // TODO: error handling
                 let target = elf.syms.get(target).unwrap();
                 if target.st_type() == goblin::elf::sym::STT_SECTION {
-                    let len = required_custom_sections.len();
-                    let entry = required_custom_sections.entry(target.st_shndx);
-                    let local_section_index = *entry.or_insert(len) as _;
-                    local_relocations.push(LocalRelocation {
-                        kind,
-                        local_section_index,
-                        offset,
-                        addend,
-                    });
+                    if visited.insert(target.st_shndx) {
+                        worklist.push(target.st_shndx);
+                    }
+                    relocations
+                        .entry(section_index)
+                        .or_default()
+                        .push(Relocation {
+                            kind,
+                            reloc_target: elf_section_to_target(target.st_shndx),
+                            offset,
+                            addend,
+                        });
                 } else if target.st_type() == goblin::elf::sym::STT_FUNC
-                    && target.st_shndx == wasmer_function_idx
+                    && target.st_shndx == wasmer_function_index
                 {
                     // This is a function referencing its own byte stream.
-                    relocations.push(Relocation {
-                        kind,
-                        reloc_target: RelocationTarget::LocalFunc(*local_func_index),
-                        offset,
-                        addend,
-                    });
+                    relocations
+                        .entry(section_index)
+                        .or_default()
+                        .push(Relocation {
+                            kind,
+                            reloc_target: RelocationTarget::LocalFunc(*local_func_index),
+                            offset,
+                            addend,
+                        });
                 } else if target.st_type() == goblin::elf::sym::STT_NOTYPE
                     && target.st_shndx == goblin::elf::section_header::SHN_UNDEF as _
                 {
@@ -410,20 +444,26 @@ impl FuncTranslator {
                         let local_index = wasm_module
                             .local_func_index(index)
                             .expect("Relocation to non-local function");
-                        relocations.push(Relocation {
-                            kind,
-                            reloc_target: RelocationTarget::LocalFunc(local_index),
-                            offset,
-                            addend,
-                        });
+                        relocations
+                            .entry(section_index)
+                            .or_default()
+                            .push(Relocation {
+                                kind,
+                                reloc_target: RelocationTarget::LocalFunc(local_index),
+                                offset,
+                                addend,
+                            });
                     // Maybe a libcall then?
                     } else if let Some(libcall) = libcalls.get(name) {
-                        relocations.push(Relocation {
-                            kind,
-                            reloc_target: RelocationTarget::LibCall(*libcall),
-                            offset,
-                            addend,
-                        });
+                        relocations
+                            .entry(section_index)
+                            .or_default()
+                            .push(Relocation {
+                                kind,
+                                reloc_target: RelocationTarget::LibCall(*libcall),
+                                offset,
+                                addend,
+                            });
                     } else {
                         unimplemented!("reference to unknown symbol {}", name);
                     }
@@ -433,47 +473,57 @@ impl FuncTranslator {
             }
         }
 
-        let mut custom_sections = vec![];
-        custom_sections.resize(
-            required_custom_sections.len(),
-            CustomSection {
-                protection: CustomSectionProtection::Read,
-                bytes: SectionBody::default(),
-                relocations: vec![],
-            },
-        );
-        for (section_idx, local_section_idx) in required_custom_sections {
-            let bytes = elf.section_headers[section_idx as usize].file_range();
-            let bytes = &mem_buf_slice[bytes.start..bytes.end];
-            custom_sections[local_section_idx].bytes.extend(bytes);
-        }
+        let mut custom_sections = section_to_custom_section
+            .iter()
+            .map(|(elf_section_index, custom_section_index)| {
+                (
+                    custom_section_index,
+                    CustomSection {
+                        protection: CustomSectionProtection::Read,
+                        bytes: SectionBody(section_bytes(*elf_section_index)),
+                        relocations: relocations
+                            .remove_entry(elf_section_index)
+                            .map_or(vec![], |(k, v)| v),
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        custom_sections.sort_unstable_by(|a, b| a.0.cmp(b.0));
+        let custom_sections = custom_sections
+            .iter()
+            // TODO: remove usage of clone
+            .map(|(k, v)| v.clone())
+            .collect::<PrimaryMap<SectionIndex, _>>();
+
+        let function_body = FunctionBody {
+            body: section_bytes(wasmer_function_index),
+            unwind_info: None,
+        };
 
         let address_map = FunctionAddressMap {
             instructions: vec![InstructionAddressMap {
                 srcloc: SourceLoc::default(),
                 code_offset: 0,
-                code_len: bytes.len(),
+                code_len: function_body.body.len(),
             }],
             start_srcloc: SourceLoc::default(),
             end_srcloc: SourceLoc::default(),
             body_offset: 0,
-            body_len: bytes.len(),
+            body_len: function_body.body.len(),
         };
 
         Ok((
             CompiledFunction {
-                body: FunctionBody {
-                    body: bytes,
-                    unwind_info: None,
-                },
+                body: function_body,
                 jt_offsets: SecondaryMap::new(),
-                relocations,
+                relocations: relocations
+                    .remove_entry(&wasmer_function_index)
+                    .map_or(vec![], |(k, v)| v),
                 frame_info: CompiledFunctionFrameInfo {
                     address_map,
                     traps: vec![],
                 },
             },
-            local_relocations,
             custom_sections,
         ))
     }

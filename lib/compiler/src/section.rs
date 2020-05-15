@@ -50,7 +50,7 @@ pub struct CustomSection {
 
 /// The bytes in the section.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
-pub struct SectionBody(#[serde(with = "serde_bytes")] Vec<u8>);
+pub struct SectionBody(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
 impl SectionBody {
     /// Extend the section with the bytes given.
