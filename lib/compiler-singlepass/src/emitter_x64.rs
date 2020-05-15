@@ -34,6 +34,7 @@ pub enum Condition {
     Equal,
     NotEqual,
     Signed,
+    Carry,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -667,6 +668,15 @@ impl Emitter for Assembler {
     }
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) {
+        // fast path
+        match (src, dst) {
+            (Location::Imm32(0), Location::GPR(x)) => {
+                dynasm!(self ; xor Rd(x as u8), Rd(x as u8));
+                return;
+            }
+            _ => {}
+        }
+
         binop_all_nofp!(mov, self, sz, src, dst, {
             binop_imm64_gpr!(mov, self, sz, src, dst, {
                 match (sz, src, dst) {
@@ -790,6 +800,7 @@ impl Emitter for Assembler {
             Condition::Equal => jmp_op!(je, self, label),
             Condition::NotEqual => jmp_op!(jne, self, label),
             Condition::Signed => jmp_op!(js, self, label),
+            Condition::Carry => jmp_op!(jc, self, label),
         }
     }
     fn emit_jmp_location(&mut self, loc: Location) {
@@ -813,6 +824,7 @@ impl Emitter for Assembler {
             Condition::Equal => trap_op!(je, self),
             Condition::NotEqual => trap_op!(jne, self),
             Condition::Signed => trap_op!(js, self),
+            Condition::Carry => trap_op!(jc, self),
         }
     }
     fn emit_set(&mut self, condition: Condition, dst: GPR) {
@@ -828,6 +840,7 @@ impl Emitter for Assembler {
             Condition::Equal => dynasm!(self ; sete Rb(dst as u8)),
             Condition::NotEqual => dynasm!(self ; setne Rb(dst as u8)),
             Condition::Signed => dynasm!(self ; sets Rb(dst as u8)),
+            Condition::Carry => dynasm!(self ; setc Rb(dst as u8)),
             _ => panic!("singlepass can't emit SET {:?} {:?}", condition, dst),
         }
     }
@@ -860,7 +873,7 @@ impl Emitter for Assembler {
             (Location::Imm32(x), Location::Imm64(y)) => Some((x as i32 as i64, y as i64)),
             (Location::Imm64(x), Location::Imm32(y)) => Some((x as i64, y as i32 as i64)),
             (Location::Imm64(x), Location::Imm64(y)) => Some((x as i64, y as i64)),
-            _ => None
+            _ => None,
         };
         use std::cmp::Ordering;
         match consts {
@@ -868,18 +881,26 @@ impl Emitter for Assembler {
                 Ordering::Less => dynasm!(self ; cmp DWORD [>const_neg_one_32], 0),
                 Ordering::Equal => dynasm!(self ; cmp DWORD [>const_zero_32], 0),
                 Ordering::Greater => dynasm!(self ; cmp DWORD [>const_pos_one_32], 0),
-            }
+            },
             None => binop_all_nofp!(cmp, self, sz, left, right, {
                 panic!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
-            })
+            }),
         }
     }
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location) {
+        // Fast path
+        if let Location::Imm32(0) = src {
+            return;
+        }
         binop_all_nofp!(add, self, sz, src, dst, {
             panic!("singlepass can't emit ADD {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_sub(&mut self, sz: Size, src: Location, dst: Location) {
+        // Fast path
+        if let Location::Imm32(0) = src {
+            return;
+        }
         binop_all_nofp!(sub, self, sz, src, dst, {
             panic!("singlepass can't emit SUB {:?} {:?} {:?}", sz, src, dst)
         });

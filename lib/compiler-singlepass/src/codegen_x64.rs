@@ -1252,40 +1252,44 @@ impl<'a> FuncGen<'a> {
             let tmp_bound = self.machine.acquire_temp_gpr().unwrap();
 
             self.assembler
-                .emit_mov(Size::S64, bound_loc, Location::GPR(tmp_bound));
-            // Adds base to bound so `tmp_bound` now holds the end of linear memory.
-            self.assembler
-                .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_bound));
+                .emit_mov(Size::S32, bound_loc, Location::GPR(tmp_bound));
             self.assembler
                 .emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
 
-            // This branch is used for emitting "faster" code for the special case of (offset + value_size) not exceeding u32 range.
-            match (memarg.offset as u32).checked_add(value_size as u32) {
-                Some(0) => {}
-                Some(x) => {
-                    self.assembler
-                        .emit_add(Size::S64, Location::Imm32(x), Location::GPR(tmp_addr));
-                }
-                None => {
-                    self.assembler.emit_add(
-                        Size::S64,
-                        Location::Imm32(memarg.offset as u32),
-                        Location::GPR(tmp_addr),
-                    );
-                    self.assembler.emit_add(
-                        Size::S64,
-                        Location::Imm32(value_size as u32),
-                        Location::GPR(tmp_addr),
-                    );
-                }
+            // Add offset to memory address.
+            if memarg.offset != 0 {
+                self.assembler.emit_add(
+                    Size::S32,
+                    Location::Imm32(memarg.offset),
+                    Location::GPR(tmp_addr),
+                );
+                self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
+                    this.assembler.emit_conditional_trap(Condition::Carry) // unsigned overflow
+                });
+            }
+
+            // Trap if the start address of the requested area is equal to or above that of the linear memory.
+            self.assembler
+                .emit_cmp(Size::S32, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+            self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
+                this.assembler.emit_conditional_trap(Condition::AboveEqual)
+            });
+
+            // Calculate end of word.
+            if value_size != 0 {
+                self.assembler.emit_add(
+                    Size::S32,
+                    Location::Imm32(value_size as u32),
+                    Location::GPR(tmp_addr),
+                );
+                self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
+                    this.assembler.emit_conditional_trap(Condition::Carry) // unsigned overflow
+                });
             }
 
             // Trap if the end address of the requested area is above that of the linear memory.
             self.assembler
-                .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
-            self.assembler
                 .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
-
             self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
                 this.assembler.emit_conditional_trap(Condition::Above)
             });
@@ -1460,16 +1464,33 @@ impl<'a> FuncGen<'a> {
 
     // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
     fn emit_f32_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f32, upper_bound: f32) {
-        let trap = self.assembler.get_label();
+        let trap_overflow = self.assembler.get_label();
+        let trap_badconv = self.assembler.get_label();
         let end = self.assembler.get_label();
 
-        self.emit_f32_int_conv_check(reg, lower_bound, upper_bound, trap, trap, trap, end);
-        self.assembler.emit_label(trap);
+        self.emit_f32_int_conv_check(
+            reg,
+            lower_bound,
+            upper_bound,
+            trap_overflow,
+            trap_overflow,
+            trap_badconv,
+            end,
+        );
+
+        self.assembler.emit_label(trap_overflow);
+        self.trap_table
+            .offset_to_code
+            .insert(self.assembler.get_offset().0, TrapCode::IntegerOverflow);
+        self.assembler.emit_ud2();
+
+        self.assembler.emit_label(trap_badconv);
         self.trap_table.offset_to_code.insert(
             self.assembler.get_offset().0,
             TrapCode::BadConversionToInteger,
         );
         self.assembler.emit_ud2();
+
         self.assembler.emit_label(end);
     }
 
@@ -1592,16 +1613,33 @@ impl<'a> FuncGen<'a> {
 
     // Checks for underflow/overflow/nan before IxxTrunc{U/S}F64.
     fn emit_f64_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f64, upper_bound: f64) {
-        let trap = self.assembler.get_label();
+        let trap_overflow = self.assembler.get_label();
+        let trap_badconv = self.assembler.get_label();
         let end = self.assembler.get_label();
 
-        self.emit_f64_int_conv_check(reg, lower_bound, upper_bound, trap, trap, trap, end);
-        self.assembler.emit_label(trap);
+        self.emit_f64_int_conv_check(
+            reg,
+            lower_bound,
+            upper_bound,
+            trap_overflow,
+            trap_overflow,
+            trap_badconv,
+            end,
+        );
+
+        self.assembler.emit_label(trap_overflow);
+        self.trap_table
+            .offset_to_code
+            .insert(self.assembler.get_offset().0, TrapCode::IntegerOverflow);
+        self.assembler.emit_ud2();
+
+        self.assembler.emit_label(trap_badconv);
         self.trap_table.offset_to_code.insert(
             self.assembler.get_offset().0,
             TrapCode::BadConversionToInteger,
         );
         self.assembler.emit_ud2();
+
         self.assembler.emit_label(end);
     }
 
@@ -5206,31 +5244,49 @@ impl<'a> FuncGen<'a> {
                 let table_count = self.machine.acquire_temp_gpr().unwrap();
                 let sigidx = self.machine.acquire_temp_gpr().unwrap();
 
-                let (vmctx_offset_base, vmctx_offset_len) = if table_index.index()
-                    < self.module.num_imported_tables
-                {
-                    // Some complex indirection required here
-                    unimplemented!("imported tables are not yet supported");
-                } else {
-                    let local_index =
-                        LocalTableIndex::new(table_index.index() - self.module.num_imported_tables);
-                    (
-                        self.vmoffsets.vmctx_vmtable_definition(local_index),
+                if let Some(local_table_index) = self.module.local_table_index(table_index) {
+                    let (vmctx_offset_base, vmctx_offset_len) = (
+                        self.vmoffsets.vmctx_vmtable_definition(local_table_index),
                         self.vmoffsets
-                            .vmctx_vmtable_definition_current_elements(local_index),
-                    )
-                };
+                            .vmctx_vmtable_definition_current_elements(local_table_index),
+                    );
+                    self.assembler.emit_mov(
+                        Size::S64,
+                        Location::Memory(Machine::get_vmctx_reg(), vmctx_offset_base as i32),
+                        Location::GPR(table_base),
+                    );
+                    self.assembler.emit_mov(
+                        Size::S32,
+                        Location::Memory(Machine::get_vmctx_reg(), vmctx_offset_len as i32),
+                        Location::GPR(table_count),
+                    );
+                } else {
+                    // Do an indirection.
+                    let import_offset = self.vmoffsets.vmctx_vmtable_import(table_index);
+                    self.assembler.emit_mov(
+                        Size::S64,
+                        Location::Memory(Machine::get_vmctx_reg(), import_offset as i32),
+                        Location::GPR(table_base),
+                    );
 
-                self.assembler.emit_mov(
-                    Size::S64,
-                    Location::Memory(Machine::get_vmctx_reg(), vmctx_offset_base as i32),
-                    Location::GPR(table_base),
-                );
-                self.assembler.emit_mov(
-                    Size::S32,
-                    Location::Memory(Machine::get_vmctx_reg(), vmctx_offset_len as i32),
-                    Location::GPR(table_count),
-                );
+                    // Load len.
+                    self.assembler.emit_mov(
+                        Size::S32,
+                        Location::Memory(
+                            table_base,
+                            self.vmoffsets.vmtable_definition_current_elements() as _,
+                        ),
+                        Location::GPR(table_count),
+                    );
+
+                    // Load base.
+                    self.assembler.emit_mov(
+                        Size::S64,
+                        Location::Memory(table_base, self.vmoffsets.vmtable_definition_base() as _),
+                        Location::GPR(table_base),
+                    );
+                }
+
                 self.assembler
                     .emit_cmp(Size::S32, func_index, Location::GPR(table_count));
                 self.mark_range_with_trap_code(TrapCode::TableAccessOutOfBounds, |this| {
