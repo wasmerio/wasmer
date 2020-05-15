@@ -488,7 +488,7 @@ impl FuncTranslator {
                 )
             })
             .collect::<Vec<_>>();
-        custom_sections.sort_unstable_by(|a, b| a.0.cmp(b.0));
+        custom_sections.sort_unstable_by_key(|a| a.0);
         let custom_sections = custom_sections
             .iter()
             // TODO: remove usage of clone
