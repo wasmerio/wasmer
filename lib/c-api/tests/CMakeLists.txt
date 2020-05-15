@@ -78,13 +78,11 @@ add_test(test-globals test-globals)
 
 target_link_libraries(test-import-trap general ${WASMER_LIB})
 target_compile_options(test-import-trap PRIVATE ${COMPILER_OPTIONS})
-# TODO: reenable this test
-#add_test(test-import-trap test-import-trap)
+add_test(test-import-trap test-import-trap)
 
 target_link_libraries(test-imports general ${WASMER_LIB})
 target_compile_options(test-imports PRIVATE ${COMPILER_OPTIONS})
-# TODO: reenable this test
-#add_test(test-imports test-imports)
+add_test(test-imports test-imports)
 
 target_link_libraries(test-import-object general ${WASMER_LIB})
 target_compile_options(test-import-object PRIVATE ${COMPILER_OPTIONS})
@@ -144,7 +142,8 @@ target_compile_options(test-context PRIVATE ${COMPILER_OPTIONS})
 
 target_link_libraries(test-module-import-instantiate general ${WASMER_LIB})
 target_compile_options(test-module-import-instantiate PRIVATE ${COMPILER_OPTIONS})
-add_test(test-module-import-instantiate test-module-import-instantiate)
+# TODO: reenable this test
+#add_test(test-module-import-instantiate test-module-import-instantiate)
 
 # Commented out until we can find a solution to the exported function problem
 #

@@ -13,14 +13,14 @@ use libc::c_uint;
 use std::ptr::NonNull;
 use std::{
     //convert::TryFrom,
-    ffi::c_void,
+    ffi::{c_void, CStr},
     os::raw::c_char,
     slice,
     //sync::Arc,
 };
 use wasmer::{
     Function, FunctionType, Global, ImportObject, ImportObjectIterator, ImportType, Memory, Module,
-    Table,
+    RuntimeError, Table, Val, ValType,
 };
 //use wasmer::wasm::{Export, FuncSig, Global, Memory, Module, Table, Type};
 /*use wasmer_runtime_core::{
@@ -617,28 +617,52 @@ pub unsafe extern "C" fn wasmer_import_func_new(
     returns_len: c_uint,
 ) -> *mut wasmer_import_func_t {
     let params: &[wasmer_value_tag] = slice::from_raw_parts(params, params_len as usize);
-    let params: Vec<Type> = params.iter().cloned().map(|x| x.into()).collect();
+    let params: Vec<ValType> = params.iter().cloned().map(|x| x.into()).collect();
     let returns: &[wasmer_value_tag] = slice::from_raw_parts(returns, returns_len as usize);
-    let returns: Vec<Type> = returns.iter().cloned().map(|x| x.into()).collect();
-    let func_type = FunctionType::new(params, returns);
+    let returns: Vec<ValType> = returns.iter().cloned().map(|x| x.into()).collect();
+    let func_type = FunctionType::new(params, &returns[..]);
 
     let store = crate::get_global_store();
 
-    let func = Function::new_dynamic(store, &func_type, |args| {
-        // todo: translate args
-        // first arg is context pointer then normal arguments?
-        let args = args;
-        unsafe { func(args) }
-        // todo: call function
-        // todo: translate returns
+    let func = Function::new_dynamic(store, &func_type, move |args| {
+        use libffi::high::call::{call, Arg};
+        use libffi::low::CodePtr;
+
+        let ffi_args: Vec<Arg> = {
+            let mut ffi_args = Vec::with_capacity(args.len() + 1);
+            ffi_args.push(Arg::new::<i64>(&0));
+            ffi_args.extend(args.iter().map(|ty| match ty {
+                Val::I32(v) => Arg::new::<i32>(v),
+                Val::I64(v) => Arg::new::<i64>(v),
+                Val::F32(v) => Arg::new::<f32>(v),
+                Val::F64(v) => Arg::new::<f64>(v),
+                _ => todo!("Unsupported type in C API"),
+            }));
+
+            ffi_args
+        };
+        let code_ptr = CodePtr::from_ptr(func as _);
+
+        assert!(returns.len() <= 1);
+
+        let return_value = if returns.len() == 1 {
+            vec![match returns[0] {
+                ValType::I32 => Val::I32(call::<i32>(code_ptr, &ffi_args)),
+                ValType::I64 => Val::I64(call::<i64>(code_ptr, &ffi_args)),
+                ValType::F32 => Val::F32(call::<f32>(code_ptr, &ffi_args)),
+                ValType::F64 => Val::F64(call::<f64>(code_ptr, &ffi_args)),
+                _ => todo!("Unsupported type in C API"),
+            }]
+        } else {
+            call::<()>(code_ptr, &ffi_args);
+            vec![]
+        };
+
+        Ok(return_value)
     });
 
-    /*let export = Box::new(Extern::Function {
-        func: FuncPointer::new(func as _),
-        ctx: Context::Internal,
-        signature: Arc::new(FuncSig::new(params, returns)),
-    });
-    Box::into_raw(export) as *mut wasmer_import_func_t*/
+    // TODO: double check return type
+    Box::into_raw(Box::new(func)) as *mut wasmer_import_func_t
 }
 
 /// Stop the execution of a host function, aka imported function. The
@@ -658,19 +682,9 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 #[no_mangle]
 #[allow(clippy::cast_ptr_alignment)]
 pub unsafe extern "C" fn wasmer_trap(
-    ctx: *const wasmer_instance_context_t,
+    _ctx: *const wasmer_instance_context_t,
     error_message: *const c_char,
 ) -> wasmer_result_t {
-    todo!("wasmer_trap: manually trap without Ctx")
-    /*
-    if ctx.is_null() {
-        update_last_error(CApiError {
-            msg: "ctx ptr is null in wasmer_trap".to_string(),
-        });
-
-        return wasmer_result_t::WASMER_ERROR;
-    }
-
     if error_message.is_null() {
         update_last_error(CApiError {
             msg: "error_message is null in wasmer_trap".to_string(),
@@ -679,12 +693,9 @@ pub unsafe extern "C" fn wasmer_trap(
         return wasmer_result_t::WASMER_ERROR;
     }
 
-    let ctx = &*(ctx as *const Ctx);
     let error_message = CStr::from_ptr(error_message).to_str().unwrap();
 
-    (&*ctx.module)
-        .runnable_module
-        .do_early_trap(Box::new(error_message)); // never returns
+    wasmer::raise_user_trap(Box::new(RuntimeError::new(error_message))); // never returns
 
     // cbindgen does not generate a binding for a function that
     // returns `!`. Since we also need to error in some cases, the
@@ -694,7 +705,6 @@ pub unsafe extern "C" fn wasmer_trap(
     // cbindgen, and get an acceptable clean code.
     #[allow(unreachable_code)]
     wasmer_result_t::WASMER_OK
-    */
 }
 
 /// Sets the params buffer to the parameter types of the given wasmer_import_func_t

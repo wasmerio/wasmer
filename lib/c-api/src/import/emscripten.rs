@@ -1,7 +1,11 @@
 //! Functions and types for dealing with Emscripten imports
 
 use super::*;
-use crate::{get_slice_checked, instance::wasmer_instance_t, module::wasmer_module_t};
+use crate::{
+    get_slice_checked,
+    instance::{wasmer_instance_t, CAPIInstance},
+    module::wasmer_module_t,
+};
 
 use std::ptr;
 use wasmer::wasm::{Instance, Module};
@@ -54,16 +58,16 @@ pub unsafe extern "C" fn wasmer_emscripten_set_up(
     if globals.is_null() || instance.is_null() {
         return wasmer_result_t::WASMER_ERROR;
     }
-    let instance = &mut *(instance as *mut Instance);
+    let instance = &mut *(instance as *mut CAPIInstance);
     let globals = &*(globals as *mut EmscriptenGlobals);
     let em_data = Box::into_raw(Box::new(EmscriptenData::new(
-        instance,
+        instance.instance,
         &globals.data,
         Default::default(),
     ))) as *mut c_void;
     instance.context_mut().data = em_data;
 
-    match wasmer_emscripten::set_up_emscripten(instance) {
+    match wasmer_emscripten::set_up_emscripten(instance.instance) {
         Ok(_) => wasmer_result_t::WASMER_OK,
         Err(e) => {
             update_last_error(e);
@@ -90,7 +94,7 @@ pub unsafe extern "C" fn wasmer_emscripten_call_main(
     if instance.is_null() || args.is_null() {
         return wasmer_result_t::WASMER_ERROR;
     }
-    let instance = &mut *(instance as *mut Instance);
+    let instance = &mut *(instance as *mut CAPIInstance);
 
     let arg_list = get_slice_checked(args, args_len as usize);
     let arg_process_result: Result<Vec<&str>, _> =
@@ -113,7 +117,7 @@ pub unsafe extern "C" fn wasmer_emscripten_call_main(
         return wasmer_result_t::WASMER_ERROR;
     };
 
-    match wasmer_emscripten::emscripten_call_main(instance, prog_name, &arg_vec[1..]) {
+    match wasmer_emscripten::emscripten_call_main(instance.instance, prog_name, &arg_vec[1..]) {
         Ok(_) => wasmer_result_t::WASMER_OK,
         Err(e) => {
             update_last_error(e);
