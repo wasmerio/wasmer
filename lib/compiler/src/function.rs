@@ -134,11 +134,8 @@ impl Compilation {
     }
 
     /// Gets custom section data.
-    pub fn get_custom_sections(&self) -> PrimaryMap<SectionIndex, SectionBody> {
-        self.custom_sections
-            .iter()
-            .map(|(_, section)| section.bytes.clone())
-            .collect::<PrimaryMap<SectionIndex, _>>()
+    pub fn get_custom_sections(&self) -> PrimaryMap<SectionIndex, CustomSection> {
+        self.custom_sections.clone()
     }
 }
 

@@ -155,13 +155,15 @@ impl CompiledModule {
             &serializable.compilation.function_bodies,
             &serializable.compilation.trampolines,
         )?;
+        let custom_sections =
+            jit_compiler.allocate_custom_sections(&serializable.compilation.custom_sections)?;
 
         link_module(
             &serializable.module,
             &finished_functions,
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
-            &serializable.compilation.custom_sections,
+            &custom_sections,
         );
 
         // Compute indices into the shared signature table.

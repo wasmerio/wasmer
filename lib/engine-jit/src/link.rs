@@ -17,7 +17,7 @@ pub fn link_module(
     allocated_functions: &PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     relocations: Relocations,
-    allocated_sections: &PrimaryMap<SectionIndex, SectionBody>,
+    allocated_sections: &PrimaryMap<SectionIndex, *const u8>,
 ) {
     for (i, function_relocs) in relocations.into_iter() {
         for r in function_relocs {
@@ -28,7 +28,7 @@ pub fn link_module(
                 }
                 RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
                 RelocationTarget::CustomSection(custom_section) => {
-                    allocated_sections[custom_section].as_ptr() as usize
+                    allocated_sections[custom_section] as usize
                 }
                 RelocationTarget::JumpTable(func_index, jt) => {
                     let offset = *jt_offsets

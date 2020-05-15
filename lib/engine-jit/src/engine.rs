@@ -5,7 +5,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex};
-use wasmer_compiler::{Compilation, CompileError, FunctionBody, Target};
+use wasmer_compiler::{
+    Compilation, CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex,
+    Target,
+};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
 use wasmer_engine::{
@@ -205,6 +208,29 @@ impl JITEngineInner {
         Err(CompileError::Validate(
             "Validation is only enabled with the compiler feature".to_string(),
         ))
+    }
+
+    pub(crate) fn allocate_custom_sections(
+        &mut self,
+        custom_sections: &PrimaryMap<SectionIndex, CustomSection>,
+    ) -> Result<PrimaryMap<SectionIndex, *const u8>, CompileError> {
+        let mut result = PrimaryMap::with_capacity(custom_sections.len());
+        for (_, section) in custom_sections.iter() {
+            let buffer: &[u8] = match section.protection {
+                CustomSectionProtection::Read => section.bytes.as_slice(),
+                CustomSectionProtection::ReadExecute => self
+                    .code_memory
+                    .allocate_for_executable_custom_section(&section.bytes)
+                    .map_err(|message| {
+                        CompileError::Resource(format!(
+                            "failed to allocate memory for custom section: {}",
+                            message
+                        ))
+                    })?,
+            };
+            result.push(buffer.as_ptr());
+        }
+        Ok(result)
     }
 
     /// Compile the given function bodies.

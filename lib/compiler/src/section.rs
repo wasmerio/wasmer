@@ -73,4 +73,9 @@ impl SectionBody {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    /// Dereferences into the section's buffer.
+    pub fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
+    }
 }

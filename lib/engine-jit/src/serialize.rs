@@ -4,7 +4,9 @@ use wasm_common::entity::PrimaryMap;
 use wasm_common::{
     Features, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
 };
-use wasmer_compiler::{FunctionBody, JumpTableOffsets, Relocation, SectionBody, SectionIndex};
+use wasmer_compiler::{
+    CustomSection, FunctionBody, JumpTableOffsets, Relocation, SectionBody, SectionIndex,
+};
 use wasmer_engine::SerializableFunctionFrameInfo;
 use wasmer_runtime::Module;
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -20,7 +22,7 @@ pub struct SerializableCompilation {
     // format upon serialization.
     pub function_frame_info: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
     pub trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
-    pub custom_sections: PrimaryMap<SectionIndex, SectionBody>,
+    pub custom_sections: PrimaryMap<SectionIndex, CustomSection>,
 }
 
 /// Serializable struct that is able to serialize from and to
