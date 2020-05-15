@@ -8,8 +8,8 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
-    DataInitializer, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
-    TableIndex,
+    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
+    SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
@@ -30,6 +30,7 @@ pub struct CompiledModule {
     serializable: SerializableModule,
 
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    finished_reverse_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
 }
@@ -82,6 +83,8 @@ impl CompiledModule {
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, _>>();
 
+        let reverse_trampolines = compiler.compile_wasm2host_trampolines(&translation.module)?;
+
         let data_initializers = translation
             .data_initializers
             .iter()
@@ -101,6 +104,7 @@ impl CompiledModule {
             function_jt_offsets: compilation.get_jt_offsets(),
             function_frame_info: frame_infos,
             trampolines,
+            reverse_trampolines,
             custom_sections: compilation.get_custom_sections(),
         };
         let serializable = SerializableModule {
@@ -148,10 +152,11 @@ impl CompiledModule {
         jit_compiler: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let finished_functions = jit_compiler.allocate(
+        let (finished_functions, finished_reverse_trampolines) = jit_compiler.allocate(
             &serializable.module,
             &serializable.compilation.function_bodies,
             &serializable.compilation.trampolines,
+            &serializable.compilation.reverse_trampolines,
         )?;
 
         link_module(
@@ -179,6 +184,7 @@ impl CompiledModule {
         Ok(Self {
             serializable,
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_reverse_trampolines: finished_reverse_trampolines.into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
             frame_info_registration: Mutex::new(None),
         })
@@ -210,6 +216,7 @@ impl CompiledModule {
             &self.module(),
             &sig_registry,
             resolver,
+            &self.finished_reverse_trampolines,
             self.memory_plans(),
             self.table_plans(),
         )

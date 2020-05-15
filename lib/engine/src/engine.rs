@@ -26,10 +26,6 @@ pub trait Engine {
     /// Retrieves a trampoline given a signature
     fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;
 
-    /// Retrieves the reverse trampoline
-    fn reverse_trampoline(&self, func_type: &FunctionType, address: usize)
-        -> *const VMFunctionBody;
-
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError>;
 

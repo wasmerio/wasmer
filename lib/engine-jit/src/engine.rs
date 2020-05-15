@@ -4,7 +4,7 @@ use crate::{CodeMemory, CompiledModule};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{FunctionType, LocalFunctionIndex, SignatureIndex};
+use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{CompileError, FunctionBody};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
@@ -111,17 +111,6 @@ impl Engine for JITEngine {
         self.compiler().trampoline(sig)
     }
 
-    /// Retrieves the reverse trampoline
-    fn reverse_trampoline(
-        &self,
-        func_type: &FunctionType,
-        address: usize,
-    ) -> *const VMFunctionBody {
-        self.compiler_mut()
-            .reverse_trampoline(func_type, address)
-            .expect("Can't construct trampoline")
-    }
-
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
         self.compiler().validate(binary)
@@ -223,7 +212,14 @@ impl JITEngineInner {
         module: &Module,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
-    ) -> Result<PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>, CompileError> {
+        reverse_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,
+    ) -> Result<
+        (
+            PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
+            PrimaryMap<FunctionIndex, *const VMFunctionBody>,
+        ),
+        CompileError,
+    > {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
         let allocated_functions =
@@ -258,30 +254,25 @@ impl JITEngineInner {
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
             self.trampolines.insert(index, trampoline);
         }
-        Ok(allocated_functions)
-    }
 
-    /// Retrieves the reverse trampoline
-    fn reverse_trampoline(
-        &mut self,
-        func_type: &FunctionType,
-        address: usize,
-    ) -> Result<*const VMFunctionBody, CompileError> {
-        let compiled_function = self
-            .compiler()?
-            .compile_wasm2host_trampoline(&func_type, address)?;
-        let ptr = self
-            .code_memory
-            .allocate_for_function(&compiled_function)
-            .map_err(|message| {
-                CompileError::Resource(format!(
-                    "failed to allocate memory for trampolines: {}",
-                    message
-                ))
-            })?
-            .as_ptr();
-        self.code_memory.publish();
-        Ok(ptr)
+        let allocated_reverse_trampolines = reverse_trampolines
+            .iter()
+            .map(|(func_index, compiled_function)| {
+                let ptr = self
+                    .code_memory
+                    .allocate_for_function(&compiled_function)
+                    .map_err(|message| {
+                        CompileError::Resource(format!(
+                            "failed to allocate memory for trampolines: {}",
+                            message
+                        ))
+                    })?
+                    .as_ptr();
+                Ok(ptr)
+            })
+            .collect::<Result<PrimaryMap<FunctionIndex, _>, CompileError>>()?;
+
+        Ok((allocated_functions, allocated_reverse_trampolines))
     }
 
     /// Make memory containing compiled code executable.

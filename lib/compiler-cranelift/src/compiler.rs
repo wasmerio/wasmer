@@ -16,7 +16,8 @@ use cranelift_codegen::{binemit, isa, Context};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{
-    Features, FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex,
+    Features, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex,
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{
@@ -169,18 +170,38 @@ impl Compiler for CraneliftCompiler {
             .collect::<Result<Vec<_>, CompileError>>()
     }
 
-    fn compile_wasm2host_trampoline(
+    fn compile_wasm2host_trampolines(
         &self,
-        signature: &FunctionType,
-        callee_address: usize,
-    ) -> Result<FunctionBody, CompileError> {
-        let mut cx = FunctionBuilderContext::new();
-        make_wasm2host_trampoline(&*self.isa, &mut cx, signature, callee_address as _)
-        // signatures
-        //     .par_iter()
-        //     .map_init(FunctionBuilderContext::new, |mut cx, sig| {
-        //         make_wasm2host_trampoline(&*self.isa, &mut cx, sig)
-        //     })
-        //     .collect::<Result<Vec<_>, CompileError>>()
+        module: &Module,
+    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
+        use wasmer_runtime::VMOffsets;
+        let isa = self.isa();
+        let frontend_config = isa.frontend_config();
+        let offsets = VMOffsets::new(frontend_config.pointer_bytes(), module);
+        Ok(module
+            .functions
+            .iter()
+            .take(module.num_imported_funcs)
+            .map(|(function_index, signature)| {
+                let func_type = &module.signatures[*signature];
+                (function_index, func_type)
+            })
+            .collect::<Vec<_>>()
+            .par_iter()
+            .map_init(
+                FunctionBuilderContext::new,
+                |mut cx, (function_index, func_type)| {
+                    make_wasm2host_trampoline(
+                        &*self.isa,
+                        &offsets,
+                        &mut cx,
+                        &function_index,
+                        &func_type,
+                    )
+                },
+            )
+            .collect::<Result<Vec<_>, CompileError>>()?
+            .into_iter()
+            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
     }
 }
