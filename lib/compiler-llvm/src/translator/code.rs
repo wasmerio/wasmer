@@ -480,7 +480,7 @@ impl FuncTranslator {
                     custom_section_index,
                     CustomSection {
                         protection: CustomSectionProtection::Read,
-                        bytes: SectionBody(section_bytes(*elf_section_index)),
+                        bytes: SectionBody::new_with_vec(section_bytes(*elf_section_index)),
                         relocations: relocations
                             .remove_entry(elf_section_index)
                             .map_or(vec![], |(k, v)| v),
