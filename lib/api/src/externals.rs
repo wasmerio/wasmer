@@ -517,9 +517,9 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized,
     {
-        let func: wasm_common::Func<Args, Rets, Env> = wasm_common::Func::new(func);
+        let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
-        let vmctx = (func.env().unwrap_or(std::ptr::null_mut()) as *mut _) as *mut VMContext;
+        let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
         let dynamic_address = std::ptr::null() as *const VMFunctionBody;
@@ -543,58 +543,48 @@ impl Function {
     where
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
     {
-        use std::panic::{self, AssertUnwindSafe};
-        // The `DynamicCtx` holds the function type as well
-        // as the function that we will be calling in the wrapper.
-        struct DynamicCtx {
-            ty: FunctionType,
-            func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
-        }
-        // This function wraps our func, to make it compatible with the
-        // reverse trampoline signature
-        unsafe fn func_wrapper(
-            dynamic_ctx: &DynamicCtx,
-            _caller_vmctx: *mut VMContext,
-            values_vec: *mut i128,
-        ) {
-            let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                let mut args = Vec::with_capacity(dynamic_ctx.ty.params().len());
-                for (i, ty) in dynamic_ctx.ty.params().iter().enumerate() {
-                    args.push(Val::read_value_from(values_vec.add(i), *ty));
-                }
-                let returns = (*dynamic_ctx.func)(&args)?;
-
-                // We need to dynamically check that the returns
-                // match the expected types, as well as expected length.
-                let return_types = returns.iter().map(|ret| ret.ty()).collect::<Vec<_>>();
-                if return_types != dynamic_ctx.ty.results() {
-                    return Err(RuntimeError::new(format!(
-                        "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
-                        dynamic_ctx.ty.results(),
-                        return_types
-                    )));
-                }
-                for (i, ret) in returns.iter().enumerate() {
-                    ret.write_value_to(values_vec.add(i));
-                }
-                Ok(())
-            }));
-
-            match result {
-                Ok(Ok(())) => {}
-                Ok(Err(trap)) => wasmer_runtime::raise_user_trap(Box::new(trap)),
-                Err(panic) => wasmer_runtime::resume_panic(panic),
-            }
-        };
         let dynamic_ctx = DynamicCtx {
             ty: ty.clone(),
-            func: Box::new(func),
+            func: DynamicFuncWithoutEnv {
+                func: Box::new(func),
+            },
         };
         let address = std::ptr::null() as *const () as *const VMFunctionBody;
-        // let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
         let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
         let signature = store.engine().register_signature(&ty);
-        let dynamic_address = func_wrapper as *const () as *const VMFunctionBody;
+        let dynamic_address =
+            DynamicCtx::<DynamicFuncWithoutEnv>::func_wrapper as *const () as *const VMFunctionBody;
+        Self {
+            store: store.clone(),
+            owned_by_store: true,
+            inner: InnerFunc::Host(HostFunc {}),
+            exported: ExportFunction {
+                address,
+                dynamic_address,
+                vmctx,
+                signature,
+            },
+        }
+    }
+
+    #[allow(clippy::cast_ptr_alignment)]
+    pub fn new_dynamic_env<F, T>(store: &Store, ty: &FunctionType, env: &mut T, func: F) -> Self
+    where
+        F: Fn(&mut T, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
+        T: Sized,
+    {
+        let dynamic_ctx = DynamicCtx {
+            ty: ty.clone(),
+            func: DynamicFuncWithEnv {
+                env,
+                func: Box::new(func),
+            },
+        };
+        let address = std::ptr::null() as *const () as *const VMFunctionBody;
+        let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
+        let signature = store.engine().register_signature(&ty);
+        let dynamic_address =
+            DynamicCtx::<DynamicFuncWithEnv<T>>::func_wrapper as *const () as *const VMFunctionBody;
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -620,9 +610,9 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized,
     {
-        let func: wasm_common::Func<Args, Rets, Env> = wasm_common::Func::new_env(env, func);
+        let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
-        let vmctx = (func.env().unwrap_or(std::ptr::null_mut()) as *mut _) as *mut VMContext;
+        let vmctx = env as *mut _ as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
         let dynamic_address = std::ptr::null() as *const VMFunctionBody;
@@ -790,5 +780,83 @@ impl<'a> Exportable<'a> for Function {
 impl std::fmt::Debug for Function {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Ok(())
+    }
+}
+
+/// The `DynamicCtx` is the context that dynamic `Functions`
+/// will receive when called.
+///
+/// As such, we need to expose it's function type `ty` so we can
+/// check the arguments and returns at runtime, as well as the
+/// dynamic function `func` itself so we can call it.
+struct DynamicCtx<T: DynamicFunc> {
+    ty: FunctionType,
+    func: T,
+}
+
+trait DynamicFunc {
+    fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError>;
+}
+
+struct DynamicFuncWithoutEnv {
+    func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+}
+
+impl DynamicFunc for DynamicFuncWithoutEnv {
+    fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        (*self.func)(&args)
+    }
+}
+
+struct DynamicFuncWithEnv<T> {
+    func: Box<dyn Fn(&mut T, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    env: *mut T,
+}
+
+impl<T> DynamicFunc for DynamicFuncWithEnv<T> {
+    fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        unsafe { (*self.func)(&mut *self.env, &args) }
+    }
+}
+
+impl<T: DynamicFunc> DynamicCtx<T> {
+    // This function wraps our func, to make it compatible with the
+    // reverse trampoline signature
+    unsafe fn func_wrapper(
+        // Note: we use the trick that the first param to this funciton is the `DynamicCtx`
+        // itself, so rather than doing `dynamic_ctx: &DynamicCtx<T>`, we simplify it a bit
+        &self,
+        _caller_vmctx: *mut VMContext,
+        values_vec: *mut i128,
+    ) {
+        use std::panic::{self, AssertUnwindSafe};
+        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+            let mut args = Vec::with_capacity(self.ty.params().len());
+            for (i, ty) in self.ty.params().iter().enumerate() {
+                args.push(Val::read_value_from(values_vec.add(i), *ty));
+            }
+            let returns = self.func.call(&args)?;
+
+            // We need to dynamically check that the returns
+            // match the expected types, as well as expected length.
+            let return_types = returns.iter().map(|ret| ret.ty()).collect::<Vec<_>>();
+            if return_types != self.ty.results() {
+                return Err(RuntimeError::new(format!(
+                    "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
+                    self.ty.results(),
+                    return_types
+                )));
+            }
+            for (i, ret) in returns.iter().enumerate() {
+                ret.write_value_to(values_vec.add(i));
+            }
+            Ok(())
+        }));
+
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(trap)) => wasmer_runtime::raise_user_trap(Box::new(trap)),
+            Err(panic) => wasmer_runtime::resume_panic(panic),
+        }
     }
 }
