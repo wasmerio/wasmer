@@ -7,11 +7,14 @@ use crate::RuntimeError;
 use crate::{ExternType, FunctionType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
 use std::slice;
-use wasm_common::{HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
+use wasm_common::{
+    HostFunction, Pages, SignatureIndex, ValueType, WasmTypeList, WithEnv, WithoutEnv,
+};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
-    LinearMemory, MemoryError, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext,
-    VMFunctionBody, VMGlobalDefinition, VMMemoryDefinition, VMTrampoline,
+    InstanceHandle, LinearMemory, MemoryError, Table as RuntimeTable, VMCallerCheckedAnyfunc,
+    VMContext, VMDynamicFunctionImportContext, VMFunctionBody, VMGlobalDefinition,
+    VMMemoryDefinition, VMTrampoline,
 };
 
 #[derive(Clone)]
@@ -545,17 +548,14 @@ impl Function {
     where
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
     {
-        let dynamic_ctx = DynamicCtx {
-            ty: ty.clone(),
-            func: DynamicFuncWithoutEnv {
+        let dynamic_ctx =
+            VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithoutEnv {
                 func: Box::new(func),
-            },
-        };
+            });
         let address = std::ptr::null() as *const () as *const VMFunctionBody;
+        let dynamic_address = dynamic_ctx.address;
         let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
         let signature = store.engine().register_signature(&ty);
-        let dynamic_address =
-            DynamicCtx::<DynamicFuncWithoutEnv>::func_wrapper as *const () as *const VMFunctionBody;
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -575,18 +575,14 @@ impl Function {
         F: Fn(&mut T, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
         T: Sized,
     {
-        let dynamic_ctx = DynamicCtx {
-            ty: ty.clone(),
-            func: DynamicFuncWithEnv {
-                env,
-                func: Box::new(func),
-            },
-        };
+        let dynamic_ctx = VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithEnv {
+            env,
+            func: Box::new(func),
+        });
         let address = std::ptr::null() as *const () as *const VMFunctionBody;
+        let dynamic_address = dynamic_ctx.address;
         let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
         let signature = store.engine().register_signature(&ty);
-        let dynamic_address =
-            DynamicCtx::<DynamicFuncWithEnv<T>>::func_wrapper as *const () as *const VMFunctionBody;
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -785,67 +781,83 @@ impl std::fmt::Debug for Function {
     }
 }
 
-/// The `DynamicCtx` is the context that dynamic `Functions`
-/// will receive when called.
-///
-/// As such, we need to expose it's function type `ty` so we can
-/// check the arguments and returns at runtime, as well as the
-/// dynamic function `func` itself so we can call it.
-struct DynamicCtx<T: DynamicFunc> {
-    ty: FunctionType,
-    func: T,
-}
-
-trait DynamicFunc {
+/// This trait is one that all dynamic funcitons must fulfill.
+trait VMDynamicFunction {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError>;
 }
 
-struct DynamicFuncWithoutEnv {
+struct VMDynamicFunctionWithoutEnv {
     func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
 }
 
-impl DynamicFunc for DynamicFuncWithoutEnv {
+impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
         (*self.func)(&args)
     }
 }
 
-struct DynamicFuncWithEnv<T> {
+struct VMDynamicFunctionWithEnv<T> {
     func: Box<dyn Fn(&mut T, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     env: *mut T,
 }
 
-impl<T> DynamicFunc for DynamicFuncWithEnv<T> {
+impl<T> VMDynamicFunction for VMDynamicFunctionWithEnv<T> {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
         unsafe { (*self.func)(&mut *self.env, &args) }
     }
 }
 
-impl<T: DynamicFunc> DynamicCtx<T> {
+trait VMDynamicFunctionImportCall<T: VMDynamicFunction> {
+    fn from_context(ctx: T) -> Self;
+    fn address_ptr() -> *const VMFunctionBody;
+    unsafe fn func_wrapper(
+        &self,
+        caller_vmctx: *mut VMContext,
+        sig_index: SignatureIndex,
+        values_vec: *mut i128,
+    );
+}
+
+impl<T: VMDynamicFunction> VMDynamicFunctionImportCall<T> for VMDynamicFunctionImportContext<T> {
+    fn from_context(ctx: T) -> Self {
+        Self {
+            address: Self::address_ptr(),
+            ctx,
+        }
+    }
+
+    fn address_ptr() -> *const VMFunctionBody {
+        Self::func_wrapper as *const () as *const VMFunctionBody
+    }
+
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
     unsafe fn func_wrapper(
-        // Note: we use the trick that the first param to this funciton is the `DynamicCtx`
-        // itself, so rather than doing `dynamic_ctx: &DynamicCtx<T>`, we simplify it a bit
+        // Note: we use the trick that the first param to this funciton is the `VMDynamicFunctionImportContext`
+        // itself, so rather than doing `dynamic_ctx: &VMDynamicFunctionImportContext<T>`, we simplify it a bit
         &self,
-        _caller_vmctx: *mut VMContext,
+        caller_vmctx: *mut VMContext,
+        sig_index: SignatureIndex,
         values_vec: *mut i128,
     ) {
         use std::panic::{self, AssertUnwindSafe};
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let mut args = Vec::with_capacity(self.ty.params().len());
-            for (i, ty) in self.ty.params().iter().enumerate() {
+            let handle = InstanceHandle::from_vmctx(caller_vmctx);
+            let module = handle.module_ref();
+            let func_ty = &module.signatures[sig_index];
+            let mut args = Vec::with_capacity(func_ty.params().len());
+            for (i, ty) in func_ty.params().iter().enumerate() {
                 args.push(Val::read_value_from(values_vec.add(i), *ty));
             }
-            let returns = self.func.call(&args)?;
+            let returns = self.ctx.call(&args)?;
 
             // We need to dynamically check that the returns
             // match the expected types, as well as expected length.
             let return_types = returns.iter().map(|ret| ret.ty()).collect::<Vec<_>>();
-            if return_types != self.ty.results() {
+            if return_types != func_ty.results() {
                 return Err(RuntimeError::new(format!(
                     "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
-                    self.ty.results(),
+                    func_ty.results(),
                     return_types
                 )));
             }

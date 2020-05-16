@@ -5,7 +5,7 @@ use crate::translator::{
     compiled_function_unwind_info, signature_to_cranelift_ir, /*transform_jump_table, */
 };
 use cranelift_codegen::ir::{
-    ExternalName, Function, InstBuilder, MemFlags, StackSlotData, StackSlotKind,
+    types, ExternalName, Function, InstBuilder, MemFlags, StackSlotData, StackSlotKind,
 };
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::print_errors::pretty_error;
@@ -16,18 +16,20 @@ use std::convert::TryFrom;
 use std::mem;
 
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-use wasm_common::{FunctionIndex, FunctionType};
+use wasm_common::entity::EntityRef;
+use wasm_common::{FunctionIndex, SignatureIndex};
 use wasmer_compiler::{CompileError, FunctionBody};
-use wasmer_runtime::VMOffsets;
+use wasmer_runtime::{Module, VMOffsets};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_wasm2host_trampoline(
     isa: &dyn TargetIsa,
+    module: &Module,
     offsets: &VMOffsets,
     fn_builder_ctx: &mut FunctionBuilderContext,
-    callee_index: &FunctionIndex,
-    func_type: &FunctionType,
+    sig_index: &SignatureIndex,
 ) -> Result<FunctionBody, CompileError> {
+    let func_type = &module.signatures[*sig_index];
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
     let signature = signature_to_cranelift_ir(func_type, &frontend_config);
@@ -40,6 +42,9 @@ pub fn make_wasm2host_trampoline(
 
     // Add the caller/callee `vmctx` parameter.
     stub_sig.params.push(ir::AbiParam::new(pointer_type));
+
+    // Add the `sig_index` parameter.
+    stub_sig.params.push(ir::AbiParam::new(types::I32));
 
     // Add the `values_vec` parameter.
     stub_sig.params.push(ir::AbiParam::new(pointer_type));
@@ -82,18 +87,30 @@ pub fn make_wasm2host_trampoline(
         let vmctx_ptr_val = block_params[0];
         let caller_vmctx_ptr_val = block_params[1];
 
-        let callee_args = vec![vmctx_ptr_val, caller_vmctx_ptr_val, values_vec_ptr_val];
+        // Get the signature index
+        let caller_sig_id = builder.ins().iconst(types::I32, sig_index.index() as i64);
+
+        // let mem_flags = ir::MemFlags::trusted();
+        // let dynamic_ctx_ptr_val = builder
+        //     .ins()
+        //     .load(pointer_type, mem_flags, vmctx_ptr_val, offsets.vmdynamicfunction_import_context_ctx() as i32);
+
+        let callee_args = vec![
+            vmctx_ptr_val,
+            caller_vmctx_ptr_val,
+            caller_sig_id,
+            values_vec_ptr_val,
+        ];
 
         let new_sig = builder.import_signature(stub_sig);
 
         let mem_flags = ir::MemFlags::trusted();
-        // Load the callee address.
-        let body_offset =
-            i32::try_from(offsets.vmctx_vmfunction_import_dynamic_body(*callee_index)).unwrap();
-        let callee_value =
-            builder
-                .ins()
-                .load(pointer_type, mem_flags, caller_vmctx_ptr_val, body_offset);
+        let callee_value = builder.ins().load(
+            pointer_type,
+            mem_flags,
+            vmctx_ptr_val,
+            offsets.vmdynamicfunction_import_context_address() as i32,
+        );
 
         builder
             .ins()

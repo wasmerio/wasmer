@@ -98,6 +98,30 @@ impl VMOffsets {
     }
 }
 
+/// Offsets for [`VMDynamicFunctionImportContext`].
+///
+/// [`VMDynamicFunctionImportContext`]: crate::vmcontext::VMDynamicFunctionImportContext
+impl VMOffsets {
+    /// The offset of the `address` field.
+    #[allow(clippy::identity_op)]
+    pub fn vmdynamicfunction_import_context_address(&self) -> u8 {
+        0 * self.pointer_size
+    }
+
+    /// The offset of the `ctx` field.
+    #[allow(clippy::identity_op)]
+    pub fn vmdynamicfunction_import_context_ctx(&self) -> u8 {
+        1 * self.pointer_size
+    }
+
+    /// Return the size of [`VMDynamicFunctionImportContext`].
+    ///
+    /// [`VMDynamicFunctionImportContext`]: crate::vmcontext::VMDynamicFunctionImportContext
+    pub fn size_of_vmdynamicfunction_import_context(&self) -> u8 {
+        2 * self.pointer_size
+    }
+}
+
 /// Offsets for `*const VMFunctionBody`.
 impl VMOffsets {
     /// The size of the `current_elements` field.

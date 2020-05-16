@@ -180,26 +180,13 @@ impl Compiler for CraneliftCompiler {
         let offsets = VMOffsets::new(frontend_config.pointer_bytes(), module);
         Ok(module
             .functions
-            .iter()
+            .values()
             .take(module.num_imported_funcs)
-            .map(|(function_index, signature)| {
-                let func_type = &module.signatures[*signature];
-                (function_index, func_type)
-            })
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(
-                FunctionBuilderContext::new,
-                |mut cx, (function_index, func_type)| {
-                    make_wasm2host_trampoline(
-                        &*self.isa,
-                        &offsets,
-                        &mut cx,
-                        &function_index,
-                        &func_type,
-                    )
-                },
-            )
+            .map_init(FunctionBuilderContext::new, |mut cx, sig_index| {
+                make_wasm2host_trampoline(&*self.isa, &module, &offsets, &mut cx, &sig_index)
+            })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
