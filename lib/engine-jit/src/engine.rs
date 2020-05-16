@@ -256,8 +256,8 @@ impl JITEngineInner {
         }
 
         let allocated_reverse_trampolines = reverse_trampolines
-            .iter()
-            .map(|(func_index, compiled_function)| {
+            .values()
+            .map(|compiled_function| {
                 let ptr = self
                     .code_memory
                     .allocate_for_function(&compiled_function)
