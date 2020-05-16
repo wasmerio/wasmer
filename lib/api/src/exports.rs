@@ -119,14 +119,12 @@ impl Exports {
         self.map.get(name)
     }
 
-    /// Returns true if the `Exports` contains the given name.
-    pub fn contains<S>(&mut self, name: S) -> bool
+    /// Returns true if the `Exports` contains the given export name.
+    pub fn contains<S>(&self, name: S) -> bool
     where
         S: Into<String>,
     {
-        Arc::get_mut(&mut self.map)
-            .unwrap()
-            .contains_key(&name.into())
+        self.map.contains_key(&name.into())
     }
 }
 
