@@ -22,7 +22,7 @@ impl WasmHash {
     /// is, in fact, a wasm module.
     pub fn generate(wasm: &[u8]) -> Self {
         let hash = blake3::hash(wasm);
-        WasmHash::new(hash.into())
+        Self::new(hash.into())
     }
 
     pub(crate) fn into_array(self) -> [u8; 32] {
@@ -56,7 +56,7 @@ impl FromStr for WasmHash {
             ));
         }
         use std::convert::TryInto;
-        Ok(WasmHash(bytes[0..32].try_into().map_err(|e| {
+        Ok(Self(bytes[0..32].try_into().map_err(|e| {
             DeserializeError::Generic(format!("Could not get first 32 bytes: {}", e))
         })?))
     }

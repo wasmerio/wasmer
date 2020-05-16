@@ -43,8 +43,8 @@ pub struct ExportFunction {
 }
 
 impl From<ExportFunction> for Export {
-    fn from(func: ExportFunction) -> Export {
-        Export::Function(func)
+    fn from(func: ExportFunction) -> Self {
+        Self::Function(func)
     }
 }
 
@@ -65,8 +65,8 @@ impl ExportTable {
 }
 
 impl From<ExportTable> for Export {
-    fn from(table: ExportTable) -> Export {
-        Export::Table(table)
+    fn from(table: ExportTable) -> Self {
+        Self::Table(table)
     }
 }
 
@@ -87,8 +87,8 @@ impl ExportMemory {
 }
 
 impl From<ExportMemory> for Export {
-    fn from(memory: ExportMemory) -> Export {
-        Export::Memory(memory)
+    fn from(memory: ExportMemory) -> Self {
+        Self::Memory(memory)
     }
 }
 
@@ -102,7 +102,7 @@ pub struct ExportGlobal {
 }
 
 impl From<ExportGlobal> for Export {
-    fn from(global: ExportGlobal) -> Export {
-        Export::Global(global)
+    fn from(global: ExportGlobal) -> Self {
+        Self::Global(global)
     }
 }

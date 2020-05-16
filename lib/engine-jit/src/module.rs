@@ -43,9 +43,7 @@ impl CompiledModule {
         let mut jit_compiler = jit.compiler_mut();
         let tunables = jit.tunables();
 
-        let translation = environ
-            .translate(data)
-            .map_err(|error| CompileError::Wasm(error))?;
+        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
         let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
             .module
@@ -106,6 +104,7 @@ impl CompiledModule {
             trampolines,
             reverse_trampolines,
             custom_sections: compilation.get_custom_sections(),
+            custom_section_relocations: compilation.get_custom_section_relocations(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -136,15 +135,14 @@ impl CompiledModule {
     }
 
     /// Deserialize a CompiledModule
-    pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<CompiledModule, DeserializeError> {
+    pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
         let serializable: SerializableModule = bincode::deserialize(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        Self::from_parts(&mut jit.compiler_mut(), serializable)
-            .map_err(|e| DeserializeError::Compiler(e))
+        Self::from_parts(&mut jit.compiler_mut(), serializable).map_err(DeserializeError::Compiler)
     }
 
     /// Construct a `CompiledModule` from component parts.
@@ -165,6 +163,7 @@ impl CompiledModule {
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
             &serializable.compilation.custom_sections,
+            &serializable.compilation.custom_section_relocations,
         );
 
         // Compute indices into the shared signature table.

@@ -14,25 +14,11 @@ jobs:
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
           toolchain: 1.42.0
           override: true
-          components: rustfmt
-      - run: cargo fmt --all -- --check
-
-  clippy_lint:
-    name: Clippy lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.42.0
-          override: true
-          components: clippy
-      - run: cargo clippy # --workspace # --workspace commented out until LLVM gets set up in CI
-        env:
-          RUSTFLAGS: "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects -D mutable-borrow-reservation-conflict" # TODO: add `-D missing-docs`
+          components: rustfmt, clippy
+      - run: make lint
 
   test:
     name: Test in ${{ matrix.build }}

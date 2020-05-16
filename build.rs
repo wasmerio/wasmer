@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
     let mut spectests = Testsuite {
         buffer: String::new(),
         path: vec![],
-        ignores: ignores.clone(),
+        ignores,
     };
 
     let backends = vec!["singlepass", "cranelift", "llvm"];

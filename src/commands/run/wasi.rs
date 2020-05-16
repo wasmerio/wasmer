@@ -118,7 +118,7 @@ impl Wasi {
 
         start
             .call(&[])
-            .with_context(|| format!("failed to run WASI `_start` function"))?;
+            .with_context(|| "failed to run WASI `_start` function")?;
 
         Ok(())
     }

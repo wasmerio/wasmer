@@ -87,7 +87,7 @@ pub fn make_host2wasm_trampoline(
             })
             .collect::<Vec<_>>();
 
-        let new_sig = builder.import_signature(signature.clone());
+        let new_sig = builder.import_signature(signature);
 
         let call = builder
             .ins()

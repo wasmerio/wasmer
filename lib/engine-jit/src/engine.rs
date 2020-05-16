@@ -207,7 +207,7 @@ impl JITEngineInner {
     }
 
     /// Compile the given function bodies.
-    pub(crate) fn allocate<'data>(
+    pub(crate) fn allocate(
         &mut self,
         module: &Module,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,

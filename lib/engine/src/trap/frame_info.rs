@@ -247,7 +247,7 @@ pub fn register(
         };
         assert!(functions.insert(end, func).is_none());
     }
-    if functions.len() == 0 {
+    if functions.is_empty() {
         return None;
     }
 
@@ -267,7 +267,7 @@ pub fn register(
         ModuleFrameInfo {
             start: min,
             functions,
-            module: module.clone(),
+            module,
             frame_infos,
         },
     );

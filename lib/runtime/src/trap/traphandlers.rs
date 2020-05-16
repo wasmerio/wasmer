@@ -114,9 +114,9 @@ cfg_if::cfg_if! {
                 // exception was handled by a custom exception handler, so we
                 // keep executing.
                 if jmp_buf.is_null() {
-                    return false;
+                    false
                 } else if jmp_buf as usize == 1 {
-                    return true;
+                    true
                 } else {
                     Unwind(jmp_buf)
                 }
@@ -349,7 +349,7 @@ impl Trap {
     /// Internally saves a backtrace when constructed.
     pub fn wasm(trap_code: TrapCode) -> Self {
         let backtrace = Backtrace::new_unresolved();
-        Trap::Wasm {
+        Self::Wasm {
             trap_code,
             backtrace,
         }
@@ -360,7 +360,7 @@ impl Trap {
     /// Internally saves a backtrace when constructed.
     pub fn oom() -> Self {
         let backtrace = Backtrace::new_unresolved();
-        Trap::OOM { backtrace }
+        Self::OOM { backtrace }
     }
 }
 
@@ -440,8 +440,8 @@ enum UnwindReason {
 }
 
 impl CallThreadState {
-    fn new(vmctx: *mut VMContext) -> CallThreadState {
-        CallThreadState {
+    fn new(vmctx: *mut VMContext) -> Self {
+        Self {
             unwind: Cell::new(UnwindReason::None),
             vmctx,
             jmp_buf: Cell::new(ptr::null()),
@@ -451,7 +451,7 @@ impl CallThreadState {
         }
     }
 
-    fn with(mut self, closure: impl FnOnce(&CallThreadState) -> i32) -> Result<(), Trap> {
+    fn with(mut self, closure: impl FnOnce(&Self) -> i32) -> Result<(), Trap> {
         tls::with(|prev| {
             self.prev = prev.map(|p| p as *const _);
             let ret = tls::set(&self, || closure(&self));
@@ -538,7 +538,7 @@ impl CallThreadState {
             };
             let result = call_handler(&handler);
             i.instance().signal_handler.set(Some(handler));
-            return result;
+            result
         }) {
             self.handling_trap.set(false);
             return 1 as *const _;
@@ -708,7 +708,7 @@ fn setup_unix_signalstack() -> Result<(), Trap> {
     impl Drop for Tls {
         fn drop(&mut self) {
             let (ptr, size) = match self {
-                Tls::Allocated {
+                Self::Allocated {
                     mmap_ptr,
                     mmap_size,
                 } => (*mmap_ptr, *mmap_size),
