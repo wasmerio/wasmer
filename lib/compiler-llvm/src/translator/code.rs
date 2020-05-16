@@ -490,9 +490,8 @@ impl FuncTranslator {
             .collect::<Vec<_>>();
         custom_sections.sort_unstable_by_key(|a| a.0);
         let custom_sections = custom_sections
-            .iter()
-            // TODO: remove usage of clone
-            .map(|(k, v)| v.clone())
+            .into_iter()
+            .map(|(k, v)| v)
             .collect::<PrimaryMap<SectionIndex, _>>();
 
         let function_body = FunctionBody {

@@ -101,11 +101,11 @@ impl Compiler for LLVMCompiler {
                 )
             })
             .collect::<Result<Vec<_>, CompileError>>()?
-            .iter()
-            .map(|(compiled_function, function_custom_sections)| {
-                // TODO: remove usage of clone
+            .into_iter()
+            .map(|(mut compiled_function, mut function_custom_sections)| {
                 let first_section = module_custom_sections.len() as u32;
                 for (_, custom_section) in function_custom_sections.iter() {
+                    // TODO: remove this call to clone()
                     let mut custom_section = custom_section.clone();
                     for mut reloc in &mut custom_section.relocations {
                         match reloc.reloc_target {
@@ -119,7 +119,6 @@ impl Compiler for LLVMCompiler {
                     }
                     module_custom_sections.push(custom_section);
                 }
-                let mut compiled_function = compiled_function.clone();
                 for mut reloc in &mut compiled_function.relocations {
                     match reloc.reloc_target {
                         RelocationTarget::CustomSection(index) => {
@@ -132,7 +131,6 @@ impl Compiler for LLVMCompiler {
                 }
                 compiled_function
             })
-            .into_iter()
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         Ok(Compilation::new(functions, module_custom_sections))
