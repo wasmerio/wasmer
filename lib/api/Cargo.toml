@@ -41,7 +41,7 @@ maintenance = { status = "actively-developed" }
 default = ["wat", "cranelift", "jit"]
 compiler = ["wasmer-engine-jit/compiler"]
 engine = []
-jit = ["wasmer-engine-jit"]
+jit = ["wasmer-engine-jit", "engine"]
 singlepass = [
     "wasmer-compiler-singlepass",
     "compiler",

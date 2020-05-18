@@ -64,6 +64,9 @@ impl ValAnyFunc for Val {
         let export = wasmer_runtime::ExportFunction {
             address: item.func_ptr,
             signature: item.type_index,
+            // All functions in tables are already Static (as dynamic functions
+            // are converted to use the trampolines with static signatures).
+            kind: wasmer_runtime::VMFunctionKind::Static,
             vmctx: item.vmctx,
         };
         let f = Function::from_export(store, export);

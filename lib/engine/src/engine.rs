@@ -24,7 +24,7 @@ pub trait Engine {
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType>;
 
     /// Retrieves a trampoline given a signature
-    fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;
+    fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;
 
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError>;

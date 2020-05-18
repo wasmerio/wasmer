@@ -3,11 +3,11 @@
 
 use crate::error::{ImportError, LinkError};
 use more_asserts::assert_ge;
-use wasm_common::entity::PrimaryMap;
-use wasm_common::{ExternType, ImportIndex, MemoryIndex, TableIndex};
+use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
+use wasm_common::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::{
-    Export, Imports, SignatureRegistry, VMFunctionImport, VMGlobalImport, VMMemoryImport,
-    VMTableImport,
+    Export, Imports, SignatureRegistry, VMFunctionBody, VMFunctionImport, VMFunctionKind,
+    VMGlobalImport, VMMemoryImport, VMTableImport,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -91,6 +91,7 @@ pub fn resolve_imports(
     module: &Module,
     signatures: &SignatureRegistry,
     resolver: &dyn Resolver,
+    finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     _table_plans: &PrimaryMap<TableIndex, TablePlan>,
 ) -> Result<Imports, LinkError> {
@@ -122,8 +123,21 @@ pub fn resolve_imports(
         }
         match resolved {
             Export::Function(ref f) => {
+                let address = match f.kind {
+                    VMFunctionKind::Dynamic => {
+                        // If this is a dynamic imported function,
+                        // the address of the funciton is the address of the
+                        // reverse trampoline.
+                        let index = FunctionIndex::new(function_imports.len());
+                        finished_dynamic_function_trampolines[index]
+
+                        // TODO: We should check that the f.vmctx actually matches
+                        // the shape of `VMDynamicFunctionImportContext`
+                    }
+                    VMFunctionKind::Static => f.address,
+                };
                 function_imports.push(VMFunctionImport {
-                    body: f.address,
+                    body: address,
                     vmctx: f.vmctx,
                 });
             }

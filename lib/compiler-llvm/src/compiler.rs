@@ -136,7 +136,7 @@ impl Compiler for LLVMCompiler {
         Ok(Compilation::new(functions, module_custom_sections))
     }
 
-    fn compile_wasm_trampolines(
+    fn compile_function_call_trampolines(
         &self,
         signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {

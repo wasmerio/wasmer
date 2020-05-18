@@ -46,6 +46,52 @@ mod test_vmfunction_import {
     }
 }
 
+/// The `VMDynamicFunctionImportContext` is the context that dynamic
+/// functions will receive when called (rather than `vmctx`).
+/// A dynamic function is a function for which we don't know the signature
+/// until runtime.
+///
+/// As such, we need to expose the dynamic function `context`
+/// containing the relevant context for running the function indicated
+/// in `address`.
+#[repr(C)]
+pub struct VMDynamicFunctionImportContext<T: Sized> {
+    /// The address of the inner dynamic function.
+    ///
+    /// Note: The function must be on the form of
+    /// `(*mut T, *mut VMContext, SignatureIndex, *mut i128)`.
+    pub address: *const VMFunctionBody,
+
+    /// The context that the inner dynamic function will receive.
+    pub ctx: T,
+}
+
+#[cfg(test)]
+mod test_vmdynamicfunction_import_context {
+    use super::VMDynamicFunctionImportContext;
+    use crate::{Module, VMOffsets};
+    use memoffset::offset_of;
+    use std::mem::size_of;
+
+    #[test]
+    fn check_vmdynamicfunction_import_context_offsets() {
+        let module = Module::new();
+        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        assert_eq!(
+            size_of::<VMDynamicFunctionImportContext<usize>>(),
+            usize::from(offsets.size_of_vmdynamicfunction_import_context())
+        );
+        assert_eq!(
+            offset_of!(VMDynamicFunctionImportContext<usize>, address),
+            usize::from(offsets.vmdynamicfunction_import_context_address())
+        );
+        assert_eq!(
+            offset_of!(VMDynamicFunctionImportContext<usize>, ctx),
+            usize::from(offsets.vmdynamicfunction_import_context_ctx())
+        );
+    }
+}
+
 /// A placeholder byte-sized type which is just used to provide some amount of type
 /// safety when dealing with pointers to JIT-compiled function bodies. Note that it's
 /// deliberately not Copy, as we shouldn't be carelessly copying function body bytes
@@ -62,6 +108,26 @@ mod test_vmfunction_body {
     fn check_vmfunction_body_offsets() {
         assert_eq!(size_of::<VMFunctionBody>(), 1);
     }
+}
+
+/// A function kind.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(C)]
+pub enum VMFunctionKind {
+    /// A function is static when it's address matches the signature:
+    /// (vmctx, vmctx, arg1, arg2...) -> (result1, result2, ...)
+    ///
+    /// This is the default for functions that are defined:
+    /// 1. In the Host, natively
+    /// 2. In the WebAssembly file
+    Static,
+
+    /// A function is dynamic when it's address matches the signature:
+    /// (ctx, &[Type]) -> Vec<Type>
+    ///
+    /// This is the default for functions that are defined:
+    /// 1. In the Host, dynamically
+    Dynamic,
 }
 
 /// The fields compiled code needs to access to utilize a WebAssembly table

@@ -15,15 +15,15 @@ use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+use std::mem;
 use wasm_common::FunctionType;
 use wasmer_compiler::{CompileError, FunctionBody};
 
 /// Create a trampoline for invoking a WebAssembly function.
-pub fn make_wasm_trampoline(
+pub fn make_trampoline_function_call(
     isa: &dyn TargetIsa,
     fn_builder_ctx: &mut FunctionBuilderContext,
     func_type: &FunctionType,
-    value_size: usize,
 ) -> Result<FunctionBody, CompileError> {
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
@@ -49,6 +49,7 @@ pub fn make_wasm_trampoline(
     context.func = ir::Function::with_name_signature(ir::ExternalName::user(0, 0), wrapper_sig);
     context.func.collect_frame_layout_info();
 
+    let value_size = mem::size_of::<u128>();
     {
         let mut builder = FunctionBuilder::new(&mut context.func, fn_builder_ctx);
         let block0 = builder.create_block();
