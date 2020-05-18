@@ -17,9 +17,7 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use wasm_common::entity::EntityRef;
 use wasm_common::SignatureIndex;
 use wasmer_compiler::{CompileError, FunctionBody};
-use wasmer_runtime::{
-    raise_user_trap, resume_panic, InstanceHandle, Trap, VMContext, VMFunctionBody,
-};
+use wasmer_runtime::{Module, VMOffsets};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_trampoline_dynamic_function(
