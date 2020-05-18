@@ -5,7 +5,7 @@ use crate::config::CraneliftConfig;
 use crate::func_environ::{get_func_name, FuncEnvironment};
 use crate::sink::{RelocSink, TrapSink};
 use crate::trampoline::{
-    make_host2wasm_trampoline, make_wasm2host_trampoline, FunctionBuilderContext,
+    make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
 };
 use crate::translator::{
     compiled_function_unwind_info, signature_to_cranelift_ir, transform_jump_table, FuncTranslator,
@@ -158,19 +158,19 @@ impl Compiler for CraneliftCompiler {
         Ok(Compilation::new(functions, custom_sections))
     }
 
-    fn compile_host2wasm_trampolines(
+    fn compile_function_call_trampolines(
         &self,
         signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, sig| {
-                make_host2wasm_trampoline(&*self.isa, &mut cx, sig)
+                make_trampoline_function_call(&*self.isa, &mut cx, sig)
             })
             .collect::<Result<Vec<_>, CompileError>>()
     }
 
-    fn compile_wasm2host_trampolines(
+    fn compile_dynamic_function_trampolines(
         &self,
         module: &Module,
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
@@ -185,7 +185,7 @@ impl Compiler for CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, sig_index| {
-                make_wasm2host_trampoline(&*self.isa, &module, &offsets, &mut cx, &sig_index)
+                make_trampoline_dynamic_function(&*self.isa, &module, &offsets, &mut cx, &sig_index)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()

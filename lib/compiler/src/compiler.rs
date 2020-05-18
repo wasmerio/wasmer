@@ -82,7 +82,7 @@ pub trait Compiler {
     /// let func = instance.exports.func("my_func");
     /// func.call(&[Value::I32(1)]);
     /// ```
-    fn compile_host2wasm_trampolines(
+    fn compile_function_call_trampolines(
         &self,
         signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError>;
@@ -104,7 +104,7 @@ pub trait Compiler {
     ///   }
     /// }
     /// ```
-    fn compile_wasm2host_trampolines(
+    fn compile_dynamic_function_trampolines(
         &self,
         module: &Module,
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError>;

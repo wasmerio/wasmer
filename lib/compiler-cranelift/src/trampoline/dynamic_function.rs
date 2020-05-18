@@ -21,7 +21,7 @@ use wasmer_compiler::{CompileError, FunctionBody};
 use wasmer_runtime::{Module, VMOffsets};
 
 /// Create a trampoline for invoking a WebAssembly function.
-pub fn make_wasm2host_trampoline(
+pub fn make_trampoline_dynamic_function(
     isa: &dyn TargetIsa,
     module: &Module,
     offsets: &VMOffsets,

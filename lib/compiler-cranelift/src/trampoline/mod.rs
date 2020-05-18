@@ -1,10 +1,10 @@
 #![allow(missing_docs)]
 
-mod host;
-mod wasm;
+mod dynamic_function;
+mod function_call;
 
-pub use self::host::make_wasm2host_trampoline;
-pub use self::wasm::make_host2wasm_trampoline;
+pub use self::dynamic_function::make_trampoline_dynamic_function;
+pub use self::function_call::make_trampoline_function_call;
 
 // TODO: Delete
 pub mod ir {

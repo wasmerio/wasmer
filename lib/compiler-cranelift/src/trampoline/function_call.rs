@@ -20,7 +20,7 @@ use wasm_common::FunctionType;
 use wasmer_compiler::{CompileError, FunctionBody};
 
 /// Create a trampoline for invoking a WebAssembly function.
-pub fn make_host2wasm_trampoline(
+pub fn make_trampoline_function_call(
     isa: &dyn TargetIsa,
     fn_builder_ctx: &mut FunctionBuilderContext,
     func_type: &FunctionType,

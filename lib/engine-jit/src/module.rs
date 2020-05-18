@@ -77,11 +77,12 @@ impl CompiledModule {
             .cloned()
             .collect::<Vec<_>>();
         let trampolines = compiler
-            .compile_host2wasm_trampolines(&func_types)?
+            .compile_function_call_trampolines(&func_types)?
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, _>>();
 
-        let reverse_trampolines = compiler.compile_wasm2host_trampolines(&translation.module)?;
+        let reverse_trampolines =
+            compiler.compile_dynamic_function_trampolines(&translation.module)?;
 
         let data_initializers = translation
             .data_initializers
