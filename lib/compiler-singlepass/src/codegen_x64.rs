@@ -5311,6 +5311,21 @@ impl<'a> FuncGen<'a> {
                     ),
                     Location::GPR(sigidx),
                 );
+
+                // Trap if the current table entry is null.
+                self.assembler.emit_cmp(
+                    Size::S64,
+                    Location::Imm32(0),
+                    Location::Memory(
+                        table_count,
+                        (self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize) as i32,
+                    ),
+                );
+                self.mark_range_with_trap_code(TrapCode::IndirectCallToNull, |this| {
+                    this.assembler.emit_conditional_trap(Condition::Equal)
+                });
+
+                // Trap if signature mismatches.
                 self.assembler.emit_cmp(
                     Size::S32,
                     Location::GPR(sigidx),
