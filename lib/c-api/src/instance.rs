@@ -26,9 +26,18 @@ use wasmer::{
 #[repr(C)]
 pub struct wasmer_instance_t;
 
+/// A wrapper around a Wasmer instance with extra data to maintain the existing API
 pub(crate) struct CAPIInstance {
+    /// The real wasmer `Instance`
     pub(crate) instance: Instance,
+    /// List of pointers of memories that are imported into this Instance. This is
+    /// required because the old Wasmer API allowed accessing these from the Instance
+    /// but the new/current API does not. So we store them here to allow functions to
+    /// access this data for backwards compatibilty.
     pub(crate) imported_memories: Vec<*mut Memory>,
+    /// The Instance/Ctx wide data.  Previously the Ctx Instance were separate, but
+    /// given the internal API changes this is no longer true: this is a single global
+    /// void pointer like the old Wasmer API used to have.
     pub(crate) ctx_data: Option<NonNull<c_void>>,
 }
 
