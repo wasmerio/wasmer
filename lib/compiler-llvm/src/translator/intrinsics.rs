@@ -952,6 +952,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     );
                     let ptr_to_bounds =
                         unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let ptr_to_bounds = cache_builder.build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, "").into_pointer_value();
                     (ptr_to_base_ptr, ptr_to_bounds)
                 } else {
                     let offset = intrinsics.i64_ty.const_int(
@@ -989,6 +990,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         .const_int(offsets.vmtable_definition_current_elements().into(), false);
                     let ptr_to_bounds =
                         unsafe { cache_builder.build_gep(definition_ptr, &[offset], "") };
+                    let ptr_to_bounds = cache_builder.build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, "").into_pointer_value();
                     (ptr_to_base_ptr, ptr_to_bounds)
                 };
             TableCache {
