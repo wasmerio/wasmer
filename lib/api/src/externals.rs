@@ -795,9 +795,12 @@ impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
     }
 }
 
-struct VMDynamicFunctionWithEnv<T> {
-    func: Box<dyn Fn(&mut T, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
-    env: *mut T,
+struct VMDynamicFunctionWithEnv<Env>
+where
+    Env: Sized
+{
+    func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeErro> + 'static>,
+    env: *mut Env,
 }
 
 impl<T> VMDynamicFunction for VMDynamicFunctionWithEnv<T> {
