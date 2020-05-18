@@ -480,32 +480,26 @@ impl Drop for Memory {
 
 /// A function defined in the Wasm module
 #[derive(Clone, PartialEq)]
-pub struct WasmFunc {
+pub struct WasmFunctionDefinition {
     // The trampoline to do the call
     trampoline: VMTrampoline,
 }
 
-/// A function defined in the Host
-#[derive(Clone, PartialEq)]
-pub struct HostFunc {
-    // func: wasm_common::Func<Args, Rets>,
-}
-
 /// The inner helper
 #[derive(Clone, PartialEq)]
-pub enum InnerFunc {
+pub enum FunctionDefinition {
     /// A function defined in the Wasm side
-    Wasm(WasmFunc),
+    Wasm(WasmFunctionDefinition),
     /// A function defined in the Host side
-    Host(HostFunc),
+    Host,
 }
 
 /// A WebAssembly `function`.
 #[derive(Clone, PartialEq)]
 pub struct Function {
     store: Store,
+    definition: FunctionDefinition,
     // If the Function is owned by the Store, not the instance
-    inner: InnerFunc,
     owned_by_store: bool,
     exported: ExportFunction,
 }
@@ -530,9 +524,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            inner: InnerFunc::Host(HostFunc {
-                // func
-            }),
+            definition: FunctionDefinition::Host,
             exported: ExportFunction {
                 address,
                 vmctx,
@@ -557,7 +549,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            inner: InnerFunc::Host(HostFunc),
+            definition: FunctionDefinition::Host,
             exported: ExportFunction {
                 address,
                 kind: VMFunctionKind::Dynamic,
@@ -583,7 +575,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            inner: InnerFunc::Host(HostFunc),
+            definition: FunctionDefinition::Host,
             exported: ExportFunction {
                 address,
                 kind: VMFunctionKind::Dynamic,
@@ -613,9 +605,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            inner: InnerFunc::Host(HostFunc {
-                // func
-            }),
+            definition: FunctionDefinition::Host,
             exported: ExportFunction {
                 address,
                 kind: VMFunctionKind::Static,
@@ -640,7 +630,7 @@ impl Function {
 
     fn call_wasm(
         &self,
-        func: &WasmFunc,
+        func: &WasmFunctionDefinition,
         params: &[Val],
         results: &mut [Val],
     ) -> Result<(), RuntimeError> {
@@ -731,8 +721,8 @@ impl Function {
     ///    call the trampoline.
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
         let mut results = vec![Val::null(); self.result_arity()];
-        match &self.inner {
-            InnerFunc::Wasm(wasm) => {
+        match &self.definition {
+            FunctionDefinition::Wasm(wasm) => {
                 self.call_wasm(&wasm, params, &mut results)?;
             }
             _ => {} // _ => unimplemented!("The host is unimplemented"),
@@ -748,7 +738,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: false,
-            inner: InnerFunc::Wasm(WasmFunc { trampoline }),
+            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
             exported: wasmer_export,
         }
     }
@@ -799,7 +789,7 @@ struct VMDynamicFunctionWithEnv<Env>
 where
     Env: Sized,
 {
-    func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeErro> + 'static>,
+    func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     env: *mut Env,
 }
 
