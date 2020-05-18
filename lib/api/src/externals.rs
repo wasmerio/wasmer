@@ -835,7 +835,7 @@ impl<T: VMDynamicFunction> VMDynamicFunctionImportCall<T> for VMDynamicFunctionI
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
     unsafe fn func_wrapper(
-        // Note: we use the trick that the first param to this funciton is the `VMDynamicFunctionImportContext`
+        // Note: we use the trick that the first param to this function is the `VMDynamicFunctionImportContext`
         // itself, so rather than doing `dynamic_ctx: &VMDynamicFunctionImportContext<T>`, we simplify it a bit
         &self,
         caller_vmctx: *mut VMContext,
