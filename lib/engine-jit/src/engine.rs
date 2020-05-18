@@ -39,7 +39,7 @@ impl JITEngine {
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 compiler: Some(compiler),
-                trampolines: HashMap::new(),
+                function_call_trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
             })),
@@ -65,7 +65,7 @@ impl JITEngine {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 #[cfg(feature = "compiler")]
                 compiler: None,
-                trampolines: HashMap::new(),
+                function_call_trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
             })),
@@ -107,8 +107,8 @@ impl Engine for JITEngine {
     }
 
     /// Retrieves a trampoline given a signature
-    fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.compiler().trampoline(sig)
+    fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
+        self.compiler().function_call_trampoline(sig)
     }
 
     /// Validates a WebAssembly module
@@ -173,7 +173,7 @@ pub struct JITEngineInner {
     #[cfg(feature = "compiler")]
     compiler: Option<Box<dyn Compiler + Send>>,
     /// Pointers to trampoline functions used to enter particular signatures
-    trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
+    function_call_trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The code memory is responsible of publishing the compiled
     /// functions to memory.
     code_memory: CodeMemory,
@@ -211,8 +211,8 @@ impl JITEngineInner {
         &mut self,
         module: &Module,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
-        trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
-        reverse_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,
+        function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
+        dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,
     ) -> Result<
         (
             PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
@@ -232,10 +232,10 @@ impl JITEngineInner {
                     ))
                 })?;
 
-        for (sig_index, compiled_function) in trampolines.iter() {
+        for (sig_index, compiled_function) in function_call_trampolines.iter() {
             let func_type = module.signatures.get(sig_index).unwrap();
             let index = self.signatures.register(&func_type);
-            if self.trampolines.contains_key(&index) {
+            if self.function_call_trampolines.contains_key(&index) {
                 // We don't need to allocate the trampoline in case
                 // it's signature is already allocated.
                 continue;
@@ -245,17 +245,17 @@ impl JITEngineInner {
                 .allocate_for_function(&compiled_function)
                 .map_err(|message| {
                     CompileError::Resource(format!(
-                        "failed to allocate memory for trampolines: {}",
+                        "failed to allocate memory for function_call_trampolines: {}",
                         message
                     ))
                 })?
                 .as_ptr();
             let trampoline =
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
-            self.trampolines.insert(index, trampoline);
+            self.function_call_trampolines.insert(index, trampoline);
         }
 
-        let allocated_reverse_trampolines = reverse_trampolines
+        let allocated_dynamic_function_trampolines = dynamic_function_trampolines
             .values()
             .map(|compiled_function| {
                 let ptr = self
@@ -263,7 +263,7 @@ impl JITEngineInner {
                     .allocate_for_function(&compiled_function)
                     .map_err(|message| {
                         CompileError::Resource(format!(
-                            "failed to allocate memory for trampolines: {}",
+                            "failed to allocate memory for function_call_trampolines: {}",
                             message
                         ))
                     })?
@@ -272,7 +272,7 @@ impl JITEngineInner {
             })
             .collect::<Result<PrimaryMap<FunctionIndex, _>, CompileError>>()?;
 
-        Ok((allocated_functions, allocated_reverse_trampolines))
+        Ok((allocated_functions, allocated_dynamic_function_trampolines))
     }
 
     /// Make memory containing compiled code executable.
@@ -286,7 +286,7 @@ impl JITEngineInner {
     }
 
     /// Gets the trampoline pre-registered for a particular signature
-    pub fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.trampolines.get(&sig).cloned()
+    pub fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
+        self.function_call_trampolines.get(&sig).cloned()
     }
 }

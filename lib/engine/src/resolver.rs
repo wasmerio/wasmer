@@ -91,7 +91,7 @@ pub fn resolve_imports(
     module: &Module,
     signatures: &SignatureRegistry,
     resolver: &dyn Resolver,
-    finished_reverse_trampolines: &BoxedSlice<FunctionIndex, *const VMFunctionBody>,
+    finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     _table_plans: &PrimaryMap<TableIndex, TablePlan>,
 ) -> Result<Imports, LinkError> {
@@ -129,7 +129,7 @@ pub fn resolve_imports(
                         // the address of the funciton is the address of the
                         // reverse trampoline.
                         let index = FunctionIndex::new(function_imports.len());
-                        finished_reverse_trampolines[index]
+                        finished_dynamic_function_trampolines[index]
 
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`

@@ -30,7 +30,7 @@ pub struct CompiledModule {
     serializable: SerializableModule,
 
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
-    finished_reverse_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
+    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
 }
@@ -76,12 +76,12 @@ impl CompiledModule {
             .values()
             .cloned()
             .collect::<Vec<_>>();
-        let trampolines = compiler
+        let function_call_trampolines = compiler
             .compile_function_call_trampolines(&func_types)?
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, _>>();
 
-        let reverse_trampolines =
+        let dynamic_function_trampolines =
             compiler.compile_dynamic_function_trampolines(&translation.module)?;
 
         let data_initializers = translation
@@ -102,8 +102,8 @@ impl CompiledModule {
             function_relocations: compilation.get_relocations(),
             function_jt_offsets: compilation.get_jt_offsets(),
             function_frame_info: frame_infos,
-            trampolines,
-            reverse_trampolines,
+            function_call_trampolines,
+            dynamic_function_trampolines,
             custom_sections: compilation.get_custom_sections(),
             custom_section_relocations: compilation.get_custom_section_relocations(),
         };
@@ -151,11 +151,11 @@ impl CompiledModule {
         jit_compiler: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let (finished_functions, finished_reverse_trampolines) = jit_compiler.allocate(
+        let (finished_functions, finished_dynamic_function_trampolines) = jit_compiler.allocate(
             &serializable.module,
             &serializable.compilation.function_bodies,
-            &serializable.compilation.trampolines,
-            &serializable.compilation.reverse_trampolines,
+            &serializable.compilation.function_call_trampolines,
+            &serializable.compilation.dynamic_function_trampolines,
         )?;
 
         link_module(
@@ -184,7 +184,8 @@ impl CompiledModule {
         Ok(Self {
             serializable,
             finished_functions: finished_functions.into_boxed_slice(),
-            finished_reverse_trampolines: finished_reverse_trampolines.into_boxed_slice(),
+            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+                .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
             frame_info_registration: Mutex::new(None),
         })
@@ -216,7 +217,7 @@ impl CompiledModule {
             &self.module(),
             &sig_registry,
             resolver,
-            &self.finished_reverse_trampolines,
+            &self.finished_dynamic_function_trampolines,
             self.memory_plans(),
             self.table_plans(),
         )
