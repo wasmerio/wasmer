@@ -53,14 +53,9 @@ pub struct CustomSection {
 pub struct SectionBody(#[serde(with = "serde_bytes")] Vec<u8>);
 
 impl SectionBody {
-    /// Extend the section with the bytes given.
-    pub fn extend(&mut self, contents: &[u8]) {
-        self.0.extend(contents);
-    }
-
-    /// Extends the section by appending bytes from another section.
-    pub fn append(&mut self, body: &Self) {
-        self.0.extend(&body.0);
+    /// Create a new section body with the given contents.
+    pub fn new_with_vec(contents: Vec<u8>) -> Self {
+        Self(contents)
     }
 
     /// Returns a raw pointer to the section's buffer.
@@ -75,6 +70,6 @@ impl SectionBody {
 
     /// Returns whether or not the section body is empty.
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.0.is_empty()
     }
 }
