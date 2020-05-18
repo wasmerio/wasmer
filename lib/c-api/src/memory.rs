@@ -138,14 +138,12 @@ pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_memory_length(memory: *const wasmer_memory_t) -> u32 {
-    dbg!(memory);
     if memory.is_null() {
         return 0;
     }
 
     let memory = unsafe { &*(memory as *const Memory) };
     let Pages(length) = memory.size();
-    dbg!(length);
 
     length
 }

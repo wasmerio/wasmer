@@ -655,10 +655,8 @@ pub unsafe extern "C" fn wasmer_import_func_new(
         use libffi::high::call::{call, Arg};
         use libffi::low::CodePtr;
 
-        dbg!(env as *const _);
-        let ctx_ptr = dbg!(env.ctx_ptr());
+        let ctx_ptr = env.ctx_ptr();
         let ctx_ptr_val = ctx_ptr as *const _ as isize as i64;
-        dbg!(ctx_ptr_val);
 
         let ffi_args: Vec<Arg> = {
             let mut ffi_args = Vec::with_capacity(args.len() + 1);
@@ -720,7 +718,6 @@ pub unsafe extern "C" fn wasmer_trap(
     _ctx: *const wasmer_instance_context_t,
     error_message: *const c_char,
 ) -> wasmer_result_t {
-    dbg!(_ctx);
     if error_message.is_null() {
         update_last_error(CApiError {
             msg: "error_message is null in wasmer_trap".to_string(),

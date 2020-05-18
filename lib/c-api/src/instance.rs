@@ -333,14 +333,10 @@ pub unsafe extern "C" fn wasmer_instance_call(
     let f: &Function = match instance.instance.exports.get(func_name_r) {
         Ok(f) => f,
         Err(err) => {
-            dbg!("exports get", &err);
             update_last_error(err);
             return wasmer_result_t::WASMER_ERROR;
         }
     };
-
-    dbg!(&f);
-    dbg!(&params);
 
     let result = f.call(&params[..]);
 
@@ -373,7 +369,6 @@ pub unsafe extern "C" fn wasmer_instance_call(
             wasmer_result_t::WASMER_OK
         }
         Err(err) => {
-            dbg!("Call error", &err);
             update_last_error(err);
             wasmer_result_t::WASMER_ERROR
         }
