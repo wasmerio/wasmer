@@ -483,7 +483,7 @@ impl FuncTranslator {
                         bytes: SectionBody::new_with_vec(section_bytes(*elf_section_index)),
                         relocations: relocations
                             .remove_entry(elf_section_index)
-                            .map_or(vec![], |(k, v)| v),
+                            .map_or(vec![], |(_, v)| v),
                     },
                 )
             })
@@ -491,7 +491,7 @@ impl FuncTranslator {
         custom_sections.sort_unstable_by_key(|a| a.0);
         let custom_sections = custom_sections
             .into_iter()
-            .map(|(k, v)| v)
+            .map(|(_, v)| v)
             .collect::<PrimaryMap<SectionIndex, _>>();
 
         let function_body = FunctionBody {
@@ -517,7 +517,7 @@ impl FuncTranslator {
                 jt_offsets: SecondaryMap::new(),
                 relocations: relocations
                     .remove_entry(&wasmer_function_index)
-                    .map_or(vec![], |(k, v)| v),
+                    .map_or(vec![], |(_, v)| v),
                 frame_info: CompiledFunctionFrameInfo {
                     address_map,
                     traps: vec![],
