@@ -147,4 +147,13 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()
     }
+
+    fn compile_dynamic_function_trampolines(
+        &self,
+        module: &Module,
+    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
+        Ok(PrimaryMap::new())
+        // unimplemented!("Dynamic funciton trampolines not yet implemented");
+    }
+
 }
