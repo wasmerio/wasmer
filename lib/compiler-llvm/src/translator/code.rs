@@ -34,7 +34,7 @@ use std::convert::TryFrom;
 use std::num::TryFromIntError;
 
 use crate::config::LLVMConfig;
-use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
+use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasm_common::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryType,
     Mutability, SignatureIndex, TableIndex, Type,
