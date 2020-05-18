@@ -30,6 +30,8 @@ use inkwell::{
 use smallvec::SmallVec;
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
+use std::convert::TryFrom;
+use std::num::TryFromIntError;
 
 use crate::config::LLVMConfig;
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
@@ -59,6 +61,20 @@ entity_impl!(ElfSectionIndex);
 impl ElfSectionIndex {
     pub fn is_undef(&self) -> bool {
         self.as_u32() == goblin::elf::section_header::SHN_UNDEF
+    }
+
+    pub fn from_usize(value: usize) -> Result<Self, CompileError> {
+        match u32::try_from(value) {
+            Err(_) => Err(CompileError::Codegen(format!(
+                "elf section index {} does not fit in 32 bits",
+                value
+            ))),
+            Ok(value) => Ok(ElfSectionIndex::from_u32(value)),
+        }
+    }
+
+    pub fn as_usize(&self) -> usize {
+        self.as_u32() as usize
     }
 }
 
@@ -166,7 +182,9 @@ impl FuncTranslator {
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty);
-            let value = func.get_nth_param((idx + 2) as u32).unwrap();
+            let value = func
+                .get_nth_param((idx as u32).checked_add(2).unwrap())
+                .unwrap();
             // TODO: don't interleave allocas and stores.
             let alloca = cache_builder.build_alloca(ty, "param");
             cache_builder.build_store(alloca, value);
@@ -341,7 +359,7 @@ impl FuncTranslator {
             HashMap::new(),
             |mut map: HashMap<_, Vec<_>>, (section_index, reloc_section)| {
                 let target_section = elf.section_headers[*section_index].sh_info as usize;
-                let target_section = ElfSectionIndex::from_u32(target_section as u32);
+                let target_section = ElfSectionIndex::from_usize(target_section).unwrap();
                 map.entry(target_section).or_default().push(reloc_section);
                 map
             },
@@ -365,7 +383,7 @@ impl FuncTranslator {
             )));
         }
         let wasmer_function_index = wasmer_function_index[0];
-        let wasmer_function_index = ElfSectionIndex::from_u32(wasmer_function_index as u32);
+        let wasmer_function_index = ElfSectionIndex::from_usize(wasmer_function_index)?;
 
         let mut section_to_custom_section = HashMap::new();
 
@@ -386,7 +404,7 @@ impl FuncTranslator {
         };
 
         let section_bytes = |elf_section_index: ElfSectionIndex| {
-            let elf_section_index = elf_section_index.as_u32() as usize;
+            let elf_section_index = elf_section_index.as_usize();
             let byte_range = elf.section_headers[elf_section_index].file_range();
             mem_buf_slice[byte_range.start..byte_range.end].to_vec()
         };
@@ -419,7 +437,7 @@ impl FuncTranslator {
                 let target = reloc.r_sym;
                 // TODO: error handling
                 let elf_target = elf.syms.get(target).unwrap();
-                let elf_target_section = ElfSectionIndex::from_u32(elf_target.st_shndx as u32);
+                let elf_target_section = ElfSectionIndex::from_usize(elf_target.st_shndx)?;
                 let reloc_target = if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
                     if visited.insert(elf_target_section) {
                         worklist.push(elf_target_section);
