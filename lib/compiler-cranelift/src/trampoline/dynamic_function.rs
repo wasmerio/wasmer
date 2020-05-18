@@ -11,12 +11,15 @@ use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use std::cmp;
 use std::mem;
+use std::panic::{self, AssertUnwindSafe};
 
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use wasm_common::entity::EntityRef;
 use wasm_common::SignatureIndex;
 use wasmer_compiler::{CompileError, FunctionBody};
-use wasmer_runtime::{Module, VMOffsets};
+use wasmer_runtime::{
+    raise_user_trap, resume_panic, InstanceHandle, Trap, VMContext, VMFunctionBody,
+};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_trampoline_dynamic_function(
