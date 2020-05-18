@@ -5,14 +5,19 @@
 //! and tracing errors.
 
 use core::fmt;
+
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
 /// A source location.
 ///
 /// The default source location uses the all-ones bit pattern `!0`. It is used for instructions
 /// that can't be given a real source location.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
+#[cfg_attr(
+    feature = "enable-serde",
+    derive(Serialize, Deserialize),
+    serde(transparent)
+)]
 #[repr(transparent)]
 pub struct SourceLoc(u32);
 
