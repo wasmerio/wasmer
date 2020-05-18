@@ -2227,96 +2227,34 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                let global_type = module.globals[global_index];
-                let global_value_type = global_type.ty;
-
-                // TODO: cache loads of const globals.
-                let _global_mutability = global_type.mutability;
-
-                let global_ptr =
-                    if let Some(local_global_index) = module.local_global_index(global_index) {
-                        let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        unsafe { builder.build_gep(*vmctx, &[offset], "") }
-                    } else {
-                        let offset = self.vmoffsets.vmctx_vmglobal_import(global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        let global_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
-                        let global_ptr_ptr = builder
-                            .build_bitcast(global_ptr_ptr, intrinsics.i8_ptr_ty, "")
-                            .into_pointer_value();
-                        let global_ptr = builder.build_load(global_ptr_ptr, "");
-                        builder
-                            .build_bitcast(global_ptr, intrinsics.i8_ptr_ty, "")
-                            .into_pointer_value()
-                    };
-                let global_ptr = builder
-                    .build_bitcast(
-                        global_ptr,
-                        type_to_llvm_ptr(&intrinsics, global_value_type),
-                        "",
-                    )
-                    .into_pointer_value();
-                let value = builder.build_load(global_ptr, "");
-                // TODO: add TBAA info.
-                self.state.push1(value);
+                match ctx.global(global_index, intrinsics) {
+                    GlobalCache::Const { value } => {
+                        self.state.push1(value);
+                    }
+                    GlobalCache::Mut { ptr_to_value } => {
+                        let value = builder.build_load(ptr_to_value, "");
+                        // TODO: tbaa
+                        self.state.push1(value);
+                    }
+                }
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                let global_type = module.globals[global_index];
-                let global_value_type = global_type.ty;
-
-                // Note that we don't check mutability, assuming that's already
-                // been checked by some other verifier.
-
-                let global_ptr =
-                    if let Some(local_global_index) = module.local_global_index(global_index) {
-                        let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        unsafe { builder.build_gep(*vmctx, &[offset], "") }
-                    } else {
-                        let offset = self.vmoffsets.vmctx_vmglobal_import(global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        let global_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
-                        let global_ptr_ptr = builder
-                            .build_bitcast(global_ptr_ptr, intrinsics.i8_ptr_ty, "")
-                            .into_pointer_value();
-                        builder.build_load(global_ptr_ptr, "").into_pointer_value()
-                    };
-                let global_ptr = builder
-                    .build_bitcast(
-                        global_ptr,
-                        type_to_llvm_ptr(&intrinsics, global_value_type),
-                        "",
-                    )
-                    .into_pointer_value();
-
-                let (value, info) = self.state.pop1_extra()?;
-                let value = apply_pending_canonicalization(builder, intrinsics, value, info);
-                builder.build_store(global_ptr, value);
-                // TODO: add TBAA info
-
-                /*
-                                let (value, info) = self.state.pop1_extra()?;
-                                let value = apply_pending_canonicalization(builder, intrinsics, value, info);
-                                let index = GlobalIndex::from_u32(global_index);
-                                let global_cache = ctx.global_cache(index, intrinsics, self.module);
-                                match global_cache {
-                                    GlobalCache::Mut { ptr_to_value } => {
-                                        let store = builder.build_store(ptr_to_value, value);
-                                        tbaa_label(
-                                            &self.module,
-                                            intrinsics,
-                                            "global",
-                                            store,
-                                            Some(global_index),
-                                        );
-                                    }
-                                    GlobalCache::Const { value: _ } => {
-                                        return Err(CompileError::Codegen("global is immutable".to_string()));
-                                    }
-                                }
-                */
+                match ctx.global(global_index, intrinsics) {
+                    GlobalCache::Const { value } => {
+                        return Err(CompileError::Codegen(format!(
+                            "global.set on immutable global index {}",
+                            global_index.as_u32()
+                        )))
+                    }
+                    GlobalCache::Mut { ptr_to_value } => {
+                        let (value, info) = self.state.pop1_extra()?;
+                        let value =
+                            apply_pending_canonicalization(builder, intrinsics, value, info);
+                        builder.build_store(ptr_to_value, value);
+                        // TODO: tbaa
+                    }
+                }
             }
 
             Operator::Select => {

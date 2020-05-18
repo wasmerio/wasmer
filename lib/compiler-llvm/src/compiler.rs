@@ -155,5 +155,4 @@ impl Compiler for LLVMCompiler {
         Ok(PrimaryMap::new())
         // unimplemented!("Dynamic funciton trampolines not yet implemented");
     }
-
 }
