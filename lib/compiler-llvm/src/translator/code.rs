@@ -405,38 +405,22 @@ impl FuncTranslator {
                 let addend = reloc.r_addend.unwrap_or(0);
                 let target = reloc.r_sym;
                 // TODO: error handling
-                let target = elf.syms.get(target).unwrap();
-                if target.st_type() == goblin::elf::sym::STT_SECTION {
-                    if visited.insert(target.st_shndx) {
-                        worklist.push(target.st_shndx);
+                let elf_target = elf.syms.get(target).unwrap();
+                let reloc_target = if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
+                    if visited.insert(elf_target.st_shndx) {
+                        worklist.push(elf_target.st_shndx);
                     }
-                    relocations
-                        .entry(section_index)
-                        .or_default()
-                        .push(Relocation {
-                            kind,
-                            reloc_target: elf_section_to_target(target.st_shndx),
-                            offset,
-                            addend,
-                        });
-                } else if target.st_type() == goblin::elf::sym::STT_FUNC
-                    && target.st_shndx == wasmer_function_index
+                    elf_section_to_target(elf_target.st_shndx)
+                } else if elf_target.st_type() == goblin::elf::sym::STT_FUNC
+                    && elf_target.st_shndx == wasmer_function_index
                 {
                     // This is a function referencing its own byte stream.
-                    relocations
-                        .entry(section_index)
-                        .or_default()
-                        .push(Relocation {
-                            kind,
-                            reloc_target: RelocationTarget::LocalFunc(*local_func_index),
-                            offset,
-                            addend,
-                        });
-                } else if target.st_type() == goblin::elf::sym::STT_NOTYPE
-                    && target.st_shndx == goblin::elf::section_header::SHN_UNDEF as _
+                    RelocationTarget::LocalFunc(*local_func_index)
+                } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
+                    && elf_target.st_shndx == goblin::elf::section_header::SHN_UNDEF as _
                 {
                     // Not defined in this .o file. Maybe another local function?
-                    let name = target.st_name;
+                    let name = elf_target.st_name;
                     let name = elf.strtab.get(name).unwrap().unwrap();
                     if let Some((index, _)) =
                         func_names.iter().find(|(_, func_name)| *func_name == name)
@@ -444,32 +428,25 @@ impl FuncTranslator {
                         let local_index = wasm_module
                             .local_func_index(index)
                             .expect("Relocation to non-local function");
-                        relocations
-                            .entry(section_index)
-                            .or_default()
-                            .push(Relocation {
-                                kind,
-                                reloc_target: RelocationTarget::LocalFunc(local_index),
-                                offset,
-                                addend,
-                            });
+                        RelocationTarget::LocalFunc(local_index)
                     // Maybe a libcall then?
                     } else if let Some(libcall) = libcalls.get(name) {
-                        relocations
-                            .entry(section_index)
-                            .or_default()
-                            .push(Relocation {
-                                kind,
-                                reloc_target: RelocationTarget::LibCall(*libcall),
-                                offset,
-                                addend,
-                            });
+                        RelocationTarget::LibCall(*libcall)
                     } else {
                         unimplemented!("reference to unknown symbol {}", name);
                     }
                 } else {
                     unimplemented!("unknown relocation {:?} with target {:?}", reloc, target);
-                }
+                };
+                relocations
+                    .entry(section_index)
+                    .or_default()
+                    .push(Relocation {
+                        kind,
+                        reloc_target,
+                        offset,
+                        addend,
+                    });
             }
         }
 
