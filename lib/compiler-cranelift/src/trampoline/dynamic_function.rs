@@ -89,11 +89,6 @@ pub fn make_trampoline_dynamic_function(
         // Get the signature index
         let caller_sig_id = builder.ins().iconst(types::I32, sig_index.index() as i64);
 
-        // let mem_flags = ir::MemFlags::trusted();
-        // let dynamic_ctx_ptr_val = builder
-        //     .ins()
-        //     .load(pointer_type, mem_flags, vmctx_ptr_val, offsets.vmdynamicfunction_import_context_ctx() as i32);
-
         let callee_args = vec![
             vmctx_ptr_val,
             caller_vmctx_ptr_val,
