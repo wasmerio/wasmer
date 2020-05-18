@@ -1,13 +1,16 @@
 #![cfg(feature = "compiler")]
 
+use std::sync::Arc;
+use wasmer::{Store, Tunables};
 use wasmer_compiler::{CompilerConfig, Features, Target};
+use wasmer_engine_jit::JITEngine;
 
 pub fn get_compiler_config_from_str(
     compiler_name: &str,
     try_nan_canonicalization: bool,
     features: Features,
 ) -> Box<dyn CompilerConfig> {
-    /// We use the current host target for testing locally
+    // We use the current host target for testing locally
     let target = Target::default();
 
     match compiler_name {
@@ -33,4 +36,11 @@ pub fn get_compiler_config_from_str(
         }
         _ => panic!("Compiler {} not supported", compiler_name),
     }
+}
+
+/// for when you need a store but you don't care about the details
+pub fn get_default_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("cranelift", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(&*compiler_config, tunables)))
 }

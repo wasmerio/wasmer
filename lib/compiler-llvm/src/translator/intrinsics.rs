@@ -143,11 +143,14 @@ pub struct Intrinsics<'ctx> {
     pub f64x2_zero: VectorValue<'ctx>,
 
     pub trap_unreachable: BasicValueEnum<'ctx>,
+    pub trap_call_indirect_null: BasicValueEnum<'ctx>,
     pub trap_call_indirect_sig: BasicValueEnum<'ctx>,
-    pub trap_call_indirect_oob: BasicValueEnum<'ctx>,
     pub trap_memory_oob: BasicValueEnum<'ctx>,
     pub trap_illegal_arithmetic: BasicValueEnum<'ctx>,
+    pub trap_integer_division_by_zero: BasicValueEnum<'ctx>,
+    pub trap_bad_conversion_to_integer: BasicValueEnum<'ctx>,
     pub trap_misaligned_atomic: BasicValueEnum<'ctx>,
+    pub trap_table_access_oob: BasicValueEnum<'ctx>,
 
     // VM intrinsics.
     pub memory_grow_dynamic_local: FunctionValue<'ctx>,
@@ -168,6 +171,10 @@ pub struct Intrinsics<'ctx> {
     pub throw_breakpoint: FunctionValue<'ctx>,
 
     pub experimental_stackmap: FunctionValue<'ctx>,
+
+    pub vmfunction_import_ptr_ty: PointerType<'ctx>,
+    pub vmfunction_import_body_element: u32,
+    pub vmfunction_import_vmctx_element: u32,
 
     pub vmmemory_definition_ptr_ty: PointerType<'ctx>,
     pub vmmemory_definition_base_element: u32,
@@ -475,11 +482,11 @@ impl<'ctx> Intrinsics<'ctx> {
             trap_unreachable: i32_ty
                 .const_int(TrapCode::UnreachableCodeReached as _, false)
                 .as_basic_value_enum(),
+            trap_call_indirect_null: i32_ty
+                .const_int(TrapCode::IndirectCallToNull as _, false)
+                .as_basic_value_enum(),
             trap_call_indirect_sig: i32_ty
                 .const_int(TrapCode::BadSignature as _, false)
-                .as_basic_value_enum(),
-            trap_call_indirect_oob: i32_ty
-                .const_int(TrapCode::OutOfBounds as _, false)
                 .as_basic_value_enum(),
             trap_memory_oob: i32_ty
                 .const_int(TrapCode::OutOfBounds as _, false)
@@ -488,9 +495,18 @@ impl<'ctx> Intrinsics<'ctx> {
             trap_illegal_arithmetic: i32_ty
                 .const_int(TrapCode::IntegerOverflow as _, false)
                 .as_basic_value_enum(),
+            trap_integer_division_by_zero: i32_ty
+                .const_int(TrapCode::IntegerDivisionByZero as _, false)
+                .as_basic_value_enum(),
+            trap_bad_conversion_to_integer: i32_ty
+                .const_int(TrapCode::BadConversionToInteger as _, false)
+                .as_basic_value_enum(),
             // TODO: add misaligned atomic traps to wasmer runtime
             trap_misaligned_atomic: i32_ty
                 .const_int(TrapCode::Interrupt as _, false)
+                .as_basic_value_enum(),
+            trap_table_access_oob: i32_ty
+                .const_int(TrapCode::TableAccessOutOfBounds as _, false)
                 .as_basic_value_enum(),
 
             // VM intrinsics.
@@ -576,6 +592,12 @@ impl<'ctx> Intrinsics<'ctx> {
                 void_ty.fn_type(&[i64_ty_basic], false),
                 None,
             ),
+
+            vmfunction_import_ptr_ty: context
+                .struct_type(&[i8_ptr_ty_basic, i8_ptr_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+            vmfunction_import_body_element: 0,
+            vmfunction_import_vmctx_element: 1,
 
             // TODO: this i64 is actually a rust usize
             vmmemory_definition_ptr_ty: context
@@ -1342,7 +1364,8 @@ pub fn func_type_to_llvm<'ctx>(
         .params()
         .iter()
         .map(|&ty| type_to_llvm(intrinsics, ty));
-    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+    let param_types: Vec<_> = std::iter::repeat(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+        .take(2)
         .chain(user_param_types)
         .collect();
 

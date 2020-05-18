@@ -4,25 +4,23 @@
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
 use crate::serialize::{SerializableCompilation, SerializableModule};
-use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
-use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
+use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
-    DataInitializer, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-    MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
+    DataInitializer, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
 };
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{
     register_frame_info, resolve_imports, CompiledModule as BaseCompiledModule, DeserializeError,
-    Engine, GlobalFrameInfoRegistration, InstantiationError, LinkError, Resolver, RuntimeError,
-    SerializableFunctionFrameInfo, SerializeError, Tunables,
+    Engine, GlobalFrameInfoRegistration, InstantiationError, Resolver, RuntimeError,
+    SerializableFunctionFrameInfo, SerializeError,
 };
 use wasmer_runtime::{
-    InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
-    VMGlobalDefinition, VMSharedSignatureIndex,
+    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -44,9 +42,7 @@ impl CompiledModule {
         let mut jit_compiler = jit.compiler_mut();
         let tunables = jit.tunables();
 
-        let translation = environ
-            .translate(data)
-            .map_err(|error| CompileError::Wasm(error))?;
+        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
         let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
             .module
@@ -104,6 +100,7 @@ impl CompiledModule {
             function_frame_info: frame_infos,
             trampolines,
             custom_sections: compilation.get_custom_sections(),
+            custom_section_relocations: compilation.get_custom_section_relocations(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -134,15 +131,14 @@ impl CompiledModule {
     }
 
     /// Deserialize a CompiledModule
-    pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<CompiledModule, DeserializeError> {
+    pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
         let serializable: SerializableModule = bincode::deserialize(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        Self::from_parts(&mut jit.compiler_mut(), serializable)
-            .map_err(|e| DeserializeError::Compiler(e))
+        Self::from_parts(&mut jit.compiler_mut(), serializable).map_err(DeserializeError::Compiler)
     }
 
     /// Construct a `CompiledModule` from component parts.
@@ -164,6 +160,7 @@ impl CompiledModule {
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
             &custom_sections,
+            &serializable.compilation.custom_section_relocations,
         );
 
         // Compute indices into the shared signature table.

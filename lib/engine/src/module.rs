@@ -1,6 +1,3 @@
-use crate::error::InstantiationError;
-use std::sync::Arc;
-use wasmer_runtime::InstanceHandle;
 use wasmer_runtime::Module;
 
 use downcast_rs::{impl_downcast, Downcast};

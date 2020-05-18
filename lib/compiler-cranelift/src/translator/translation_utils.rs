@@ -21,13 +21,13 @@ pub fn signature_to_cranelift_ir(
     target_config: &TargetFrontendConfig,
 ) -> ir::Signature {
     let mut sig = ir::Signature::new(target_config.default_call_conv);
-    sig.params.extend(signature.params().iter().map(|ty| {
-        let cret_arg: ir::Type = type_to_irtype(ty.clone(), target_config)
+    sig.params.extend(signature.params().iter().map(|&ty| {
+        let cret_arg: ir::Type = type_to_irtype(ty, target_config)
             .expect("only numeric types are supported in function signatures");
         AbiParam::new(cret_arg)
     }));
-    sig.returns.extend(signature.results().iter().map(|ty| {
-        let cret_arg: ir::Type = type_to_irtype(ty.clone(), target_config)
+    sig.returns.extend(signature.results().iter().map(|&ty| {
+        let cret_arg: ir::Type = type_to_irtype(ty, target_config)
             .expect("only numeric types are supported in function signatures");
         AbiParam::new(cret_arg)
     }));

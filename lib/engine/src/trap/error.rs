@@ -124,12 +124,16 @@ impl RuntimeError {
             .any(|pc| info.should_process_frame(*pc).unwrap_or(false))
         {
             // We drop the read lock, to get a write one.
+            // Note: this is not guaranteed because it's a RwLock:
+            // the following code may cause deadlocks.
+            // TODO: clean up this code
             drop(info);
-            let mut info = FRAME_INFO.write().unwrap();
-            for pc in frames.iter() {
-                drop(info.maybe_process_frame(*pc));
+            {
+                let mut info = FRAME_INFO.write().unwrap();
+                for pc in frames.iter() {
+                    info.maybe_process_frame(*pc);
+                }
             }
-            drop(info);
             FRAME_INFO.read().unwrap()
         } else {
             info
@@ -182,7 +186,7 @@ impl fmt::Display for RuntimeError {
         for frame in self.trace().iter() {
             let name = frame.module_name();
             let func_index = frame.func_index();
-            writeln!(f, "")?;
+            writeln!(f)?;
             write!(f, "    at ")?;
             match frame.func_name() {
                 Some(name) => match rustc_demangle::try_demangle(name) {

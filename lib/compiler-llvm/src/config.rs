@@ -46,7 +46,10 @@ pub struct LLVMConfig {
 impl LLVMConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(features: Features, target: Target) -> Self {
+    pub fn new(mut features: Features, target: Target) -> Self {
+        // Override the default multi-value switch
+        features.multi_value = false;
+
         let triple = Triple {
             architecture: target.triple().architecture,
             vendor: target.triple().vendor.clone(),

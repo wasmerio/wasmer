@@ -27,6 +27,11 @@ impl FunctionTable {
         self.functions.len()
     }
 
+    /// Returns whether or not the function table is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Adds a function to the table based off of the start offset, end offset, and unwind offset.
     ///
     /// The offsets are from the "module base", which is provided when the table is published.
@@ -129,6 +134,11 @@ impl FunctionTable {
     /// Returns the number of functions in the table, also referred to as its 'length'.
     pub fn len(&self) -> usize {
         self.functions.len()
+    }
+
+    /// Returns whether or not the function table is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Adds a function to the table based off of the start offset, end offset, and unwind offset.

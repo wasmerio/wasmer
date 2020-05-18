@@ -216,15 +216,6 @@ pub struct FuncTranslationState {
     functions: HashMap<FunctionIndex, (ir::FuncRef, usize)>,
 }
 
-// Public methods that are exposed to non-`wasmer_compiler` API consumers.
-impl FuncTranslationState {
-    /// True if the current translation state expresses reachable code, false if it is unreachable.
-    #[inline]
-    pub fn reachable(&self) -> bool {
-        self.reachable
-    }
-}
-
 impl FuncTranslationState {
     /// Construct a new, empty, `FuncTranslationState`
     pub(crate) fn new() -> Self {

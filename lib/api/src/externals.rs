@@ -7,12 +7,11 @@ use crate::RuntimeError;
 use crate::{ExternType, FunctionType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
 use std::slice;
-use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
-use wasmer_engine::Engine as _;
+use wasm_common::{HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
-    LinearMemory, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
-    VMGlobalDefinition, VMMemoryDefinition, VMTrampoline,
+    LinearMemory, MemoryError, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext,
+    VMFunctionBody, VMGlobalDefinition, VMMemoryDefinition, VMTrampoline,
 };
 
 #[derive(Clone)]
@@ -26,10 +25,10 @@ pub enum Extern {
 impl Extern {
     pub fn ty(&self) -> ExternType {
         match self {
-            Extern::Function(ft) => ExternType::Function(ft.ty().clone()),
-            Extern::Memory(ft) => ExternType::Memory(ft.ty().clone()),
-            Extern::Table(tt) => ExternType::Table(tt.ty().clone()),
-            Extern::Global(gt) => ExternType::Global(gt.ty().clone()),
+            Extern::Function(ft) => ExternType::Function(ft.ty()),
+            Extern::Memory(ft) => ExternType::Memory(*ft.ty()),
+            Extern::Table(tt) => ExternType::Table(*tt.ty()),
+            Extern::Global(gt) => ExternType::Global(*gt.ty()),
         }
     }
 
@@ -162,7 +161,9 @@ impl Global {
 
     pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
         if self.ty().mutability != Mutability::Var {
-            return Err(RuntimeError::new(format!("immutable global cannot be set")));
+            return Err(RuntimeError::new(
+                "immutable global cannot be set".to_string(),
+            ));
         }
         if val.ty() != self.ty().ty {
             return Err(RuntimeError::new(format!(
@@ -310,7 +311,7 @@ impl Table {
             src_index,
             len,
         )
-        .map_err(|e| RuntimeError::from_trap(e))?;
+        .map_err(RuntimeError::from_trap)?;
         Ok(())
     }
 
@@ -344,25 +345,25 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub fn new(store: &Store, ty: MemoryType) -> Memory {
+    pub fn new(store: &Store, ty: MemoryType) -> Result<Memory, MemoryError> {
         let tunables = store.engine().tunables();
         let memory_plan = tunables.memory_plan(ty);
-        let memory = tunables.create_memory(memory_plan).unwrap();
+        let memory = tunables.create_memory(memory_plan)?;
 
         let definition = memory.vmmemory();
 
-        Memory {
+        Ok(Memory {
             store: store.clone(),
             owned_by_store: true,
             exported: ExportMemory {
                 from: Box::leak(Box::new(memory)),
                 definition: Box::leak(Box::new(definition)),
             },
-        }
+        })
     }
 
-    fn definition(&self) -> &VMMemoryDefinition {
-        unsafe { &*self.exported.definition }
+    fn definition(&self) -> VMMemoryDefinition {
+        self.memory().vmmemory()
     }
 
     pub fn ty(&self) -> &MemoryType {
@@ -377,6 +378,9 @@ impl Memory {
         self.data_unchecked_mut()
     }
 
+    /// TODO: document this function, it's trivial to cause UB/break soundness with this
+    /// method.
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
         let definition = self.definition();
         slice::from_raw_parts_mut(definition.base, definition.current_length)
@@ -391,14 +395,14 @@ impl Memory {
     }
 
     pub fn size(&self) -> Pages {
-        Bytes(self.data_size()).into()
+        self.memory().size()
     }
 
     fn memory(&self) -> &LinearMemory {
         unsafe { &*self.exported.from }
     }
 
-    pub fn grow(&self, delta: Pages) -> Option<Pages> {
+    pub fn grow(&self, delta: Pages) -> Result<Pages, MemoryError> {
         self.memory().grow(delta)
     }
 
@@ -445,7 +449,7 @@ impl Memory {
         Memory {
             store: store.clone(),
             owned_by_store: false,
-            exported: wasmer_export.clone(),
+            exported: wasmer_export,
         }
     }
 }
@@ -642,10 +646,10 @@ impl Function {
         }
 
         // Load the return values out of `values_vec`.
-        for (index, value_type) in signature.results().iter().enumerate() {
+        for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
                 let ptr = values_vec.as_ptr().add(index);
-                results[index] = Val::read_value_from(ptr, value_type.clone());
+                results[index] = Val::read_value_from(ptr, value_type);
             }
         }
 

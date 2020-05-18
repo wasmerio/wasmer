@@ -7,7 +7,7 @@
 //! ```
 use super::binemit::TrampolineRelocSink;
 use crate::translator::{
-    compiled_function_unwind_info, signature_to_cranelift_ir, transform_jump_table,
+    compiled_function_unwind_info, signature_to_cranelift_ir, /*transform_jump_table, */
 };
 use cranelift_codegen::ir::InstBuilder;
 use cranelift_codegen::isa::TargetIsa;
@@ -16,7 +16,7 @@ use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use wasm_common::FunctionType;
-use wasmer_compiler::{CompileError, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody};
+use wasmer_compiler::{CompileError, FunctionBody};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_wasm_trampoline(
@@ -86,7 +86,7 @@ pub fn make_wasm_trampoline(
             })
             .collect::<Vec<_>>();
 
-        let new_sig = builder.import_signature(signature.clone());
+        let new_sig = builder.import_signature(signature);
 
         let call = builder
             .ins()

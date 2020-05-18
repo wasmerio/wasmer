@@ -101,7 +101,7 @@ impl Compilation {
         self.functions.is_empty()
     }
 
-    /// Gets functions jump table offsets.
+    /// Gets functions relocations.
     pub fn get_relocations(&self) -> PrimaryMap<LocalFunctionIndex, Vec<Relocation>> {
         self.functions
             .iter()
@@ -109,7 +109,7 @@ impl Compilation {
             .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
-    /// Gets functions jump table offsets.
+    /// Gets functions bodies.
     pub fn get_function_bodies(&self) -> PrimaryMap<LocalFunctionIndex, FunctionBody> {
         self.functions
             .iter()
@@ -125,7 +125,7 @@ impl Compilation {
             .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
-    /// Gets functions jump table offsets.
+    /// Gets functions frame info.
     pub fn get_frame_info(&self) -> PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
         self.functions
             .iter()
@@ -136,6 +136,14 @@ impl Compilation {
     /// Gets custom section data.
     pub fn get_custom_sections(&self) -> PrimaryMap<SectionIndex, CustomSection> {
         self.custom_sections.clone()
+    }
+
+    /// Gets relocations that apply to custom sections.
+    pub fn get_custom_section_relocations(&self) -> PrimaryMap<SectionIndex, Vec<Relocation>> {
+        self.custom_sections
+            .iter()
+            .map(|(_, section)| section.relocations.clone())
+            .collect::<PrimaryMap<SectionIndex, _>>()
     }
 }
 

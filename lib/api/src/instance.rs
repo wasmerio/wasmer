@@ -61,8 +61,8 @@ impl Instance {
             .map(|export| {
                 let name = export.name().to_string();
                 let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_export(store, export.clone());
-                (name.to_string(), extern_)
+                let extern_ = Extern::from_export(store, export);
+                (name, extern_)
             })
             .collect::<Exports>();
 

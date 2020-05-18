@@ -6,5 +6,5 @@ pub fn wasmer_should_print_color() -> bool {
     env::var("WASMER_COLOR")
         .ok()
         .and_then(|inner| inner.parse::<bool>().ok())
-        .unwrap_or(atty::is(atty::Stream::Stdout))
+        .unwrap_or_else(|| atty::is(atty::Stream::Stdout))
 }

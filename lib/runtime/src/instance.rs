@@ -3,7 +3,7 @@
 //! `InstanceHandle` is a reference-counting handle for an `Instance`.
 use crate::export::Export;
 use crate::imports::Imports;
-use crate::memory::LinearMemory;
+use crate::memory::{LinearMemory, MemoryError};
 use crate::table::Table;
 use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
@@ -18,7 +18,7 @@ use more_asserts::assert_lt;
 use std::alloc::{self, Layout};
 use std::any::Any;
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::{mem, ptr, slice};
@@ -431,7 +431,7 @@ impl Instance {
         &self,
         memory_index: LocalMemoryIndex,
         delta: IntoPages,
-    ) -> Option<Pages>
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
@@ -459,7 +459,7 @@ impl Instance {
         &self,
         memory_index: MemoryIndex,
         delta: IntoPages,
-    ) -> Option<Pages>
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
@@ -815,6 +815,7 @@ impl InstanceHandle {
                 vmctx: VMContext {},
             };
             let layout = instance.alloc_layout();
+            #[allow(clippy::cast_ptr_alignment)]
             let instance_ptr = alloc::alloc(layout) as *mut Instance;
             if instance_ptr.is_null() {
                 alloc::handle_alloc_error(layout);
@@ -979,7 +980,7 @@ impl InstanceHandle {
         &self,
         memory_index: LocalMemoryIndex,
         delta: IntoPages,
-    ) -> Option<Pages>
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
@@ -1070,7 +1071,7 @@ fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
 
         let size = usize::try_from(table.size()).unwrap();
         if size < start + init.elements.len() {
-            return Err(Trap::wasm(TrapCode::TableSetterOutOfBounds).into());
+            return Err(Trap::wasm(TrapCode::TableSetterOutOfBounds));
         }
     }
 
@@ -1095,6 +1096,7 @@ fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usi
     start
 }
 
+#[allow(clippy::mut_from_ref)]
 /// Return a byte-slice view of a memory's data.
 unsafe fn get_memory_slice<'instance>(
     init: &DataInitializer<'_>,
@@ -1121,7 +1123,7 @@ fn check_memory_init_bounds(
         unsafe {
             let mem_slice = get_memory_slice(init, instance);
             if mem_slice.get_mut(start..start + init.data.len()).is_none() {
-                return Err(Trap::wasm(TrapCode::HeapSetterOutOfBounds).into());
+                return Err(Trap::wasm(TrapCode::HeapSetterOutOfBounds));
             }
         }
     }
@@ -1158,7 +1160,7 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
             .checked_add(init.elements.len())
             .map_or(true, |end| end > table.size() as usize)
         {
-            return Err(Trap::wasm(TrapCode::TableAccessOutOfBounds).into());
+            return Err(Trap::wasm(TrapCode::TableAccessOutOfBounds));
         }
 
         for (i, func_idx) in init.elements.iter().enumerate() {
@@ -1213,7 +1215,7 @@ fn initialize_memories(
             .checked_add(init.data.len())
             .map_or(true, |end| end > memory.current_length)
         {
-            return Err(Trap::wasm(TrapCode::HeapAccessOutOfBounds).into());
+            return Err(Trap::wasm(TrapCode::HeapAccessOutOfBounds));
         }
 
         unsafe {

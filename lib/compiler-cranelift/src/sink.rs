@@ -1,9 +1,6 @@
 //! Support for compiling with Cranelift.
 
-use crate::translator::{
-    irlibcall_to_libcall, irreloc_to_relocationkind, signature_to_cranelift_ir,
-    transform_jump_table, FuncTranslator,
-};
+use crate::translator::{irlibcall_to_libcall, irreloc_to_relocationkind};
 use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName};
 use wasm_common::entity::EntityRef;
@@ -136,7 +133,7 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
         ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
         ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
         ir::TrapCode::Interrupt => TrapCode::Interrupt,
-        ir::TrapCode::User(user_code) => unimplemented!("User trap code not supported"),
+        ir::TrapCode::User(_user_code) => unimplemented!("User trap code not supported"),
         // ir::TrapCode::User(user_code) => TrapCode::User(user_code),
     }
 }

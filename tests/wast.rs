@@ -35,8 +35,8 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     let tunables = Tunables::for_target(compiler_config.target().triple());
     let store = Store::new(Arc::new(JITEngine::new(&*compiler_config, tunables)));
     let mut wast = Wast::new_with_spectest(store);
-    if compiler == "singlepass" {
-        // We don't support multivalue yet in singlepass
+    if compiler == "singlepass" || compiler == "llvm" {
+        // We don't support multivalue yet in singlepass or llvm
         wast.allow_instantiation_failures(&[
             "Validation error: invalid result arity: func type returns multiple values",
             "Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled"

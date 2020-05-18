@@ -33,7 +33,7 @@ impl Cache {
         if cache_dir.exists() {
             fs::remove_dir_all(cache_dir.clone())?;
         }
-        fs::create_dir_all(cache_dir.clone())?;
+        fs::create_dir_all(cache_dir)?;
         eprintln!("Wasmer cache cleaned successfully.");
         Ok(())
     }

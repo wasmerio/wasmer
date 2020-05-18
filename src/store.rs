@@ -2,7 +2,7 @@
 //! commands.
 
 use crate::common::WasmFeatures;
-use anyhow::{bail, Error, Result};
+use anyhow::{Error, Result};
 use std::str::FromStr;
 use std::string::ToString;
 use std::sync::Arc;
@@ -68,25 +68,25 @@ impl FromStr for Compiler {
 impl StoreOptions {
     fn get_compiler(&self) -> Result<Compiler> {
         if self.cranelift {
-            return Ok(Compiler::Cranelift);
+            Ok(Compiler::Cranelift)
         } else if self.llvm {
-            return Ok(Compiler::LLVM);
+            Ok(Compiler::LLVM)
         } else if self.singlepass {
-            return Ok(Compiler::Singlepass);
+            Ok(Compiler::Singlepass)
         } else if let Some(backend) = self.backend.clone() {
             warning!(
                 "the `--backend={0}` flag is deprecated, please use `--{0}` instead",
                 backend
             );
-            return Compiler::from_str(&backend);
+            Compiler::from_str(&backend)
         } else {
             // Auto mode, we choose the best compiler for that platform
             if cfg!(feature = "cranelift") && cfg!(target_arch = "x86_64") {
-                return Ok(Compiler::Cranelift);
+                Ok(Compiler::Cranelift)
             } else if cfg!(feature = "singlepass") && cfg!(target_arch = "x86_64") {
-                return Ok(Compiler::Singlepass);
+                Ok(Compiler::Singlepass)
             } else if cfg!(feature = "llvm") {
-                return Ok(Compiler::LLVM);
+                Ok(Compiler::LLVM)
             } else {
                 bail!("There are no available compilers for your architecture")
             }
@@ -118,7 +118,7 @@ impl StoreOptions {
                 compiler.to_string()
             ),
         };
-        return Ok(config);
+        Ok(config)
     }
 
     /// Gets the compiler config

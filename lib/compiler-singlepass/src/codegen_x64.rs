@@ -8434,6 +8434,7 @@ pub fn gen_import_call_trampoline(
     CustomSection {
         protection: CustomSectionProtection::ReadExecute,
         bytes: section_body,
+        relocations: vec![],
     }
 }
 

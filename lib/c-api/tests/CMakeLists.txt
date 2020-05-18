@@ -111,8 +111,7 @@ add_test(test-instantiate test-instantiate)
 
 target_link_libraries(test-memory general ${WASMER_LIB})
 target_compile_options(test-memory PRIVATE ${COMPILER_OPTIONS})
-# TODO: reenable this test
-#add_test(test-memory test-memory)
+add_test(test-memory test-memory)
 
 target_link_libraries(test-module general ${WASMER_LIB})
 target_compile_options(test-module PRIVATE ${COMPILER_OPTIONS})
