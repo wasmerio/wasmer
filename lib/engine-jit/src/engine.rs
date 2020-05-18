@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
-    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
+    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex,
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};

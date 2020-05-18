@@ -1600,6 +1600,7 @@ dependencies = [
  "anyhow",
  "atty",
  "bytesize",
+ "cfg-if",
  "colored",
  "distance",
  "glob",

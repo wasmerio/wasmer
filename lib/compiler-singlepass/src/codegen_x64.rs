@@ -35,12 +35,11 @@ pub struct FuncGen<'a> {
     /// Offsets of vmctx fields.
     vmoffsets: &'a VMOffsets,
 
-    // Memory plans.
-    memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
+    // // Memory plans.
+    // memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
 
-    // Table plans.
-    table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
-
+    // // Table plans.
+    // table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
     /// Function signature.
     signature: FunctionType,
 
@@ -1195,7 +1194,7 @@ impl<'a> FuncGen<'a> {
     }
 
     /// Emits a System V call sequence, specialized for labels as the call target.
-    fn emit_call_sysv_label<I: Iterator<Item = Location>>(
+    fn _emit_call_sysv_label<I: Iterator<Item = Location>>(
         &mut self,
         label: DynamicLabel,
         params: I,
@@ -1768,8 +1767,8 @@ impl<'a> FuncGen<'a> {
         module: &'a Module,
         config: &'a SinglepassConfig,
         vmoffsets: &'a VMOffsets,
-        memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
+        _memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
+        _table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
     ) -> Result<FuncGen<'a>, CodegenError> {
@@ -1797,8 +1796,8 @@ impl<'a> FuncGen<'a> {
             module,
             config,
             vmoffsets,
-            memory_plans,
-            table_plans,
+            // memory_plans,
+            // table_plans,
             signature,
             assembler: Assembler::new().unwrap(),
             locals: vec![], // initialization deferred to emit_head
@@ -8146,21 +8145,6 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::V128 => WpType::V128,
         Type::AnyRef => WpType::AnyRef,
         Type::FuncRef => WpType::AnyFunc, // TODO: AnyFunc or Func?
-    }
-}
-
-fn wp_type_to_type(ty: WpType) -> Result<Type, CodegenError> {
-    match ty {
-        WpType::I32 => Ok(Type::I32),
-        WpType::I64 => Ok(Type::I64),
-        WpType::F32 => Ok(Type::F32),
-        WpType::F64 => Ok(Type::F64),
-        WpType::V128 => Ok(Type::V128),
-        _ => {
-            return Err(CodegenError {
-                message: "broken invariant, invalid type".to_string(),
-            });
-        }
     }
 }
 

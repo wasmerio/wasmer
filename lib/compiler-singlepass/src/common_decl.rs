@@ -70,7 +70,7 @@ pub enum MachineValue {
     /// Vmctx.
     Vmctx,
     /// Vmctx Deref.
-    VmctxDeref(Vec<usize>),
+    _VmctxDeref(Vec<usize>),
     /// Preserve Register.
     PreserveRegister(RegisterIndex),
     /// Copy Stack BP Relative.
@@ -82,7 +82,7 @@ pub enum MachineValue {
     /// Wasm Local.
     WasmLocal(usize),
     /// Two Halves.
-    TwoHalves(Box<(MachineValue, MachineValue)>), // 32-bit values. TODO: optimize: add another type for inner "half" value to avoid boxing?
+    _TwoHalves(Box<(MachineValue, MachineValue)>), // 32-bit values. TODO: optimize: add another type for inner "half" value to avoid boxing?
 }
 
 /// A map of function states.
@@ -114,7 +114,7 @@ pub struct FunctionStateMap {
 #[derive(Clone, Copy, Debug)]
 pub enum SuspendOffset {
     /// A loop.
-    Loop(usize),
+    _Loop(usize),
     /// A call.
     Call(usize),
     /// A trappable.
@@ -220,7 +220,7 @@ impl MachineState {
 
 impl MachineStateDiff {
     /// Creates a `MachineState` from the given `&FunctionStateMap`.
-    pub fn build_state(&self, m: &FunctionStateMap) -> MachineState {
+    pub fn _build_state(&self, m: &FunctionStateMap) -> MachineState {
         let mut chain: Vec<&MachineStateDiff> = vec![];
         chain.push(self);
         let mut current = self.last;

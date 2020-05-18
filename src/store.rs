@@ -81,14 +81,18 @@ impl StoreOptions {
             Compiler::from_str(&backend)
         } else {
             // Auto mode, we choose the best compiler for that platform
-            if cfg!(feature = "cranelift") && cfg!(target_arch = "x86_64") {
-                Ok(Compiler::Cranelift)
-            } else if cfg!(feature = "singlepass") && cfg!(target_arch = "x86_64") {
-                Ok(Compiler::Singlepass)
-            } else if cfg!(feature = "llvm") {
-                Ok(Compiler::LLVM)
-            } else {
-                bail!("There are no available compilers for your architecture")
+            cfg_if::cfg_if! {
+                if #[cfg(all(feature = "cranelift", target_arch = "x86_64"))] {
+                    return Ok(Compiler::Cranelift);
+                }
+                else if #[cfg(all(feature = "singlepass", target_arch = "x86_64"))] {
+                    return Ok(Compiler::Singlepass);
+                }
+                else if #[cfg(feature = "llvm")] {
+                    return Ok(Compiler::LLVM);
+                } else {
+                    bail!("There are no available compilers for your architecture");
+                }
             }
         }
     }

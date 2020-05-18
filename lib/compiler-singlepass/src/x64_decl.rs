@@ -45,6 +45,7 @@ pub enum GPR {
 /// XMM registers.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[allow(dead_code)]
 pub enum XMM {
     /// XMM register 0
     XMM0,
@@ -98,8 +99,8 @@ impl X64Register {
         }
     }
 
-    /// Converts a DWARD regnum to X64Register.
-    pub fn from_dwarf_regnum(x: u16) -> Option<X64Register> {
+    /// Converts a DWARF regnum to X64Register.
+    pub fn _from_dwarf_regnum(x: u16) -> Option<X64Register> {
         Some(match x {
             0 => X64Register::GPR(GPR::RAX),
             1 => X64Register::GPR(GPR::RDX),
@@ -134,7 +135,7 @@ impl X64Register {
     ///
     /// To build an instruction, append the memory location as a 32-bit
     /// offset to the stack pointer to this prefix.
-    pub fn prefix_mov_to_stack(&self) -> Option<&'static [u8]> {
+    pub fn _prefix_mov_to_stack(&self) -> Option<&'static [u8]> {
         Some(match *self {
             X64Register::GPR(gpr) => match gpr {
                 GPR::RDI => &[0x48, 0x89, 0xbc, 0x24],
