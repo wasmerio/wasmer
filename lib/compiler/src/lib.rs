@@ -78,6 +78,7 @@ pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTable
 
 pub use wasm_common::Features;
 
+#[cfg(feature = "translator")]
 /// wasmparser is exported as a module to slim compiler dependencies
 pub mod wasmparser {
     pub use wasmparser::*;

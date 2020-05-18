@@ -118,7 +118,7 @@ impl Compiler for SinglepassCompiler {
         Ok(Compilation::new(functions, import_trampolines))
     }
 
-    fn compile_wasm_trampolines(
+    fn compile_function_call_trampolines(
         &self,
         signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
@@ -127,6 +127,14 @@ impl Compiler for SinglepassCompiler {
             .cloned()
             .map(gen_std_trampoline)
             .collect())
+    }
+
+    fn compile_dynamic_function_trampolines(
+        &self,
+        module: &Module,
+    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
+        Ok(PrimaryMap::new())
+        // unimplemented!("Dynamic funciton trampolines not yet implemented");
     }
 }
 

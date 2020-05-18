@@ -4,7 +4,9 @@ use crate::address_map::get_function_address_map;
 use crate::config::CraneliftConfig;
 use crate::func_environ::{get_func_name, FuncEnvironment};
 use crate::sink::{RelocSink, TrapSink};
-use crate::trampoline::{make_wasm_trampoline, FunctionBuilderContext};
+use crate::trampoline::{
+    make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
+};
 use crate::translator::{
     compiled_function_unwind_info, signature_to_cranelift_ir, transform_jump_table, FuncTranslator,
 };
@@ -14,7 +16,8 @@ use cranelift_codegen::{binemit, isa, Context};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{
-    Features, FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex,
+    Features, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex,
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{
@@ -155,15 +158,37 @@ impl Compiler for CraneliftCompiler {
         Ok(Compilation::new(functions, custom_sections))
     }
 
-    fn compile_wasm_trampolines(
+    fn compile_function_call_trampolines(
         &self,
         signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
         signatures
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, sig| {
-                make_wasm_trampoline(&*self.isa, &mut cx, sig, std::mem::size_of::<u128>())
+                make_trampoline_function_call(&*self.isa, &mut cx, sig)
             })
             .collect::<Result<Vec<_>, CompileError>>()
+    }
+
+    fn compile_dynamic_function_trampolines(
+        &self,
+        module: &Module,
+    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
+        use wasmer_runtime::VMOffsets;
+        let isa = self.isa();
+        let frontend_config = isa.frontend_config();
+        let offsets = VMOffsets::new(frontend_config.pointer_bytes(), module);
+        Ok(module
+            .functions
+            .values()
+            .take(module.num_imported_funcs)
+            .collect::<Vec<_>>()
+            .par_iter()
+            .map_init(FunctionBuilderContext::new, |mut cx, sig_index| {
+                make_trampoline_dynamic_function(&*self.isa, &module, &offsets, &mut cx, &sig_index)
+            })
+            .collect::<Result<Vec<_>, CompileError>>()?
+            .into_iter()
+            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
     }
 }

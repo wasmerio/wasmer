@@ -9,7 +9,9 @@ use crate::target::Target;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{Features, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
+use wasm_common::{
+    Features, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex,
+};
 use wasmer_runtime::Module;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
@@ -80,8 +82,30 @@ pub trait Compiler {
     /// let func = instance.exports.func("my_func");
     /// func.call(&[Value::I32(1)]);
     /// ```
-    fn compile_wasm_trampolines(
+    fn compile_function_call_trampolines(
         &self,
         signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError>;
+
+    /// Compile the trampolines to call a dynamic function defined in
+    /// a host, from a Wasm module.
+    ///
+    /// This allows us to create dynamic Wasm functions, such as:
+    ///
+    /// ```ignore
+    /// fn my_func(values: Vec<Val>) -> Vec<Val> {
+    /// // do something
+    /// }
+    ///
+    /// let my_func_type = FuncType::new(vec![Type::I32], vec![Type::I32]);
+    /// let imports = imports!{
+    ///   "namespace" => {
+    ///     "my_func" => Func::new_dynamic(my_func_type, my_func),s
+    ///   }
+    /// }
+    /// ```
+    fn compile_dynamic_function_trampolines(
+        &self,
+        module: &Module,
+    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError>;
 }

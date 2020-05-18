@@ -29,10 +29,12 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::convert::TryFrom;
+use std::num::TryFromIntError;
 
 use crate::config::LLVMConfig;
-use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
+use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasm_common::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryType,
     Mutability, SignatureIndex, TableIndex, Type,
@@ -40,9 +42,9 @@ use wasm_common::{
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, Addend, CodeOffset, CompileError, CompiledFunction,
-    CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, FunctionAddressMap,
-    FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, SourceLoc, WasmResult,
+    CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, CustomSections,
+    FunctionAddressMap, FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation,
+    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc, WasmResult,
 };
 use wasmer_runtime::libcalls::LibCall;
 use wasmer_runtime::Module as WasmerCompilerModule;
@@ -51,6 +53,30 @@ use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, VMBuiltinFunctionIndex,
 // TODO: debugging
 use std::fs;
 use std::io::Write;
+
+use wasm_common::entity::entity_impl;
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+pub struct ElfSectionIndex(u32);
+entity_impl!(ElfSectionIndex);
+impl ElfSectionIndex {
+    pub fn is_undef(&self) -> bool {
+        self.as_u32() == goblin::elf::section_header::SHN_UNDEF
+    }
+
+    pub fn from_usize(value: usize) -> Result<Self, CompileError> {
+        match u32::try_from(value) {
+            Err(_) => Err(CompileError::Codegen(format!(
+                "elf section index {} does not fit in 32 bits",
+                value
+            ))),
+            Ok(value) => Ok(ElfSectionIndex::from_u32(value)),
+        }
+    }
+
+    pub fn as_usize(&self) -> usize {
+        self.as_u32() as usize
+    }
+}
 
 // TODO
 fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
@@ -84,15 +110,6 @@ fn const_zero<'ctx>(ty: BasicTypeEnum<'ctx>) -> BasicValueEnum<'ctx> {
     }
 }
 
-// Relocation against a per-function section.
-#[derive(Debug)]
-pub struct LocalRelocation {
-    pub kind: RelocationKind,
-    pub local_section_index: u32,
-    pub offset: CodeOffset,
-    pub addend: Addend,
-}
-
 impl FuncTranslator {
     pub fn new() -> Self {
         Self {
@@ -109,7 +126,7 @@ impl FuncTranslator {
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FunctionIndex, String>,
-    ) -> Result<(CompiledFunction, Vec<LocalRelocation>, Vec<CustomSection>), CompileError> {
+    ) -> Result<(CompiledFunction, CustomSections), CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
         let func_name = &func_names[func_index];
         let module_name = match wasm_module.name.as_ref() {
@@ -135,7 +152,7 @@ impl FuncTranslator {
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         // TODO: mark vmctx nofree
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section("wasmer_function");
+        func.as_global_value().set_section(".wasmer_function");
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
@@ -165,7 +182,9 @@ impl FuncTranslator {
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty);
-            let value = func.get_nth_param((idx + 2) as u32).unwrap();
+            let value = func
+                .get_nth_param((idx as u32).checked_add(2).unwrap())
+                .unwrap();
             // TODO: don't interleave allocas and stores.
             let alloca = cache_builder.build_alloca(ty, "param");
             cache_builder.build_store(alloca, value);
@@ -335,74 +354,118 @@ impl FuncTranslator {
             Some(name.unwrap())
         };
 
-        let wasmer_function_idx = elf
+        // Build up a mapping from a section to its relocation sections.
+        let reloc_sections = elf.shdr_relocs.iter().fold(
+            HashMap::new(),
+            |mut map: HashMap<_, Vec<_>>, (section_index, reloc_section)| {
+                let target_section = elf.section_headers[*section_index].sh_info as usize;
+                let target_section = ElfSectionIndex::from_usize(target_section).unwrap();
+                map.entry(target_section).or_default().push(reloc_section);
+                map
+            },
+        );
+
+        let mut visited: HashSet<ElfSectionIndex> = HashSet::new();
+        let mut worklist: Vec<ElfSectionIndex> = Vec::new();
+        let mut section_targets: HashMap<ElfSectionIndex, RelocationTarget> = HashMap::new();
+
+        let wasmer_function_index = elf
             .section_headers
             .iter()
             .enumerate()
-            .filter(|(_, section)| get_section_name(section) == Some("wasmer_function"))
-            .map(|(idx, _)| idx)
-            .take(1)
+            .filter(|(_, section)| get_section_name(section) == Some(".wasmer_function"))
+            .map(|(index, _)| index)
             .collect::<Vec<_>>();
-        // TODO: handle errors here instead of asserting.
-        assert!(wasmer_function_idx.len() == 1);
-        let wasmer_function_idx = wasmer_function_idx[0];
+        if wasmer_function_index.len() != 1 {
+            return Err(CompileError::Codegen(format!(
+                "found {} sections named .wasmer_function",
+                wasmer_function_index.len()
+            )));
+        }
+        let wasmer_function_index = wasmer_function_index[0];
+        let wasmer_function_index = ElfSectionIndex::from_usize(wasmer_function_index)?;
 
-        let bytes = elf.section_headers[wasmer_function_idx].file_range();
-        let bytes = mem_buf_slice[bytes.start..bytes.end].to_vec();
+        let mut section_to_custom_section = HashMap::new();
 
-        let mut relocations = vec![];
-        let mut local_relocations = vec![];
-        let mut required_custom_sections = HashMap::new();
+        section_targets.insert(
+            wasmer_function_index,
+            RelocationTarget::LocalFunc(*local_func_index),
+        );
 
-        for (section_index, reloc_section) in &elf.shdr_relocs {
-            let section_name = get_section_name(&elf.section_headers[*section_index]);
-            if section_name == Some(".rel.rodata") || section_name == Some(".rela.rodata") {
-                return Err(CompileError::Codegen(
-                    "jump tables not yet implemented".to_string(),
-                ));
-            }
-            if section_name != Some(".relawasmer_function")
-                && section_name != Some(".relwasmer_function")
+        let mut next_custom_section: u32 = 0;
+        let mut elf_section_to_target = |elf_section_index: ElfSectionIndex| {
+            *section_targets.entry(elf_section_index).or_insert_with(|| {
+                let next = SectionIndex::from_u32(next_custom_section);
+                section_to_custom_section.insert(elf_section_index, next);
+                let target = RelocationTarget::CustomSection(next);
+                next_custom_section += 1;
+                target
+            })
+        };
+
+        let section_bytes = |elf_section_index: ElfSectionIndex| {
+            let elf_section_index = elf_section_index.as_usize();
+            let byte_range = elf.section_headers[elf_section_index].file_range();
+            mem_buf_slice[byte_range.start..byte_range.end].to_vec()
+        };
+
+        // From elf section index to list of Relocations. Although we use a Vec,
+        // the order of relocations is not important.
+        let mut relocations: HashMap<ElfSectionIndex, Vec<Relocation>> = HashMap::new();
+
+        // Each iteration of this loop pulls a section and the relocations
+        // relocations that apply to it. We begin with the ".wasmer_function"
+        // section, and then parse all relocation sections that apply to that
+        // section. Those relocations may refer to additional sections which we
+        // then add to the worklist until we've visited the closure of
+        // everything needed to run the code in ".wasmer_function".
+        //
+        // `worklist` is the list of sections we have yet to visit. It never
+        // contains any duplicates or sections we've already visited. `visited`
+        // contains all the sections we've ever added to the worklist in a set
+        // so that we can quickly check whether a section is new before adding
+        // it to worklist. `section_to_custom_section` is filled in with all
+        // the sections we want to include.
+        worklist.push(wasmer_function_index);
+        visited.insert(wasmer_function_index);
+        while let Some(section_index) = worklist.pop() {
+            for reloc in reloc_sections
+                .get(&section_index)
+                .iter()
+                .flat_map(|inner| inner.iter().flat_map(|inner2| inner2.iter()))
             {
-                continue;
-            }
-            for reloc in reloc_section.iter() {
                 let kind = match reloc.r_type {
                     // TODO: these constants are not per-arch, we'll need to
                     // make the whole match per-arch.
                     goblin::elf::reloc::R_X86_64_64 => RelocationKind::Abs8,
-                    _ => unimplemented!("unknown relocation {}", reloc.r_type),
+                    _ => {
+                        return Err(CompileError::Codegen(format!(
+                            "unknown ELF relocation {}",
+                            reloc.r_type
+                        )));
+                    }
                 };
                 let offset = reloc.r_offset as u32;
                 let addend = reloc.r_addend.unwrap_or(0);
                 let target = reloc.r_sym;
                 // TODO: error handling
-                let target = elf.syms.get(target).unwrap();
-                if target.st_type() == goblin::elf::sym::STT_SECTION {
-                    let len = required_custom_sections.len();
-                    let entry = required_custom_sections.entry(target.st_shndx);
-                    let local_section_index = *entry.or_insert(len) as _;
-                    local_relocations.push(LocalRelocation {
-                        kind,
-                        local_section_index,
-                        offset,
-                        addend,
-                    });
-                } else if target.st_type() == goblin::elf::sym::STT_FUNC
-                    && target.st_shndx == wasmer_function_idx
+                let elf_target = elf.syms.get(target).unwrap();
+                let elf_target_section = ElfSectionIndex::from_usize(elf_target.st_shndx)?;
+                let reloc_target = if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
+                    if visited.insert(elf_target_section) {
+                        worklist.push(elf_target_section);
+                    }
+                    elf_section_to_target(elf_target_section)
+                } else if elf_target.st_type() == goblin::elf::sym::STT_FUNC
+                    && elf_target_section == wasmer_function_index
                 {
                     // This is a function referencing its own byte stream.
-                    relocations.push(Relocation {
-                        kind,
-                        reloc_target: RelocationTarget::LocalFunc(*local_func_index),
-                        offset,
-                        addend,
-                    });
-                } else if target.st_type() == goblin::elf::sym::STT_NOTYPE
-                    && target.st_shndx == goblin::elf::section_header::SHN_UNDEF as _
+                    RelocationTarget::LocalFunc(*local_func_index)
+                } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
+                    && elf_target_section.is_undef()
                 {
                     // Not defined in this .o file. Maybe another local function?
-                    let name = target.st_name;
+                    let name = elf_target.st_name;
                     let name = elf.strtab.get(name).unwrap().unwrap();
                     if let Some((index, _)) =
                         func_names.iter().find(|(_, func_name)| *func_name == name)
@@ -410,70 +473,78 @@ impl FuncTranslator {
                         let local_index = wasm_module
                             .local_func_index(index)
                             .expect("Relocation to non-local function");
-                        relocations.push(Relocation {
-                            kind,
-                            reloc_target: RelocationTarget::LocalFunc(local_index),
-                            offset,
-                            addend,
-                        });
+                        RelocationTarget::LocalFunc(local_index)
                     // Maybe a libcall then?
                     } else if let Some(libcall) = libcalls.get(name) {
-                        relocations.push(Relocation {
-                            kind,
-                            reloc_target: RelocationTarget::LibCall(*libcall),
-                            offset,
-                            addend,
-                        });
+                        RelocationTarget::LibCall(*libcall)
                     } else {
                         unimplemented!("reference to unknown symbol {}", name);
                     }
                 } else {
                     unimplemented!("unknown relocation {:?} with target {:?}", reloc, target);
-                }
+                };
+                relocations
+                    .entry(section_index)
+                    .or_default()
+                    .push(Relocation {
+                        kind,
+                        reloc_target,
+                        offset,
+                        addend,
+                    });
             }
         }
 
-        let mut custom_sections = vec![];
-        custom_sections.resize(
-            required_custom_sections.len(),
-            CustomSection {
-                protection: CustomSectionProtection::Read,
-                bytes: SectionBody::default(),
-                relocations: vec![],
-            },
-        );
-        for (section_idx, local_section_idx) in required_custom_sections {
-            let bytes = elf.section_headers[section_idx as usize].file_range();
-            let bytes = &mem_buf_slice[bytes.start..bytes.end];
-            custom_sections[local_section_idx].bytes.extend(bytes);
-        }
+        let mut custom_sections = section_to_custom_section
+            .iter()
+            .map(|(elf_section_index, custom_section_index)| {
+                (
+                    custom_section_index,
+                    CustomSection {
+                        protection: CustomSectionProtection::Read,
+                        bytes: SectionBody::new_with_vec(section_bytes(*elf_section_index)),
+                        relocations: relocations
+                            .remove_entry(elf_section_index)
+                            .map_or(vec![], |(_, v)| v),
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        custom_sections.sort_unstable_by_key(|a| a.0);
+        let custom_sections = custom_sections
+            .into_iter()
+            .map(|(_, v)| v)
+            .collect::<PrimaryMap<SectionIndex, _>>();
+
+        let function_body = FunctionBody {
+            body: section_bytes(wasmer_function_index),
+            unwind_info: None,
+        };
 
         let address_map = FunctionAddressMap {
             instructions: vec![InstructionAddressMap {
                 srcloc: SourceLoc::default(),
                 code_offset: 0,
-                code_len: bytes.len(),
+                code_len: function_body.body.len(),
             }],
             start_srcloc: SourceLoc::default(),
             end_srcloc: SourceLoc::default(),
             body_offset: 0,
-            body_len: bytes.len(),
+            body_len: function_body.body.len(),
         };
 
         Ok((
             CompiledFunction {
-                body: FunctionBody {
-                    body: bytes,
-                    unwind_info: None,
-                },
+                body: function_body,
                 jt_offsets: SecondaryMap::new(),
-                relocations,
+                relocations: relocations
+                    .remove_entry(&wasmer_function_index)
+                    .map_or(vec![], |(_, v)| v),
                 frame_info: CompiledFunctionFrameInfo {
                     address_map,
                     traps: vec![],
                 },
             },
-            local_relocations,
             custom_sections,
         ))
     }
@@ -2156,96 +2227,34 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                let global_type = module.globals[global_index];
-                let global_value_type = global_type.ty;
-
-                // TODO: cache loads of const globals.
-                let _global_mutability = global_type.mutability;
-
-                let global_ptr =
-                    if let Some(local_global_index) = module.local_global_index(global_index) {
-                        let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        unsafe { builder.build_gep(*vmctx, &[offset], "") }
-                    } else {
-                        let offset = self.vmoffsets.vmctx_vmglobal_import(global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        let global_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
-                        let global_ptr_ptr = builder
-                            .build_bitcast(global_ptr_ptr, intrinsics.i8_ptr_ty, "")
-                            .into_pointer_value();
-                        let global_ptr = builder.build_load(global_ptr_ptr, "");
-                        builder
-                            .build_bitcast(global_ptr, intrinsics.i8_ptr_ty, "")
-                            .into_pointer_value()
-                    };
-                let global_ptr = builder
-                    .build_bitcast(
-                        global_ptr,
-                        type_to_llvm_ptr(&intrinsics, global_value_type),
-                        "",
-                    )
-                    .into_pointer_value();
-                let value = builder.build_load(global_ptr, "");
-                // TODO: add TBAA info.
-                self.state.push1(value);
+                match ctx.global(global_index, intrinsics) {
+                    GlobalCache::Const { value } => {
+                        self.state.push1(value);
+                    }
+                    GlobalCache::Mut { ptr_to_value } => {
+                        let value = builder.build_load(ptr_to_value, "");
+                        // TODO: tbaa
+                        self.state.push1(value);
+                    }
+                }
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                let global_type = module.globals[global_index];
-                let global_value_type = global_type.ty;
-
-                // Note that we don't check mutability, assuming that's already
-                // been checked by some other verifier.
-
-                let global_ptr =
-                    if let Some(local_global_index) = module.local_global_index(global_index) {
-                        let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        unsafe { builder.build_gep(*vmctx, &[offset], "") }
-                    } else {
-                        let offset = self.vmoffsets.vmctx_vmglobal_import(global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        let global_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
-                        let global_ptr_ptr = builder
-                            .build_bitcast(global_ptr_ptr, intrinsics.i8_ptr_ty, "")
-                            .into_pointer_value();
-                        builder.build_load(global_ptr_ptr, "").into_pointer_value()
-                    };
-                let global_ptr = builder
-                    .build_bitcast(
-                        global_ptr,
-                        type_to_llvm_ptr(&intrinsics, global_value_type),
-                        "",
-                    )
-                    .into_pointer_value();
-
-                let (value, info) = self.state.pop1_extra()?;
-                let value = apply_pending_canonicalization(builder, intrinsics, value, info);
-                builder.build_store(global_ptr, value);
-                // TODO: add TBAA info
-
-                /*
-                                let (value, info) = self.state.pop1_extra()?;
-                                let value = apply_pending_canonicalization(builder, intrinsics, value, info);
-                                let index = GlobalIndex::from_u32(global_index);
-                                let global_cache = ctx.global_cache(index, intrinsics, self.module);
-                                match global_cache {
-                                    GlobalCache::Mut { ptr_to_value } => {
-                                        let store = builder.build_store(ptr_to_value, value);
-                                        tbaa_label(
-                                            &self.module,
-                                            intrinsics,
-                                            "global",
-                                            store,
-                                            Some(global_index),
-                                        );
-                                    }
-                                    GlobalCache::Const { value: _ } => {
-                                        return Err(CompileError::Codegen("global is immutable".to_string()));
-                                    }
-                                }
-                */
+                match ctx.global(global_index, intrinsics) {
+                    GlobalCache::Const { value } => {
+                        return Err(CompileError::Codegen(format!(
+                            "global.set on immutable global index {}",
+                            global_index.as_u32()
+                        )))
+                    }
+                    GlobalCache::Mut { ptr_to_value } => {
+                        let (value, info) = self.state.pop1_extra()?;
+                        let value =
+                            apply_pending_canonicalization(builder, intrinsics, value, info);
+                        builder.build_store(ptr_to_value, value);
+                        // TODO: tbaa
+                    }
+                }
             }
 
             Operator::Select => {

@@ -8428,8 +8428,7 @@ pub fn gen_import_call_trampoline(
     );
     a.emit_host_redirection(GPR::RAX);
 
-    let mut section_body = SectionBody::default();
-    section_body.extend(&a.finalize().unwrap());
+    let section_body = SectionBody::new_with_vec(a.finalize().unwrap().to_vec());
 
     CustomSection {
         protection: CustomSectionProtection::ReadExecute,

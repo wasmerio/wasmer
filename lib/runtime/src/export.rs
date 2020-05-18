@@ -2,8 +2,8 @@ use crate::memory::LinearMemory;
 use crate::module::{MemoryPlan, TablePlan};
 use crate::table::Table;
 use crate::vmcontext::{
-    VMContext, VMFunctionBody, VMGlobalDefinition, VMMemoryDefinition, VMSharedSignatureIndex,
-    VMTableDefinition,
+    VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
+    VMSharedSignatureIndex, VMTableDefinition,
 };
 use wasm_common::GlobalType;
 
@@ -34,6 +34,8 @@ pub struct ExportFunction {
     ///
     /// Note that this indexes within the module associated with `vmctx`.
     pub signature: VMSharedSignatureIndex,
+    /// The function kind (it defines how it's the signature that provided `address` have)
+    pub kind: VMFunctionKind,
 }
 
 impl From<ExportFunction> for Export {

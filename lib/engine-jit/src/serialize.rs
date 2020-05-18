@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{
-    Features, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
+    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
 };
 use wasmer_compiler::{
     CustomSection, FunctionBody, JumpTableOffsets, Relocation, SectionBody, SectionIndex,
@@ -21,7 +22,8 @@ pub struct SerializableCompilation {
     // to allow lazy frame_info deserialization, we convert it to it's lazy binary
     // format upon serialization.
     pub function_frame_info: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
-    pub trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
+    pub function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
+    pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
     pub custom_sections: PrimaryMap<SectionIndex, CustomSection>,
     pub custom_section_relocations: PrimaryMap<SectionIndex, Vec<Relocation>>,
 }
