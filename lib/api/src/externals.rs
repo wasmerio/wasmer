@@ -557,7 +557,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            inner: InnerFunc::Host(HostFunc {}),
+            inner: InnerFunc::Host(HostFunc),
             exported: ExportFunction {
                 address,
                 kind: VMFunctionKind::Dynamic,
