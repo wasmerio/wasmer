@@ -52,10 +52,10 @@ impl LLVMConfig {
 
         let operating_system =
             if target.triple().operating_system == wasmer_compiler::OperatingSystem::Darwin {
-                // LLVM detects static relocation + darwin on 64-bit and
-                // force-enables PIC because MachO doesn't support it. They don't
-                // check whether they're targeting MachO, they check whether the
-                // OS is set to Darwin.
+                // LLVM detects static relocation + darwin + 64-bit and
+                // force-enables PIC because MachO doesn't support that
+                // combination. They don't check whether they're targeting
+                // MachO, they check whether the OS is set to Darwin.
                 //
                 // Since both linux and darwin use SysV ABI, this should work.
                 wasmer_compiler::OperatingSystem::Linux
