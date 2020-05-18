@@ -58,7 +58,7 @@ mod test_vmfunction_import {
 pub struct VMDynamicFunctionImportContext<T: Sized> {
     /// The address of the inner dynamic function.
     ///
-    /// Note: The function should be on the form of
+    /// Note: The function must be on the form of
     /// `(*mut T, *mut VMContext, SignatureIndex, *mut i128)`.
     pub address: *const VMFunctionBody,
 
