@@ -534,7 +534,11 @@ pub unsafe extern "C" fn wasmer_instance_context_memory(
             let memory: &Memory = &**memory;
             return Some(&*(Box::into_raw(Box::new(memory.clone())) as *const wasmer_memory_t));
         } else {
-            // TODO: set error
+            update_last_error(CApiError {
+                msg:
+                    "Internal error: memory is imported but the list of imported memories is empty"
+                        .to_string(),
+            });
             return None;
         }
     } else {
@@ -550,14 +554,19 @@ pub unsafe extern "C" fn wasmer_instance_context_memory(
         {
             name
         } else {
-            // TODO: set error
+            update_last_error(CApiError {
+                msg: "Could not find an exported memory".to_string(),
+            });
             return None;
         };
         let memory = instance
             .instance
             .exports
             .get_memory(exported_memory_name)
-            .expect("Todo");
+            .expect(&format!(
+                "Module exports memory named `{}` but it's inaccessible",
+                &exported_memory_name
+            ));
         Some(&*(Box::into_raw(Box::new(memory.clone())) as *const wasmer_memory_t))
     }
 }
