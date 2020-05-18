@@ -803,7 +803,10 @@ where
     env: *mut Env,
 }
 
-impl<T> VMDynamicFunction for VMDynamicFunctionWithEnv<T> {
+impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
+where
+    Env: Sized
+{
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
         unsafe { (*self.func)(&mut *self.env, &args) }
     }
