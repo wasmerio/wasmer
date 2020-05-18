@@ -797,7 +797,7 @@ impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
 
 struct VMDynamicFunctionWithEnv<Env>
 where
-    Env: Sized
+    Env: Sized,
 {
     func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeErro> + 'static>,
     env: *mut Env,
@@ -805,7 +805,7 @@ where
 
 impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
 where
-    Env: Sized
+    Env: Sized,
 {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
         unsafe { (*self.func)(&mut *self.env, &args) }

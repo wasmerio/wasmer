@@ -1,9 +1,7 @@
 //! A trampoline generator for calling dynamic host functions from Wasm.
 
 use super::binemit::TrampolineRelocSink;
-use crate::translator::{
-    compiled_function_unwind_info, signature_to_cranelift_ir,
-};
+use crate::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
 use cranelift_codegen::ir::{
     types, ExternalName, Function, InstBuilder, MemFlags, StackSlotData, StackSlotKind,
 };
