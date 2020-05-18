@@ -154,6 +154,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     let c_api_instance = CAPIInstance {
         instance: new_instance,
         imported_memories,
+        ctx_data: None,
     };
 
     *instance = Box::into_raw(Box::new(c_api_instance)) as *mut wasmer_instance_t;
@@ -185,6 +186,7 @@ pub unsafe extern "C" fn wasmer_module_import_instantiate(
     let c_api_instance = CAPIInstance {
         instance: new_instance,
         imported_memories,
+        ctx_data: None,
     };
     *instance = Box::into_raw(Box::new(c_api_instance)) as *mut wasmer_instance_t;
 

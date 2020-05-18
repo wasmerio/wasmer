@@ -441,7 +441,9 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
                 Extern::Memory((&*mem).clone())
             }
             wasmer_import_export_kind::WASM_FUNCTION => {
-                let func_export = import.value.func as *mut Function;
+                // TODO: investigate consistent usage of `FunctionWrapper` in this context
+                let func_wrapper = import.value.func as *mut FunctionWrapper;
+                let func_export = func_wrapper.func.as_ptr();
                 Extern::Function((&*func_export).clone())
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
@@ -461,7 +463,7 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
     import_object.extend(extensions);
 
     return wasmer_result_t::WASMER_OK;
-    */
+        */
 }
 
 /// Gets import descriptors for the given module

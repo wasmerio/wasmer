@@ -137,8 +137,7 @@ add_test(test-validate test-validate)
 
 target_link_libraries(test-context general ${WASMER_LIB})
 target_compile_options(test-context PRIVATE ${COMPILER_OPTIONS})
-# TODO: reenable this test
-#add_test(test-context test-context)
+add_test(test-context test-context)
 
 target_link_libraries(test-module-import-instantiate general ${WASMER_LIB})
 target_compile_options(test-module-import-instantiate PRIVATE ${COMPILER_OPTIONS})

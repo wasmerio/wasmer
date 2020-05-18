@@ -29,6 +29,7 @@ pub struct wasmer_instance_t;
 pub(crate) struct CAPIInstance {
     pub(crate) instance: Instance,
     pub(crate) imported_memories: Vec<*mut Memory>,
+    pub(crate) ctx_data: Option<NonNull<c_void>>,
 }
 
 /// Opaque pointer to a `wasmer_runtime::Ctx` value in Rust.
@@ -202,6 +203,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
     let c_api_instance = CAPIInstance {
         instance: new_instance,
         imported_memories,
+        ctx_data: None,
     };
     let c_api_instance_pointer = Box::into_raw(Box::new(c_api_instance));
     for mut to_update in instance_pointers_to_update {
@@ -227,16 +229,13 @@ pub unsafe extern "C" fn wasmer_instantiate(
 /// It is often useful with `wasmer_instance_context_data_set()`.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_instance_context_get(
+pub unsafe extern "C" fn wasmer_instance_context_get(
     instance: Option<NonNull<wasmer_instance_t>>,
 ) -> Option<&'static wasmer_instance_context_t> {
-    unimplemented!("wasmer_instance_context_get: API changed")
-    /*
-    let instance = instance?.as_ref();
-    let context: *const Ctx = instance.context() as *const _;
+    // TODO: double check that `wasmer_instance_t` can be safely cast into CAPIInstance
+    let instance: *mut CAPIInstance = instance?.cast::<CAPIInstance>().as_ptr();
 
-    context as *const wasmer_instance_context_t
-    */
+    Some(&*(instance as *const wasmer_instance_context_t))
 }
 
 /// Calls an exported function of a WebAssembly instance by `name`
@@ -483,22 +482,17 @@ pub unsafe extern "C" fn wasmer_instance_exports(
 /// ```
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_instance_context_data_set(
-    instance: *mut wasmer_instance_t,
+pub unsafe extern "C" fn wasmer_instance_context_data_set(
+    instance: Option<NonNull<wasmer_instance_t>>,
     data_ptr: *mut c_void,
 ) {
-    unimplemented!(
-        "wasmer_instance_context_data_set: API changed in a way that this is non-obvious"
-    )
-    /*
-    if instance.is_null() {
+    let instance = if let Some(instance_inner) = instance {
+        instance_inner
+    } else {
         return;
-    }
+    };
 
-    let instance = unsafe { &mut *(instance as *mut Instance) };
-
-    instance.context_mut().data = data_ptr;
-    */
+    instance.cast::<CAPIInstance>().as_mut().ctx_data = NonNull::new(data_ptr);
 }
 
 /// Gets the `memory_idx`th memory of the instance.
@@ -574,19 +568,11 @@ pub unsafe extern "C" fn wasmer_instance_context_memory(
 /// This function returns nothing if `ctx` is a null pointer.
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_instance_context_data_get(
-    ctx: *const wasmer_instance_context_t,
-) -> *mut c_void {
-    unimplemented!("wasmer_instance_context_data_get: API changed")
-    /*
-    if ctx.is_null() {
-        return ptr::null_mut() as _;
-    }
-
-    let ctx = unsafe { &*(ctx as *const Ctx) };
-
-    ctx.data
-    */
+pub unsafe extern "C" fn wasmer_instance_context_data_get(
+    ctx: Option<&'static wasmer_instance_context_t>,
+) -> Option<NonNull<c_void>> {
+    let instance: &'static CAPIInstance = &*(ctx? as *const _ as *const CAPIInstance);
+    instance.ctx_data
 }
 
 /// Frees memory for the given `wasmer_instance_t`.
