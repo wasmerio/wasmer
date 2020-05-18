@@ -413,6 +413,19 @@ impl FuncTranslator {
         // the order of relocations is not important.
         let mut relocations: HashMap<ElfSectionIndex, Vec<Relocation>> = HashMap::new();
 
+        // Each iteration of this loop pulls a section and the relocations
+        // relocations that apply to it. We begin with the ".wasmer_function"
+        // section, and then parse all relocation sections that apply to that
+        // section. Those relocations may refer to additional sections which we
+        // then add to the worklist until we've visited the closure of
+        // everything needed to run the code in ".wasmer_function".
+        //
+        // `worklist` is the list of sections we have yet to visit. It never
+        // contains any duplicates or sections we've already visited. `visited`
+        // contains all the sections we've ever added to the worklist in a set
+        // so that we can quickly check whether a section is new before adding
+        // it to worklist. `section_to_custom_section` is filled in with all
+        // the sections we want to include.
         worklist.push(wasmer_function_index);
         visited.insert(wasmer_function_index);
         while let Some(section_index) = worklist.pop() {
@@ -482,7 +495,6 @@ impl FuncTranslator {
             }
         }
 
-        /*
         let mut custom_sections = section_to_custom_section
             .iter()
             .map(|(elf_section_index, custom_section_index)| {
@@ -498,23 +510,6 @@ impl FuncTranslator {
                 )
             })
             .collect::<Vec<_>>();
-         */
-        let mut custom_sections = section_to_custom_section
-            .iter()
-            .map(|(elf_section_index, custom_section_index)| {
-                (
-                    custom_section_index,
-                    CustomSection {
-                        protection: CustomSectionProtection::Read,
-                        bytes: SectionBody::new_with_vec(section_bytes(*elf_section_index)),
-                        relocations: relocations
-                            .remove_entry(elf_section_index)
-                            .map_or(vec![], |(_, v)| v),
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
-
         custom_sections.sort_unstable_by_key(|a| a.0);
         let custom_sections = custom_sections
             .into_iter()
