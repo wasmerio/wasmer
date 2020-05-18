@@ -5,20 +5,19 @@ pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Tripl
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use raw_cpuid::CpuId;
 
-/// The nomenclature is inspired by the [raw-cpuid crate].
+/// The nomenclature is inspired by the [`cpuid` crate].
 /// The list of supported features was initially retrieved from
-/// [cranelift-native].
+/// [`cranelift-native`].
 ///
-/// The `CpuFeature` enum vaues are likely to grow closer to the
-/// original cpuid. However, we prefer to start small and grow from there.
+/// The `CpuFeature` enum values are likely to grow closer to the
+/// original `cpuid`. However, we prefer to start small and grow from there.
 ///
 /// If you would like to use a flag that doesn't exist yet here, please
 /// open a PR.
 ///
-/// [cpuid crate]: https://docs.rs/cpuid/0.1.1/cpuid/enum.CpuFeature.html
-/// [cranelift-native]: https://github.com/bytecodealliance/cranelift/blob/6988545fd20249b084c53f4761b8c861266f5d31/cranelift-native/src/lib.rs#L51-L92
-#[allow(missing_docs)]
-#[allow(clippy::derive_hash_xor_eq)]
+/// [`cpuid` crate]: https://docs.rs/cpuid/0.1.1/cpuid/enum.CpuFeature.html
+/// [`cranelift-native`]: https://github.com/bytecodealliance/cranelift/blob/6988545fd20249b084c53f4761b8c861266f5d31/cranelift-native/src/lib.rs#L51-L92
+#[allow(missing_docs, clippy::derive_hash_xor_eq)]
 #[derive(EnumSetType, Debug, Hash)]
 pub enum CpuFeature {
     // X86 features
