@@ -275,26 +275,6 @@ impl JITEngineInner {
         Ok((allocated_functions, allocated_dynamic_function_trampolines))
     }
 
-        let allocated_reverse_trampolines = reverse_trampolines
-            .iter()
-            .map(|(func_index, compiled_function)| {
-                let ptr = self
-                    .code_memory
-                    .allocate_for_function(&compiled_function)
-                    .map_err(|message| {
-                        CompileError::Resource(format!(
-                            "failed to allocate memory for trampolines: {}",
-                            message
-                        ))
-                    })?
-                    .as_ptr();
-                Ok(ptr)
-            })
-            .collect::<Result<PrimaryMap<FunctionIndex, _>, CompileError>>()?;
-
-        Ok((allocated_functions, allocated_reverse_trampolines))
-    }
-
     /// Make memory containing compiled code executable.
     pub(crate) fn publish_compiled_code(&mut self) {
         self.code_memory.publish();

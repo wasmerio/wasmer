@@ -11,7 +11,6 @@ use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use std::cmp;
 use std::mem;
-use std::panic::{self, AssertUnwindSafe};
 
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use wasm_common::entity::EntityRef;

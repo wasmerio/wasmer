@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
-use wasmer_runtime::{InstanceHandle, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_runtime::{InstanceHandle, VMSharedSignatureIndex, VMTrampoline};
 
 /// A unimplemented Wasmer `Engine`.
 /// This trait is used by implementors to implement custom engines,
