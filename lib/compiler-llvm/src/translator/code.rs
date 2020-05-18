@@ -52,6 +52,16 @@ use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, VMBuiltinFunctionIndex,
 use std::fs;
 use std::io::Write;
 
+use wasm_common::entity::entity_impl;
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+pub struct ElfSectionIndex(u32);
+entity_impl!(ElfSectionIndex);
+impl ElfSectionIndex {
+    pub fn is_undef(&self) -> bool {
+        self.as_u32() == goblin::elf::section_header::SHN_UNDEF
+    }
+}
+
 // TODO
 fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
     match ty {
@@ -331,14 +341,15 @@ impl FuncTranslator {
             HashMap::new(),
             |mut map: HashMap<_, Vec<_>>, (section_index, reloc_section)| {
                 let target_section = elf.section_headers[*section_index].sh_info as usize;
+                let target_section = ElfSectionIndex::from_u32(target_section as u32);
                 map.entry(target_section).or_default().push(reloc_section);
                 map
             },
         );
 
-        let mut visited: HashSet<usize> = HashSet::new();
-        let mut worklist: Vec<usize> = Vec::new();
-        let mut section_targets: HashMap<usize, RelocationTarget> = HashMap::new();
+        let mut visited: HashSet<ElfSectionIndex> = HashSet::new();
+        let mut worklist: Vec<ElfSectionIndex> = Vec::new();
+        let mut section_targets: HashMap<ElfSectionIndex, RelocationTarget> = HashMap::new();
 
         let wasmer_function_index = elf
             .section_headers
@@ -354,6 +365,7 @@ impl FuncTranslator {
             )));
         }
         let wasmer_function_index = wasmer_function_index[0];
+        let wasmer_function_index = ElfSectionIndex::from_u32(wasmer_function_index as u32);
 
         let mut section_to_custom_section = HashMap::new();
 
@@ -363,7 +375,7 @@ impl FuncTranslator {
         );
 
         let mut next_custom_section: u32 = 0;
-        let mut elf_section_to_target = |elf_section_index| {
+        let mut elf_section_to_target = |elf_section_index: ElfSectionIndex| {
             *section_targets.entry(elf_section_index).or_insert_with(|| {
                 let next = SectionIndex::from_u32(next_custom_section);
                 section_to_custom_section.insert(elf_section_index, next);
@@ -373,18 +385,19 @@ impl FuncTranslator {
             })
         };
 
-        let section_bytes = |elf_section_index: usize| {
+        let section_bytes = |elf_section_index: ElfSectionIndex| {
+            let elf_section_index = elf_section_index.as_u32() as usize;
             let byte_range = elf.section_headers[elf_section_index].file_range();
             mem_buf_slice[byte_range.start..byte_range.end].to_vec()
         };
 
-        // From elf section index to list of Relocations.
-        let mut relocations: HashMap<usize, Vec<Relocation>> = HashMap::new();
+        // From elf section index to list of Relocations. Although we use a Vec,
+        // the order of relocations is not important.
+        let mut relocations: HashMap<ElfSectionIndex, Vec<Relocation>> = HashMap::new();
 
         worklist.push(wasmer_function_index);
         visited.insert(wasmer_function_index);
-        while !worklist.is_empty() {
-            let section_index = worklist.pop().unwrap();
+        while let Some(section_index) = worklist.pop() {
             for reloc in reloc_sections
                 .get(&section_index)
                 .iter()
@@ -406,18 +419,19 @@ impl FuncTranslator {
                 let target = reloc.r_sym;
                 // TODO: error handling
                 let elf_target = elf.syms.get(target).unwrap();
+                let elf_target_section = ElfSectionIndex::from_u32(elf_target.st_shndx as u32);
                 let reloc_target = if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
-                    if visited.insert(elf_target.st_shndx) {
-                        worklist.push(elf_target.st_shndx);
+                    if visited.insert(elf_target_section) {
+                        worklist.push(elf_target_section);
                     }
-                    elf_section_to_target(elf_target.st_shndx)
+                    elf_section_to_target(elf_target_section)
                 } else if elf_target.st_type() == goblin::elf::sym::STT_FUNC
-                    && elf_target.st_shndx == wasmer_function_index
+                    && elf_target_section == wasmer_function_index
                 {
                     // This is a function referencing its own byte stream.
                     RelocationTarget::LocalFunc(*local_func_index)
                 } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
-                    && elf_target.st_shndx == goblin::elf::section_header::SHN_UNDEF as _
+                    && elf_target_section.is_undef()
                 {
                     // Not defined in this .o file. Maybe another local function?
                     let name = elf_target.st_name;
@@ -450,6 +464,7 @@ impl FuncTranslator {
             }
         }
 
+        /*
         let mut custom_sections = section_to_custom_section
             .iter()
             .map(|(elf_section_index, custom_section_index)| {
@@ -465,6 +480,23 @@ impl FuncTranslator {
                 )
             })
             .collect::<Vec<_>>();
+         */
+        let mut custom_sections = section_to_custom_section
+            .iter()
+            .map(|(elf_section_index, custom_section_index)| {
+                (
+                    custom_section_index,
+                    CustomSection {
+                        protection: CustomSectionProtection::Read,
+                        bytes: SectionBody::new_with_vec(section_bytes(*elf_section_index)),
+                        relocations: relocations
+                            .remove_entry(elf_section_index)
+                            .map_or(vec![], |(_, v)| v),
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+
         custom_sections.sort_unstable_by_key(|a| a.0);
         let custom_sections = custom_sections
             .into_iter()
