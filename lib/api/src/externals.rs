@@ -599,6 +599,11 @@ impl Function {
     {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
+        // TODO: We need to refactor the Function context.
+        // Right now is structured as it's always a `VMContext`. However, only
+        // Wasm-defined functions have a `VMContext`.
+        // In the case of Host-defined functions `VMContext` is whatever environment
+        // the user want to attach to the function.
         let vmctx = env as *mut _ as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
@@ -837,6 +842,16 @@ impl<T: VMDynamicFunction> VMDynamicFunctionImportCall<T> for VMDynamicFunctionI
     ) {
         use std::panic::{self, AssertUnwindSafe};
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
+            // This is actually safe, since right now the function signature
+            // receives two contexts:
+            // 1. `vmctx`: the context associated to where the function is defined.
+            //    It will be `VMContext` in case is defined in Wasm, and a custom
+            //    `Env` in case is host defined.
+            // 2. `caller_vmctx`: the context associated to whoever is calling that function.
+            //
+            // Because this code will only be reached when calling from wasm to host, we
+            // can assure the callee_vmctx is indeed a VMContext, and hence is completely
+            // safe to get a handle from it.
             let handle = InstanceHandle::from_vmctx(caller_vmctx);
             let module = handle.module_ref();
             let func_ty = &module.signatures[sig_index];
