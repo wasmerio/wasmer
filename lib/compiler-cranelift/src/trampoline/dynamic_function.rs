@@ -2,7 +2,7 @@
 
 use super::binemit::TrampolineRelocSink;
 use crate::translator::{
-    compiled_function_unwind_info, signature_to_cranelift_ir, /*transform_jump_table, */
+    compiled_function_unwind_info, signature_to_cranelift_ir,
 };
 use cranelift_codegen::ir::{
     types, ExternalName, Function, InstBuilder, MemFlags, StackSlotData, StackSlotKind,
@@ -125,7 +125,6 @@ pub fn make_trampoline_dynamic_function(
         builder.finalize()
     }
 
-    // println!("{:?}", context.func);
     let mut code_buf = Vec::new();
     let mut reloc_sink = TrampolineRelocSink {};
     let mut trap_sink = binemit::NullTrapSink {};
@@ -145,6 +144,5 @@ pub fn make_trampoline_dynamic_function(
     Ok(FunctionBody {
         body: code_buf,
         unwind_info,
-        // jt_offsets: transform_jump_table(context.func.jt_offsets),
     })
 }
