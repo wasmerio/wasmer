@@ -568,10 +568,10 @@ impl Function {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_dynamic_env<F, T>(store: &Store, ty: &FunctionType, env: &mut T, func: F) -> Self
+    pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: &mut Env, func: F) -> Self
     where
-        F: Fn(&mut T, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
-        T: Sized,
+        F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
+        Env: Sized,
     {
         let dynamic_ctx = VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithEnv {
             env,
