@@ -245,7 +245,7 @@ impl JITEngineInner {
                 .allocate_for_function(&compiled_function)
                 .map_err(|message| {
                     CompileError::Resource(format!(
-                        "failed to allocate memory for function_call_trampolines: {}",
+                        "failed to allocate memory for function call trampolines: {}",
                         message
                     ))
                 })?
@@ -263,7 +263,7 @@ impl JITEngineInner {
                     .allocate_for_function(&compiled_function)
                     .map_err(|message| {
                         CompileError::Resource(format!(
-                            "failed to allocate memory for function_call_trampolines: {}",
+                            "failed to allocate memory for dynamic function trampolines: {}",
                             message
                         ))
                     })?
