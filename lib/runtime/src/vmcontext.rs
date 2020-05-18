@@ -16,12 +16,6 @@ pub struct VMFunctionImport {
     /// A pointer to the imported function body.
     pub body: *const VMFunctionBody,
 
-    /// A pointer to the imported trampoline body.
-    ///
-    /// This is used in case the imported function is defined as a
-    /// dynamic function instead of a static one.
-    pub dynamic_body: *const VMFunctionBody,
-
     /// A pointer to the `VMContext` that owns the function.
     pub vmctx: *mut VMContext,
 }
@@ -44,10 +38,6 @@ mod test_vmfunction_import {
         assert_eq!(
             offset_of!(VMFunctionImport, body),
             usize::from(offsets.vmfunction_import_body())
-        );
-        assert_eq!(
-            offset_of!(VMFunctionImport, dynamic_body),
-            usize::from(offsets.vmfunction_import_dynamic_body())
         );
         assert_eq!(
             offset_of!(VMFunctionImport, vmctx),
@@ -118,6 +108,26 @@ mod test_vmfunction_body {
     fn check_vmfunction_body_offsets() {
         assert_eq!(size_of::<VMFunctionBody>(), 1);
     }
+}
+
+/// A function kind.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(C)]
+pub enum VMFunctionKind {
+    /// A function is static when it's address matches the signature:
+    /// (vmctx, vmctx, arg1, arg2...) -> (result1, result2, ...)
+    ///
+    /// This is the default for functions that are defined:
+    /// 1. In the Host, natively
+    /// 2. In the WebAssembly file
+    Static,
+
+    /// A function is dynamic when it's address matches the signature:
+    /// (ctx, &[Type]) -> Vec<Type>
+    ///
+    /// This is the default for functions that are defined:
+    /// 1. In the Host, dynamically
+    Dynamic,
 }
 
 /// The fields compiled code needs to access to utilize a WebAssembly table

@@ -13,7 +13,7 @@ use wasm_common::{
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
     InstanceHandle, LinearMemory, MemoryError, Table as RuntimeTable, VMCallerCheckedAnyfunc,
-    VMContext, VMDynamicFunctionImportContext, VMFunctionBody, VMGlobalDefinition,
+    VMContext, VMDynamicFunctionImportContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition,
     VMMemoryDefinition, VMTrampoline,
 };
 
@@ -527,7 +527,6 @@ impl Function {
         let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
-        let dynamic_address = std::ptr::null() as *const VMFunctionBody;
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -536,9 +535,9 @@ impl Function {
             }),
             exported: ExportFunction {
                 address,
-                dynamic_address,
                 vmctx,
                 signature,
+                kind: VMFunctionKind::Static,
             },
         }
     }
@@ -553,7 +552,6 @@ impl Function {
                 func: Box::new(func),
             });
         let address = std::ptr::null() as *const () as *const VMFunctionBody;
-        let dynamic_address = dynamic_ctx.address;
         let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
         let signature = store.engine().register_signature(&ty);
         Self {
@@ -562,7 +560,7 @@ impl Function {
             inner: InnerFunc::Host(HostFunc {}),
             exported: ExportFunction {
                 address,
-                dynamic_address,
+                kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature,
             },
@@ -580,7 +578,6 @@ impl Function {
             func: Box::new(func),
         });
         let address = std::ptr::null() as *const () as *const VMFunctionBody;
-        let dynamic_address = dynamic_ctx.address;
         let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
         let signature = store.engine().register_signature(&ty);
         Self {
@@ -589,7 +586,7 @@ impl Function {
             inner: InnerFunc::Host(HostFunc {}),
             exported: ExportFunction {
                 address,
-                dynamic_address,
+                kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature,
             },
@@ -613,7 +610,6 @@ impl Function {
         let vmctx = env as *mut _ as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
-        let dynamic_address = std::ptr::null() as *const VMFunctionBody;
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -622,7 +618,7 @@ impl Function {
             }),
             exported: ExportFunction {
                 address,
-                dynamic_address,
+                kind: VMFunctionKind::Static,
                 vmctx,
                 signature,
             },

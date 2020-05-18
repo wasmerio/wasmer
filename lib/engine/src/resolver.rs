@@ -6,8 +6,8 @@ use more_asserts::assert_ge;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::{
-    Export, Imports, SignatureRegistry, VMFunctionBody, VMFunctionImport, VMGlobalImport,
-    VMMemoryImport, VMTableImport,
+    Export, Imports, SignatureRegistry, VMFunctionBody, VMFunctionImport, VMFunctionKind,
+    VMGlobalImport, VMMemoryImport, VMTableImport,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -123,18 +123,21 @@ pub fn resolve_imports(
         }
         match resolved {
             Export::Function(ref f) => {
-                let address = if f.dynamic_address.is_null() {
-                    f.address
-                } else {
-                    // If this is a dynamic imported function,
-                    // the address of the funciton is the address of the
-                    // reverse trampoline.
-                    let index = FunctionIndex::new(function_imports.len());
-                    finished_reverse_trampolines[index]
+                let address = match f.kind {
+                    VMFunctionKind::Dynamic => {
+                        // If this is a dynamic imported function,
+                        // the address of the funciton is the address of the
+                        // reverse trampoline.
+                        let index = FunctionIndex::new(function_imports.len());
+                        finished_reverse_trampolines[index]
+
+                        // TODO: We should check that the f.vmctx actually matches
+                        // the shape of `VMDynamicFunctionImportContext`
+                    }
+                    VMFunctionKind::Static => f.address,
                 };
                 function_imports.push(VMFunctionImport {
                     body: address,
-                    dynamic_body: f.dynamic_address,
                     vmctx: f.vmctx,
                 });
             }

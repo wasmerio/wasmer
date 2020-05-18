@@ -2,8 +2,8 @@ use crate::memory::LinearMemory;
 use crate::module::{MemoryPlan, TablePlan};
 use crate::table::Table;
 use crate::vmcontext::{
-    VMContext, VMFunctionBody, VMGlobalDefinition, VMMemoryDefinition, VMSharedSignatureIndex,
-    VMTableDefinition,
+    VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
+    VMSharedSignatureIndex, VMTableDefinition,
 };
 use wasm_common::GlobalType;
 
@@ -28,18 +28,14 @@ pub enum Export {
 pub struct ExportFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
-    /// The address of the dynamic function.
-    ///
-    /// In case is not null, `address` will be the native address
-    /// of the trampoline, and `dynamic_address` will be the address
-    /// of the dynamic function.
-    pub dynamic_address: *const VMFunctionBody,
     /// Pointer to the containing `VMContext`.
     pub vmctx: *mut VMContext,
     /// The function signature declaration, used for compatibilty checking.
     ///
     /// Note that this indexes within the module associated with `vmctx`.
     pub signature: VMSharedSignatureIndex,
+    /// The function kind (it defines how it's the signature that provided `address` have)
+    pub kind: VMFunctionKind,
 }
 
 impl From<ExportFunction> for Export {

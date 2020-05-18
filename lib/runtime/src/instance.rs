@@ -8,8 +8,8 @@ use crate::table::Table;
 use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
-    VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex,
-    VMTableDefinition, VMTableImport,
+    VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport,
+    VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 use crate::{Module, TableElements, VMOffsets};
@@ -282,22 +282,23 @@ impl Instance {
         match export {
             ExportIndex::Function(index) => {
                 let signature = self.signature_id(self.module.functions[*index]);
-                let (address, dynamic_address, vmctx) =
-                    if let Some(def_index) = self.module.local_func_index(*index) {
-                        (
-                            self.finished_functions[def_index] as *const _,
-                            // This is a locally-defined function, so it's dynamic
-                            // address is null.
-                            std::ptr::null() as *const VMFunctionBody,
-                            self.vmctx_ptr(),
-                        )
-                    } else {
-                        let import = self.imported_function(*index);
-                        (import.body, import.dynamic_body, import.vmctx)
-                    };
+                let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
+                {
+                    (
+                        self.finished_functions[def_index] as *const _,
+                        self.vmctx_ptr(),
+                    )
+                } else {
+                    let import = self.imported_function(*index);
+                    (import.body, import.vmctx)
+                };
                 ExportFunction {
                     address,
-                    dynamic_address,
+                    // Any function received is already static at this point as:
+                    // 1. All locally defined functions in the Wasm have a static signature.
+                    // 2. All the imported functions are already static (because
+                    //    they point to the trampolines rather than the dynamic addresses).
+                    kind: VMFunctionKind::Static,
                     signature,
                     vmctx,
                 }

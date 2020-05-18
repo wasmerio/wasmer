@@ -51,8 +51,9 @@ pub use crate::table::Table;
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionImportContext,
-    VMFunctionBody, VMFunctionImport, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
+    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
+    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMTrampoline,
 };
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
 
