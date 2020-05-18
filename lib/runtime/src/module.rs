@@ -322,7 +322,7 @@ impl Module {
 
     /// Test whether the given memory index is for an imported memory.
     pub fn is_imported_memory(&self, index: MemoryIndex) -> bool {
-        index.index() < self.num_imported_memories
+        dbg!(index.index() < self.num_imported_memories)
     }
 
     /// Convert a `LocalGlobalIndex` into a `GlobalIndex`.

@@ -4,13 +4,13 @@
 use crate::{
     error::{update_last_error, CApiError},
     export::{wasmer_import_export_kind, wasmer_import_export_value},
-    instance::wasmer_instance_context_t,
+    instance::{wasmer_instance_context_t, CAPIInstance},
     module::wasmer_module_t,
     value::wasmer_value_tag,
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_uint;
-use std::ptr::NonNull;
+use std::ptr::{self, NonNull};
 use std::{
     //convert::TryFrom,
     ffi::{c_void, CStr},
@@ -590,6 +590,29 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
     */
 }
 
+/// struct used to pass in context to functions (which must be back-patched)
+#[derive(Debug, Default)]
+pub(crate) struct LegacyEnv {
+    pub(crate) instance_ptr: Option<NonNull<CAPIInstance>>,
+}
+
+impl LegacyEnv {
+    pub(crate) fn ctx_ptr(&self) -> *mut CAPIInstance {
+        self.instance_ptr
+            .map(|p| p.as_ptr())
+            .unwrap_or(ptr::null_mut())
+    }
+}
+
+/// struct used to hold on to `LegacyEnv` pointer as well as the function.
+/// we need to do this to initialize the context ptr inside of `LegacyEnv` when
+/// instantiating the module.
+#[derive(Debug)]
+pub(crate) struct FunctionWrapper {
+    pub(crate) func: NonNull<Function>,
+    pub(crate) legacy_env: NonNull<LegacyEnv>,
+}
+
 /// Creates new host function, aka imported function. `func` is a
 /// function pointer, where the first argument is the famous `vm::Ctx`
 /// (in Rust), or `wasmer_instance_context_t` (in C). All arguments
@@ -624,13 +647,20 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 
     let store = crate::get_global_store();
 
-    let func = Function::new_dynamic(store, &func_type, move |args| {
+    let env_ptr = Box::into_raw(Box::new(LegacyEnv::default()));
+
+    let func = Function::new_dynamic_env(store, &func_type, &mut *env_ptr, move |env, args| {
         use libffi::high::call::{call, Arg};
         use libffi::low::CodePtr;
 
+        dbg!(env as *const _);
+        let ctx_ptr = dbg!(env.ctx_ptr());
+        let ctx_ptr_val = ctx_ptr as *const _ as isize as i64;
+        dbg!(ctx_ptr_val);
+
         let ffi_args: Vec<Arg> = {
             let mut ffi_args = Vec::with_capacity(args.len() + 1);
-            ffi_args.push(Arg::new::<i64>(&0));
+            ffi_args.push(Arg::new::<i64>(&ctx_ptr_val));
             ffi_args.extend(args.iter().map(|ty| match ty {
                 Val::I32(v) => Arg::new::<i32>(v),
                 Val::I64(v) => Arg::new::<i64>(v),
@@ -661,8 +691,11 @@ pub unsafe extern "C" fn wasmer_import_func_new(
         Ok(return_value)
     });
 
-    // TODO: double check return type
-    Box::into_raw(Box::new(func)) as *mut wasmer_import_func_t
+    let function_wrapper = FunctionWrapper {
+        func: NonNull::new_unchecked(Box::into_raw(Box::new(func))),
+        legacy_env: NonNull::new_unchecked(env_ptr),
+    };
+    Box::into_raw(Box::new(function_wrapper)) as *mut wasmer_import_func_t
 }
 
 /// Stop the execution of a host function, aka imported function. The
@@ -685,6 +718,7 @@ pub unsafe extern "C" fn wasmer_trap(
     _ctx: *const wasmer_instance_context_t,
     error_message: *const c_char,
 ) -> wasmer_result_t {
+    dbg!(_ctx);
     if error_message.is_null() {
         update_last_error(CApiError {
             msg: "error_message is null in wasmer_trap".to_string(),
@@ -789,7 +823,9 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_func_destroy(func: Option<NonNull<wasmer_import_func_t>>) {
     if let Some(func) = func {
-        Box::from_raw(func.cast::<Function>().as_ptr());
+        let function_wrapper = Box::from_raw(func.cast::<FunctionWrapper>().as_ptr());
+        let _legacy_env = Box::from_raw(function_wrapper.legacy_env.as_ptr());
+        let _function = Box::from_raw(function_wrapper.func.as_ptr());
     }
 }
 

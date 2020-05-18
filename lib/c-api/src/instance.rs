@@ -3,7 +3,7 @@
 use crate::{
     error::{update_last_error, CApiError},
     export::{wasmer_exports_t, wasmer_import_export_kind, NamedExport, NamedExports},
-    import::wasmer_import_t,
+    import::{wasmer_import_t, FunctionWrapper},
     memory::wasmer_memory_t,
     value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_result_t,
@@ -119,6 +119,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
         return wasmer_result_t::WASMER_ERROR;
     };
     let mut imported_memories = vec![];
+    let mut instance_pointers_to_update = vec![];
     let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
@@ -159,7 +160,9 @@ pub unsafe extern "C" fn wasmer_instantiate(
                 Extern::Memory((&*mem).clone())
             }
             wasmer_import_export_kind::WASM_FUNCTION => {
-                let func_export = import.value.func as *mut Function;
+                let func_wrapper = import.value.func as *mut FunctionWrapper;
+                let func_export = (*func_wrapper).func.as_ptr();
+                instance_pointers_to_update.push((*func_wrapper).legacy_env);
                 Extern::Function((&*func_export).clone())
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
@@ -200,7 +203,11 @@ pub unsafe extern "C" fn wasmer_instantiate(
         instance: new_instance,
         imported_memories,
     };
-    *instance = Box::into_raw(Box::new(c_api_instance)) as *mut wasmer_instance_t;
+    let c_api_instance_pointer = Box::into_raw(Box::new(c_api_instance));
+    for mut to_update in instance_pointers_to_update {
+        to_update.as_mut().instance_ptr = Some(NonNull::new_unchecked(c_api_instance_pointer));
+    }
+    *instance = c_api_instance_pointer as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
 }
 
@@ -526,6 +533,7 @@ pub unsafe extern "C" fn wasmer_instance_context_memory(
     let memory_index = MemoryIndex::new(0);
     if module.info().is_imported_memory(memory_index) {
         if let Some(memory) = instance.imported_memories.first() {
+            let memory: &Memory = &**memory;
             return Some(&*(Box::into_raw(Box::new(memory.clone())) as *const wasmer_memory_t));
         } else {
             // TODO: set error

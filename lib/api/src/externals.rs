@@ -543,8 +543,8 @@ impl Function {
             VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithoutEnv {
                 func: Box::new(func),
             });
-        let address = std::ptr::null() as *const () as *const VMFunctionBody;
-        let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
+        let address = std::ptr::null() as *const VMFunctionBody;
+        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
         let signature = store.engine().register_signature(&ty);
         Self {
             store: store.clone(),
@@ -569,8 +569,8 @@ impl Function {
             env,
             func: Box::new(func),
         });
-        let address = std::ptr::null() as *const () as *const VMFunctionBody;
-        let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
+        let address = std::ptr::null() as *const VMFunctionBody;
+        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
         let signature = store.engine().register_signature(&ty);
         Self {
             store: store.clone(),
