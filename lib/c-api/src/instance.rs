@@ -154,6 +154,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
                 let mem = import.value.memory as *mut Memory;
+                // TODO: review ownership here, probably need to clone Memory for imported_meomries
                 imported_memories.push(mem);
                 Extern::Memory((&*mem).clone())
             }
@@ -326,14 +327,16 @@ pub unsafe extern "C" fn wasmer_instance_call(
     let f: &Function = match instance.instance.exports.get(func_name_r) {
         Ok(f) => f,
         Err(err) => {
+            dbg!("exports get", &err);
             update_last_error(err);
             return wasmer_result_t::WASMER_ERROR;
         }
     };
 
-    let result = f.call(&params[..]);
+    dbg!(&f);
+    dbg!(&params);
 
-    dbg!(&result);
+    let result = f.call(&params[..]);
 
     match result {
         Ok(results_vec) => {
@@ -364,7 +367,7 @@ pub unsafe extern "C" fn wasmer_instance_call(
             wasmer_result_t::WASMER_OK
         }
         Err(err) => {
-            dbg!(&err);
+            dbg!("Call error", &err);
             update_last_error(err);
             wasmer_result_t::WASMER_ERROR
         }
