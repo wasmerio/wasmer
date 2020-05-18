@@ -1,7 +1,7 @@
 use crate::{
     common_decl::*, config::SinglepassConfig, emitter_x64::*, machine::Machine, x64_decl::*,
 };
-use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
+use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};
 use std::collections::BTreeMap;
 use std::iter;
@@ -10,22 +10,18 @@ use wasm_common::{
     FunctionType,
 };
 use wasm_common::{
-    DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FunctionIndex,
-    GlobalIndex, GlobalType, ImportIndex, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex,
-    LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType, Type,
+    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex,
+    MemoryIndex, SignatureIndex, TableIndex, Type,
 };
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
 };
 use wasmer_compiler::{
-    CodeOffset, CompiledFunction, CompiledFunctionFrameInfo, CustomSection,
-    CustomSectionProtection, FunctionBody, Relocation, RelocationKind, RelocationTarget,
-    SectionBody, SectionIndex, TrapInformation,
+    CompiledFunction, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
+    FunctionBody, Relocation, RelocationKind, RelocationTarget, SectionBody, SectionIndex,
+    TrapInformation,
 };
-use wasmer_runtime::{
-    MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle, TrapCode, VMBuiltinFunctionIndex,
-    VMOffsets,
-};
+use wasmer_runtime::{MemoryPlan, Module, TablePlan, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a> {
@@ -5427,7 +5423,7 @@ impl<'a> FuncGen<'a> {
                 self.assembler.emit_jmp(Condition::Equal, label_else);
             }
             Operator::Else => {
-                let mut frame = self.control_stack.last_mut().unwrap();
+                let frame = self.control_stack.last_mut().unwrap();
 
                 if !was_unreachable && frame.returns.len() > 0 {
                     let first_return = frame.returns[0];
@@ -5568,7 +5564,7 @@ impl<'a> FuncGen<'a> {
             Operator::Loop { ty } => {
                 let label = self.assembler.get_label();
                 let state_diff_id = self.get_state_diff();
-                let activate_offset = self.assembler.get_offset().0;
+                let _activate_offset = self.assembler.get_offset().0;
 
                 self.control_stack.push(ControlFrame {
                     label: label,

@@ -53,7 +53,7 @@ impl Compiler for SinglepassCompiler {
     fn compile_module(
         &self,
         module: &Module,
-        module_translation: &ModuleTranslationState,
+        _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
@@ -131,7 +131,7 @@ impl Compiler for SinglepassCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        module: &Module,
+        _module: &Module,
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
         Ok(PrimaryMap::new())
         // unimplemented!("Dynamic funciton trampolines not yet implemented");

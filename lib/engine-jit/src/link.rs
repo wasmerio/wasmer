@@ -5,7 +5,7 @@ use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{
     JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
-    SectionBody, SectionIndex,
+    SectionIndex,
 };
 use wasmer_runtime::Module;
 use wasmer_runtime::VMFunctionBody;

@@ -5,9 +5,7 @@ use wasm_common::{
     Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
-use wasmer_compiler::{
-    CustomSection, FunctionBody, JumpTableOffsets, Relocation, SectionBody, SectionIndex,
-};
+use wasmer_compiler::{CustomSection, FunctionBody, JumpTableOffsets, Relocation, SectionIndex};
 use wasmer_engine::SerializableFunctionFrameInfo;
 use wasmer_runtime::Module;
 use wasmer_runtime::{MemoryPlan, TablePlan};
