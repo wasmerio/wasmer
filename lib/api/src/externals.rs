@@ -625,9 +625,7 @@ impl Function {
             ty: ty.clone(),
             func: Box::new(func),
         };
-        let address = store
-            .engine()
-            .reverse_trampoline(&ty, func_wrapper as *const () as usize);
+        let address = std::ptr::null() as *const () as *const VMFunctionBody;
         // let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
         let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
         let signature = store.engine().register_signature(&ty);

@@ -12,11 +12,12 @@ use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use std::cmp;
+use std::convert::TryFrom;
 use std::mem;
 use std::panic::{self, AssertUnwindSafe};
 
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-use wasm_common::FunctionType;
+use wasm_common::{FunctionIndex, FunctionType};
 use wasmer_compiler::{CompileError, FunctionBody};
 use wasmer_runtime::{
     raise_user_trap, resume_panic, InstanceHandle, Trap, VMContext, VMFunctionBody,
@@ -25,21 +26,22 @@ use wasmer_runtime::{
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_wasm2host_trampoline(
     isa: &dyn TargetIsa,
+    offsets: &VMOffsets,
     fn_builder_ctx: &mut FunctionBuilderContext,
+    callee_index: &FunctionIndex,
     func_type: &FunctionType,
-    callee_address: *const VMFunctionBody,
 ) -> Result<FunctionBody, CompileError> {
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
     let signature = signature_to_cranelift_ir(func_type, &frontend_config);
     let mut stub_sig = ir::Signature::new(frontend_config.default_call_conv);
-    // Add the caller/callee `vmctx` parameters.
+    // Add the caller `vmctx` parameter.
     stub_sig.params.push(ir::AbiParam::special(
         pointer_type,
         ir::ArgumentPurpose::VMContext,
     ));
 
-    // Add the caller `vmctx` parameter.
+    // Add the caller/callee `vmctx` parameter.
     stub_sig.params.push(ir::AbiParam::new(pointer_type));
 
     // Add the `values_vec` parameter.
@@ -90,15 +92,14 @@ pub fn make_wasm2host_trampoline(
 
         let new_sig = builder.import_signature(stub_sig);
 
-        let callee_value = builder.ins().iconst(pointer_type, callee_address as i64);
-
-        // let vmctx = self.vmctx(&mut pos.func);
-        // let base = builder.ins().global_value(pointer_type, vmctx);
-        // let mem_flags = ir::MemFlags::trusted();
-        // // Load the callee address.
-        // let body_offset =
-        //     i32::try_from(self.offsets.vmctx_vmfunction_import_body(callee_index)).unwrap();
-        // let callee_value = builder.ins().load(pointer_type, mem_flags, base, body_offset);
+        let mem_flags = ir::MemFlags::trusted();
+        // Load the callee address.
+        let body_offset =
+            i32::try_from(offsets.vmctx_vmfunction_import_dynamic_body(*callee_index)).unwrap();
+        let callee_value =
+            builder
+                .ins()
+                .load(pointer_type, mem_flags, caller_vmctx_ptr_val, body_offset);
 
         builder
             .ins()
@@ -119,6 +120,7 @@ pub fn make_wasm2host_trampoline(
         builder.finalize()
     }
 
+    // println!("{:?}", context.func);
     let mut code_buf = Vec::new();
     let mut reloc_sink = TrampolineRelocSink {};
     let mut trap_sink = binemit::NullTrapSink {};
