@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
-use wasmer_runtime::{InstanceHandle, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_runtime::{InstanceHandle, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
 
 /// A unimplemented Wasmer `Engine`.
 /// This trait is used by implementors to implement custom engines,
@@ -25,6 +25,10 @@ pub trait Engine {
 
     /// Retrieves a trampoline given a signature
     fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;
+
+    /// Retrieves the reverse trampoline
+    fn reverse_trampoline(&self, func_type: &FunctionType, address: usize)
+        -> *const VMFunctionBody;
 
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError>;

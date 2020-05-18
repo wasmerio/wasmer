@@ -111,6 +111,17 @@ impl Engine for JITEngine {
         self.compiler().function_call_trampoline(sig)
     }
 
+    /// Retrieves the reverse trampoline
+    fn reverse_trampoline(
+        &self,
+        func_type: &FunctionType,
+        address: usize,
+    ) -> *const VMFunctionBody {
+        self.compiler_mut()
+            .reverse_trampoline(func_type, address)
+            .expect("Can't construct trampoline")
+    }
+
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
         self.compiler().validate(binary)
@@ -273,6 +284,29 @@ impl JITEngineInner {
             .collect::<Result<PrimaryMap<FunctionIndex, _>, CompileError>>()?;
 
         Ok((allocated_functions, allocated_dynamic_function_trampolines))
+    }
+
+    /// Retrieves the reverse trampoline
+    fn reverse_trampoline(
+        &mut self,
+        func_type: &FunctionType,
+        address: usize,
+    ) -> Result<*const VMFunctionBody, CompileError> {
+        let compiled_function = self
+            .compiler()?
+            .compile_wasm2host_trampoline(&func_type, address)?;
+        let ptr = self
+            .code_memory
+            .allocate_for_function(&compiled_function)
+            .map_err(|message| {
+                CompileError::Resource(format!(
+                    "failed to allocate memory for trampolines: {}",
+                    message
+                ))
+            })?
+            .as_ptr();
+        self.code_memory.publish();
+        Ok(ptr)
     }
 
     /// Make memory containing compiled code executable.
