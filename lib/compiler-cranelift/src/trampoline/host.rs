@@ -12,12 +12,11 @@ use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::Context;
 use cranelift_codegen::{binemit, ir};
 use std::cmp;
-use std::convert::TryFrom;
 use std::mem;
 
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use wasm_common::entity::EntityRef;
-use wasm_common::{FunctionIndex, SignatureIndex};
+use wasm_common::SignatureIndex;
 use wasmer_compiler::{CompileError, FunctionBody};
 use wasmer_runtime::{Module, VMOffsets};
 

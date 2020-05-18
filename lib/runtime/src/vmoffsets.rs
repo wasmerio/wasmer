@@ -97,7 +97,7 @@ impl VMOffsets {
 /// [`VMDynamicFunctionImportContext`]: crate::vmcontext::VMDynamicFunctionImportContext
 impl VMOffsets {
     /// The offset of the `address` field.
-    #[allow(clippy::identity_op)]
+    #[allow(clippy::erasing_op)]
     pub fn vmdynamicfunction_import_context_address(&self) -> u8 {
         0 * self.pointer_size
     }
