@@ -25,13 +25,15 @@
     )
 )]
 
-mod lib {
-    #[cfg(not(feature = "std"))]
-    pub mod std {
-        #[cfg(feature = "core")]
-        pub use alloc::{boxed, fmt, string, vec};
+#[cfg(all(not(feature = "std"), feature = "core"))]
+extern crate alloc;
 
-        #[cfg(feature = "core")]
+mod lib {
+    #[cfg(all(not(feature = "std"), feature = "core"))]
+    pub mod std {
+        #[macro_use]
+        pub use alloc::{boxed, string, vec};
+        pub use core::fmt;
         pub use hashbrown as collections;
     }
 
