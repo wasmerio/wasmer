@@ -16,19 +16,19 @@ wasmer-compiler = { path = "../compiler", version = "0.16.2", default-features =
 wasmer-runtime = { path = "../runtime", version = "0.16.2" }
 target-lexicon = { version = "0.10.0", default-features = false }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
-backtrace = "0.3.46"
-rustc-demangle = "0.1.16"
-more-asserts = "0.2.1"
+backtrace = "0.3"
+rustc-demangle = "0.1"
+more-asserts = "0.2"
 thiserror = "1.0.16"
 region = "2.1.2"
-serde = { version = "1.0.106", features = ["derive", "rc"] }
-serde_bytes = { version = "0.11.3" }
-bincode = "1.2.1"
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_bytes = { version = "0.11" }
+bincode = "1.2"
 lazy_static = "1.4"
-downcast-rs = "1.1.1"
+downcast-rs = "1.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-winapi = { version = "0.3.8", features = ["winnt", "impl-default"] }
+winapi = { version = "0.3", features = ["winnt", "impl-default"] }
 
 [badges]
 maintenance = { status = "actively-developed" }
