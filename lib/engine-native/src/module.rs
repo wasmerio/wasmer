@@ -262,7 +262,7 @@ impl NativeModule {
         if !output.status.success() {
             return Err(CompileError::Codegen(format!(
                 "Shared object file generator failed with:\n{}",
-                std::str::from_utf8(&output.stderr).unwrap().trim_right()
+                std::str::from_utf8(&output.stderr).unwrap().trim_end()
             )));
         }
         let lib = Library::new(&shared_filepath).map_err(to_compile_error)?;
