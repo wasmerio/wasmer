@@ -45,6 +45,9 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - run: cargo test --release
+      - name: Set up dependencies for Mac OS
+        run: brew install autoconf
+        if: matrix.os == 'macos-latest'
       - name: Build and Test C API
         run: |
           make capi
