@@ -1631,6 +1631,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-engine",
  "wasmer-engine-jit",
+ "wasmer-engine-native",
  "wasmer-runtime",
  "wat",
  "winapi",

@@ -58,6 +58,9 @@ impl Default for Store {
 
             #[cfg(feature = "jit")]
             return Arc::new(wasmer_engine_jit::JITEngine::new(&*config, tunables));
+
+            #[cfg(feature = "native")]
+            return Arc::new(wasmer_engine_native::NativeEngine::new(&*config, tunables));
         }
 
         let config = get_config();

@@ -66,5 +66,8 @@ pub use wasmer_compiler_llvm::LLVMConfig;
 #[cfg(feature = "jit")]
 pub use wasmer_engine_jit::JITEngine;
 
+#[cfg(feature = "native")]
+pub use wasmer_engine_native::NativeEngine;
+
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
