@@ -711,91 +711,110 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     }
 }
 
-// Convert floating point vector to integer and saturate when out of range.
-// https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md
-fn trunc_sat_scalar<'ctx>(
-    builder: &Builder<'ctx>,
-    int_ty: IntType<'ctx>,
-    lower_bound: u64, // Exclusive (lowest representable value)
-    upper_bound: u64, // Exclusive (greatest representable value)
-    int_min_value: u64,
-    int_max_value: u64,
-    value: FloatValue<'ctx>,
-    name: &str,
-) -> IntValue<'ctx> {
-    // TODO: this is a scalarized version of the process in trunc_sat. Either
-    // we should merge with trunc_sat, or we should simplify this function.
+impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
+    // Convert floating point vector to integer and saturate when out of range.
+    // https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md
+    fn trunc_sat_scalar(
+        &self,
+        int_ty: IntType<'ctx>,
+        lower_bound: u64, // Exclusive (lowest representable value)
+        upper_bound: u64, // Exclusive (greatest representable value)
+        int_min_value: u64,
+        int_max_value: u64,
+        value: FloatValue<'ctx>,
+        name: &str,
+    ) -> IntValue<'ctx> {
+        // TODO: this is a scalarized version of the process in trunc_sat. Either
+        // we should merge with trunc_sat, or we should simplify this function.
 
-    // a) Compare value with itself to identify NaN.
-    // b) Compare value inttofp(upper_bound) to identify values that need to
-    //    saturate to max.
-    // c) Compare value with inttofp(lower_bound) to identify values that need
-    //    to saturate to min.
-    // d) Use select to pick from either zero or the input vector depending on
-    //    whether the comparison indicates that we have an unrepresentable
-    //    value.
-    // e) Now that the value is safe, fpto[su]i it.
-    // f) Use our previous comparison results to replace certain zeros with
-    //    int_min or int_max.
+        // a) Compare value with itself to identify NaN.
+        // b) Compare value inttofp(upper_bound) to identify values that need to
+        //    saturate to max.
+        // c) Compare value with inttofp(lower_bound) to identify values that need
+        //    to saturate to min.
+        // d) Use select to pick from either zero or the input vector depending on
+        //    whether the comparison indicates that we have an unrepresentable
+        //    value.
+        // e) Now that the value is safe, fpto[su]i it.
+        // f) Use our previous comparison results to replace certain zeros with
+        //    int_min or int_max.
 
-    let is_signed = int_min_value != 0;
-    let int_min_value = int_ty.const_int(int_min_value, is_signed);
-    let int_max_value = int_ty.const_int(int_max_value, is_signed);
+        let is_signed = int_min_value != 0;
+        let int_min_value = int_ty.const_int(int_min_value, is_signed);
+        let int_max_value = int_ty.const_int(int_max_value, is_signed);
 
-    let lower_bound = if is_signed {
-        builder.build_signed_int_to_float(
-            int_ty.const_int(lower_bound, is_signed),
-            value.get_type(),
-            "",
-        )
-    } else {
-        builder.build_unsigned_int_to_float(
-            int_ty.const_int(lower_bound, is_signed),
-            value.get_type(),
-            "",
-        )
-    };
-    let upper_bound = if is_signed {
-        builder.build_signed_int_to_float(
-            int_ty.const_int(upper_bound, is_signed),
-            value.get_type(),
-            "",
-        )
-    } else {
-        builder.build_unsigned_int_to_float(
-            int_ty.const_int(upper_bound, is_signed),
-            value.get_type(),
-            "",
-        )
-    };
+        let lower_bound = if is_signed {
+            self.builder.build_signed_int_to_float(
+                int_ty.const_int(lower_bound, is_signed),
+                value.get_type(),
+                "",
+            )
+        } else {
+            self.builder.build_unsigned_int_to_float(
+                int_ty.const_int(lower_bound, is_signed),
+                value.get_type(),
+                "",
+            )
+        };
+        let upper_bound = if is_signed {
+            self.builder.build_signed_int_to_float(
+                int_ty.const_int(upper_bound, is_signed),
+                value.get_type(),
+                "",
+            )
+        } else {
+            self.builder.build_unsigned_int_to_float(
+                int_ty.const_int(upper_bound, is_signed),
+                value.get_type(),
+                "",
+            )
+        };
 
-    let zero = value.get_type().const_zero();
+        let zero = value.get_type().const_zero();
 
-    let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
-    let above_upper_bound_cmp =
-        builder.build_float_compare(FloatPredicate::OGT, value, upper_bound, "above_upper_bound");
-    let below_lower_bound_cmp =
-        builder.build_float_compare(FloatPredicate::OLT, value, lower_bound, "below_lower_bound");
-    let not_representable = builder.build_or(
-        builder.build_or(nan_cmp, above_upper_bound_cmp, ""),
-        below_lower_bound_cmp,
-        "not_representable_as_int",
-    );
-    let value = builder
-        .build_select(not_representable, zero, value, "safe_to_convert")
-        .into_float_value();
-    let value = if is_signed {
-        builder.build_float_to_signed_int(value, int_ty, "as_int")
-    } else {
-        builder.build_float_to_unsigned_int(value, int_ty, "as_int")
-    };
-    let value = builder
-        .build_select(above_upper_bound_cmp, int_max_value, value, "")
-        .into_int_value();
-    let value = builder
-        .build_select(below_lower_bound_cmp, int_min_value, value, name)
-        .into_int_value();
-    builder.build_bitcast(value, int_ty, "").into_int_value()
+        let nan_cmp = self
+            .builder
+            .build_float_compare(FloatPredicate::UNO, value, zero, "nan");
+        let above_upper_bound_cmp = self.builder.build_float_compare(
+            FloatPredicate::OGT,
+            value,
+            upper_bound,
+            "above_upper_bound",
+        );
+        let below_lower_bound_cmp = self.builder.build_float_compare(
+            FloatPredicate::OLT,
+            value,
+            lower_bound,
+            "below_lower_bound",
+        );
+        let not_representable = self.builder.build_or(
+            self.builder.build_or(nan_cmp, above_upper_bound_cmp, ""),
+            below_lower_bound_cmp,
+            "not_representable_as_int",
+        );
+        let value = self
+            .builder
+            .build_select(not_representable, zero, value, "safe_to_convert")
+            .into_float_value();
+        let value = if is_signed {
+            self.builder
+                .build_float_to_signed_int(value, int_ty, "as_int")
+        } else {
+            self.builder
+                .build_float_to_unsigned_int(value, int_ty, "as_int")
+        };
+        let value = self
+            .builder
+            .build_select(above_upper_bound_cmp, int_max_value, value, "")
+            .into_int_value();
+        let value = self
+            .builder
+            .build_select(below_lower_bound_cmp, int_min_value, value, name)
+            .into_int_value();
+        self.builder
+            .build_bitcast(value, int_ty, "")
+            .into_int_value()
+    }
 }
 
 fn trap_if_not_representable_as_int<'ctx>(
@@ -5410,8 +5429,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
-                let res = trunc_sat_scalar(
-                    &self.builder,
+                let res = self.trunc_sat_scalar(
                     self.intrinsics.i32_ty,
                     LEF32_GEQ_I32_MIN,
                     GEF32_LEQ_I32_MAX,
@@ -5426,8 +5444,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
-                let res = trunc_sat_scalar(
-                    &self.builder,
+                let res = self.trunc_sat_scalar(
                     self.intrinsics.i32_ty,
                     LEF64_GEQ_I32_MIN,
                     GEF64_LEQ_I32_MAX,
@@ -5474,8 +5491,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
-                let res = trunc_sat_scalar(
-                    &self.builder,
+                let res = self.trunc_sat_scalar(
                     self.intrinsics.i64_ty,
                     LEF32_GEQ_I64_MIN,
                     GEF32_LEQ_I64_MAX,
@@ -5490,8 +5506,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
-                let res = trunc_sat_scalar(
-                    &self.builder,
+                let res = self.trunc_sat_scalar(
                     self.intrinsics.i64_ty,
                     LEF64_GEQ_I64_MIN,
                     GEF64_LEQ_I64_MAX,
@@ -5538,8 +5553,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
-                let res = trunc_sat_scalar(
-                    &self.builder,
+                let res = self.trunc_sat_scalar(
                     self.intrinsics.i32_ty,
                     LEF32_GEQ_U32_MIN,
                     GEF32_LEQ_U32_MAX,
@@ -5554,8 +5568,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
-                let res = trunc_sat_scalar(
-                    &self.builder,
+                let res = self.trunc_sat_scalar(
                     self.intrinsics.i32_ty,
                     LEF64_GEQ_U32_MIN,
                     GEF64_LEQ_U32_MAX,
@@ -5602,8 +5615,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
-                let res = trunc_sat_scalar(
-                    &self.builder,
+                let res = self.trunc_sat_scalar(
                     self.intrinsics.i64_ty,
                     LEF32_GEQ_U64_MIN,
                     GEF32_LEQ_U64_MAX,
@@ -5618,8 +5630,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
-                let res = trunc_sat_scalar(
-                    &self.builder,
+                let res = self.trunc_sat_scalar(
                     self.intrinsics.i64_ty,
                     LEF64_GEQ_U64_MIN,
                     GEF64_LEQ_U64_MAX,
