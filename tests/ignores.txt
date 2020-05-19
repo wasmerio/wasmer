@@ -1,6 +1,8 @@
 # Compilers
 singlepass::spec::multi_value
 
+singlepass on windows # Singlepass is not yet supported on Windows
+
 # Frontends
 
 ## WASI
