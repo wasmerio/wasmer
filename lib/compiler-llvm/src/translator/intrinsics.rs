@@ -700,6 +700,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     cache_builder
                         .build_load(memory_definition_ptr_ptr, "")
                         .into_pointer_value()
+                    // TODO: tbaa
                 };
             let memory_definition_ptr = cache_builder
                 .build_bitcast(
@@ -850,16 +851,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         tbaa_label(
             module,
             intrinsics,
-            "table_base_ptr",
+            format!("table_base_ptr {}", index.index()),
             base_ptr.as_instruction_value().unwrap(),
-            Some(index.index() as u32),
         );
         tbaa_label(
             module,
             intrinsics,
-            "table_bounds",
+            format!("table_bounds {}", index.index()),
             bounds.as_instruction_value().unwrap(),
-            Some(index.index() as u32),
         );
         (base_ptr, bounds)
     }
@@ -889,6 +888,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             cache_builder
                 .build_load(sigindex_ptr, "sigindex")
                 .into_int_value()
+            // TODO: tbaa
         })
     }
 
@@ -929,6 +929,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 cache_builder
                     .build_load(global_ptr_ptr, "")
                     .into_pointer_value()
+                // TODO: tbaa
             };
             let global_ptr = cache_builder
                 .build_bitcast(
@@ -940,6 +941,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
             match global_mutability {
                 Mutability::Const => GlobalCache::Const {
+                    // TODO: tbaa
                     value: cache_builder.build_load(global_ptr, ""),
                 },
                 Mutability::Var => GlobalCache::Mut {
@@ -951,13 +953,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 }
 
 // Given an instruction that operates on memory, mark the access as not aliasing
-// other memory accesses which have a different (label, index) pair.
+// other memory accesses which have a different label.
 pub fn tbaa_label<'ctx>(
     module: &Module<'ctx>,
     intrinsics: &Intrinsics<'ctx>,
-    label: &str,
+    label: String,
     instruction: InstructionValue<'ctx>,
-    index: Option<u32>,
 ) {
     // To convey to LLVM that two pointers must be pointing to distinct memory,
     // we use LLVM's Type Based Aliasing Analysis, or TBAA, to mark the memory
@@ -992,11 +993,6 @@ pub fn tbaa_label<'ctx>(
 
     // Construct (or look up) the type descriptor, for example
     //   `!"local 0" = !{!"local 0", !wasmer_tbaa_root}`.
-    let label = if let Some(idx) = index {
-        format!("{}{}", label, idx)
-    } else {
-        label.to_string()
-    };
     let type_label = context.metadata_string(label.as_str());
     let type_tbaa = module
         .get_global_metadata(label.as_str())

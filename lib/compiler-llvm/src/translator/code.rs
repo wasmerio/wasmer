@@ -2078,9 +2078,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "local",
+                    format!("local {}", local_index),
                     v.as_instruction_value().unwrap(),
-                    Some(local_index),
                 );
                 self.state.push1(v);
             }
@@ -2092,9 +2091,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "local",
+                    format!("local {}", local_index),
                     store,
-                    Some(local_index),
                 );
             }
             Operator::LocalTee { local_index } => {
@@ -2105,9 +2103,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "local",
+                    format!("local {}", local_index),
                     store,
-                    Some(local_index),
                 );
             }
 
@@ -5821,9 +5818,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(result);
             }
@@ -5845,9 +5841,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(result);
             }
@@ -5869,9 +5864,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(result);
             }
@@ -5893,9 +5887,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(result);
             }
@@ -5917,9 +5910,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(result);
             }
@@ -5936,7 +5928,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 )?;
                 let store = self.builder.build_store(effective_address, value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I64Store { ref memarg } => {
                 let value = self.state.pop1()?;
@@ -5950,7 +5942,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 )?;
                 let store = self.builder.build_store(effective_address, value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::F32Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5965,7 +5957,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 )?;
                 let store = self.builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::F64Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5980,7 +5972,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 )?;
                 let store = self.builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::V128Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5995,7 +5987,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 )?;
                 let store = self.builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I32Load8S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
@@ -6015,9 +6007,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     narrow_result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let result = self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
@@ -6044,9 +6035,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     narrow_result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let result = self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
@@ -6076,9 +6066,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     narrow_result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let result =
                     self.builder
@@ -6106,9 +6095,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     narrow_result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let result =
                     self.builder
@@ -6133,9 +6121,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     narrow_result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let result = self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
@@ -6163,9 +6150,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     narrow_result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
@@ -6192,9 +6178,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     narrow_result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
@@ -6221,9 +6206,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     narrow_result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
@@ -6250,9 +6234,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     narrow_result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
@@ -6279,9 +6262,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     narrow_result.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
@@ -6306,7 +6288,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
                 let store = self.builder.build_store(effective_address, narrow_value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -6323,7 +6305,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
                 let store = self.builder.build_store(effective_address, narrow_value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I64Store32 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -6340,7 +6322,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
                 let store = self.builder.build_store(effective_address, narrow_value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I8x16Neg => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -6747,9 +6729,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     elem.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let res = splat_vector(
                     &self.builder,
@@ -6778,9 +6759,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     elem.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let res = splat_vector(
                     &self.builder,
@@ -6809,9 +6789,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     elem.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let res = splat_vector(
                     &self.builder,
@@ -6840,9 +6819,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     elem.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let res = splat_vector(
                     &self.builder,
@@ -6885,7 +6863,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 load.set_alignment(4).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), load);
                 self.state.push1(result);
             }
             Operator::I64AtomicLoad { ref memarg } => {
@@ -6910,7 +6888,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 load.set_alignment(8).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), load);
                 self.state.push1(result);
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
@@ -6938,7 +6916,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 load.set_alignment(1).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), load);
                 let result =
                     self.builder
                         .build_int_z_extend(narrow_result, self.intrinsics.i32_ty, "");
@@ -6969,7 +6947,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 load.set_alignment(2).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), load);
                 let result =
                     self.builder
                         .build_int_z_extend(narrow_result, self.intrinsics.i32_ty, "");
@@ -7000,7 +6978,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 load.set_alignment(1).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), load);
                 let result =
                     self.builder
                         .build_int_z_extend(narrow_result, self.intrinsics.i64_ty, "");
@@ -7031,7 +7009,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 load.set_alignment(2).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), load);
                 let result =
                     self.builder
                         .build_int_z_extend(narrow_result, self.intrinsics.i64_ty, "");
@@ -7062,7 +7040,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 load.set_alignment(4).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), load);
                 let result =
                     self.builder
                         .build_int_z_extend(narrow_result, self.intrinsics.i64_ty, "");
@@ -7091,7 +7069,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I64AtomicStore { ref memarg } => {
                 let value = self.state.pop1()?;
@@ -7116,7 +7094,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I32AtomicStore8 { ref memarg } | Operator::I64AtomicStore8 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -7144,7 +7122,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I32AtomicStore16 { ref memarg }
             | Operator::I64AtomicStore16 { ref memarg } => {
@@ -7173,7 +7151,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I64AtomicStore32 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -7201,7 +7179,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I32AtomicRmw8AddU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -7236,9 +7214,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7278,9 +7255,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7317,9 +7293,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -7356,9 +7331,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7398,9 +7372,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7440,9 +7413,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7479,9 +7451,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -7518,9 +7489,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7560,9 +7530,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7599,9 +7568,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -7638,9 +7606,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7680,9 +7647,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7722,9 +7688,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7761,9 +7726,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -7800,9 +7764,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7842,9 +7805,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7881,9 +7843,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -7920,9 +7881,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -7962,9 +7922,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8004,9 +7963,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8043,9 +8001,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -8082,9 +8039,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8124,9 +8080,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8163,9 +8118,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8205,9 +8159,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8247,9 +8200,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8289,9 +8241,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8328,9 +8279,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -8367,9 +8317,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8409,9 +8358,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8448,9 +8396,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -8487,9 +8434,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8529,9 +8475,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8571,9 +8516,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8610,9 +8554,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -8649,9 +8592,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8691,9 +8633,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8730,9 +8671,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -8769,9 +8709,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8811,9 +8750,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8853,9 +8791,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8892,9 +8829,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 self.state.push1(old);
             }
@@ -8940,9 +8876,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -8996,9 +8931,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -9046,9 +8980,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self.builder.build_extract_value(old, 0, "").unwrap();
                 self.state.push1(old);
@@ -9095,9 +9028,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -9151,9 +9083,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -9207,9 +9138,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self
                     .builder
@@ -9257,9 +9187,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     &self.module,
                     self.intrinsics,
-                    "memory",
+                    "memory 0".into(),
                     old.as_instruction_value().unwrap(),
-                    Some(0),
                 );
                 let old = self.builder.build_extract_value(old, 0, "").unwrap();
                 self.state.push1(old);
