@@ -3,7 +3,6 @@ use inkwell::{
     values::{BasicValue, BasicValueEnum, PhiValue},
 };
 use smallvec::SmallVec;
-use std::cell::Cell;
 use std::ops::{BitAnd, BitOr, BitOrAssign};
 use wasmer_compiler::CompileError;
 
@@ -196,7 +195,6 @@ impl BitAnd for ExtraInfo {
 pub struct State<'ctx> {
     pub stack: Vec<(BasicValueEnum<'ctx>, ExtraInfo)>,
     control_stack: Vec<ControlFrame<'ctx>>,
-    value_counter: Cell<usize>,
 
     pub reachable: bool,
 }
@@ -206,7 +204,6 @@ impl<'ctx> State<'ctx> {
         Self {
             stack: vec![],
             control_stack: vec![],
-            value_counter: Cell::new(0),
             reachable: true,
         }
     }
@@ -268,13 +265,6 @@ impl<'ctx> State<'ctx> {
         self.control_stack.pop().ok_or(CompileError::Codegen(
             "pop_frame: cannot pop from control stack".to_string(),
         ))
-    }
-
-    pub fn var_name(&self) -> String {
-        let counter = self.value_counter.get();
-        let s = format!("s{}", counter);
-        self.value_counter.set(counter + 1);
-        s
     }
 
     pub fn push1<T: BasicValue<'ctx>>(&mut self, value: T) {
