@@ -74,4 +74,12 @@ impl Compiler for SinglepassCompiler {
             "Singlepass trampoline compilation not supported yet".to_owned(),
         ))
     }
+
+    fn compile_dynamic_function_trampolines(
+        &self,
+        module: &Module,
+    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
+        Ok(PrimaryMap::new())
+        // unimplemented!("Dynamic function trampolines not yet implemented");
+    }
 }

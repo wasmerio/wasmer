@@ -65,15 +65,7 @@ impl Compiler for LLVMCompiler {
         //let data = Arc::new(Mutex::new(0));
         let mut func_names = SecondaryMap::new();
 
-        // We're going to "link" the sections by simply appending all compatible
-        // sections, then building the new relocations.
-        // TODO: merge constants.
-        let mut used_readonly_section = false;
-        let mut readonly_section = CustomSection {
-            protection: CustomSectionProtection::Read,
-            bytes: SectionBody::default(),
-            relocations: vec![],
-        };
+        // TODO: merge constants in sections.
 
         for (func_index, _) in &module.functions {
             func_names[func_index] = module
@@ -153,6 +145,6 @@ impl Compiler for LLVMCompiler {
         module: &Module,
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
         Ok(PrimaryMap::new())
-        // unimplemented!("Dynamic funciton trampolines not yet implemented");
+        // unimplemented!("Dynamic function trampolines not yet implemented");
     }
 }
