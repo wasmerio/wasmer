@@ -84,7 +84,7 @@ impl TrapCode {
             Self::BadConversionToInteger => "invalid conversion to integer",
             Self::UnreachableCodeReached => "unreachable",
             Self::Interrupt => "interrupt",
-            Self::UnalignedAtomic => "unsaligned atomic access",
+            Self::UnalignedAtomic => "unaligned atomic access",
             // Self::User(_) => unreachable!(),
         }
     }
