@@ -703,6 +703,7 @@ dependencies = [
 name = "wasmer-runtime-core"
 version = "0.16.2"
 dependencies = [
+ "wasm-common",
  "wasmer",
 ]
 
