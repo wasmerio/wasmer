@@ -42,5 +42,5 @@ pub fn get_compiler_config_from_str(
 pub fn get_default_store() -> Store {
     let compiler_config = get_compiler_config_from_str("cranelift", false, Features::default());
     let tunables = Tunables::for_target(compiler_config.target().triple());
-    Store::new(Arc::new(JITEngine::new(&*compiler_config, tunables)))
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
 }

@@ -158,6 +158,10 @@ impl CompilerConfig for LLVMConfig {
         &self.features
     }
 
+    fn enable_pic(&mut self) {
+        unimplemented!("PIC is not yet implemented in LLVM");
+    }
+
     /// Gets the target that we will use for compiling
     /// the WebAssembly module
     fn target(&self) -> &Target {

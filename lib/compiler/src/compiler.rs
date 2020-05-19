@@ -24,6 +24,13 @@ pub trait CompilerConfig {
     /// Gets the WebAssembly features
     fn features(&self) -> &Features;
 
+    /// Should Position Independen Code (PIC) be enabled.
+    ///
+    /// This is required for shared object generation (Native Engine),
+    /// but will make the JIT Engine to fail, since PIC is not yet
+    /// supported in the JIT linking phase.
+    fn enable_pic(&mut self);
+
     /// Gets the target that we will use for compiling
     /// the WebAssembly module
     fn target(&self) -> &Target;

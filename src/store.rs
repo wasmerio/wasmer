@@ -171,13 +171,12 @@ impl StoreOptions {
         let engine_type = self.get_engine()?;
         let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
-            EngineOptions::JIT => Arc::new(wasmer_engine_jit::JITEngine::new(
-                &*compiler_config,
-                tunables,
-            )),
+            EngineOptions::JIT => {
+                Arc::new(wasmer_engine_jit::JITEngine::new(compiler_config, tunables))
+            }
             #[cfg(feature = "native")]
             EngineOptions::Native => Arc::new(wasmer_engine_native::NativeEngine::new(
-                &*compiler_config,
+                compiler_config,
                 tunables,
             )),
             #[cfg(not(all(feature = "jit", feature = "native",)))]

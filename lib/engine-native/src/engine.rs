@@ -40,13 +40,11 @@ impl NativeEngine {
 
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new<C: CompilerConfig>(
-        config: &C,
+    pub fn new(
+        mut config: Box<dyn CompilerConfig>,
         tunables: impl Tunables + 'static + Send + Sync,
-    ) -> Self
-    where
-        C: ?Sized,
-    {
+    ) -> Self {
+        config.enable_pic();
         let compiler = config.compiler();
         Self {
             inner: Arc::new(Mutex::new(NativeEngineInner {
