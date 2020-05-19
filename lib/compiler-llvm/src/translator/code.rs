@@ -569,129 +569,146 @@ fn splat_vector<'ctx>(
     )
 }
 
-// Convert floating point vector to integer and saturate when out of range.
-// https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md
-fn trunc_sat<'ctx, T: FloatMathType<'ctx>>(
-    builder: &Builder<'ctx>,
-    intrinsics: &Intrinsics<'ctx>,
-    fvec_ty: T,
-    ivec_ty: T::MathConvType,
-    lower_bound: u64, // Exclusive (lowest representable value)
-    upper_bound: u64, // Exclusive (greatest representable value)
-    int_min_value: u64,
-    int_max_value: u64,
-    value: IntValue<'ctx>,
-    name: &str,
-) -> IntValue<'ctx> {
-    // a) Compare vector with itself to identify NaN lanes.
-    // b) Compare vector with splat of inttofp(upper_bound) to identify
-    //    lanes that need to saturate to max.
-    // c) Compare vector with splat of inttofp(lower_bound) to identify
-    //    lanes that need to saturate to min.
-    // d) Use vector select (not shuffle) to pick from either the
-    //    splat vector or the input vector depending on whether the
-    //    comparison indicates that we have an unrepresentable value. Replace
-    //    unrepresentable values with zero.
-    // e) Now that the value is safe, fpto[su]i it.
-    // f) Use our previous comparison results to replace certain zeros with
-    //    int_min or int_max.
+impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
+    // Convert floating point vector to integer and saturate when out of range.
+    // https://github.com/WebAssembly/nontrapping-float-to-int-conversions/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md
+    fn trunc_sat<T: FloatMathType<'ctx>>(
+        &self,
+        fvec_ty: T,
+        ivec_ty: T::MathConvType,
+        lower_bound: u64, // Exclusive (lowest representable value)
+        upper_bound: u64, // Exclusive (greatest representable value)
+        int_min_value: u64,
+        int_max_value: u64,
+        value: IntValue<'ctx>,
+        name: &str,
+    ) -> IntValue<'ctx> {
+        // a) Compare vector with itself to identify NaN lanes.
+        // b) Compare vector with splat of inttofp(upper_bound) to identify
+        //    lanes that need to saturate to max.
+        // c) Compare vector with splat of inttofp(lower_bound) to identify
+        //    lanes that need to saturate to min.
+        // d) Use vector select (not shuffle) to pick from either the
+        //    splat vector or the input vector depending on whether the
+        //    comparison indicates that we have an unrepresentable value. Replace
+        //    unrepresentable values with zero.
+        // e) Now that the value is safe, fpto[su]i it.
+        // f) Use our previous comparison results to replace certain zeros with
+        //    int_min or int_max.
 
-    let fvec_ty = fvec_ty.as_basic_type_enum().into_vector_type();
-    let ivec_ty = ivec_ty.as_basic_type_enum().into_vector_type();
-    let fvec_element_ty = fvec_ty.get_element_type().into_float_type();
-    let ivec_element_ty = ivec_ty.get_element_type().into_int_type();
+        let fvec_ty = fvec_ty.as_basic_type_enum().into_vector_type();
+        let ivec_ty = ivec_ty.as_basic_type_enum().into_vector_type();
+        let fvec_element_ty = fvec_ty.get_element_type().into_float_type();
+        let ivec_element_ty = ivec_ty.get_element_type().into_int_type();
 
-    let is_signed = int_min_value != 0;
-    let int_min_value = splat_vector(
-        builder,
-        intrinsics,
-        ivec_element_ty
-            .const_int(int_min_value, is_signed)
-            .as_basic_value_enum(),
-        ivec_ty,
-        "",
-    );
-    let int_max_value = splat_vector(
-        builder,
-        intrinsics,
-        ivec_element_ty
-            .const_int(int_max_value, is_signed)
-            .as_basic_value_enum(),
-        ivec_ty,
-        "",
-    );
-    let lower_bound = if is_signed {
-        builder.build_signed_int_to_float(
-            ivec_element_ty.const_int(lower_bound, is_signed),
-            fvec_element_ty,
+        let is_signed = int_min_value != 0;
+        let int_min_value = splat_vector(
+            &self.builder,
+            self.intrinsics,
+            ivec_element_ty
+                .const_int(int_min_value, is_signed)
+                .as_basic_value_enum(),
+            ivec_ty,
             "",
-        )
-    } else {
-        builder.build_unsigned_int_to_float(
-            ivec_element_ty.const_int(lower_bound, is_signed),
-            fvec_element_ty,
+        );
+        let int_max_value = splat_vector(
+            &self.builder,
+            self.intrinsics,
+            ivec_element_ty
+                .const_int(int_max_value, is_signed)
+                .as_basic_value_enum(),
+            ivec_ty,
             "",
-        )
-    };
-    let upper_bound = if is_signed {
-        builder.build_signed_int_to_float(
-            ivec_element_ty.const_int(upper_bound, is_signed),
-            fvec_element_ty,
-            "",
-        )
-    } else {
-        builder.build_unsigned_int_to_float(
-            ivec_element_ty.const_int(upper_bound, is_signed),
-            fvec_element_ty,
-            "",
-        )
-    };
+        );
+        let lower_bound = if is_signed {
+            self.builder.build_signed_int_to_float(
+                ivec_element_ty.const_int(lower_bound, is_signed),
+                fvec_element_ty,
+                "",
+            )
+        } else {
+            self.builder.build_unsigned_int_to_float(
+                ivec_element_ty.const_int(lower_bound, is_signed),
+                fvec_element_ty,
+                "",
+            )
+        };
+        let upper_bound = if is_signed {
+            self.builder.build_signed_int_to_float(
+                ivec_element_ty.const_int(upper_bound, is_signed),
+                fvec_element_ty,
+                "",
+            )
+        } else {
+            self.builder.build_unsigned_int_to_float(
+                ivec_element_ty.const_int(upper_bound, is_signed),
+                fvec_element_ty,
+                "",
+            )
+        };
 
-    let value = builder
-        .build_bitcast(value, fvec_ty, "")
-        .into_vector_value();
-    let zero = fvec_ty.const_zero();
-    let lower_bound = splat_vector(
-        builder,
-        intrinsics,
-        lower_bound.as_basic_value_enum(),
-        fvec_ty,
-        "",
-    );
-    let upper_bound = splat_vector(
-        builder,
-        intrinsics,
-        upper_bound.as_basic_value_enum(),
-        fvec_ty,
-        "",
-    );
-    let nan_cmp = builder.build_float_compare(FloatPredicate::UNO, value, zero, "nan");
-    let above_upper_bound_cmp =
-        builder.build_float_compare(FloatPredicate::OGT, value, upper_bound, "above_upper_bound");
-    let below_lower_bound_cmp =
-        builder.build_float_compare(FloatPredicate::OLT, value, lower_bound, "below_lower_bound");
-    let not_representable = builder.build_or(
-        builder.build_or(nan_cmp, above_upper_bound_cmp, ""),
-        below_lower_bound_cmp,
-        "not_representable_as_int",
-    );
-    let value = builder
-        .build_select(not_representable, zero, value, "safe_to_convert")
-        .into_vector_value();
-    let value = if is_signed {
-        builder.build_float_to_signed_int(value, ivec_ty, "as_int")
-    } else {
-        builder.build_float_to_unsigned_int(value, ivec_ty, "as_int")
-    };
-    let value = builder
-        .build_select(above_upper_bound_cmp, int_max_value, value, "")
-        .into_vector_value();
-    let res = builder
-        .build_select(below_lower_bound_cmp, int_min_value, value, name)
-        .into_vector_value();
-    builder
-        .build_bitcast(res, intrinsics.i128_ty, "")
-        .into_int_value()
+        let value = self
+            .builder
+            .build_bitcast(value, fvec_ty, "")
+            .into_vector_value();
+        let zero = fvec_ty.const_zero();
+        let lower_bound = splat_vector(
+            &self.builder,
+            self.intrinsics,
+            lower_bound.as_basic_value_enum(),
+            fvec_ty,
+            "",
+        );
+        let upper_bound = splat_vector(
+            &self.builder,
+            self.intrinsics,
+            upper_bound.as_basic_value_enum(),
+            fvec_ty,
+            "",
+        );
+        let nan_cmp = self
+            .builder
+            .build_float_compare(FloatPredicate::UNO, value, zero, "nan");
+        let above_upper_bound_cmp = self.builder.build_float_compare(
+            FloatPredicate::OGT,
+            value,
+            upper_bound,
+            "above_upper_bound",
+        );
+        let below_lower_bound_cmp = self.builder.build_float_compare(
+            FloatPredicate::OLT,
+            value,
+            lower_bound,
+            "below_lower_bound",
+        );
+        let not_representable = self.builder.build_or(
+            self.builder.build_or(nan_cmp, above_upper_bound_cmp, ""),
+            below_lower_bound_cmp,
+            "not_representable_as_int",
+        );
+        let value = self
+            .builder
+            .build_select(not_representable, zero, value, "safe_to_convert")
+            .into_vector_value();
+        let value = if is_signed {
+            self.builder
+                .build_float_to_signed_int(value, ivec_ty, "as_int")
+        } else {
+            self.builder
+                .build_float_to_unsigned_int(value, ivec_ty, "as_int")
+        };
+        let value = self
+            .builder
+            .build_select(above_upper_bound_cmp, int_max_value, value, "")
+            .into_vector_value();
+        let res = self
+            .builder
+            .build_select(below_lower_bound_cmp, int_min_value, value, name)
+            .into_vector_value();
+        self.builder
+            .build_bitcast(res, self.intrinsics.i128_ty, "")
+            .into_int_value()
+    }
 }
 
 // Convert floating point vector to integer and saturate when out of range.
@@ -5297,9 +5314,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res = trunc_sat(
-                    &self.builder,
-                    self.intrinsics,
+                let res = self.trunc_sat(
                     self.intrinsics.f32x4_ty,
                     self.intrinsics.i32x4_ty,
                     -2147480000i32 as u32 as u64,
@@ -5315,9 +5330,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res = trunc_sat(
-                    &self.builder,
-                    self.intrinsics,
+                let res = self.trunc_sat(
                     self.intrinsics.f32x4_ty,
                     self.intrinsics.i32x4_ty,
                     0,
@@ -5333,9 +5346,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res = trunc_sat(
-                    &self.builder,
-                    self.intrinsics,
+                let res = self.trunc_sat(
                     self.intrinsics.f64x2_ty,
                     self.intrinsics.i64x2_ty,
                     std::i64::MIN as u64,
@@ -5351,9 +5362,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res = trunc_sat(
-                    &self.builder,
-                    self.intrinsics,
+                let res = self.trunc_sat(
                     self.intrinsics.f64x2_ty,
                     self.intrinsics.i64x2_ty,
                     std::u64::MIN,
