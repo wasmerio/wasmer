@@ -48,6 +48,9 @@ jobs:
       - name: Set up dependencies for Mac OS
         run: brew install autoconf
         if: matrix.os == 'macos-latest'
+      - name: Set up dependencies for Windows
+        run: choco install llvm
+        if: matrix.os == 'windows-latest'
       - name: Build and Test C API
         run: |
           make capi
