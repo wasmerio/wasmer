@@ -1132,7 +1132,7 @@ fn canonicalize_nans<'ctx>(
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     pub fn resolve_memory_ptr(
-        &self,
+        &mut self,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         memarg: &MemoryImmediate,
         ptr_ty: PointerType<'ctx>,
@@ -1145,71 +1145,29 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let module = &self.module;
         let wasm_module = &self.wasm_module;
         let function = &self.function;
-        let ctx = &self.ctx;
+        let ctx = &mut self.ctx;
 
         let memory_index = MemoryIndex::from_u32(0);
-        // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let vmctx = &ctx.basic().into_pointer_value();
-        let memory_definition_ptr =
-            if let Some(local_memory_index) = wasm_module.local_memory_index(memory_index) {
-                let offset = self.vmoffsets.vmctx_vmmemory_definition(local_memory_index);
-                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                unsafe { builder.build_gep(*vmctx, &[offset], "") }
-            } else {
-                let offset = self.vmoffsets.vmctx_vmmemory_import(memory_index);
-                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                let memory_definition_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
-                let memory_definition_ptr_ptr = builder
-                    .build_bitcast(
-                        memory_definition_ptr_ptr,
-                        intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
-                        "",
-                    )
-                    .into_pointer_value();
-                builder
-                    .build_load(memory_definition_ptr_ptr, "")
-                    .into_pointer_value()
-            };
-        let memory_definition_ptr = builder
-            .build_bitcast(
-                memory_definition_ptr,
-                intrinsics.vmmemory_definition_ptr_ty,
-                "",
-            )
-            .into_pointer_value();
-        let base_ptr = builder
-            .build_struct_gep(
-                memory_definition_ptr,
-                intrinsics.vmmemory_definition_base_element,
-                "",
-            )
-            .unwrap();
-        let current_length_ptr = builder
-            .build_struct_gep(
-                memory_definition_ptr,
-                intrinsics.vmmemory_definition_current_length_element,
-                "",
-            )
-            .unwrap();
-        let base = builder.build_load(base_ptr, "").into_pointer_value();
 
-        // Compute the offset over the memory_base.
+        // Compute the offset into the storage.
         let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
         let var_offset = builder.build_int_z_extend(var_offset, intrinsics.i64_ty, "");
         let offset = builder.build_int_add(var_offset, imm_offset, "");
 
-        let value_ptr = unsafe { builder.build_gep(base, &[offset], "") };
-        match memory_plans[memory_index] {
-            MemoryPlan {
-                style: MemoryStyle::Dynamic,
-                offset_guard_size: _,
-                memory:
-                    MemoryType {
-                        minimum,
-                        maximum,
-                        shared: _,
-                    },
+        // Look up the memory base (as pointer) and bounds (as unsigned integer).
+        let base_ptr = match self
+            .ctx
+            .memory(memory_index, intrinsics, module, memory_plans)
+        {
+            MemoryCache::Dynamic {
+                ptr_to_base_ptr,
+                current_length_ptr,
             } => {
+                // Bounds check it.
+                let current_length = builder.build_load(current_length_ptr, "");
+                // TODO: tbaa_label
+                let minimum = memory_plans[memory_index].memory.minimum;
+                let maximum = memory_plans[memory_index].memory.maximum;
                 // If the memory is dynamic, do a bounds check. For static we rely on
                 // the size being a multiple of the page size and hitting a guard page.
                 let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
@@ -1280,17 +1238,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     builder.build_unreachable();
                     builder.position_at_end(in_bounds_continue_block);
                 }
+                builder.build_load(ptr_to_base_ptr, "").into_pointer_value()
+                // TODO: tbaa label
             }
-            MemoryPlan {
-                style: MemoryStyle::Static { bound: _ },
-                offset_guard_size: _,
-                memory: _,
-            } => {
-                // No bounds checks of any kind! Out of bounds memory accesses
-                // will hit the guard pages.
-            }
+            MemoryCache::Static { base_ptr } => base_ptr,
         };
-
+        let value_ptr = unsafe { builder.build_gep(base_ptr, &[offset], "") };
         Ok(builder
             .build_bitcast(value_ptr, ptr_ty, "")
             .into_pointer_value())
@@ -1615,15 +1568,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         module: &WasmerCompilerModule,
         _source_loc: u32,
     ) -> Result<(), CompileError> {
-        let builder = &self.builder;
-        let context = &self.context;
-        let function = self.function;
-        let intrinsics = &self.intrinsics;
-        let locals = &self.locals;
-        //let _signatures = &self.signatures;
-        let mut ctx = &mut self.ctx;
-
-        let vmctx = &ctx.basic().into_pointer_value();
+        // TODO: remove this vmctx by moving everything into CtxType. Values
+        // computed off vmctx usually benefit from caching.
+        let vmctx = &self.ctx.basic().into_pointer_value();
 
         //let opcode_offset: Option<usize> = None;
 
@@ -1656,68 +1603,71 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#control-flow-instructions
              ***************************/
             Operator::Block { ty } => {
-                let current_block = builder.get_insert_block().ok_or(CompileError::Codegen(
-                    "not currently in a block".to_string(),
-                ))?;
+                let current_block =
+                    self.builder
+                        .get_insert_block()
+                        .ok_or(CompileError::Codegen(
+                            "not currently in a block".to_string(),
+                        ))?;
 
-                let end_block = context.append_basic_block(function, "end");
-                builder.position_at_end(end_block);
+                let end_block = self.context.append_basic_block(self.function, "end");
+                self.builder.position_at_end(end_block);
 
                 let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
-                    let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
+                    let llvm_ty = type_to_llvm(self.intrinsics, wasmer_ty);
                     [llvm_ty]
                         .iter()
-                        .map(|&ty| builder.build_phi(ty, &self.state.var_name()))
+                        .map(|&ty| self.builder.build_phi(ty, &self.state.var_name()))
                         .collect()
                 } else {
                     SmallVec::new()
                 };
 
                 self.state.push_block(end_block, phis);
-                builder.position_at_end(current_block);
+                self.builder.position_at_end(current_block);
             }
             Operator::Loop { ty } => {
-                let loop_body = context.append_basic_block(function, "loop_body");
-                let loop_next = context.append_basic_block(function, "loop_outer");
+                let loop_body = self.context.append_basic_block(self.function, "loop_body");
+                let loop_next = self.context.append_basic_block(self.function, "loop_outer");
 
-                builder.build_unconditional_branch(loop_body);
+                self.builder.build_unconditional_branch(loop_body);
 
-                builder.position_at_end(loop_next);
+                self.builder.position_at_end(loop_next);
                 let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
-                    let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
+                    let llvm_ty = type_to_llvm(self.intrinsics, wasmer_ty);
                     [llvm_ty]
                         .iter()
-                        .map(|&ty| builder.build_phi(ty, &self.state.var_name()))
+                        .map(|&ty| self.builder.build_phi(ty, &self.state.var_name()))
                         .collect()
                 } else {
                     SmallVec::new()
                 };
 
-                builder.position_at_end(loop_body);
+                self.builder.position_at_end(loop_body);
 
                 /*
                 if self.track_state {
                     if let Some(offset) = opcode_offset {
                         let mut stackmaps = self.stackmaps.borrow_mut();
                         emit_stack_map(
-                            intrinsics,
-                            builder,
+                            self.intrinsics,
+                            self.builder,
                             self.index,
                             &mut *stackmaps,
                             StackmapEntryKind::Loop,
-                            &self.locals,
+                            &self.self.locals,
                             state,
                             ctx,
                             offset,
                         );
                         let signal_mem = ctx.signal_mem();
-                        let iv = builder
-                            .build_store(signal_mem, context.i8_type().const_int(0 as u64, false));
+                        let iv = self.builder
+                            .build_store(signal_mem, self.context.i8_type().const_int(0 as u64, false));
                         // Any 'store' can be made volatile.
                         iv.set_volatile(true).unwrap();
                         finalize_opcode_stack_map(
-                            intrinsics,
-                            builder,
+                            self.intrinsics,
+                            self.builder,
                             self.index,
                             &mut *stackmaps,
                             StackmapEntryKind::Loop,
@@ -1732,9 +1682,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::Br { relative_depth } => {
                 let frame = self.state.frame_at_depth(relative_depth)?;
 
-                let current_block = builder.get_insert_block().ok_or(CompileError::Codegen(
-                    "not currently in a block".to_string(),
-                ))?;
+                let current_block =
+                    self.builder
+                        .get_insert_block()
+                        .ok_or(CompileError::Codegen(
+                            "not currently in a block".to_string(),
+                        ))?;
 
                 let value_len = if frame.is_loop() {
                     0
@@ -1744,7 +1697,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let values = self.state.peekn_extra(value_len)?;
                 let values = values.iter().map(|(v, info)| {
-                    apply_pending_canonicalization(builder, intrinsics, *v, *info)
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, *v, *info)
                 });
 
                 // For each result of the block we're branching to,
@@ -1754,7 +1707,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     phi.add_incoming(&[(&value, current_block)]);
                 }
 
-                builder.build_unconditional_branch(*frame.br_dest());
+                self.builder.build_unconditional_branch(*frame.br_dest());
 
                 self.state.popn(value_len)?;
                 self.state.reachable = false;
@@ -1763,9 +1716,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let cond = self.state.pop1()?;
                 let frame = self.state.frame_at_depth(relative_depth)?;
 
-                let current_block = builder.get_insert_block().ok_or(CompileError::Codegen(
-                    "not currently in a block".to_string(),
-                ))?;
+                let current_block =
+                    self.builder
+                        .get_insert_block()
+                        .ok_or(CompileError::Codegen(
+                            "not currently in a block".to_string(),
+                        ))?;
 
                 let value_len = if frame.is_loop() {
                     0
@@ -1775,28 +1731,32 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let param_stack = self.state.peekn_extra(value_len)?;
                 let param_stack = param_stack.iter().map(|(v, info)| {
-                    apply_pending_canonicalization(builder, intrinsics, *v, *info)
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, *v, *info)
                 });
 
                 for (phi, value) in frame.phis().iter().zip(param_stack) {
                     phi.add_incoming(&[(&value, current_block)]);
                 }
 
-                let else_block = context.append_basic_block(function, "else");
+                let else_block = self.context.append_basic_block(self.function, "else");
 
-                let cond_value = builder.build_int_compare(
+                let cond_value = self.builder.build_int_compare(
                     IntPredicate::NE,
                     cond.into_int_value(),
-                    intrinsics.i32_zero,
+                    self.intrinsics.i32_zero,
                     &self.state.var_name(),
                 );
-                builder.build_conditional_branch(cond_value, *frame.br_dest(), else_block);
-                builder.position_at_end(else_block);
+                self.builder
+                    .build_conditional_branch(cond_value, *frame.br_dest(), else_block);
+                self.builder.position_at_end(else_block);
             }
             Operator::BrTable { ref table } => {
-                let current_block = builder.get_insert_block().ok_or(CompileError::Codegen(
-                    "not currently in a block".to_string(),
-                ))?;
+                let current_block =
+                    self.builder
+                        .get_insert_block()
+                        .ok_or(CompileError::Codegen(
+                            "not currently in a block".to_string(),
+                        ))?;
 
                 let (label_depths, default_depth) = table.read_table().map_err(to_wasm_error)?;
 
@@ -1826,7 +1786,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             Err(e) => return Err(e),
                         };
                         let case_index_literal =
-                            context.i32_type().const_int(case_index as u64, false);
+                            self.context.i32_type().const_int(case_index as u64, false);
 
                         for (phi, value) in frame.phis().iter().zip(args.iter()) {
                             phi.add_incoming(&[(value, current_block)]);
@@ -1836,66 +1796,81 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     })
                     .collect::<Result<_, _>>()?;
 
-                builder.build_switch(index.into_int_value(), *default_frame.br_dest(), &cases[..]);
+                self.builder.build_switch(
+                    index.into_int_value(),
+                    *default_frame.br_dest(),
+                    &cases[..],
+                );
 
                 let args_len = args.len();
                 self.state.popn(args_len)?;
                 self.state.reachable = false;
             }
             Operator::If { ty } => {
-                let current_block = builder.get_insert_block().ok_or(CompileError::Codegen(
-                    "not currently in a block".to_string(),
-                ))?;
-                let if_then_block = context.append_basic_block(function, "if_then");
-                let if_else_block = context.append_basic_block(function, "if_else");
-                let end_block = context.append_basic_block(function, "if_end");
+                let current_block =
+                    self.builder
+                        .get_insert_block()
+                        .ok_or(CompileError::Codegen(
+                            "not currently in a block".to_string(),
+                        ))?;
+                let if_then_block = self.context.append_basic_block(self.function, "if_then");
+                let if_else_block = self.context.append_basic_block(self.function, "if_else");
+                let end_block = self.context.append_basic_block(self.function, "if_end");
 
                 let end_phis = {
-                    builder.position_at_end(end_block);
+                    self.builder.position_at_end(end_block);
 
                     let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
-                        let llvm_ty = type_to_llvm(intrinsics, wasmer_ty);
+                        let llvm_ty = type_to_llvm(self.intrinsics, wasmer_ty);
                         [llvm_ty]
                             .iter()
-                            .map(|&ty| builder.build_phi(ty, &self.state.var_name()))
+                            .map(|&ty| self.builder.build_phi(ty, &self.state.var_name()))
                             .collect()
                     } else {
                         SmallVec::new()
                     };
 
-                    builder.position_at_end(current_block);
+                    self.builder.position_at_end(current_block);
                     phis
                 };
 
                 let cond = self.state.pop1()?;
 
-                let cond_value = builder.build_int_compare(
+                let cond_value = self.builder.build_int_compare(
                     IntPredicate::NE,
                     cond.into_int_value(),
-                    intrinsics.i32_zero,
+                    self.intrinsics.i32_zero,
                     &self.state.var_name(),
                 );
 
-                builder.build_conditional_branch(cond_value, if_then_block, if_else_block);
-                builder.position_at_end(if_then_block);
+                self.builder
+                    .build_conditional_branch(cond_value, if_then_block, if_else_block);
+                self.builder.position_at_end(if_then_block);
                 self.state
                     .push_if(if_then_block, if_else_block, end_block, end_phis);
             }
             Operator::Else => {
                 if self.state.reachable {
                     let frame = self.state.frame_at_depth(0)?;
-                    let current_block = builder.get_insert_block().ok_or(CompileError::Codegen(
-                        "not currently in a block".to_string(),
-                    ))?;
+                    let current_block =
+                        self.builder
+                            .get_insert_block()
+                            .ok_or(CompileError::Codegen(
+                                "not currently in a block".to_string(),
+                            ))?;
 
                     for phi in frame.phis().to_vec().iter().rev() {
                         let (value, info) = self.state.pop1_extra()?;
-                        let value =
-                            apply_pending_canonicalization(builder, intrinsics, value, info);
+                        let value = apply_pending_canonicalization(
+                            &self.builder,
+                            self.intrinsics,
+                            value,
+                            info,
+                        );
                         phi.add_incoming(&[(&value, current_block)])
                     }
                     let frame = self.state.frame_at_depth(0)?;
-                    builder.build_unconditional_branch(*frame.code_after());
+                    self.builder.build_unconditional_branch(*frame.code_after());
                 }
 
                 let (if_else_block, if_else_state) = if let ControlFrame::IfElse {
@@ -1911,25 +1886,32 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 *if_else_state = IfElseState::Else;
 
-                builder.position_at_end(*if_else_block);
+                self.builder.position_at_end(*if_else_block);
                 self.state.reachable = true;
             }
 
             Operator::End => {
                 let frame = self.state.pop_frame()?;
-                let current_block = builder.get_insert_block().ok_or(CompileError::Codegen(
-                    "not currently in a block".to_string(),
-                ))?;
+                let current_block =
+                    self.builder
+                        .get_insert_block()
+                        .ok_or(CompileError::Codegen(
+                            "not currently in a block".to_string(),
+                        ))?;
 
                 if self.state.reachable {
                     for phi in frame.phis().iter().rev() {
                         let (value, info) = self.state.pop1_extra()?;
-                        let value =
-                            apply_pending_canonicalization(builder, intrinsics, value, info);
+                        let value = apply_pending_canonicalization(
+                            &self.builder,
+                            self.intrinsics,
+                            value,
+                            info,
+                        );
                         phi.add_incoming(&[(&value, current_block)]);
                     }
 
-                    builder.build_unconditional_branch(*frame.code_after());
+                    self.builder.build_unconditional_branch(*frame.code_after());
                 }
 
                 if let ControlFrame::IfElse {
@@ -1940,12 +1922,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 } = &frame
                 {
                     if let IfElseState::If = if_else_state {
-                        builder.position_at_end(*if_else);
-                        builder.build_unconditional_branch(*next);
+                        self.builder.position_at_end(*if_else);
+                        self.builder.build_unconditional_branch(*next);
                     }
                 }
 
-                builder.position_at_end(*frame.code_after());
+                self.builder.position_at_end(*frame.code_after());
                 self.state.reset_stack(&frame);
 
                 self.state.reachable = true;
@@ -1975,19 +1957,23 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
             }
             Operator::Return => {
-                let current_block = builder.get_insert_block().ok_or(CompileError::Codegen(
-                    "not currently in a block".to_string(),
-                ))?;
+                let current_block =
+                    self.builder
+                        .get_insert_block()
+                        .ok_or(CompileError::Codegen(
+                            "not currently in a block".to_string(),
+                        ))?;
 
                 let frame = self.state.outermost_frame()?;
                 for phi in frame.phis().to_vec().iter() {
                     let (arg, info) = self.state.pop1_extra()?;
-                    let arg = apply_pending_canonicalization(builder, intrinsics, arg, info);
+                    let arg =
+                        apply_pending_canonicalization(&self.builder, self.intrinsics, arg, info);
                     phi.add_incoming(&[(&arg, current_block)]);
                 }
 
                 let frame = self.state.outermost_frame()?;
-                builder.build_unconditional_branch(*frame.br_dest());
+                self.builder.build_unconditional_branch(*frame.br_dest());
 
                 self.state.reachable = false;
             }
@@ -2004,20 +1990,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     if self.track_state {
                         let mut stackmaps = self.stackmaps.borrow_mut();
                         emit_stack_map(
-                            intrinsics,
-                            builder,
+                            self.intrinsics,
+                            self.builder,
                             self.index,
                             &mut *stackmaps,
                             StackmapEntryKind::Trappable,
-                            &self.locals,
+                            &self.self.locals,
                             state,
                             ctx,
                             offset,
                         );
-                        builder.build_call(intrinsics.trap, &[], "trap");
+                        self.builder.build_call(self.intrinsics.trap, &[], "trap");
                         finalize_opcode_stack_map(
-                            intrinsics,
-                            builder,
+                            self.intrinsics,
+                            self.builder,
                             self.index,
                             &mut *stackmaps,
                             StackmapEntryKind::Trappable,
@@ -2027,12 +2013,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                builder.build_call(
-                    intrinsics.throw_trap,
-                    &[intrinsics.trap_unreachable],
+                self.builder.build_call(
+                    self.intrinsics.throw_trap,
+                    &[self.intrinsics.trap_unreachable],
                     "throw",
                 );
-                builder.build_unreachable();
+                self.builder.build_unreachable();
 
                 self.state.reachable = false;
             }
@@ -2050,7 +2036,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             // Generate const values.
             Operator::I32Const { value } => {
-                let i = intrinsics.i32_ty.const_int(value as u64, false);
+                let i = self.intrinsics.i32_ty.const_int(value as u64, false);
                 let info = if is_f32_arithmetic(value as u32) {
                     ExtraInfo::arithmetic_f32()
                 } else {
@@ -2059,7 +2045,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1_extra(i, info);
             }
             Operator::I64Const { value } => {
-                let i = intrinsics.i64_ty.const_int(value as u64, false);
+                let i = self.intrinsics.i64_ty.const_int(value as u64, false);
                 let info = if is_f64_arithmetic(value as u64) {
                     ExtraInfo::arithmetic_f64()
                 } else {
@@ -2068,23 +2054,27 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1_extra(i, info);
             }
             Operator::F32Const { value } => {
-                let bits = intrinsics.i32_ty.const_int(value.bits() as u64, false);
+                let bits = self.intrinsics.i32_ty.const_int(value.bits() as u64, false);
                 let info = if is_f32_arithmetic(value.bits()) {
                     ExtraInfo::arithmetic_f32()
                 } else {
                     Default::default()
                 };
-                let f = builder.build_bitcast(bits, intrinsics.f32_ty, "f");
+                let f = self
+                    .builder
+                    .build_bitcast(bits, self.intrinsics.f32_ty, "f");
                 self.state.push1_extra(f, info);
             }
             Operator::F64Const { value } => {
-                let bits = intrinsics.i64_ty.const_int(value.bits(), false);
+                let bits = self.intrinsics.i64_ty.const_int(value.bits(), false);
                 let info = if is_f64_arithmetic(value.bits()) {
                     ExtraInfo::arithmetic_f64()
                 } else {
                     Default::default()
                 };
-                let f = builder.build_bitcast(bits, intrinsics.f64_ty, "f");
+                let f = self
+                    .builder
+                    .build_bitcast(bits, self.intrinsics.f64_ty, "f");
                 self.state.push1_extra(f, info);
             }
             Operator::V128Const { value } => {
@@ -2093,7 +2083,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 hi.copy_from_slice(&value.bytes()[0..8]);
                 lo.copy_from_slice(&value.bytes()[8..16]);
                 let packed = [u64::from_le_bytes(hi), u64::from_le_bytes(lo)];
-                let i = intrinsics.i128_ty.const_int_arbitrary_precision(&packed);
+                let i = self
+                    .intrinsics
+                    .i128_ty
+                    .const_int_arbitrary_precision(&packed);
                 let mut quad1: [u8; 4] = Default::default();
                 let mut quad2: [u8; 4] = Default::default();
                 let mut quad3: [u8; 4] = Default::default();
@@ -2119,65 +2112,69 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I8x16Splat => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = v.into_int_value();
-                let v = builder.build_int_truncate(v, intrinsics.i8_ty, "");
+                let v = self
+                    .builder
+                    .build_int_truncate(v, self.intrinsics.i8_ty, "");
                 let res = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v.as_basic_value_enum(),
-                    intrinsics.i8x16_ty,
+                    self.intrinsics.i8x16_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, i);
             }
             Operator::I16x8Splat => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = v.into_int_value();
-                let v = builder.build_int_truncate(v, intrinsics.i16_ty, "");
+                let v = self
+                    .builder
+                    .build_int_truncate(v, self.intrinsics.i16_ty, "");
                 let res = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v.as_basic_value_enum(),
-                    intrinsics.i16x8_ty,
+                    self.intrinsics.i16x8_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, i);
             }
             Operator::I32x4Splat => {
                 let (v, i) = self.state.pop1_extra()?;
                 let res = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v,
-                    intrinsics.i32x4_ty,
+                    self.intrinsics.i32x4_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, i);
             }
             Operator::I64x2Splat => {
                 let (v, i) = self.state.pop1_extra()?;
                 let res = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v,
-                    intrinsics.i64x2_ty,
+                    self.intrinsics.i64x2_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, i);
             }
             Operator::F32x4Splat => {
                 let (v, i) = self.state.pop1_extra()?;
                 let res = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v,
-                    intrinsics.f32x4_ty,
+                    self.intrinsics.f32x4_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // The spec is unclear, we interpret splat as preserving NaN
                 // payload bits.
                 self.state.push1_extra(res, i);
@@ -2185,25 +2182,27 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F64x2Splat => {
                 let (v, i) = self.state.pop1_extra()?;
                 let res = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v,
-                    intrinsics.f64x2_ty,
+                    self.intrinsics.f64x2_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // The spec is unclear, we interpret splat as preserving NaN
                 // payload bits.
                 self.state.push1_extra(res, i);
             }
 
-            // Operate on locals.
+            // Operate on self.locals.
             Operator::LocalGet { local_index } => {
-                let pointer_value = locals[local_index as usize];
-                let v = builder.build_load(pointer_value, &self.state.var_name());
+                let pointer_value = self.locals[local_index as usize];
+                let v = self
+                    .builder
+                    .build_load(pointer_value, &self.state.var_name());
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "local",
                     v.as_instruction_value().unwrap(),
                     Some(local_index),
@@ -2211,28 +2210,40 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1(v);
             }
             Operator::LocalSet { local_index } => {
-                let pointer_value = locals[local_index as usize];
+                let pointer_value = self.locals[local_index as usize];
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
-                let store = builder.build_store(pointer_value, v);
-                tbaa_label(&self.module, intrinsics, "local", store, Some(local_index));
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
+                let store = self.builder.build_store(pointer_value, v);
+                tbaa_label(
+                    &self.module,
+                    self.intrinsics,
+                    "local",
+                    store,
+                    Some(local_index),
+                );
             }
             Operator::LocalTee { local_index } => {
-                let pointer_value = locals[local_index as usize];
+                let pointer_value = self.locals[local_index as usize];
                 let (v, i) = self.state.peek1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
-                let store = builder.build_store(pointer_value, v);
-                tbaa_label(&self.module, intrinsics, "local", store, Some(local_index));
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
+                let store = self.builder.build_store(pointer_value, v);
+                tbaa_label(
+                    &self.module,
+                    self.intrinsics,
+                    "local",
+                    store,
+                    Some(local_index),
+                );
             }
 
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                match ctx.global(global_index, intrinsics) {
+                match self.ctx.global(global_index, self.intrinsics) {
                     GlobalCache::Const { value } => {
                         self.state.push1(value);
                     }
                     GlobalCache::Mut { ptr_to_value } => {
-                        let value = builder.build_load(ptr_to_value, "");
+                        let value = self.builder.build_load(ptr_to_value, "");
                         // TODO: tbaa
                         self.state.push1(value);
                     }
@@ -2240,7 +2251,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                match ctx.global(global_index, intrinsics) {
+                match self.ctx.global(global_index, self.intrinsics) {
                     GlobalCache::Const { value } => {
                         return Err(CompileError::Codegen(format!(
                             "global.set on immutable global index {}",
@@ -2249,9 +2260,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                     GlobalCache::Mut { ptr_to_value } => {
                         let (value, info) = self.state.pop1_extra()?;
-                        let value =
-                            apply_pending_canonicalization(builder, intrinsics, value, info);
-                        builder.build_store(ptr_to_value, value);
+                        let value = apply_pending_canonicalization(
+                            &self.builder,
+                            self.intrinsics,
+                            value,
+                            info,
+                        );
+                        self.builder.build_store(ptr_to_value, value);
                         // TODO: tbaa
                     }
                 }
@@ -2270,21 +2285,23 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     || i1.has_pending_f64_nan() != i2.has_pending_f64_nan()
                 {
                     (
-                        apply_pending_canonicalization(builder, intrinsics, v1, i1),
+                        apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1),
                         i1.strip_pending(),
-                        apply_pending_canonicalization(builder, intrinsics, v2, i2),
+                        apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2),
                         i2.strip_pending(),
                     )
                 } else {
                     (v1, i1, v2, i2)
                 };
-                let cond_value = builder.build_int_compare(
+                let cond_value = self.builder.build_int_compare(
                     IntPredicate::NE,
                     cond.into_int_value(),
-                    intrinsics.i32_zero,
+                    self.intrinsics.i32_zero,
                     &self.state.var_name(),
                 );
-                let res = builder.build_select(cond_value, v1, v2, &self.state.var_name());
+                let res = self
+                    .builder
+                    .build_select(cond_value, v1, v2, &self.state.var_name());
                 let info = {
                     let mut info = i1.strip_pending() & i2.strip_pending();
                     if i1.has_pending_f32_nan() {
@@ -2304,12 +2321,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let sigindex = &module.functions[func_index];
                 let func_type = &module.signatures[*sigindex];
                 let func_name = &self.func_names[func_index];
-                let llvm_func_type = func_type_to_llvm(&self.context, &intrinsics, func_type);
+                let llvm_func_type = func_type_to_llvm(&self.context, &self.intrinsics, func_type);
 
                 let (func, callee_vmctx) = if let Some(local_func_index) =
                     module.local_func_index(func_index)
                 {
-                    // TODO: we could do this by comparing function indices instead
+                    // TODO: we could do this by comparing self.function indices instead
                     // of going through LLVM APIs and string comparisons.
                     let func = self.module.get_function(func_name);
                     let func = if func.is_none() {
@@ -2318,38 +2335,43 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     } else {
                         func.unwrap()
                     };
-                    (func.as_global_value().as_pointer_value(), ctx.basic())
+                    (func.as_global_value().as_pointer_value(), self.ctx.basic())
                 } else {
                     let offset = self.vmoffsets.vmctx_vmfunction_import(func_index);
-                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                    let vmfunction_import_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
-                    let vmfunction_import_ptr = builder
+                    let offset = self.intrinsics.i32_ty.const_int(offset.into(), false);
+                    let vmfunction_import_ptr =
+                        unsafe { self.builder.build_gep(*vmctx, &[offset], "") };
+                    let vmfunction_import_ptr = self
+                        .builder
                         .build_bitcast(
                             vmfunction_import_ptr,
-                            intrinsics.vmfunction_import_ptr_ty,
+                            self.intrinsics.vmfunction_import_ptr_ty,
                             "",
                         )
                         .into_pointer_value();
 
-                    let body_ptr_ptr = builder
+                    let body_ptr_ptr = self
+                        .builder
                         .build_struct_gep(
                             vmfunction_import_ptr,
-                            intrinsics.vmfunction_import_body_element,
+                            self.intrinsics.vmfunction_import_body_element,
                             "",
                         )
                         .unwrap();
-                    let body_ptr = builder.build_load(body_ptr_ptr, "");
-                    let body_ptr = builder
+                    let body_ptr = self.builder.build_load(body_ptr_ptr, "");
+                    let body_ptr = self
+                        .builder
                         .build_bitcast(body_ptr, llvm_func_type.ptr_type(AddressSpace::Generic), "")
                         .into_pointer_value();
-                    let vmctx_ptr_ptr = builder
+                    let vmctx_ptr_ptr = self
+                        .builder
                         .build_struct_gep(
                             vmfunction_import_ptr,
-                            intrinsics.vmfunction_import_vmctx_element,
+                            self.intrinsics.vmfunction_import_vmctx_element,
                             "",
                         )
                         .unwrap();
-                    let vmctx_ptr = builder.build_load(vmctx_ptr_ptr, "");
+                    let vmctx_ptr = self.builder.build_load(vmctx_ptr_ptr, "");
                     (body_ptr, vmctx_ptr)
                 };
 
@@ -2361,26 +2383,39 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             .iter()
                             .enumerate()
                             .map(|(i, (v, info))| match func_type.params()[i] {
-                                Type::F32 => builder.build_bitcast(
-                                    apply_pending_canonicalization(builder, intrinsics, *v, *info),
-                                    intrinsics.f32_ty,
+                                Type::F32 => self.builder.build_bitcast(
+                                    apply_pending_canonicalization(
+                                        &self.builder,
+                                        self.intrinsics,
+                                        *v,
+                                        *info,
+                                    ),
+                                    self.intrinsics.f32_ty,
                                     &self.state.var_name(),
                                 ),
-                                Type::F64 => builder.build_bitcast(
-                                    apply_pending_canonicalization(builder, intrinsics, *v, *info),
-                                    intrinsics.f64_ty,
+                                Type::F64 => self.builder.build_bitcast(
+                                    apply_pending_canonicalization(
+                                        &self.builder,
+                                        self.intrinsics,
+                                        *v,
+                                        *info,
+                                    ),
+                                    self.intrinsics.f64_ty,
                                     &self.state.var_name(),
                                 ),
-                                Type::V128 => {
-                                    apply_pending_canonicalization(builder, intrinsics, *v, *info)
-                                }
+                                Type::V128 => apply_pending_canonicalization(
+                                    &self.builder,
+                                    self.intrinsics,
+                                    *v,
+                                    *info,
+                                ),
                                 _ => *v,
                             }),
                     )
                     .collect();
 
                 /*
-                let func_ptr = self.llvm_functions.borrow_mut()[&func_index];
+                let func_ptr = self.llvm.functions.borrow_mut()[&func_index];
 
                 (params, func_ptr.as_global_value().as_pointer_value())
                 */
@@ -2391,8 +2426,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         let mut stackmaps = self.stackmaps.borrow_mut();
                         emit_stack_map(
                             &info,
-                            intrinsics,
-                            builder,
+                            self.intrinsics,
+                            self.builder,
                             self.index,
                             &mut *stackmaps,
                             StackmapEntryKind::Call,
@@ -2404,14 +2439,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
-                let call_site = builder.build_call(func, &params, &self.state.var_name());
+                let call_site = self
+                    .builder
+                    .build_call(func, &params, &self.state.var_name());
                 /*
                 if self.track_state {
                     if let Some(offset) = opcode_offset {
                         let mut stackmaps = self.stackmaps.borrow_mut();
                         finalize_opcode_stack_map(
-                            intrinsics,
-                            builder,
+                            self.intrinsics,
+                            self.builder,
                             self.index,
                             &mut *stackmaps,
                             StackmapEntryKind::Call,
@@ -2428,7 +2465,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             // This is a multi-value return.
                             let struct_value = basic_value.into_struct_value();
                             for i in 0..(count as u32) {
-                                let value = builder
+                                let value = self
+                                    .builder
                                     .build_extract_value(struct_value, i, &self.state.var_name())
                                     .unwrap();
                                 self.state.push1(value);
@@ -2440,24 +2478,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::CallIndirect { index, table_index } => {
                 let sigindex = SignatureIndex::from_u32(index);
                 let func_type = &module.signatures[sigindex];
-                let expected_dynamic_sigindex = ctx.dynamic_sigindex(sigindex, intrinsics);
-                let (table_base, table_bound) = ctx.table(
+                let expected_dynamic_sigindex =
+                    self.ctx.dynamic_sigindex(sigindex, self.intrinsics);
+                let (table_base, table_bound) = self.ctx.table(
                     TableIndex::from_u32(table_index),
-                    intrinsics,
+                    self.intrinsics,
                     self.module,
-                    builder,
+                    &self.builder,
                 );
                 let func_index = self.state.pop1()?.into_int_value();
 
                 // We assume the table has the `anyfunc` element type.
-                let casted_table_base = builder.build_pointer_cast(
+                let casted_table_base = self.builder.build_pointer_cast(
                     table_base,
-                    intrinsics.anyfunc_ty.ptr_type(AddressSpace::Generic),
+                    self.intrinsics.anyfunc_ty.ptr_type(AddressSpace::Generic),
                     "casted_table_base",
                 );
 
                 let anyfunc_struct_ptr = unsafe {
-                    builder.build_in_bounds_gep(
+                    self.builder.build_in_bounds_gep(
                         casted_table_base,
                         &[func_index],
                         "anyfunc_struct_ptr",
@@ -2467,24 +2506,24 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // Load things from the anyfunc data structure.
                 let (func_ptr, found_dynamic_sigindex, ctx_ptr) = unsafe {
                     (
-                        builder
+                        self.builder
                             .build_load(
-                                builder
+                                self.builder
                                     .build_struct_gep(anyfunc_struct_ptr, 0, "func_ptr_ptr")
                                     .unwrap(),
                                 "func_ptr",
                             )
                             .into_pointer_value(),
-                        builder
+                        self.builder
                             .build_load(
-                                builder
+                                self.builder
                                     .build_struct_gep(anyfunc_struct_ptr, 1, "sigindex_ptr")
                                     .unwrap(),
                                 "sigindex",
                             )
                             .into_int_value(),
-                        builder.build_load(
-                            builder
+                        self.builder.build_load(
+                            self.builder
                                 .build_struct_gep(anyfunc_struct_ptr, 2, "ctx_ptr_ptr")
                                 .unwrap(),
                             "ctx_ptr",
@@ -2492,26 +2531,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     )
                 };
 
-                let truncated_table_bounds = builder.build_int_truncate(
+                let truncated_table_bounds = self.builder.build_int_truncate(
                     table_bound,
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     "truncated_table_bounds",
                 );
 
                 // First, check if the index is outside of the table bounds.
-                let index_in_bounds = builder.build_int_compare(
+                let index_in_bounds = self.builder.build_int_compare(
                     IntPredicate::ULT,
                     func_index,
                     truncated_table_bounds,
                     "index_in_bounds",
                 );
 
-                let index_in_bounds = builder
+                let index_in_bounds = self
+                    .builder
                     .build_call(
-                        intrinsics.expect_i1,
+                        self.intrinsics.expect_i1,
                         &[
                             index_in_bounds.as_basic_value_enum(),
-                            intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                            self.intrinsics
+                                .i1_ty
+                                .const_int(1, false)
+                                .as_basic_value_enum(),
                         ],
                         "index_in_bounds_expect",
                     )
@@ -2520,31 +2563,33 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap()
                     .into_int_value();
 
-                let in_bounds_continue_block =
-                    context.append_basic_block(function, "in_bounds_continue_block");
-                let not_in_bounds_block =
-                    context.append_basic_block(function, "not_in_bounds_block");
-                builder.build_conditional_branch(
+                let in_bounds_continue_block = self
+                    .context
+                    .append_basic_block(self.function, "in_bounds_continue_block");
+                let not_in_bounds_block = self
+                    .context
+                    .append_basic_block(self.function, "not_in_bounds_block");
+                self.builder.build_conditional_branch(
                     index_in_bounds,
                     in_bounds_continue_block,
                     not_in_bounds_block,
                 );
-                builder.position_at_end(not_in_bounds_block);
-                builder.build_call(
-                    intrinsics.throw_trap,
-                    &[intrinsics.trap_table_access_oob],
+                self.builder.position_at_end(not_in_bounds_block);
+                self.builder.build_call(
+                    self.intrinsics.throw_trap,
+                    &[self.intrinsics.trap_table_access_oob],
                     "throw",
                 );
-                builder.build_unreachable();
-                builder.position_at_end(in_bounds_continue_block);
+                self.builder.build_unreachable();
+                self.builder.position_at_end(in_bounds_continue_block);
 
                 // Next, check if the table element is initialized.
 
-                let elem_initialized = builder.build_is_not_null(func_ptr, "");
+                let elem_initialized = self.builder.build_is_not_null(func_ptr, "");
 
                 // Next, check if the signature id is correct.
 
-                let sigindices_equal = builder.build_int_compare(
+                let sigindices_equal = self.builder.build_int_compare(
                     IntPredicate::EQ,
                     expected_dynamic_sigindex,
                     found_dynamic_sigindex,
@@ -2552,15 +2597,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
 
                 let initialized_and_sigindices_match =
-                    builder.build_and(elem_initialized, sigindices_equal, "");
+                    self.builder
+                        .build_and(elem_initialized, sigindices_equal, "");
 
                 // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
-                let initialized_and_sigindices_match = builder
+                let initialized_and_sigindices_match = self
+                    .builder
                     .build_call(
-                        intrinsics.expect_i1,
+                        self.intrinsics.expect_i1,
                         &[
                             initialized_and_sigindices_match.as_basic_value_enum(),
-                            intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                            self.intrinsics
+                                .i1_ty
+                                .const_int(1, false)
+                                .as_basic_value_enum(),
                         ],
                         "initialized_and_sigindices_match_expect",
                     )
@@ -2569,27 +2619,31 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap()
                     .into_int_value();
 
-                let continue_block = context.append_basic_block(function, "continue_block");
-                let sigindices_notequal_block =
-                    context.append_basic_block(function, "sigindices_notequal_block");
-                builder.build_conditional_branch(
+                let continue_block = self
+                    .context
+                    .append_basic_block(self.function, "continue_block");
+                let sigindices_notequal_block = self
+                    .context
+                    .append_basic_block(self.function, "sigindices_notequal_block");
+                self.builder.build_conditional_branch(
                     initialized_and_sigindices_match,
                     continue_block,
                     sigindices_notequal_block,
                 );
 
-                builder.position_at_end(sigindices_notequal_block);
-                let trap_code = builder.build_select(
+                self.builder.position_at_end(sigindices_notequal_block);
+                let trap_code = self.builder.build_select(
                     elem_initialized,
-                    intrinsics.trap_call_indirect_sig,
-                    intrinsics.trap_call_indirect_null,
+                    self.intrinsics.trap_call_indirect_sig,
+                    self.intrinsics.trap_call_indirect_null,
                     "",
                 );
-                builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
-                builder.build_unreachable();
-                builder.position_at_end(continue_block);
+                self.builder
+                    .build_call(self.intrinsics.throw_trap, &[trap_code], "throw");
+                self.builder.build_unreachable();
+                self.builder.position_at_end(continue_block);
 
-                let llvm_func_type = func_type_to_llvm(&self.context, &intrinsics, func_type);
+                let llvm_func_type = func_type_to_llvm(&self.context, &self.intrinsics, func_type);
 
                 let pushed_args = self.state.popn_save_extra(func_type.params().len())?;
 
@@ -2597,25 +2651,38 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .take(2)
                     .chain(pushed_args.into_iter().enumerate().map(|(i, (v, info))| {
                         match func_type.params()[i] {
-                            Type::F32 => builder.build_bitcast(
-                                apply_pending_canonicalization(builder, intrinsics, v, info),
-                                intrinsics.f32_ty,
+                            Type::F32 => self.builder.build_bitcast(
+                                apply_pending_canonicalization(
+                                    &self.builder,
+                                    self.intrinsics,
+                                    v,
+                                    info,
+                                ),
+                                self.intrinsics.f32_ty,
                                 &self.state.var_name(),
                             ),
-                            Type::F64 => builder.build_bitcast(
-                                apply_pending_canonicalization(builder, intrinsics, v, info),
-                                intrinsics.f64_ty,
+                            Type::F64 => self.builder.build_bitcast(
+                                apply_pending_canonicalization(
+                                    &self.builder,
+                                    self.intrinsics,
+                                    v,
+                                    info,
+                                ),
+                                self.intrinsics.f64_ty,
                                 &self.state.var_name(),
                             ),
-                            Type::V128 => {
-                                apply_pending_canonicalization(builder, intrinsics, v, info)
-                            }
+                            Type::V128 => apply_pending_canonicalization(
+                                &self.builder,
+                                self.intrinsics,
+                                v,
+                                info,
+                            ),
                             _ => v,
                         }
                     }))
                     .collect();
 
-                let typed_func_ptr = builder.build_pointer_cast(
+                let typed_func_ptr = self.builder.build_pointer_cast(
                     func_ptr,
                     llvm_func_type.ptr_type(AddressSpace::Generic),
                     "typed_func_ptr",
@@ -2627,8 +2694,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         let mut stackmaps = self.stackmaps.borrow_mut();
                         emit_stack_map(
                             &info,
-                            intrinsics,
-                            builder,
+                            self.intrinsics,
+                            self.builder,
                             self.index,
                             &mut *stackmaps,
                             StackmapEntryKind::Call,
@@ -2640,14 +2707,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
-                let call_site = builder.build_call(typed_func_ptr, &args, "indirect_call");
+                let call_site = self
+                    .builder
+                    .build_call(typed_func_ptr, &args, "indirect_call");
                 /*
                 if self.track_state {
                     if let Some(offset) = opcode_offset {
                         let mut stackmaps = self.stackmaps.borrow_mut();
                         finalize_opcode_stack_map(
-                            intrinsics,
-                            builder,
+                            self.intrinsics,
+                            self.builder,
                             self.index,
                             &mut *stackmaps,
                             StackmapEntryKind::Call,
@@ -2662,12 +2731,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     [_] => {
                         let value = call_site.try_as_basic_value().left().unwrap();
                         self.state.push1(match func_type.results()[0] {
-                            Type::F32 => {
-                                builder.build_bitcast(value, intrinsics.f32_ty, "ret_cast")
-                            }
-                            Type::F64 => {
-                                builder.build_bitcast(value, intrinsics.f64_ty, "ret_cast")
-                            }
+                            Type::F32 => self.builder.build_bitcast(
+                                value,
+                                self.intrinsics.f32_ty,
+                                "ret_cast",
+                            ),
+                            Type::F64 => self.builder.build_bitcast(
+                                value,
+                                self.intrinsics.f64_ty,
+                                "ret_cast",
+                            ),
                             _ => value,
                         });
                     }
@@ -2685,277 +2758,302 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
              ***************************/
             Operator::I32Add | Operator::I64Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_add(v1, v2, &self.state.var_name());
+                let res = self.builder.build_int_add(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I8x16Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_add(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_add(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_add(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_add(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_add(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_add(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I64x2Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_int_add(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_add(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I8x16AddSaturateS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.sadd_sat_i8x16,
+                        self.intrinsics.sadd_sat_i8x16,
                         &[v1.as_basic_value_enum(), v2.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8AddSaturateS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.sadd_sat_i16x8,
+                        self.intrinsics.sadd_sat_i16x8,
                         &[v1.as_basic_value_enum(), v2.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I8x16AddSaturateU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.uadd_sat_i8x16,
+                        self.intrinsics.uadd_sat_i8x16,
                         &[v1.as_basic_value_enum(), v2.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8AddSaturateU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.uadd_sat_i16x8,
+                        self.intrinsics.uadd_sat_i16x8,
                         &[v1.as_basic_value_enum(), v2.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32Sub | Operator::I64Sub => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_sub(v1, v2, &self.state.var_name());
+                let res = self.builder.build_int_sub(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I8x16Sub => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_sub(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_sub(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8Sub => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_sub(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_sub(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4Sub => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_sub(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_sub(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I64x2Sub => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_int_sub(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_sub(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I8x16SubSaturateS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.ssub_sat_i8x16,
+                        self.intrinsics.ssub_sat_i8x16,
                         &[v1.as_basic_value_enum(), v2.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8SubSaturateS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.ssub_sat_i16x8,
+                        self.intrinsics.ssub_sat_i16x8,
                         &[v1.as_basic_value_enum(), v2.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I8x16SubSaturateU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.usub_sat_i8x16,
+                        self.intrinsics.usub_sat_i8x16,
                         &[v1.as_basic_value_enum(), v2.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8SubSaturateU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.usub_sat_i16x8,
+                        self.intrinsics.usub_sat_i16x8,
                         &[v1.as_basic_value_enum(), v2.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32Mul | Operator::I64Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_int_mul(v1, v2, &self.state.var_name());
+                let res = self.builder.build_int_mul(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I8x16Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_mul(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_mul(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_mul(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_mul(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_mul(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_mul(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32DivS | Operator::I64DivS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
 
-                trap_if_zero_or_overflow(builder, intrinsics, context, &function, v1, v2);
+                trap_if_zero_or_overflow(
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
+                    v1,
+                    v2,
+                );
 
-                let res = builder.build_int_signed_div(v1, v2, &self.state.var_name());
+                let res = self
+                    .builder
+                    .build_int_signed_div(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I32DivU | Operator::I64DivU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
 
-                trap_if_zero(builder, intrinsics, context, &function, v2);
+                trap_if_zero(
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
+                    v2,
+                );
 
-                let res = builder.build_int_unsigned_div(v1, v2, &self.state.var_name());
+                let res = self
+                    .builder
+                    .build_int_unsigned_div(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I32RemS | Operator::I64RemS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let int_type = v1.get_type();
-                let (min_value, neg_one_value) = if int_type == intrinsics.i32_ty {
+                let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
                     let min_value = int_type.const_int(i32::min_value() as u64, false);
                     let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
                     (min_value, neg_one_value)
-                } else if int_type == intrinsics.i64_ty {
+                } else if int_type == self.intrinsics.i64_ty {
                     let min_value = int_type.const_int(i64::min_value() as u64, false);
                     let neg_one_value = int_type.const_int(-1i64 as u64, false);
                     (min_value, neg_one_value)
@@ -2963,7 +3061,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     unreachable!()
                 };
 
-                trap_if_zero(builder, intrinsics, context, &function, v2);
+                trap_if_zero(
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
+                    v2,
+                );
 
                 // "Overflow also leads to undefined behavior; this is a rare
                 // case, but can occur, for example, by taking the remainder of
@@ -2976,9 +3080,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // In Wasm, the i32.rem_s i32.const -2147483648 i32.const -1 is
                 // i32.const 0. We implement this by swapping out the left value
                 // for 0 in this case.
-                let will_overflow = builder.build_and(
-                    builder.build_int_compare(IntPredicate::EQ, v1, min_value, "left_is_min"),
-                    builder.build_int_compare(
+                let will_overflow = self.builder.build_and(
+                    self.builder
+                        .build_int_compare(IntPredicate::EQ, v1, min_value, "left_is_min"),
+                    self.builder.build_int_compare(
                         IntPredicate::EQ,
                         v2,
                         neg_one_value,
@@ -2986,367 +3091,478 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     ),
                     "srem_will_overflow",
                 );
-                let v1 = builder
+                let v1 = self
+                    .builder
                     .build_select(will_overflow, int_type.const_zero(), v1, "")
                     .into_int_value();
-                let res = builder.build_int_signed_rem(v1, v2, &self.state.var_name());
+                let res = self
+                    .builder
+                    .build_int_signed_rem(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I32RemU | Operator::I64RemU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
 
-                trap_if_zero(builder, intrinsics, context, &function, v2);
+                trap_if_zero(
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
+                    v2,
+                );
 
-                let res = builder.build_int_unsigned_rem(v1, v2, &self.state.var_name());
+                let res = self
+                    .builder
+                    .build_int_unsigned_rem(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I32And | Operator::I64And | Operator::V128And => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_and(v1, v2, &self.state.var_name());
+                let res = self.builder.build_and(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I32Or | Operator::I64Or | Operator::V128Or => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_or(v1, v2, &self.state.var_name());
+                let res = self.builder.build_or(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I32Xor | Operator::I64Xor | Operator::V128Xor => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_xor(v1, v2, &self.state.var_name());
+                let res = self.builder.build_xor(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::V128Bitselect => {
                 let ((v1, i1), (v2, i2), (cond, cond_info)) = self.state.pop3_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
-                let cond = apply_pending_canonicalization(builder, intrinsics, cond, cond_info);
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.i1x128_ty, "")
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
+                let cond =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, cond, cond_info);
+                let v1 = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i1x128_ty, "")
                     .into_vector_value();
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.i1x128_ty, "")
+                let v2 = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i1x128_ty, "")
                     .into_vector_value();
-                let cond = builder
-                    .build_bitcast(cond, intrinsics.i1x128_ty, "")
+                let cond = self
+                    .builder
+                    .build_bitcast(cond, self.intrinsics.i1x128_ty, "")
                     .into_vector_value();
-                let res = builder.build_select(cond, v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_select(cond, v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32Shl | Operator::I64Shl => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 // TODO: missing 'and' of v2?
-                let res = builder.build_left_shift(v1, v2, &self.state.var_name());
+                let res = self
+                    .builder
+                    .build_left_shift(v1, v2, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I8x16Shl => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(7, false), "");
-                let v2 = builder.build_int_truncate(v2, intrinsics.i8_ty, "");
+                let v2 = self
+                    .builder
+                    .build_and(v2, self.intrinsics.i32_ty.const_int(7, false), "");
+                let v2 = self
+                    .builder
+                    .build_int_truncate(v2, self.intrinsics.i8_ty, "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i8x16_ty,
+                    self.intrinsics.i8x16_ty,
                     "",
                 );
-                let res = builder.build_left_shift(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_left_shift(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8Shl => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(15, false), "");
-                let v2 = builder.build_int_truncate(v2, intrinsics.i16_ty, "");
+                let v2 =
+                    self.builder
+                        .build_and(v2, self.intrinsics.i32_ty.const_int(15, false), "");
+                let v2 = self
+                    .builder
+                    .build_int_truncate(v2, self.intrinsics.i16_ty, "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i16x8_ty,
+                    self.intrinsics.i16x8_ty,
                     "",
                 );
-                let res = builder.build_left_shift(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_left_shift(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4Shl => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(31, false), "");
+                let v2 =
+                    self.builder
+                        .build_and(v2, self.intrinsics.i32_ty.const_int(31, false), "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i32x4_ty,
+                    self.intrinsics.i32x4_ty,
                     "",
                 );
-                let res = builder.build_left_shift(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_left_shift(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I64x2Shl => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i64x2(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i64x2(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(63, false), "");
-                let v2 = builder.build_int_z_extend(v2, intrinsics.i64_ty, "");
+                let v2 =
+                    self.builder
+                        .build_and(v2, self.intrinsics.i32_ty.const_int(63, false), "");
+                let v2 = self
+                    .builder
+                    .build_int_z_extend(v2, self.intrinsics.i64_ty, "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i64x2_ty,
+                    self.intrinsics.i64x2_ty,
                     "",
                 );
-                let res = builder.build_left_shift(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_left_shift(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32ShrS | Operator::I64ShrS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 // TODO: check wasm spec, is this missing v2 mod LaneBits?
-                let res = builder.build_right_shift(v1, v2, true, &self.state.var_name());
+                let res = self
+                    .builder
+                    .build_right_shift(v1, v2, true, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I8x16ShrS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(7, false), "");
-                let v2 = builder.build_int_truncate(v2, intrinsics.i8_ty, "");
+                let v2 = self
+                    .builder
+                    .build_and(v2, self.intrinsics.i32_ty.const_int(7, false), "");
+                let v2 = self
+                    .builder
+                    .build_int_truncate(v2, self.intrinsics.i8_ty, "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i8x16_ty,
+                    self.intrinsics.i8x16_ty,
                     "",
                 );
-                let res = builder.build_right_shift(v1, v2, true, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_right_shift(v1, v2, true, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8ShrS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(15, false), "");
-                let v2 = builder.build_int_truncate(v2, intrinsics.i16_ty, "");
+                let v2 =
+                    self.builder
+                        .build_and(v2, self.intrinsics.i32_ty.const_int(15, false), "");
+                let v2 = self
+                    .builder
+                    .build_int_truncate(v2, self.intrinsics.i16_ty, "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i16x8_ty,
+                    self.intrinsics.i16x8_ty,
                     "",
                 );
-                let res = builder.build_right_shift(v1, v2, true, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_right_shift(v1, v2, true, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4ShrS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(31, false), "");
+                let v2 =
+                    self.builder
+                        .build_and(v2, self.intrinsics.i32_ty.const_int(31, false), "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i32x4_ty,
+                    self.intrinsics.i32x4_ty,
                     "",
                 );
-                let res = builder.build_right_shift(v1, v2, true, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_right_shift(v1, v2, true, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I64x2ShrS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i64x2(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i64x2(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(63, false), "");
-                let v2 = builder.build_int_z_extend(v2, intrinsics.i64_ty, "");
+                let v2 =
+                    self.builder
+                        .build_and(v2, self.intrinsics.i32_ty.const_int(63, false), "");
+                let v2 = self
+                    .builder
+                    .build_int_z_extend(v2, self.intrinsics.i64_ty, "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i64x2_ty,
+                    self.intrinsics.i64x2_ty,
                     "",
                 );
-                let res = builder.build_right_shift(v1, v2, true, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_right_shift(v1, v2, true, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32ShrU | Operator::I64ShrU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let res = builder.build_right_shift(v1, v2, false, &self.state.var_name());
+                let res = self
+                    .builder
+                    .build_right_shift(v1, v2, false, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I8x16ShrU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(7, false), "");
-                let v2 = builder.build_int_truncate(v2, intrinsics.i8_ty, "");
+                let v2 = self
+                    .builder
+                    .build_and(v2, self.intrinsics.i32_ty.const_int(7, false), "");
+                let v2 = self
+                    .builder
+                    .build_int_truncate(v2, self.intrinsics.i8_ty, "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i8x16_ty,
+                    self.intrinsics.i8x16_ty,
                     "",
                 );
-                let res = builder.build_right_shift(v1, v2, false, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_right_shift(v1, v2, false, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8ShrU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(15, false), "");
-                let v2 = builder.build_int_truncate(v2, intrinsics.i16_ty, "");
+                let v2 =
+                    self.builder
+                        .build_and(v2, self.intrinsics.i32_ty.const_int(15, false), "");
+                let v2 = self
+                    .builder
+                    .build_int_truncate(v2, self.intrinsics.i16_ty, "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i16x8_ty,
+                    self.intrinsics.i16x8_ty,
                     "",
                 );
-                let res = builder.build_right_shift(v1, v2, false, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_right_shift(v1, v2, false, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4ShrU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(31, false), "");
+                let v2 =
+                    self.builder
+                        .build_and(v2, self.intrinsics.i32_ty.const_int(31, false), "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i32x4_ty,
+                    self.intrinsics.i32x4_ty,
                     "",
                 );
-                let res = builder.build_right_shift(v1, v2, false, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_right_shift(v1, v2, false, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I64x2ShrU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i64x2(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_i64x2(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_and(v2, intrinsics.i32_ty.const_int(63, false), "");
-                let v2 = builder.build_int_z_extend(v2, intrinsics.i64_ty, "");
+                let v2 =
+                    self.builder
+                        .build_and(v2, self.intrinsics.i32_ty.const_int(63, false), "");
+                let v2 = self
+                    .builder
+                    .build_int_z_extend(v2, self.intrinsics.i64_ty, "");
                 let v2 = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     v2.as_basic_value_enum(),
-                    intrinsics.i64x2_ty,
+                    self.intrinsics.i64x2_ty,
                     "",
                 );
-                let res = builder.build_right_shift(v1, v2, false, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_right_shift(v1, v2, false, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32Rotl => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let lhs = builder.build_left_shift(v1, v2, &self.state.var_name());
+                let lhs = self
+                    .builder
+                    .build_left_shift(v1, v2, &self.state.var_name());
                 let rhs = {
-                    let int_width = intrinsics.i32_ty.const_int(32 as u64, false);
-                    let rhs = builder.build_int_sub(int_width, v2, &self.state.var_name());
-                    builder.build_right_shift(v1, rhs, false, &self.state.var_name())
+                    let int_width = self.intrinsics.i32_ty.const_int(32 as u64, false);
+                    let rhs = self
+                        .builder
+                        .build_int_sub(int_width, v2, &self.state.var_name());
+                    self.builder
+                        .build_right_shift(v1, rhs, false, &self.state.var_name())
                 };
-                let res = builder.build_or(lhs, rhs, &self.state.var_name());
+                let res = self.builder.build_or(lhs, rhs, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I64Rotl => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let lhs = builder.build_left_shift(v1, v2, &self.state.var_name());
+                let lhs = self
+                    .builder
+                    .build_left_shift(v1, v2, &self.state.var_name());
                 let rhs = {
-                    let int_width = intrinsics.i64_ty.const_int(64 as u64, false);
-                    let rhs = builder.build_int_sub(int_width, v2, &self.state.var_name());
-                    builder.build_right_shift(v1, rhs, false, &self.state.var_name())
+                    let int_width = self.intrinsics.i64_ty.const_int(64 as u64, false);
+                    let rhs = self
+                        .builder
+                        .build_int_sub(int_width, v2, &self.state.var_name());
+                    self.builder
+                        .build_right_shift(v1, rhs, false, &self.state.var_name())
                 };
-                let res = builder.build_or(lhs, rhs, &self.state.var_name());
+                let res = self.builder.build_or(lhs, rhs, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I32Rotr => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let lhs = builder.build_right_shift(v1, v2, false, &self.state.var_name());
+                let lhs = self
+                    .builder
+                    .build_right_shift(v1, v2, false, &self.state.var_name());
                 let rhs = {
-                    let int_width = intrinsics.i32_ty.const_int(32 as u64, false);
-                    let rhs = builder.build_int_sub(int_width, v2, &self.state.var_name());
-                    builder.build_left_shift(v1, rhs, &self.state.var_name())
+                    let int_width = self.intrinsics.i32_ty.const_int(32 as u64, false);
+                    let rhs = self
+                        .builder
+                        .build_int_sub(int_width, v2, &self.state.var_name());
+                    self.builder
+                        .build_left_shift(v1, rhs, &self.state.var_name())
                 };
-                let res = builder.build_or(lhs, rhs, &self.state.var_name());
+                let res = self.builder.build_or(lhs, rhs, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I64Rotr => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let lhs = builder.build_right_shift(v1, v2, false, &self.state.var_name());
+                let lhs = self
+                    .builder
+                    .build_right_shift(v1, v2, false, &self.state.var_name());
                 let rhs = {
-                    let int_width = intrinsics.i64_ty.const_int(64 as u64, false);
-                    let rhs = builder.build_int_sub(int_width, v2, &self.state.var_name());
-                    builder.build_left_shift(v1, rhs, &self.state.var_name())
+                    let int_width = self.intrinsics.i64_ty.const_int(64 as u64, false);
+                    let rhs = self
+                        .builder
+                        .build_int_sub(int_width, v2, &self.state.var_name());
+                    self.builder
+                        .build_left_shift(v1, rhs, &self.state.var_name())
                 };
-                let res = builder.build_or(lhs, rhs, &self.state.var_name());
+                let res = self.builder.build_or(lhs, rhs, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I32Clz => {
                 let (input, info) = self.state.pop1_extra()?;
-                let input = apply_pending_canonicalization(builder, intrinsics, input, info);
-                let is_zero_undef = intrinsics.i1_zero.as_basic_value_enum();
-                let res = builder
+                let input =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, input, info);
+                let is_zero_undef = self.intrinsics.i1_zero.as_basic_value_enum();
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.ctlz_i32,
+                        self.intrinsics.ctlz_i32,
                         &[input, is_zero_undef],
                         &self.state.var_name(),
                     )
@@ -3357,11 +3573,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64Clz => {
                 let (input, info) = self.state.pop1_extra()?;
-                let input = apply_pending_canonicalization(builder, intrinsics, input, info);
-                let is_zero_undef = intrinsics.i1_zero.as_basic_value_enum();
-                let res = builder
+                let input =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, input, info);
+                let is_zero_undef = self.intrinsics.i1_zero.as_basic_value_enum();
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.ctlz_i64,
+                        self.intrinsics.ctlz_i64,
                         &[input, is_zero_undef],
                         &self.state.var_name(),
                     )
@@ -3372,11 +3590,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32Ctz => {
                 let (input, info) = self.state.pop1_extra()?;
-                let input = apply_pending_canonicalization(builder, intrinsics, input, info);
-                let is_zero_undef = intrinsics.i1_zero.as_basic_value_enum();
-                let res = builder
+                let input =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, input, info);
+                let is_zero_undef = self.intrinsics.i1_zero.as_basic_value_enum();
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.cttz_i32,
+                        self.intrinsics.cttz_i32,
                         &[input, is_zero_undef],
                         &self.state.var_name(),
                     )
@@ -3387,11 +3607,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64Ctz => {
                 let (input, info) = self.state.pop1_extra()?;
-                let input = apply_pending_canonicalization(builder, intrinsics, input, info);
-                let is_zero_undef = intrinsics.i1_zero.as_basic_value_enum();
-                let res = builder
+                let input =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, input, info);
+                let is_zero_undef = self.intrinsics.i1_zero.as_basic_value_enum();
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.cttz_i64,
+                        self.intrinsics.cttz_i64,
                         &[input, is_zero_undef],
                         &self.state.var_name(),
                     )
@@ -3402,9 +3624,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32Popcnt => {
                 let (input, info) = self.state.pop1_extra()?;
-                let input = apply_pending_canonicalization(builder, intrinsics, input, info);
-                let res = builder
-                    .build_call(intrinsics.ctpop_i32, &[input], &self.state.var_name())
+                let input =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, input, info);
+                let res = self
+                    .builder
+                    .build_call(self.intrinsics.ctpop_i32, &[input], &self.state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -3412,9 +3636,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64Popcnt => {
                 let (input, info) = self.state.pop1_extra()?;
-                let input = apply_pending_canonicalization(builder, intrinsics, input, info);
-                let res = builder
-                    .build_call(intrinsics.ctpop_i64, &[input], &self.state.var_name())
+                let input =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, input, info);
+                let res = self
+                    .builder
+                    .build_call(self.intrinsics.ctpop_i64, &[input], &self.state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -3422,26 +3648,32 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32Eqz => {
                 let input = self.state.pop1()?.into_int_value();
-                let cond = builder.build_int_compare(
+                let cond = self.builder.build_int_compare(
                     IntPredicate::EQ,
                     input,
-                    intrinsics.i32_zero,
+                    self.intrinsics.i32_zero,
                     &self.state.var_name(),
                 );
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
             }
             Operator::I64Eqz => {
                 let input = self.state.pop1()?.into_int_value();
-                let cond = builder.build_int_compare(
+                let cond = self.builder.build_int_compare(
                     IntPredicate::EQ,
                     input,
-                    intrinsics.i64_zero,
+                    self.intrinsics.i64_zero,
                     &self.state.var_name(),
                 );
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
 
@@ -3452,7 +3684,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F32Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res = builder.build_float_add(v1, v2, &self.state.var_name());
+                let res = self.builder.build_float_add(v1, v2, &self.state.var_name());
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
@@ -3461,7 +3693,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F64Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res = builder.build_float_add(v1, v2, &self.state.var_name());
+                let res = self.builder.build_float_add(v1, v2, &self.state.var_name());
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
@@ -3469,10 +3701,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, i1) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, i2) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_float_add(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, i1) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, i2) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_float_add(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
@@ -3480,10 +3712,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64x2Add => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, i1) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, i2) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_float_add(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, i1) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, i2) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_float_add(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
@@ -3492,7 +3724,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F32Sub => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res = builder.build_float_sub(v1, v2, &self.state.var_name());
+                let res = self.builder.build_float_sub(v1, v2, &self.state.var_name());
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
@@ -3501,7 +3733,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F64Sub => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res = builder.build_float_sub(v1, v2, &self.state.var_name());
+                let res = self.builder.build_float_sub(v1, v2, &self.state.var_name());
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
@@ -3509,10 +3741,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Sub => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, i1) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, i2) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_float_sub(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, i1) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, i2) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_float_sub(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
@@ -3520,10 +3752,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64x2Sub => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, i1) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, i2) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_float_sub(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, i1) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, i2) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_float_sub(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
@@ -3532,7 +3764,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F32Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res = builder.build_float_mul(v1, v2, &self.state.var_name());
+                let res = self.builder.build_float_mul(v1, v2, &self.state.var_name());
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
@@ -3541,7 +3773,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F64Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res = builder.build_float_mul(v1, v2, &self.state.var_name());
+                let res = self.builder.build_float_mul(v1, v2, &self.state.var_name());
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
@@ -3549,10 +3781,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, i1) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, i2) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_float_mul(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, i1) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, i2) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_float_mul(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
@@ -3560,10 +3792,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64x2Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, i1) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, i2) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_float_mul(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, i1) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, i2) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_float_mul(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(
                     res,
                     (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
@@ -3572,35 +3804,36 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F32Div => {
                 let (v1, v2) = self.state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res = builder.build_float_div(v1, v2, &self.state.var_name());
+                let res = self.builder.build_float_div(v1, v2, &self.state.var_name());
                 self.state.push1_extra(res, ExtraInfo::pending_f32_nan());
             }
             Operator::F64Div => {
                 let (v1, v2) = self.state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let res = builder.build_float_div(v1, v2, &self.state.var_name());
+                let res = self.builder.build_float_div(v1, v2, &self.state.var_name());
                 self.state.push1_extra(res, ExtraInfo::pending_f64_nan());
             }
             Operator::F32x4Div => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_float_div(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_float_div(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, ExtraInfo::pending_f32_nan());
             }
             Operator::F64x2Div => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_float_div(v1, v2, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_float_div(v1, v2, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, ExtraInfo::pending_f64_nan());
             }
             Operator::F32Sqrt => {
                 let input = self.state.pop1()?;
-                let res = builder
-                    .build_call(intrinsics.sqrt_f32, &[input], &self.state.var_name())
+                let res = self
+                    .builder
+                    .build_call(self.intrinsics.sqrt_f32, &[input], &self.state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -3608,8 +3841,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64Sqrt => {
                 let input = self.state.pop1()?;
-                let res = builder
-                    .build_call(intrinsics.sqrt_f64, &[input], &self.state.var_name())
+                let res = self
+                    .builder
+                    .build_call(self.intrinsics.sqrt_f64, &[input], &self.state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -3617,32 +3851,38 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Sqrt => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = v128_into_f32x4(builder, intrinsics, v, i);
-                let res = builder
+                let (v, _) = v128_into_f32x4(&self.builder, self.intrinsics, v, i);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.sqrt_f32x4,
+                        self.intrinsics.sqrt_f32x4,
                         &[v.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let bits = builder.build_bitcast(res, intrinsics.i128_ty, "bits");
+                let bits = self
+                    .builder
+                    .build_bitcast(res, self.intrinsics.i128_ty, "bits");
                 self.state.push1_extra(bits, ExtraInfo::pending_f32_nan());
             }
             Operator::F64x2Sqrt => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = v128_into_f64x2(builder, intrinsics, v, i);
-                let res = builder
+                let (v, _) = v128_into_f64x2(&self.builder, self.intrinsics, v, i);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.sqrt_f64x2,
+                        self.intrinsics.sqrt_f64x2,
                         &[v.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let bits = builder.build_bitcast(res, intrinsics.i128_ty, "bits");
+                let bits = self
+                    .builder
+                    .build_bitcast(res, self.intrinsics.i128_ty, "bits");
                 self.state.push1(bits);
             }
             Operator::F32Min => {
@@ -3655,36 +3895,45 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // representations are equal. There's one other case where that
                 // can happen: non-canonical NaNs. Here we unconditionally
                 // canonicalize the NaNs.
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let v1 = canonicalize_nans(&self.builder, self.intrinsics, v1);
+                let v2 = canonicalize_nans(&self.builder, self.intrinsics, v2);
 
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let v1_is_nan = builder.build_float_compare(
+                let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
-                    intrinsics.f32_zero,
+                    self.intrinsics.f32_zero,
                     "nan",
                 );
-                let v2_is_not_nan = builder.build_float_compare(
+                let v2_is_not_nan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
-                    intrinsics.f32_zero,
+                    self.intrinsics.f32_zero,
                     "notnan",
                 );
-                let v1_repr = builder
-                    .build_bitcast(v1, intrinsics.i32_ty, "")
+                let v1_repr = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i32_ty, "")
                     .into_int_value();
-                let v2_repr = builder
-                    .build_bitcast(v2, intrinsics.i32_ty, "")
+                let v2_repr = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i32_ty, "")
                     .into_int_value();
-                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
-                let negative_zero = intrinsics.f32_ty.const_float(-0.0);
-                let v2 = builder
+                let repr_ne =
+                    self.builder
+                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let negative_zero = self.intrinsics.f32_ty.const_float(-0.0);
+                let v2 = self
+                    .builder
                     .build_select(
-                        builder.build_and(
-                            builder.build_and(float_eq, repr_ne, ""),
+                        self.builder.build_and(
+                            self.builder.build_and(float_eq, repr_ne, ""),
                             v2_is_not_nan,
                             "",
                         ),
@@ -3693,8 +3942,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         "",
                     )
                     .into_float_value();
-                let res =
-                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
+                let res = self.builder.build_select(
+                    self.builder.build_or(v1_is_nan, min_cmp, ""),
+                    v1,
+                    v2,
+                    "",
+                );
                 // Because inputs were canonicalized, we always produce
                 // canonical NaN outputs. No pending NaN cleanup.
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
@@ -3709,36 +3962,45 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // representations are equal. There's one other case where that
                 // can happen: non-canonical NaNs. Here we unconditionally
                 // canonicalize the NaNs.
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let v1 = canonicalize_nans(&self.builder, self.intrinsics, v1);
+                let v2 = canonicalize_nans(&self.builder, self.intrinsics, v2);
 
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let v1_is_nan = builder.build_float_compare(
+                let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
-                    intrinsics.f64_zero,
+                    self.intrinsics.f64_zero,
                     "nan",
                 );
-                let v2_is_not_nan = builder.build_float_compare(
+                let v2_is_not_nan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
-                    intrinsics.f64_zero,
+                    self.intrinsics.f64_zero,
                     "notnan",
                 );
-                let v1_repr = builder
-                    .build_bitcast(v1, intrinsics.i64_ty, "")
+                let v1_repr = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i64_ty, "")
                     .into_int_value();
-                let v2_repr = builder
-                    .build_bitcast(v2, intrinsics.i64_ty, "")
+                let v2_repr = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i64_ty, "")
                     .into_int_value();
-                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
-                let negative_zero = intrinsics.f64_ty.const_float(-0.0);
-                let v2 = builder
+                let repr_ne =
+                    self.builder
+                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let negative_zero = self.intrinsics.f64_ty.const_float(-0.0);
+                let v2 = self
+                    .builder
                     .build_select(
-                        builder.build_and(
-                            builder.build_and(float_eq, repr_ne, ""),
+                        self.builder.build_and(
+                            self.builder.build_and(float_eq, repr_ne, ""),
                             v2_is_not_nan,
                             "",
                         ),
@@ -3747,8 +4009,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         "",
                     )
                     .into_float_value();
-                let res =
-                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
+                let res = self.builder.build_select(
+                    self.builder.build_or(v1_is_nan, min_cmp, ""),
+                    v1,
+                    v2,
+                    "",
+                );
                 // Because inputs were canonicalized, we always produce
                 // canonical NaN outputs. No pending NaN cleanup.
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
@@ -3758,52 +4024,66 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f32x4(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
 
                 // To detect min(-0.0, 0.0), we check whether the integer
                 // representations are equal. There's one other case where that
                 // can happen: non-canonical NaNs. Here we unconditionally
                 // canonicalize the NaNs. Note that this is a different
                 // canonicalization from that which may be performed in the
-                // v128_into_f32x4 function. That may canonicalize as F64x2 if
+                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
                 // previous computations may have emitted F64x2 NaNs.
-                let v1 = canonicalize_nans(builder, intrinsics, v1.as_basic_value_enum());
-                let v2 = canonicalize_nans(builder, intrinsics, v2.as_basic_value_enum());
+                let v1 =
+                    canonicalize_nans(&self.builder, self.intrinsics, v1.as_basic_value_enum());
+                let v2 =
+                    canonicalize_nans(&self.builder, self.intrinsics, v2.as_basic_value_enum());
                 let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
 
-                let v1_is_nan = builder.build_float_compare(
+                let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
-                    intrinsics.f32x4_zero,
+                    self.intrinsics.f32x4_zero,
                     "nan",
                 );
-                let v2_is_not_nan = builder.build_float_compare(
+                let v2_is_not_nan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
-                    intrinsics.f32x4_zero,
+                    self.intrinsics.f32x4_zero,
                     "notnan",
                 );
-                let v1_repr = builder
-                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                let v1_repr = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i32x4_ty, "")
                     .into_vector_value();
-                let v2_repr = builder
-                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                let v2_repr = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i32x4_ty, "")
                     .into_vector_value();
-                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let repr_ne =
+                    self.builder
+                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OLT, v1, v2, "");
                 let negative_zero = splat_vector(
-                    builder,
-                    intrinsics,
-                    intrinsics.f32_ty.const_float(-0.0).as_basic_value_enum(),
-                    intrinsics.f32x4_ty,
+                    &self.builder,
+                    self.intrinsics,
+                    self.intrinsics
+                        .f32_ty
+                        .const_float(-0.0)
+                        .as_basic_value_enum(),
+                    self.intrinsics.f32x4_ty,
                     "",
                 );
-                let v2 = builder
+                let v2 = self
+                    .builder
                     .build_select(
-                        builder.build_and(
-                            builder.build_and(float_eq, repr_ne, ""),
+                        self.builder.build_and(
+                            self.builder.build_and(float_eq, repr_ne, ""),
                             v2_is_not_nan,
                             "",
                         ),
@@ -3812,9 +4092,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         "",
                     )
                     .into_vector_value();
-                let res =
-                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_select(
+                    self.builder.build_or(v1_is_nan, min_cmp, ""),
+                    v1,
+                    v2,
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // Because inputs were canonicalized, we always produce
                 // canonical NaN outputs. No pending NaN cleanup.
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
@@ -3824,52 +4108,66 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f64x2(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
 
                 // To detect min(-0.0, 0.0), we check whether the integer
                 // representations are equal. There's one other case where that
                 // can happen: non-canonical NaNs. Here we unconditionally
                 // canonicalize the NaNs. Note that this is a different
                 // canonicalization from that which may be performed in the
-                // v128_into_f32x4 function. That may canonicalize as F64x2 if
+                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
                 // previous computations may have emitted F64x2 NaNs.
-                let v1 = canonicalize_nans(builder, intrinsics, v1.as_basic_value_enum());
-                let v2 = canonicalize_nans(builder, intrinsics, v2.as_basic_value_enum());
+                let v1 =
+                    canonicalize_nans(&self.builder, self.intrinsics, v1.as_basic_value_enum());
+                let v2 =
+                    canonicalize_nans(&self.builder, self.intrinsics, v2.as_basic_value_enum());
                 let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
 
-                let v1_is_nan = builder.build_float_compare(
+                let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
-                    intrinsics.f64x2_zero,
+                    self.intrinsics.f64x2_zero,
                     "nan",
                 );
-                let v2_is_not_nan = builder.build_float_compare(
+                let v2_is_not_nan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
-                    intrinsics.f64x2_zero,
+                    self.intrinsics.f64x2_zero,
                     "notnan",
                 );
-                let v1_repr = builder
-                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                let v1_repr = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i64x2_ty, "")
                     .into_vector_value();
-                let v2_repr = builder
-                    .build_bitcast(v2, intrinsics.i64x2_ty, "")
+                let v2_repr = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i64x2_ty, "")
                     .into_vector_value();
-                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let repr_ne =
+                    self.builder
+                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OLT, v1, v2, "");
                 let negative_zero = splat_vector(
-                    builder,
-                    intrinsics,
-                    intrinsics.f64_ty.const_float(-0.0).as_basic_value_enum(),
-                    intrinsics.f64x2_ty,
+                    &self.builder,
+                    self.intrinsics,
+                    self.intrinsics
+                        .f64_ty
+                        .const_float(-0.0)
+                        .as_basic_value_enum(),
+                    self.intrinsics.f64x2_ty,
                     "",
                 );
-                let v2 = builder
+                let v2 = self
+                    .builder
                     .build_select(
-                        builder.build_and(
-                            builder.build_and(float_eq, repr_ne, ""),
+                        self.builder.build_and(
+                            self.builder.build_and(float_eq, repr_ne, ""),
                             v2_is_not_nan,
                             "",
                         ),
@@ -3878,9 +4176,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         "",
                     )
                     .into_vector_value();
-                let res =
-                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_select(
+                    self.builder.build_or(v1_is_nan, min_cmp, ""),
+                    v1,
+                    v2,
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // Because inputs were canonicalized, we always produce
                 // canonical NaN outputs. No pending NaN cleanup.
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
@@ -3895,45 +4197,58 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // representations are equal. There's one other case where that
                 // can happen: non-canonical NaNs. Here we unconditionally
                 // canonicalize the NaNs.
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let v1 = canonicalize_nans(&self.builder, self.intrinsics, v1);
+                let v2 = canonicalize_nans(&self.builder, self.intrinsics, v2);
 
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let v1_is_nan = builder.build_float_compare(
+                let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
-                    intrinsics.f32_zero,
+                    self.intrinsics.f32_zero,
                     "nan",
                 );
-                let v2_is_not_nan = builder.build_float_compare(
+                let v2_is_not_nan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
-                    intrinsics.f32_zero,
+                    self.intrinsics.f32_zero,
                     "notnan",
                 );
-                let v1_repr = builder
-                    .build_bitcast(v1, intrinsics.i32_ty, "")
+                let v1_repr = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i32_ty, "")
                     .into_int_value();
-                let v2_repr = builder
-                    .build_bitcast(v2, intrinsics.i32_ty, "")
+                let v2_repr = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i32_ty, "")
                     .into_int_value();
-                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
-                let v2 = builder
+                let repr_ne =
+                    self.builder
+                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let v2 = self
+                    .builder
                     .build_select(
-                        builder.build_and(
-                            builder.build_and(float_eq, repr_ne, ""),
+                        self.builder.build_and(
+                            self.builder.build_and(float_eq, repr_ne, ""),
                             v2_is_not_nan,
                             "",
                         ),
-                        intrinsics.f32_zero,
+                        self.intrinsics.f32_zero,
                         v2,
                         "",
                     )
                     .into_float_value();
-                let res =
-                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
+                let res = self.builder.build_select(
+                    self.builder.build_or(v1_is_nan, min_cmp, ""),
+                    v1,
+                    v2,
+                    "",
+                );
                 // Because inputs were canonicalized, we always produce
                 // canonical NaN outputs. No pending NaN cleanup.
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
@@ -3948,45 +4263,58 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // representations are equal. There's one other case where that
                 // can happen: non-canonical NaNs. Here we unconditionally
                 // canonicalize the NaNs.
-                let v1 = canonicalize_nans(builder, intrinsics, v1);
-                let v2 = canonicalize_nans(builder, intrinsics, v2);
+                let v1 = canonicalize_nans(&self.builder, self.intrinsics, v1);
+                let v2 = canonicalize_nans(&self.builder, self.intrinsics, v2);
 
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let v1_is_nan = builder.build_float_compare(
+                let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
-                    intrinsics.f64_zero,
+                    self.intrinsics.f64_zero,
                     "nan",
                 );
-                let v2_is_not_nan = builder.build_float_compare(
+                let v2_is_not_nan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
-                    intrinsics.f64_zero,
+                    self.intrinsics.f64_zero,
                     "notnan",
                 );
-                let v1_repr = builder
-                    .build_bitcast(v1, intrinsics.i64_ty, "")
+                let v1_repr = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i64_ty, "")
                     .into_int_value();
-                let v2_repr = builder
-                    .build_bitcast(v2, intrinsics.i64_ty, "")
+                let v2_repr = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i64_ty, "")
                     .into_int_value();
-                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
-                let v2 = builder
+                let repr_ne =
+                    self.builder
+                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let v2 = self
+                    .builder
                     .build_select(
-                        builder.build_and(
-                            builder.build_and(float_eq, repr_ne, ""),
+                        self.builder.build_and(
+                            self.builder.build_and(float_eq, repr_ne, ""),
                             v2_is_not_nan,
                             "",
                         ),
-                        intrinsics.f64_zero,
+                        self.intrinsics.f64_zero,
                         v2,
                         "",
                     )
                     .into_float_value();
-                let res =
-                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
+                let res = self.builder.build_select(
+                    self.builder.build_or(v1_is_nan, min_cmp, ""),
+                    v1,
+                    v2,
+                    "",
+                );
                 // Because inputs were canonicalized, we always produce
                 // canonical NaN outputs. No pending NaN cleanup.
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
@@ -3996,51 +4324,62 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f32x4(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
 
                 // To detect min(-0.0, 0.0), we check whether the integer
                 // representations are equal. There's one other case where that
                 // can happen: non-canonical NaNs. Here we unconditionally
                 // canonicalize the NaNs. Note that this is a different
                 // canonicalization from that which may be performed in the
-                // v128_into_f32x4 function. That may canonicalize as F64x2 if
+                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
                 // previous computations may have emitted F64x2 NaNs.
-                let v1 = canonicalize_nans(builder, intrinsics, v1.as_basic_value_enum());
-                let v2 = canonicalize_nans(builder, intrinsics, v2.as_basic_value_enum());
+                let v1 =
+                    canonicalize_nans(&self.builder, self.intrinsics, v1.as_basic_value_enum());
+                let v2 =
+                    canonicalize_nans(&self.builder, self.intrinsics, v2.as_basic_value_enum());
                 let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
-                let v1_is_nan = builder.build_float_compare(
+                let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
-                    intrinsics.f32x4_zero,
+                    self.intrinsics.f32x4_zero,
                     "nan",
                 );
-                let v2_is_not_nan = builder.build_float_compare(
+                let v2_is_not_nan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
-                    intrinsics.f32x4_zero,
+                    self.intrinsics.f32x4_zero,
                     "notnan",
                 );
-                let v1_repr = builder
-                    .build_bitcast(v1, intrinsics.i32x4_ty, "")
+                let v1_repr = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i32x4_ty, "")
                     .into_vector_value();
-                let v2_repr = builder
-                    .build_bitcast(v2, intrinsics.i32x4_ty, "")
+                let v2_repr = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i32x4_ty, "")
                     .into_vector_value();
-                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let repr_ne =
+                    self.builder
+                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OGT, v1, v2, "");
                 let zero = splat_vector(
-                    builder,
-                    intrinsics,
-                    intrinsics.f32_zero.as_basic_value_enum(),
-                    intrinsics.f32x4_ty,
+                    &self.builder,
+                    self.intrinsics,
+                    self.intrinsics.f32_zero.as_basic_value_enum(),
+                    self.intrinsics.f32x4_ty,
                     "",
                 );
-                let v2 = builder
+                let v2 = self
+                    .builder
                     .build_select(
-                        builder.build_and(
-                            builder.build_and(float_eq, repr_ne, ""),
+                        self.builder.build_and(
+                            self.builder.build_and(float_eq, repr_ne, ""),
                             v2_is_not_nan,
                             "",
                         ),
@@ -4049,9 +4388,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         "",
                     )
                     .into_vector_value();
-                let res =
-                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_select(
+                    self.builder.build_or(v1_is_nan, min_cmp, ""),
+                    v1,
+                    v2,
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // Because inputs were canonicalized, we always produce
                 // canonical NaN outputs. No pending NaN cleanup.
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
@@ -4061,51 +4404,62 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // intrinsic would, but x86 lowering of that intrinsic
                 // encounters a fatal error in LLVM 8 and LLVM 9.
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f64x2(builder, intrinsics, v2, i2);
+                let (v1, _) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
 
                 // To detect min(-0.0, 0.0), we check whether the integer
                 // representations are equal. There's one other case where that
                 // can happen: non-canonical NaNs. Here we unconditionally
                 // canonicalize the NaNs. Note that this is a different
                 // canonicalization from that which may be performed in the
-                // v128_into_f32x4 function. That may canonicalize as F64x2 if
+                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
                 // previous computations may have emitted F64x2 NaNs.
-                let v1 = canonicalize_nans(builder, intrinsics, v1.as_basic_value_enum());
-                let v2 = canonicalize_nans(builder, intrinsics, v2.as_basic_value_enum());
+                let v1 =
+                    canonicalize_nans(&self.builder, self.intrinsics, v1.as_basic_value_enum());
+                let v2 =
+                    canonicalize_nans(&self.builder, self.intrinsics, v2.as_basic_value_enum());
                 let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
-                let v1_is_nan = builder.build_float_compare(
+                let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
-                    intrinsics.f64x2_zero,
+                    self.intrinsics.f64x2_zero,
                     "nan",
                 );
-                let v2_is_not_nan = builder.build_float_compare(
+                let v2_is_not_nan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
-                    intrinsics.f64x2_zero,
+                    self.intrinsics.f64x2_zero,
                     "notnan",
                 );
-                let v1_repr = builder
-                    .build_bitcast(v1, intrinsics.i64x2_ty, "")
+                let v1_repr = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i64x2_ty, "")
                     .into_vector_value();
-                let v2_repr = builder
-                    .build_bitcast(v2, intrinsics.i64x2_ty, "")
+                let v2_repr = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i64x2_ty, "")
                     .into_vector_value();
-                let repr_ne = builder.build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let repr_ne =
+                    self.builder
+                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
+                let float_eq = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let min_cmp = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OGT, v1, v2, "");
                 let zero = splat_vector(
-                    builder,
-                    intrinsics,
-                    intrinsics.f64_zero.as_basic_value_enum(),
-                    intrinsics.f64x2_ty,
+                    &self.builder,
+                    self.intrinsics,
+                    self.intrinsics.f64_zero.as_basic_value_enum(),
+                    self.intrinsics.f64x2_ty,
                     "",
                 );
-                let v2 = builder
+                let v2 = self
+                    .builder
                     .build_select(
-                        builder.build_and(
-                            builder.build_and(float_eq, repr_ne, ""),
+                        self.builder.build_and(
+                            self.builder.build_and(float_eq, repr_ne, ""),
                             v2_is_not_nan,
                             "",
                         ),
@@ -4114,17 +4468,22 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         "",
                     )
                     .into_vector_value();
-                let res =
-                    builder.build_select(builder.build_or(v1_is_nan, min_cmp, ""), v1, v2, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_select(
+                    self.builder.build_or(v1_is_nan, min_cmp, ""),
+                    v1,
+                    v2,
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // Because inputs were canonicalized, we always produce
                 // canonical NaN outputs. No pending NaN cleanup.
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
             Operator::F32Ceil => {
                 let (input, info) = self.state.pop1_extra()?;
-                let res = builder
-                    .build_call(intrinsics.ceil_f32, &[input], &self.state.var_name())
+                let res = self
+                    .builder
+                    .build_call(self.intrinsics.ceil_f32, &[input], &self.state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -4133,8 +4492,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64Ceil => {
                 let (input, info) = self.state.pop1_extra()?;
-                let res = builder
-                    .build_call(intrinsics.ceil_f64, &[input], &self.state.var_name())
+                let res = self
+                    .builder
+                    .build_call(self.intrinsics.ceil_f64, &[input], &self.state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -4143,8 +4503,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32Floor => {
                 let (input, info) = self.state.pop1_extra()?;
-                let res = builder
-                    .build_call(intrinsics.floor_f32, &[input], &self.state.var_name())
+                let res = self
+                    .builder
+                    .build_call(self.intrinsics.floor_f32, &[input], &self.state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -4153,8 +4514,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64Floor => {
                 let (input, info) = self.state.pop1_extra()?;
-                let res = builder
-                    .build_call(intrinsics.floor_f64, &[input], &self.state.var_name())
+                let res = self
+                    .builder
+                    .build_call(self.intrinsics.floor_f64, &[input], &self.state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -4163,9 +4525,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
-                let res = builder
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.trunc_f32,
+                        self.intrinsics.trunc_f32,
                         &[v.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
@@ -4177,9 +4540,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
-                let res = builder
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.trunc_f64,
+                        self.intrinsics.trunc_f64,
                         &[v.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
@@ -4191,9 +4555,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
-                let res = builder
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.nearbyint_f32,
+                        self.intrinsics.nearbyint_f32,
                         &[v.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
@@ -4205,9 +4570,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
-                let res = builder
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.nearbyint_f64,
+                        self.intrinsics.nearbyint_f64,
                         &[v.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
@@ -4219,10 +4585,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32Abs => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
-                let res = builder
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.fabs_f32,
+                        self.intrinsics.fabs_f32,
                         &[v.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
@@ -4235,10 +4602,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64Abs => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
-                let res = builder
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.fabs_f64,
+                        self.intrinsics.fabs_f64,
                         &[v.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
@@ -4251,73 +4619,90 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Abs => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = builder.build_bitcast(v.into_int_value(), intrinsics.f32x4_ty, "");
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
-                let res = builder
+                let v =
+                    self.builder
+                        .build_bitcast(v.into_int_value(), self.intrinsics.f32x4_ty, "");
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
+                let res = self
+                    .builder
                     .build_call(
-                        intrinsics.fabs_f32x4,
+                        self.intrinsics.fabs_f32x4,
                         &[v.as_basic_value_enum()],
                         &self.state.var_name(),
                     )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // The exact NaN returned by F32x4Abs is fully defined. Do not
                 // adjust.
                 self.state.push1_extra(res, i.strip_pending());
             }
             Operator::F64x2Abs => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = builder.build_bitcast(v.into_int_value(), intrinsics.f64x2_ty, "");
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
-                let res = builder
-                    .build_call(intrinsics.fabs_f64x2, &[v], &self.state.var_name())
+                let v =
+                    self.builder
+                        .build_bitcast(v.into_int_value(), self.intrinsics.f64x2_ty, "");
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
+                let res = self
+                    .builder
+                    .build_call(self.intrinsics.fabs_f64x2, &[v], &self.state.var_name())
                     .try_as_basic_value()
                     .left()
                     .unwrap();
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // The exact NaN returned by F32x4Abs is fully defined. Do not
                 // adjust.
                 self.state.push1_extra(res, i.strip_pending());
             }
             Operator::F32x4Neg => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = builder.build_bitcast(v.into_int_value(), intrinsics.f32x4_ty, "");
                 let v =
-                    apply_pending_canonicalization(builder, intrinsics, v, i).into_vector_value();
-                let res = builder.build_float_neg(v, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                    self.builder
+                        .build_bitcast(v.into_int_value(), self.intrinsics.f32x4_ty, "");
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i)
+                    .into_vector_value();
+                let res = self.builder.build_float_neg(v, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // The exact NaN returned by F32x4Neg is fully defined. Do not
                 // adjust.
                 self.state.push1_extra(res, i.strip_pending());
             }
             Operator::F64x2Neg => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = builder.build_bitcast(v.into_int_value(), intrinsics.f64x2_ty, "");
                 let v =
-                    apply_pending_canonicalization(builder, intrinsics, v, i).into_vector_value();
-                let res = builder.build_float_neg(v, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                    self.builder
+                        .build_bitcast(v.into_int_value(), self.intrinsics.f64x2_ty, "");
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i)
+                    .into_vector_value();
+                let res = self.builder.build_float_neg(v, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // The exact NaN returned by F64x2Neg is fully defined. Do not
                 // adjust.
                 self.state.push1_extra(res, i.strip_pending());
             }
             Operator::F32Neg | Operator::F64Neg => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v =
-                    apply_pending_canonicalization(builder, intrinsics, v, i).into_float_value();
-                let res = builder.build_float_neg(v, &self.state.var_name());
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i)
+                    .into_float_value();
+                let res = self.builder.build_float_neg(v, &self.state.var_name());
                 // The exact NaN returned by F32Neg and F64Neg are fully defined.
                 // Do not adjust.
                 self.state.push1_extra(res, i.strip_pending());
             }
             Operator::F32Copysign => {
                 let ((mag, mag_info), (sgn, sgn_info)) = self.state.pop2_extra()?;
-                let mag = apply_pending_canonicalization(builder, intrinsics, mag, mag_info);
-                let sgn = apply_pending_canonicalization(builder, intrinsics, sgn, sgn_info);
-                let res = builder
-                    .build_call(intrinsics.copysign_f32, &[mag, sgn], &self.state.var_name())
+                let mag =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, mag, mag_info);
+                let sgn =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, sgn, sgn_info);
+                let res = self
+                    .builder
+                    .build_call(
+                        self.intrinsics.copysign_f32,
+                        &[mag, sgn],
+                        &self.state.var_name(),
+                    )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -4327,10 +4712,17 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64Copysign => {
                 let ((mag, mag_info), (sgn, sgn_info)) = self.state.pop2_extra()?;
-                let mag = apply_pending_canonicalization(builder, intrinsics, mag, mag_info);
-                let sgn = apply_pending_canonicalization(builder, intrinsics, sgn, sgn_info);
-                let res = builder
-                    .build_call(intrinsics.copysign_f64, &[mag, sgn], &self.state.var_name())
+                let mag =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, mag, mag_info);
+                let sgn =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, sgn, sgn_info);
+                let res = self
+                    .builder
+                    .build_call(
+                        self.intrinsics.copysign_f64,
+                        &[mag, sgn],
+                        &self.state.var_name(),
+                    )
                     .try_as_basic_value()
                     .left()
                     .unwrap();
@@ -4345,13 +4737,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
              ***************************/
             Operator::I32Eq | Operator::I64Eq => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let cond =
-                    builder.build_int_compare(IntPredicate::EQ, v1, v2, &self.state.var_name());
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let cond = self.builder.build_int_compare(
+                    IntPredicate::EQ,
+                    v1,
+                    v2,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4359,40 +4758,53 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I8x16Eq => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8Eq => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4Eq => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_compare(IntPredicate::EQ, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32Ne | Operator::I64Ne => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let cond =
-                    builder.build_int_compare(IntPredicate::NE, v1, v2, &self.state.var_name());
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let cond = self.builder.build_int_compare(
+                    IntPredicate::NE,
+                    v1,
+                    v2,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4400,40 +4812,53 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I8x16Ne => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::NE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_compare(IntPredicate::NE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8Ne => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::NE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_compare(IntPredicate::NE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4Ne => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::NE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self.builder.build_int_compare(IntPredicate::NE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32LtS | Operator::I64LtS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let cond =
-                    builder.build_int_compare(IntPredicate::SLT, v1, v2, &self.state.var_name());
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let cond = self.builder.build_int_compare(
+                    IntPredicate::SLT,
+                    v1,
+                    v2,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4441,78 +4866,116 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I8x16LtS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SLT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8LtS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SLT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4LtS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SLT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32LtU | Operator::I64LtU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let cond =
-                    builder.build_int_compare(IntPredicate::ULT, v1, v2, &self.state.var_name());
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let cond = self.builder.build_int_compare(
+                    IntPredicate::ULT,
+                    v1,
+                    v2,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1(res);
             }
             Operator::I8x16LtU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::ULT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8LtU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::ULT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4LtU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::ULT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32LeS | Operator::I64LeS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let cond =
-                    builder.build_int_compare(IntPredicate::SLE, v1, v2, &self.state.var_name());
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let cond = self.builder.build_int_compare(
+                    IntPredicate::SLE,
+                    v1,
+                    v2,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4520,40 +4983,59 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I8x16LeS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SLE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8LeS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SLE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4LeS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SLE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32LeU | Operator::I64LeU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let cond =
-                    builder.build_int_compare(IntPredicate::ULE, v1, v2, &self.state.var_name());
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let cond = self.builder.build_int_compare(
+                    IntPredicate::ULE,
+                    v1,
+                    v2,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4561,40 +5043,59 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I8x16LeU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::ULE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8LeU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::ULE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4LeU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::ULE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32GtS | Operator::I64GtS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let cond =
-                    builder.build_int_compare(IntPredicate::SGT, v1, v2, &self.state.var_name());
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let cond = self.builder.build_int_compare(
+                    IntPredicate::SGT,
+                    v1,
+                    v2,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4602,40 +5103,59 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I8x16GtS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SGT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8GtS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SGT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4GtS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SGT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32GtU | Operator::I64GtU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let cond =
-                    builder.build_int_compare(IntPredicate::UGT, v1, v2, &self.state.var_name());
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let cond = self.builder.build_int_compare(
+                    IntPredicate::UGT,
+                    v1,
+                    v2,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4643,78 +5163,116 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I8x16GtU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::UGT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8GtU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::UGT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4GtU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::UGT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32GeS | Operator::I64GeS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let cond =
-                    builder.build_int_compare(IntPredicate::SGE, v1, v2, &self.state.var_name());
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let cond = self.builder.build_int_compare(
+                    IntPredicate::SGE,
+                    v1,
+                    v2,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1(res);
             }
             Operator::I8x16GeS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SGE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8GeS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SGE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4GeS => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::SGE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32GeU | Operator::I64GeU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let cond =
-                    builder.build_int_compare(IntPredicate::UGE, v1, v2, &self.state.var_name());
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let cond = self.builder.build_int_compare(
+                    IntPredicate::UGE,
+                    v1,
+                    v2,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4722,29 +5280,41 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I8x16GeU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i8x16(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::UGE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i8x16_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i8x16(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8GeU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i16x8(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::UGE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i16x8_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i16x8(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4GeU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_i32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_int_compare(IntPredicate::UGE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_i32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
 
@@ -4755,14 +5325,17 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F32Eq | Operator::F64Eq => {
                 let (v1, v2) = self.state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let cond = builder.build_float_compare(
+                let cond = self.builder.build_float_compare(
                     FloatPredicate::OEQ,
                     v1,
                     v2,
                     &self.state.var_name(),
                 );
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4770,33 +5343,44 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Eq => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F64x2Eq => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i64x2_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F32Ne | Operator::F64Ne => {
                 let (v1, v2) = self.state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let cond = builder.build_float_compare(
+                let cond = self.builder.build_float_compare(
                     FloatPredicate::UNE,
                     v1,
                     v2,
                     &self.state.var_name(),
                 );
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4804,33 +5388,44 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Ne => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::UNE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::UNE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F64x2Ne => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::UNE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::UNE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i64x2_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F32Lt | Operator::F64Lt => {
                 let (v1, v2) = self.state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let cond = builder.build_float_compare(
+                let cond = self.builder.build_float_compare(
                     FloatPredicate::OLT,
                     v1,
                     v2,
                     &self.state.var_name(),
                 );
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4838,33 +5433,44 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Lt => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F64x2Lt => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::OLT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OLT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i64x2_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F32Le | Operator::F64Le => {
                 let (v1, v2) = self.state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let cond = builder.build_float_compare(
+                let cond = self.builder.build_float_compare(
                     FloatPredicate::OLE,
                     v1,
                     v2,
                     &self.state.var_name(),
                 );
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4872,33 +5478,44 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Le => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::OLE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OLE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F64x2Le => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::OLE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OLE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i64x2_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F32Gt | Operator::F64Gt => {
                 let (v1, v2) = self.state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let cond = builder.build_float_compare(
+                let cond = self.builder.build_float_compare(
                     FloatPredicate::OGT,
                     v1,
                     v2,
                     &self.state.var_name(),
                 );
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4906,33 +5523,44 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Gt => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F64x2Gt => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::OGT, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OGT, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i64x2_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F32Ge | Operator::F64Ge => {
                 let (v1, v2) = self.state.pop2()?;
                 let (v1, v2) = (v1.into_float_value(), v2.into_float_value());
-                let cond = builder.build_float_compare(
+                let cond = self.builder.build_float_compare(
                     FloatPredicate::OGE,
                     v1,
                     v2,
                     &self.state.var_name(),
                 );
-                let res =
-                    builder.build_int_z_extend(cond, intrinsics.i32_ty, &self.state.var_name());
+                let res = self.builder.build_int_z_extend(
+                    cond,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -4940,20 +5568,28 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32x4Ge => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f32x4(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f32x4(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::OGE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i32x4_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f32x4(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OGE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F64x2Ge => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_f64x2(builder, intrinsics, v1, i1);
-                let (v2, _) = v128_into_f64x2(builder, intrinsics, v2, i2);
-                let res = builder.build_float_compare(FloatPredicate::OGE, v1, v2, "");
-                let res = builder.build_int_s_extend(res, intrinsics.i64x2_ty, "");
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v1, _) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
+                let (v2, _) = v128_into_f64x2(&self.builder, self.intrinsics, v2, i2);
+                let res = self
+                    .builder
+                    .build_float_compare(FloatPredicate::OGE, v1, v2, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i64x2_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
 
@@ -4963,34 +5599,46 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
              ***************************/
             Operator::I32WrapI64 => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res = builder.build_int_truncate(v, intrinsics.i32_ty, &self.state.var_name());
+                let res = self.builder.build_int_truncate(
+                    v,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1(res);
             }
             Operator::I64ExtendI32S => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res = builder.build_int_s_extend(v, intrinsics.i64_ty, &self.state.var_name());
+                let res = self.builder.build_int_s_extend(
+                    v,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1(res);
             }
             Operator::I64ExtendI32U => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res = builder.build_int_z_extend(v, intrinsics.i64_ty, &self.state.var_name());
+                let res = self.builder.build_int_z_extend(
+                    v,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
             Operator::I32x4TruncSatF32x4S => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
                 let res = trunc_sat(
-                    builder,
-                    intrinsics,
-                    intrinsics.f32x4_ty,
-                    intrinsics.i32x4_ty,
+                    &self.builder,
+                    self.intrinsics,
+                    self.intrinsics.f32x4_ty,
+                    self.intrinsics.i32x4_ty,
                     -2147480000i32 as u32 as u64,
                     2147480000,
                     std::i32::MIN as u64,
@@ -5002,13 +5650,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32x4TruncSatF32x4U => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
                 let res = trunc_sat(
-                    builder,
-                    intrinsics,
-                    intrinsics.f32x4_ty,
-                    intrinsics.i32x4_ty,
+                    &self.builder,
+                    self.intrinsics,
+                    self.intrinsics.f32x4_ty,
+                    self.intrinsics.i32x4_ty,
                     0,
                     4294960000,
                     std::u32::MIN as u64,
@@ -5020,13 +5668,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64x2TruncSatF64x2S => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
                 let res = trunc_sat(
-                    builder,
-                    intrinsics,
-                    intrinsics.f64x2_ty,
-                    intrinsics.i64x2_ty,
+                    &self.builder,
+                    self.intrinsics,
+                    self.intrinsics.f64x2_ty,
+                    self.intrinsics.i64x2_ty,
                     std::i64::MIN as u64,
                     std::i64::MAX as u64,
                     std::i64::MIN as u64,
@@ -5038,13 +5686,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64x2TruncSatF64x2U => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
                 let res = trunc_sat(
-                    builder,
-                    intrinsics,
-                    intrinsics.f64x2_ty,
-                    intrinsics.i64x2_ty,
+                    &self.builder,
+                    self.intrinsics,
+                    self.intrinsics.f64x2_ty,
+                    self.intrinsics.i64x2_ty,
                     std::u64::MIN,
                     std::u64::MAX,
                     std::u64::MIN,
@@ -5057,13 +5705,17 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32TruncF32S => {
                 let v1 = self.state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder, intrinsics, context, &function, 0xcf000000, // -2147483600.0
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
+                    0xcf000000, // -2147483600.0
                     0x4effffff, // 2147483500.0
                     v1,
                 );
-                let res = builder.build_float_to_signed_int(
+                let res = self.builder.build_float_to_signed_int(
                     v1,
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(res);
@@ -5071,28 +5723,28 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32TruncF64S => {
                 let v1 = self.state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     0xc1e00000001fffff, // -2147483648.9999995
                     0x41dfffffffffffff, // 2147483647.9999998
                     v1,
                 );
-                let res = builder.build_float_to_signed_int(
+                let res = self.builder.build_float_to_signed_int(
                     v1,
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(res);
             }
             Operator::I32TruncSatF32S => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
                 let res = trunc_sat_scalar(
-                    builder,
-                    intrinsics.i32_ty,
+                    &self.builder,
+                    self.intrinsics.i32_ty,
                     LEF32_GEQ_I32_MIN,
                     GEF32_LEQ_I32_MAX,
                     std::i32::MIN as u32 as u64,
@@ -5104,11 +5756,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32TruncSatF64S => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
                 let res = trunc_sat_scalar(
-                    builder,
-                    intrinsics.i32_ty,
+                    &self.builder,
+                    self.intrinsics.i32_ty,
                     LEF64_GEQ_I32_MIN,
                     GEF64_LEQ_I32_MAX,
                     std::i32::MIN as u64,
@@ -5121,14 +5773,17 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64TruncF32S => {
                 let v1 = self.state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder, intrinsics, context, &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     0xdf000000, // -9223372000000000000.0
                     0x5effffff, // 9223371500000000000.0
                     v1,
                 );
-                let res = builder.build_float_to_signed_int(
+                let res = self.builder.build_float_to_signed_int(
                     v1,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(res);
@@ -5136,28 +5791,28 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64TruncF64S => {
                 let v1 = self.state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     0xc3e0000000000000, // -9223372036854776000.0
                     0x43dfffffffffffff, // 9223372036854775000.0
                     v1,
                 );
-                let res = builder.build_float_to_signed_int(
+                let res = self.builder.build_float_to_signed_int(
                     v1,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(res);
             }
             Operator::I64TruncSatF32S => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
                 let res = trunc_sat_scalar(
-                    builder,
-                    intrinsics.i64_ty,
+                    &self.builder,
+                    self.intrinsics.i64_ty,
                     LEF32_GEQ_I64_MIN,
                     GEF32_LEQ_I64_MAX,
                     std::i64::MIN as u64,
@@ -5169,11 +5824,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64TruncSatF64S => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
                 let res = trunc_sat_scalar(
-                    builder,
-                    intrinsics.i64_ty,
+                    &self.builder,
+                    self.intrinsics.i64_ty,
                     LEF64_GEQ_I64_MIN,
                     GEF64_LEQ_I64_MAX,
                     std::i64::MIN as u64,
@@ -5186,13 +5841,17 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32TruncF32U => {
                 let v1 = self.state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder, intrinsics, context, &function, 0xbf7fffff, // -0.99999994
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
+                    0xbf7fffff, // -0.99999994
                     0x4f7fffff, // 4294967000.0
                     v1,
                 );
-                let res = builder.build_float_to_unsigned_int(
+                let res = self.builder.build_float_to_unsigned_int(
                     v1,
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(res);
@@ -5200,28 +5859,28 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32TruncF64U => {
                 let v1 = self.state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     0xbfefffffffffffff, // -0.9999999999999999
                     0x41efffffffffffff, // 4294967295.9999995
                     v1,
                 );
-                let res = builder.build_float_to_unsigned_int(
+                let res = self.builder.build_float_to_unsigned_int(
                     v1,
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(res);
             }
             Operator::I32TruncSatF32U => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
                 let res = trunc_sat_scalar(
-                    builder,
-                    intrinsics.i32_ty,
+                    &self.builder,
+                    self.intrinsics.i32_ty,
                     LEF32_GEQ_U32_MIN,
                     GEF32_LEQ_U32_MAX,
                     std::u32::MIN as u64,
@@ -5233,11 +5892,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32TruncSatF64U => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
                 let res = trunc_sat_scalar(
-                    builder,
-                    intrinsics.i32_ty,
+                    &self.builder,
+                    self.intrinsics.i32_ty,
                     LEF64_GEQ_U32_MIN,
                     GEF64_LEQ_U32_MAX,
                     std::u32::MIN as u64,
@@ -5250,13 +5909,17 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64TruncF32U => {
                 let v1 = self.state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder, intrinsics, context, &function, 0xbf7fffff, // -0.99999994
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
+                    0xbf7fffff, // -0.99999994
                     0x5f7fffff, // 18446743000000000000.0
                     v1,
                 );
-                let res = builder.build_float_to_unsigned_int(
+                let res = self.builder.build_float_to_unsigned_int(
                     v1,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(res);
@@ -5264,28 +5927,28 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64TruncF64U => {
                 let v1 = self.state.pop1()?.into_float_value();
                 trap_if_not_representable_as_int(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     0xbfefffffffffffff, // -0.9999999999999999
                     0x43efffffffffffff, // 18446744073709550000.0
                     v1,
                 );
-                let res = builder.build_float_to_unsigned_int(
+                let res = self.builder.build_float_to_unsigned_int(
                     v1,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(res);
             }
             Operator::I64TruncSatF32U => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
                 let res = trunc_sat_scalar(
-                    builder,
-                    intrinsics.i64_ty,
+                    &self.builder,
+                    self.intrinsics.i64_ty,
                     LEF32_GEQ_U64_MIN,
                     GEF32_LEQ_U64_MAX,
                     std::u64::MIN,
@@ -5297,11 +5960,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64TruncSatF64U => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_float_value();
                 let res = trunc_sat_scalar(
-                    builder,
-                    intrinsics.i64_ty,
+                    &self.builder,
+                    self.intrinsics.i64_ty,
                     LEF64_GEQ_U64_MIN,
                     GEF64_LEQ_U64_MAX,
                     std::u64::MIN,
@@ -5314,125 +5977,149 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F32DemoteF64 => {
                 let v = self.state.pop1()?;
                 let v = v.into_float_value();
-                let res = builder.build_float_trunc(v, intrinsics.f32_ty, &self.state.var_name());
+                let res = self.builder.build_float_trunc(
+                    v,
+                    self.intrinsics.f32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(res, ExtraInfo::pending_f32_nan());
             }
             Operator::F64PromoteF32 => {
                 let v = self.state.pop1()?;
                 let v = v.into_float_value();
-                let res = builder.build_float_ext(v, intrinsics.f64_ty, &self.state.var_name());
+                let res =
+                    self.builder
+                        .build_float_ext(v, self.intrinsics.f64_ty, &self.state.var_name());
                 self.state.push1_extra(res, ExtraInfo::pending_f64_nan());
             }
             Operator::F32ConvertI32S | Operator::F32ConvertI64S => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res =
-                    builder.build_signed_int_to_float(v, intrinsics.f32_ty, &self.state.var_name());
+                let res = self.builder.build_signed_int_to_float(
+                    v,
+                    self.intrinsics.f32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1(res);
             }
             Operator::F64ConvertI32S | Operator::F64ConvertI64S => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res =
-                    builder.build_signed_int_to_float(v, intrinsics.f64_ty, &self.state.var_name());
+                let res = self.builder.build_signed_int_to_float(
+                    v,
+                    self.intrinsics.f64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1(res);
             }
             Operator::F32ConvertI32U | Operator::F32ConvertI64U => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res = builder.build_unsigned_int_to_float(
+                let res = self.builder.build_unsigned_int_to_float(
                     v,
-                    intrinsics.f32_ty,
+                    self.intrinsics.f32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(res);
             }
             Operator::F64ConvertI32U | Operator::F64ConvertI64U => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let v = v.into_int_value();
-                let res = builder.build_unsigned_int_to_float(
+                let res = self.builder.build_unsigned_int_to_float(
                     v,
-                    intrinsics.f64_ty,
+                    self.intrinsics.f64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(res);
             }
             Operator::F32x4ConvertI32x4S => {
                 let v = self.state.pop1()?;
-                let v = builder
-                    .build_bitcast(v, intrinsics.i32x4_ty, "")
+                let v = self
+                    .builder
+                    .build_bitcast(v, self.intrinsics.i32x4_ty, "")
                     .into_vector_value();
-                let res = builder.build_signed_int_to_float(
+                let res = self.builder.build_signed_int_to_float(
                     v,
-                    intrinsics.f32x4_ty,
+                    self.intrinsics.f32x4_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F32x4ConvertI32x4U => {
                 let v = self.state.pop1()?;
-                let v = builder
-                    .build_bitcast(v, intrinsics.i32x4_ty, "")
+                let v = self
+                    .builder
+                    .build_bitcast(v, self.intrinsics.i32x4_ty, "")
                     .into_vector_value();
-                let res = builder.build_unsigned_int_to_float(
+                let res = self.builder.build_unsigned_int_to_float(
                     v,
-                    intrinsics.f32x4_ty,
+                    self.intrinsics.f32x4_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F64x2ConvertI64x2S => {
                 let v = self.state.pop1()?;
-                let v = builder
-                    .build_bitcast(v, intrinsics.i64x2_ty, "")
+                let v = self
+                    .builder
+                    .build_bitcast(v, self.intrinsics.i64x2_ty, "")
                     .into_vector_value();
-                let res = builder.build_signed_int_to_float(
+                let res = self.builder.build_signed_int_to_float(
                     v,
-                    intrinsics.f64x2_ty,
+                    self.intrinsics.f64x2_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::F64x2ConvertI64x2U => {
                 let v = self.state.pop1()?;
-                let v = builder
-                    .build_bitcast(v, intrinsics.i64x2_ty, "")
+                let v = self
+                    .builder
+                    .build_bitcast(v, self.intrinsics.i64x2_ty, "")
                     .into_vector_value();
-                let res = builder.build_unsigned_int_to_float(
+                let res = self.builder.build_unsigned_int_to_float(
                     v,
-                    intrinsics.f64x2_ty,
+                    self.intrinsics.f64x2_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32ReinterpretF32 => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
-                let ret = builder.build_bitcast(v, intrinsics.i32_ty, &self.state.var_name());
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
+                let ret =
+                    self.builder
+                        .build_bitcast(v, self.intrinsics.i32_ty, &self.state.var_name());
                 self.state.push1_extra(ret, ExtraInfo::arithmetic_f32());
             }
             Operator::I64ReinterpretF64 => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
-                let ret = builder.build_bitcast(v, intrinsics.i64_ty, &self.state.var_name());
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
+                let ret =
+                    self.builder
+                        .build_bitcast(v, self.intrinsics.i64_ty, &self.state.var_name());
                 self.state.push1_extra(ret, ExtraInfo::arithmetic_f64());
             }
             Operator::F32ReinterpretI32 => {
                 let (v, i) = self.state.pop1_extra()?;
-                let ret = builder.build_bitcast(v, intrinsics.f32_ty, &self.state.var_name());
+                let ret =
+                    self.builder
+                        .build_bitcast(v, self.intrinsics.f32_ty, &self.state.var_name());
                 self.state.push1_extra(ret, i);
             }
             Operator::F64ReinterpretI64 => {
                 let (v, i) = self.state.pop1_extra()?;
-                let ret = builder.build_bitcast(v, intrinsics.f64_ty, &self.state.var_name());
+                let ret =
+                    self.builder
+                        .build_bitcast(v, self.intrinsics.f64_ty, &self.state.var_name());
                 self.state.push1_extra(ret, i);
             }
 
@@ -5442,55 +6129,70 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
              ***************************/
             Operator::I32Extend8S => {
                 let value = self.state.pop1()?.into_int_value();
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let extended_value = builder.build_int_s_extend(
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let extended_value = self.builder.build_int_s_extend(
                     narrow_value,
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(extended_value);
             }
             Operator::I32Extend16S => {
                 let value = self.state.pop1()?.into_int_value();
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let extended_value = builder.build_int_s_extend(
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let extended_value = self.builder.build_int_s_extend(
                     narrow_value,
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(extended_value);
             }
             Operator::I64Extend8S => {
                 let value = self.state.pop1()?.into_int_value();
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let extended_value = builder.build_int_s_extend(
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let extended_value = self.builder.build_int_s_extend(
                     narrow_value,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(extended_value);
             }
             Operator::I64Extend16S => {
                 let value = self.state.pop1()?.into_int_value();
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let extended_value = builder.build_int_s_extend(
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let extended_value = self.builder.build_int_s_extend(
                     narrow_value,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(extended_value);
             }
             Operator::I64Extend32S => {
                 let value = self.state.pop1()?.into_int_value();
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i32_ty, &self.state.var_name());
-                let extended_value = builder.build_int_s_extend(
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let extended_value = self.builder.build_int_s_extend(
                     narrow_value,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(extended_value);
@@ -5505,11 +6207,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
-                let result = builder.build_load(effective_address, &self.state.var_name());
+                let result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 result
                     .as_instruction_value()
                     .unwrap()
@@ -5517,7 +6221,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     result.as_instruction_value().unwrap(),
                     Some(0),
@@ -5529,11 +6233,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
-                let result = builder.build_load(effective_address, &self.state.var_name());
+                let result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 result
                     .as_instruction_value()
                     .unwrap()
@@ -5541,7 +6247,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     result.as_instruction_value().unwrap(),
                     Some(0),
@@ -5553,11 +6259,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.f32_ptr_ty,
+                    self.intrinsics.f32_ptr_ty,
                     offset,
                     4,
                 )?;
-                let result = builder.build_load(effective_address, &self.state.var_name());
+                let result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 result
                     .as_instruction_value()
                     .unwrap()
@@ -5565,7 +6273,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     result.as_instruction_value().unwrap(),
                     Some(0),
@@ -5577,11 +6285,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.f64_ptr_ty,
+                    self.intrinsics.f64_ptr_ty,
                     offset,
                     8,
                 )?;
-                let result = builder.build_load(effective_address, &self.state.var_name());
+                let result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 result
                     .as_instruction_value()
                     .unwrap()
@@ -5589,7 +6299,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     result.as_instruction_value().unwrap(),
                     Some(0),
@@ -5601,11 +6311,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i128_ptr_ty,
+                    self.intrinsics.i128_ptr_ty,
                     offset,
                     16,
                 )?;
-                let result = builder.build_load(effective_address, &self.state.var_name());
+                let result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 result
                     .as_instruction_value()
                     .unwrap()
@@ -5613,7 +6325,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     result.as_instruction_value().unwrap(),
                     Some(0),
@@ -5627,13 +6339,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
-                let store = builder.build_store(effective_address, value);
+                let store = self.builder.build_store(effective_address, value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::I64Store { ref memarg } => {
                 let value = self.state.pop1()?;
@@ -5641,69 +6353,71 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
-                let store = builder.build_store(effective_address, value);
+                let store = self.builder.build_store(effective_address, value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::F32Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.f32_ptr_ty,
+                    self.intrinsics.f32_ptr_ty,
                     offset,
                     4,
                 )?;
-                let store = builder.build_store(effective_address, v);
+                let store = self.builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::F64Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.f64_ptr_ty,
+                    self.intrinsics.f64_ptr_ty,
                     offset,
                     8,
                 )?;
-                let store = builder.build_store(effective_address, v);
+                let store = self.builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::V128Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i);
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i);
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i128_ptr_ty,
+                    self.intrinsics.i128_ptr_ty,
                     offset,
                     16,
                 )?;
-                let store = builder.build_store(effective_address, v);
+                let store = self.builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::I32Load8S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
-                let narrow_result = builder.build_load(effective_address, &self.state.var_name());
+                let narrow_result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 narrow_result
                     .as_instruction_value()
                     .unwrap()
@@ -5711,14 +6425,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result = builder.build_int_s_extend(
+                let result = self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(result);
@@ -5728,11 +6442,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
-                let narrow_result = builder.build_load(effective_address, &self.state.var_name());
+                let narrow_result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 narrow_result
                     .as_instruction_value()
                     .unwrap()
@@ -5740,14 +6456,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result = builder.build_int_s_extend(
+                let result = self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(result);
@@ -5757,11 +6473,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
-                let narrow_result = builder
+                let narrow_result = self
+                    .builder
                     .build_load(effective_address, &self.state.var_name())
                     .into_int_value();
                 narrow_result
@@ -5771,14 +6488,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result = builder.build_int_s_extend(
+                let result = self.builder.build_int_s_extend(
                     narrow_result,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(result);
@@ -5788,11 +6505,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
-                let narrow_result = builder
+                let narrow_result = self
+                    .builder
                     .build_load(effective_address, &self.state.var_name())
                     .into_int_value();
                 narrow_result
@@ -5802,14 +6520,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result = builder.build_int_s_extend(
+                let result = self.builder.build_int_s_extend(
                     narrow_result,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(result);
@@ -5819,11 +6537,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
-                let narrow_result = builder.build_load(effective_address, &self.state.var_name());
+                let narrow_result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 narrow_result
                     .as_instruction_value()
                     .unwrap()
@@ -5831,14 +6551,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result = builder.build_int_s_extend(
+                let result = self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1(result);
@@ -5849,11 +6569,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
-                let narrow_result = builder.build_load(effective_address, &self.state.var_name());
+                let narrow_result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 narrow_result
                     .as_instruction_value()
                     .unwrap()
@@ -5861,14 +6583,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result = builder.build_int_z_extend(
+                let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f32());
@@ -5878,11 +6600,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
-                let narrow_result = builder.build_load(effective_address, &self.state.var_name());
+                let narrow_result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 narrow_result
                     .as_instruction_value()
                     .unwrap()
@@ -5890,14 +6614,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result = builder.build_int_z_extend(
+                let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f32());
@@ -5907,11 +6631,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
-                let narrow_result = builder.build_load(effective_address, &self.state.var_name());
+                let narrow_result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 narrow_result
                     .as_instruction_value()
                     .unwrap()
@@ -5919,14 +6645,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result = builder.build_int_z_extend(
+                let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f64());
@@ -5936,11 +6662,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
-                let narrow_result = builder.build_load(effective_address, &self.state.var_name());
+                let narrow_result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 narrow_result
                     .as_instruction_value()
                     .unwrap()
@@ -5948,14 +6676,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result = builder.build_int_z_extend(
+                let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f64());
@@ -5965,11 +6693,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
-                let narrow_result = builder.build_load(effective_address, &self.state.var_name());
+                let narrow_result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 narrow_result
                     .as_instruction_value()
                     .unwrap()
@@ -5977,14 +6707,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     narrow_result.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let result = builder.build_int_z_extend(
+                let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f64());
@@ -5996,15 +6726,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let store = builder.build_store(effective_address, narrow_value);
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let store = self.builder.build_store(effective_address, narrow_value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -6012,15 +6745,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let store = builder.build_store(effective_address, narrow_value);
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let store = self.builder.build_store(effective_address, narrow_value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::I64Store32 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -6028,52 +6764,68 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i32_ty, &self.state.var_name());
-                let store = builder.build_store(effective_address, narrow_value);
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let store = self.builder.build_store(effective_address, narrow_value);
                 store.set_alignment(1).unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::I8x16Neg => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = v128_into_i8x16(builder, intrinsics, v, i);
-                let res =
-                    builder.build_int_sub(v.get_type().const_zero(), v, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v, _) = v128_into_i8x16(&self.builder, self.intrinsics, v, i);
+                let res = self.builder.build_int_sub(
+                    v.get_type().const_zero(),
+                    v,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8Neg => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = v128_into_i16x8(builder, intrinsics, v, i);
-                let res =
-                    builder.build_int_sub(v.get_type().const_zero(), v, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v, _) = v128_into_i16x8(&self.builder, self.intrinsics, v, i);
+                let res = self.builder.build_int_sub(
+                    v.get_type().const_zero(),
+                    v,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4Neg => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = v128_into_i32x4(builder, intrinsics, v, i);
-                let res =
-                    builder.build_int_sub(v.get_type().const_zero(), v, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v, _) = v128_into_i32x4(&self.builder, self.intrinsics, v, i);
+                let res = self.builder.build_int_sub(
+                    v.get_type().const_zero(),
+                    v,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I64x2Neg => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = v128_into_i64x2(builder, intrinsics, v, i);
-                let res =
-                    builder.build_int_sub(v.get_type().const_zero(), v, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let (v, _) = v128_into_i64x2(&self.builder, self.intrinsics, v, i);
+                let res = self.builder.build_int_sub(
+                    v.get_type().const_zero(),
+                    v,
+                    &self.state.var_name(),
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::V128Not => {
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i).into_int_value();
-                let res = builder.build_not(v, &self.state.var_name());
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i)
+                    .into_int_value();
+                let res = self.builder.build_not(v, &self.state.var_name());
                 self.state.push1(res);
             }
             Operator::I8x16AnyTrue
@@ -6082,13 +6834,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             | Operator::I64x2AnyTrue => {
                 // Skip canonicalization, it never changes non-zero values to zero or vice versa.
                 let v = self.state.pop1()?.into_int_value();
-                let res = builder.build_int_compare(
+                let res = self.builder.build_int_compare(
                     IntPredicate::NE,
                     v,
                     v.get_type().const_zero(),
                     &self.state.var_name(),
                 );
-                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                let res = self
+                    .builder
+                    .build_int_z_extend(res, self.intrinsics.i32_ty, "");
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -6099,28 +6853,39 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             | Operator::I32x4AllTrue
             | Operator::I64x2AllTrue => {
                 let vec_ty = match op {
-                    Operator::I8x16AllTrue => intrinsics.i8x16_ty,
-                    Operator::I16x8AllTrue => intrinsics.i16x8_ty,
-                    Operator::I32x4AllTrue => intrinsics.i32x4_ty,
-                    Operator::I64x2AllTrue => intrinsics.i64x2_ty,
+                    Operator::I8x16AllTrue => self.intrinsics.i8x16_ty,
+                    Operator::I16x8AllTrue => self.intrinsics.i16x8_ty,
+                    Operator::I32x4AllTrue => self.intrinsics.i32x4_ty,
+                    Operator::I64x2AllTrue => self.intrinsics.i64x2_ty,
                     _ => unreachable!(),
                 };
                 let (v, i) = self.state.pop1_extra()?;
-                let v = apply_pending_canonicalization(builder, intrinsics, v, i).into_int_value();
-                let lane_int_ty = context.custom_width_int_type(vec_ty.get_size());
-                let vec = builder.build_bitcast(v, vec_ty, "vec").into_vector_value();
-                let mask =
-                    builder.build_int_compare(IntPredicate::NE, vec, vec_ty.const_zero(), "mask");
-                let cmask = builder
+                let v = apply_pending_canonicalization(&self.builder, self.intrinsics, v, i)
+                    .into_int_value();
+                let lane_int_ty = self.context.custom_width_int_type(vec_ty.get_size());
+                let vec = self
+                    .builder
+                    .build_bitcast(v, vec_ty, "vec")
+                    .into_vector_value();
+                let mask = self.builder.build_int_compare(
+                    IntPredicate::NE,
+                    vec,
+                    vec_ty.const_zero(),
+                    "mask",
+                );
+                let cmask = self
+                    .builder
                     .build_bitcast(mask, lane_int_ty, "cmask")
                     .into_int_value();
-                let res = builder.build_int_compare(
+                let res = self.builder.build_int_compare(
                     IntPredicate::EQ,
                     cmask,
                     lane_int_ty.const_int(std::u64::MAX, true),
                     &self.state.var_name(),
                 );
-                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                let res = self
+                    .builder
+                    .build_int_z_extend(res, self.intrinsics.i32_ty, "");
                 self.state.push1_extra(
                     res,
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
@@ -6128,133 +6893,161 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I8x16ExtractLaneS { lane } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = v128_into_i8x16(builder, intrinsics, v, i);
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder
+                let (v, _) = v128_into_i8x16(&self.builder, self.intrinsics, v, i);
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
                     .build_extract_element(v, idx, &self.state.var_name())
                     .into_int_value();
-                let res = builder.build_int_s_extend(res, intrinsics.i32_ty, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32_ty, "");
                 self.state.push1(res);
             }
             Operator::I8x16ExtractLaneU { lane } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = v128_into_i8x16(builder, intrinsics, v, i);
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder
+                let (v, _) = v128_into_i8x16(&self.builder, self.intrinsics, v, i);
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
                     .build_extract_element(v, idx, &self.state.var_name())
                     .into_int_value();
-                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                let res = self
+                    .builder
+                    .build_int_z_extend(res, self.intrinsics.i32_ty, "");
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
             }
             Operator::I16x8ExtractLaneS { lane } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = v128_into_i16x8(builder, intrinsics, v, i);
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder
+                let (v, _) = v128_into_i16x8(&self.builder, self.intrinsics, v, i);
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
                     .build_extract_element(v, idx, &self.state.var_name())
                     .into_int_value();
-                let res = builder.build_int_s_extend(res, intrinsics.i32_ty, "");
+                let res = self
+                    .builder
+                    .build_int_s_extend(res, self.intrinsics.i32_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8ExtractLaneU { lane } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = v128_into_i16x8(builder, intrinsics, v, i);
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder
+                let (v, _) = v128_into_i16x8(&self.builder, self.intrinsics, v, i);
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
                     .build_extract_element(v, idx, &self.state.var_name())
                     .into_int_value();
-                let res = builder.build_int_z_extend(res, intrinsics.i32_ty, "");
+                let res = self
+                    .builder
+                    .build_int_z_extend(res, self.intrinsics.i32_ty, "");
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
             }
             Operator::I32x4ExtractLane { lane } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, i) = v128_into_i32x4(builder, intrinsics, v, i);
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder.build_extract_element(v, idx, &self.state.var_name());
+                let (v, i) = v128_into_i32x4(&self.builder, self.intrinsics, v, i);
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
+                    .build_extract_element(v, idx, &self.state.var_name());
                 self.state.push1_extra(res, i);
             }
             Operator::I64x2ExtractLane { lane } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, i) = v128_into_i64x2(builder, intrinsics, v, i);
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder.build_extract_element(v, idx, &self.state.var_name());
+                let (v, i) = v128_into_i64x2(&self.builder, self.intrinsics, v, i);
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
+                    .build_extract_element(v, idx, &self.state.var_name());
                 self.state.push1_extra(res, i);
             }
             Operator::F32x4ExtractLane { lane } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, i) = v128_into_f32x4(builder, intrinsics, v, i);
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder.build_extract_element(v, idx, &self.state.var_name());
+                let (v, i) = v128_into_f32x4(&self.builder, self.intrinsics, v, i);
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
+                    .build_extract_element(v, idx, &self.state.var_name());
                 self.state.push1_extra(res, i);
             }
             Operator::F64x2ExtractLane { lane } => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, i) = v128_into_f64x2(builder, intrinsics, v, i);
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder.build_extract_element(v, idx, &self.state.var_name());
+                let (v, i) = v128_into_f64x2(&self.builder, self.intrinsics, v, i);
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
+                    .build_extract_element(v, idx, &self.state.var_name());
                 self.state.push1_extra(res, i);
             }
             Operator::I8x16ReplaceLane { lane } => {
                 let ((v1, i1), (v2, _)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i8x16(builder, intrinsics, v1, i1);
+                let (v1, _) = v128_into_i8x16(&self.builder, self.intrinsics, v1, i1);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_int_cast(v2, intrinsics.i8_ty, "");
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder.build_insert_element(v1, v2, idx, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let v2 = self.builder.build_int_cast(v2, self.intrinsics.i8_ty, "");
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
+                    .build_insert_element(v1, v2, idx, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I16x8ReplaceLane { lane } => {
                 let ((v1, i1), (v2, _)) = self.state.pop2_extra()?;
-                let (v1, _) = v128_into_i16x8(builder, intrinsics, v1, i1);
+                let (v1, _) = v128_into_i16x8(&self.builder, self.intrinsics, v1, i1);
                 let v2 = v2.into_int_value();
-                let v2 = builder.build_int_cast(v2, intrinsics.i16_ty, "");
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder.build_insert_element(v1, v2, idx, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let v2 = self.builder.build_int_cast(v2, self.intrinsics.i16_ty, "");
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
+                    .build_insert_element(v1, v2, idx, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::I32x4ReplaceLane { lane } => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, i1) = v128_into_i32x4(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, i1) = v128_into_i32x4(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
                 let i2 = i2.strip_pending();
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder.build_insert_element(v1, v2, idx, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
+                    .build_insert_element(v1, v2, idx, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state
                     .push1_extra(res, i1 & i2 & ExtraInfo::arithmetic_f32());
             }
             Operator::I64x2ReplaceLane { lane } => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, i1) = v128_into_i64x2(builder, intrinsics, v1, i1);
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
+                let (v1, i1) = v128_into_i64x2(&self.builder, self.intrinsics, v1, i1);
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let v2 = v2.into_int_value();
                 let i2 = i2.strip_pending();
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder.build_insert_element(v1, v2, idx, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
+                    .build_insert_element(v1, v2, idx, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state
                     .push1_extra(res, i1 & i2 & ExtraInfo::arithmetic_f64());
             }
             Operator::F32x4ReplaceLane { lane } => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, i1) = v128_into_f32x4(builder, intrinsics, v1, i1);
+                let (v1, i1) = v128_into_f32x4(&self.builder, self.intrinsics, v1, i1);
                 let push_pending_f32_nan_to_result =
                     i1.has_pending_f32_nan() && i2.has_pending_f32_nan();
                 let (v1, v2) = if !push_pending_f32_nan_to_result {
                     (
                         apply_pending_canonicalization(
-                            builder,
-                            intrinsics,
+                            &self.builder,
+                            self.intrinsics,
                             v1.as_basic_value_enum(),
                             i1,
                         )
                         .into_vector_value(),
                         apply_pending_canonicalization(
-                            builder,
-                            intrinsics,
+                            &self.builder,
+                            self.intrinsics,
                             v2.as_basic_value_enum(),
                             i2,
                         )
@@ -6263,9 +7056,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 } else {
                     (v1, v2.into_float_value())
                 };
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder.build_insert_element(v1, v2, idx, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
+                    .build_insert_element(v1, v2, idx, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 let info = if push_pending_f32_nan_to_result {
                     ExtraInfo::pending_f32_nan()
                 } else {
@@ -6275,21 +7070,21 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64x2ReplaceLane { lane } => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, i1) = v128_into_f64x2(builder, intrinsics, v1, i1);
+                let (v1, i1) = v128_into_f64x2(&self.builder, self.intrinsics, v1, i1);
                 let push_pending_f64_nan_to_result =
                     i1.has_pending_f64_nan() && i2.has_pending_f64_nan();
                 let (v1, v2) = if !push_pending_f64_nan_to_result {
                     (
                         apply_pending_canonicalization(
-                            builder,
-                            intrinsics,
+                            &self.builder,
+                            self.intrinsics,
                             v1.as_basic_value_enum(),
                             i1,
                         )
                         .into_vector_value(),
                         apply_pending_canonicalization(
-                            builder,
-                            intrinsics,
+                            &self.builder,
+                            self.intrinsics,
                             v2.as_basic_value_enum(),
                             i2,
                         )
@@ -6298,9 +7093,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 } else {
                     (v1, v2.into_float_value())
                 };
-                let idx = intrinsics.i32_ty.const_int(lane.into(), false);
-                let res = builder.build_insert_element(v1, v2, idx, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let idx = self.intrinsics.i32_ty.const_int(lane.into(), false);
+                let res = self
+                    .builder
+                    .build_insert_element(v1, v2, idx, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 let info = if push_pending_f64_nan_to_result {
                     ExtraInfo::pending_f64_nan()
                 } else {
@@ -6310,86 +7107,104 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::V8x16Swizzle => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v1 = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i8x16_ty, "")
                     .into_vector_value();
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
+                let v2 = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i8x16_ty, "")
                     .into_vector_value();
-                let lanes = intrinsics.i8_ty.const_int(16, false);
+                let lanes = self.intrinsics.i8_ty.const_int(16, false);
                 let lanes = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     lanes.as_basic_value_enum(),
-                    intrinsics.i8x16_ty,
+                    self.intrinsics.i8x16_ty,
                     "",
                 );
-                let mut res = intrinsics.i8x16_ty.get_undef();
-                let idx_out_of_range =
-                    builder.build_int_compare(IntPredicate::UGE, v2, lanes, "idx_out_of_range");
-                let idx_clamped = builder
+                let mut res = self.intrinsics.i8x16_ty.get_undef();
+                let idx_out_of_range = self.builder.build_int_compare(
+                    IntPredicate::UGE,
+                    v2,
+                    lanes,
+                    "idx_out_of_range",
+                );
+                let idx_clamped = self
+                    .builder
                     .build_select(
                         idx_out_of_range,
-                        intrinsics.i8x16_ty.const_zero(),
+                        self.intrinsics.i8x16_ty.const_zero(),
                         v2,
                         "idx_clamped",
                     )
                     .into_vector_value();
                 for i in 0..16 {
-                    let idx = builder
+                    let idx = self
+                        .builder
                         .build_extract_element(
                             idx_clamped,
-                            intrinsics.i32_ty.const_int(i, false),
+                            self.intrinsics.i32_ty.const_int(i, false),
                             "idx",
                         )
                         .into_int_value();
-                    let replace_with_zero = builder
+                    let replace_with_zero = self
+                        .builder
                         .build_extract_element(
                             idx_out_of_range,
-                            intrinsics.i32_ty.const_int(i, false),
+                            self.intrinsics.i32_ty.const_int(i, false),
                             "replace_with_zero",
                         )
                         .into_int_value();
-                    let elem = builder
+                    let elem = self
+                        .builder
                         .build_extract_element(v1, idx, "elem")
                         .into_int_value();
-                    let elem_or_zero = builder.build_select(
+                    let elem_or_zero = self.builder.build_select(
                         replace_with_zero,
-                        intrinsics.i8_zero,
+                        self.intrinsics.i8_zero,
                         elem,
                         "elem_or_zero",
                     );
-                    res = builder.build_insert_element(
+                    res = self.builder.build_insert_element(
                         res,
                         elem_or_zero,
-                        intrinsics.i32_ty.const_int(i, false),
+                        self.intrinsics.i32_ty.const_int(i, false),
                         "",
                     );
                 }
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, &self.state.var_name());
+                let res = self.builder.build_bitcast(
+                    res,
+                    self.intrinsics.i128_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1(res);
             }
             Operator::V8x16Shuffle { lanes } => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let v1 = apply_pending_canonicalization(builder, intrinsics, v1, i1);
-                let v1 = builder
-                    .build_bitcast(v1, intrinsics.i8x16_ty, "")
+                let v1 = apply_pending_canonicalization(&self.builder, self.intrinsics, v1, i1);
+                let v1 = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i8x16_ty, "")
                     .into_vector_value();
-                let v2 = apply_pending_canonicalization(builder, intrinsics, v2, i2);
-                let v2 = builder
-                    .build_bitcast(v2, intrinsics.i8x16_ty, "")
+                let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
+                let v2 = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i8x16_ty, "")
                     .into_vector_value();
                 let mask = VectorType::const_vector(
                     lanes
                         .iter()
-                        .map(|l| intrinsics.i32_ty.const_int((*l).into(), false))
+                        .map(|l| self.intrinsics.i32_ty.const_int((*l).into(), false))
                         .collect::<Vec<IntValue>>()
                         .as_slice(),
                 );
-                let res = builder.build_shuffle_vector(v1, v2, mask, &self.state.var_name());
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self
+                    .builder
+                    .build_shuffle_vector(v1, v2, mask, &self.state.var_name());
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::V8x16LoadSplat { ref memarg } => {
@@ -6397,30 +7212,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
-                let elem = builder.build_load(effective_address, "");
+                let elem = self.builder.build_load(effective_address, "");
                 elem.as_instruction_value()
                     .unwrap()
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     elem.as_instruction_value().unwrap(),
                     Some(0),
                 );
                 let res = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     elem,
-                    intrinsics.i8x16_ty,
+                    self.intrinsics.i8x16_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::V16x8LoadSplat { ref memarg } => {
@@ -6428,30 +7243,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
-                let elem = builder.build_load(effective_address, "");
+                let elem = self.builder.build_load(effective_address, "");
                 elem.as_instruction_value()
                     .unwrap()
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     elem.as_instruction_value().unwrap(),
                     Some(0),
                 );
                 let res = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     elem,
-                    intrinsics.i16x8_ty,
+                    self.intrinsics.i16x8_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::V32x4LoadSplat { ref memarg } => {
@@ -6459,30 +7274,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
-                let elem = builder.build_load(effective_address, "");
+                let elem = self.builder.build_load(effective_address, "");
                 elem.as_instruction_value()
                     .unwrap()
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     elem.as_instruction_value().unwrap(),
                     Some(0),
                 );
                 let res = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     elem,
-                    intrinsics.i32x4_ty,
+                    self.intrinsics.i32x4_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::V64x2LoadSplat { ref memarg } => {
@@ -6490,30 +7305,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
-                let elem = builder.build_load(effective_address, "");
+                let elem = self.builder.build_load(effective_address, "");
                 elem.as_instruction_value()
                     .unwrap()
                     .set_alignment(1)
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     elem.as_instruction_value().unwrap(),
                     Some(0),
                 );
                 let res = splat_vector(
-                    builder,
-                    intrinsics,
+                    &self.builder,
+                    self.intrinsics,
                     elem,
-                    intrinsics.i64x2_ty,
+                    self.intrinsics.i64x2_ty,
                     &self.state.var_name(),
                 );
-                let res = builder.build_bitcast(res, intrinsics.i128_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
             Operator::AtomicFence { flags: _ } => {
@@ -6530,24 +7345,26 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let result = builder.build_load(effective_address, &self.state.var_name());
+                let result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 let load = result.as_instruction_value().unwrap();
                 load.set_alignment(4).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
                 self.state.push1(result);
             }
             Operator::I64AtomicLoad { ref memarg } => {
@@ -6555,24 +7372,26 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let result = builder.build_load(effective_address, &self.state.var_name());
+                let result = self
+                    .builder
+                    .build_load(effective_address, &self.state.var_name());
                 let load = result.as_instruction_value().unwrap();
                 load.set_alignment(8).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
                 self.state.push1(result);
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
@@ -6580,29 +7399,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_result = builder
+                let narrow_result = self
+                    .builder
                     .build_load(effective_address, &self.state.var_name())
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
                 load.set_alignment(1).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
-                let result = builder.build_int_z_extend(
+                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                let result = self.builder.build_int_z_extend(
                     narrow_result,
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f32());
@@ -6612,29 +7432,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_result = builder
+                let narrow_result = self
+                    .builder
                     .build_load(effective_address, &self.state.var_name())
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
                 load.set_alignment(2).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
-                let result = builder.build_int_z_extend(
+                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                let result = self.builder.build_int_z_extend(
                     narrow_result,
-                    intrinsics.i32_ty,
+                    self.intrinsics.i32_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f32());
@@ -6644,29 +7465,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_result = builder
+                let narrow_result = self
+                    .builder
                     .build_load(effective_address, &self.state.var_name())
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
                 load.set_alignment(1).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
-                let result = builder.build_int_z_extend(
+                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                let result = self.builder.build_int_z_extend(
                     narrow_result,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f64());
@@ -6676,29 +7498,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_result = builder
+                let narrow_result = self
+                    .builder
                     .build_load(effective_address, &self.state.var_name())
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
                 load.set_alignment(2).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
-                let result = builder.build_int_z_extend(
+                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                let result = self.builder.build_int_z_extend(
                     narrow_result,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f64());
@@ -6708,29 +7531,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_result = builder
+                let narrow_result = self
+                    .builder
                     .build_load(effective_address, &self.state.var_name())
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
                 load.set_alignment(4).unwrap();
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", load, Some(0));
-                let result = builder.build_int_z_extend(
+                tbaa_label(&self.module, self.intrinsics, "memory", load, Some(0));
+                let result = self.builder.build_int_z_extend(
                     narrow_result,
-                    intrinsics.i64_ty,
+                    self.intrinsics.i64_ty,
                     &self.state.var_name(),
                 );
                 self.state.push1_extra(result, ExtraInfo::arithmetic_f64());
@@ -6741,24 +7565,24 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let store = builder.build_store(effective_address, value);
+                let store = self.builder.build_store(effective_address, value);
                 store.set_alignment(4).unwrap();
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::I64AtomicStore { ref memarg } => {
                 let value = self.state.pop1()?;
@@ -6766,24 +7590,24 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let store = builder.build_store(effective_address, value);
+                let store = self.builder.build_store(effective_address, value);
                 store.set_alignment(8).unwrap();
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::I32AtomicStore8 { ref memarg } | Operator::I64AtomicStore8 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -6791,26 +7615,29 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let store = builder.build_store(effective_address, narrow_value);
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let store = self.builder.build_store(effective_address, narrow_value);
                 store.set_alignment(1).unwrap();
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::I32AtomicStore16 { ref memarg }
             | Operator::I64AtomicStore16 { ref memarg } => {
@@ -6819,26 +7646,29 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let store = builder.build_store(effective_address, narrow_value);
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let store = self.builder.build_store(effective_address, narrow_value);
                 store.set_alignment(2).unwrap();
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::I64AtomicStore32 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -6846,26 +7676,29 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i32_ty, &self.state.var_name());
-                let store = builder.build_store(effective_address, narrow_value);
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let store = self.builder.build_store(effective_address, narrow_value);
                 store.set_alignment(4).unwrap();
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(&self.module, intrinsics, "memory", store, Some(0));
+                tbaa_label(&self.module, self.intrinsics, "memory", store, Some(0));
             }
             Operator::I32AtomicRmw8AddU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -6873,21 +7706,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Add,
                         effective_address,
@@ -6897,13 +7734,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmw16AddU { ref memarg } => {
@@ -6912,21 +7752,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Add,
                         effective_address,
@@ -6936,13 +7780,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmwAdd { ref memarg } => {
@@ -6951,19 +7798,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Add,
                         effective_address,
@@ -6973,7 +7821,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -6986,21 +7834,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Add,
                         effective_address,
@@ -7010,13 +7862,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw16AddU { ref memarg } => {
@@ -7025,21 +7880,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Add,
                         effective_address,
@@ -7049,13 +7908,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw32AddU { ref memarg } => {
@@ -7064,21 +7926,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i32_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Add,
                         effective_address,
@@ -7088,13 +7954,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmwAdd { ref memarg } => {
@@ -7103,19 +7972,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Add,
                         effective_address,
@@ -7125,7 +7995,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -7138,21 +8008,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Sub,
                         effective_address,
@@ -7162,13 +8036,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmw16SubU { ref memarg } => {
@@ -7177,21 +8054,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Sub,
                         effective_address,
@@ -7201,13 +8082,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmwSub { ref memarg } => {
@@ -7216,19 +8100,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Sub,
                         effective_address,
@@ -7238,7 +8123,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -7251,21 +8136,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Sub,
                         effective_address,
@@ -7275,13 +8164,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I64AtomicRmw16SubU { ref memarg } => {
@@ -7290,21 +8182,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Sub,
                         effective_address,
@@ -7314,13 +8210,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw32SubU { ref memarg } => {
@@ -7329,21 +8228,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i32_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Sub,
                         effective_address,
@@ -7353,13 +8256,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmwSub { ref memarg } => {
@@ -7368,19 +8274,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Sub,
                         effective_address,
@@ -7390,7 +8297,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -7403,21 +8310,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::And,
                         effective_address,
@@ -7427,13 +8338,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmw16AndU { ref memarg } => {
@@ -7442,21 +8356,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::And,
                         effective_address,
@@ -7466,13 +8384,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmwAnd { ref memarg } => {
@@ -7481,19 +8402,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::And,
                         effective_address,
@@ -7503,7 +8425,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -7516,21 +8438,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::And,
                         effective_address,
@@ -7540,13 +8466,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw16AndU { ref memarg } => {
@@ -7555,21 +8484,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::And,
                         effective_address,
@@ -7579,13 +8512,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw32AndU { ref memarg } => {
@@ -7594,21 +8530,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i32_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::And,
                         effective_address,
@@ -7618,13 +8558,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmwAnd { ref memarg } => {
@@ -7633,19 +8576,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::And,
                         effective_address,
@@ -7655,7 +8599,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -7668,21 +8612,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Or,
                         effective_address,
@@ -7692,13 +8640,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmw16OrU { ref memarg } => {
@@ -7707,21 +8658,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Or,
                         effective_address,
@@ -7731,13 +8686,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmwOr { ref memarg } => {
@@ -7746,19 +8704,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Or,
                         effective_address,
@@ -7768,13 +8727,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I64AtomicRmw8OrU { ref memarg } => {
@@ -7783,21 +8745,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Or,
                         effective_address,
@@ -7807,13 +8773,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw16OrU { ref memarg } => {
@@ -7822,21 +8791,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Or,
                         effective_address,
@@ -7846,13 +8819,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw32OrU { ref memarg } => {
@@ -7861,21 +8837,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i32_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Or,
                         effective_address,
@@ -7885,13 +8865,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmwOr { ref memarg } => {
@@ -7900,19 +8883,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Or,
                         effective_address,
@@ -7922,7 +8906,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -7935,21 +8919,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xor,
                         effective_address,
@@ -7959,13 +8947,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmw16XorU { ref memarg } => {
@@ -7974,21 +8965,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xor,
                         effective_address,
@@ -7998,13 +8993,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmwXor { ref memarg } => {
@@ -8013,19 +9011,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xor,
                         effective_address,
@@ -8035,7 +9034,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -8048,21 +9047,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xor,
                         effective_address,
@@ -8072,13 +9075,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw16XorU { ref memarg } => {
@@ -8087,21 +9093,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xor,
                         effective_address,
@@ -8111,13 +9121,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw32XorU { ref memarg } => {
@@ -8126,21 +9139,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i32_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xor,
                         effective_address,
@@ -8150,13 +9167,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmwXor { ref memarg } => {
@@ -8165,19 +9185,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xor,
                         effective_address,
@@ -8187,7 +9208,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -8200,21 +9221,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xchg,
                         effective_address,
@@ -8224,13 +9249,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmw16XchgU { ref memarg } => {
@@ -8239,21 +9267,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xchg,
                         effective_address,
@@ -8263,13 +9295,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmwXchg { ref memarg } => {
@@ -8278,19 +9313,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xchg,
                         effective_address,
@@ -8300,7 +9336,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -8313,21 +9349,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xchg,
                         effective_address,
@@ -8337,13 +9377,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw16XchgU { ref memarg } => {
@@ -8352,21 +9395,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xchg,
                         effective_address,
@@ -8376,13 +9423,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw32XchgU { ref memarg } => {
@@ -8391,21 +9441,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_value =
-                    builder.build_int_truncate(value, intrinsics.i32_ty, &self.state.var_name());
-                let old = builder
+                let narrow_value = self.builder.build_int_truncate(
+                    value,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xchg,
                         effective_address,
@@ -8415,13 +9469,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmwXchg { ref memarg } => {
@@ -8430,19 +9487,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_atomicrmw(
                         AtomicRMWBinOp::Xchg,
                         effective_address,
@@ -8452,7 +9510,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
@@ -8461,30 +9519,39 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32AtomicRmw8CmpxchgU { ref memarg } => {
                 let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = apply_pending_canonicalization(builder, intrinsics, cmp, cmp_info);
-                let new = apply_pending_canonicalization(builder, intrinsics, new, new_info);
+                let cmp =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, cmp, cmp_info);
+                let new =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_cmp =
-                    builder.build_int_truncate(cmp, intrinsics.i8_ty, &self.state.var_name());
-                let narrow_new =
-                    builder.build_int_truncate(new, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_cmp = self.builder.build_int_truncate(
+                    cmp,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let narrow_new = self.builder.build_int_truncate(
+                    new,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_cmpxchg(
                         effective_address,
                         narrow_cmp,
@@ -8495,45 +9562,58 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_extract_value(old, 0, "")
                     .unwrap()
                     .into_int_value();
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmw16CmpxchgU { ref memarg } => {
                 let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = apply_pending_canonicalization(builder, intrinsics, cmp, cmp_info);
-                let new = apply_pending_canonicalization(builder, intrinsics, new, new_info);
+                let cmp =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, cmp, cmp_info);
+                let new =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_cmp =
-                    builder.build_int_truncate(cmp, intrinsics.i16_ty, &self.state.var_name());
-                let narrow_new =
-                    builder.build_int_truncate(new, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_cmp = self.builder.build_int_truncate(
+                    cmp,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let narrow_new = self.builder.build_int_truncate(
+                    new,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_cmpxchg(
                         effective_address,
                         narrow_cmp,
@@ -8544,41 +9624,48 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_extract_value(old, 0, "")
                     .unwrap()
                     .into_int_value();
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i32_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f32());
             }
             Operator::I32AtomicRmwCmpxchg { ref memarg } => {
                 let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = apply_pending_canonicalization(builder, intrinsics, cmp, cmp_info);
-                let new = apply_pending_canonicalization(builder, intrinsics, new, new_info);
+                let cmp =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, cmp, cmp_info);
+                let new =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_cmpxchg(
                         effective_address,
                         cmp,
@@ -8589,40 +9676,49 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old = builder.build_extract_value(old, 0, "").unwrap();
+                let old = self.builder.build_extract_value(old, 0, "").unwrap();
                 self.state.push1(old);
             }
             Operator::I64AtomicRmw8CmpxchgU { ref memarg } => {
                 let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = apply_pending_canonicalization(builder, intrinsics, cmp, cmp_info);
-                let new = apply_pending_canonicalization(builder, intrinsics, new, new_info);
+                let cmp =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, cmp, cmp_info);
+                let new =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i8_ptr_ty,
+                    self.intrinsics.i8_ptr_ty,
                     offset,
                     1,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_cmp =
-                    builder.build_int_truncate(cmp, intrinsics.i8_ty, &self.state.var_name());
-                let narrow_new =
-                    builder.build_int_truncate(new, intrinsics.i8_ty, &self.state.var_name());
-                let old = builder
+                let narrow_cmp = self.builder.build_int_truncate(
+                    cmp,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let narrow_new = self.builder.build_int_truncate(
+                    new,
+                    self.intrinsics.i8_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_cmpxchg(
                         effective_address,
                         narrow_cmp,
@@ -8633,45 +9729,58 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_extract_value(old, 0, "")
                     .unwrap()
                     .into_int_value();
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw16CmpxchgU { ref memarg } => {
                 let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = apply_pending_canonicalization(builder, intrinsics, cmp, cmp_info);
-                let new = apply_pending_canonicalization(builder, intrinsics, new, new_info);
+                let cmp =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, cmp, cmp_info);
+                let new =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i16_ptr_ty,
+                    self.intrinsics.i16_ptr_ty,
                     offset,
                     2,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_cmp =
-                    builder.build_int_truncate(cmp, intrinsics.i16_ty, &self.state.var_name());
-                let narrow_new =
-                    builder.build_int_truncate(new, intrinsics.i16_ty, &self.state.var_name());
-                let old = builder
+                let narrow_cmp = self.builder.build_int_truncate(
+                    cmp,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let narrow_new = self.builder.build_int_truncate(
+                    new,
+                    self.intrinsics.i16_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_cmpxchg(
                         effective_address,
                         narrow_cmp,
@@ -8682,45 +9791,58 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_extract_value(old, 0, "")
                     .unwrap()
                     .into_int_value();
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmw32CmpxchgU { ref memarg } => {
                 let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = apply_pending_canonicalization(builder, intrinsics, cmp, cmp_info);
-                let new = apply_pending_canonicalization(builder, intrinsics, new, new_info);
+                let cmp =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, cmp, cmp_info);
+                let new =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i32_ptr_ty,
+                    self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let narrow_cmp =
-                    builder.build_int_truncate(cmp, intrinsics.i32_ty, &self.state.var_name());
-                let narrow_new =
-                    builder.build_int_truncate(new, intrinsics.i32_ty, &self.state.var_name());
-                let old = builder
+                let narrow_cmp = self.builder.build_int_truncate(
+                    cmp,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let narrow_new = self.builder.build_int_truncate(
+                    new,
+                    self.intrinsics.i32_ty,
+                    &self.state.var_name(),
+                );
+                let old = self
+                    .builder
                     .build_cmpxchg(
                         effective_address,
                         narrow_cmp,
@@ -8731,41 +9853,48 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_extract_value(old, 0, "")
                     .unwrap()
                     .into_int_value();
-                let old =
-                    builder.build_int_z_extend(old, intrinsics.i64_ty, &self.state.var_name());
+                let old = self.builder.build_int_z_extend(
+                    old,
+                    self.intrinsics.i64_ty,
+                    &self.state.var_name(),
+                );
                 self.state.push1_extra(old, ExtraInfo::arithmetic_f64());
             }
             Operator::I64AtomicRmwCmpxchg { ref memarg } => {
                 let ((cmp, cmp_info), (new, new_info)) = self.state.pop2_extra()?;
-                let cmp = apply_pending_canonicalization(builder, intrinsics, cmp, cmp_info);
-                let new = apply_pending_canonicalization(builder, intrinsics, new, new_info);
+                let cmp =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, cmp, cmp_info);
+                let new =
+                    apply_pending_canonicalization(&self.builder, self.intrinsics, new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
                 let effective_address = self.resolve_memory_ptr(
                     &self.memory_plans,
                     memarg,
-                    intrinsics.i64_ptr_ty,
+                    self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
                 )?;
                 trap_if_misaligned(
-                    builder,
-                    intrinsics,
-                    context,
-                    &function,
+                    &self.builder,
+                    self.intrinsics,
+                    self.context,
+                    &self.function,
                     memarg,
                     effective_address,
                 );
-                let old = builder
+                let old = self
+                    .builder
                     .build_cmpxchg(
                         effective_address,
                         cmp,
@@ -8776,12 +9905,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap();
                 tbaa_label(
                     &self.module,
-                    intrinsics,
+                    self.intrinsics,
                     "memory",
                     old.as_instruction_value().unwrap(),
                     Some(0),
                 );
-                let old = builder.build_extract_value(old, 0, "").unwrap();
+                let old = self.builder.build_extract_value(old, 0, "").unwrap();
                 self.state.push1(old);
             }
 
@@ -8792,32 +9921,36 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     if let Some(local_mem_index) = module.local_memory_index(mem_index) {
                         (
                             VMBuiltinFunctionIndex::get_memory32_grow_index(),
-                            intrinsics.memory32_grow_ptr_ty,
+                            self.intrinsics.memory32_grow_ptr_ty,
                         )
                     } else {
                         (
                             VMBuiltinFunctionIndex::get_imported_memory32_grow_index(),
-                            intrinsics.imported_memory32_grow_ptr_ty,
+                            self.intrinsics.imported_memory32_grow_ptr_ty,
                         )
                     };
                 let offset = self.vmoffsets.vmctx_builtin_function(grow_fn);
-                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                let grow_fn_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
+                let offset = self.intrinsics.i32_ty.const_int(offset.into(), false);
+                let grow_fn_ptr_ptr = unsafe { self.builder.build_gep(*vmctx, &[offset], "") };
 
-                let grow_fn_ptr_ptr = builder
+                let grow_fn_ptr_ptr = self
+                    .builder
                     .build_bitcast(
                         grow_fn_ptr_ptr,
                         grow_fn_ty.ptr_type(AddressSpace::Generic),
                         "",
                     )
                     .into_pointer_value();
-                let grow_fn_ptr = builder.build_load(grow_fn_ptr_ptr, "").into_pointer_value();
-                let grow = builder.build_call(
+                let grow_fn_ptr = self
+                    .builder
+                    .build_load(grow_fn_ptr_ptr, "")
+                    .into_pointer_value();
+                let grow = self.builder.build_call(
                     grow_fn_ptr,
                     &[
                         vmctx.as_basic_value_enum(),
                         delta,
-                        intrinsics
+                        self.intrinsics
                             .i32_ty
                             .const_int(reserved.into(), false)
                             .as_basic_value_enum(),
@@ -8832,31 +9965,35 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     if let Some(local_mem_index) = module.local_memory_index(mem_index) {
                         (
                             VMBuiltinFunctionIndex::get_memory32_size_index(),
-                            intrinsics.memory32_size_ptr_ty,
+                            self.intrinsics.memory32_size_ptr_ty,
                         )
                     } else {
                         (
                             VMBuiltinFunctionIndex::get_imported_memory32_size_index(),
-                            intrinsics.imported_memory32_size_ptr_ty,
+                            self.intrinsics.imported_memory32_size_ptr_ty,
                         )
                     };
                 let offset = self.vmoffsets.vmctx_builtin_function(size_fn);
-                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                let size_fn_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
+                let offset = self.intrinsics.i32_ty.const_int(offset.into(), false);
+                let size_fn_ptr_ptr = unsafe { self.builder.build_gep(*vmctx, &[offset], "") };
 
-                let size_fn_ptr_ptr = builder
+                let size_fn_ptr_ptr = self
+                    .builder
                     .build_bitcast(
                         size_fn_ptr_ptr,
                         size_fn_ty.ptr_type(AddressSpace::Generic),
                         "",
                     )
                     .into_pointer_value();
-                let size_fn_ptr = builder.build_load(size_fn_ptr_ptr, "").into_pointer_value();
-                let size = builder.build_call(
+                let size_fn_ptr = self
+                    .builder
+                    .build_load(size_fn_ptr_ptr, "")
+                    .into_pointer_value();
+                let size = self.builder.build_call(
                     size_fn_ptr,
                     &[
                         vmctx.as_basic_value_enum(),
-                        intrinsics
+                        self.intrinsics
                             .i32_ty
                             .const_int(reserved.into(), false)
                             .as_basic_value_enum(),
@@ -8875,419 +10012,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         Ok(())
     }
-
-    /*
-    fn finalize(&mut self) -> Result<(), CompileError> {
-        let results = self.self.state.popn_save_extra(self.func_sig.returns().len())?;
-
-        match results.as_slice() {
-            [] => {
-                self.builder.as_ref().unwrap().build_return(None);
-            }
-            [(one_value, one_value_info)] => {
-                let builder = self.builder.as_ref().unwrap();
-                let intrinsics = self.intrinsics.as_ref().unwrap();
-                let one_value = apply_pending_canonicalization(
-                    builder,
-                    intrinsics,
-                    *one_value,
-                    *one_value_info,
-                );
-                builder.build_return(Some(&builder.build_bitcast(
-                    one_value.as_basic_value_enum(),
-                    type_to_llvm(intrinsics, self.func_sig.returns()[0]),
-                    "return",
-                )));
-            }
-            _ => {
-                return Err(CompileError::Codegen("multi-value returns not yet implemented".to_string()));
-            }
-        }
-        Ok(())
-    }
-    */
 }
-
-/*
-impl Drop for LLVMModuleCodeGenerator<'_> {
-    fn drop(&mut self) {
-        // Ensure that all members of the context are dropped before we drop the context.
-        drop(self.intrinsics.take());
-        self.functions.clear();
-        self.signatures.clear();
-        assert!(
-            Rc::strong_count(&*self.module) == 1,
-            "references to module live while dropping LLVMModuleCodeGenerator"
-        );
-        unsafe {
-            ManuallyDrop::drop(&mut self.personality_func);
-            ManuallyDrop::drop(&mut self.module);
-        };
-        let context = self.context.take();
-        match context {
-            None => {}
-            Some(context_ref) => unsafe {
-                Box::from_raw(context_ref as *const Context as *mut Context);
-            },
-        }
-    }
-}
-*/
-/*
-impl<'ctx> ModuleCodeGenerator<LLVMFunctionCodeGenerator<'ctx>, LLVMBackend, CompileError>
-    for LLVMModuleCodeGenerator<'ctx>
-{
-    fn new() -> LLVMModuleCodeGenerator<'ctx> {
-        Self::new_with_target(None, None, None)
-    }
-
-    fn new_with_target(
-        triple: Option<String>,
-        cpu_name: Option<String>,
-        cpu_features: Option<String>,
-    ) -> LLVMModuleCodeGenerator<'ctx> {
-        let context_ptr = Box::into_raw(Box::new(Context::create()));
-        let context = unsafe { &*context_ptr };
-        let module = context.create_module("module");
-
-        let triple = triple.unwrap_or(
-            TargetMachine::get_default_triple()
-                .as_str()
-                .to_str()
-                .unwrap()
-                .to_string(),
-        );
-
-        match triple {
-            #[cfg(target_arch = "x86_64")]
-            _ if triple.starts_with("x86") => Target::initialize_x86(&InitializationConfig {
-                asm_parser: true,
-                asm_printer: true,
-                base: true,
-                disassembler: true,
-                info: true,
-                machine_code: true,
-            }),
-            #[cfg(target_arch = "aarch64")]
-            _ if triple.starts_with("aarch64") => {
-                Target::initialize_aarch64(&InitializationConfig {
-                    asm_parser: true,
-                    asm_printer: true,
-                    base: true,
-                    disassembler: true,
-                    info: true,
-                    machine_code: true,
-                })
-            }
-            _ => unimplemented!("target {} not supported", triple),
-        }
-
-        let target_triple = TargetTriple::create(&triple);
-        let target = Target::from_triple(&target_triple).unwrap();
-        let target_machine = target
-            .create_target_machine(
-                &target_triple,
-                &cpu_name.unwrap_or(TargetMachine::get_host_cpu_name().to_string()),
-                &cpu_features.unwrap_or(TargetMachine::get_host_cpu_features().to_string()),
-                OptimizationLevel::Aggressive,
-                RelocMode::Static,
-                CodeModel::Large,
-            )
-            .unwrap();
-
-        module.set_triple(&target_triple);
-        module.set_data_layout(&target_machine.get_target_data().get_data_layout());
-
-        let intrinsics = Intrinsics::declare(&module, &context);
-
-        let personality_func = module.add_function(
-            "__gxx_personality_v0",
-            intrinsics.i32_ty.fn_type(&[], false),
-            Some(Linkage::External),
-        );
-
-        LLVMModuleCodeGenerator {
-            context: Some(context),
-            intrinsics: Some(intrinsics),
-            module: ManuallyDrop::new(Rc::new(RefCell::new(module))),
-            functions: vec![],
-            signatures: Map::new(),
-            function_signatures: None,
-            llvm_functions: Rc::new(RefCell::new(HashMap::new())),
-            func_import_count: 0,
-            personality_func: ManuallyDrop::new(personality_func),
-            stackmaps: Rc::new(RefCell::new(StackmapRegistry::default())),
-            track_state: false,
-            target_machine,
-            llvm_callbacks: None,
-        }
-    }
-
-    fn backend_id() -> &'static str {
-        BACKEND_ID
-    }
-
-    fn check_precondition(&mut self, _module_info: &ModuleInfo) -> Result<(), CompileError> {
-        Ok(())
-    }
-
-    fn next_function(
-        &mut self,
-        module_info: Arc<RwLock<ModuleInfo>>,
-        _loc: WasmSpan,
-    ) -> Result<&mut LLVMFunctionCodeGenerator<'ctx>, CompileError> {
-        // Creates a new function and returns the function-scope code generator for it.
-        let (context, intrinsics) = match self.functions.last_mut() {
-            Some(x) => (x.context.take().unwrap(), x.intrinsics.take().unwrap()),
-            None => (
-                self.context.take().unwrap(),
-                self.intrinsics.take().unwrap(),
-            ),
-        };
-
-        let func_index = FunctionIndex::new(self.func_import_count + self.functions.len());
-        let sig_id = self.function_signatures.as_ref().unwrap()[func_index];
-        let func_sig = module_info.read().unwrap().signatures[sig_id].clone();
-
-        let function = &self.llvm_functions.borrow_mut()[&func_index];
-        function.set_personality_function(*self.personality_func);
-
-        let mut state: State<'ctx> = State::new();
-        let entry_block = context.append_basic_block(*function, "entry");
-        let alloca_builder = context.create_builder();
-        alloca_builder.position_at_end(entry_block);
-
-        let return_block = context.append_basic_block(*function, "return");
-        let builder = context.create_builder();
-        builder.position_at_end(return_block);
-
-        let phis: SmallVec<[PhiValue; 1]> = func_sig
-            .returns()
-            .iter()
-            .map(|&wasmer_ty| type_to_llvm(&intrinsics, wasmer_ty))
-            .map(|ty| builder.build_phi(ty, &self.state.var_name()))
-            .collect();
-
-        self.state.push_block(return_block, phis);
-        builder.position_at_end(entry_block);
-
-        let mut locals = Vec::new();
-        locals.extend(
-            function
-                .get_param_iter()
-                .skip(1)
-                .enumerate()
-                .map(|(index, param)| {
-                    let real_ty = func_sig.params()[index];
-                    let real_ty_llvm = type_to_llvm(&intrinsics, real_ty);
-                    let alloca =
-                        alloca_builder.build_alloca(real_ty_llvm, &format!("local{}", index));
-                    let store = builder.build_store(
-                        alloca,
-                        builder.build_bitcast(param, real_ty_llvm, &self.state.var_name()),
-                    );
-                    tbaa_label(
-                        &self.module,
-                        &intrinsics,
-                        "local",
-                        store,
-                        Some(index as u32),
-                    );
-                    if index == 0 {
-                        alloca_builder.position_before(
-                            &alloca
-                                .as_instruction()
-                                .unwrap()
-                                .get_next_instruction()
-                                .unwrap(),
-                        );
-                    }
-                    alloca
-                }),
-        );
-        let num_params = locals.len();
-
-        let local_func_index = self.functions.len();
-
-        let code = LLVMFunctionCodeGenerator {
-            state,
-            context: Some(context),
-            builder: Some(builder),
-            alloca_builder: Some(alloca_builder),
-            intrinsics: Some(intrinsics),
-            llvm_functions: self.llvm_functions.clone(),
-            function: *function,
-            func_sig: func_sig,
-            locals,
-            signatures: self.signatures.clone(),
-            num_params,
-            ctx: None,
-            unreachable_depth: 0,
-            stackmaps: self.stackmaps.clone(),
-            index: local_func_index,
-            opcode_offset: 0,
-            track_state: self.track_state,
-            module: (*self.module).clone(),
-        };
-        self.functions.push(code);
-        Ok(self.functions.last_mut().unwrap())
-    }
-
-    fn finalize(
-        mut self,
-        module_info: &ModuleInfo,
-    ) -> Result<
-        (
-            LLVMBackend,
-            Option<wasmer_runtime_core::codegen::DebugMetadata>,
-            Box<dyn CacheGen>,
-        ),
-        CompileError,
-    > {
-        let (context, intrinsics) = match self.functions.last_mut() {
-            Some(x) => (x.context.take().unwrap(), x.intrinsics.take().unwrap()),
-            None => (
-                self.context.take().unwrap(),
-                self.intrinsics.take().unwrap(),
-            ),
-        };
-        self.context = Some(context);
-        self.intrinsics = Some(intrinsics);
-
-        generate_trampolines(
-            module_info,
-            &self.signatures,
-            &self.module.borrow_mut(),
-            self.context.as_ref().unwrap(),
-            self.intrinsics.as_ref().unwrap(),
-        )
-        .map_err(|e| CompileError {
-            message: format!("trampolines generation error: {:?}", e),
-        })?;
-
-        if let Some(ref mut callbacks) = self.llvm_callbacks {
-            callbacks
-                .borrow_mut()
-                .preopt_ir_callback(&*self.module.borrow_mut());
-        }
-
-        let pass_manager = PassManager::create(());
-
-        #[cfg(feature = "test")]
-        pass_manager.add_verifier_pass();
-
-        pass_manager.add_type_based_alias_analysis_pass();
-        pass_manager.add_ipsccp_pass();
-        pass_manager.add_prune_eh_pass();
-        pass_manager.add_dead_arg_elimination_pass();
-        pass_manager.add_function_inlining_pass();
-        pass_manager.add_lower_expect_intrinsic_pass();
-        pass_manager.add_scalar_repl_aggregates_pass();
-        pass_manager.add_instruction_combining_pass();
-        pass_manager.add_jump_threading_pass();
-        pass_manager.add_correlated_value_propagation_pass();
-        pass_manager.add_cfg_simplification_pass();
-        pass_manager.add_reassociate_pass();
-        pass_manager.add_loop_rotate_pass();
-        pass_manager.add_loop_unswitch_pass();
-        pass_manager.add_ind_var_simplify_pass();
-        pass_manager.add_licm_pass();
-        pass_manager.add_loop_vectorize_pass();
-        pass_manager.add_instruction_combining_pass();
-        pass_manager.add_ipsccp_pass();
-        pass_manager.add_reassociate_pass();
-        pass_manager.add_cfg_simplification_pass();
-        pass_manager.add_gvn_pass();
-        pass_manager.add_memcpy_optimize_pass();
-        pass_manager.add_dead_store_elimination_pass();
-        pass_manager.add_bit_tracking_dce_pass();
-        pass_manager.add_instruction_combining_pass();
-        pass_manager.add_reassociate_pass();
-        pass_manager.add_cfg_simplification_pass();
-        pass_manager.add_slp_vectorize_pass();
-        pass_manager.add_early_cse_pass();
-
-        pass_manager.run_on(&*self.module.borrow_mut());
-        if let Some(ref mut callbacks) = self.llvm_callbacks {
-            callbacks
-                .borrow_mut()
-                .postopt_ir_callback(&*self.module.borrow_mut());
-        }
-
-        let stackmaps = self.stackmaps.borrow();
-
-        let (backend, cache_gen) = LLVMBackend::new(
-            (*self.module).clone(),
-            self.intrinsics.take().unwrap(),
-            &*stackmaps,
-            module_info,
-            &self.target_machine,
-            &mut self.llvm_callbacks,
-        );
-        Ok((backend, None, Box::new(cache_gen)))
-    }
-
-    fn feed_compiler_config(&mut self, config: &CompilerConfig) -> Result<(), CompileError> {
-        self.track_state = config.track_state;
-        if let Some(backend_compiler_config) = &config.backend_specific_config {
-            if let Some(llvm_config) = backend_compiler_config.get_specific::<LLVMBackendConfig>() {
-                self.llvm_callbacks = llvm_config.callbacks.clone();
-            }
-        }
-        Ok(())
-    }
-
-    fn feed_signatures(&mut self, signatures: Map<SignatureIndex, FuncSig>) -> Result<(), CompileError> {
-        self.signatures = signatures
-            .iter()
-            .map(|(_, sig)| {
-                func_sig_to_llvm(
-                    self.context.as_ref().unwrap(),
-                    self.intrinsics.as_ref().unwrap(),
-                    sig,
-                    type_to_llvm,
-                )
-            })
-            .collect();
-        Ok(())
-    }
-
-    fn feed_function_signatures(
-        &mut self,
-        assoc: Map<FunctionIndex, SignatureIndex>,
-    ) -> Result<(), CompileError> {
-        for (index, sig_id) in &assoc {
-            if index.index() >= self.func_import_count {
-                let function = self.module.borrow_mut().add_function(
-                    &format!("fn{}", index.index()),
-                    self.signatures[*sig_id],
-                    Some(Linkage::External),
-                );
-                self.llvm_functions.borrow_mut().insert(index, function);
-            }
-        }
-        self.function_signatures = Some(Arc::new(assoc));
-        Ok(())
-    }
-
-    fn feed_import_function(&mut self, _sigindex: SignatureIndex) -> Result<(), CompileError> {
-        self.func_import_count += 1;
-        Ok(())
-    }
-
-    unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
-        let (info, _, memory) = artifact.consume();
-        let (backend, cache_gen) =
-            LLVMBackend::from_buffer(memory).map_err(CacheError::DeserializeError)?;
-
-        Ok(ModuleInner {
-            runnable_module: Arc::new(Box::new(backend)),
-            cache_gen: Box::new(cache_gen),
-            info,
-        })
-    }
-}
-*/
 
 fn is_f32_arithmetic(bits: u32) -> bool {
     // Mask off sign bit.
