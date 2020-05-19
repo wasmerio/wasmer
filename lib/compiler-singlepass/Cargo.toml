@@ -19,6 +19,11 @@ wasm-common = { path = "../wasm-common", version = "0.16.2", default-features = 
 rayon = "1.3.0"
 serde = { version = "1.0.106", features = ["derive"] }
 more-asserts = "0.2.1"
+dynasm = "0.5"
+dynasmrt = "0.5"
+lazy_static = "1.4"
+byteorder = "1.3"
+smallvec = "1"
 
 [badges]
 maintenance = { status = "actively-developed" }

@@ -261,39 +261,26 @@ pub struct FunctionBody(*mut u8);
 
 /// Represents a function that can be used by WebAssembly.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Func<Args = (), Rets = (), Env = ()> {
+pub struct Func<Args = (), Rets = ()> {
     address: *const FunctionBody,
-    env: Option<*mut Env>,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
 unsafe impl<Args, Rets> Send for Func<Args, Rets> {}
 
-impl<Args, Rets, Env> Func<Args, Rets, Env>
+impl<Args, Rets> Func<Args, Rets>
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
-    Env: Sized,
 {
     /// Creates a new `Func`.
-    pub fn new<F>(func: F) -> Self
+    pub fn new<F, T, E>(func: F) -> Self
     where
-        F: HostFunction<Args, Rets, WithoutEnv, Env>,
+        F: HostFunction<Args, Rets, T, E>,
+        T: HostFunctionKind,
+        E: Sized,
     {
         Self {
-            env: None,
-            address: func.to_raw(),
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Creates a new `Func` with a given `env`.
-    pub fn new_env<F>(env: &mut Env, func: F) -> Self
-    where
-        F: HostFunction<Args, Rets, WithEnv, Env>,
-    {
-        Self {
-            env: Some(env),
             address: func.to_raw(),
             _phantom: PhantomData,
         }
@@ -302,11 +289,6 @@ where
     /// Get the type of the Func
     pub fn ty(&self) -> FunctionType {
         FunctionType::new(Args::wasm_types(), Rets::wasm_types())
-    }
-
-    /// Get the type of the Func
-    pub fn env(&self) -> Option<*mut Env> {
-        self.env
     }
 
     /// Get the address of the Func

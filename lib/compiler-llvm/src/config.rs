@@ -8,7 +8,7 @@ use inkwell::targets::{
 use inkwell::OptimizationLevel;
 use itertools::Itertools;
 use target_lexicon::Architecture;
-use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, Features, Target};
+use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, Features, Target, Triple};
 
 /// The InkWell Module type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
@@ -46,7 +46,30 @@ pub struct LLVMConfig {
 impl LLVMConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(features: Features, target: Target) -> Self {
+    pub fn new(mut features: Features, target: Target) -> Self {
+        // Override the default multi-value switch
+        features.multi_value = false;
+
+        let operating_system =
+            if target.triple().operating_system == wasmer_compiler::OperatingSystem::Darwin {
+                // LLVM detects static relocation + darwin + 64-bit and
+                // force-enables PIC because MachO doesn't support that
+                // combination. They don't check whether they're targeting
+                // MachO, they check whether the OS is set to Darwin.
+                //
+                // Since both linux and darwin use SysV ABI, this should work.
+                wasmer_compiler::OperatingSystem::Linux
+            } else {
+                target.triple().operating_system
+            };
+        let triple = Triple {
+            architecture: target.triple().architecture,
+            vendor: target.triple().vendor.clone(),
+            operating_system,
+            environment: target.triple().environment,
+            binary_format: target_lexicon::BinaryFormat::Elf,
+        };
+        let target = Target::new(triple, *target.cpu_features());
         Self {
             enable_nan_canonicalization: true,
             enable_verifier: false,

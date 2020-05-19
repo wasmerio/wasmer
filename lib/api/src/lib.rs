@@ -34,6 +34,7 @@ pub use wasmer_compiler::{Features, Target};
 pub use wasmer_engine::{
     DeserializeError, Engine, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
+pub use wasmer_runtime::MemoryError;
 
 // The compilers are mutually exclusive
 #[cfg(any(

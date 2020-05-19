@@ -196,7 +196,7 @@ pub unsafe extern "C" fn wasmer_module_serialize(
     let module = &*(module as *const Module);
 
     match module.serialize() {
-        Ok(mut serialized_module) => {
+        Ok(serialized_module) => {
             let boxed_slice = serialized_module.into_boxed_slice();
             *serialized_module_out = Box::into_raw(Box::new(boxed_slice)) as _;
 
@@ -267,16 +267,17 @@ pub unsafe extern "C" fn wasmer_serialized_module_from_bytes(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_module_deserialize(
     module: *mut *mut wasmer_module_t,
-    serialized_module: *const wasmer_serialized_module_t,
+    serialized_module: Option<&wasmer_serialized_module_t>,
 ) -> wasmer_result_t {
-    if serialized_module.is_null() {
+    let serialized_module: &[u8] = if let Some(sm) = serialized_module {
+        &*(sm as *const wasmer_serialized_module_t as *const &[u8])
+    } else {
         update_last_error(CApiError {
             msg: "`serialized_module` pointer is null".to_string(),
         });
         return wasmer_result_t::WASMER_ERROR;
-    }
+    };
 
-    let serialized_module: &[u8] = &*(serialized_module as *const &[u8]);
     let store = crate::get_global_store();
 
     match Module::deserialize(store, serialized_module) {

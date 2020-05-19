@@ -151,7 +151,7 @@ impl Engine for NativeEngine {
     }
 
     /// Retrieves a trampoline given a signature
-    fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
+    fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
         self.inner().trampoline(sig)
     }
 

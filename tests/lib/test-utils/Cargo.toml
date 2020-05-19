@@ -12,6 +12,8 @@ wasmer-compiler = { path = "../../../lib/compiler", version = "0.16.2" }
 wasmer-compiler-singlepass = { path = "../../../lib/compiler-singlepass", version = "0.16.2", optional = true }
 wasmer-compiler-cranelift = { path = "../../../lib/compiler-cranelift", version = "0.16.2", optional = true }
 wasmer-compiler-llvm = { path = "../../../lib/compiler-llvm", version = "0.16.2", optional = true }
+wasmer-engine-jit = { path = "../../../lib/engine-jit", version = "0.16.2" }
+wasmer = { path = "../../../lib/api", version = "0.16.2", deafult-features = false }
 
 [features]
 compiler = []

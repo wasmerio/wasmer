@@ -69,9 +69,18 @@ pub unsafe extern "C" fn wasmer_memory_new(
     };
     let store = crate::get_global_store();
     let desc = MemoryType::new(Pages(limits.min), max, false);
-    let new_memory = Memory::new(store, desc);
-    *memory = Box::into_raw(Box::new(new_memory)) as *mut wasmer_memory_t;
-    wasmer_result_t::WASMER_OK
+    match Memory::new(store, desc) {
+        Ok(new_memory) => {
+            *memory = Box::into_raw(Box::new(new_memory)) as *mut wasmer_memory_t;
+            wasmer_result_t::WASMER_OK
+        }
+        Err(err) => {
+            update_last_error(CApiError {
+                msg: err.to_string(),
+            });
+            wasmer_result_t::WASMER_ERROR
+        }
+    }
 }
 
 /// Grows a memory by the given number of pages (of 65Kb each).
@@ -105,8 +114,13 @@ pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -
     let grow_result = memory.grow(Pages(delta));
 
     match grow_result {
-        Some(_) => wasmer_result_t::WASMER_OK,
-        _ => wasmer_result_t::WASMER_ERROR,
+        Ok(_) => wasmer_result_t::WASMER_OK,
+        Err(err) => {
+            update_last_error(CApiError {
+                msg: err.to_string(),
+            });
+            wasmer_result_t::WASMER_ERROR
+        }
     }
 }
 

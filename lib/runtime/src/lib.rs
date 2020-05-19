@@ -39,7 +39,7 @@ pub mod libcalls;
 pub use crate::export::*;
 pub use crate::imports::Imports;
 pub use crate::instance::InstanceHandle;
-pub use crate::memory::LinearMemory;
+pub use crate::memory::{LinearMemory, MemoryError};
 pub use crate::mmap::Mmap;
 pub use crate::module::{
     ExportsIterator, ImportsIterator, MemoryPlan, MemoryStyle, Module, TableElements, TablePlan,
@@ -50,9 +50,10 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::table::Table;
 pub use crate::trap::*;
 pub use crate::vmcontext::{
-    VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
-    VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex,
-    VMTableDefinition, VMTableImport, VMTrampoline,
+    VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionImportContext,
+    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
+    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMTrampoline,
 };
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
 

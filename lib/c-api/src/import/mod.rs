@@ -10,11 +10,11 @@ use crate::{
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_uint;
+use std::ptr::NonNull;
 use std::{
     //convert::TryFrom,
     ffi::c_void,
     os::raw::c_char,
-    ptr,
     slice,
     //sync::Arc,
 };
@@ -58,10 +58,11 @@ pub struct wasmer_import_object_iter_t;
 /// See also `wasmer_import_object_append`
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_import_object_new() -> *mut wasmer_import_object_t {
+pub extern "C" fn wasmer_import_object_new() -> NonNull<wasmer_import_object_t> {
     let import_object = Box::new(ImportObject::new());
 
-    Box::into_raw(import_object) as *mut wasmer_import_object_t
+    // TODO: use `Box::into_raw_non_null` when it becomes stable
+    unsafe { NonNull::new_unchecked(Box::into_raw(import_object) as *mut wasmer_import_object_t) }
 }
 
 #[cfg(feature = "wasi")]
@@ -319,15 +320,17 @@ pub unsafe extern "C" fn wasmer_import_object_iter_next(
 /// not return any new data
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_object_iter_at_end(
-    import_object_iter: *mut wasmer_import_object_iter_t,
+    import_object_iter: Option<NonNull<wasmer_import_object_iter_t>>,
 ) -> bool {
-    if import_object_iter.is_null() {
+    let mut import_object_iter = if let Some(import_object_iter) = import_object_iter {
+        import_object_iter.cast::<WasmerImportObjectIterator>()
+    } else {
         update_last_error(CApiError {
             msg: "import_object_iter must not be null".to_owned(),
         });
         return true;
-    }
-    let iter = &mut *(import_object_iter as *mut WasmerImportObjectIterator);
+    };
+    let iter = import_object_iter.as_mut();
 
     iter.0.peek().is_none()
 }
@@ -335,10 +338,14 @@ pub unsafe extern "C" fn wasmer_import_object_iter_at_end(
 /// Frees the memory allocated by `wasmer_import_object_iterate_functions`
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_object_iter_destroy(
-    import_object_iter: *mut wasmer_import_object_iter_t,
+    import_object_iter: Option<NonNull<wasmer_import_object_iter_t>>,
 ) {
-    if !import_object_iter.is_null() {
-        let _ = Box::from_raw(import_object_iter as *mut WasmerImportObjectIterator);
+    if let Some(import_object_iter) = import_object_iter {
+        let _ = Box::from_raw(
+            import_object_iter
+                .cast::<WasmerImportObjectIterator>()
+                .as_ptr(),
+        );
     }
 }
 
@@ -348,13 +355,16 @@ pub unsafe extern "C" fn wasmer_import_object_iter_destroy(
 /// it only frees memory allocated while querying a `wasmer_import_object_t`.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_object_imports_destroy(
-    imports: *mut wasmer_import_t,
+    imports: Option<NonNull<wasmer_import_t>>,
     imports_len: u32,
 ) {
-    if imports.is_null() {
+    let imports = if let Some(imp) = imports {
+        imp
+    } else {
         return;
-    }
-    let imports: &[wasmer_import_t] = &*slice::from_raw_parts_mut(imports, imports_len as usize);
+    };
+    let imports: &[wasmer_import_t] =
+        &*slice::from_raw_parts_mut(imports.as_ptr(), imports_len as usize);
     for import in imports {
         let _namespace: Vec<u8> = Vec::from_raw_parts(
             import.module_name.bytes as *mut u8,
@@ -459,13 +469,14 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_descriptors(
-    module: *const wasmer_module_t,
+    module: Option<&wasmer_module_t>,
     import_descriptors: *mut *mut wasmer_import_descriptors_t,
 ) {
-    if module.is_null() {
+    let module = if let Some(module) = module {
+        &*(module as *const wasmer_module_t as *const Module)
+    } else {
         return;
-    }
-    let module = &*(module as *const Module);
+    };
     let descriptors = module.imports().collect::<Vec<ImportType>>();
 
     let named_import_descriptors: Box<NamedImportDescriptors> =
@@ -480,10 +491,10 @@ pub struct NamedImportDescriptors(Vec<ImportType>);
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_import_descriptors_destroy(
-    import_descriptors: *mut wasmer_import_descriptors_t,
+    import_descriptors: Option<NonNull<wasmer_import_descriptors_t>>,
 ) {
-    if !import_descriptors.is_null() {
-        unsafe { Box::from_raw(import_descriptors as *mut NamedImportDescriptors) };
+    if let Some(id) = import_descriptors {
+        unsafe { Box::from_raw(id.cast::<NamedImportDescriptors>().as_ptr()) };
     }
 }
 
@@ -491,27 +502,29 @@ pub extern "C" fn wasmer_import_descriptors_destroy(
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_descriptors_len(
-    exports: *mut wasmer_import_descriptors_t,
+    exports: Option<NonNull<wasmer_import_descriptors_t>>,
 ) -> c_uint {
-    if exports.is_null() {
+    let exports = if let Some(exports) = exports {
+        exports.cast::<NamedImportDescriptors>()
+    } else {
         return 0;
-    }
-    (*(exports as *mut NamedImportDescriptors)).0.len() as c_uint
+    };
+    exports.as_ref().0.len() as c_uint
 }
 
 /// Gets import descriptor by index
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_import_descriptors_get(
-    import_descriptors: *mut wasmer_import_descriptors_t,
+    import_descriptors: Option<NonNull<wasmer_import_descriptors_t>>,
     idx: c_uint,
-) -> *mut wasmer_import_descriptor_t {
-    if import_descriptors.is_null() {
-        return ptr::null_mut();
-    }
-    let named_import_descriptors = &mut *(import_descriptors as *mut NamedImportDescriptors);
-    &mut (*named_import_descriptors).0[idx as usize] as *mut ImportType
-        as *mut wasmer_import_descriptor_t
+) -> Option<NonNull<wasmer_import_descriptor_t>> {
+    let mut nid = import_descriptors?.cast::<NamedImportDescriptors>();
+    let named_import_descriptors = nid.as_mut();
+    Some(
+        NonNull::from(&mut named_import_descriptors.0[idx as usize])
+            .cast::<wasmer_import_descriptor_t>(),
+    )
 }
 
 /// Gets name for the import descriptor
@@ -754,16 +767,18 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
 /// Frees memory for the given Func
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
-pub extern "C" fn wasmer_import_func_destroy(func: *mut wasmer_import_func_t) {
-    if !func.is_null() {
-        unsafe { Box::from_raw(func as *mut Function) };
+pub unsafe extern "C" fn wasmer_import_func_destroy(func: Option<NonNull<wasmer_import_func_t>>) {
+    if let Some(func) = func {
+        Box::from_raw(func.cast::<Function>().as_ptr());
     }
 }
 
 /// Frees memory of the given ImportObject
 #[no_mangle]
-pub extern "C" fn wasmer_import_object_destroy(import_object: *mut wasmer_import_object_t) {
-    if !import_object.is_null() {
-        unsafe { Box::from_raw(import_object as *mut ImportObject) };
+pub unsafe extern "C" fn wasmer_import_object_destroy(
+    import_object: Option<NonNull<wasmer_import_object_t>>,
+) {
+    if let Some(import_object) = import_object {
+        Box::from_raw(import_object.cast::<ImportObject>().as_ptr());
     }
 }

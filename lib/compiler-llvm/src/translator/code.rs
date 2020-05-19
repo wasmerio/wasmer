@@ -29,20 +29,22 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::convert::TryFrom;
+use std::num::TryFromIntError;
 
 use crate::config::LLVMConfig;
-use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
+use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasm_common::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, Mutability,
-    SignatureIndex, TableIndex, Type,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryType,
+    Mutability, SignatureIndex, TableIndex, Type,
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, Addend, CodeOffset, CompileError, CompiledFunction,
-    CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, FunctionAddressMap,
-    FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, SourceLoc, WasmResult,
+    CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, CustomSections,
+    FunctionAddressMap, FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation,
+    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc, WasmResult,
 };
 use wasmer_runtime::libcalls::LibCall;
 use wasmer_runtime::Module as WasmerCompilerModule;
@@ -51,6 +53,30 @@ use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, VMBuiltinFunctionIndex,
 // TODO: debugging
 use std::fs;
 use std::io::Write;
+
+use wasm_common::entity::entity_impl;
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+pub struct ElfSectionIndex(u32);
+entity_impl!(ElfSectionIndex);
+impl ElfSectionIndex {
+    pub fn is_undef(&self) -> bool {
+        self.as_u32() == goblin::elf::section_header::SHN_UNDEF
+    }
+
+    pub fn from_usize(value: usize) -> Result<Self, CompileError> {
+        match u32::try_from(value) {
+            Err(_) => Err(CompileError::Codegen(format!(
+                "elf section index {} does not fit in 32 bits",
+                value
+            ))),
+            Ok(value) => Ok(ElfSectionIndex::from_u32(value)),
+        }
+    }
+
+    pub fn as_usize(&self) -> usize {
+        self.as_u32() as usize
+    }
+}
 
 // TODO
 fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
@@ -84,15 +110,6 @@ fn const_zero<'ctx>(ty: BasicTypeEnum<'ctx>) -> BasicValueEnum<'ctx> {
     }
 }
 
-// Relocation against a per-function section.
-#[derive(Debug)]
-pub struct LocalRelocation {
-    pub kind: RelocationKind,
-    pub local_section_index: u32,
-    pub offset: CodeOffset,
-    pub addend: Addend,
-}
-
 impl FuncTranslator {
     pub fn new() -> Self {
         Self {
@@ -109,9 +126,9 @@ impl FuncTranslator {
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FunctionIndex, String>,
-    ) -> Result<(CompiledFunction, Vec<LocalRelocation>, Vec<CustomSection>), CompileError> {
+    ) -> Result<(CompiledFunction, CustomSections), CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
-        let func_name = func_names.get(func_index).unwrap();
+        let func_name = &func_names[func_index];
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {}", func_name),
             Some(module_name) => format!("module {} function {}", module_name, func_name),
@@ -124,7 +141,7 @@ impl FuncTranslator {
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let wasm_fn_type = wasm_module
             .signatures
-            .get(*wasm_module.functions.get(func_index).unwrap())
+            .get(wasm_module.functions[func_index])
             .unwrap();
 
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
@@ -135,7 +152,7 @@ impl FuncTranslator {
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         // TODO: mark vmctx nofree
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section("wasmer_function");
+        func.as_global_value().set_section(".wasmer_function");
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
@@ -165,7 +182,9 @@ impl FuncTranslator {
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty);
-            let value = func.get_nth_param((idx + 1) as u32).unwrap();
+            let value = func
+                .get_nth_param((idx as u32).checked_add(2).unwrap())
+                .unwrap();
             // TODO: don't interleave allocas and stores.
             let alloca = cache_builder.build_alloca(ty, "param");
             cache_builder.build_store(alloca, value);
@@ -207,6 +226,7 @@ impl FuncTranslator {
             // TODO: pointer width
             vmoffsets: VMOffsets::new(8, &wasm_module),
             wasm_module,
+            func_names,
         };
 
         while fcg.state.has_control_frames() {
@@ -303,12 +323,14 @@ impl FuncTranslator {
             .unwrap();
 
         // TODO: remove debugging.
+        /*
         let mem_buf_slice = memory_buffer.as_slice();
         let mut file = fs::File::create(format!("/home/nicholas/code{}.o", func_name)).unwrap();
         let mut pos = 0;
         while pos < mem_buf_slice.len() {
             pos += file.write(&mem_buf_slice[pos..]).unwrap();
         }
+        */
 
         let mem_buf_slice = memory_buffer.as_slice();
         let object = goblin::Object::parse(&mem_buf_slice).unwrap();
@@ -332,69 +354,118 @@ impl FuncTranslator {
             Some(name.unwrap())
         };
 
-        let wasmer_function_idx = elf
+        // Build up a mapping from a section to its relocation sections.
+        let reloc_sections = elf.shdr_relocs.iter().fold(
+            HashMap::new(),
+            |mut map: HashMap<_, Vec<_>>, (section_index, reloc_section)| {
+                let target_section = elf.section_headers[*section_index].sh_info as usize;
+                let target_section = ElfSectionIndex::from_usize(target_section).unwrap();
+                map.entry(target_section).or_default().push(reloc_section);
+                map
+            },
+        );
+
+        let mut visited: HashSet<ElfSectionIndex> = HashSet::new();
+        let mut worklist: Vec<ElfSectionIndex> = Vec::new();
+        let mut section_targets: HashMap<ElfSectionIndex, RelocationTarget> = HashMap::new();
+
+        let wasmer_function_index = elf
             .section_headers
             .iter()
             .enumerate()
-            .filter(|(_, section)| get_section_name(section) == Some("wasmer_function"))
-            .map(|(idx, _)| idx)
-            .take(1)
+            .filter(|(_, section)| get_section_name(section) == Some(".wasmer_function"))
+            .map(|(index, _)| index)
             .collect::<Vec<_>>();
-        // TODO: handle errors here instead of asserting.
-        assert!(wasmer_function_idx.len() == 1);
-        let wasmer_function_idx = wasmer_function_idx[0];
+        if wasmer_function_index.len() != 1 {
+            return Err(CompileError::Codegen(format!(
+                "found {} sections named .wasmer_function",
+                wasmer_function_index.len()
+            )));
+        }
+        let wasmer_function_index = wasmer_function_index[0];
+        let wasmer_function_index = ElfSectionIndex::from_usize(wasmer_function_index)?;
 
-        let bytes = elf.section_headers[wasmer_function_idx].file_range();
-        let bytes = mem_buf_slice[bytes.start..bytes.end].to_vec();
+        let mut section_to_custom_section = HashMap::new();
 
-        let mut relocations = vec![];
-        let mut local_relocations = vec![];
-        let mut required_custom_sections = HashMap::new();
+        section_targets.insert(
+            wasmer_function_index,
+            RelocationTarget::LocalFunc(*local_func_index),
+        );
 
-        for (section_index, reloc_section) in &elf.shdr_relocs {
-            let section_name = get_section_name(&elf.section_headers[*section_index]);
-            if section_name != Some(".relawasmer_function")
-                && section_name != Some(".relwasmer_function")
+        let mut next_custom_section: u32 = 0;
+        let mut elf_section_to_target = |elf_section_index: ElfSectionIndex| {
+            *section_targets.entry(elf_section_index).or_insert_with(|| {
+                let next = SectionIndex::from_u32(next_custom_section);
+                section_to_custom_section.insert(elf_section_index, next);
+                let target = RelocationTarget::CustomSection(next);
+                next_custom_section += 1;
+                target
+            })
+        };
+
+        let section_bytes = |elf_section_index: ElfSectionIndex| {
+            let elf_section_index = elf_section_index.as_usize();
+            let byte_range = elf.section_headers[elf_section_index].file_range();
+            mem_buf_slice[byte_range.start..byte_range.end].to_vec()
+        };
+
+        // From elf section index to list of Relocations. Although we use a Vec,
+        // the order of relocations is not important.
+        let mut relocations: HashMap<ElfSectionIndex, Vec<Relocation>> = HashMap::new();
+
+        // Each iteration of this loop pulls a section and the relocations
+        // relocations that apply to it. We begin with the ".wasmer_function"
+        // section, and then parse all relocation sections that apply to that
+        // section. Those relocations may refer to additional sections which we
+        // then add to the worklist until we've visited the closure of
+        // everything needed to run the code in ".wasmer_function".
+        //
+        // `worklist` is the list of sections we have yet to visit. It never
+        // contains any duplicates or sections we've already visited. `visited`
+        // contains all the sections we've ever added to the worklist in a set
+        // so that we can quickly check whether a section is new before adding
+        // it to worklist. `section_to_custom_section` is filled in with all
+        // the sections we want to include.
+        worklist.push(wasmer_function_index);
+        visited.insert(wasmer_function_index);
+        while let Some(section_index) = worklist.pop() {
+            for reloc in reloc_sections
+                .get(&section_index)
+                .iter()
+                .flat_map(|inner| inner.iter().flat_map(|inner2| inner2.iter()))
             {
-                continue;
-            }
-            for reloc in reloc_section.iter() {
                 let kind = match reloc.r_type {
                     // TODO: these constants are not per-arch, we'll need to
                     // make the whole match per-arch.
                     goblin::elf::reloc::R_X86_64_64 => RelocationKind::Abs8,
-                    _ => unimplemented!("unknown relocation {}", reloc.r_type),
+                    _ => {
+                        return Err(CompileError::Codegen(format!(
+                            "unknown ELF relocation {}",
+                            reloc.r_type
+                        )));
+                    }
                 };
                 let offset = reloc.r_offset as u32;
                 let addend = reloc.r_addend.unwrap_or(0);
                 let target = reloc.r_sym;
                 // TODO: error handling
-                let target = elf.syms.get(target).unwrap();
-                if target.st_type() == goblin::elf::sym::STT_SECTION {
-                    let len = required_custom_sections.len();
-                    let entry = required_custom_sections.entry(target.st_shndx);
-                    let local_section_index = *entry.or_insert(len) as _;
-                    local_relocations.push(LocalRelocation {
-                        kind,
-                        local_section_index,
-                        offset,
-                        addend,
-                    });
-                } else if target.st_type() == goblin::elf::sym::STT_FUNC
-                    && target.st_shndx == wasmer_function_idx
+                let elf_target = elf.syms.get(target).unwrap();
+                let elf_target_section = ElfSectionIndex::from_usize(elf_target.st_shndx)?;
+                let reloc_target = if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
+                    if visited.insert(elf_target_section) {
+                        worklist.push(elf_target_section);
+                    }
+                    elf_section_to_target(elf_target_section)
+                } else if elf_target.st_type() == goblin::elf::sym::STT_FUNC
+                    && elf_target_section == wasmer_function_index
                 {
                     // This is a function referencing its own byte stream.
-                    relocations.push(Relocation {
-                        kind,
-                        reloc_target: RelocationTarget::LocalFunc(*local_func_index),
-                        offset,
-                        addend,
-                    });
-                } else if target.st_type() == goblin::elf::sym::STT_NOTYPE
-                    && target.st_shndx == goblin::elf::section_header::SHN_UNDEF as _
+                    RelocationTarget::LocalFunc(*local_func_index)
+                } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
+                    && elf_target_section.is_undef()
                 {
                     // Not defined in this .o file. Maybe another local function?
-                    let name = target.st_name;
+                    let name = elf_target.st_name;
                     let name = elf.strtab.get(name).unwrap().unwrap();
                     if let Some((index, _)) =
                         func_names.iter().find(|(_, func_name)| *func_name == name)
@@ -402,69 +473,78 @@ impl FuncTranslator {
                         let local_index = wasm_module
                             .local_func_index(index)
                             .expect("Relocation to non-local function");
-                        relocations.push(Relocation {
-                            kind,
-                            reloc_target: RelocationTarget::LocalFunc(local_index),
-                            offset,
-                            addend,
-                        });
+                        RelocationTarget::LocalFunc(local_index)
                     // Maybe a libcall then?
                     } else if let Some(libcall) = libcalls.get(name) {
-                        relocations.push(Relocation {
-                            kind,
-                            reloc_target: RelocationTarget::LibCall(*libcall),
-                            offset,
-                            addend,
-                        });
+                        RelocationTarget::LibCall(*libcall)
                     } else {
                         unimplemented!("reference to unknown symbol {}", name);
                     }
                 } else {
                     unimplemented!("unknown relocation {:?} with target {:?}", reloc, target);
-                }
+                };
+                relocations
+                    .entry(section_index)
+                    .or_default()
+                    .push(Relocation {
+                        kind,
+                        reloc_target,
+                        offset,
+                        addend,
+                    });
             }
         }
 
-        let mut custom_sections = vec![];
-        custom_sections.resize(
-            required_custom_sections.len(),
-            CustomSection {
-                protection: CustomSectionProtection::Read,
-                bytes: SectionBody::default(),
-            },
-        );
-        for (section_idx, local_section_idx) in required_custom_sections {
-            let bytes = elf.section_headers[section_idx as usize].file_range();
-            let bytes = &mem_buf_slice[bytes.start..bytes.end];
-            custom_sections[local_section_idx].bytes.extend(bytes);
-        }
+        let mut custom_sections = section_to_custom_section
+            .iter()
+            .map(|(elf_section_index, custom_section_index)| {
+                (
+                    custom_section_index,
+                    CustomSection {
+                        protection: CustomSectionProtection::Read,
+                        bytes: SectionBody::new_with_vec(section_bytes(*elf_section_index)),
+                        relocations: relocations
+                            .remove_entry(elf_section_index)
+                            .map_or(vec![], |(_, v)| v),
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        custom_sections.sort_unstable_by_key(|a| a.0);
+        let custom_sections = custom_sections
+            .into_iter()
+            .map(|(_, v)| v)
+            .collect::<PrimaryMap<SectionIndex, _>>();
+
+        let function_body = FunctionBody {
+            body: section_bytes(wasmer_function_index),
+            unwind_info: None,
+        };
 
         let address_map = FunctionAddressMap {
             instructions: vec![InstructionAddressMap {
                 srcloc: SourceLoc::default(),
                 code_offset: 0,
-                code_len: bytes.len(),
+                code_len: function_body.body.len(),
             }],
             start_srcloc: SourceLoc::default(),
             end_srcloc: SourceLoc::default(),
             body_offset: 0,
-            body_len: bytes.len(),
+            body_len: function_body.body.len(),
         };
 
         Ok((
             CompiledFunction {
-                body: FunctionBody {
-                    body: bytes,
-                    unwind_info: None,
-                },
+                body: function_body,
                 jt_offsets: SecondaryMap::new(),
-                relocations,
+                relocations: relocations
+                    .remove_entry(&wasmer_function_index)
+                    .map_or(vec![], |(_, v)| v),
                 frame_info: CompiledFunctionFrameInfo {
                     address_map,
                     traps: vec![],
                 },
             },
-            local_relocations,
             custom_sections,
         ))
     }
@@ -741,11 +821,14 @@ fn trap_if_not_representable_as_int<'ctx>(
 
     builder.build_conditional_branch(out_of_bounds, failure_block, continue_block);
     builder.position_at_end(failure_block);
-    builder.build_call(
-        intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
-        "throw",
+    let is_nan = builder.build_float_compare(FloatPredicate::UNO, value, value, "is_nan");
+    let trap_code = builder.build_select(
+        is_nan,
+        intrinsics.trap_bad_conversion_to_integer,
+        intrinsics.trap_illegal_arithmetic,
+        "",
     );
+    builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
     builder.build_unreachable();
     builder.position_at_end(continue_block);
 }
@@ -772,13 +855,14 @@ fn trap_if_zero_or_overflow<'ctx>(
         unreachable!()
     };
 
+    let divisor_is_zero = builder.build_int_compare(
+        IntPredicate::EQ,
+        right,
+        int_type.const_int(0, false),
+        "divisor_is_zero",
+    );
     let should_trap = builder.build_or(
-        builder.build_int_compare(
-            IntPredicate::EQ,
-            right,
-            int_type.const_int(0, false),
-            "divisor_is_zero",
-        ),
+        divisor_is_zero,
         builder.build_and(
             builder.build_int_compare(IntPredicate::EQ, left, min_value, "left_is_min"),
             builder.build_int_compare(IntPredicate::EQ, right, neg_one_value, "right_is_neg_one"),
@@ -805,11 +889,13 @@ fn trap_if_zero_or_overflow<'ctx>(
     let should_trap_block = context.append_basic_block(*function, "should_trap_block");
     builder.build_conditional_branch(should_trap, should_trap_block, shouldnt_trap_block);
     builder.position_at_end(should_trap_block);
-    builder.build_call(
-        intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
-        "throw",
+    let trap_code = builder.build_select(
+        divisor_is_zero,
+        intrinsics.trap_integer_division_by_zero,
+        intrinsics.trap_illegal_arithmetic,
+        "",
     );
+    builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
     builder.build_unreachable();
     builder.position_at_end(shouldnt_trap_block);
 }
@@ -849,7 +935,7 @@ fn trap_if_zero<'ctx>(
     builder.position_at_end(should_trap_block);
     builder.build_call(
         intrinsics.throw_trap,
-        &[intrinsics.trap_illegal_arithmetic],
+        &[intrinsics.trap_integer_division_by_zero],
         "throw",
     );
     builder.build_unreachable();
@@ -1073,6 +1159,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let offset = self.vmoffsets.vmctx_vmmemory_import(memory_index);
                 let offset = intrinsics.i32_ty.const_int(offset.into(), false);
                 let memory_definition_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
+                let memory_definition_ptr_ptr = builder
+                    .build_bitcast(
+                        memory_definition_ptr_ptr,
+                        intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                        "",
+                    )
+                    .into_pointer_value();
                 builder
                     .build_load(memory_definition_ptr_ptr, "")
                     .into_pointer_value()
@@ -1102,71 +1195,28 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         // Compute the offset over the memory_base.
         let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
-        //let var_offset_i32 = self.state.pop1()?.into_int_value();
         let var_offset = builder.build_int_z_extend(var_offset, intrinsics.i64_ty, "");
         let offset = builder.build_int_add(var_offset, imm_offset, "");
 
-        // TODO: must bounds check here or before this point (if applicable)
         let value_ptr = unsafe { builder.build_gep(base, &[offset], "") };
-        Ok(builder
-            .build_bitcast(value_ptr, ptr_ty, "")
-            .into_pointer_value())
-        /*
-            let memory_cache = ctx.memory(MemoryIndex::from_u32(0), intrinsics, module, &memory_plans);
-            let (mem_base, mem_bound, minimum, _maximum) = match memory_cache {
-                MemoryCache::Dynamic {
-                    ptr_to_base_ptr,
-                    ptr_to_bounds,
-                    minimum,
-                    maximum,
-                } => {
-                    let base = builder
-                        .build_load(ptr_to_base_ptr, "base")
-                        .into_pointer_value();
-                    let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
-                    tbaa_label(
-                        &module,
-                        intrinsics,
-                        "dynamic_memory_base",
-                        base.as_instruction_value().unwrap(),
-                        Some(0),
-                    );
-                    tbaa_label(
-                        &module,
-                        intrinsics,
-                        "dynamic_memory_bounds",
-                        bounds.as_instruction_value().unwrap(),
-                        Some(0),
-                    );
-                    (base, bounds, minimum, maximum)
-                }
-                MemoryCache::Static {
-                    base_ptr,
-                    bounds,
-                    minimum,
-                    maximum,
-                } => (base_ptr, bounds, minimum, maximum),
-            };
-            let mem_base = builder
-                .build_bitcast(mem_base, intrinsics.i8_ptr_ty, &state.var_name())
-                .into_pointer_value();
-
-            // Compute the offset over the memory_base.
-            let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
-            let var_offset_i32 = state.pop1()?.into_int_value();
-            let var_offset =
-                builder.build_int_z_extend(var_offset_i32, intrinsics.i64_ty, &state.var_name());
-            let effective_offset = builder.build_int_add(var_offset, imm_offset, &state.var_name());
-
-            if let MemoryCache::Dynamic { .. } = memory_cache {
+        match memory_plans[memory_index] {
+            MemoryPlan {
+                style: MemoryStyle::Dynamic,
+                offset_guard_size: _,
+                memory:
+                    MemoryType {
+                        minimum,
+                        maximum,
+                        shared: _,
+                    },
+            } => {
                 // If the memory is dynamic, do a bounds check. For static we rely on
                 // the size being a multiple of the page size and hitting a guard page.
                 let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
-                let ptr_in_bounds = if effective_offset.is_const() {
-                    let load_offset_end = effective_offset.const_add(value_size_v);
+                let ptr_in_bounds = if offset.is_const() {
+                    let load_offset_end = offset.const_add(value_size_v);
                     let ptr_in_bounds = load_offset_end.const_int_compare(
                         IntPredicate::ULE,
-                        // TODO: Pages to bytes conversion here
                         intrinsics.i64_ty.const_int(minimum.bytes().0 as u64, false),
                     );
                     if ptr_in_bounds.get_zero_extended_constant() == Some(1) {
@@ -1178,14 +1228,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     None
                 }
                 .unwrap_or_else(|| {
-                    let load_offset_end =
-                        builder.build_int_add(effective_offset, value_size_v, &state.var_name());
+                    let load_offset_end = builder.build_int_add(offset, value_size_v, "");
+
+                    let current_length =
+                        builder.build_load(current_length_ptr, "").into_int_value();
 
                     builder.build_int_compare(
                         IntPredicate::ULE,
                         load_offset_end,
-                        mem_bound,
-                        &state.var_name(),
+                        current_length,
+                        "",
                     )
                 });
                 if !ptr_in_bounds.is_constant_int()
@@ -1212,7 +1264,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                     let in_bounds_continue_block =
                         context.append_basic_block(*function, "in_bounds_continue_block");
-                    let not_in_bounds_block = context.append_basic_block(*function, "not_in_bounds_block");
+                    let not_in_bounds_block =
+                        context.append_basic_block(*function, "not_in_bounds_block");
                     builder.build_conditional_branch(
                         ptr_in_bounds,
                         in_bounds_continue_block,
@@ -1228,12 +1281,19 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     builder.position_at_end(in_bounds_continue_block);
                 }
             }
+            MemoryPlan {
+                style: MemoryStyle::Static { bound: _ },
+                offset_guard_size: _,
+                memory: _,
+            } => {
+                // No bounds checks of any kind! Out of bounds memory accesses
+                // will hit the guard pages.
+            }
+        };
 
-            let ptr = unsafe { builder.build_gep(mem_base, &[effective_offset], &state.var_name()) };
-            Ok(builder
-                .build_bitcast(ptr, ptr_ty, &state.var_name())
-                .into_pointer_value())
-        */
+        Ok(builder
+            .build_bitcast(value_ptr, ptr_ty, "")
+            .into_pointer_value())
     }
 }
 
@@ -1440,6 +1500,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module: &'a Module<'ctx>,
     vmoffsets: VMOffsets,
     wasm_module: &'a WasmerCompilerModule,
+    func_names: &'a SecondaryMap<FunctionIndex, String>,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
@@ -2166,93 +2227,34 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                let global_type = module.globals[global_index];
-                let global_value_type = global_type.ty;
-
-                // TODO: cache loads of const globals.
-                let _global_mutability = global_type.mutability;
-
-                let global_ptr =
-                    if let Some(local_global_index) = module.local_global_index(global_index) {
-                        let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        unsafe { builder.build_gep(*vmctx, &[offset], "") }
-                    } else {
-                        let offset = self.vmoffsets.vmctx_vmglobal_import(global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        let global_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
-                        let global_ptr_ptr = builder
-                            .build_bitcast(global_ptr_ptr, intrinsics.i8_ptr_ty, "")
-                            .into_pointer_value();
-                        builder.build_load(global_ptr_ptr, "").into_pointer_value()
-                    };
-                let global_ptr = builder
-                    .build_bitcast(
-                        global_ptr,
-                        type_to_llvm_ptr(&intrinsics, global_value_type),
-                        "",
-                    )
-                    .into_pointer_value();
-                let value = builder.build_load(global_ptr, "");
-                // TODO: add TBAA info.
-                self.state.push1(value);
+                match ctx.global(global_index, intrinsics) {
+                    GlobalCache::Const { value } => {
+                        self.state.push1(value);
+                    }
+                    GlobalCache::Mut { ptr_to_value } => {
+                        let value = builder.build_load(ptr_to_value, "");
+                        // TODO: tbaa
+                        self.state.push1(value);
+                    }
+                }
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                let global_type = module.globals[global_index];
-                let global_value_type = global_type.ty;
-
-                // Note that we don't check mutability, assuming that's already
-                // been checked by some other verifier.
-
-                let global_ptr =
-                    if let Some(local_global_index) = module.local_global_index(global_index) {
-                        let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        unsafe { builder.build_gep(*vmctx, &[offset], "") }
-                    } else {
-                        let offset = self.vmoffsets.vmctx_vmglobal_import(global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        let global_ptr_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
-                        let global_ptr_ptr = builder
-                            .build_bitcast(global_ptr_ptr, intrinsics.i8_ptr_ty, "")
-                            .into_pointer_value();
-                        builder.build_load(global_ptr_ptr, "").into_pointer_value()
-                    };
-                let global_ptr = builder
-                    .build_bitcast(
-                        global_ptr,
-                        type_to_llvm_ptr(&intrinsics, global_value_type),
-                        "",
-                    )
-                    .into_pointer_value();
-
-                let (value, info) = self.state.pop1_extra()?;
-                let value = apply_pending_canonicalization(builder, intrinsics, value, info);
-                builder.build_store(global_ptr, value);
-                // TODO: add TBAA info
-
-                /*
-                                let (value, info) = self.state.pop1_extra()?;
-                                let value = apply_pending_canonicalization(builder, intrinsics, value, info);
-                                let index = GlobalIndex::from_u32(global_index);
-                                let global_cache = ctx.global_cache(index, intrinsics, self.module);
-                                match global_cache {
-                                    GlobalCache::Mut { ptr_to_value } => {
-                                        let store = builder.build_store(ptr_to_value, value);
-                                        tbaa_label(
-                                            &self.module,
-                                            intrinsics,
-                                            "global",
-                                            store,
-                                            Some(global_index),
-                                        );
-                                    }
-                                    GlobalCache::Const { value: _ } => {
-                                        return Err(CompileError::Codegen("global is immutable".to_string()));
-                                    }
-                                }
-                */
+                match ctx.global(global_index, intrinsics) {
+                    GlobalCache::Const { value } => {
+                        return Err(CompileError::Codegen(format!(
+                            "global.set on immutable global index {}",
+                            global_index.as_u32()
+                        )))
+                    }
+                    GlobalCache::Mut { ptr_to_value } => {
+                        let (value, info) = self.state.pop1_extra()?;
+                        let value =
+                            apply_pending_canonicalization(builder, intrinsics, value, info);
+                        builder.build_store(ptr_to_value, value);
+                        // TODO: tbaa
+                    }
+                }
             }
 
             Operator::Select => {
@@ -2299,22 +2301,60 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::Call { function_index } => {
                 let func_index = FunctionIndex::from_u32(function_index);
-                let sigindex = module.functions.get(func_index).unwrap();
-                let func_type = module.signatures.get(*sigindex).unwrap();
-                let func_name = module.func_names.get(&func_index).unwrap();
+                let sigindex = &module.functions[func_index];
+                let func_type = &module.signatures[*sigindex];
+                let func_name = &self.func_names[func_index];
                 let llvm_func_type = func_type_to_llvm(&self.context, &intrinsics, func_type);
 
-                let func = self.module.get_function(func_name);
-                // TODO: we could do this by comparing function indices instead
-                // of going through LLVM APIs and string comparisons.
-                let func = if func.is_none() {
-                    self.module
-                        .add_function(func_name, llvm_func_type, Some(Linkage::External))
+                let (func, callee_vmctx) = if let Some(local_func_index) =
+                    module.local_func_index(func_index)
+                {
+                    // TODO: we could do this by comparing function indices instead
+                    // of going through LLVM APIs and string comparisons.
+                    let func = self.module.get_function(func_name);
+                    let func = if func.is_none() {
+                        self.module
+                            .add_function(func_name, llvm_func_type, Some(Linkage::External))
+                    } else {
+                        func.unwrap()
+                    };
+                    (func.as_global_value().as_pointer_value(), ctx.basic())
                 } else {
-                    func.unwrap()
+                    let offset = self.vmoffsets.vmctx_vmfunction_import(func_index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                    let vmfunction_import_ptr = unsafe { builder.build_gep(*vmctx, &[offset], "") };
+                    let vmfunction_import_ptr = builder
+                        .build_bitcast(
+                            vmfunction_import_ptr,
+                            intrinsics.vmfunction_import_ptr_ty,
+                            "",
+                        )
+                        .into_pointer_value();
+
+                    let body_ptr_ptr = builder
+                        .build_struct_gep(
+                            vmfunction_import_ptr,
+                            intrinsics.vmfunction_import_body_element,
+                            "",
+                        )
+                        .unwrap();
+                    let body_ptr = builder.build_load(body_ptr_ptr, "");
+                    let body_ptr = builder
+                        .build_bitcast(body_ptr, llvm_func_type.ptr_type(AddressSpace::Generic), "")
+                        .into_pointer_value();
+                    let vmctx_ptr_ptr = builder
+                        .build_struct_gep(
+                            vmfunction_import_ptr,
+                            intrinsics.vmfunction_import_vmctx_element,
+                            "",
+                        )
+                        .unwrap();
+                    let vmctx_ptr = builder.build_load(vmctx_ptr_ptr, "");
+                    (body_ptr, vmctx_ptr)
                 };
 
-                let params: Vec<_> = std::iter::once(ctx.basic())
+                let params: Vec<_> = std::iter::repeat(callee_vmctx)
+                    .take(2)
                     .chain(
                         self.state
                             .peekn_extra(func_type.params().len())?
@@ -2399,7 +2439,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::CallIndirect { index, table_index } => {
                 let sigindex = SignatureIndex::from_u32(index);
-                let func_type = module.signatures.get(sigindex).unwrap();
+                let func_type = &module.signatures[sigindex];
                 let expected_dynamic_sigindex = ctx.dynamic_sigindex(sigindex, intrinsics);
                 let (table_base, table_bound) = ctx.table(
                     TableIndex::from_u32(table_index),
@@ -2425,7 +2465,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 };
 
                 // Load things from the anyfunc data structure.
-                let (func_ptr, ctx_ptr, found_dynamic_sigindex) = unsafe {
+                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = unsafe {
                     (
                         builder
                             .build_load(
@@ -2435,20 +2475,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                                 "func_ptr",
                             )
                             .into_pointer_value(),
-                        builder.build_load(
-                            builder
-                                .build_struct_gep(anyfunc_struct_ptr, 1, "ctx_ptr_ptr")
-                                .unwrap(),
-                            "ctx_ptr",
-                        ),
                         builder
                             .build_load(
                                 builder
-                                    .build_struct_gep(anyfunc_struct_ptr, 2, "sigindex_ptr")
+                                    .build_struct_gep(anyfunc_struct_ptr, 1, "sigindex_ptr")
                                     .unwrap(),
                                 "sigindex",
                             )
                             .into_int_value(),
+                        builder.build_load(
+                            builder
+                                .build_struct_gep(anyfunc_struct_ptr, 2, "ctx_ptr_ptr")
+                                .unwrap(),
+                            "ctx_ptr",
+                        ),
                     )
                 };
 
@@ -2492,11 +2532,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 builder.position_at_end(not_in_bounds_block);
                 builder.build_call(
                     intrinsics.throw_trap,
-                    &[intrinsics.trap_call_indirect_oob],
+                    &[intrinsics.trap_table_access_oob],
                     "throw",
                 );
                 builder.build_unreachable();
                 builder.position_at_end(in_bounds_continue_block);
+
+                // Next, check if the table element is initialized.
+
+                let elem_initialized = builder.build_is_not_null(func_ptr, "");
 
                 // Next, check if the signature id is correct.
 
@@ -2507,15 +2551,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     "sigindices_equal",
                 );
 
+                let initialized_and_sigindices_match =
+                    builder.build_and(elem_initialized, sigindices_equal, "");
+
                 // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
-                let sigindices_equal = builder
+                let initialized_and_sigindices_match = builder
                     .build_call(
                         intrinsics.expect_i1,
                         &[
-                            sigindices_equal.as_basic_value_enum(),
+                            initialized_and_sigindices_match.as_basic_value_enum(),
                             intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
                         ],
-                        "sigindices_equal_expect",
+                        "initialized_and_sigindices_match_expect",
                     )
                     .try_as_basic_value()
                     .left()
@@ -2526,17 +2573,19 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let sigindices_notequal_block =
                     context.append_basic_block(function, "sigindices_notequal_block");
                 builder.build_conditional_branch(
-                    sigindices_equal,
+                    initialized_and_sigindices_match,
                     continue_block,
                     sigindices_notequal_block,
                 );
 
                 builder.position_at_end(sigindices_notequal_block);
-                builder.build_call(
-                    intrinsics.throw_trap,
-                    &[intrinsics.trap_call_indirect_sig],
-                    "throw",
+                let trap_code = builder.build_select(
+                    elem_initialized,
+                    intrinsics.trap_call_indirect_sig,
+                    intrinsics.trap_call_indirect_null,
+                    "",
                 );
+                builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
                 builder.build_unreachable();
                 builder.position_at_end(continue_block);
 
@@ -2544,7 +2593,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let pushed_args = self.state.popn_save_extra(func_type.params().len())?;
 
-                let args: Vec<_> = std::iter::once(ctx_ptr)
+                let args: Vec<_> = std::iter::repeat(ctx_ptr)
+                    .take(2)
                     .chain(pushed_args.into_iter().enumerate().map(|(i, (v, info))| {
                         match func_type.params()[i] {
                             Type::F32 => builder.build_bitcast(

@@ -37,7 +37,7 @@ macro_rules! accessors {
         /// Attempt to access the underlying value of this `Value`, returning
         /// `None` if it is not the correct type.
         pub fn $get(&self) -> Option<$ty> {
-            if let Value::$variant($bind) = self {
+            if let Self::$variant($bind) = self {
                 Some($cvt)
             } else {
                 None
@@ -58,43 +58,53 @@ macro_rules! accessors {
 
 impl<T> Value<T> {
     /// Returns a null `anyref` value.
-    pub fn null() -> Value<T> {
-        Value::AnyRef(AnyRef::null())
+    pub fn null() -> Self {
+        Self::AnyRef(AnyRef::null())
     }
 
     /// Returns the corresponding [`Type`] for this `Value`.
     pub fn ty(&self) -> Type {
         match self {
-            Value::I32(_) => Type::I32,
-            Value::I64(_) => Type::I64,
-            Value::F32(_) => Type::F32,
-            Value::F64(_) => Type::F64,
-            Value::AnyRef(_) => Type::AnyRef,
-            Value::FuncRef(_) => Type::FuncRef,
-            Value::V128(_) => Type::V128,
+            Self::I32(_) => Type::I32,
+            Self::I64(_) => Type::I64,
+            Self::F32(_) => Type::F32,
+            Self::F64(_) => Type::F64,
+            Self::AnyRef(_) => Type::AnyRef,
+            Self::FuncRef(_) => Type::FuncRef,
+            Self::V128(_) => Type::V128,
         }
     }
 
     /// Writes it's value to a given pointer
+    ///
+    /// # Safety
+    /// `p` must be:
+    /// - Sufficiently aligned for the Rust equivalent of the type in `self`
+    /// - Non-null and pointing to valid, mutable memory
     pub unsafe fn write_value_to(&self, p: *mut i128) {
         match self {
-            Value::I32(i) => ptr::write(p as *mut i32, *i),
-            Value::I64(i) => ptr::write(p as *mut i64, *i),
-            Value::F32(u) => ptr::write(p as *mut f32, *u),
-            Value::F64(u) => ptr::write(p as *mut f64, *u),
-            Value::V128(b) => ptr::write(p as *mut u128, *b),
+            Self::I32(i) => ptr::write(p as *mut i32, *i),
+            Self::I64(i) => ptr::write(p as *mut i64, *i),
+            Self::F32(u) => ptr::write(p as *mut f32, *u),
+            Self::F64(u) => ptr::write(p as *mut f64, *u),
+            Self::V128(b) => ptr::write(p as *mut u128, *b),
             _ => unimplemented!("Value::write_value_to"),
         }
     }
 
     /// Gets a `Value` given a pointer and a `Type`
+    ///
+    /// # Safety
+    /// `p` must be:
+    /// - Properly aligned to the specified `ty`'s Rust equivalent
+    /// - Non-null and pointing to valid memory
     pub unsafe fn read_value_from(p: *const i128, ty: Type) -> Value<T> {
         match ty {
-            Type::I32 => Value::I32(ptr::read(p as *const i32)),
-            Type::I64 => Value::I64(ptr::read(p as *const i64)),
-            Type::F32 => Value::F32(ptr::read(p as *const f32)),
-            Type::F64 => Value::F64(ptr::read(p as *const f64)),
-            Type::V128 => Value::V128(ptr::read(p as *const u128)),
+            Type::I32 => Self::I32(ptr::read(p as *const i32)),
+            Type::I64 => Self::I64(ptr::read(p as *const i64)),
+            Type::F32 => Self::F32(ptr::read(p as *const f32)),
+            Type::F64 => Self::F64(ptr::read(p as *const f64)),
+            Type::V128 => Self::V128(ptr::read(p as *const u128)),
             _ => unimplemented!("Value::read_value_from"),
         }
     }
@@ -115,7 +125,7 @@ impl<T> Value<T> {
     /// This will return `Some` for both the `AnyRef` and `FuncRef` types.
     pub fn anyref(&self) -> Option<AnyRef> {
         match self {
-            Value::AnyRef(e) => Some(e.clone()),
+            Self::AnyRef(e) => Some(e.clone()),
             _ => None,
         }
     }
@@ -134,13 +144,13 @@ impl<T> Value<T> {
 impl<T> fmt::Debug for Value<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::I32(v) => write!(f, "I32({:?})", v),
-            Value::I64(v) => write!(f, "I64({:?})", v),
-            Value::F32(v) => write!(f, "F32({:?})", v),
-            Value::F64(v) => write!(f, "F64({:?})", v),
-            Value::AnyRef(v) => write!(f, "AnyRef({:?})", v),
-            Value::FuncRef(_) => write!(f, "FuncRef"),
-            Value::V128(v) => write!(f, "V128({:?})", v),
+            Self::I32(v) => write!(f, "I32({:?})", v),
+            Self::I64(v) => write!(f, "I64({:?})", v),
+            Self::F32(v) => write!(f, "F32({:?})", v),
+            Self::F64(v) => write!(f, "F64({:?})", v),
+            Self::AnyRef(v) => write!(f, "AnyRef({:?})", v),
+            Self::FuncRef(_) => write!(f, "FuncRef"),
+            Self::V128(v) => write!(f, "V128({:?})", v),
         }
     }
 }
@@ -148,49 +158,49 @@ impl<T> fmt::Debug for Value<T> {
 impl<T> ToString for Value<T> {
     fn to_string(&self) -> String {
         match self {
-            Value::I32(v) => format!("{}", v),
-            Value::I64(v) => format!("{}", v),
-            Value::F32(v) => format!("{}", v),
-            Value::F64(v) => format!("{}", v),
-            Value::AnyRef(_) => format!("anyref"),
-            Value::FuncRef(_) => format!("funcref"),
-            Value::V128(v) => format!("{}", v),
+            Self::I32(v) => v.to_string(),
+            Self::I64(v) => v.to_string(),
+            Self::F32(v) => v.to_string(),
+            Self::F64(v) => v.to_string(),
+            Self::AnyRef(_) => "anyref".to_string(),
+            Self::FuncRef(_) => "funcref".to_string(),
+            Self::V128(v) => v.to_string(),
         }
     }
 }
 
 impl<T> From<i32> for Value<T> {
-    fn from(val: i32) -> Value<T> {
-        Value::I32(val)
+    fn from(val: i32) -> Self {
+        Self::I32(val)
     }
 }
 
 impl<T> From<i64> for Value<T> {
-    fn from(val: i64) -> Value<T> {
-        Value::I64(val)
+    fn from(val: i64) -> Self {
+        Self::I64(val)
     }
 }
 
 impl<T> From<f32> for Value<T> {
-    fn from(val: f32) -> Value<T> {
-        Value::F32(val)
+    fn from(val: f32) -> Self {
+        Self::F32(val)
     }
 }
 
 impl<T> From<f64> for Value<T> {
-    fn from(val: f64) -> Value<T> {
-        Value::F64(val)
+    fn from(val: f64) -> Self {
+        Self::F64(val)
     }
 }
 
 impl<T> From<AnyRef> for Value<T> {
-    fn from(val: AnyRef) -> Value<T> {
-        Value::AnyRef(val)
+    fn from(val: AnyRef) -> Self {
+        Self::AnyRef(val)
     }
 }
 
 // impl<T> From<T> for Value<T> {
-//     fn from(val: T) -> Value<T> {
-//         Value::FuncRef(val)
+//     fn from(val: T) -> Self {
+//         Self::FuncRef(val)
 //     }
 // }

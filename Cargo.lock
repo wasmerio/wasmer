@@ -400,6 +400,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52ba6eb47c2131e784a38b726eb54c1e1484904f013e576a25354d0124161af6"
 
 [[package]]
+name = "dynasm"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42a814e1edeb85dd2a3c6fc0d6bf76d02ca5695d438c70ecee3d90774f3259c5"
+dependencies = [
+ "bitflags",
+ "byteorder",
+ "lazy_static",
+ "owning_ref",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "dynasmrt"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a393aaeb4441a48bcf47b5b6155971f82cc1eb77e22855403ccc0415ac8328d"
+dependencies = [
+ "byteorder",
+ "memmap",
+]
+
+[[package]]
 name = "either"
 version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -595,7 +620,7 @@ dependencies = [
 [[package]]
 name = "inkwell"
 version = "0.1.0"
-source = "git+https://github.com/theDan64/inkwell?rev=af1846fd8aea530cef9a59170715e5c6c64346f6#af1846fd8aea530cef9a59170715e5c6c64346f6"
+source = "git+https://github.com/theDan64/inkwell?rev=1bfecc0a095d7ffdfa20a64630864f0297349508#1bfecc0a095d7ffdfa20a64630864f0297349508"
 dependencies = [
  "either",
  "inkwell_internals",
@@ -609,7 +634,7 @@ dependencies = [
 [[package]]
 name = "inkwell_internals"
 version = "0.1.0"
-source = "git+https://github.com/theDan64/inkwell?rev=af1846fd8aea530cef9a59170715e5c6c64346f6#af1846fd8aea530cef9a59170715e5c6c64346f6"
+source = "git+https://github.com/theDan64/inkwell?rev=1bfecc0a095d7ffdfa20a64630864f0297349508#1bfecc0a095d7ffdfa20a64630864f0297349508"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -667,9 +692,9 @@ checksum = "3576a87f2ba00f6f106fdfcd16db1d698d648a26ad8e0573cad8537c3c362d2a"
 
 [[package]]
 name = "libc"
-version = "0.2.69"
+version = "0.2.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99e85c08494b21a9054e7fe1374a732aeadaff3980b6990b94bfd3a70f690005"
+checksum = "3baa92041a6fec78c687fa0cc2b3fae8884f743d672cf551bed1d6dac6988d0f"
 
 [[package]]
 name = "libloading"
@@ -836,6 +861,15 @@ checksum = "f8b18f57ab94fbd058e30aa57f712ec423c0bb7403f8493a6c58eef0c36d9402"
 dependencies = [
  "redox_syscall",
  "sdl2",
+]
+
+[[package]]
+name = "owning_ref"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
+dependencies = [
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -1299,6 +1333,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7cb5678e1615754284ec264d9bb5b4c27d2018577fd90ac0ceb578591ed5ee4"
 
 [[package]]
+name = "stable_deref_trait"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
+
+[[package]]
 name = "string-interner"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1403,10 +1443,12 @@ dependencies = [
 name = "test-utils"
 version = "0.16.2"
 dependencies = [
+ "wasmer",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
+ "wasmer-engine-jit",
 ]
 
 [[package]]
@@ -1694,10 +1736,15 @@ dependencies = [
 name = "wasmer-compiler-singlepass"
 version = "0.16.2"
 dependencies = [
+ "byteorder",
+ "dynasm",
+ "dynasmrt",
  "hashbrown",
+ "lazy_static",
  "more-asserts",
  "rayon",
  "serde",
+ "smallvec",
  "wasm-common",
  "wasmer-compiler",
  "wasmer-runtime",

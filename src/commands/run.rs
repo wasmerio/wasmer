@@ -2,7 +2,7 @@ use crate::common::get_cache_dir;
 use crate::store::StoreOptions;
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -84,7 +84,7 @@ impl Run {
     fn inner_execute(&self) -> Result<()> {
         let module = self
             .get_module()
-            .with_context(|| format!("module instantiation failed"))?;
+            .with_context(|| "module instantiation failed")?;
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
@@ -118,14 +118,14 @@ impl Run {
                 return self
                     .wasi
                     .execute(module, version, program_name, self.args.clone())
-                    .with_context(|| format!("WASI execution failed"));
+                    .with_context(|| "WASI execution failed");
             }
         }
 
         // Try to instantiate the wasm file, with no provided imports
         let imports = imports! {};
         let instance = Instance::new(&module, &imports)?;
-        let start: Function = self.try_find_function(&instance, "_start", &vec![])?;
+        let start: Function = self.try_find_function(&instance, "_start", &[])?;
         start.call(&[])?;
 
         Ok(())
@@ -169,8 +169,8 @@ impl Run {
                     .cache_key
                     .as_ref()
                     .and_then(|key| WasmHash::from_str(&key).ok())
-                    .unwrap_or(WasmHash::generate(&contents));
-                let module = match unsafe { cache.load(&store, hash) } {
+                    .unwrap_or_else(|| WasmHash::generate(&contents));
+                match unsafe { cache.load(&store, hash) } {
                     Ok(module) => module,
                     Err(e) => {
                         match e {
@@ -186,8 +186,7 @@ impl Run {
                         cache.store(hash, module.clone())?;
                         module
                     }
-                };
-                module
+                }
             } else {
                 Module::new(&store, &contents)?
             };
@@ -201,13 +200,13 @@ impl Run {
         &self,
         instance: &Instance,
         name: &str,
-        args: &Vec<String>,
+        args: &[String],
     ) -> Result<Function> {
         Ok(instance
             .exports
             .get_function(&name)
             .map_err(|e| {
-                if instance.module().info().functions.len() == 0 {
+                if instance.module().info().functions.is_empty() {
                     anyhow!("The module has no exported functions to call.")
                 } else {
                     let suggested_functions = suggest_function_exports(instance.module(), "");
@@ -246,7 +245,7 @@ impl Run {
         &self,
         instance: &Instance,
         invoke: &str,
-        args: &Vec<String>,
+        args: &[String],
     ) -> Result<Box<[Val]>> {
         let func: Function = self.try_find_function(&instance, invoke, args)?;
         let func_ty = func.ty();

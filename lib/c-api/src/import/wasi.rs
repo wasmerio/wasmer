@@ -213,7 +213,7 @@ pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wa
     let mut wasi_env = wasi::WasiEnv::new(wasi_state);
     // this API will now leak a `Memory`
     let memory_type = MemoryType::new(0, None, false);
-    let memory = Memory::new(store, memory_type);
+    let memory = Memory::new(store, memory_type).expect("create memory");
     wasi_env.set_memory(&memory);
     // TODO(mark): review lifetime of `Memory` here
     let import_object = Box::new(wasi::generate_import_object_from_env(

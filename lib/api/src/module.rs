@@ -6,8 +6,10 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
-use wasmer_compiler::{CompileError, WasmError};
-use wasmer_engine::{CompiledModule, DeserializeError, Engine, Resolver, SerializeError};
+use wasmer_compiler::CompileError;
+#[cfg(feature = "wat")]
+use wasmer_compiler::WasmError;
+use wasmer_engine::{CompiledModule, DeserializeError, Resolver, SerializeError};
 use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, Module as ModuleInfo};
 
 #[derive(Error, Debug)]
@@ -74,6 +76,7 @@ impl Module {
     /// let bytes: Vec<u8> = vec![];
     /// let module = Module::new(&store, bytes)?;
     /// ```
+    #[allow(unreachable_code)]
     pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Module, CompileError> {
         #[cfg(feature = "wat")]
         {
@@ -206,7 +209,7 @@ impl Module {
         Ok(Self::from_compiled_module(store, compiled))
     }
 
-    fn from_compiled_module(store: &Store, compiled: Arc<CompiledModule>) -> Self {
+    fn from_compiled_module(store: &Store, compiled: Arc<dyn CompiledModule>) -> Self {
         Module {
             store: store.clone(),
             compiled,

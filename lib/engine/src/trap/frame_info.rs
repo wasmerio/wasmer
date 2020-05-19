@@ -66,7 +66,7 @@ impl ModuleFrameInfo {
     }
 
     fn process_function_debug_info(&mut self, local_index: LocalFunctionIndex) {
-        let mut func = self.frame_infos.get_mut(local_index).unwrap();
+        let func = self.frame_infos.get_mut(local_index).unwrap();
         let processed: CompiledFunctionFrameInfo = match func {
             SerializableFunctionFrameInfo::Processed(_) => {
                 // This should be a no-op on processed info
@@ -187,7 +187,8 @@ impl GlobalFrameInfo {
     pub fn maybe_process_frame(&mut self, pc: usize) -> Option<()> {
         let module = self.module_info_mut(pc)?;
         let func = module.function_info(pc)?;
-        module.process_function_debug_info(func.local_index);
+        let func_local_index = func.local_index;
+        module.process_function_debug_info(func_local_index);
         Some(())
     }
 
@@ -246,7 +247,7 @@ pub fn register(
         };
         assert!(functions.insert(end, func).is_none());
     }
-    if functions.len() == 0 {
+    if functions.is_empty() {
         return None;
     }
 
@@ -266,7 +267,7 @@ pub fn register(
         ModuleFrameInfo {
             start: min,
             functions,
-            module: module.clone(),
+            module,
             frame_infos,
         },
     );

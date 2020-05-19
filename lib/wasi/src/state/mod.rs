@@ -19,7 +19,6 @@ mod types;
 pub use self::builder::*;
 pub use self::types::*;
 use crate::syscalls::types::*;
-use crate::WasiEnv;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 use serde::{Deserialize, Serialize};
@@ -51,15 +50,6 @@ const STDOUT_DEFAULT_RIGHTS: __wasi_rights_t = __WASI_RIGHT_FD_DATASYNC
     | __WASI_RIGHT_FD_FILESTAT_GET
     | __WASI_RIGHT_POLL_FD_READWRITE;
 const STDERR_DEFAULT_RIGHTS: __wasi_rights_t = STDOUT_DEFAULT_RIGHTS;
-
-/// Get WasiState from a Ctx
-///
-/// # Safety
-/// - This function must be called on a `WasiEnv` that was created with `WasiState`
-///   in the data field
-pub unsafe fn get_wasi_state<'a>(env: &'a mut WasiEnv) -> &'a mut WasiState {
-    env.state_mut()
-}
 
 /// A completely aribtrary "big enough" number used as the upper limit for
 /// the number of symlinks that can be traversed when resolving a path

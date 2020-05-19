@@ -70,20 +70,16 @@ pub fn build_ignores_from_textfile(path: PathBuf) -> anyhow::Result<Ignores> {
         } else {
             (line, None)
         };
-        if line.len() == 0 {
+        if line.is_empty() {
             continue;
         }
 
-        match target {
-            Some(t) => {
-                // We skip the ignore if doesn't apply to the current
-                // host target
-                if !host.contains(&t) {
-                    continue;
-                }
-            }
-            None => {}
+        // We skip the ignore if doesn't apply to the current
+        // host target
+        if target.map(|t| !host.contains(&t)).unwrap_or(false) {
+            continue;
         }
+
         ignores.insert(line);
     }
     Ok(ignores)

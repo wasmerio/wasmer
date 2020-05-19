@@ -23,7 +23,7 @@ pub(crate) struct NamedExport {
     pub(crate) export_type: ExportType,
 
     /// The instance that holds the export.
-    pub(crate) instance: *mut Instance,
+    pub(crate) instance: NonNull<Instance>,
 }
 
 /// Opaque pointer to `ImportType`.
@@ -400,7 +400,7 @@ pub unsafe extern "C" fn wasmer_export_to_memory(
     memory: *mut *mut wasmer_memory_t,
 ) -> wasmer_result_t {
     let named_export = &*(export as *const NamedExport);
-    let instance = &*named_export.instance;
+    let instance = named_export.instance.as_ref();
 
     if let Ok(exported_memory) = instance
         .exports
@@ -476,7 +476,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
 
     let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
 
-    let instance = &*named_export.instance;
+    let instance = named_export.instance.as_ref();
     let f: &Function = match instance.exports.get(&named_export.export_type.name()) {
         Ok(f) => f,
         Err(err) => {

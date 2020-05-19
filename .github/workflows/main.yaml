@@ -2,19 +2,23 @@ on: [push]
 
 name: build
 
+env:
+  RUST_BACKTRACE: 1
+
 jobs:
   lint:
     name: Code lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install Rust nightly
+      - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2019-12-19
+          profile: minimal
+          toolchain: 1.42.0
           override: true
           components: rustfmt, clippy
-      - run: cargo fmt --all -- --check
+      - run: make lint
 
   test:
     name: Test in ${{ matrix.build }}
@@ -41,8 +45,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - run: cargo test --release
-        env:
-          RUST_BACKTRACE: 1
       - name: Build and Test C API
         run: |
           make capi
@@ -51,5 +53,3 @@ jobs:
       - name: Build C API on Windows
         run: make capi
         if: matrix.os == 'windows-latest'
-        env:
-          RUST_BACKTRACE: 1

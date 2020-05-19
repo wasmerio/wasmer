@@ -114,9 +114,9 @@ cfg_if::cfg_if! {
                 // exception was handled by a custom exception handler, so we
                 // keep executing.
                 if jmp_buf.is_null() {
-                    return false;
+                    false
                 } else if jmp_buf as usize == 1 {
-                    return true;
+                    true
                 } else {
                     Unwind(jmp_buf)
                 }
@@ -161,18 +161,11 @@ cfg_if::cfg_if! {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.gregs[libc::REG_EIP as usize] as *const u8
                 } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
-                    // libc doesn't seem to support Linux/aarch64 at the moment?
-                    extern "C" {
-                        fn GetPcFromUContext(cx: *mut libc::c_void) -> *const u8;
-                    }
-                    GetPcFromUContext(cx)
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.pc as *const u8
                 } else if #[cfg(target_os = "macos")] {
-                    // FIXME(rust-lang/libc#1702) - once that lands and is
-                    // released we should inline the definition here
-                    extern "C" {
-                        fn GetPcFromUContext(cx: *mut libc::c_void) -> *const u8;
-                    }
-                    GetPcFromUContext(cx)
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    (*cx.uc_mcontext).__ss.__rip as *const u8
                 } else {
                     compile_error!("unsupported platform");
                 }
@@ -356,7 +349,7 @@ impl Trap {
     /// Internally saves a backtrace when constructed.
     pub fn wasm(trap_code: TrapCode) -> Self {
         let backtrace = Backtrace::new_unresolved();
-        Trap::Wasm {
+        Self::Wasm {
             trap_code,
             backtrace,
         }
@@ -367,7 +360,7 @@ impl Trap {
     /// Internally saves a backtrace when constructed.
     pub fn oom() -> Self {
         let backtrace = Backtrace::new_unresolved();
-        Trap::OOM { backtrace }
+        Self::OOM { backtrace }
     }
 }
 
@@ -447,8 +440,8 @@ enum UnwindReason {
 }
 
 impl CallThreadState {
-    fn new(vmctx: *mut VMContext) -> CallThreadState {
-        CallThreadState {
+    fn new(vmctx: *mut VMContext) -> Self {
+        Self {
             unwind: Cell::new(UnwindReason::None),
             vmctx,
             jmp_buf: Cell::new(ptr::null()),
@@ -458,7 +451,7 @@ impl CallThreadState {
         }
     }
 
-    fn with(mut self, closure: impl FnOnce(&CallThreadState) -> i32) -> Result<(), Trap> {
+    fn with(mut self, closure: impl FnOnce(&Self) -> i32) -> Result<(), Trap> {
         tls::with(|prev| {
             self.prev = prev.map(|p| p as *const _);
             let ret = tls::set(&self, || closure(&self));
@@ -545,7 +538,7 @@ impl CallThreadState {
             };
             let result = call_handler(&handler);
             i.instance().signal_handler.set(Some(handler));
-            return result;
+            result
         }) {
             self.handling_trap.set(false);
             return 1 as *const _;
@@ -715,7 +708,7 @@ fn setup_unix_signalstack() -> Result<(), Trap> {
     impl Drop for Tls {
         fn drop(&mut self) {
             let (ptr, size) = match self {
-                Tls::Allocated {
+                Self::Allocated {
                     mmap_ptr,
                     mmap_size,
                 } => (*mmap_ptr, *mmap_size),

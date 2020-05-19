@@ -29,7 +29,7 @@ winapi = "0.3.8"
 
 [dev-dependencies]
 # for the binary wasmer.rs
-libc = "0.2"
+libc = { version = "0.2.70", default-features = false }
 wat = "1.0.15"
 tempfile = "3.1"
 anyhow = "1.0.28"
@@ -41,7 +41,7 @@ maintenance = { status = "actively-developed" }
 default = ["wat", "cranelift", "jit"]
 compiler = ["wasmer-engine-jit/compiler"]
 engine = []
-jit = ["wasmer-engine-jit"]
+jit = ["wasmer-engine-jit", "engine"]
 singlepass = [
     "wasmer-compiler-singlepass",
     "compiler",

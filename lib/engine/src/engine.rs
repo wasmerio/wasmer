@@ -15,7 +15,7 @@ use wasmer_runtime::{InstanceHandle, VMSharedSignatureIndex, VMTrampoline};
 /// such as: JIT or Native.
 pub trait Engine {
     /// Get the tunables
-    fn tunables(&self) -> &Tunables;
+    fn tunables(&self) -> &dyn Tunables;
 
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex;
@@ -24,13 +24,13 @@ pub trait Engine {
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType>;
 
     /// Retrieves a trampoline given a signature
-    fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;
+    fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;
 
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError>;
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Arc<CompiledModule>, CompileError>;
+    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn CompiledModule>, CompileError>;
 
     /// Instantiates a WebAssembly module
     unsafe fn instantiate(
@@ -50,13 +50,13 @@ pub trait Engine {
     fn serialize(&self, compiled_module: &dyn CompiledModule) -> Result<Vec<u8>, SerializeError>;
 
     /// Deserializes a WebAssembly module
-    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<CompiledModule>, DeserializeError>;
+    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn CompiledModule>, DeserializeError>;
 
     /// Deserializes a WebAssembly module from a path
     fn deserialize_from_file(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<CompiledModule>, DeserializeError> {
+    ) -> Result<Arc<dyn CompiledModule>, DeserializeError> {
         let bytes = std::fs::read(file_ref)?;
         self.deserialize(&bytes)
     }

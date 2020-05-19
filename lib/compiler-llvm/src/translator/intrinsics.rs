@@ -143,11 +143,14 @@ pub struct Intrinsics<'ctx> {
     pub f64x2_zero: VectorValue<'ctx>,
 
     pub trap_unreachable: BasicValueEnum<'ctx>,
+    pub trap_call_indirect_null: BasicValueEnum<'ctx>,
     pub trap_call_indirect_sig: BasicValueEnum<'ctx>,
-    pub trap_call_indirect_oob: BasicValueEnum<'ctx>,
     pub trap_memory_oob: BasicValueEnum<'ctx>,
     pub trap_illegal_arithmetic: BasicValueEnum<'ctx>,
+    pub trap_integer_division_by_zero: BasicValueEnum<'ctx>,
+    pub trap_bad_conversion_to_integer: BasicValueEnum<'ctx>,
     pub trap_misaligned_atomic: BasicValueEnum<'ctx>,
+    pub trap_table_access_oob: BasicValueEnum<'ctx>,
 
     // VM intrinsics.
     pub memory_grow_dynamic_local: FunctionValue<'ctx>,
@@ -168,6 +171,10 @@ pub struct Intrinsics<'ctx> {
     pub throw_breakpoint: FunctionValue<'ctx>,
 
     pub experimental_stackmap: FunctionValue<'ctx>,
+
+    pub vmfunction_import_ptr_ty: PointerType<'ctx>,
+    pub vmfunction_import_body_element: u32,
+    pub vmfunction_import_vmctx_element: u32,
 
     pub vmmemory_definition_ptr_ty: PointerType<'ctx>,
     pub vmmemory_definition_base_element: u32,
@@ -258,8 +265,8 @@ impl<'ctx> Intrinsics<'ctx> {
         let anyfunc_ty = context.struct_type(
             &[
                 i8_ptr_ty_basic,
-                ctx_ptr_ty.as_basic_type_enum(),
                 sigindex_ty.as_basic_type_enum(),
+                ctx_ptr_ty.as_basic_type_enum(),
             ],
             false,
         );
@@ -475,11 +482,11 @@ impl<'ctx> Intrinsics<'ctx> {
             trap_unreachable: i32_ty
                 .const_int(TrapCode::UnreachableCodeReached as _, false)
                 .as_basic_value_enum(),
+            trap_call_indirect_null: i32_ty
+                .const_int(TrapCode::IndirectCallToNull as _, false)
+                .as_basic_value_enum(),
             trap_call_indirect_sig: i32_ty
                 .const_int(TrapCode::BadSignature as _, false)
-                .as_basic_value_enum(),
-            trap_call_indirect_oob: i32_ty
-                .const_int(TrapCode::OutOfBounds as _, false)
                 .as_basic_value_enum(),
             trap_memory_oob: i32_ty
                 .const_int(TrapCode::OutOfBounds as _, false)
@@ -488,9 +495,18 @@ impl<'ctx> Intrinsics<'ctx> {
             trap_illegal_arithmetic: i32_ty
                 .const_int(TrapCode::IntegerOverflow as _, false)
                 .as_basic_value_enum(),
+            trap_integer_division_by_zero: i32_ty
+                .const_int(TrapCode::IntegerDivisionByZero as _, false)
+                .as_basic_value_enum(),
+            trap_bad_conversion_to_integer: i32_ty
+                .const_int(TrapCode::BadConversionToInteger as _, false)
+                .as_basic_value_enum(),
             // TODO: add misaligned atomic traps to wasmer runtime
             trap_misaligned_atomic: i32_ty
                 .const_int(TrapCode::Interrupt as _, false)
+                .as_basic_value_enum(),
+            trap_table_access_oob: i32_ty
+                .const_int(TrapCode::TableAccessOutOfBounds as _, false)
                 .as_basic_value_enum(),
 
             // VM intrinsics.
@@ -576,6 +592,12 @@ impl<'ctx> Intrinsics<'ctx> {
                 void_ty.fn_type(&[i64_ty_basic], false),
                 None,
             ),
+
+            vmfunction_import_ptr_ty: context
+                .struct_type(&[i8_ptr_ty_basic, i8_ptr_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+            vmfunction_import_body_element: 0,
+            vmfunction_import_vmctx_element: 1,
 
             // TODO: this i64 is actually a rust usize
             vmmemory_definition_ptr_ty: context
@@ -888,9 +910,9 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         })
     }
 
-    pub fn table_prepare(
+    fn table_prepare(
         &mut self,
-        index: TableIndex,
+        table_index: TableIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
@@ -904,74 +926,77 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         let TableCache {
             ptr_to_base_ptr,
             ptr_to_bounds,
-        } = *cached_tables.entry(index).or_insert_with(|| {
-            let (table_array_ptr_ptr, index, field_name) =
-                if let Some(local_table_index) = wasm_module.local_table_index(index) {
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_tables_begin()),
-                                    "table_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        local_table_index.index() as u64,
-                        "context_field_ptr_to_local_table",
-                    )
+        } = *cached_tables.entry(table_index).or_insert_with(|| {
+            let (ptr_to_base_ptr, ptr_to_bounds) =
+                if let Some(local_table_index) = wasm_module.local_table_index(table_index) {
+                    let offset = intrinsics.i64_ty.const_int(
+                        offsets
+                            .vmctx_vmtable_definition_base(local_table_index)
+                            .into(),
+                        false,
+                    );
+                    let ptr_to_base_ptr =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let ptr_to_base_ptr = cache_builder
+                        .build_bitcast(
+                            ptr_to_base_ptr,
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
+                        .into_pointer_value();
+                    let offset = intrinsics.i64_ty.const_int(
+                        offsets
+                            .vmctx_vmtable_definition_current_elements(local_table_index)
+                            .into(),
+                        false,
+                    );
+                    let ptr_to_bounds =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let ptr_to_bounds = cache_builder
+                        .build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, "")
+                        .into_pointer_value();
+                    (ptr_to_base_ptr, ptr_to_bounds)
                 } else {
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_imported_tables_begin()),
-                                    "table_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        index.index() as u64,
-                        "context_field_ptr_to_import_table",
-                    )
+                    let offset = intrinsics.i64_ty.const_int(
+                        offsets.vmctx_vmtable_import_definition(table_index).into(),
+                        false,
+                    );
+                    let definition_ptr_ptr =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let definition_ptr_ptr = cache_builder
+                        .build_bitcast(
+                            definition_ptr_ptr,
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
+                        .into_pointer_value();
+                    let definition_ptr = cache_builder
+                        .build_load(definition_ptr_ptr, "")
+                        .into_pointer_value();
+                    // TODO: TBAA label
+
+                    let offset = intrinsics
+                        .i64_ty
+                        .const_int(offsets.vmtable_definition_base().into(), false);
+                    let ptr_to_base_ptr =
+                        unsafe { cache_builder.build_gep(definition_ptr, &[offset], "") };
+                    let ptr_to_base_ptr = cache_builder
+                        .build_bitcast(
+                            ptr_to_base_ptr,
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
+                        .into_pointer_value();
+                    let offset = intrinsics
+                        .i64_ty
+                        .const_int(offsets.vmtable_definition_current_elements().into(), false);
+                    let ptr_to_bounds =
+                        unsafe { cache_builder.build_gep(definition_ptr, &[offset], "") };
+                    let ptr_to_bounds = cache_builder
+                        .build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, "")
+                        .into_pointer_value();
+                    (ptr_to_base_ptr, ptr_to_bounds)
                 };
-
-            let table_array_ptr = cache_builder
-                .build_load(table_array_ptr_ptr, "table_array_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                field_name,
-                table_array_ptr.as_instruction_value().unwrap(),
-                None,
-            );
-            let const_index = intrinsics.i32_ty.const_int(index, false);
-            let table_ptr_ptr = unsafe {
-                cache_builder.build_in_bounds_gep(table_array_ptr, &[const_index], "table_ptr_ptr")
-            };
-            let table_ptr = cache_builder
-                .build_load(table_ptr_ptr, "table_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                "table_ptr",
-                table_array_ptr.as_instruction_value().unwrap(),
-                Some(index as u32),
-            );
-
-            let (ptr_to_base_ptr, ptr_to_bounds) = unsafe {
-                (
-                    cache_builder
-                        .build_struct_gep(table_ptr, 0, "base_ptr")
-                        .unwrap(),
-                    cache_builder
-                        .build_struct_gep(table_ptr, 1, "bounds_ptr")
-                        .unwrap(),
-                )
-            };
-
             TableCache {
                 ptr_to_base_ptr,
                 ptr_to_bounds,
@@ -989,10 +1014,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         builder: &Builder<'ctx>,
     ) -> (PointerValue<'ctx>, IntValue<'ctx>) {
         let (ptr_to_base_ptr, ptr_to_bounds) = self.table_prepare(index, intrinsics, module);
-        let base_ptr = builder
+        let base_ptr = self
+            .cache_builder
             .build_load(ptr_to_base_ptr, "base_ptr")
             .into_pointer_value();
-        let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
+        let bounds = self
+            .cache_builder
+            .build_load(ptr_to_bounds, "bounds")
+            .into_int_value();
         tbaa_label(
             module,
             intrinsics,
@@ -1059,106 +1088,59 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         })
     }
 
-    pub fn global_cache(
+    pub fn global(
         &mut self,
         index: GlobalIndex,
         intrinsics: &Intrinsics<'ctx>,
-        module: &Module<'ctx>,
     ) -> GlobalCache<'ctx> {
-        let (cached_globals, ctx_ptr_value, wasm_module, cache_builder, offsets) = (
+        let (cached_globals, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_globals,
-            self.ctx_ptr_value,
             self.wasm_module,
+            self.ctx_ptr_value,
             &self.cache_builder,
             &self.offsets,
         );
         *cached_globals.entry(index).or_insert_with(|| {
-            let (globals_array_ptr_ptr, index, mutable, wasmer_ty, field_name) = {
-                let desc = wasm_module.globals.get(index).unwrap();
-                if let Some(_local_global_index) = wasm_module.local_global_index(index) {
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_globals_begin()),
-                                    "globals_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        index.index() as u64,
-                        desc.mutability,
-                        desc.ty,
-                        "context_field_ptr_to_local_globals",
-                    )
-                } else {
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_imported_globals_begin()),
-                                    "globals_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        index.index() as u64,
-                        desc.mutability,
-                        desc.ty,
-                        "context_field_ptr_to_imported_globals",
-                    )
-                }
-            };
+            let global_type = wasm_module.globals[index];
+            let global_value_type = global_type.ty;
 
-            let llvm_ptr_ty = type_to_llvm_ptr(intrinsics, wasmer_ty);
-
-            let global_array_ptr = cache_builder
-                .build_load(globals_array_ptr_ptr, "global_array_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                field_name,
-                global_array_ptr.as_instruction_value().unwrap(),
-                None,
-            );
-            let const_index = intrinsics.i32_ty.const_int(index, false);
-            let global_ptr_ptr = unsafe {
-                cache_builder.build_in_bounds_gep(
-                    global_array_ptr,
-                    &[const_index],
-                    "global_ptr_ptr",
-                )
+            let global_mutability = global_type.mutability;
+            let global_ptr = if let Some(local_global_index) = wasm_module.local_global_index(index)
+            {
+                let offset = offsets.vmctx_vmglobal_definition(local_global_index);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") }
+            } else {
+                let offset = offsets.vmctx_vmglobal_import(index);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                let global_ptr_ptr =
+                    unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                let global_ptr_ptr = cache_builder
+                    .build_bitcast(
+                        global_ptr_ptr,
+                        intrinsics.i32_ptr_ty.ptr_type(AddressSpace::Generic),
+                        "",
+                    )
+                    .into_pointer_value();
+                cache_builder
+                    .build_load(global_ptr_ptr, "")
+                    .into_pointer_value()
             };
             let global_ptr = cache_builder
-                .build_load(global_ptr_ptr, "global_ptr")
+                .build_bitcast(
+                    global_ptr,
+                    type_to_llvm_ptr(&intrinsics, global_value_type),
+                    "",
+                )
                 .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                "global_ptr",
-                global_ptr.as_instruction_value().unwrap(),
-                Some(index as u32),
-            );
 
-            let global_ptr_typed =
-                cache_builder.build_pointer_cast(global_ptr, llvm_ptr_ty, "global_ptr_typed");
-
-            let mutable = mutable == Mutability::Var;
-            if mutable {
-                GlobalCache::Mut {
-                    ptr_to_value: global_ptr_typed,
-                }
-            } else {
-                let value = cache_builder.build_load(global_ptr_typed, "global_value");
-                tbaa_label(
-                    module,
-                    intrinsics,
-                    "global",
-                    value.as_instruction_value().unwrap(),
-                    Some(index as u32),
-                );
-                GlobalCache::Const { value }
+            match global_mutability {
+                Mutability::Const => GlobalCache::Const {
+                    value: cache_builder.build_load(global_ptr, ""),
+                },
+                Mutability::Var => GlobalCache::Mut {
+                    ptr_to_value: global_ptr,
+                },
             }
         })
     }
@@ -1345,7 +1327,8 @@ pub fn func_type_to_llvm<'ctx>(
         .params()
         .iter()
         .map(|&ty| type_to_llvm(intrinsics, ty));
-    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+    let param_types: Vec<_> = std::iter::repeat(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+        .take(2)
         .chain(user_param_types)
         .collect();
 

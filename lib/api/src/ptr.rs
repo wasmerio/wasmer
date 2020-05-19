@@ -272,7 +272,7 @@ mod test {
         // create a memory
         let store = Store::default();
         let memory_descriptor = MemoryType::new(1, Some(1), false);
-        let memory = Memory::new(&store, memory_descriptor);
+        let memory = Memory::new(&store, memory_descriptor).unwrap();
 
         // test that basic access works and that len = 0 works, but oob does not
         let start_wasm_ptr: WasmPtr<u8> = WasmPtr::new(0);

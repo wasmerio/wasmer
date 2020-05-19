@@ -69,59 +69,59 @@ impl fmt::Debug for Bytes {
 }
 
 impl From<Pages> for Bytes {
-    fn from(pages: Pages) -> Bytes {
-        Bytes((pages.0 as usize) * WASM_PAGE_SIZE)
+    fn from(pages: Pages) -> Self {
+        Self((pages.0 as usize) * WASM_PAGE_SIZE)
     }
 }
 
 impl From<usize> for Bytes {
     fn from(other: usize) -> Self {
-        Bytes(other)
+        Self(other)
     }
 }
 
 impl<T> Sub<T> for Pages
 where
-    T: Into<Pages>,
+    T: Into<Self>,
 {
-    type Output = Pages;
-    fn sub(self, rhs: T) -> Pages {
-        Pages(self.0 - rhs.into().0)
+    type Output = Self;
+    fn sub(self, rhs: T) -> Self {
+        Self(self.0 - rhs.into().0)
     }
 }
 
 impl<T> Add<T> for Pages
 where
-    T: Into<Pages>,
+    T: Into<Self>,
 {
-    type Output = Pages;
-    fn add(self, rhs: T) -> Pages {
-        Pages(self.0 + rhs.into().0)
+    type Output = Self;
+    fn add(self, rhs: T) -> Self {
+        Self(self.0 + rhs.into().0)
     }
 }
 
 impl From<Bytes> for Pages {
-    fn from(bytes: Bytes) -> Pages {
-        Pages((bytes.0 / WASM_PAGE_SIZE) as u32)
+    fn from(bytes: Bytes) -> Self {
+        Self((bytes.0 / WASM_PAGE_SIZE) as u32)
     }
 }
 
 impl<T> Sub<T> for Bytes
 where
-    T: Into<Bytes>,
+    T: Into<Self>,
 {
-    type Output = Bytes;
-    fn sub(self, rhs: T) -> Bytes {
-        Bytes(self.0 - rhs.into().0)
+    type Output = Self;
+    fn sub(self, rhs: T) -> Self {
+        Self(self.0 - rhs.into().0)
     }
 }
 
 impl<T> Add<T> for Bytes
 where
-    T: Into<Bytes>,
+    T: Into<Self>,
 {
-    type Output = Bytes;
-    fn add(self, rhs: T) -> Bytes {
-        Bytes(self.0 + rhs.into().0)
+    type Output = Self;
+    fn add(self, rhs: T) -> Self {
+        Self(self.0 + rhs.into().0)
     }
 }

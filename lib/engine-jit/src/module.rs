@@ -4,25 +4,23 @@
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
 use crate::serialize::{SerializableCompilation, SerializableModule};
-use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::{Arc, Mutex};
-use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
+use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
-    DataInitializer, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-    MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
+    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
+    SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{
     register_frame_info, resolve_imports, CompiledModule as BaseCompiledModule, DeserializeError,
-    Engine, GlobalFrameInfoRegistration, InstantiationError, LinkError, Resolver, RuntimeError,
-    SerializableFunctionFrameInfo, SerializeError, Tunables,
+    Engine, GlobalFrameInfoRegistration, InstantiationError, Resolver, RuntimeError,
+    SerializableFunctionFrameInfo, SerializeError,
 };
 use wasmer_runtime::{
-    InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
-    VMGlobalDefinition, VMSharedSignatureIndex,
+    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -32,6 +30,7 @@ pub struct CompiledModule {
     serializable: SerializableModule,
 
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
 }
@@ -44,9 +43,7 @@ impl CompiledModule {
         let mut jit_compiler = jit.compiler_mut();
         let tunables = jit.tunables();
 
-        let translation = environ
-            .translate(data)
-            .map_err(|error| CompileError::Wasm(error))?;
+        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
         let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
             .module
@@ -79,10 +76,13 @@ impl CompiledModule {
             .values()
             .cloned()
             .collect::<Vec<_>>();
-        let trampolines = compiler
-            .compile_wasm_trampolines(&func_types)?
+        let function_call_trampolines = compiler
+            .compile_function_call_trampolines(&func_types)?
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, _>>();
+
+        let dynamic_function_trampolines =
+            compiler.compile_dynamic_function_trampolines(&translation.module)?;
 
         let data_initializers = translation
             .data_initializers
@@ -102,8 +102,10 @@ impl CompiledModule {
             function_relocations: compilation.get_relocations(),
             function_jt_offsets: compilation.get_jt_offsets(),
             function_frame_info: frame_infos,
-            trampolines,
+            function_call_trampolines,
+            dynamic_function_trampolines,
             custom_sections: compilation.get_custom_sections(),
+            custom_section_relocations: compilation.get_custom_section_relocations(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -134,15 +136,14 @@ impl CompiledModule {
     }
 
     /// Deserialize a CompiledModule
-    pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<CompiledModule, DeserializeError> {
+    pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
         let serializable: SerializableModule = bincode::deserialize(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        Self::from_parts(&mut jit.compiler_mut(), serializable)
-            .map_err(|e| DeserializeError::Compiler(e))
+        Self::from_parts(&mut jit.compiler_mut(), serializable).map_err(DeserializeError::Compiler)
     }
 
     /// Construct a `CompiledModule` from component parts.
@@ -150,10 +151,11 @@ impl CompiledModule {
         jit_compiler: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let finished_functions = jit_compiler.allocate(
+        let (finished_functions, finished_dynamic_function_trampolines) = jit_compiler.allocate(
             &serializable.module,
             &serializable.compilation.function_bodies,
-            &serializable.compilation.trampolines,
+            &serializable.compilation.function_call_trampolines,
+            &serializable.compilation.dynamic_function_trampolines,
         )?;
 
         link_module(
@@ -162,6 +164,7 @@ impl CompiledModule {
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
             &serializable.compilation.custom_sections,
+            &serializable.compilation.custom_section_relocations,
         );
 
         // Compute indices into the shared signature table.
@@ -181,6 +184,8 @@ impl CompiledModule {
         Ok(Self {
             serializable,
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+                .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
             frame_info_registration: Mutex::new(None),
         })
@@ -212,6 +217,7 @@ impl CompiledModule {
             &self.module(),
             &sig_registry,
             resolver,
+            &self.finished_dynamic_function_trampolines,
             self.memory_plans(),
             self.table_plans(),
         )

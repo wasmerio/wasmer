@@ -15,7 +15,7 @@ use tempfile::NamedTempFile;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
     DataInitializer, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-    MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex,
+    MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex, FunctionIndex,
 };
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
@@ -38,6 +38,7 @@ pub struct NativeModule {
     metadata: ModuleMetadata,
     library: Library,
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
 
@@ -83,17 +84,21 @@ impl NativeModule {
             table_plans.clone(),
         )?;
 
-        // Compile the trampolines
+        // Compile the function call trampolines
         let func_types = translation
             .module
             .signatures
             .values()
             .cloned()
             .collect::<Vec<_>>();
-        let trampolines = compiler
-            .compile_wasm_trampolines(&func_types)?
+        let function_call_trampolines = compiler
+            .compile_function_call_trampolines(&func_types)?
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, _>>();
+
+        // Compile the dynamic function trampolines
+        let dynamic_function_trampolines = compiler
+            .compile_dynamic_function_trampolines(&translation.module)?;
 
         let data_initializers = translation
             .data_initializers
@@ -168,7 +173,7 @@ impl NativeModule {
         // }
 
         // Add functions
-        for (function_local_index, function) in function_bodies.iter() {
+        for (function_local_index, function) in function_bodies.into_iter() {
             let function_name = Self::get_function_name(&metadata, function_local_index);
             obj.declare(&function_name, Decl::function().global())
                 .map_err(to_compile_error)?;
@@ -176,9 +181,18 @@ impl NativeModule {
                 .map_err(to_compile_error)?;
         }
 
-        // Add trampolines
-        for (signature_index, function) in trampolines.iter() {
-            let function_name = Self::get_trampoline_name(&metadata, signature_index);
+        // Add function call trampolines
+        for (signature_index, function) in function_call_trampolines.into_iter() {
+            let function_name = Self::get_function_call_trampoline_name(&metadata, signature_index);
+            obj.declare(&function_name, Decl::function().global())
+                .map_err(to_compile_error)?;
+            obj.define(&function_name, function.body.clone())
+                .map_err(to_compile_error)?;
+        }
+
+        // Add dynamic function trampolines
+        for (func_index, function) in dynamic_function_trampolines.into_iter() {
+            let function_name = Self::get_dynamic_function_trampoline_name(&metadata, func_index);
             obj.declare(&function_name, Decl::function().global())
                 .map_err(to_compile_error)?;
             obj.define(&function_name, function.body.clone())
@@ -267,8 +281,12 @@ impl NativeModule {
         format!("wasmer_function_{}_{}", metadata.prefix, index.index())
     }
 
-    fn get_trampoline_name(metadata: &ModuleMetadata, index: SignatureIndex) -> String {
-        format!("wasmer_trampoline_{}_{}", metadata.prefix, index.index())
+    fn get_function_call_trampoline_name(metadata: &ModuleMetadata, index: SignatureIndex) -> String {
+        format!("wasmer_trampoline_function_call_{}_{}", metadata.prefix, index.index())
+    }
+
+    fn get_dynamic_function_trampoline_name(metadata: &ModuleMetadata, index: FunctionIndex) -> String {
+        format!("wasmer_trampoline_dynamic_function_{}_{}", metadata.prefix, index.index())
     }
 
     /// Construct a `NativeModule` from component parts.
@@ -299,6 +317,39 @@ impl NativeModule {
             }
         }
 
+        // Retrieve function call trampolines (for all signatures in the module)
+        for (sig_index, func_type) in metadata.module.signatures.iter() {
+            let function_name = Self::get_function_call_trampoline_name(&metadata, sig_index);
+            unsafe {
+                let trampoline: Symbol<VMTrampoline> = lib
+                    .get(function_name.as_bytes())
+                    .map_err(to_compile_error)?;
+                engine_inner.add_trampoline(&func_type, *trampoline);
+            }
+        }
+
+        // Retrieve dynamic function trampolines (only for imported functions)
+        let mut finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, *const VMFunctionBody> =
+            PrimaryMap::with_capacity(metadata.module.num_imported_funcs);
+        for func_index in metadata.module.functions.keys().take(metadata.module.num_imported_funcs) {
+            let function_name = Self::get_dynamic_function_trampoline_name(&metadata, func_index);
+            unsafe {
+                let trampoline: Symbol<*const VMFunctionBody> = lib
+                    .get(function_name.as_bytes())
+                    .map_err(to_compile_error)?;
+                finished_dynamic_function_trampolines.push(*trampoline);
+            }
+        }
+
+        // Leaving frame infos from now, as they are not yet used
+        // however they might be useful for the future.
+        // let frame_infos = compilation
+        //     .get_frame_info()
+        //     .values()
+        //     .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
+        //     .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+        // Self::from_parts(&mut engine_inner, lib, metadata, )
+
         // Compute indices into the shared signature table.
         let signatures = {
             let signature_registry = engine_inner.signatures();
@@ -310,29 +361,13 @@ impl NativeModule {
                 .collect::<PrimaryMap<_, _>>()
         };
 
-        for (sig_index, func_type) in metadata.module.signatures.iter() {
-            let function_name = Self::get_trampoline_name(&metadata, sig_index);
-            unsafe {
-                let trampoline: Symbol<VMTrampoline> = lib
-                    .get(function_name.as_bytes())
-                    .map_err(to_compile_error)?;
-                engine_inner.add_trampoline(&func_type, *trampoline);
-            }
-        }
-        // Leaving frame infos from now, as they are not yet used
-        // however they might be useful for the future.
-        // let frame_infos = compilation
-        //     .get_frame_info()
-        //     .values()
-        //     .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
-        //     .collect::<PrimaryMap<LocalFunctionIndex, _>>();
-        // Self::from_parts(&mut engine_inner, lib, metadata, )
-
         Ok(Self {
             sharedobject_path,
             metadata,
             library: lib,
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+                .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
         })
     }
@@ -410,6 +445,7 @@ impl NativeModule {
             &self.module(),
             &sig_registry,
             resolver,
+            &self.finished_dynamic_function_trampolines,
             self.memory_plans(),
             self.table_plans(),
         )

@@ -7,12 +7,14 @@ use crate::RuntimeError;
 use crate::{ExternType, FunctionType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
 use std::slice;
-use wasm_common::{Bytes, HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
-use wasmer_engine::Engine as _;
+use wasm_common::{
+    HostFunction, Pages, SignatureIndex, ValueType, WasmTypeList, WithEnv, WithoutEnv,
+};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
-    LinearMemory, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
-    VMGlobalDefinition, VMMemoryDefinition, VMTrampoline,
+    InstanceHandle, LinearMemory, MemoryError, Table as RuntimeTable, VMCallerCheckedAnyfunc,
+    VMContext, VMDynamicFunctionImportContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition,
+    VMMemoryDefinition, VMTrampoline,
 };
 
 #[derive(Clone)]
@@ -26,10 +28,10 @@ pub enum Extern {
 impl Extern {
     pub fn ty(&self) -> ExternType {
         match self {
-            Extern::Function(ft) => ExternType::Function(ft.ty().clone()),
-            Extern::Memory(ft) => ExternType::Memory(ft.ty().clone()),
-            Extern::Table(tt) => ExternType::Table(tt.ty().clone()),
-            Extern::Global(gt) => ExternType::Global(gt.ty().clone()),
+            Extern::Function(ft) => ExternType::Function(ft.ty()),
+            Extern::Memory(ft) => ExternType::Memory(*ft.ty()),
+            Extern::Table(tt) => ExternType::Table(*tt.ty()),
+            Extern::Global(gt) => ExternType::Global(*gt.ty()),
         }
     }
 
@@ -162,7 +164,9 @@ impl Global {
 
     pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
         if self.ty().mutability != Mutability::Var {
-            return Err(RuntimeError::new(format!("immutable global cannot be set")));
+            return Err(RuntimeError::new(
+                "immutable global cannot be set".to_string(),
+            ));
         }
         if val.ty() != self.ty().ty {
             return Err(RuntimeError::new(format!(
@@ -310,7 +314,7 @@ impl Table {
             src_index,
             len,
         )
-        .map_err(|e| RuntimeError::from_trap(e))?;
+        .map_err(RuntimeError::from_trap)?;
         Ok(())
     }
 
@@ -344,25 +348,25 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub fn new(store: &Store, ty: MemoryType) -> Memory {
+    pub fn new(store: &Store, ty: MemoryType) -> Result<Memory, MemoryError> {
         let tunables = store.engine().tunables();
         let memory_plan = tunables.memory_plan(ty);
-        let memory = tunables.create_memory(memory_plan).unwrap();
+        let memory = tunables.create_memory(memory_plan)?;
 
         let definition = memory.vmmemory();
 
-        Memory {
+        Ok(Memory {
             store: store.clone(),
             owned_by_store: true,
             exported: ExportMemory {
                 from: Box::leak(Box::new(memory)),
                 definition: Box::leak(Box::new(definition)),
             },
-        }
+        })
     }
 
-    fn definition(&self) -> &VMMemoryDefinition {
-        unsafe { &*self.exported.definition }
+    fn definition(&self) -> VMMemoryDefinition {
+        self.memory().vmmemory()
     }
 
     pub fn ty(&self) -> &MemoryType {
@@ -377,6 +381,9 @@ impl Memory {
         self.data_unchecked_mut()
     }
 
+    /// TODO: document this function, it's trivial to cause UB/break soundness with this
+    /// method.
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
         let definition = self.definition();
         slice::from_raw_parts_mut(definition.base, definition.current_length)
@@ -391,14 +398,14 @@ impl Memory {
     }
 
     pub fn size(&self) -> Pages {
-        Bytes(self.data_size()).into()
+        self.memory().size()
     }
 
     fn memory(&self) -> &LinearMemory {
         unsafe { &*self.exported.from }
     }
 
-    pub fn grow(&self, delta: Pages) -> Option<Pages> {
+    pub fn grow(&self, delta: Pages) -> Result<Pages, MemoryError> {
         self.memory().grow(delta)
     }
 
@@ -445,7 +452,7 @@ impl Memory {
         Memory {
             store: store.clone(),
             owned_by_store: false,
-            exported: wasmer_export.clone(),
+            exported: wasmer_export,
         }
     }
 }
@@ -473,32 +480,26 @@ impl Drop for Memory {
 
 /// A function defined in the Wasm module
 #[derive(Clone, PartialEq)]
-pub struct WasmFunc {
+pub struct WasmFunctionDefinition {
     // The trampoline to do the call
     trampoline: VMTrampoline,
 }
 
-/// A function defined in the Host
-#[derive(Clone, PartialEq)]
-pub struct HostFunc {
-    // func: wasm_common::Func<Args, Rets>,
-}
-
 /// The inner helper
 #[derive(Clone, PartialEq)]
-pub enum InnerFunc {
+pub enum FunctionDefinition {
     /// A function defined in the Wasm side
-    Wasm(WasmFunc),
+    Wasm(WasmFunctionDefinition),
     /// A function defined in the Host side
-    Host(HostFunc),
+    Host,
 }
 
 /// A WebAssembly `function`.
 #[derive(Clone, PartialEq)]
 pub struct Function {
     store: Store,
+    definition: FunctionDefinition,
     // If the Function is owned by the Store, not the instance
-    inner: InnerFunc,
     owned_by_store: bool,
     exported: ExportFunction,
 }
@@ -515,19 +516,69 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized,
     {
-        let func: wasm_common::Func<Args, Rets, Env> = wasm_common::Func::new(func);
+        let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
-        let vmctx = (func.env().unwrap_or(std::ptr::null_mut()) as *mut _) as *mut VMContext;
+        let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
         Self {
             store: store.clone(),
             owned_by_store: true,
-            inner: InnerFunc::Host(HostFunc {
-                // func
-            }),
+            definition: FunctionDefinition::Host,
             exported: ExportFunction {
                 address,
+                vmctx,
+                signature,
+                kind: VMFunctionKind::Static,
+            },
+        }
+    }
+
+    #[allow(clippy::cast_ptr_alignment)]
+    pub fn new_dynamic<F>(store: &Store, ty: &FunctionType, func: F) -> Self
+    where
+        F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
+    {
+        let dynamic_ctx =
+            VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithoutEnv {
+                func: Box::new(func),
+            });
+        let address = std::ptr::null() as *const () as *const VMFunctionBody;
+        let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
+        let signature = store.engine().register_signature(&ty);
+        Self {
+            store: store.clone(),
+            owned_by_store: true,
+            definition: FunctionDefinition::Host,
+            exported: ExportFunction {
+                address,
+                kind: VMFunctionKind::Dynamic,
+                vmctx,
+                signature,
+            },
+        }
+    }
+
+    #[allow(clippy::cast_ptr_alignment)]
+    pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: &mut Env, func: F) -> Self
+    where
+        F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
+        Env: Sized,
+    {
+        let dynamic_ctx = VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithEnv {
+            env,
+            func: Box::new(func),
+        });
+        let address = std::ptr::null() as *const () as *const VMFunctionBody;
+        let vmctx = Box::leak(Box::new(dynamic_ctx)) as *mut _ as *mut VMContext;
+        let signature = store.engine().register_signature(&ty);
+        Self {
+            store: store.clone(),
+            owned_by_store: true,
+            definition: FunctionDefinition::Host,
+            exported: ExportFunction {
+                address,
+                kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature,
             },
@@ -546,19 +597,23 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized,
     {
-        let func: wasm_common::Func<Args, Rets, Env> = wasm_common::Func::new_env(env, func);
+        let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
-        let vmctx = (func.env().unwrap_or(std::ptr::null_mut()) as *mut _) as *mut VMContext;
+        // TODO: We need to refactor the Function context.
+        // Right now is structured as it's always a `VMContext`. However, only
+        // Wasm-defined functions have a `VMContext`.
+        // In the case of Host-defined functions `VMContext` is whatever environment
+        // the user want to attach to the function.
+        let vmctx = env as *mut _ as *mut VMContext;
         let func_type = func.ty();
         let signature = store.engine().register_signature(&func_type);
         Self {
             store: store.clone(),
             owned_by_store: true,
-            inner: InnerFunc::Host(HostFunc {
-                // func
-            }),
+            definition: FunctionDefinition::Host,
             exported: ExportFunction {
                 address,
+                kind: VMFunctionKind::Static,
                 vmctx,
                 signature,
             },
@@ -580,7 +635,7 @@ impl Function {
 
     fn call_wasm(
         &self,
-        func: &WasmFunc,
+        func: &WasmFunctionDefinition,
         params: &[Val],
         results: &mut [Val],
     ) -> Result<(), RuntimeError> {
@@ -642,10 +697,10 @@ impl Function {
         }
 
         // Load the return values out of `values_vec`.
-        for (index, value_type) in signature.results().iter().enumerate() {
+        for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
                 let ptr = values_vec.as_ptr().add(index);
-                results[index] = Val::read_value_from(ptr, value_type.clone());
+                results[index] = Val::read_value_from(ptr, value_type);
             }
         }
 
@@ -671,8 +726,8 @@ impl Function {
     ///    call the trampoline.
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
         let mut results = vec![Val::null(); self.result_arity()];
-        match &self.inner {
-            InnerFunc::Wasm(wasm) => {
+        match &self.definition {
+            FunctionDefinition::Wasm(wasm) => {
                 self.call_wasm(&wasm, params, &mut results)?;
             }
             _ => {} // _ => unimplemented!("The host is unimplemented"),
@@ -683,12 +738,12 @@ impl Function {
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
         let trampoline = store
             .engine()
-            .trampoline(wasmer_export.signature)
-            .expect("Can't get trampoline for the function");
+            .function_call_trampoline(wasmer_export.signature)
+            .expect("Can't get call trampoline for the function");
         Self {
             store: store.clone(),
             owned_by_store: false,
-            inner: InnerFunc::Wasm(WasmFunc { trampoline }),
+            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
             exported: wasmer_export,
         }
     }
@@ -717,5 +772,115 @@ impl<'a> Exportable<'a> for Function {
 impl std::fmt::Debug for Function {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Ok(())
+    }
+}
+
+/// This trait is one that all dynamic funcitons must fulfill.
+trait VMDynamicFunction {
+    fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError>;
+}
+
+struct VMDynamicFunctionWithoutEnv {
+    func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+}
+
+impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
+    fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        (*self.func)(&args)
+    }
+}
+
+struct VMDynamicFunctionWithEnv<Env>
+where
+    Env: Sized,
+{
+    func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    env: *mut Env,
+}
+
+impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
+where
+    Env: Sized,
+{
+    fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        unsafe { (*self.func)(&mut *self.env, &args) }
+    }
+}
+
+trait VMDynamicFunctionImportCall<T: VMDynamicFunction> {
+    fn from_context(ctx: T) -> Self;
+    fn address_ptr() -> *const VMFunctionBody;
+    unsafe fn func_wrapper(
+        &self,
+        caller_vmctx: *mut VMContext,
+        sig_index: SignatureIndex,
+        values_vec: *mut i128,
+    );
+}
+
+impl<T: VMDynamicFunction> VMDynamicFunctionImportCall<T> for VMDynamicFunctionImportContext<T> {
+    fn from_context(ctx: T) -> Self {
+        Self {
+            address: Self::address_ptr(),
+            ctx,
+        }
+    }
+
+    fn address_ptr() -> *const VMFunctionBody {
+        Self::func_wrapper as *const () as *const VMFunctionBody
+    }
+
+    // This function wraps our func, to make it compatible with the
+    // reverse trampoline signature
+    unsafe fn func_wrapper(
+        // Note: we use the trick that the first param to this function is the `VMDynamicFunctionImportContext`
+        // itself, so rather than doing `dynamic_ctx: &VMDynamicFunctionImportContext<T>`, we simplify it a bit
+        &self,
+        caller_vmctx: *mut VMContext,
+        sig_index: SignatureIndex,
+        values_vec: *mut i128,
+    ) {
+        use std::panic::{self, AssertUnwindSafe};
+        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+            // This is actually safe, since right now the function signature
+            // receives two contexts:
+            // 1. `vmctx`: the context associated to where the function is defined.
+            //    It will be `VMContext` in case is defined in Wasm, and a custom
+            //    `Env` in case is host defined.
+            // 2. `caller_vmctx`: the context associated to whoever is calling that function.
+            //
+            // Because this code will only be reached when calling from wasm to host, we
+            // can assure the callee_vmctx is indeed a VMContext, and hence is completely
+            // safe to get a handle from it.
+            let handle = InstanceHandle::from_vmctx(caller_vmctx);
+            let module = handle.module_ref();
+            let func_ty = &module.signatures[sig_index];
+            let mut args = Vec::with_capacity(func_ty.params().len());
+            for (i, ty) in func_ty.params().iter().enumerate() {
+                args.push(Val::read_value_from(values_vec.add(i), *ty));
+            }
+            let returns = self.ctx.call(&args)?;
+
+            // We need to dynamically check that the returns
+            // match the expected types, as well as expected length.
+            let return_types = returns.iter().map(|ret| ret.ty()).collect::<Vec<_>>();
+            if return_types != func_ty.results() {
+                return Err(RuntimeError::new(format!(
+                    "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
+                    func_ty.results(),
+                    return_types
+                )));
+            }
+            for (i, ret) in returns.iter().enumerate() {
+                ret.write_value_to(values_vec.add(i));
+            }
+            Ok(())
+        }));
+
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(trap)) => wasmer_runtime::raise_user_trap(Box::new(trap)),
+            Err(panic) => wasmer_runtime::resume_panic(panic),
+        }
     }
 }
