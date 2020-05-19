@@ -3,7 +3,6 @@ use crate::hash::WasmHash;
 use std::fs::{create_dir_all, File};
 use std::io::{self, Write};
 use std::path::PathBuf;
-use thiserror::Error;
 use wasmer::{DeserializeError, Module, SerializeError, Store};
 
 /// Representation of a directory that contains compiled wasm artifacts.

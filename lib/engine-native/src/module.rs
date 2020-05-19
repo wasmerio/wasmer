@@ -7,28 +7,25 @@ use faerie::{ArtifactBuilder, Decl, Link};
 use libloading::{Library, Symbol};
 use std::any::Any;
 use std::error::Error;
-use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tempfile::NamedTempFile;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataInitializer, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
-    MemoryIndex, OwnedDataInitializer, SignatureIndex, TableIndex, FunctionIndex,
+    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
+    SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{Relocation, RelocationKind, RelocationTarget, Relocations};
+use wasmer_compiler::RelocationTarget;
 use wasmer_engine::{
-    resolve_imports, CompiledModule, DeserializeError, Engine, GlobalFrameInfoRegistration,
-    InstantiationError, LinkError, Resolver, RuntimeError, SerializableFunctionFrameInfo,
-    SerializeError, Tunables,
+    resolve_imports, CompiledModule, DeserializeError, Engine, InstantiationError, Resolver,
+    RuntimeError, SerializeError,
 };
 use wasmer_runtime::{
-    InstanceHandle, LinearMemory, Module, SignatureRegistry, Table, VMFunctionBody,
-    VMGlobalDefinition, VMSharedSignatureIndex, VMTrampoline,
+    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
@@ -36,13 +33,12 @@ use wasmer_runtime::{MemoryPlan, TablePlan};
 pub struct NativeModule {
     sharedobject_path: PathBuf,
     metadata: ModuleMetadata,
+    #[allow(dead_code)]
     library: Library,
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
-
-type Handle = *mut c_void;
 
 fn to_compile_error(err: impl Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
@@ -97,8 +93,8 @@ impl NativeModule {
             .collect::<PrimaryMap<SignatureIndex, _>>();
 
         // Compile the dynamic function trampolines
-        let dynamic_function_trampolines = compiler
-            .compile_dynamic_function_trampolines(&translation.module)?;
+        let dynamic_function_trampolines =
+            compiler.compile_dynamic_function_trampolines(&translation.module)?;
 
         let data_initializers = translation
             .data_initializers
@@ -228,9 +224,6 @@ impl NativeModule {
                             LibCall::NearestF64 => "wasmer_f64_nearest",
                             LibCall::RaiseTrap => "wasmer_raise_trap",
                             LibCall::Probestack => "wasmer_probestack",
-                            libcall => {
-                                unimplemented!("The `{:?}` libcall is not yet implemented", libcall)
-                            }
                         };
                         obj.link(Link {
                             from: &function_name,
@@ -239,10 +232,10 @@ impl NativeModule {
                         })
                         .map_err(to_compile_error)?;
                     }
-                    RelocationTarget::CustomSection(custom_section) => {
-                        // do nothing
+                    RelocationTarget::CustomSection(_custom_section) => {
+                        // TODO: Implement custom sections
                     }
-                    RelocationTarget::JumpTable(func_index, jt) => {
+                    RelocationTarget::JumpTable(_func_index, _jt) => {
                         // do nothing
                     }
                 };
@@ -252,12 +245,11 @@ impl NativeModule {
         let file = NamedTempFile::new().map_err(to_compile_error)?;
 
         // Re-open it.
-        let mut file2 = file.reopen().map_err(to_compile_error)?;
         let (file, filepath) = file.keep().map_err(to_compile_error)?;
         obj.write(file).map_err(to_compile_error)?;
 
         let shared_file = NamedTempFile::new().map_err(to_compile_error)?;
-        let (file, shared_filepath) = shared_file.keep().map_err(to_compile_error)?;
+        let (_file, shared_filepath) = shared_file.keep().map_err(to_compile_error)?;
         let output = Command::new("gcc")
             .arg(&filepath)
             .arg("-o")
@@ -281,12 +273,26 @@ impl NativeModule {
         format!("wasmer_function_{}_{}", metadata.prefix, index.index())
     }
 
-    fn get_function_call_trampoline_name(metadata: &ModuleMetadata, index: SignatureIndex) -> String {
-        format!("wasmer_trampoline_function_call_{}_{}", metadata.prefix, index.index())
+    fn get_function_call_trampoline_name(
+        metadata: &ModuleMetadata,
+        index: SignatureIndex,
+    ) -> String {
+        format!(
+            "wasmer_trampoline_function_call_{}_{}",
+            metadata.prefix,
+            index.index()
+        )
     }
 
-    fn get_dynamic_function_trampoline_name(metadata: &ModuleMetadata, index: FunctionIndex) -> String {
-        format!("wasmer_trampoline_dynamic_function_{}_{}", metadata.prefix, index.index())
+    fn get_dynamic_function_trampoline_name(
+        metadata: &ModuleMetadata,
+        index: FunctionIndex,
+    ) -> String {
+        format!(
+            "wasmer_trampoline_dynamic_function_{}_{}",
+            metadata.prefix,
+            index.index()
+        )
     }
 
     /// Construct a `NativeModule` from component parts.
@@ -329,9 +335,16 @@ impl NativeModule {
         }
 
         // Retrieve dynamic function trampolines (only for imported functions)
-        let mut finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, *const VMFunctionBody> =
-            PrimaryMap::with_capacity(metadata.module.num_imported_funcs);
-        for func_index in metadata.module.functions.keys().take(metadata.module.num_imported_funcs) {
+        let mut finished_dynamic_function_trampolines: PrimaryMap<
+            FunctionIndex,
+            *const VMFunctionBody,
+        > = PrimaryMap::with_capacity(metadata.module.num_imported_funcs);
+        for func_index in metadata
+            .module
+            .functions
+            .keys()
+            .take(metadata.module.num_imported_funcs)
+        {
             let function_name = Self::get_dynamic_function_trampoline_name(&metadata, func_index);
             unsafe {
                 let trampoline: Symbol<*const VMFunctionBody> = lib
@@ -404,13 +417,13 @@ impl NativeModule {
         use std::ops::Deref;
         use std::slice;
 
-        let mut size = &mut **symbol.deref();
+        let size = &mut **symbol.deref();
         let mut readable = &size[..];
-        let metadata_len = leb128::read::unsigned(&mut readable).map_err(|e| {
+        let metadata_len = leb128::read::unsigned(&mut readable).map_err(|_e| {
             DeserializeError::CorruptedBinary("Can't read metadata size".to_string())
         })?;
         let metadata_slice: &'static [u8] =
-            unsafe { slice::from_raw_parts(&size[10] as *const u8, metadata_len as usize) };
+            slice::from_raw_parts(&size[10] as *const u8, metadata_len as usize);
         let metadata: ModuleMetadata = bincode::deserialize(metadata_slice)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         let mut engine_inner = engine.inner_mut();

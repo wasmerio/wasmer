@@ -146,8 +146,7 @@ impl Run {
         }
         #[cfg(feature = "jit")]
         {
-            use wasmer_engine_jit::JITEngine;
-            if JITEngine::is_deserializable(&contents) {
+            if wasmer_engine_jit::JITEngine::is_deserializable(&contents) {
                 let tunables = Tunables::default();
                 let engine = JITEngine::headless(tunables);
                 let store = Store::new(Arc::new(engine));

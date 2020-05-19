@@ -121,7 +121,7 @@ impl Relocation {
                     .checked_add(reloc_addend as u32)
                     .unwrap();
                 (reloc_address, reloc_delta_u32 as u64)
-            },
+            }
             RelocationKind::X86CallPCRel4 | RelocationKind::X86CallPLTRel4 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;

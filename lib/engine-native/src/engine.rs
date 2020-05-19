@@ -8,19 +8,15 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tempfile::NamedTempFile;
-use wasm_common::entity::PrimaryMap;
-use wasm_common::{FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex};
-use wasmer_compiler::{Compilation, CompileError, FunctionBody, Target};
+use wasm_common::FunctionType;
+use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
 use wasmer_engine::{
     CompiledModule as BaseCompiledModule, DeserializeError, Engine, InstantiationError, Resolver,
     SerializeError, Tunables,
 };
-use wasmer_runtime::{
-    InstanceHandle, MemoryPlan, Module, SignatureRegistry, TablePlan, VMFunctionBody,
-    VMSharedSignatureIndex, VMTrampoline,
-};
+use wasmer_runtime::{InstanceHandle, SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 
 /// A WebAssembly `Native` Engine.
 #[derive(Clone)]
@@ -34,9 +30,11 @@ impl NativeEngine {
     const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
 
     // ELF Magic header for Linux (32 bit)
+    #[allow(dead_code)]
     const MAGIC_HEADER_ELF_32: &'static [u8] = &[0x7f, b'E', b'L', b'F', 1];
 
     // ELF Magic header for Linux (64 bit)
+    #[allow(dead_code)]
     const MAGIC_HEADER_ELF_64: &'static [u8] = &[0x7f, b'E', b'L', b'F', 2];
 
     /// Create a new `NativeEngine` with the given config
@@ -172,7 +170,7 @@ impl Engine for NativeEngine {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         let compiled_module = compiled_module.downcast_ref::<NativeModule>().unwrap();
-        unsafe { compiled_module.instantiate(&self, resolver, Box::new(())) }
+        compiled_module.instantiate(&self, resolver, Box::new(()))
     }
 
     /// Finish the instantiation of a WebAssembly module
@@ -182,7 +180,7 @@ impl Engine for NativeEngine {
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
         let compiled_module = compiled_module.downcast_ref::<NativeModule>().unwrap();
-        unsafe { compiled_module.finish_instantiation(&handle) }
+        compiled_module.finish_instantiation(&handle)
     }
 
     /// Serializes a WebAssembly module
@@ -218,7 +216,7 @@ impl Engine for NativeEngine {
         let mut file = File::open(&file_ref)?;
         let mut buffer = [0; 5];
         // read up to 5 bytes
-        file.read(&mut buffer)?;
+        file.read_exact(&mut buffer)?;
         if !Self::is_deserializable(&buffer) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
