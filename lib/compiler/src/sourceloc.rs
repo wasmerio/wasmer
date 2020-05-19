@@ -4,7 +4,7 @@
 //! relative to the WebAssembly module. This is used mainly for debugging
 //! and tracing errors.
 
-use core::fmt;
+use crate::lib::std::fmt;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
     serde(transparent)
 )]
 #[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceLoc(u32);
 
 impl SourceLoc {

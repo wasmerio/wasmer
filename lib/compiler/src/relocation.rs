@@ -9,12 +9,12 @@
 //! the generated machine code, so a given frontend (JIT or native) can
 //! do the corresponding work to run it.
 
+use crate::lib::std::fmt;
+use crate::lib::std::vec::Vec;
 use crate::section::SectionIndex;
-use crate::std::vec::Vec;
 use crate::{Addend, CodeOffset, JumpTable};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::LocalFunctionIndex;
 use wasmer_runtime::libcalls::LibCall;

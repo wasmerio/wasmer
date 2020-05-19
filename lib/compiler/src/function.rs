@@ -5,8 +5,8 @@
 //! * `jit`: to generate a JIT
 //! * `obj`: to generate a native object
 
+use crate::lib::std::vec::Vec;
 use crate::section::{CustomSection, SectionBody, SectionIndex};
-use crate::std::vec::Vec;
 use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
 #[cfg(feature = "enable-serde")]

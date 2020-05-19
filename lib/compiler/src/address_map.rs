@@ -1,8 +1,8 @@
 //! Data structures to provide transformation of the source
 // addresses of a WebAssembly module into the native code.
 
+use crate::lib::std::vec::Vec;
 use crate::sourceloc::SourceLoc;
-use crate::std::vec::Vec;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 

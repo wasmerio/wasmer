@@ -5,7 +5,7 @@
 //! function called that one, and so forth.
 //!
 //! More info: https://en.wikipedia.org/wiki/Call_stack
-use crate::std::vec::Vec;
+use crate::lib::std::vec::Vec;
 use crate::{Addend, CodeOffset};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};

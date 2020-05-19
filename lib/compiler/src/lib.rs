@@ -8,6 +8,7 @@
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
 #![cfg_attr(feature = "std", deny(unstable_features))]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "clippy", plugin(clippy(conf_file = "../../clippy.toml")))]
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
 #![cfg_attr(
@@ -23,19 +24,22 @@
         clippy::use_self
     )
 )]
-#![no_std]
 
-#[cfg(not(feature = "std"))]
-#[macro_use]
-extern crate alloc as std;
-#[cfg(feature = "std")]
-#[macro_use]
-extern crate std;
+mod lib {
+    #[cfg(not(feature = "std"))]
+    pub mod std {
+        #[cfg(feature = "core")]
+        pub use alloc::{boxed, fmt, string, vec};
 
-#[cfg(not(feature = "std"))]
-use hashbrown::HashMap;
-#[cfg(feature = "std")]
-use std::collections::HashMap;
+        #[cfg(feature = "core")]
+        pub use hashbrown as collections;
+    }
+
+    #[cfg(feature = "std")]
+    pub mod std {
+        pub use std::{boxed, collections, fmt, string, vec};
+    }
+}
 
 mod address_map;
 #[cfg(feature = "translator")]

@@ -5,7 +5,7 @@
 //! to emit a custom relocation: `RelocationTarget::CustomSection`, so
 //! it can be patched later by the engine (native or JIT).
 
-use crate::std::vec::Vec;
+use crate::lib::std::vec::Vec;
 use crate::Relocation;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -56,7 +56,7 @@ pub struct CustomSection {
 /// The bytes in the section.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct SectionBody(#[serde(with = "serde_bytes")] Vec<u8>);
+pub struct SectionBody(#[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))] Vec<u8>);
 
 impl SectionBody {
     /// Create a new section body with the given contents.
