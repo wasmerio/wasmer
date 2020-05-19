@@ -25,11 +25,19 @@
     )
 )]
 
-#[cfg(all(not(feature = "std"), feature = "core"))]
+#[cfg(all(feature = "std", feature = "core"))]
+compile_error!(
+    "The `std` and `core` features are both enabled, which is an error. Please enable only once."
+);
+
+#[cfg(all(not(feature = "std"), not(feature = "core")))]
+compile_error!("Both the `std` and `core` features are disabled. Please enable one of them.");
+
+#[cfg(feature = "core")]
 extern crate alloc;
 
 mod lib {
-    #[cfg(all(not(feature = "std"), feature = "core"))]
+    #[cfg(feature = "core")]
     pub mod std {
         #[macro_use]
         pub use alloc::{boxed, string, vec};
