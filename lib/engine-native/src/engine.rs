@@ -294,11 +294,9 @@ impl NativeEngineInner {
 
     pub(crate) fn add_trampoline(&mut self, func_type: &FunctionType, trampoline: VMTrampoline) {
         let index = self.signatures.register(&func_type);
-        // if self.trampolines.contains_key(&index) {
-        //     // We don't need to allocate the trampoline in case
-        //     // it's signature is already allocated.
-        //     return;
-        // }
+        // We always use (for now) the latest trampoline compiled
+        // TODO: we need to deallocate trampolines as the compiled modules
+        // where they belong become unallocated.
         self.trampolines.insert(index, trampoline);
     }
 }

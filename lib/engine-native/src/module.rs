@@ -161,13 +161,6 @@ impl NativeModule {
                 .map_err(to_compile_error)?;
         }
 
-        // Declare imported functions
-        // for i in 0..metadata.module.num_imported_funcs {
-        //     let imported_function_name = format!("wasmer_imported_function_{}", i);
-        //     obj.declare(imported_function_name, Decl::function_import())
-        //         .map_err(to_compile_error)?;
-        // }
-
         // Add functions
         for (function_local_index, function) in function_bodies.into_iter() {
             let function_name = Self::get_function_name(&metadata, function_local_index);
