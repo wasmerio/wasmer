@@ -46,7 +46,7 @@ jobs:
           override: true
       - run: cargo test --release
       - name: Set up dependencies for Mac OS
-        run: brew install autoconf
+        run: brew install automake
         if: matrix.os == 'macos-latest'
       - name: Set up dependencies for Windows
         run: choco install llvm
