@@ -170,7 +170,9 @@ impl Engine for NativeEngine {
         compiled_module: &dyn BaseCompiledModule,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
-        let compiled_module = compiled_module.downcast_ref::<NativeModule>().unwrap();
+        let compiled_module = compiled_module
+            .downcast_ref::<NativeModule>()
+            .expect("The provided module is not a Native compiled module");
         compiled_module.instantiate(&self, resolver, Box::new(()))
     }
 
@@ -180,7 +182,9 @@ impl Engine for NativeEngine {
         compiled_module: &dyn BaseCompiledModule,
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
-        let compiled_module = compiled_module.downcast_ref::<NativeModule>().unwrap();
+        let compiled_module = compiled_module
+            .downcast_ref::<NativeModule>()
+            .expect("The provided module is not a Native compiled module");
         compiled_module.finish_instantiation(&handle)
     }
 
@@ -189,7 +193,9 @@ impl Engine for NativeEngine {
         &self,
         compiled_module: &dyn BaseCompiledModule,
     ) -> Result<Vec<u8>, SerializeError> {
-        let compiled_module = compiled_module.downcast_ref::<NativeModule>().unwrap();
+        let compiled_module = compiled_module
+            .downcast_ref::<NativeModule>()
+            .expect("The provided module is not a Native compiled module");
         let serialized = compiled_module.serialize()?;
         Ok(serialized)
     }
