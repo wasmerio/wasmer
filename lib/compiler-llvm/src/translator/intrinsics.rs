@@ -635,10 +635,6 @@ pub struct CtxType<'ctx, 'a> {
     offsets: VMOffsets,
 }
 
-fn offset_to_index(offset: u32) -> u32 {
-    (offset as usize / ::std::mem::size_of::<usize>()) as u32
-}
-
 impl<'ctx, 'a> CtxType<'ctx, 'a> {
     pub fn new(
         wasm_module: &'a WasmerCompilerModule,
@@ -951,92 +947,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 },
             }
         })
-    }
-
-    pub fn imported_func(
-        &mut self,
-        index: FunctionIndex,
-        intrinsics: &Intrinsics<'ctx>,
-        module: &Module<'ctx>,
-    ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
-        let (cached_imported_functions, ctx_ptr_value, cache_builder, offsets) = (
-            &mut self.cached_imported_functions,
-            self.ctx_ptr_value,
-            &self.cache_builder,
-            &self.offsets,
-        );
-        let imported_func_cache = cached_imported_functions.entry(index).or_insert_with(|| {
-            let func_array_ptr_ptr = unsafe {
-                cache_builder
-                    .build_struct_gep(
-                        ctx_ptr_value,
-                        offset_to_index(offsets.vmctx_imported_functions_begin()),
-                        "imported_func_array_ptr_ptr",
-                    )
-                    .unwrap()
-            };
-            let func_array_ptr = cache_builder
-                .build_load(func_array_ptr_ptr, "func_array_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                "context_field_ptr_to_imported_funcs",
-                func_array_ptr.as_instruction_value().unwrap(),
-                None,
-            );
-            let const_index = intrinsics.i32_ty.const_int(index.index() as u64, false);
-            let imported_func_ptr = unsafe {
-                cache_builder.build_in_bounds_gep(
-                    func_array_ptr,
-                    &[const_index],
-                    "imported_func_ptr",
-                )
-            };
-            let (func_ptr_ptr, func_ctx_ptr_ptr) = unsafe {
-                (
-                    cache_builder
-                        .build_struct_gep(imported_func_ptr, 0, "func_ptr_ptr")
-                        .unwrap(),
-                    cache_builder
-                        .build_struct_gep(imported_func_ptr, 1, "func_ctx_ptr_ptr")
-                        .unwrap(),
-                )
-            };
-
-            let func_ptr = cache_builder
-                .build_load(func_ptr_ptr, "func_ptr")
-                .into_pointer_value();
-            let func_ctx_ptr = cache_builder
-                .build_load(func_ctx_ptr_ptr, "func_ctx_ptr")
-                .into_pointer_value();
-            let ctx_ptr_ptr = unsafe {
-                cache_builder
-                    .build_struct_gep(func_ctx_ptr, 0, "ctx_ptr")
-                    .unwrap()
-            };
-            let ctx_ptr = cache_builder
-                .build_load(ctx_ptr_ptr, "ctx_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                "imported_func_ptr",
-                func_ptr.as_instruction_value().unwrap(),
-                Some(index.index() as u32),
-            );
-            tbaa_label(
-                module,
-                intrinsics,
-                "imported_func_ctx_ptr",
-                ctx_ptr.as_instruction_value().unwrap(),
-                Some(index.index() as u32),
-            );
-
-            ImportedFuncCache { func_ptr, ctx_ptr }
-        });
-
-        (imported_func_cache.func_ptr, imported_func_cache.ctx_ptr)
     }
 }
 
