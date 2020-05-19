@@ -42,10 +42,10 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     let compiler_config =
         get_compiler_config_from_str(compiler, try_nan_canonicalization, features);
     let tunables = Tunables::for_target(compiler_config.target().triple());
-    // let store = Store::new(Arc::new(JITEngine::new(&*compiler_config, tunables)));
-    let mut native = NativeEngine::new(&*compiler_config, tunables);
-    native.set_deterministic_prefixer(native_prefixer);
-    let store = Store::new(Arc::new(native));
+    let store = Store::new(Arc::new(JITEngine::new(&*compiler_config, tunables)));
+    // let mut native = NativeEngine::new(&*compiler_config, tunables);
+    // native.set_deterministic_prefixer(native_prefixer);
+    // let store = Store::new(Arc::new(native));
     let mut wast = Wast::new_with_spectest(store);
     if compiler == "singlepass" || compiler == "llvm" {
         // We don't support multivalue yet in singlepass or llvm
