@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install Rust stable
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.42.0
+          toolchain: nightly-2019-12-19
           override: true
           components: rustfmt, clippy
       - run: make lint
