@@ -46,6 +46,9 @@ cfg-if = "0.1.10"
 members = [
     "lib/c-api",
 ]
+exclude = [
+    "lib/deprecated",
+]
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
