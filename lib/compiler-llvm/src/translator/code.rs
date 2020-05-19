@@ -1413,24 +1413,6 @@ pub unsafe extern "C" fn callback_trampoline(
     }
 }
 
-/*
-pub struct LLVMModuleCodeGenerator<'ctx> {
-    context: Option<&'ctx Context>,
-    intrinsics: Option<Intrinsics<'ctx>>,
-    functions: Vec<LLVMFunctionCodeGenerator<'ctx>>,
-    signatures: Map<SignatureIndex, FunctionType<'ctx>>,
-    function_signatures: Option<Arc<Map<FunctionIndex, SignatureIndex>>>,
-    llvm_functions: Rc<RefCell<HashMap<FunctionIndex, FunctionValue<'ctx>>>>,
-    func_import_count: usize,
-    personality_func: ManuallyDrop<FunctionValue<'ctx>>,
-    module: ManuallyDrop<Rc<RefCell<Module<'ctx>>>>,
-    stackmaps: Rc<RefCell<StackmapRegistry>>,
-    track_state: bool,
-    target_machine: TargetMachine,
-    llvm_callbacks: Option<Rc<RefCell<dyn LLVMCallbacks>>>,
-}
-*/
-
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
@@ -1457,111 +1439,6 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
-    // TODO
-    /*
-    fn feed_local(&mut self, ty: WpType, count: usize, _loc: u32) -> Result<(), CompileError> {
-        let param_len = self.num_params;
-
-        let wasmer_ty = wp_type_to_type(ty)?;
-
-        let intrinsics = self.intrinsics.as_ref().unwrap();
-        let ty = type_to_llvm(intrinsics, wasmer_ty);
-
-        let default_value = match wasmer_ty {
-            Type::I32 => intrinsics.i32_zero.as_basic_value_enum(),
-            Type::I64 => intrinsics.i64_zero.as_basic_value_enum(),
-            Type::F32 => intrinsics.f32_zero.as_basic_value_enum(),
-            Type::F64 => intrinsics.f64_zero.as_basic_value_enum(),
-            Type::V128 => intrinsics.i128_zero.as_basic_value_enum(),
-        };
-
-        let builder = self.builder.as_ref().unwrap();
-        let alloca_builder = self.alloca_builder.as_ref().unwrap();
-
-        for local_idx in 0..count {
-            let alloca =
-                alloca_builder.build_alloca(ty, &format!("local{}", param_len + local_idx));
-            let store = builder.build_store(alloca, default_value);
-            tbaa_label(
-                &self.module,
-                &intrinsics,
-                "local",
-                store,
-                Some((param_len + local_idx) as u32),
-            );
-            if local_idx == 0 {
-                alloca_builder.position_before(
-                    &alloca
-                        .as_instruction()
-                        .unwrap()
-                        .get_next_instruction()
-                        .unwrap(),
-                );
-            }
-            self.locals.push(alloca);
-        }
-        Ok(())
-    }
-     */
-
-    /*
-    fn begin_body(&mut self, module_info: &ModuleInfo) -> Result<(), CompileError> {
-        let start_of_code_block = self
-            .context
-            .as_ref()
-            .unwrap()
-            .append_basic_block(self.function, "start_of_code");
-        let entry_end_inst = self
-            .builder
-            .as_ref()
-            .unwrap()
-            .build_unconditional_branch(start_of_code_block);
-        self.builder
-            .as_ref()
-            .unwrap()
-            .position_at_end(start_of_code_block);
-
-        let cache_builder = self.context.as_ref().unwrap().create_builder();
-        cache_builder.position_before(&entry_end_inst);
-        let module_info =
-            unsafe { ::std::mem::transmute::<&ModuleInfo, &'static ModuleInfo>(module_info) };
-        let ctx = CtxType::new(module_info, &self.function, cache_builder);
-
-        self.ctx = Some(ctx);
-
-        {
-            let state = &mut self.state;
-            let builder = self.builder.as_ref().unwrap();
-            let intrinsics = self.intrinsics.as_ref().unwrap();
-
-            if self.track_state {
-                let mut stackmaps = self.stackmaps.borrow_mut();
-                emit_stack_map(
-                    &module_info,
-                    &intrinsics,
-                    &builder,
-                    self.index,
-                    &mut *stackmaps,
-                    StackmapEntryKind::FunctionHeader,
-                    &self.locals,
-                    &state,
-                    self.ctx.as_mut().unwrap(),
-                    ::std::usize::MAX,
-                );
-                finalize_opcode_stack_map(
-                    &intrinsics,
-                    &builder,
-                    self.index,
-                    &mut *stackmaps,
-                    StackmapEntryKind::FunctionHeader,
-                    ::std::usize::MAX,
-                );
-            }
-        }
-        Ok(())
-    }
-     */
-
     fn translate_operator(
         &mut self,
         op: Operator,

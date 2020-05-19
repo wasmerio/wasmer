@@ -20,18 +20,6 @@ use inkwell::{
     AddressSpace,
 };
 use std::collections::HashMap;
-/*
-use wasmer_runtime_core::{
-    memory::MemoryType,
-    module::ModuleInfo,
-    structures::TypedIndex,
-    types::{
-        GlobalIndex, ImportedFunctionIndex, LocalOrImport, MemoryIndex, SignatureIndex, TableIndex, Type,
-    },
-    units::Pages,
-    vm::{Ctx, INTERNALS_SIZE},
-};
-*/
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
     FunctionIndex, FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, Pages,
@@ -270,65 +258,6 @@ impl<'ctx> Intrinsics<'ctx> {
             ],
             false,
         );
-
-        /*
-        ctx_ty.set_body(
-            &[
-                local_memory_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_table_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_global_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_memory_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_table_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_global_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                imported_func_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                sigindex_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                rt_intrinsics_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                stack_lower_bound_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                memory_base_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                memory_bound_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                internals_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                interrupt_signal_mem_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_function_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-            ],
-            false,
-        );
-        */
 
         let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
         let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);
@@ -740,28 +669,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
     pub fn basic(&self) -> BasicValueEnum<'ctx> {
         self.ctx_ptr_value.as_basic_value_enum()
     }
-    /*
-        pub fn signal_mem(&mut self) -> PointerValue<'ctx> {
-            if let Some(x) = self.cached_signal_mem {
-                return x;
-            }
 
-            let (ctx_ptr_value, cache_builder) = (self.ctx_ptr_value, &self.cache_builder);
-
-            let ptr_ptr = unsafe {
-                cache_builder.build_struct_gep(
-                    ctx_ptr_value,
-                    offset_to_index(Ctx::offset_interrupt_signal_mem()),
-                    "interrupt_signal_mem_ptr",
-                )
-            };
-            let ptr = cache_builder
-                .build_load(ptr_ptr, "interrupt_signal_mem")
-                .into_pointer_value();
-            self.cached_signal_mem = Some(ptr);
-            ptr
-        }
-    */
     pub fn memory(
         &mut self,
         index: MemoryIndex,
@@ -974,27 +882,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.offsets,
         );
         *cached_sigindices.entry(index).or_insert_with(|| {
-            /*
-            let sigindex_array_ptr_ptr = unsafe {
-                cache_builder.build_struct_gep(
-                    ctx_ptr_value,
-                    offset_to_index(offsets.vmctx_signature_ids_begin()),
-                    "sigindex_array_ptr_ptr",
-                )
-            };
-            let sigindex_array_ptr = cache_builder
-                .build_load(sigindex_array_ptr_ptr, "sigindex_array_ptr")
-                .into_pointer_value();
-            let const_index = intrinsics.i32_ty.const_int(index.index() as u64, false);
-
-            let sigindex_ptr = unsafe {
-                cache_builder.build_in_bounds_gep(
-                    sigindex_array_ptr,
-                    &[const_index],
-                    "sigindex_ptr",
-                )
-            };
-             */
             let byte_offset = intrinsics
                 .i64_ty
                 .const_int(offsets.vmctx_vmshared_signature_id(index).into(), false);
