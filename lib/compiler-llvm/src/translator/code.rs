@@ -1379,7 +1379,7 @@ fn trap_if_misaligned<'ctx>(
     builder.position_at_end(not_aligned_block);
     builder.build_call(
         intrinsics.throw_trap,
-        &[intrinsics.trap_misaligned_atomic],
+        &[intrinsics.trap_unaligned_atomic],
         "throw",
     );
     builder.build_unreachable();

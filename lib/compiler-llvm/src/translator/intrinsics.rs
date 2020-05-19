@@ -137,7 +137,7 @@ pub struct Intrinsics<'ctx> {
     pub trap_illegal_arithmetic: BasicValueEnum<'ctx>,
     pub trap_integer_division_by_zero: BasicValueEnum<'ctx>,
     pub trap_bad_conversion_to_integer: BasicValueEnum<'ctx>,
-    pub trap_misaligned_atomic: BasicValueEnum<'ctx>,
+    pub trap_unaligned_atomic: BasicValueEnum<'ctx>,
     pub trap_table_access_oob: BasicValueEnum<'ctx>,
 
     // VM intrinsics.
@@ -420,7 +420,6 @@ impl<'ctx> Intrinsics<'ctx> {
             trap_memory_oob: i32_ty
                 .const_int(TrapCode::OutOfBounds as _, false)
                 .as_basic_value_enum(),
-            // TODO: split out div-by-zero and float-to-int
             trap_illegal_arithmetic: i32_ty
                 .const_int(TrapCode::IntegerOverflow as _, false)
                 .as_basic_value_enum(),
@@ -430,9 +429,8 @@ impl<'ctx> Intrinsics<'ctx> {
             trap_bad_conversion_to_integer: i32_ty
                 .const_int(TrapCode::BadConversionToInteger as _, false)
                 .as_basic_value_enum(),
-            // TODO: add misaligned atomic traps to wasmer runtime
-            trap_misaligned_atomic: i32_ty
-                .const_int(TrapCode::Interrupt as _, false)
+            trap_unaligned_atomic: i32_ty
+                .const_int(TrapCode::UnalignedAtomic as _, false)
                 .as_basic_value_enum(),
             trap_table_access_oob: i32_ty
                 .const_int(TrapCode::TableAccessOutOfBounds as _, false)
