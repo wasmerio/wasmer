@@ -1088,9 +1088,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             info,
         )
     }
-}
 
-impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     fn apply_pending_canonicalization(
         &self,
         value: BasicValueEnum<'ctx>,
@@ -1277,6 +1275,65 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             .build_bitcast(value_ptr, ptr_ty, "")
             .into_pointer_value())
     }
+
+    fn trap_if_misaligned(&self, memarg: &MemoryImmediate, ptr: PointerValue<'ctx>) {
+        let align = match memarg.flags & 3 {
+            0 => {
+                return; /* No alignment to check. */
+            }
+            1 => 2,
+            2 => 4,
+            3 => 8,
+            _ => unreachable!("this match is fully covered"),
+        };
+        let value = self
+            .builder
+            .build_ptr_to_int(ptr, self.intrinsics.i64_ty, "");
+        let and = self.builder.build_and(
+            value,
+            self.intrinsics.i64_ty.const_int(align - 1, false),
+            "misaligncheck",
+        );
+        let aligned =
+            self.builder
+                .build_int_compare(IntPredicate::EQ, and, self.intrinsics.i64_zero, "");
+        let aligned = self
+            .builder
+            .build_call(
+                self.intrinsics.expect_i1,
+                &[
+                    aligned.as_basic_value_enum(),
+                    self.intrinsics
+                        .i1_ty
+                        .const_int(1, false)
+                        .as_basic_value_enum(),
+                ],
+                "",
+            )
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_int_value();
+
+        let continue_block = self
+            .context
+            .append_basic_block(self.function, "aligned_access_continue_block");
+        let not_aligned_block = self
+            .context
+            .append_basic_block(self.function, "misaligned_trap_block");
+        self.builder
+            .build_conditional_branch(aligned, continue_block, not_aligned_block);
+
+        self.builder.position_at_end(not_aligned_block);
+        self.builder.build_call(
+            self.intrinsics.throw_trap,
+            &[self.intrinsics.trap_unaligned_atomic],
+            "throw",
+        );
+        self.builder.build_unreachable();
+
+        self.builder.position_at_end(continue_block);
+    }
 }
 
 /*
@@ -1363,67 +1420,6 @@ fn finalize_opcode_stack_map<'ctx>(
     });
 }
  */
-
-impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
-    fn trap_if_misaligned(&self, memarg: &MemoryImmediate, ptr: PointerValue<'ctx>) {
-        let align = match memarg.flags & 3 {
-            0 => {
-                return; /* No alignment to check. */
-            }
-            1 => 2,
-            2 => 4,
-            3 => 8,
-            _ => unreachable!("this match is fully covered"),
-        };
-        let value = self
-            .builder
-            .build_ptr_to_int(ptr, self.intrinsics.i64_ty, "");
-        let and = self.builder.build_and(
-            value,
-            self.intrinsics.i64_ty.const_int(align - 1, false),
-            "misaligncheck",
-        );
-        let aligned =
-            self.builder
-                .build_int_compare(IntPredicate::EQ, and, self.intrinsics.i64_zero, "");
-        let aligned = self
-            .builder
-            .build_call(
-                self.intrinsics.expect_i1,
-                &[
-                    aligned.as_basic_value_enum(),
-                    self.intrinsics
-                        .i1_ty
-                        .const_int(1, false)
-                        .as_basic_value_enum(),
-                ],
-                "",
-            )
-            .try_as_basic_value()
-            .left()
-            .unwrap()
-            .into_int_value();
-
-        let continue_block = self
-            .context
-            .append_basic_block(self.function, "aligned_access_continue_block");
-        let not_aligned_block = self
-            .context
-            .append_basic_block(self.function, "misaligned_trap_block");
-        self.builder
-            .build_conditional_branch(aligned, continue_block, not_aligned_block);
-
-        self.builder.position_at_end(not_aligned_block);
-        self.builder.build_call(
-            self.intrinsics.throw_trap,
-            &[self.intrinsics.trap_unaligned_atomic],
-            "throw",
-        );
-        self.builder.build_unreachable();
-
-        self.builder.position_at_end(continue_block);
-    }
-}
 
 // TODO: breakpoints are gone, remove this.
 pub type BreakpointHandler =
