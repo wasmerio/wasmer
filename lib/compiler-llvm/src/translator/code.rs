@@ -1421,32 +1421,6 @@ fn finalize_opcode_stack_map<'ctx>(
 }
  */
 
-// TODO: breakpoints are gone, remove this.
-pub type BreakpointHandler =
-    Box<dyn Fn(BreakpointInfo) -> Result<(), Box<dyn Any + Send>> + Send + Sync + 'static>;
-
-/// Information for a breakpoint
-pub struct BreakpointInfo {
-    /// Fault.
-    pub fault: Option<()>,
-}
-
-// This is only called by C++ code, the 'pub' + '#[no_mangle]' combination
-// prevents unused function elimination.
-#[no_mangle]
-pub unsafe extern "C" fn callback_trampoline(
-    b: *mut Option<Box<dyn std::any::Any>>,
-    callback: *mut BreakpointHandler,
-) {
-    let callback = Box::from_raw(callback);
-    let result: Result<(), Box<dyn std::any::Any + Send>> =
-        callback(BreakpointInfo { fault: None });
-    match result {
-        Ok(()) => *b = None,
-        Err(e) => *b = Some(e),
-    }
-}
-
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
