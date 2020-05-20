@@ -22,7 +22,7 @@ use wasmer_compiler::{
     TrapInformation,
 };
 use wasmer_runtime::{
-    MemoryPlan, ModuleInfo, TablePlan, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
+    MemoryPlan, MemoryStyle, ModuleInfo, TablePlan, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
 };
 
 /// The singlepass per-function code generator.
@@ -38,7 +38,7 @@ pub struct FuncGen<'a> {
     vmoffsets: &'a VMOffsets,
 
     // // Memory plans.
-    // memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
+    memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
 
     // // Table plans.
     // table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
@@ -1214,7 +1214,10 @@ impl<'a> FuncGen<'a> {
         value_size: usize,
         cb: F,
     ) -> Result<(), CodegenError> {
-        let need_check = true;
+        let need_check = match self.memory_plans[MemoryIndex::new(0)].style {
+            MemoryStyle::Static { .. } => false,
+            MemoryStyle::Dynamic => true,
+        };
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
         let tmp_base = self.machine.acquire_temp_gpr().unwrap();
 
@@ -1769,7 +1772,7 @@ impl<'a> FuncGen<'a> {
         module: &'a ModuleInfo,
         config: &'a SinglepassConfig,
         vmoffsets: &'a VMOffsets,
-        _memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
+        memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
         _table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
@@ -1798,7 +1801,7 @@ impl<'a> FuncGen<'a> {
             module,
             config,
             vmoffsets,
-            // memory_plans,
+            memory_plans,
             // table_plans,
             signature,
             assembler: Assembler::new().unwrap(),
