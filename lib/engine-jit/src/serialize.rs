@@ -5,7 +5,7 @@ use wasm_common::{
     Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
-use wasmer_compiler::{FunctionBody, JumpTableOffsets, Relocation, SectionBody, SectionIndex};
+use wasmer_compiler::{CustomSection, FunctionBody, JumpTableOffsets, Relocation, SectionIndex};
 use wasmer_engine::SerializableFunctionFrameInfo;
 use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -22,7 +22,7 @@ pub struct SerializableCompilation {
     pub function_frame_info: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
     pub function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
     pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
-    pub custom_sections: PrimaryMap<SectionIndex, SectionBody>,
+    pub custom_sections: PrimaryMap<SectionIndex, CustomSection>,
     pub custom_section_relocations: PrimaryMap<SectionIndex, Vec<Relocation>>,
 }
 

@@ -267,7 +267,6 @@ impl StackmapEntry {
             reg_diff: regs,
             wasm_stack_push: wasm_stack,
             wasm_stack_pop: 0,
-            wasm_stack_private_depth: 0,
             wasm_inst_offset: self.opcode_offset,
         };
         let diff_id = fsm.diffs.len();

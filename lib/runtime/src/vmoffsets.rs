@@ -129,13 +129,13 @@ impl VMOffsets {
 ///
 /// [`VMTableImport`]: crate::vmcontext::VMTableImport
 impl VMOffsets {
-    /// The offset of the `from` field.
+    /// The offset of the `definition` field.
     #[allow(clippy::erasing_op)]
     pub const fn vmtable_import_definition(&self) -> u8 {
         0 * self.pointer_size
     }
 
-    /// The offset of the `vmctx` field.
+    /// The offset of the `from` field.
     #[allow(clippy::identity_op)]
     pub const fn vmtable_import_from(&self) -> u8 {
         1 * self.pointer_size
@@ -552,7 +552,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to the `from` field in [`VMTableImport`] index `index`.
+    /// Return the offset to the `definition` field in [`VMTableImport`] index `index`.
     ///
     /// [`VMTableImport`]: crate::vmcontext::VMTableImport
     pub fn vmctx_vmtable_import_definition(&self, index: TableIndex) -> u32 {

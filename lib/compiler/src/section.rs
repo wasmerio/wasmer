@@ -24,11 +24,11 @@ entity_impl!(SectionIndex);
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CustomSectionProtection {
-    /// A custom section with read permissions,
+    /// A custom section with read permission.
     Read,
-    // We don't include `ReadWrite` here because it would complicate freeze
-    // and resumption of executing ModuleInfos.
-    // TODO: add `ReadExecute`.
+
+    /// A custom section with read and execute permissions.
+    ReadExecute,
 }
 
 /// A Section for a `Compilation`.
@@ -72,6 +72,11 @@ impl SectionBody {
     /// Returns the length of this section in bytes.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Dereferences into the section's buffer.
+    pub fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
     }
 
     /// Returns whether or not the section body is empty.

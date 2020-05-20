@@ -12,10 +12,10 @@
 
 #![feature(proc_macro_hygiene)]
 
+mod codegen_x64;
+mod common_decl;
 mod compiler;
 mod config;
-//mod codegen_x64;
-mod common_decl;
 mod emitter_x64;
 mod machine;
 mod x64_decl;

@@ -6,7 +6,7 @@
 //! * `obj`: to generate a native object
 
 use crate::lib::std::vec::Vec;
-use crate::section::{CustomSection, SectionBody, SectionIndex};
+use crate::section::{CustomSection, SectionIndex};
 use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
 #[cfg(feature = "enable-serde")]
@@ -22,7 +22,9 @@ use wasm_common::LocalFunctionIndex;
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CompiledFunctionFrameInfo {
-    /// The traps (in the function body)
+    /// The traps (in the function body).
+    ///
+    /// Code offsets of the traps MUST be in ascending order.
     pub traps: Vec<TrapInformation>,
 
     /// The address map.
@@ -137,11 +139,8 @@ impl Compilation {
     }
 
     /// Gets custom section data.
-    pub fn get_custom_sections(&self) -> PrimaryMap<SectionIndex, SectionBody> {
-        self.custom_sections
-            .iter()
-            .map(|(_, section)| section.bytes.clone())
-            .collect::<PrimaryMap<SectionIndex, _>>()
+    pub fn get_custom_sections(&self) -> PrimaryMap<SectionIndex, CustomSection> {
+        self.custom_sections.clone()
     }
 
     /// Gets relocations that apply to custom sections.

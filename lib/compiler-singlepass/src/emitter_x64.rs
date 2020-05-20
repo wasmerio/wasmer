@@ -1,8 +1,9 @@
-use crate::common_decl::InlineBreakpointType;
 pub use crate::x64_decl::{GPR, XMM};
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
+/// Dynasm proc-macro checks for an `.arch` expression in a source file to
+/// determine the architecture it should use.
 fn _dummy(_a: &Assembler) {
     dynasm!(
         _a
@@ -15,7 +16,7 @@ pub enum Location {
     Imm8(u8),
     Imm32(u32),
     Imm64(u64),
-    Imm128(u128),
+    // Imm128(u128),
     GPR(GPR),
     XMM(XMM),
     Memory(GPR, i32),
@@ -35,6 +36,7 @@ pub enum Condition {
     Equal,
     NotEqual,
     Signed,
+    Carry,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -66,6 +68,8 @@ pub trait Emitter {
     fn get_label(&mut self) -> Self::Label;
     fn get_offset(&self) -> Self::Offset;
     fn get_jmp_instr_size(&self) -> u8;
+
+    fn finalize_function(&mut self) {}
 
     fn emit_u64(&mut self, x: u64);
 
@@ -198,7 +202,6 @@ pub trait Emitter {
     fn emit_bkpt(&mut self);
 
     fn emit_host_redirection(&mut self, target: GPR);
-    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType);
 
     fn arch_has_itruncf(&self) -> bool {
         false
@@ -290,6 +293,12 @@ pub trait Emitter {
 
     // Emits entry trampoline just before the real function.
     fn arch_emit_entry_trampoline(&mut self) {}
+
+    // Byte offset from the beginning of a `mov Imm64, GPR` instruction to the imm64 value.
+    // Required to support emulation on Aarch64.
+    fn arch_mov64_imm_offset(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 macro_rules! unop_gpr {
@@ -636,6 +645,18 @@ impl Emitter for Assembler {
         5
     }
 
+    fn finalize_function(&mut self) {
+        dynasm!(
+            self
+            ; const_neg_one_32:
+            ; .dword -1
+            ; const_zero_32:
+            ; .dword 0
+            ; const_pos_one_32:
+            ; .dword 1
+        );
+    }
+
     fn emit_u64(&mut self, x: u64) {
         self.push_u64(x);
     }
@@ -649,6 +670,15 @@ impl Emitter for Assembler {
     }
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) {
+        // fast path
+        match (src, dst) {
+            (Location::Imm32(0), Location::GPR(x)) => {
+                dynasm!(self ; xor Rd(x as u8), Rd(x as u8));
+                return;
+            }
+            _ => {}
+        }
+
         binop_all_nofp!(mov, self, sz, src, dst, {
             binop_imm64_gpr!(mov, self, sz, src, dst, {
                 match (sz, src, dst) {
@@ -772,6 +802,7 @@ impl Emitter for Assembler {
             Condition::Equal => jmp_op!(je, self, label),
             Condition::NotEqual => jmp_op!(jne, self, label),
             Condition::Signed => jmp_op!(js, self, label),
+            Condition::Carry => jmp_op!(jc, self, label),
         }
     }
     fn emit_jmp_location(&mut self, loc: Location) {
@@ -795,6 +826,7 @@ impl Emitter for Assembler {
             Condition::Equal => trap_op!(je, self),
             Condition::NotEqual => trap_op!(jne, self),
             Condition::Signed => trap_op!(js, self),
+            Condition::Carry => trap_op!(jc, self),
         }
     }
     fn emit_set(&mut self, condition: Condition, dst: GPR) {
@@ -810,6 +842,7 @@ impl Emitter for Assembler {
             Condition::Equal => dynasm!(self ; sete Rb(dst as u8)),
             Condition::NotEqual => dynasm!(self ; setne Rb(dst as u8)),
             Condition::Signed => dynasm!(self ; sets Rb(dst as u8)),
+            Condition::Carry => dynasm!(self ; setc Rb(dst as u8)),
             _ => panic!("singlepass can't emit SET {:?} {:?}", condition, dst),
         }
     }
@@ -833,16 +866,43 @@ impl Emitter for Assembler {
         }
     }
     fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) {
-        binop_all_nofp!(cmp, self, sz, left, right, {
-            panic!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
-        });
+        // Constant elimination for comparision between consts.
+        //
+        // Only needed for `emit_cmp`, since other binary operators actually write to `right` and `right` must
+        // be a writable location for them.
+        let consts = match (left, right) {
+            (Location::Imm32(x), Location::Imm32(y)) => Some((x as i32 as i64, y as i32 as i64)),
+            (Location::Imm32(x), Location::Imm64(y)) => Some((x as i32 as i64, y as i64)),
+            (Location::Imm64(x), Location::Imm32(y)) => Some((x as i64, y as i32 as i64)),
+            (Location::Imm64(x), Location::Imm64(y)) => Some((x as i64, y as i64)),
+            _ => None,
+        };
+        use std::cmp::Ordering;
+        match consts {
+            Some((x, y)) => match x.cmp(&y) {
+                Ordering::Less => dynasm!(self ; cmp DWORD [>const_neg_one_32], 0),
+                Ordering::Equal => dynasm!(self ; cmp DWORD [>const_zero_32], 0),
+                Ordering::Greater => dynasm!(self ; cmp DWORD [>const_pos_one_32], 0),
+            },
+            None => binop_all_nofp!(cmp, self, sz, left, right, {
+                panic!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
+            }),
+        }
     }
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location) {
+        // Fast path
+        if let Location::Imm32(0) = src {
+            return;
+        }
         binop_all_nofp!(add, self, sz, src, dst, {
             panic!("singlepass can't emit ADD {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_sub(&mut self, sz: Size, src: Location, dst: Location) {
+        // Fast path
+        if let Location::Imm32(0) = src {
+            return;
+        }
         binop_all_nofp!(sub, self, sz, src, dst, {
             panic!("singlepass can't emit SUB {:?} {:?} {:?}", sz, src, dst)
         });
@@ -1316,12 +1376,7 @@ impl Emitter for Assembler {
         self.emit_jmp_location(Location::GPR(target));
     }
 
-    fn emit_inline_breakpoint(&mut self, ty: InlineBreakpointType) {
-        dynasm!(self
-            ; ud2
-            ; .byte 0x0f ; .byte 0xb9u8 as i8 // ud
-            ; int -1
-            ; .byte ty as u8 as i8
-        );
+    fn arch_mov64_imm_offset(&self) -> usize {
+        2
     }
 }

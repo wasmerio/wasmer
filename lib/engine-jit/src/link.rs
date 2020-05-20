@@ -5,7 +5,7 @@ use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{
     JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
-    SectionBody, SectionIndex,
+    SectionIndex,
 };
 use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::VMFunctionBody;
@@ -15,7 +15,7 @@ fn apply_relocation(
     r: &Relocation,
     allocated_functions: &PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
-    allocated_sections: &PrimaryMap<SectionIndex, SectionBody>,
+    allocated_sections: &PrimaryMap<SectionIndex, *const u8>,
 ) {
     let target_func_address: usize = match r.reloc_target {
         RelocationTarget::LocalFunc(index) => {
@@ -24,7 +24,7 @@ fn apply_relocation(
         }
         RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
         RelocationTarget::CustomSection(custom_section) => {
-            allocated_sections[custom_section].as_ptr() as usize
+            allocated_sections[custom_section] as usize
         }
         RelocationTarget::JumpTable(func_index, jt) => {
             let offset = *jt_offsets
@@ -67,11 +67,11 @@ pub fn link_module(
     allocated_functions: &PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     function_relocations: Relocations,
-    allocated_sections: &PrimaryMap<SectionIndex, SectionBody>,
+    allocated_sections: &PrimaryMap<SectionIndex, *const u8>,
     section_relocations: &PrimaryMap<SectionIndex, Vec<Relocation>>,
 ) {
     for (i, section_relocs) in section_relocations.iter() {
-        let body = allocated_sections[i].as_ptr() as usize;
+        let body = allocated_sections[i] as usize;
         for r in section_relocs {
             apply_relocation(body, r, allocated_functions, jt_offsets, allocated_sections);
         }

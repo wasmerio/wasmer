@@ -5,7 +5,7 @@ use std::mem::ManuallyDrop;
 use std::{cmp, mem};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::LocalFunctionIndex;
-use wasmer_compiler::FunctionBody;
+use wasmer_compiler::{FunctionBody, SectionBody};
 use wasmer_runtime::{Mmap, VMFunctionBody};
 
 struct CodeMemoryEntry {
@@ -87,6 +87,17 @@ impl CodeMemory {
         let (_, _, _, vmfunc) = Self::copy_function(func, start as u32, buf, table);
 
         Ok(vmfunc)
+    }
+
+    /// Allocate a continuous memory block for an executable custom section.
+    pub fn allocate_for_executable_custom_section(
+        &mut self,
+        section: &SectionBody,
+    ) -> Result<&mut [u8], String> {
+        let section = section.as_slice();
+        let (buf, _, _) = self.allocate(section.len())?;
+        buf.copy_from_slice(section);
+        Ok(buf)
     }
 
     /// Allocate a continuous memory block for a compilation.

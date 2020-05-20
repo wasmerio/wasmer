@@ -40,6 +40,7 @@ structopt = { version = "0.3", features = ["suggestions"] }
 distance = "0.4"
 # For the inspect subcommand
 bytesize = "1.0.0"
+cfg-if = "0.1.10"
 
 [workspace]
 members = [

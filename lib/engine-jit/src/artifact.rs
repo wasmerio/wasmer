@@ -157,13 +157,15 @@ impl JITArtifact {
             &serializable.compilation.function_call_trampolines,
             &serializable.compilation.dynamic_function_trampolines,
         )?;
+        let custom_sections =
+            jit_compiler.allocate_custom_sections(&serializable.compilation.custom_sections)?;
 
         link_module(
             &serializable.module,
             &finished_functions,
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
-            &serializable.compilation.custom_sections,
+            &custom_sections,
             &serializable.compilation.custom_section_relocations,
         );
 
