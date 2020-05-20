@@ -184,7 +184,7 @@ impl FuncTranslator {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty);
             let value = func
-                .get_nth_param((idx as u32).checked_add(2).unwrap())
+                .get_nth_param((idx as u32).checked_add(1).unwrap())
                 .unwrap();
             // TODO: don't interleave allocas and stores.
             let alloca = cache_builder.build_alloca(ty, "param");
@@ -2247,7 +2247,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 };
 
                 let params: Vec<_> = std::iter::repeat(callee_vmctx)
-                    .take(2)
+                    .take(1)
                     .chain(
                         self.state
                             .peekn_extra(func_type.params().len())?
@@ -2517,7 +2517,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let pushed_args = self.state.popn_save_extra(func_type.params().len())?;
 
                 let args: Vec<_> = std::iter::repeat(ctx_ptr)
-                    .take(2)
+                    .take(1)
                     .chain(pushed_args.into_iter().enumerate().map(|(i, (v, info))| {
                         match func_type.params()[i] {
                             Type::F32 => self.builder.build_bitcast(

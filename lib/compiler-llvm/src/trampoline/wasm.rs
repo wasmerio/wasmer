@@ -34,7 +34,6 @@ impl FuncTrampoline {
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ctx_ptr_ty.as_basic_type_enum(), // callee_vmctx ptr
-                intrinsics.ctx_ptr_ty.as_basic_type_enum(), // caller_vmctx ptr
                 callee_ty
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(), // callee function address
@@ -120,20 +119,19 @@ fn generate_trampoline<'ctx>(
         "");
     */
 
-    let (callee_vmctx_ptr, caller_vmctx_ptr, func_ptr, args_rets_ptr) =
-        match trampoline_func.get_params().as_slice() {
-            &[callee_vmctx_ptr, caller_vmctx_ptr, func_ptr, args_rets_ptr] => (
-                callee_vmctx_ptr,
-                caller_vmctx_ptr,
-                func_ptr.into_pointer_value(),
-                args_rets_ptr.into_pointer_value(),
-            ),
-            _ => {
-                return Err(CompileError::Codegen(
-                    "trampoline function unimplemented".to_string(),
-                ))
-            }
-        };
+    let (callee_vmctx_ptr, func_ptr, args_rets_ptr) = match trampoline_func.get_params().as_slice()
+    {
+        &[callee_vmctx_ptr, func_ptr, args_rets_ptr] => (
+            callee_vmctx_ptr,
+            func_ptr.into_pointer_value(),
+            args_rets_ptr.into_pointer_value(),
+        ),
+        _ => {
+            return Err(CompileError::Codegen(
+                "trampoline function unimplemented".to_string(),
+            ))
+        }
+    };
 
     let cast_ptr_ty = |wasmer_ty| match wasmer_ty {
         Type::I32 => intrinsics.i32_ptr_ty,
@@ -145,9 +143,8 @@ fn generate_trampoline<'ctx>(
         Type::FuncRef => unimplemented!("funcref unimplemented in trampoline"),
     };
 
-    let mut args_vec = Vec::with_capacity(func_sig.params().len() + 2);
+    let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
     args_vec.push(callee_vmctx_ptr);
-    args_vec.push(caller_vmctx_ptr);
 
     let mut i = 0;
     for param_ty in func_sig.params().iter() {
