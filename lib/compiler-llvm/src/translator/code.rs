@@ -817,169 +817,196 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     }
 }
 
-fn trap_if_not_representable_as_int<'ctx>(
-    builder: &Builder<'ctx>,
-    intrinsics: &Intrinsics<'ctx>,
-    context: &'ctx Context,
-    function: &FunctionValue<'ctx>,
-    lower_bound: u64, // Inclusive (not a trapping value)
-    upper_bound: u64, // Inclusive (not a trapping value)
-    value: FloatValue,
-) {
-    let float_ty = value.get_type();
-    let int_ty = if float_ty == intrinsics.f32_ty {
-        intrinsics.i32_ty
-    } else {
-        intrinsics.i64_ty
-    };
-
-    let lower_bound = builder
-        .build_bitcast(int_ty.const_int(lower_bound, false), float_ty, "")
-        .into_float_value();
-    let upper_bound = builder
-        .build_bitcast(int_ty.const_int(upper_bound, false), float_ty, "")
-        .into_float_value();
-
-    // The 'U' in the float predicate is short for "unordered" which means that
-    // the comparison will compare true if either operand is a NaN. Thus, NaNs
-    // are out of bounds.
-    let above_upper_bound_cmp =
-        builder.build_float_compare(FloatPredicate::UGT, value, upper_bound, "above_upper_bound");
-    let below_lower_bound_cmp =
-        builder.build_float_compare(FloatPredicate::ULT, value, lower_bound, "below_lower_bound");
-    let out_of_bounds = builder.build_or(
-        above_upper_bound_cmp,
-        below_lower_bound_cmp,
-        "out_of_bounds",
-    );
-
-    let failure_block = context.append_basic_block(*function, "conversion_failure_block");
-    let continue_block = context.append_basic_block(*function, "conversion_success_block");
-
-    builder.build_conditional_branch(out_of_bounds, failure_block, continue_block);
-    builder.position_at_end(failure_block);
-    let is_nan = builder.build_float_compare(FloatPredicate::UNO, value, value, "is_nan");
-    let trap_code = builder.build_select(
-        is_nan,
-        intrinsics.trap_bad_conversion_to_integer,
-        intrinsics.trap_illegal_arithmetic,
-        "",
-    );
-    builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
-    builder.build_unreachable();
-    builder.position_at_end(continue_block);
-}
-
-fn trap_if_zero_or_overflow<'ctx>(
-    builder: &Builder<'ctx>,
-    intrinsics: &Intrinsics<'ctx>,
-    context: &'ctx Context,
-    function: &FunctionValue<'ctx>,
-    left: IntValue,
-    right: IntValue,
-) {
-    let int_type = left.get_type();
-
-    let (min_value, neg_one_value) = if int_type == intrinsics.i32_ty {
-        let min_value = int_type.const_int(i32::min_value() as u64, false);
-        let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
-        (min_value, neg_one_value)
-    } else if int_type == intrinsics.i64_ty {
-        let min_value = int_type.const_int(i64::min_value() as u64, false);
-        let neg_one_value = int_type.const_int(-1i64 as u64, false);
-        (min_value, neg_one_value)
-    } else {
-        unreachable!()
-    };
-
-    let divisor_is_zero = builder.build_int_compare(
-        IntPredicate::EQ,
-        right,
-        int_type.const_int(0, false),
-        "divisor_is_zero",
-    );
-    let should_trap = builder.build_or(
-        divisor_is_zero,
-        builder.build_and(
-            builder.build_int_compare(IntPredicate::EQ, left, min_value, "left_is_min"),
-            builder.build_int_compare(IntPredicate::EQ, right, neg_one_value, "right_is_neg_one"),
-            "div_will_overflow",
-        ),
-        "div_should_trap",
-    );
-
-    let should_trap = builder
-        .build_call(
-            intrinsics.expect_i1,
-            &[
-                should_trap.as_basic_value_enum(),
-                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
-            ],
-            "should_trap_expect",
-        )
-        .try_as_basic_value()
-        .left()
-        .unwrap()
-        .into_int_value();
-
-    let shouldnt_trap_block = context.append_basic_block(*function, "shouldnt_trap_block");
-    let should_trap_block = context.append_basic_block(*function, "should_trap_block");
-    builder.build_conditional_branch(should_trap, should_trap_block, shouldnt_trap_block);
-    builder.position_at_end(should_trap_block);
-    let trap_code = builder.build_select(
-        divisor_is_zero,
-        intrinsics.trap_integer_division_by_zero,
-        intrinsics.trap_illegal_arithmetic,
-        "",
-    );
-    builder.build_call(intrinsics.throw_trap, &[trap_code], "throw");
-    builder.build_unreachable();
-    builder.position_at_end(shouldnt_trap_block);
-}
-
-fn trap_if_zero<'ctx>(
-    builder: &Builder<'ctx>,
-    intrinsics: &Intrinsics<'ctx>,
-    context: &'ctx Context,
-    function: &FunctionValue<'ctx>,
-    value: IntValue,
-) {
-    let int_type = value.get_type();
-    let should_trap = builder.build_int_compare(
-        IntPredicate::EQ,
-        value,
-        int_type.const_int(0, false),
-        "divisor_is_zero",
-    );
-
-    let should_trap = builder
-        .build_call(
-            intrinsics.expect_i1,
-            &[
-                should_trap.as_basic_value_enum(),
-                intrinsics.i1_ty.const_int(0, false).as_basic_value_enum(),
-            ],
-            "should_trap_expect",
-        )
-        .try_as_basic_value()
-        .left()
-        .unwrap()
-        .into_int_value();
-
-    let shouldnt_trap_block = context.append_basic_block(*function, "shouldnt_trap_block");
-    let should_trap_block = context.append_basic_block(*function, "should_trap_block");
-    builder.build_conditional_branch(should_trap, should_trap_block, shouldnt_trap_block);
-    builder.position_at_end(should_trap_block);
-    builder.build_call(
-        intrinsics.throw_trap,
-        &[intrinsics.trap_integer_division_by_zero],
-        "throw",
-    );
-    builder.build_unreachable();
-    builder.position_at_end(shouldnt_trap_block);
-}
-
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
+    fn trap_if_not_representable_as_int(
+        &self,
+        lower_bound: u64, // Inclusive (not a trapping value)
+        upper_bound: u64, // Inclusive (not a trapping value)
+        value: FloatValue,
+    ) {
+        let float_ty = value.get_type();
+        let int_ty = if float_ty == self.intrinsics.f32_ty {
+            self.intrinsics.i32_ty
+        } else {
+            self.intrinsics.i64_ty
+        };
+
+        let lower_bound = self
+            .builder
+            .build_bitcast(int_ty.const_int(lower_bound, false), float_ty, "")
+            .into_float_value();
+        let upper_bound = self
+            .builder
+            .build_bitcast(int_ty.const_int(upper_bound, false), float_ty, "")
+            .into_float_value();
+
+        // The 'U' in the float predicate is short for "unordered" which means that
+        // the comparison will compare true if either operand is a NaN. Thus, NaNs
+        // are out of bounds.
+        let above_upper_bound_cmp = self.builder.build_float_compare(
+            FloatPredicate::UGT,
+            value,
+            upper_bound,
+            "above_upper_bound",
+        );
+        let below_lower_bound_cmp = self.builder.build_float_compare(
+            FloatPredicate::ULT,
+            value,
+            lower_bound,
+            "below_lower_bound",
+        );
+        let out_of_bounds = self.builder.build_or(
+            above_upper_bound_cmp,
+            below_lower_bound_cmp,
+            "out_of_bounds",
+        );
+
+        let failure_block = self
+            .context
+            .append_basic_block(self.function, "conversion_failure_block");
+        let continue_block = self
+            .context
+            .append_basic_block(self.function, "conversion_success_block");
+
+        self.builder
+            .build_conditional_branch(out_of_bounds, failure_block, continue_block);
+        self.builder.position_at_end(failure_block);
+        let is_nan = self
+            .builder
+            .build_float_compare(FloatPredicate::UNO, value, value, "is_nan");
+        let trap_code = self.builder.build_select(
+            is_nan,
+            self.intrinsics.trap_bad_conversion_to_integer,
+            self.intrinsics.trap_illegal_arithmetic,
+            "",
+        );
+        self.builder
+            .build_call(self.intrinsics.throw_trap, &[trap_code], "throw");
+        self.builder.build_unreachable();
+        self.builder.position_at_end(continue_block);
+    }
+
+    fn trap_if_zero_or_overflow(&self, left: IntValue, right: IntValue) {
+        let int_type = left.get_type();
+
+        let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
+            let min_value = int_type.const_int(i32::min_value() as u64, false);
+            let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
+            (min_value, neg_one_value)
+        } else if int_type == self.intrinsics.i64_ty {
+            let min_value = int_type.const_int(i64::min_value() as u64, false);
+            let neg_one_value = int_type.const_int(-1i64 as u64, false);
+            (min_value, neg_one_value)
+        } else {
+            unreachable!()
+        };
+
+        let divisor_is_zero = self.builder.build_int_compare(
+            IntPredicate::EQ,
+            right,
+            int_type.const_int(0, false),
+            "divisor_is_zero",
+        );
+        let should_trap = self.builder.build_or(
+            divisor_is_zero,
+            self.builder.build_and(
+                self.builder
+                    .build_int_compare(IntPredicate::EQ, left, min_value, "left_is_min"),
+                self.builder.build_int_compare(
+                    IntPredicate::EQ,
+                    right,
+                    neg_one_value,
+                    "right_is_neg_one",
+                ),
+                "div_will_overflow",
+            ),
+            "div_should_trap",
+        );
+
+        let should_trap = self
+            .builder
+            .build_call(
+                self.intrinsics.expect_i1,
+                &[
+                    should_trap.as_basic_value_enum(),
+                    self.intrinsics
+                        .i1_ty
+                        .const_int(0, false)
+                        .as_basic_value_enum(),
+                ],
+                "should_trap_expect",
+            )
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_int_value();
+
+        let shouldnt_trap_block = self
+            .context
+            .append_basic_block(self.function, "shouldnt_trap_block");
+        let should_trap_block = self
+            .context
+            .append_basic_block(self.function, "should_trap_block");
+        self.builder
+            .build_conditional_branch(should_trap, should_trap_block, shouldnt_trap_block);
+        self.builder.position_at_end(should_trap_block);
+        let trap_code = self.builder.build_select(
+            divisor_is_zero,
+            self.intrinsics.trap_integer_division_by_zero,
+            self.intrinsics.trap_illegal_arithmetic,
+            "",
+        );
+        self.builder
+            .build_call(self.intrinsics.throw_trap, &[trap_code], "throw");
+        self.builder.build_unreachable();
+        self.builder.position_at_end(shouldnt_trap_block);
+    }
+
+    fn trap_if_zero(&self, value: IntValue) {
+        let int_type = value.get_type();
+        let should_trap = self.builder.build_int_compare(
+            IntPredicate::EQ,
+            value,
+            int_type.const_int(0, false),
+            "divisor_is_zero",
+        );
+
+        let should_trap = self
+            .builder
+            .build_call(
+                self.intrinsics.expect_i1,
+                &[
+                    should_trap.as_basic_value_enum(),
+                    self.intrinsics
+                        .i1_ty
+                        .const_int(0, false)
+                        .as_basic_value_enum(),
+                ],
+                "should_trap_expect",
+            )
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_int_value();
+
+        let shouldnt_trap_block = self
+            .context
+            .append_basic_block(self.function, "shouldnt_trap_block");
+        let should_trap_block = self
+            .context
+            .append_basic_block(self.function, "should_trap_block");
+        self.builder
+            .build_conditional_branch(should_trap, should_trap_block, shouldnt_trap_block);
+        self.builder.position_at_end(should_trap_block);
+        self.builder.build_call(
+            self.intrinsics.throw_trap,
+            &[self.intrinsics.trap_integer_division_by_zero],
+            "throw",
+        );
+        self.builder.build_unreachable();
+        self.builder.position_at_end(shouldnt_trap_block);
+    }
+
     fn v128_into_int_vec(
         &self,
         value: BasicValueEnum<'ctx>,
@@ -2916,14 +2943,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
 
-                trap_if_zero_or_overflow(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
-                    v1,
-                    v2,
-                );
+                self.trap_if_zero_or_overflow(v1, v2);
 
                 let res = self.builder.build_int_signed_div(v1, v2, "");
                 self.state.push1(res);
@@ -2934,13 +2954,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
 
-                trap_if_zero(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
-                    v2,
-                );
+                self.trap_if_zero(v2);
 
                 let res = self.builder.build_int_unsigned_div(v1, v2, "");
                 self.state.push1(res);
@@ -2963,13 +2977,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     unreachable!()
                 };
 
-                trap_if_zero(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
-                    v2,
-                );
+                self.trap_if_zero(v2);
 
                 // "Overflow also leads to undefined behavior; this is a rare
                 // case, but can occur, for example, by taking the remainder of
@@ -3006,13 +3014,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = apply_pending_canonicalization(&self.builder, self.intrinsics, v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
 
-                trap_if_zero(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
-                    v2,
-                );
+                self.trap_if_zero(v2);
 
                 let res = self.builder.build_int_unsigned_rem(v1, v2, "");
                 self.state.push1(res);
@@ -5396,11 +5398,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32TruncF32S => {
                 let v1 = self.state.pop1()?.into_float_value();
-                trap_if_not_representable_as_int(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
+                self.trap_if_not_representable_as_int(
                     0xcf000000, // -2147483600.0
                     0x4effffff, // 2147483500.0
                     v1,
@@ -5412,11 +5410,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32TruncF64S => {
                 let v1 = self.state.pop1()?.into_float_value();
-                trap_if_not_representable_as_int(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
+                self.trap_if_not_representable_as_int(
                     0xc1e00000001fffff, // -2147483648.9999995
                     0x41dfffffffffffff, // 2147483647.9999998
                     v1,
@@ -5458,11 +5452,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64TruncF32S => {
                 let v1 = self.state.pop1()?.into_float_value();
-                trap_if_not_representable_as_int(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
+                self.trap_if_not_representable_as_int(
                     0xdf000000, // -9223372000000000000.0
                     0x5effffff, // 9223371500000000000.0
                     v1,
@@ -5474,11 +5464,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64TruncF64S => {
                 let v1 = self.state.pop1()?.into_float_value();
-                trap_if_not_representable_as_int(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
+                self.trap_if_not_representable_as_int(
                     0xc3e0000000000000, // -9223372036854776000.0
                     0x43dfffffffffffff, // 9223372036854775000.0
                     v1,
@@ -5520,11 +5506,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32TruncF32U => {
                 let v1 = self.state.pop1()?.into_float_value();
-                trap_if_not_representable_as_int(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
+                self.trap_if_not_representable_as_int(
                     0xbf7fffff, // -0.99999994
                     0x4f7fffff, // 4294967000.0
                     v1,
@@ -5536,11 +5518,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32TruncF64U => {
                 let v1 = self.state.pop1()?.into_float_value();
-                trap_if_not_representable_as_int(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
+                self.trap_if_not_representable_as_int(
                     0xbfefffffffffffff, // -0.9999999999999999
                     0x41efffffffffffff, // 4294967295.9999995
                     v1,
@@ -5582,11 +5560,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64TruncF32U => {
                 let v1 = self.state.pop1()?.into_float_value();
-                trap_if_not_representable_as_int(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
+                self.trap_if_not_representable_as_int(
                     0xbf7fffff, // -0.99999994
                     0x5f7fffff, // 18446743000000000000.0
                     v1,
@@ -5598,11 +5572,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64TruncF64U => {
                 let v1 = self.state.pop1()?.into_float_value();
-                trap_if_not_representable_as_int(
-                    &self.builder,
-                    self.intrinsics,
-                    self.context,
-                    &self.function,
+                self.trap_if_not_representable_as_int(
                     0xbfefffffffffffff, // -0.9999999999999999
                     0x43efffffffffffff, // 18446744073709550000.0
                     v1,
