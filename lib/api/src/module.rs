@@ -205,14 +205,14 @@ impl Module {
         store: &Store,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let compiled = store.engine().deserialize_from_file(path.as_ref())?;
-        Ok(Self::from_compiled_module(store, compiled))
+        let artifact = store.engine().deserialize_from_file(path.as_ref())?;
+        Ok(Self::from_compiled_module(store, artifact))
     }
 
     fn from_compiled_module(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
         Module {
             store: store.clone(),
-            compiled,
+            artifact,
             #[cfg(feature = "wat")]
             from_wat: false,
         }
