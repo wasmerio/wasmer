@@ -37,9 +37,6 @@ pub fn make_trampoline_dynamic_function(
         ir::ArgumentPurpose::VMContext,
     ));
 
-    // Add the caller/callee `vmctx` parameter.
-    stub_sig.params.push(ir::AbiParam::new(pointer_type));
-
     // Add the `sig_index` parameter.
     stub_sig.params.push(ir::AbiParam::new(types::I32));
 
@@ -49,7 +46,7 @@ pub fn make_trampoline_dynamic_function(
     // Compute the size of the values vector. The vmctx and caller vmctx are passed separately.
     let value_size = mem::size_of::<u128>();
     let values_vec_len =
-        (value_size * cmp::max(signature.params.len() - 2, signature.returns.len())) as u32;
+        (value_size * cmp::max(signature.params.len() - 1, signature.returns.len())) as u32;
 
     let mut context = Context::new();
     context.func = Function::with_name_signature(ExternalName::user(0, 0), signature.clone());
@@ -70,29 +67,23 @@ pub fn make_trampoline_dynamic_function(
         let values_vec_ptr_val = builder.ins().stack_addr(pointer_type, ss, 0);
         let mflags = MemFlags::trusted();
         // We only get the non-vmctx arguments
-        for i in 2..signature.params.len() {
+        for i in 1..signature.params.len() {
             let val = builder.func.dfg.block_params(block0)[i];
             builder.ins().store(
                 mflags,
                 val,
                 values_vec_ptr_val,
-                ((i - 2) * value_size) as i32,
+                ((i - 1) * value_size) as i32,
             );
         }
 
         let block_params = builder.func.dfg.block_params(block0);
         let vmctx_ptr_val = block_params[0];
-        let caller_vmctx_ptr_val = block_params[1];
 
         // Get the signature index
         let caller_sig_id = builder.ins().iconst(types::I32, sig_index.index() as i64);
 
-        let callee_args = vec![
-            vmctx_ptr_val,
-            caller_vmctx_ptr_val,
-            caller_sig_id,
-            values_vec_ptr_val,
-        ];
+        let callee_args = vec![vmctx_ptr_val, caller_sig_id, values_vec_ptr_val];
 
         let new_sig = builder.import_signature(stub_sig);
 

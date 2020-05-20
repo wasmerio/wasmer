@@ -36,9 +36,6 @@ pub fn make_trampoline_function_call(
         ir::ArgumentPurpose::VMContext,
     ));
 
-    // Add the caller `vmctx` parameter.
-    wrapper_sig.params.push(ir::AbiParam::new(pointer_type));
-
     // Add the `callee_address` parameter.
     wrapper_sig.params.push(ir::AbiParam::new(pointer_type));
 
@@ -58,9 +55,9 @@ pub fn make_trampoline_function_call(
         builder.switch_to_block(block0);
         builder.seal_block(block0);
 
-        let (vmctx_ptr_val, caller_vmctx_ptr_val, callee_value, values_vec_ptr_val) = {
+        let (vmctx_ptr_val, callee_value, values_vec_ptr_val) = {
             let params = builder.func.dfg.block_params(block0);
-            (params[0], params[1], params[2], params[3])
+            (params[0], params[1], params[2])
         };
 
         // Load the argument values out of `values_vec`.
@@ -72,15 +69,14 @@ pub fn make_trampoline_function_call(
             .map(|(i, r)| {
                 match i {
                     0 => vmctx_ptr_val,
-                    1 => caller_vmctx_ptr_val,
                     _ =>
-                    // i - 2 because vmctx and caller vmctx aren't passed through `values_vec`.
+                    // i - 1 because vmctx is not passed through `values_vec`.
                     {
                         builder.ins().load(
                             r.value_type,
                             mflags,
                             values_vec_ptr_val,
-                            ((i - 2) * value_size) as i32,
+                            ((i - 1) * value_size) as i32,
                         )
                     }
                 }
@@ -111,6 +107,7 @@ pub fn make_trampoline_function_call(
     let mut reloc_sink = TrampolineRelocSink {};
     let mut trap_sink = binemit::NullTrapSink {};
     let mut stackmap_sink = binemit::NullStackmapSink {};
+
     context
         .compile_and_emit(
             isa,
