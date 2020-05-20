@@ -7,7 +7,7 @@ env:
 
 jobs:
   lint:
-    name: Code lint
+    name: Code lint and Docs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -19,6 +19,7 @@ jobs:
           override: true
           components: rustfmt, clippy
       - run: make lint
+      - run: make doc-local
 
   test:
     name: Test in ${{ matrix.build }}
