@@ -687,7 +687,6 @@ impl Function {
         if let Err(error) = unsafe {
             wasmer_call_trampoline(
                 self.exported.vmctx,
-                std::ptr::null_mut(),
                 func.trampoline,
                 self.exported.address,
                 values_vec.as_mut_ptr() as *mut u8,

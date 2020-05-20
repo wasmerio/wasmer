@@ -400,7 +400,7 @@ macro_rules! impl_traits {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
                 // unimplemented!("");
-                extern fn wrap<$( $x, )* Rets, FN>( _: usize, _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                extern fn wrap<$( $x, )* Rets, FN>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
                 where
                     Rets: WasmTypeList,
                     $($x: WasmExternType,)*
@@ -479,7 +479,7 @@ macro_rules! impl_traits {
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
-                extern fn wrap<$( $x, )* Rets, FN, T>( ctx: &mut T, _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                extern fn wrap<$( $x, )* Rets, FN, T>( ctx: &mut T, $($x: $x::Native, )* ) -> Rets::CStruct
                 where
                     Rets: WasmTypeList,
                     $($x: WasmExternType,)*
@@ -664,9 +664,9 @@ mod test_func {
         let mut my_env = Env { num: 2 };
         let f = Function::new_env(&mut my_env, func_i32__i32_env);
         let function = unsafe {
-            std::mem::transmute::<*const FunctionBody, fn(&mut Env, i32, i32) -> i32>(f.address)
+            std::mem::transmute::<*const FunctionBody, fn(&mut Env, i32) -> i32>(f.address)
         };
-        assert_eq!(function(&mut my_env, 2, 3), 6);
+        assert_eq!(function(&mut my_env, 3), 6);
         assert_eq!(my_env.num, 10);
     }
 
