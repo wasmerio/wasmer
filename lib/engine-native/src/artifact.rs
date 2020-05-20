@@ -1,4 +1,4 @@
-//! Define `NativeModule` to allow compiling and instantiating to be
+//! Define `NativeArtifact` to allow compiling and instantiating to be
 //! done as separate steps.
 
 use crate::engine::{NativeEngine, NativeEngineInner};
@@ -21,7 +21,7 @@ use wasmer_compiler::CompileError;
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::RelocationTarget;
 use wasmer_engine::{
-    resolve_imports, CompiledModule, DeserializeError, Engine, InstantiationError, Resolver,
+    resolve_imports, Artifact, DeserializeError, Engine, InstantiationError, Resolver,
     RuntimeError, SerializeError,
 };
 use wasmer_runtime::{
@@ -31,7 +31,7 @@ use wasmer_runtime::{
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// A compiled wasm module, ready to be instantiated.
-pub struct NativeModule {
+pub struct NativeArtifact {
     sharedobject_path: PathBuf,
     metadata: ModuleMetadata,
     #[allow(dead_code)]
@@ -45,8 +45,8 @@ fn to_compile_error(err: impl Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
 }
 
-impl NativeModule {
-    /// Compile a data buffer into a `NativeModule`, which may then be instantiated.
+impl NativeArtifact {
+    /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
     pub fn new(engine: &NativeEngine, data: &[u8]) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
@@ -289,7 +289,7 @@ impl NativeModule {
         )
     }
 
-    /// Construct a `NativeModule` from component parts.
+    /// Construct a `NativeArtifact` from component parts.
     pub fn from_parts(
         engine_inner: &mut NativeEngineInner,
         metadata: ModuleMetadata,
@@ -379,7 +379,7 @@ impl NativeModule {
         })
     }
 
-    /// Compile a data buffer into a `NativeModule`, which may then be instantiated.
+    /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
     pub fn new(engine: &NativeEngine, data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
@@ -387,16 +387,16 @@ impl NativeModule {
         ))
     }
 
-    /// Serialize a NativeModule
+    /// Serialize a NativeArtifact
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(std::fs::read(&self.sharedobject_path)?)
     }
 
-    /// Deserialize a NativeModule
+    /// Deserialize a NativeArtifact
     pub unsafe fn deserialize_from_file(
         engine: &NativeEngine,
         path: &Path,
-    ) -> Result<NativeModule, DeserializeError> {
+    ) -> Result<NativeArtifact, DeserializeError> {
         let lib = Library::new(&path).map_err(|e| {
             DeserializeError::CorruptedBinary(format!("Library loading failed: {}", e))
         })?;
@@ -434,7 +434,7 @@ impl NativeModule {
         &self.metadata.table_plans
     }
 
-    /// Crate an `Instance` from this `NativeModule`.
+    /// Crate an `Instance` from this `NativeArtifact`.
     ///
     /// # Unsafety
     ///
@@ -511,7 +511,7 @@ impl NativeModule {
     }
 }
 
-impl CompiledModule for NativeModule {
+impl Artifact for NativeArtifact {
     fn module(&self) -> &ModuleInfo {
         &self.metadata.module
     }

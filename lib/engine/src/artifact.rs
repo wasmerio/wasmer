@@ -2,9 +2,9 @@ use wasmer_runtime::ModuleInfo;
 
 use downcast_rs::{impl_downcast, Downcast};
 
-/// The `CompiledModule` trait is used by engine implementors, such
+/// The `Artifact` trait is used by engine implementors, such
 /// as a JIT or Native execution.
-pub trait CompiledModule: Downcast {
+pub trait Artifact: Downcast {
     /// Return a pointer to a module.
     fn module(&self) -> &ModuleInfo;
 
@@ -12,4 +12,4 @@ pub trait CompiledModule: Downcast {
     fn module_mut(&mut self) -> &mut ModuleInfo;
 }
 
-impl_downcast!(CompiledModule);
+impl_downcast!(Artifact);

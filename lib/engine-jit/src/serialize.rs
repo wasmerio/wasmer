@@ -27,7 +27,7 @@ pub struct SerializableCompilation {
 }
 
 /// Serializable struct that is able to serialize from and to
-/// a `CompiledModuleInfo`.
+/// a `JITArtifactInfo`.
 #[derive(Serialize, Deserialize)]
 pub struct SerializableModule {
     pub compilation: SerializableCompilation,

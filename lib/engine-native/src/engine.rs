@@ -1,6 +1,6 @@
 //! Native Engine.
 
-use crate::NativeModule;
+use crate::NativeArtifact;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -13,8 +13,7 @@ use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
 use wasmer_engine::{
-    CompiledModule as BaseCompiledModule, DeserializeError, Engine, InstantiationError, Resolver,
-    SerializeError, Tunables,
+    Artifact, DeserializeError, Engine, InstantiationError, Resolver, SerializeError, Tunables,
 };
 use wasmer_runtime::{InstanceHandle, SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 
@@ -158,18 +157,18 @@ impl Engine for NativeEngine {
     }
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, CompileError> {
-        Ok(Arc::new(NativeModule::new(&self, binary)?))
+    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError> {
+        Ok(Arc::new(NativeArtifact::new(&self, binary)?))
     }
 
     /// Instantiates a WebAssembly module
     unsafe fn instantiate(
         &self,
-        compiled_module: &dyn BaseCompiledModule,
+        compiled_module: &dyn Artifact,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         let compiled_module = compiled_module
-            .downcast_ref::<NativeModule>()
+            .downcast_ref::<NativeArtifact>()
             .expect("The provided module is not a Native compiled module");
         compiled_module.instantiate(&self, resolver, Box::new(()))
     }
@@ -177,29 +176,26 @@ impl Engine for NativeEngine {
     /// Finish the instantiation of a WebAssembly module
     unsafe fn finish_instantiation(
         &self,
-        compiled_module: &dyn BaseCompiledModule,
+        compiled_module: &dyn Artifact,
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
         let compiled_module = compiled_module
-            .downcast_ref::<NativeModule>()
+            .downcast_ref::<NativeArtifact>()
             .expect("The provided module is not a Native compiled module");
         compiled_module.finish_instantiation(&handle)
     }
 
     /// Serializes a WebAssembly module
-    fn serialize(
-        &self,
-        compiled_module: &dyn BaseCompiledModule,
-    ) -> Result<Vec<u8>, SerializeError> {
+    fn serialize(&self, compiled_module: &dyn Artifact) -> Result<Vec<u8>, SerializeError> {
         let compiled_module = compiled_module
-            .downcast_ref::<NativeModule>()
+            .downcast_ref::<NativeArtifact>()
             .expect("The provided module is not a Native compiled module");
         let serialized = compiled_module.serialize()?;
         Ok(serialized)
     }
 
     /// Deserializes a WebAssembly module (binary content of a Shared Object file)
-    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
+    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
         if !Self::is_deserializable(&bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
@@ -217,7 +213,7 @@ impl Engine for NativeEngine {
     fn deserialize_from_file(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
+    ) -> Result<Arc<dyn Artifact>, DeserializeError> {
         let mut file = File::open(&file_ref)?;
         let mut buffer = [0; 5];
         // read up to 5 bytes
@@ -228,7 +224,7 @@ impl Engine for NativeEngine {
             ));
         }
         unsafe {
-            Ok(Arc::new(NativeModule::deserialize_from_file(
+            Ok(Arc::new(NativeArtifact::deserialize_from_file(
                 &self, &file_ref,
             )?))
         }

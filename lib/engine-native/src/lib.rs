@@ -25,12 +25,12 @@
     )
 )]
 
+mod artifact;
 mod engine;
-mod module;
 mod serialize;
 
+pub use crate::artifact::NativeArtifact;
 pub use crate::engine::NativeEngine;
-pub use crate::module::NativeModule;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -9,7 +9,7 @@ use thiserror::Error;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
-use wasmer_engine::{CompiledModule, DeserializeError, Resolver, SerializeError};
+use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError};
 use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, ModuleInfo};
 
 #[derive(Error, Debug)]
@@ -33,7 +33,7 @@ pub enum IoCompileError {
 #[derive(Clone)]
 pub struct Module {
     store: Store,
-    compiled: Arc<dyn CompiledModule>,
+    artifact: Arc<dyn Artifact>,
 
     #[cfg(feature = "wat")]
     #[doc(hidden)]
@@ -159,7 +159,7 @@ impl Module {
     /// let serialized = module.serialize()?;
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.store.engine().serialize(self.compiled.borrow())
+        self.store.engine().serialize(self.artifact.borrow())
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
@@ -209,7 +209,7 @@ impl Module {
         Ok(Self::from_compiled_module(store, compiled))
     }
 
-    fn from_compiled_module(store: &Store, compiled: Arc<dyn CompiledModule>) -> Self {
+    fn from_compiled_module(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
         Module {
             store: store.clone(),
             compiled,
@@ -226,7 +226,7 @@ impl Module {
             let instance_handle = self
                 .store
                 .engine()
-                .instantiate(self.compiled.borrow(), resolver)?;
+                .instantiate(self.artifact.borrow(), resolver)?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
@@ -235,7 +235,7 @@ impl Module {
             // instance tables.
             self.store
                 .engine()
-                .finish_instantiation(self.compiled.borrow(), &instance_handle)?;
+                .finish_instantiation(self.artifact.borrow(), &instance_handle)?;
 
             Ok(instance_handle)
         }
@@ -254,7 +254,7 @@ impl Module {
     /// assert_eq!(module.name(), Some("moduleName"));
     /// ```
     pub fn name(&self) -> Option<&str> {
-        self.compiled.module().name.as_deref()
+        self.artifact.module().name.as_deref()
     }
 
     /// Sets the name of the current module.
@@ -271,7 +271,7 @@ impl Module {
     /// assert_eq!(module.name(), Some("foo"));
     /// ```
     pub fn set_name(&mut self, name: &str) {
-        let compiled = Arc::get_mut(&mut self.compiled).unwrap();
+        let compiled = Arc::get_mut(&mut self.artifact).unwrap();
         compiled.module_mut().name = Some(name.to_string());
     }
 
@@ -296,7 +296,7 @@ impl Module {
     /// }
     /// ```
     pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
-        self.compiled.module().imports()
+        self.artifact.module().imports()
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -319,7 +319,7 @@ impl Module {
     /// }
     /// ```
     pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
-        self.compiled.module().exports()
+        self.artifact.module().exports()
     }
 
     pub fn store(&self) -> &Store {
@@ -333,6 +333,6 @@ impl Module {
     /// However, the usage is highly discouraged.
     #[doc(hidden)]
     pub fn info(&self) -> &ModuleInfo {
-        &self.compiled.module()
+        &self.artifact.module()
     }
 }
