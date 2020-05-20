@@ -32,7 +32,8 @@ pub use wasm_common::{Bytes, Pages, ValueType, WasmExternType, WasmTypeList};
 pub use wasmer_compiler::CompilerConfig;
 pub use wasmer_compiler::{Features, Target};
 pub use wasmer_engine::{
-    DeserializeError, Engine, InstantiationError, LinkError, RuntimeError, SerializeError,
+    DeserializeError, Engine, InstantiationError, LinkError, NamedResolver, Resolver, RuntimeError,
+    SerializeError,
 };
 pub use wasmer_runtime::{raise_user_trap, MemoryError};
 

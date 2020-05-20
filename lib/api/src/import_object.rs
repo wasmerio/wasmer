@@ -8,7 +8,7 @@ use std::{
     ffi::c_void,
     sync::{Arc, Mutex},
 };
-use wasmer_engine::Resolver;
+use wasmer_engine::NamedResolver;
 use wasmer_runtime::Export;
 
 /// The `LikeNamespace` trait represents objects that act as a namespace for imports.
@@ -151,8 +151,8 @@ impl ImportObject {
     }
 }
 
-impl Resolver for ImportObject {
-    fn resolve(&self, _idx: u32, module: &str, name: &str) -> Option<Export> {
+impl NamedResolver for ImportObject {
+    fn resolve_by_name(&self, module: &str, name: &str) -> Option<Export> {
         self.get_export(module, name)
     }
 }
