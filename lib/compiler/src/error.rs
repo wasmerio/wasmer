@@ -1,4 +1,4 @@
-use crate::std::string::String;
+use crate::lib::std::string::String;
 use thiserror::Error;
 
 // Compilation Errors

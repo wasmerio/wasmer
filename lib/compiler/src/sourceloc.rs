@@ -4,16 +4,22 @@
 //! relative to the WebAssembly module. This is used mainly for debugging
 //! and tracing errors.
 
-use core::fmt;
+use crate::lib::std::fmt;
+
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
 /// A source location.
 ///
 /// The default source location uses the all-ones bit pattern `!0`. It is used for instructions
 /// that can't be given a real source location.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
+#[cfg_attr(
+    feature = "enable-serde",
+    derive(Serialize, Deserialize),
+    serde(transparent)
+)]
 #[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceLoc(u32);
 
 impl SourceLoc {
