@@ -40,14 +40,14 @@ mod lib {
     #[cfg(feature = "core")]
     pub mod std {
         #[macro_use]
-        pub use alloc::{boxed, string, vec};
+        pub use alloc::{borrow, boxed, string, vec};
         pub use core::fmt;
         pub use hashbrown as collections;
     }
 
     #[cfg(feature = "std")]
     pub mod std {
-        pub use std::{boxed, collections, fmt, string, vec};
+        pub use std::{borrow, boxed, collections, fmt, string, vec};
     }
 }
 

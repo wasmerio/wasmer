@@ -3,8 +3,8 @@
 
 use crate::error::CompileError;
 use crate::function::{Compilation, FunctionBody};
-use crate::std::boxed::Box;
-use crate::std::vec::Vec;
+use crate::lib::std::boxed::Box;
+use crate::lib::std::vec::Vec;
 use crate::target::Target;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
@@ -24,7 +24,7 @@ pub trait CompilerConfig {
     /// Gets the WebAssembly features
     fn features(&self) -> &Features;
 
-    /// Should Position Independen Code (PIC) be enabled.
+    /// Should Position Independent Code (PIC) be enabled.
     ///
     /// This is required for shared object generation (Native Engine),
     /// but will make the JIT Engine to fail, since PIC is not yet
