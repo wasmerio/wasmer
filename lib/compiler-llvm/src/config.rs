@@ -164,8 +164,8 @@ impl CompilerConfig for LLVMConfig {
 
     /// Emit code suitable for dlopen.
     fn enable_pic(&mut self) {
-        // TODO: although we can emit PIC easily enough, the object file parser
-        // does not yet support all the relocations.
+        // TODO: although we can emit PIC, the object file parser does not yet
+        // support all the relocations.
         self.is_pic = true;
     }
 
