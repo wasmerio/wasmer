@@ -34,7 +34,9 @@ pub use crate::engine::Engine;
 pub use crate::error::{
     DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
 };
-pub use crate::resolver::{resolve_imports, NamedResolver, NullResolver, Resolver};
+pub use crate::resolver::{
+    resolve_imports, ChainableResolver, NamedResolver, NullResolver, Resolver, ResolverChain,
+};
 pub use crate::serialize::SerializableFunctionFrameInfo;
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;

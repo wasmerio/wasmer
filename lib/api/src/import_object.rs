@@ -8,7 +8,7 @@ use std::{
     ffi::c_void,
     sync::{Arc, Mutex},
 };
-use wasmer_engine::NamedResolver;
+use wasmer_engine::{ChainableResolver, NamedResolver};
 use wasmer_runtime::Export;
 
 /// The `LikeNamespace` trait represents objects that act as a namespace for imports.
@@ -157,6 +157,8 @@ impl NamedResolver for ImportObject {
     }
 }
 
+impl ChainableResolver for ImportObject {}
+
 /// Iterator for an `ImportObject`'s exports.
 pub struct ImportObjectIterator {
     elements: VecDeque<((String, String), Export)>,
@@ -177,12 +179,6 @@ impl IntoIterator for ImportObject {
         ImportObjectIterator {
             elements: self.get_objects(),
         }
-    }
-}
-
-impl Extend<((String, String), Export)> for ImportObject {
-    fn extend<T: IntoIterator<Item = ((String, String), Export)>>(&mut self, _iter: T) {
-        unimplemented!("Extend not yet implemented");
     }
 }
 
@@ -210,6 +206,7 @@ impl Extend<((String, String), Export)> for ImportObject {
 /// }
 /// ```
 #[macro_export]
+// TOOD: port of lost fixes of imports macro from wasmer master/imports macro tests
 macro_rules! imports {
     ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {{
         use $crate::ImportObject;
@@ -251,17 +248,17 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::{Global, Store, Val};
     use wasm_common::Type;
     use wasmer_runtime::Export;
 
     #[test]
-    #[ignore]
-    fn extending_works() {
+    fn chaining_works() {
         let store = Store::default();
         let g = Global::new(&store, Val::I32(0));
 
-        let mut imports1 = imports! {
+        let imports1 = imports! {
             "dog" => {
                 "happy" => g.clone()
             }
@@ -276,19 +273,18 @@ mod test {
             }
         };
 
-        imports1.extend(imports2);
+        let resolver = imports1.chain_front(imports2);
 
-        let small_cat_export = imports1.get_export("cat", "small");
-        assert!(small_cat_export.is_some());
+        let small_cat_export = resolver.resolve(0, "cat", "small");
+        assert!(small_cat_export.is_ok());
 
-        let happy = imports1.get_export("dog", "happy");
-        let small = imports1.get_export("dog", "small");
-        assert!(happy.is_some());
-        assert!(small.is_some());
+        let happy = resolver.resolve(0, "dog", "happy");
+        let small = resolver.resolve(0, "dog", "small");
+        assert!(happy.is_ok());
+        assert!(small.is_ok());
     }
 
     #[test]
-    #[ignore]
     fn extending_conflict_overwrites() {
         let store = Store::default();
         let g1 = Global::new(&store, Val::I32(0));
@@ -306,8 +302,8 @@ mod test {
             },
         };
 
-        imports1.extend(imports2);
-        let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
+        let resolver = imports1.chain_front(imports2);
+        let happy_dog_entry = resolver.resolve(0, "dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
             happy_dog_global.global.ty == Type::I64
@@ -327,7 +323,7 @@ mod test {
             "dog" => namespace
         };
 
-        let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
+        let happy_dog_entry = imports1.resolve(0, "dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
             happy_dog_global.global.ty == Type::I32

@@ -63,8 +63,8 @@ impl<T: NamedResolver> Resolver for T {
 pub struct NullResolver {}
 
 impl Resolver for NullResolver {
-    fn resolve(&self, _idx: u32, _module: &str, _field: &str) -> Option<Export> {
-        None
+    fn resolve(&self, _idx: u32, _module: &str, _field: &str) -> Result<Export, u32> {
+        Err(0)
     }
 }
 
@@ -136,7 +136,7 @@ pub fn resolve_imports(
     for ((module_name, field, import_idx), import_index) in module.imports.iter() {
         let resolved = resolver.resolve(*import_idx, module_name, field);
         let import_extern = get_extern_from_import(module, import_index);
-        let resolved = match resolved {
+        let resolved = match resolved.ok() {
             None => {
                 return Err(LinkError::Import(
                     module_name.to_string(),
@@ -228,4 +228,78 @@ pub fn resolve_imports(
         memory_imports,
         global_imports,
     ))
+}
+
+/// A [`Resolver`] that links two resolvers together in a chain.
+pub struct ResolverChain<A: Resolver, B: Resolver> {
+    a: A,
+    b: B,
+}
+
+/// A trait for chaining resolvers together.
+///
+/// TODO: add example
+pub trait ChainableResolver: Resolver + Sized {
+    /// Chain a resolver in front of the current resolver.
+    ///
+    /// This will cause the second resolver to override the first.
+    ///
+    /// TODO: add example
+    fn chain_front<U>(self, other: U) -> ResolverChain<U, Self>
+    where
+        U: Resolver,
+    {
+        ResolverChain { a: other, b: self }
+    }
+
+    /// Chain a resolver behind the current resolver.
+    ///
+    /// This will cause the first resolver to override the second.
+    ///
+    /// TODO: add example
+    fn chain_back<U>(self, other: U) -> ResolverChain<Self, U>
+    where
+        U: Resolver,
+    {
+        ResolverChain { a: self, b: other }
+    }
+}
+
+impl<A, B> ChainableResolver for ResolverChain<A, B>
+where
+    A: Resolver,
+    B: Resolver,
+{
+}
+
+impl<A, B> Resolver for ResolverChain<A, B>
+where
+    A: Resolver,
+    B: Resolver,
+{
+    fn resolve(&self, index: u32, module: &str, field: &str) -> Result<Export, u32> {
+        if index == 0 {
+            self.a
+                .resolve(0, module, field)
+                .or_else(|e1| self.b.resolve(0, module, field).map_err(|e2| e1 + e2))
+        } else {
+            match self.a.resolve(index, module, field) {
+                Ok(_) => self.b.resolve(index - 1, module, field).map_err(|e| e + 1),
+                Err(e1) => self.b.resolve(index, module, field).map_err(|e2| e1 + e2),
+            }
+        }
+    }
+}
+
+impl<A, B> Clone for ResolverChain<A, B>
+where
+    A: Resolver + Clone,
+    B: Resolver + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            a: self.a.clone(),
+            b: self.b.clone(),
+        }
+    }
 }

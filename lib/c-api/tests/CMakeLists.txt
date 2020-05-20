@@ -86,7 +86,6 @@ add_test(test-imports test-imports)
 
 target_link_libraries(test-import-object general ${WASMER_LIB})
 target_compile_options(test-import-object PRIVATE ${COMPILER_OPTIONS})
-# TODO: reenable this test
 #add_test(test-import-object test-import-object)
 
 
