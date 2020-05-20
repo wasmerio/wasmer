@@ -235,6 +235,8 @@ pub struct CodegenError {
     pub message: String,
 }
 
+/// Abstraction for a 2-input, 1-output operator. Can be an integer/floating-point
+/// binop/cmpop.
 struct I2O1 {
     loc_a: Location,
     loc_b: Location,
@@ -354,8 +356,6 @@ impl<'a> FuncGen<'a> {
         sz: Size,
         loc: Location,
     ) {
-        self.machine.state.wasm_stack_private_depth += 1;
-
         self.assembler.emit_cmp(sz, Location::Imm32(0), loc);
         self.mark_range_with_trap_code(TrapCode::IntegerDivisionByZero, |this| {
             this.assembler.emit_conditional_trap(Condition::Equal)
@@ -378,7 +378,6 @@ impl<'a> FuncGen<'a> {
                 op(&mut self.assembler, sz, loc);
             }
         }
-        self.machine.state.wasm_stack_private_depth -= 1;
     }
 
     /// Moves `src` and `dst` to valid locations for `movzx`/`movsx`.
@@ -1777,7 +1776,7 @@ impl<'a> FuncGen<'a> {
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
     ) -> Result<FuncGen<'a>, CodegenError> {
-        let func_index = FunctionIndex::new(module.num_imported_funcs + local_func_index.index());
+        let func_index = module.func_index(local_func_index);
         let sig_index = module.functions[func_index];
         let signature = module.signatures[sig_index].clone();
 
@@ -1863,7 +1862,7 @@ impl<'a> FuncGen<'a> {
 
         match op {
             Operator::GlobalGet { global_index } => {
-                let global_index = GlobalIndex::new(global_index as usize);
+                let global_index = GlobalIndex::from_u32(global_index);
 
                 let ty = type_to_wp_type(self.module.globals[global_index].ty);
                 if ty.is_float() {
@@ -1902,13 +1901,18 @@ impl<'a> FuncGen<'a> {
                 self.machine.release_temp_gpr(tmp);
             }
             Operator::GlobalSet { global_index } => {
-                let global_index = global_index as usize;
+                let global_index = GlobalIndex::from_u32(global_index);
                 let tmp = self.machine.acquire_temp_gpr().unwrap();
-                let dst = if global_index < self.module.num_imported_globals {
+                let dst = if let Some(local_global_index) =
+                    self.module.local_global_index(global_index)
+                {
+                    let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
+                    Location::Memory(Machine::get_vmctx_reg(), offset as i32)
+                } else {
                     // Imported globals require one level of indirection.
                     let offset = self
                         .vmoffsets
-                        .vmctx_vmglobal_import_definition(GlobalIndex::new(global_index));
+                        .vmctx_vmglobal_import_definition(global_index);
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S64,
@@ -1916,15 +1920,8 @@ impl<'a> FuncGen<'a> {
                         Location::GPR(tmp),
                     );
                     Location::Memory(tmp, 0)
-                } else {
-                    let offset = self
-                        .vmoffsets
-                        .vmctx_vmglobal_definition(LocalGlobalIndex::new(
-                            global_index - self.module.num_imported_globals,
-                        ));
-                    Location::Memory(Machine::get_vmctx_reg(), offset as i32)
                 };
-                let ty = type_to_wp_type(self.module.globals[GlobalIndex::new(global_index)].ty);
+                let ty = type_to_wp_type(self.module.globals[global_index].ty);
                 let loc = self.pop_value_released();
                 if ty.is_float() {
                     let fp = self.fp_stack.pop1()?;

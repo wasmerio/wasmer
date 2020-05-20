@@ -85,10 +85,10 @@ impl Compiler for SinglepassCompiler {
                 let num_locals = reader.read_local_count().map_err(to_compile_error)?;
                 for _ in 0..num_locals {
                     let mut counter = 0;
-                    let (_count, ty) = reader
+                    let (count, ty) = reader
                         .read_local_decl(&mut counter)
                         .map_err(to_compile_error)?;
-                    for _ in 0.._count {
+                    for _ in 0..count {
                         locals.push(ty);
                     }
                 }

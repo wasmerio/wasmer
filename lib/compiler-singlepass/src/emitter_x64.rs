@@ -2,6 +2,8 @@ pub use crate::x64_decl::{GPR, XMM};
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
+/// Dynasm proc-macro checks for an `.arch` expression in a source file to
+/// determine the architecture it should use.
 fn _dummy(_a: &Assembler) {
     dynasm!(
         _a

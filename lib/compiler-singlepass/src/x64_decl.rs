@@ -217,7 +217,6 @@ pub fn new_machine_state() -> MachineState {
         register_values: vec![MachineValue::Undefined; 16 + 8],
         prev_frame: BTreeMap::new(),
         wasm_stack: vec![],
-        wasm_stack_private_depth: 0,
         wasm_inst_offset: std::usize::MAX,
     }
 }

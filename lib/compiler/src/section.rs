@@ -23,8 +23,6 @@ pub enum CustomSectionProtection {
     /// A custom section with read permission.
     Read,
 
-    // We don't include `ReadWrite` here because it would complicate freeze
-    // and resumption of executing Modules.
     /// A custom section with read and execute permissions.
     ReadExecute,
 }

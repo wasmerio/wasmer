@@ -3,12 +3,12 @@ use std::collections::BTreeMap;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RegisterIndex(pub usize);
 
-/// A kind of wasm or constant value
+/// Whether a value is determined at compile-time or run-time.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum WasmAbstractValue {
-    /// A wasm runtime value
+    /// This value is only known at runtime.
     Runtime,
-    /// A wasm constant value
+    /// A constant value.
     Const(u64),
 }
 
@@ -23,15 +23,14 @@ pub struct MachineState {
     pub prev_frame: BTreeMap<usize, MachineValue>,
     /// Wasm stack.
     pub wasm_stack: Vec<WasmAbstractValue>,
-    /// Private depth of the wasm stack.
-    ///
-    ///
-    pub wasm_stack_private_depth: usize,
     /// Wasm instruction offset.
     pub wasm_inst_offset: usize,
 }
 
 /// A diff of two `MachineState`s.
+///
+/// A `MachineStateDiff` can only be applied after the `MachineStateDiff` its `last` field
+/// points to is already applied.
 #[derive(Clone, Debug, Default)]
 pub struct MachineStateDiff {
     /// Link to the previous diff this diff is based on, or `None` if this is the first diff.
@@ -54,9 +53,6 @@ pub struct MachineStateDiff {
 
     /// # of values popped from the Wasm stack.
     pub wasm_stack_pop: usize,
-
-    /// Private depth of the wasm stack.
-    pub wasm_stack_private_depth: usize, // absolute value; not a diff.
 
     /// Wasm instruction offset.
     pub wasm_inst_offset: usize, // absolute value; not a diff.
@@ -121,14 +117,14 @@ pub enum SuspendOffset {
     Trappable(usize),
 }
 
-/// Info for an offset.
+/// Description of a machine code range following an offset.
 #[derive(Clone, Debug)]
 pub struct OffsetInfo {
-    /// End offset.
-    pub end_offset: usize, // excluded bound
-    /// Diff Id.
+    /// Exclusive range-end offset.
+    pub end_offset: usize,
+    /// Index pointing to the `MachineStateDiff` entry.
     pub diff_id: usize,
-    /// Activate offset.
+    /// Offset at which execution can be continued.
     pub activate_offset: usize,
 }
 
@@ -211,7 +207,6 @@ impl MachineState {
 
             wasm_stack_push: self.wasm_stack[first_diff_wasm_stack_depth..].to_vec(),
             wasm_stack_pop: old.wasm_stack.len() - first_diff_wasm_stack_depth,
-            wasm_stack_private_depth: self.wasm_stack_private_depth,
 
             wasm_inst_offset: self.wasm_inst_offset,
         }
@@ -255,7 +250,6 @@ impl MachineStateDiff {
                 state.wasm_stack.push(*v);
             }
         }
-        state.wasm_stack_private_depth = self.wasm_stack_private_depth;
         state.wasm_inst_offset = self.wasm_inst_offset;
         state
     }
