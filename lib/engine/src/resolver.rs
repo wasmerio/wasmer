@@ -42,7 +42,7 @@ pub trait Resolver {
 /// This is a specific subtrait for [`Resolver`] for those users who don't
 /// care about the `index`, but only about the `module` and `field` for
 /// the resolution.
-pub trait NamedResolver: Resolver {
+pub trait NamedResolver {
     /// Resolves an import a WebAssembly module to an export it's hooked up to.
     ///
     /// It receives the `module` and `field` names and return the [`Export`] in
