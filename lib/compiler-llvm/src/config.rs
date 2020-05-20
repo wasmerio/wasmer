@@ -3,7 +3,8 @@
 
 use crate::compiler::LLVMCompiler;
 use inkwell::targets::{
-    CodeModel, InitializationConfig, RelocMode, Target as LLVMTarget, TargetMachine, TargetTriple,
+    CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
+    TargetTriple,
 };
 use inkwell::OptimizationLevel;
 use itertools::Itertools;
@@ -97,7 +98,7 @@ impl LLVMConfig {
         let cpu_features = &target.cpu_features();
 
         match triple.architecture {
-            Architecture::X86_64 => LLVMTarget::initialize_x86(&InitializationConfig {
+            Architecture::X86_64 => InkwellTarget::initialize_x86(&InitializationConfig {
                 asm_parser: true,
                 asm_printer: true,
                 base: true,
@@ -105,7 +106,7 @@ impl LLVMConfig {
                 info: true,
                 machine_code: true,
             }),
-            Architecture::Arm(_) => LLVMTarget::initialize_aarch64(&InitializationConfig {
+            Architecture::Arm(_) => InkwellTarget::initialize_aarch64(&InitializationConfig {
                 asm_parser: true,
                 asm_printer: true,
                 base: true,
@@ -137,7 +138,7 @@ impl LLVMConfig {
             .join(",");
 
         let arch_string = triple.architecture.to_string();
-        let llvm_target = LLVMTarget::from_triple(&self.target_triple()).unwrap();
+        let llvm_target = InkwellTarget::from_triple(&self.target_triple()).unwrap();
         let target_machine = llvm_target
             .create_target_machine(
                 &self.target_triple(),
