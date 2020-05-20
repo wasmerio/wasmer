@@ -61,7 +61,7 @@ test-utils = { path = "tests/lib/test-utils" }
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wat", "wast", "wasi", "cranelift", "singlepass", "cache", "jit", "native"]
+default = ["wat", "wast", "wasi", "cranelift", "cache", "jit", "native"]
 engine = []
 jit = [
     "wasmer-engine-jit",
