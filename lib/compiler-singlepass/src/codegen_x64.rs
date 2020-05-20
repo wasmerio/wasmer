@@ -8234,12 +8234,12 @@ pub fn gen_std_trampoline(sig: FunctionType) -> FunctionBody {
     // Arguments
     a.emit_mov(
         Size::S64,
-        Machine::get_param_location(2),
+        Machine::get_param_location(1),
         Location::GPR(GPR::R15),
     ); // func_ptr
     a.emit_mov(
         Size::S64,
-        Machine::get_param_location(3),
+        Machine::get_param_location(2),
         Location::GPR(GPR::R14),
     ); // args_rets
 
