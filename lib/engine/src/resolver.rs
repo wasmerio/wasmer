@@ -26,8 +26,8 @@ pub trait Resolver {
     ///
     /// # Notes:
     ///
-    /// The index is useful because some WebAssembly modules would rely on that
-    /// for importing. Such as:
+    /// The index is useful because some WebAssembly modules may rely on that
+    /// for resolving ambiguity in their imports. Such as:
     /// ```
     /// (module
     ///   (import "" "" (func))
