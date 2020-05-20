@@ -34,6 +34,11 @@ impl CompilerConfig for SinglepassConfig {
         &self.features
     }
 
+    /// Whether we should emit code suitable for dlopen.
+    fn enable_pic(&mut self) {
+        // Singlepass always emit dlopen'able code.
+    }
+
     /// Gets the target that we will use for compiling
     /// the WebAssembly module
     fn target(&self) -> &Target {

@@ -11,7 +11,7 @@ use wasmer_compiler::FunctionBodyData;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, Compiler, FunctionBody};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
-use wasmer_runtime::Module;
+use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::TrapCode;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
@@ -50,7 +50,7 @@ impl Compiler for SinglepassCompiler {
     /// associated relocations.
     fn compile_module(
         &self,
-        _module: &Module,
+        _module: &ModuleInfo,
         _module_translation: &ModuleTranslationState,
         _function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         _memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
@@ -77,7 +77,7 @@ impl Compiler for SinglepassCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        module: &Module,
+        module: &ModuleInfo,
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
         Ok(PrimaryMap::new())
         // unimplemented!("Dynamic function trampolines not yet implemented");
