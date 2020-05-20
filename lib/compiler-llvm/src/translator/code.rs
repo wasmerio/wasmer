@@ -552,7 +552,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         &self,
         value: BasicValueEnum<'ctx>,
         vec_ty: VectorType<'ctx>,
-        name: &str,
     ) -> VectorValue<'ctx> {
         // Use insert_element to insert the element into an undef vector, then use
         // shuffle vector to copy that lane to all lanes.
@@ -568,7 +567,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .i32_ty
                 .vec_type(vec_ty.get_size())
                 .const_zero(),
-            name,
+            "",
         )
     }
 
@@ -583,7 +582,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         int_min_value: u64,
         int_max_value: u64,
         value: IntValue<'ctx>,
-        name: &str,
     ) -> IntValue<'ctx> {
         // a) Compare vector with itself to identify NaN lanes.
         // b) Compare vector with splat of inttofp(upper_bound) to identify
@@ -609,14 +607,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .const_int(int_min_value, is_signed)
                 .as_basic_value_enum(),
             ivec_ty,
-            "",
         );
         let int_max_value = self.splat_vector(
             ivec_element_ty
                 .const_int(int_max_value, is_signed)
                 .as_basic_value_enum(),
             ivec_ty,
-            "",
         );
         let lower_bound = if is_signed {
             self.builder.build_signed_int_to_float(
@@ -650,8 +646,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             .build_bitcast(value, fvec_ty, "")
             .into_vector_value();
         let zero = fvec_ty.const_zero();
-        let lower_bound = self.splat_vector(lower_bound.as_basic_value_enum(), fvec_ty, "");
-        let upper_bound = self.splat_vector(upper_bound.as_basic_value_enum(), fvec_ty, "");
+        let lower_bound = self.splat_vector(lower_bound.as_basic_value_enum(), fvec_ty);
+        let upper_bound = self.splat_vector(upper_bound.as_basic_value_enum(), fvec_ty);
         let nan_cmp = self
             .builder
             .build_float_compare(FloatPredicate::UNO, value, zero, "nan");
@@ -689,7 +685,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             .into_vector_value();
         let res = self
             .builder
-            .build_select(below_lower_bound_cmp, int_min_value, value, name)
+            .build_select(below_lower_bound_cmp, int_min_value, value, "")
             .into_vector_value();
         self.builder
             .build_bitcast(res, self.intrinsics.i128_ty, "")
@@ -706,7 +702,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         int_min_value: u64,
         int_max_value: u64,
         value: FloatValue<'ctx>,
-        name: &str,
     ) -> IntValue<'ctx> {
         // TODO: this is a scalarized version of the process in trunc_sat. Either
         // we should merge with trunc_sat, or we should simplify this function.
@@ -793,7 +788,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             .into_int_value();
         let value = self
             .builder
-            .build_select(below_lower_bound_cmp, int_min_value, value, name)
+            .build_select(below_lower_bound_cmp, int_min_value, value, "")
             .into_int_value();
         self.builder
             .build_bitcast(value, int_ty, "")
@@ -1146,7 +1141,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .get_element_type()
                 .into_float_type()
                 .const_float(std::f64::NAN);
-            let canonical_qnan = self.splat_vector(canonical_qnan.as_basic_value_enum(), f_ty, "");
+            let canonical_qnan = self.splat_vector(canonical_qnan.as_basic_value_enum(), f_ty);
             self.builder
                 .build_select(nan_cmp, canonical_qnan, value, "")
                 .as_basic_value_enum()
@@ -2024,7 +2019,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v = self
                     .builder
                     .build_int_truncate(v, self.intrinsics.i8_ty, "");
-                let res = self.splat_vector(v.as_basic_value_enum(), self.intrinsics.i8x16_ty, "");
+                let res = self.splat_vector(v.as_basic_value_enum(), self.intrinsics.i8x16_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, i);
             }
@@ -2034,25 +2029,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v = self
                     .builder
                     .build_int_truncate(v, self.intrinsics.i16_ty, "");
-                let res = self.splat_vector(v.as_basic_value_enum(), self.intrinsics.i16x8_ty, "");
+                let res = self.splat_vector(v.as_basic_value_enum(), self.intrinsics.i16x8_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, i);
             }
             Operator::I32x4Splat => {
                 let (v, i) = self.state.pop1_extra()?;
-                let res = self.splat_vector(v, self.intrinsics.i32x4_ty, "");
+                let res = self.splat_vector(v, self.intrinsics.i32x4_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, i);
             }
             Operator::I64x2Splat => {
                 let (v, i) = self.state.pop1_extra()?;
-                let res = self.splat_vector(v, self.intrinsics.i64x2_ty, "");
+                let res = self.splat_vector(v, self.intrinsics.i64x2_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, i);
             }
             Operator::F32x4Splat => {
                 let (v, i) = self.state.pop1_extra()?;
-                let res = self.splat_vector(v, self.intrinsics.f32x4_ty, "");
+                let res = self.splat_vector(v, self.intrinsics.f32x4_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // The spec is unclear, we interpret splat as preserving NaN
                 // payload bits.
@@ -2060,7 +2055,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64x2Splat => {
                 let (v, i) = self.state.pop1_extra()?;
-                let res = self.splat_vector(v, self.intrinsics.f64x2_ty, "");
+                let res = self.splat_vector(v, self.intrinsics.f64x2_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 // The spec is unclear, we interpret splat as preserving NaN
                 // payload bits.
@@ -2978,7 +2973,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self
                     .builder
                     .build_int_truncate(v2, self.intrinsics.i8_ty, "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i8x16_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i8x16_ty);
                 let res = self.builder.build_left_shift(v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -2994,7 +2989,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self
                     .builder
                     .build_int_truncate(v2, self.intrinsics.i16_ty, "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i16x8_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i16x8_ty);
                 let res = self.builder.build_left_shift(v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3007,7 +3002,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 =
                     self.builder
                         .build_and(v2, self.intrinsics.i32_ty.const_int(31, false), "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i32x4_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i32x4_ty);
                 let res = self.builder.build_left_shift(v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3023,7 +3018,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self
                     .builder
                     .build_int_z_extend(v2, self.intrinsics.i64_ty, "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i64x2_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i64x2_ty);
                 let res = self.builder.build_left_shift(v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3048,7 +3043,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self
                     .builder
                     .build_int_truncate(v2, self.intrinsics.i8_ty, "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i8x16_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i8x16_ty);
                 let res = self.builder.build_right_shift(v1, v2, true, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3064,7 +3059,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self
                     .builder
                     .build_int_truncate(v2, self.intrinsics.i16_ty, "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i16x8_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i16x8_ty);
                 let res = self.builder.build_right_shift(v1, v2, true, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3077,7 +3072,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 =
                     self.builder
                         .build_and(v2, self.intrinsics.i32_ty.const_int(31, false), "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i32x4_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i32x4_ty);
                 let res = self.builder.build_right_shift(v1, v2, true, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3093,7 +3088,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self
                     .builder
                     .build_int_z_extend(v2, self.intrinsics.i64_ty, "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i64x2_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i64x2_ty);
                 let res = self.builder.build_right_shift(v1, v2, true, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3117,7 +3112,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self
                     .builder
                     .build_int_truncate(v2, self.intrinsics.i8_ty, "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i8x16_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i8x16_ty);
                 let res = self.builder.build_right_shift(v1, v2, false, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3133,7 +3128,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self
                     .builder
                     .build_int_truncate(v2, self.intrinsics.i16_ty, "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i16x8_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i16x8_ty);
                 let res = self.builder.build_right_shift(v1, v2, false, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3146,7 +3141,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 =
                     self.builder
                         .build_and(v2, self.intrinsics.i32_ty.const_int(31, false), "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i32x4_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i32x4_ty);
                 let res = self.builder.build_right_shift(v1, v2, false, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3162,7 +3157,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self
                     .builder
                     .build_int_z_extend(v2, self.intrinsics.i64_ty, "");
-                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i64x2_ty, "");
+                let v2 = self.splat_vector(v2.as_basic_value_enum(), self.intrinsics.i64x2_ty);
                 let res = self.builder.build_right_shift(v1, v2, false, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -3708,7 +3703,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         .const_float(-0.0)
                         .as_basic_value_enum(),
                     self.intrinsics.f32x4_ty,
-                    "",
                 );
                 let v2 = self
                     .builder
@@ -3788,7 +3782,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         .const_float(-0.0)
                         .as_basic_value_enum(),
                     self.intrinsics.f64x2_ty,
-                    "",
                 );
                 let v2 = self
                     .builder
@@ -3996,7 +3989,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let zero = self.splat_vector(
                     self.intrinsics.f32_zero.as_basic_value_enum(),
                     self.intrinsics.f32x4_ty,
-                    "",
                 );
                 let v2 = self
                     .builder
@@ -4072,7 +4064,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let zero = self.splat_vector(
                     self.intrinsics.f64_zero.as_basic_value_enum(),
                     self.intrinsics.f64x2_ty,
-                    "",
                 );
                 let v2 = self
                     .builder
@@ -5140,7 +5131,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::i32::MIN as u64,
                     std::i32::MAX as u64,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5156,7 +5146,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::u32::MIN as u64,
                     std::u32::MAX as u64,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5172,7 +5161,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::i64::MIN as u64,
                     std::i64::MAX as u64,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5188,7 +5176,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::u64::MIN,
                     std::u64::MAX,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5227,7 +5214,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::i32::MIN as u32 as u64,
                     std::i32::MAX as u32 as u64,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5242,7 +5228,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::i32::MIN as u64,
                     std::i32::MAX as u64,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5281,7 +5266,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::i64::MIN as u64,
                     std::i64::MAX as u64,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5296,7 +5280,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::i64::MIN as u64,
                     std::i64::MAX as u64,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5335,7 +5318,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::u32::MIN as u64,
                     std::u32::MAX as u64,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5350,7 +5332,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::u32::MIN as u64,
                     std::u32::MAX as u64,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5389,7 +5370,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::u64::MIN,
                     std::u64::MAX,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -5404,7 +5384,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     std::u64::MIN,
                     std::u64::MAX,
                     v,
-                    "",
                 );
                 self.state.push1(res);
             }
@@ -6396,7 +6375,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .into_vector_value();
                 let lanes = self.intrinsics.i8_ty.const_int(16, false);
                 let lanes =
-                    self.splat_vector(lanes.as_basic_value_enum(), self.intrinsics.i8x16_ty, "");
+                    self.splat_vector(lanes.as_basic_value_enum(), self.intrinsics.i8x16_ty);
                 let mut res = self.intrinsics.i8x16_ty.get_undef();
                 let idx_out_of_range = self.builder.build_int_compare(
                     IntPredicate::UGE,
@@ -6493,7 +6472,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     "memory 0".into(),
                     elem.as_instruction_value().unwrap(),
                 );
-                let res = self.splat_vector(elem, self.intrinsics.i8x16_ty, "");
+                let res = self.splat_vector(elem, self.intrinsics.i8x16_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
@@ -6517,7 +6496,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     "memory 0".into(),
                     elem.as_instruction_value().unwrap(),
                 );
-                let res = self.splat_vector(elem, self.intrinsics.i16x8_ty, "");
+                let res = self.splat_vector(elem, self.intrinsics.i16x8_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
@@ -6541,7 +6520,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     "memory 0".into(),
                     elem.as_instruction_value().unwrap(),
                 );
-                let res = self.splat_vector(elem, self.intrinsics.i32x4_ty, "");
+                let res = self.splat_vector(elem, self.intrinsics.i32x4_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
@@ -6565,7 +6544,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     "memory 0".into(),
                     elem.as_instruction_value().unwrap(),
                 );
-                let res = self.splat_vector(elem, self.intrinsics.i64x2_ty, "");
+                let res = self.splat_vector(elem, self.intrinsics.i64x2_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
