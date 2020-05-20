@@ -29,7 +29,7 @@ impl JITEngine {
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new(
-        mut config: Box<dyn CompilerConfig>,
+        config: Box<dyn CompilerConfig>,
         tunables: impl Tunables + 'static + Send + Sync,
     ) -> Self {
         let compiler = config.compiler();
