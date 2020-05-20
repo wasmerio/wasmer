@@ -57,9 +57,7 @@ pub trait Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<dyn CompiledModule>, DeserializeError> {
-        // TODO: Return an IoDeserializeError, so we don't need to map the error
-        let bytes =
-            std::fs::read(file_ref).map_err(|e| DeserializeError::Generic(format!("{}", e)))?;
+        let bytes = std::fs::read(file_ref)?;
         self.deserialize(&bytes)
     }
 }

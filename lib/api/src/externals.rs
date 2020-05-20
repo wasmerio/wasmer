@@ -739,7 +739,7 @@ impl Function {
         let trampoline = store
             .engine()
             .function_call_trampoline(wasmer_export.signature)
-            .unwrap();
+            .expect("Can't get call trampoline for the function");
         Self {
             store: store.clone(),
             owned_by_store: false,

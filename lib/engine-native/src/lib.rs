@@ -1,9 +1,14 @@
-//! The `wasmer-cache` crate provides the necessary abstractions
-//! to cache WebAssembly Modules easily.
+//! Native backend for Wasmer compilers.
+//!
+//! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)
+//! it generates a shared object file (`.so` or `.dylib` depending on
+//! the target), saves it temporarily to disk and uses it natively
+//! via `dlopen` and `dlsym` (using the `libloading` library).
+//!
+//! Note: `.dll` generation for Windows is not yet supported
 
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![cfg_attr(feature = "std", deny(unstable_features))]
 #![cfg_attr(feature = "clippy", plugin(clippy(conf_file = "../../clippy.toml")))]
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
 #![cfg_attr(
@@ -20,13 +25,12 @@
     )
 )]
 
-mod cache;
-mod filesystem;
-mod hash;
+mod engine;
+mod module;
+mod serialize;
 
-pub use crate::cache::Cache;
-pub use crate::filesystem::FileSystemCache;
-pub use crate::hash::WasmHash;
+pub use crate::engine::NativeEngine;
+pub use crate::module::NativeModule;
 
-// We re-export those for convinience of users
-pub use wasmer::{DeserializeError, SerializeError};
+/// Version number of this crate.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

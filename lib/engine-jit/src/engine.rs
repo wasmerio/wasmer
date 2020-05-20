@@ -28,13 +28,10 @@ impl JITEngine {
 
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new<C: CompilerConfig>(
-        config: &C,
+    pub fn new(
+        config: Box<dyn CompilerConfig>,
         tunables: impl Tunables + 'static + Send + Sync,
-    ) -> Self
-    where
-        C: ?Sized,
-    {
+    ) -> Self {
         let compiler = config.compiler();
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
@@ -127,7 +124,9 @@ impl Engine for JITEngine {
         compiled_module: &dyn BaseCompiledModule,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
-        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
+        let compiled_module = compiled_module
+            .downcast_ref::<CompiledModule>()
+            .expect("The provided module is not a JIT compiled module");
         compiled_module.instantiate(&self, resolver, Box::new(()))
     }
 
@@ -137,7 +136,9 @@ impl Engine for JITEngine {
         compiled_module: &dyn BaseCompiledModule,
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
-        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
+        let compiled_module = compiled_module
+            .downcast_ref::<CompiledModule>()
+            .expect("The provided module is not a JIT compiled module");
         compiled_module.finish_instantiation(&handle)
     }
 
@@ -146,7 +147,9 @@ impl Engine for JITEngine {
         &self,
         compiled_module: &dyn BaseCompiledModule,
     ) -> Result<Vec<u8>, SerializeError> {
-        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
+        let compiled_module = compiled_module
+            .downcast_ref::<CompiledModule>()
+            .expect("The provided module is not a JIT compiled module");
         // We append the header
         let mut serialized = Self::MAGIC_HEADER.to_vec();
         serialized.extend(compiled_module.serialize()?);
