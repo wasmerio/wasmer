@@ -3,7 +3,7 @@
 use super::binemit::TrampolineRelocSink;
 use crate::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
 use cranelift_codegen::ir::{
-    types, ExternalName, Function, InstBuilder, MemFlags, StackSlotData, StackSlotKind,
+    ExternalName, Function, InstBuilder, MemFlags, StackSlotData, StackSlotKind,
 };
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::print_errors::pretty_error;
@@ -13,7 +13,6 @@ use std::cmp;
 use std::mem;
 
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-use wasm_common::entity::EntityRef;
 use wasm_common::SignatureIndex;
 use wasmer_compiler::{CompileError, FunctionBody};
 use wasmer_runtime::{ModuleInfo, VMOffsets};
@@ -36,9 +35,6 @@ pub fn make_trampoline_dynamic_function(
         pointer_type,
         ir::ArgumentPurpose::VMContext,
     ));
-
-    // Add the `sig_index` parameter.
-    stub_sig.params.push(ir::AbiParam::new(types::I32));
 
     // Add the `values_vec` parameter.
     stub_sig.params.push(ir::AbiParam::new(pointer_type));
@@ -80,10 +76,12 @@ pub fn make_trampoline_dynamic_function(
         let block_params = builder.func.dfg.block_params(block0);
         let vmctx_ptr_val = block_params[0];
 
+        // Note: not used at the moment, but keeping in case is useful
+        // for the future
         // Get the signature index
-        let caller_sig_id = builder.ins().iconst(types::I32, sig_index.index() as i64);
+        // let caller_sig_id = builder.ins().iconst(types::I32, sig_index.index() as i64);
 
-        let callee_args = vec![vmctx_ptr_val, caller_sig_id, values_vec_ptr_val];
+        let callee_args = vec![vmctx_ptr_val, values_vec_ptr_val];
 
         let new_sig = builder.import_signature(stub_sig);
 

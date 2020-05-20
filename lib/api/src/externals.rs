@@ -7,13 +7,11 @@ use crate::RuntimeError;
 use crate::{ExternType, FunctionType, GlobalType, MemoryType, TableType, ValType};
 use std::cmp::max;
 use std::slice;
-use wasm_common::{
-    HostFunction, Pages, SignatureIndex, ValueType, WasmTypeList, WithEnv, WithoutEnv,
-};
+use wasm_common::{HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
-    InstanceHandle, LinearMemory, MemoryError, Table as RuntimeTable, VMCallerCheckedAnyfunc,
-    VMContext, VMDynamicFunctionImportContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition,
+    LinearMemory, MemoryError, Table as RuntimeTable, VMCallerCheckedAnyfunc, VMContext,
+    VMDynamicFunctionImportContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition,
     VMMemoryDefinition, VMTrampoline,
 };
 
@@ -542,6 +540,7 @@ impl Function {
         let dynamic_ctx =
             VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithoutEnv {
                 func: Box::new(func),
+                function_type: ty.clone(),
             });
         let address = std::ptr::null() as *const VMFunctionBody;
         let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
@@ -568,6 +567,7 @@ impl Function {
         let dynamic_ctx = VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithEnv {
             env,
             func: Box::new(func),
+            function_type: ty.clone(),
         });
         let address = std::ptr::null() as *const VMFunctionBody;
         let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
@@ -777,15 +777,20 @@ impl std::fmt::Debug for Function {
 /// This trait is one that all dynamic funcitons must fulfill.
 trait VMDynamicFunction {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError>;
+    fn function_type(&self) -> &FunctionType;
 }
 
 struct VMDynamicFunctionWithoutEnv {
     func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    function_type: FunctionType,
 }
 
 impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
         (*self.func)(&args)
+    }
+    fn function_type(&self) -> &FunctionType {
+        &self.function_type
     }
 }
 
@@ -795,6 +800,7 @@ where
 {
     func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     env: *mut Env,
+    function_type: FunctionType,
 }
 
 impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
@@ -804,17 +810,15 @@ where
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
         unsafe { (*self.func)(&mut *self.env, &args) }
     }
+    fn function_type(&self) -> &FunctionType {
+        &self.function_type
+    }
 }
 
 trait VMDynamicFunctionImportCall<T: VMDynamicFunction> {
     fn from_context(ctx: T) -> Self;
     fn address_ptr() -> *const VMFunctionBody;
-    unsafe fn func_wrapper(
-        &self,
-        caller_vmctx: *mut VMContext,
-        sig_index: SignatureIndex,
-        values_vec: *mut i128,
-    );
+    unsafe fn func_wrapper(&self, values_vec: *mut i128);
 }
 
 impl<T: VMDynamicFunction> VMDynamicFunctionImportCall<T> for VMDynamicFunctionImportContext<T> {
@@ -835,25 +839,11 @@ impl<T: VMDynamicFunction> VMDynamicFunctionImportCall<T> for VMDynamicFunctionI
         // Note: we use the trick that the first param to this function is the `VMDynamicFunctionImportContext`
         // itself, so rather than doing `dynamic_ctx: &VMDynamicFunctionImportContext<T>`, we simplify it a bit
         &self,
-        caller_vmctx: *mut VMContext,
-        sig_index: SignatureIndex,
         values_vec: *mut i128,
     ) {
         use std::panic::{self, AssertUnwindSafe};
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            // This is actually safe, since right now the function signature
-            // receives two contexts:
-            // 1. `vmctx`: the context associated to where the function is defined.
-            //    It will be `VMContext` in case is defined in Wasm, and a custom
-            //    `Env` in case is host defined.
-            // 2. `caller_vmctx`: the context associated to whoever is calling that function.
-            //
-            // Because this code will only be reached when calling from wasm to host, we
-            // can assure the callee_vmctx is indeed a VMContext, and hence is completely
-            // safe to get a handle from it.
-            let handle = InstanceHandle::from_vmctx(caller_vmctx);
-            let module = handle.module_ref();
-            let func_ty = &module.signatures[sig_index];
+            let func_ty = self.ctx.function_type();
             let mut args = Vec::with_capacity(func_ty.params().len());
             for (i, ty) in func_ty.params().iter().enumerate() {
                 args.push(Val::read_value_from(values_vec.add(i), *ty));
