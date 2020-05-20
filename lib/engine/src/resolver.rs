@@ -11,7 +11,7 @@ use wasmer_runtime::{
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
-use wasmer_runtime::{MemoryStyle, Module};
+use wasmer_runtime::{MemoryStyle, ModuleInfo};
 
 /// Import resolver connects imports with available exported values.
 pub trait Resolver {
@@ -36,7 +36,7 @@ impl Resolver for NullResolver {
 }
 
 /// Get an `ExternType` given a import index.
-fn get_extern_from_import(module: &Module, import_index: &ImportIndex) -> ExternType {
+fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> ExternType {
     match import_index {
         ImportIndex::Function(index) => {
             let func = module.signatures[module.functions[*index]].clone();
@@ -59,7 +59,7 @@ fn get_extern_from_import(module: &Module, import_index: &ImportIndex) -> Extern
 
 /// Get an `ExternType` given an export (and signatures in case is a function).
 fn get_extern_from_export(
-    _module: &Module,
+    _module: &ModuleInfo,
     signatures: &SignatureRegistry,
     export: &Export,
 ) -> ExternType {
@@ -83,12 +83,12 @@ fn get_extern_from_export(
     }
 }
 
-/// This function allows to match all imports of a `Module` with concrete definitions provided by
+/// This function allows to match all imports of a `ModuleInfo` with concrete definitions provided by
 /// a `Resolver`.
 ///
 /// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
 pub fn resolve_imports(
-    module: &Module,
+    module: &ModuleInfo,
     signatures: &SignatureRegistry,
     resolver: &dyn Resolver,
     finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *const VMFunctionBody>,

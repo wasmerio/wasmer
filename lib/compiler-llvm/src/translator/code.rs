@@ -47,8 +47,9 @@ use wasmer_compiler::{
     RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc, WasmResult,
 };
 use wasmer_runtime::libcalls::LibCall;
-use wasmer_runtime::Module as WasmerCompilerModule;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_runtime::{
+    MemoryPlan, MemoryStyle, ModuleInfo, TablePlan, VMBuiltinFunctionIndex, VMOffsets,
+};
 
 // TODO: debugging
 use std::fs;
@@ -119,7 +120,7 @@ impl FuncTranslator {
 
     pub fn translate(
         &mut self,
-        wasm_module: &WasmerCompilerModule,
+        wasm_module: &ModuleInfo,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVMConfig,
@@ -1434,7 +1435,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     */
     module: &'a Module<'ctx>,
     vmoffsets: VMOffsets,
-    wasm_module: &'a WasmerCompilerModule,
+    wasm_module: &'a ModuleInfo,
     func_names: &'a SecondaryMap<FunctionIndex, String>,
 }
 
@@ -1442,7 +1443,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     fn translate_operator(
         &mut self,
         op: Operator,
-        module: &WasmerCompilerModule,
+        module: &ModuleInfo,
         _source_loc: u32,
     ) -> Result<(), CompileError> {
         // TODO: remove this vmctx by moving everything into CtxType. Values

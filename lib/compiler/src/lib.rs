@@ -70,7 +70,7 @@ pub use crate::target::{
 };
 #[cfg(feature = "translator")]
 pub use crate::translator::{
-    to_wasm_error, translate_module, FunctionBodyData, ModuleEnvironment, ModuleTranslation,
+    to_wasm_error, translate_module, FunctionBodyData, ModuleEnvironment, ModuleInfoTranslation,
     ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;

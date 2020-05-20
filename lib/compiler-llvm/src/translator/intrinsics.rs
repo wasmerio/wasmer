@@ -25,7 +25,7 @@ use wasm_common::{
     FunctionIndex, FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, Pages,
     SignatureIndex, TableIndex, Type,
 };
-use wasmer_runtime::Module as WasmerCompilerModule;
+use wasmer_runtime::ModuleInfo as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TrapCode, VMOffsets};
 
 pub fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerType<'ctx> {

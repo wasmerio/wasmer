@@ -20,7 +20,7 @@ use wasmer_engine::{
     SerializableFunctionFrameInfo, SerializeError,
 };
 use wasmer_runtime::{
-    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
+    InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -297,11 +297,11 @@ impl CompiledModule {
 }
 
 impl BaseCompiledModule for CompiledModule {
-    fn module(&self) -> &Module {
+    fn module(&self) -> &ModuleInfo {
         &self.serializable.module
     }
 
-    fn module_mut(&mut self) -> &mut Module {
+    fn module_mut(&mut self) -> &mut ModuleInfo {
         Arc::get_mut(&mut self.serializable.module).unwrap()
     }
 }

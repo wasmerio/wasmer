@@ -12,7 +12,7 @@ use crate::WasmResult;
 use wasmparser::{CustomSectionContent, ModuleReader, SectionContent};
 
 /// Translate a sequence of bytes forming a valid Wasm binary into a
-/// parsed Module `ModuleTranslationState`.
+/// parsed ModuleInfo `ModuleTranslationState`.
 pub fn translate_module<'data>(
     data: &'data [u8],
     environ: &mut ModuleEnvironment<'data>,

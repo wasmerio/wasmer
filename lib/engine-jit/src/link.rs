@@ -7,7 +7,7 @@ use wasmer_compiler::{
     JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
     SectionBody, SectionIndex,
 };
-use wasmer_runtime::Module;
+use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::VMFunctionBody;
 
 fn apply_relocation(
@@ -63,7 +63,7 @@ fn apply_relocation(
 /// Links a module, patching the allocated functions with the
 /// required relocations and jump tables.
 pub fn link_module(
-    _module: &Module,
+    _module: &ModuleInfo,
     allocated_functions: &PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     function_relocations: Relocations,

@@ -12,7 +12,7 @@ use wasm_common::entity::PrimaryMap;
 use wasm_common::{
     Features, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex,
 };
-use wasmer_runtime::Module;
+use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
 
@@ -70,7 +70,7 @@ pub trait Compiler {
     /// or a `CompileError`.
     fn compile_module<'data, 'module>(
         &self,
-        module: &'module Module,
+        module: &'module ModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -113,6 +113,6 @@ pub trait Compiler {
     /// ```
     fn compile_dynamic_function_trampolines(
         &self,
-        module: &Module,
+        module: &ModuleInfo,
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError>;
 }

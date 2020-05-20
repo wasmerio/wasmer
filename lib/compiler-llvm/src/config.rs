@@ -10,7 +10,7 @@ use itertools::Itertools;
 use target_lexicon::Architecture;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, Features, Target, Triple};
 
-/// The InkWell Module type
+/// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
 
 /// The InkWell MemoryBuffer type

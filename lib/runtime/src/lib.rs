@@ -42,8 +42,8 @@ pub use crate::instance::InstanceHandle;
 pub use crate::memory::{LinearMemory, MemoryError};
 pub use crate::mmap::Mmap;
 pub use crate::module::{
-    ExportsIterator, ImportsIterator, MemoryPlan, MemoryStyle, Module, TableElements, TablePlan,
-    TableStyle,
+    ExportsIterator, ImportsIterator, MemoryPlan, MemoryStyle, ModuleInfo, TableElements,
+    TablePlan, TableStyle,
 };
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;

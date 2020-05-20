@@ -10,7 +10,7 @@ use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
 use wasmer_engine::{CompiledModule, DeserializeError, Resolver, SerializeError};
-use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, Module as ModuleInfo};
+use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, ModuleInfo};
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {

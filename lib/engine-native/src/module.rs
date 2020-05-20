@@ -25,7 +25,8 @@ use wasmer_engine::{
     RuntimeError, SerializeError,
 };
 use wasmer_runtime::{
-    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
@@ -511,11 +512,11 @@ impl NativeModule {
 }
 
 impl CompiledModule for NativeModule {
-    fn module(&self) -> &Module {
+    fn module(&self) -> &ModuleInfo {
         &self.metadata.module
     }
 
-    fn module_mut(&mut self) -> &mut Module {
+    fn module_mut(&mut self) -> &mut ModuleInfo {
         Arc::get_mut(&mut self.metadata.module).unwrap()
     }
 }

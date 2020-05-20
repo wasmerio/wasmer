@@ -14,7 +14,7 @@ use wasmer_compiler::{
     CustomSectionProtection, FunctionBody, FunctionBodyData, ModuleTranslationState, Relocation,
     RelocationTarget, SectionBody, SectionIndex, Target, TrapInformation,
 };
-use wasmer_runtime::{MemoryPlan, Module, TablePlan, TrapCode};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, TrapCode};
 
 use inkwell::targets::{InitializationConfig, Target as InkwellTarget};
 
@@ -56,7 +56,7 @@ impl Compiler for LLVMCompiler {
     /// associated relocations.
     fn compile_module<'data, 'module>(
         &self,
-        module: &'module Module,
+        module: &'module ModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
@@ -142,7 +142,7 @@ impl Compiler for LLVMCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        module: &Module,
+        module: &ModuleInfo,
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
         Ok(PrimaryMap::new())
         // unimplemented!("Dynamic function trampolines not yet implemented");

@@ -93,7 +93,7 @@ impl Default for ModuleId {
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Module {
+pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///
     /// We skip serialization/deserialization of this field, as it
@@ -160,7 +160,7 @@ pub struct Module {
     pub num_imported_globals: usize,
 }
 
-impl Module {
+impl ModuleInfo {
     /// Allocates the module data structures.
     pub fn new() -> Self {
         Self {
@@ -353,7 +353,7 @@ impl Module {
     }
 }
 
-impl fmt::Display for Module {
+impl fmt::Display for ModuleInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name())
     }

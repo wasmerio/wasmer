@@ -13,7 +13,8 @@ use wasmer_engine::{
     SerializeError, Tunables,
 };
 use wasmer_runtime::{
-    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
@@ -212,7 +213,7 @@ impl JITEngineInner {
     /// Compile the given function bodies.
     pub(crate) fn allocate(
         &mut self,
-        module: &Module,
+        module: &ModuleInfo,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
         dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,
