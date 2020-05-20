@@ -379,16 +379,14 @@ impl Trap {
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
     vmctx: *mut VMContext,
-    caller_vmctx: *mut VMContext,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(vmctx, || {
-        mem::transmute::<
-            _,
-            extern "C" fn(*mut VMContext, *mut VMContext, *const VMFunctionBody, *mut u8),
-        >(trampoline)(vmctx, caller_vmctx, callee, values_vec)
+        mem::transmute::<_, extern "C" fn(*mut VMContext, *const VMFunctionBody, *mut u8)>(
+            trampoline,
+        )(vmctx, callee, values_vec)
     })
 }
 

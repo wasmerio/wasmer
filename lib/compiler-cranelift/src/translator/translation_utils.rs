@@ -36,10 +36,6 @@ pub fn signature_to_cranelift_ir(
         0,
         AbiParam::special(target_config.pointer_type(), ir::ArgumentPurpose::VMContext),
     );
-    // Prepend the caller vmctx argument.
-    sig.params
-        .insert(1, AbiParam::new(target_config.pointer_type()));
-
     sig
 }
 

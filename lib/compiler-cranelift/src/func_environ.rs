@@ -32,7 +32,7 @@ pub fn type_of_vmtable_definition_current_elements(vmoffsets: &VMOffsets) -> ir:
     ir::Type::int(u16::from(vmoffsets.size_of_vmtable_definition_current_elements()) * 8).unwrap()
 }
 
-/// The `FuncEnvironment` implementation for use by the `ModuleInfoEnvironment`.
+/// The `FuncEnvironment` implementation for use by the `ModuleEnvironment`.
 pub struct FuncEnvironment<'module_environment> {
     /// Target-specified configuration.
     target_config: TargetFrontendConfig,
@@ -472,9 +472,8 @@ impl<'module_environment> TargetEnvironment for FuncEnvironment<'module_environm
 
 impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_environment> {
     fn is_wasm_parameter(&self, _signature: &ir::Signature, index: usize) -> bool {
-        // The first two parameters are the vmctx and caller vmctx. The rest are
-        // the wasm parameters.
-        index >= 2
+        // The first parameter is the vmctx. The rest are the wasm parameters.
+        index >= 1
     }
 
     fn make_table(&mut self, func: &mut ir::Function, index: TableIndex) -> WasmResult<ir::Table> {
@@ -802,7 +801,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         }
 
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
-        let caller_vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
         // First append the callee vmctx address.
         let vmctx = pos.ins().load(
@@ -812,7 +810,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             i32::from(self.offsets.vmcaller_checked_anyfunc_vmctx()),
         );
         real_call_args.push(vmctx);
-        real_call_args.push(caller_vmctx);
 
         // Then append the regular call arguments.
         real_call_args.extend_from_slice(call_args);
@@ -828,15 +825,13 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
-        let caller_vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
         // Handle direct calls to locally-defined functions.
         if !self.module.is_imported_function(callee_index) {
+            // Let's get the caller vmctx
+            let caller_vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
             // First append the callee vmctx address, which is the same as the caller vmctx in
             // this case.
-            real_call_args.push(caller_vmctx);
-
-            // Then append the caller vmctx address.
             real_call_args.push(caller_vmctx);
 
             // Then append the regular call arguments.
@@ -864,7 +859,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             i32::try_from(self.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
         let vmctx = pos.ins().load(pointer_type, mem_flags, base, vmctx_offset);
         real_call_args.push(vmctx);
-        real_call_args.push(caller_vmctx);
 
         // Then append the regular call arguments.
         real_call_args.extend_from_slice(call_args);

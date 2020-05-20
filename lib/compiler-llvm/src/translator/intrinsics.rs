@@ -1041,8 +1041,7 @@ pub fn func_type_to_llvm<'ctx>(
         .params()
         .iter()
         .map(|&ty| type_to_llvm(intrinsics, ty));
-    let param_types: Vec<_> = std::iter::repeat(intrinsics.ctx_ptr_ty.as_basic_type_enum())
-        .take(2)
+    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
         .chain(user_param_types)
         .collect();
 

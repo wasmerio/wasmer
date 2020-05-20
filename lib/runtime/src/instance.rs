@@ -382,10 +382,9 @@ impl Instance {
         // Make the call.
         unsafe {
             catch_traps(callee_vmctx, || {
-                mem::transmute::<
-                    *const VMFunctionBody,
-                    unsafe extern "C" fn(*mut VMContext, *mut VMContext),
-                >(callee_address)(callee_vmctx, self.vmctx_ptr())
+                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(*mut VMContext)>(
+                    callee_address,
+                )(callee_vmctx)
             })
         }
     }
