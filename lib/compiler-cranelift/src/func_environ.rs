@@ -472,8 +472,7 @@ impl<'module_environment> TargetEnvironment for FuncEnvironment<'module_environm
 
 impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_environment> {
     fn is_wasm_parameter(&self, _signature: &ir::Signature, index: usize) -> bool {
-        // The first parameter is the vmctx. The rest are
-        // the wasm parameters.
+        // The first parameter is the vmctx. The rest are the wasm parameters.
         index >= 1
     }
 

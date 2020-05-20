@@ -2282,8 +2282,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     (body_ptr, vmctx_ptr)
                 };
 
-                let params: Vec<_> = std::iter::repeat(callee_vmctx)
-                    .take(1)
+                let params: Vec<_> = std::iter::once(callee_vmctx)
                     .chain(
                         self.state
                             .peekn_extra(func_type.params().len())?
@@ -2552,8 +2551,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let pushed_args = self.state.popn_save_extra(func_type.params().len())?;
 
-                let args: Vec<_> = std::iter::repeat(ctx_ptr)
-                    .take(1)
+                let args: Vec<_> = std::iter::once(ctx_ptr)
                     .chain(pushed_args.into_iter().enumerate().map(|(i, (v, info))| {
                         match func_type.params()[i] {
                             Type::F32 => self.builder.build_bitcast(
