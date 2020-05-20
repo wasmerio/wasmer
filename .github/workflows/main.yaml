@@ -7,7 +7,7 @@ env:
 
 jobs:
   lint:
-    name: Code lint and Docs
+    name: Code lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -19,7 +19,20 @@ jobs:
           override: true
           components: rustfmt, clippy
       - run: make lint
-      - run: make doc-local
+  
+  # Uncomment this once LLVM toolchain is added to the CI
+  # docs:
+  #   name: Docs
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Install Rust
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: nightly-2019-12-19
+  #         override: true
+  #         components: rustfmt, clippy
+  #     - run: make doc-local
 
   test:
     name: Test in ${{ matrix.build }}
