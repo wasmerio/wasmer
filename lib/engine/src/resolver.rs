@@ -59,12 +59,24 @@ impl<T: NamedResolver> Resolver for T {
     }
 }
 
+impl<T: NamedResolver> NamedResolver for &T {
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+        (**self).resolve_by_name(module, field)
+    }
+}
+
+impl NamedResolver for Box<dyn NamedResolver> {
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+        (**self).resolve_by_name(module, field)
+    }
+}
+
 /// `Resolver` implementation that always resolves to `None`.
 pub struct NullResolver {}
 
 impl Resolver for NullResolver {
-    fn resolve(&self, _idx: u32, _module: &str, _field: &str) -> Result<Export, u32> {
-        Err(0)
+    fn resolve(&self, _idx: u32, _module: &str, _field: &str) -> Option<Export> {
+        None
     }
 }
 
@@ -136,7 +148,7 @@ pub fn resolve_imports(
     for ((module_name, field, import_idx), import_index) in module.imports.iter() {
         let resolved = resolver.resolve(*import_idx, module_name, field);
         let import_extern = get_extern_from_import(module, import_index);
-        let resolved = match resolved.ok() {
+        let resolved = match resolved {
             None => {
                 return Err(LinkError::Import(
                     module_name.to_string(),
@@ -231,7 +243,7 @@ pub fn resolve_imports(
 }
 
 /// A [`Resolver`] that links two resolvers together in a chain.
-pub struct ResolverChain<A: Resolver, B: Resolver> {
+pub struct NamedResolverChain<A: NamedResolver, B: NamedResolver> {
     a: A,
     b: B,
 }
@@ -239,17 +251,17 @@ pub struct ResolverChain<A: Resolver, B: Resolver> {
 /// A trait for chaining resolvers together.
 ///
 /// TODO: add example
-pub trait ChainableResolver: Resolver + Sized {
+pub trait ChainableNamedResolver: NamedResolver + Sized {
     /// Chain a resolver in front of the current resolver.
     ///
     /// This will cause the second resolver to override the first.
     ///
     /// TODO: add example
-    fn chain_front<U>(self, other: U) -> ResolverChain<U, Self>
+    fn chain_front<U>(self, other: U) -> NamedResolverChain<U, Self>
     where
-        U: Resolver,
+        U: NamedResolver,
     {
-        ResolverChain { a: other, b: self }
+        NamedResolverChain { a: other, b: self }
     }
 
     /// Chain a resolver behind the current resolver.
@@ -257,44 +269,33 @@ pub trait ChainableResolver: Resolver + Sized {
     /// This will cause the first resolver to override the second.
     ///
     /// TODO: add example
-    fn chain_back<U>(self, other: U) -> ResolverChain<Self, U>
+    fn chain_back<U>(self, other: U) -> NamedResolverChain<Self, U>
     where
-        U: Resolver,
+        U: NamedResolver,
     {
-        ResolverChain { a: self, b: other }
+        NamedResolverChain { a: self, b: other }
     }
 }
 
-impl<A, B> ChainableResolver for ResolverChain<A, B>
-where
-    A: Resolver,
-    B: Resolver,
-{
-}
+// We give these chain methods to all types implementing NamedResolver
+impl<T: NamedResolver> ChainableNamedResolver for T {}
 
-impl<A, B> Resolver for ResolverChain<A, B>
+impl<A, B> NamedResolver for NamedResolverChain<A, B>
 where
-    A: Resolver,
-    B: Resolver,
+    A: NamedResolver,
+    B: NamedResolver,
 {
-    fn resolve(&self, index: u32, module: &str, field: &str) -> Result<Export, u32> {
-        if index == 0 {
-            self.a
-                .resolve(0, module, field)
-                .or_else(|e1| self.b.resolve(0, module, field).map_err(|e2| e1 + e2))
-        } else {
-            match self.a.resolve(index, module, field) {
-                Ok(_) => self.b.resolve(index - 1, module, field).map_err(|e| e + 1),
-                Err(e1) => self.b.resolve(index, module, field).map_err(|e2| e1 + e2),
-            }
-        }
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+        self.a
+            .resolve_by_name(module, field)
+            .or_else(|| self.b.resolve_by_name(module, field))
     }
 }
 
-impl<A, B> Clone for ResolverChain<A, B>
+impl<A, B> Clone for NamedResolverChain<A, B>
 where
-    A: Resolver + Clone,
-    B: Resolver + Clone,
+    A: NamedResolver + Clone,
+    B: NamedResolver + Clone,
 {
     fn clone(&self) -> Self {
         Self {

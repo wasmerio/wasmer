@@ -86,7 +86,7 @@ add_test(test-imports test-imports)
 
 target_link_libraries(test-import-object general ${WASMER_LIB})
 target_compile_options(test-import-object PRIVATE ${COMPILER_OPTIONS})
-#add_test(test-import-object test-import-object)
+add_test(test-import-object test-import-object)
 
 
 if (DEFINED WASI_TESTS)
@@ -140,8 +140,7 @@ add_test(test-context test-context)
 
 target_link_libraries(test-module-import-instantiate general ${WASMER_LIB})
 target_compile_options(test-module-import-instantiate PRIVATE ${COMPILER_OPTIONS})
-# TODO: reenable this test
-#add_test(test-module-import-instantiate test-module-import-instantiate)
+add_test(test-module-import-instantiate test-module-import-instantiate)
 
 # Commented out until we can find a solution to the exported function problem
 #
