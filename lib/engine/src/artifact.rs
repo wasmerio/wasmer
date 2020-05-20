@@ -2,8 +2,12 @@ use wasmer_runtime::ModuleInfo;
 
 use downcast_rs::{impl_downcast, Downcast};
 
-/// The `Artifact` trait is used by engine implementors, such
-/// as a JIT or Native execution.
+/// An `Artifact` is the product that the `Engine` implementation
+/// produce and use.
+///
+/// This means, the artifact that contains the compiled information
+/// for a given modue, as well as extra information needed to run the
+/// module at runtime.
 pub trait Artifact: Downcast {
     /// Return a pointer to a module.
     fn module(&self) -> &ModuleInfo;
