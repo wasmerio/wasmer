@@ -9,17 +9,19 @@
 //! the generated machine code, so a given frontend (JIT or native) can
 //! do the corresponding work to run it.
 
+use crate::lib::std::fmt;
+use crate::lib::std::vec::Vec;
 use crate::section::SectionIndex;
-use crate::std::vec::Vec;
 use crate::{Addend, CodeOffset, JumpTable};
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::LocalFunctionIndex;
 use wasmer_runtime::libcalls::LibCall;
 
 /// Relocation kinds for every ISA.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RelocationKind {
     /// absolute 4-byte
     Abs4,
@@ -73,7 +75,8 @@ impl fmt::Display for RelocationKind {
 }
 
 /// A record of a relocation to perform.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Relocation {
     /// The relocation kind.
     pub kind: RelocationKind,
@@ -86,7 +89,8 @@ pub struct Relocation {
 }
 
 /// Destination function. Can be either user function or some special one, like `memory.grow`.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RelocationTarget {
     /// A relocation to a function defined locally in the wasm (not an imported one).
     LocalFunc(LocalFunctionIndex),

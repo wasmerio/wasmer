@@ -10,10 +10,11 @@
 use super::environ::ModuleEnvironment;
 use super::error::to_wasm_error;
 use super::state::ModuleTranslationState;
-use crate::{wasm_unsupported, HashMap};
+use crate::wasm_unsupported;
 use crate::{WasmError, WasmResult};
 use core::convert::TryFrom;
 use std::boxed::Box;
+use std::collections::HashMap;
 use std::vec::Vec;
 use wasm_common::entity::packed_option::ReservedValue;
 use wasm_common::entity::EntityRef;

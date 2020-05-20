@@ -1,12 +1,14 @@
 //! Data structures to provide transformation of the source
 // addresses of a WebAssembly module into the native code.
 
+use crate::lib::std::vec::Vec;
 use crate::sourceloc::SourceLoc;
-use crate::std::vec::Vec;
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
 /// Single source location to generated address mapping.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstructionAddressMap {
     /// Original source location.
     pub srcloc: SourceLoc,
@@ -19,7 +21,8 @@ pub struct InstructionAddressMap {
 }
 
 /// Function and its instructions addresses mappings.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FunctionAddressMap {
     /// Instructions maps.
     /// The array is sorted by the InstructionAddressMap::code_offset field.
