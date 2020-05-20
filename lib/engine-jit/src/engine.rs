@@ -1,6 +1,6 @@
 //! JIT compilation.
 
-use crate::{CodeMemory, CompiledModule};
+use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::PrimaryMap;
@@ -11,11 +11,11 @@ use wasmer_compiler::{
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
 use wasmer_engine::{
-    CompiledModule as BaseCompiledModule, DeserializeError, Engine, InstantiationError, Resolver,
-    SerializeError, Tunables,
+    Artifact, DeserializeError, Engine, InstantiationError, Resolver, SerializeError, Tunables,
 };
 use wasmer_runtime::{
-    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
@@ -30,13 +30,10 @@ impl JITEngine {
 
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new<C: CompilerConfig>(
-        config: &C,
+    pub fn new(
+        config: Box<dyn CompilerConfig>,
         tunables: impl Tunables + 'static + Send + Sync,
-    ) -> Self
-    where
-        C: ?Sized,
-    {
+    ) -> Self {
         let compiler = config.compiler();
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
@@ -119,36 +116,39 @@ impl Engine for JITEngine {
     }
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, CompileError> {
-        Ok(Arc::new(CompiledModule::new(&self, binary)?))
+    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError> {
+        Ok(Arc::new(JITArtifact::new(&self, binary)?))
     }
 
     /// Instantiates a WebAssembly module
     unsafe fn instantiate(
         &self,
-        compiled_module: &dyn BaseCompiledModule,
+        compiled_module: &dyn Artifact,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
-        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
+        let compiled_module = compiled_module
+            .downcast_ref::<JITArtifact>()
+            .expect("The provided module is not a JIT compiled module");
         compiled_module.instantiate(&self, resolver, Box::new(()))
     }
 
     /// Finish the instantiation of a WebAssembly module
     unsafe fn finish_instantiation(
         &self,
-        compiled_module: &dyn BaseCompiledModule,
+        compiled_module: &dyn Artifact,
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
-        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
+        let compiled_module = compiled_module
+            .downcast_ref::<JITArtifact>()
+            .expect("The provided module is not a JIT compiled module");
         compiled_module.finish_instantiation(&handle)
     }
 
     /// Serializes a WebAssembly module
-    fn serialize(
-        &self,
-        compiled_module: &dyn BaseCompiledModule,
-    ) -> Result<Vec<u8>, SerializeError> {
-        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
+    fn serialize(&self, compiled_module: &dyn Artifact) -> Result<Vec<u8>, SerializeError> {
+        let compiled_module = compiled_module
+            .downcast_ref::<JITArtifact>()
+            .expect("The provided module is not a JIT compiled module");
         // We append the header
         let mut serialized = Self::MAGIC_HEADER.to_vec();
         serialized.extend(compiled_module.serialize()?);
@@ -156,13 +156,13 @@ impl Engine for JITEngine {
     }
 
     /// Deserializes a WebAssembly module
-    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
+    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
         if !Self::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not wasmer-jit".to_string(),
             ));
         }
-        Ok(Arc::new(CompiledModule::deserialize(
+        Ok(Arc::new(JITArtifact::deserialize(
             &self,
             &bytes[Self::MAGIC_HEADER.len()..],
         )?))
@@ -234,7 +234,7 @@ impl JITEngineInner {
     /// Compile the given function bodies.
     pub(crate) fn allocate(
         &mut self,
-        module: &Module,
+        module: &ModuleInfo,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
         dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,

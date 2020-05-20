@@ -21,15 +21,17 @@ use wasmer_compiler::{
     FunctionBody, Relocation, RelocationKind, RelocationTarget, SectionBody, SectionIndex,
     TrapInformation,
 };
-use wasmer_runtime::{MemoryPlan, Module, TablePlan, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_runtime::{
+    MemoryPlan, ModuleInfo, TablePlan, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
+};
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a> {
     // Immutable properties assigned at creation time.
     /// Static module information.
-    module: &'a Module,
+    module: &'a ModuleInfo,
 
-    /// Module compilation config.
+    /// ModuleInfo compilation config.
     config: &'a SinglepassConfig,
 
     /// Offsets of vmctx fields.
@@ -81,7 +83,7 @@ pub struct FuncGen<'a> {
     relocations: Vec<Relocation>,
 }
 
-/// A trap table for a `RunnableModule`.
+/// A trap table for a `RunnableModuleInfo`.
 #[derive(Clone, Debug, Default)]
 pub struct TrapTable {
     /// Mappings from offsets in generated machine code to the corresponding trap code.
@@ -1764,7 +1766,7 @@ impl<'a> FuncGen<'a> {
     }
 
     pub fn new(
-        module: &'a Module,
+        module: &'a ModuleInfo,
         config: &'a SinglepassConfig,
         vmoffsets: &'a VMOffsets,
         _memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,

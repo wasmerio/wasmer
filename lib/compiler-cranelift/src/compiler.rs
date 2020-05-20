@@ -25,7 +25,7 @@ use wasmer_compiler::{
     FunctionBodyData,
 };
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
-use wasmer_runtime::{MemoryPlan, Module, TablePlan};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
@@ -70,7 +70,7 @@ impl Compiler for CraneliftCompiler {
     /// associated relocations.
     fn compile_module(
         &self,
-        module: &Module,
+        module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
@@ -172,7 +172,7 @@ impl Compiler for CraneliftCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        module: &Module,
+        module: &ModuleInfo,
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
         use wasmer_runtime::VMOffsets;
         let isa = self.isa();

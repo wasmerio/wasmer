@@ -12,7 +12,7 @@ use crate::vmcontext::{
     VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
-use crate::{Module, TableElements, VMOffsets};
+use crate::{ModuleInfo, TableElements, VMOffsets};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::{self, Layout};
@@ -62,8 +62,8 @@ cfg_if::cfg_if! {
 /// This is repr(C) to ensure that the vmctx field is last.
 #[repr(C)]
 pub(crate) struct Instance {
-    /// The `Module` this `Instance` was instantiated from.
-    module: Arc<Module>,
+    /// The `ModuleInfo` this `Instance` was instantiated from.
+    module: Arc<ModuleInfo>,
 
     /// Offsets in the `vmctx` region.
     offsets: VMOffsets,
@@ -114,11 +114,11 @@ impl Instance {
         unsafe { *self.signature_ids_ptr().add(index) }
     }
 
-    pub(crate) fn module(&self) -> &Arc<Module> {
+    pub(crate) fn module(&self) -> &Arc<ModuleInfo> {
         &self.module
     }
 
-    pub(crate) fn module_ref(&self) -> &Module {
+    pub(crate) fn module_ref(&self) -> &ModuleInfo {
         &*self.module
     }
 
@@ -779,7 +779,7 @@ impl InstanceHandle {
     /// the `wasmer` crate API rather than this type since that is vetted for
     /// safety.
     pub unsafe fn new(
-        module: Arc<Module>,
+        module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
         finished_memories: BoxedSlice<LocalMemoryIndex, LinearMemory>,
         finished_tables: BoxedSlice<LocalTableIndex, Table>,
@@ -939,12 +939,12 @@ impl InstanceHandle {
     }
 
     /// Return a reference-counting pointer to a module.
-    pub fn module(&self) -> &Arc<Module> {
+    pub fn module(&self) -> &Arc<ModuleInfo> {
         self.instance().module()
     }
 
     /// Return a reference to a module.
-    pub fn module_ref(&self) -> &Module {
+    pub fn module_ref(&self) -> &ModuleInfo {
         self.instance().module_ref()
     }
 
@@ -1180,7 +1180,7 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
 }
 
 /// Initialize the `Instance::passive_elements` map by resolving the
-/// `Module::passive_elements`'s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
+/// `ModuleInfo::passive_elements`'s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
 /// this instance.
 fn initialize_passive_elements(instance: &Instance) {
     let mut passive_elements = instance.passive_elements.borrow_mut();

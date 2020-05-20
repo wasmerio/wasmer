@@ -29,8 +29,8 @@ pub struct TableElements {
     pub elements: Box<[FunctionIndex]>,
 }
 
-/// Implemenation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+/// Implementation styles for WebAssembly linear memory.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic,
@@ -53,7 +53,7 @@ pub struct MemoryPlan {
     pub offset_guard_size: u64,
 }
 
-/// Implemenation styles for WebAssembly tables.
+/// Implementation styles for WebAssembly tables.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum TableStyle {
     /// Signatures are stored in the table and checked in the caller.
@@ -93,7 +93,7 @@ impl Default for ModuleId {
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Module {
+pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///
     /// We skip serialization/deserialization of this field, as it
@@ -160,7 +160,7 @@ pub struct Module {
     pub num_imported_globals: usize,
 }
 
-impl Module {
+impl ModuleInfo {
     /// Allocates the module data structures.
     pub fn new() -> Self {
         Self {
@@ -353,7 +353,7 @@ impl Module {
     }
 }
 
-impl fmt::Display for Module {
+impl fmt::Display for ModuleInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name())
     }

@@ -1,4 +1,4 @@
-//! Define `CompiledModule` to allow compiling and instantiating to be
+//! Define `JITArtifact` to allow compiling and instantiating to be
 //! done as separate steps.
 
 use crate::engine::{JITEngine, JITEngineInner};
@@ -15,18 +15,18 @@ use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{
-    register_frame_info, resolve_imports, CompiledModule as BaseCompiledModule, DeserializeError,
-    Engine, GlobalFrameInfoRegistration, InstantiationError, Resolver, RuntimeError,
+    register_frame_info, resolve_imports, Artifact, DeserializeError, Engine,
+    GlobalFrameInfoRegistration, InstantiationError, Resolver, RuntimeError,
     SerializableFunctionFrameInfo, SerializeError,
 };
 use wasmer_runtime::{
-    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
+    InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// A compiled wasm module, ready to be instantiated.
-pub struct CompiledModule {
+pub struct JITArtifact {
     serializable: SerializableModule,
 
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
@@ -35,8 +35,8 @@ pub struct CompiledModule {
     frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
 }
 
-impl CompiledModule {
-    /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
+impl JITArtifact {
+    /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
     pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
@@ -118,7 +118,7 @@ impl CompiledModule {
         Self::from_parts(&mut jit_compiler, serializable)
     }
 
-    /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
+    /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
     pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
@@ -126,7 +126,7 @@ impl CompiledModule {
         ))
     }
 
-    /// Serialize a CompiledModule
+    /// Serialize a JITArtifact
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         // let mut s = flexbuffers::FlexbufferSerializer::new();
         // self.serializable.serialize(&mut s).map_err(|e| SerializeError::Generic(format!("{:?}", e)));
@@ -135,7 +135,7 @@ impl CompiledModule {
             .map_err(|e| SerializeError::Generic(format!("{:?}", e)))
     }
 
-    /// Deserialize a CompiledModule
+    /// Deserialize a JITArtifact
     pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
@@ -146,7 +146,7 @@ impl CompiledModule {
         Self::from_parts(&mut jit.compiler_mut(), serializable).map_err(DeserializeError::Compiler)
     }
 
-    /// Construct a `CompiledModule` from component parts.
+    /// Construct a `JITArtifact` from component parts.
     pub fn from_parts(
         jit_compiler: &mut JITEngineInner,
         serializable: SerializableModule,
@@ -201,7 +201,7 @@ impl CompiledModule {
         &self.serializable.table_plans
     }
 
-    /// Crate an `Instance` from this `CompiledModule`.
+    /// Crate an `Instance` from this `JITArtifact`.
     ///
     /// # Unsafety
     ///
@@ -298,12 +298,12 @@ impl CompiledModule {
     }
 }
 
-impl BaseCompiledModule for CompiledModule {
-    fn module(&self) -> &Module {
+impl Artifact for JITArtifact {
+    fn module(&self) -> &ModuleInfo {
         &self.serializable.module
     }
 
-    fn module_mut(&mut self) -> &mut Module {
+    fn module_mut(&mut self) -> &mut ModuleInfo {
         Arc::get_mut(&mut self.serializable.module).unwrap()
     }
 }

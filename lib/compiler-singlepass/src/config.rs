@@ -47,6 +47,11 @@ impl CompilerConfig for SinglepassConfig {
         &self.features
     }
 
+    fn enable_pic(&mut self) {
+        // Do nothing, since singlepass already emits
+        // PIC code.
+    }
+
     /// Gets the target that we will use for compiling
     /// the WebAssembly module
     fn target(&self) -> &Target {

@@ -7,7 +7,7 @@ use wasm_common::{
 };
 use wasmer_compiler::{CustomSection, FunctionBody, JumpTableOffsets, Relocation, SectionIndex};
 use wasmer_engine::SerializableFunctionFrameInfo;
-use wasmer_runtime::Module;
+use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// The compilation related data for a serialized modules
@@ -27,12 +27,12 @@ pub struct SerializableCompilation {
 }
 
 /// Serializable struct that is able to serialize from and to
-/// a `CompiledModule`.
+/// a `JITArtifactInfo`.
 #[derive(Serialize, Deserialize)]
 pub struct SerializableModule {
     pub compilation: SerializableCompilation,
     pub features: Features,
-    pub module: Arc<Module>,
+    pub module: Arc<ModuleInfo>,
     pub data_initializers: Box<[OwnedDataInitializer]>,
     // Plans for that module
     pub memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,

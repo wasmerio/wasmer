@@ -7,7 +7,7 @@ use wasmer_compiler::{
     JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
     SectionIndex,
 };
-use wasmer_runtime::Module;
+use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::VMFunctionBody;
 
 fn apply_relocation(
@@ -45,22 +45,25 @@ fn apply_relocation(
         #[cfg(target_pointer_width = "32")]
         RelocationKind::X86PCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
-            write_unaligned(reloc_address as *mut u32, reloc_delta);
+            write_unaligned(reloc_address as *mut u32, reloc_delta as _);
         },
         #[cfg(target_pointer_width = "32")]
-        RelocationKind::X86CallPCRel4 => {
+        RelocationKind::X86CallPCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
-            write_unaligned(reloc_address as *mut u32, reloc_delta);
-        }
+            write_unaligned(reloc_address as *mut u32, reloc_delta as _);
+        },
         RelocationKind::X86PCRelRodata4 => {}
-        _ => panic!("Relocation kind unsupported in the current architecture"),
+        kind => panic!(
+            "Relocation kind unsupported in the current architecture {}",
+            kind
+        ),
     }
 }
 
 /// Links a module, patching the allocated functions with the
 /// required relocations and jump tables.
 pub fn link_module(
-    _module: &Module,
+    _module: &ModuleInfo,
     allocated_functions: &PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     function_relocations: Relocations,

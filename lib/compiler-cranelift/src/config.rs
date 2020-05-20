@@ -37,6 +37,8 @@ pub struct CraneliftConfig {
     /// The verifier assures that the generated Cranelift IR is valid.
     pub enable_verifier: bool,
 
+    enable_pic: bool,
+
     /// The optimization levels when optimizing the IR.
     pub opt_level: OptLevel,
 
@@ -52,6 +54,7 @@ impl CraneliftConfig {
             enable_nan_canonicalization: false,
             enable_verifier: false,
             opt_level: OptLevel::Speed,
+            enable_pic: false,
             features,
             target,
         }
@@ -124,6 +127,10 @@ impl CraneliftConfig {
             .enable("avoid_div_traps")
             .expect("should be valid flag");
 
+        if self.enable_pic {
+            flags.enable("is_pic").expect("should be a valid flag");
+        }
+
         // Invert cranelift's default-on verification to instead default off.
         let enable_verifier = if self.enable_verifier {
             "true"
@@ -170,6 +177,10 @@ impl CompilerConfig for CraneliftConfig {
     /// Gets the WebAssembly features
     fn features(&self) -> &Features {
         &self.features
+    }
+
+    fn enable_pic(&mut self) {
+        self.enable_pic = true;
     }
 
     /// Gets the target that we will use for compiling

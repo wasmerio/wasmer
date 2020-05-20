@@ -4,7 +4,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{self, Cursor};
 use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_core::{
-    module::ModuleInfo,
+    module::Module,
     structures::TypedIndex,
     types::{GlobalIndex, LocalOrImport, TableIndex},
 };

@@ -1,5 +1,6 @@
 //! The WebAssembly possible errors
 use crate::trap::RuntimeError;
+use std::io;
 use thiserror::Error;
 use wasm_common::ExternType;
 use wasmer_compiler::CompileError;
@@ -8,6 +9,9 @@ use wasmer_compiler::CompileError;
 /// compiled Module into a binary.
 #[derive(Error, Debug)]
 pub enum SerializeError {
+    /// An IO error
+    #[error(transparent)]
+    Io(#[from] io::Error),
     /// A generic serialization error
     #[error("{0}")]
     Generic(String),
@@ -17,6 +21,9 @@ pub enum SerializeError {
 /// compiled Module from a binary.
 #[derive(Error, Debug)]
 pub enum DeserializeError {
+    /// An IO error
+    #[error(transparent)]
+    Io(#[from] io::Error),
     /// A generic deserialization error
     #[error("{0}")]
     Generic(String),

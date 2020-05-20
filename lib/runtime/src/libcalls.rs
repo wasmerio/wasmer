@@ -41,22 +41,26 @@ use std::fmt;
 use wasm_common::{DataIndex, ElemIndex, LocalMemoryIndex, MemoryIndex, TableIndex};
 
 /// Implementation of f32.ceil
+#[no_mangle]
 pub extern "C" fn wasmer_f32_ceil(x: f32) -> f32 {
     x.ceil()
 }
 
 /// Implementation of f32.floor
+#[no_mangle]
 pub extern "C" fn wasmer_f32_floor(x: f32) -> f32 {
     x.floor()
 }
 
 /// Implementation of f32.trunc
+#[no_mangle]
 pub extern "C" fn wasmer_f32_trunc(x: f32) -> f32 {
     x.trunc()
 }
 
 /// Implementation of f32.nearest
 #[allow(clippy::float_arithmetic, clippy::float_cmp)]
+#[no_mangle]
 pub extern "C" fn wasmer_f32_nearest(x: f32) -> f32 {
     // Rust doesn't have a nearest function, so do it manually.
     if x == 0.0 {
@@ -82,22 +86,26 @@ pub extern "C" fn wasmer_f32_nearest(x: f32) -> f32 {
 }
 
 /// Implementation of f64.ceil
+#[no_mangle]
 pub extern "C" fn wasmer_f64_ceil(x: f64) -> f64 {
     x.ceil()
 }
 
 /// Implementation of f64.floor
+#[no_mangle]
 pub extern "C" fn wasmer_f64_floor(x: f64) -> f64 {
     x.floor()
 }
 
 /// Implementation of f64.trunc
+#[no_mangle]
 pub extern "C" fn wasmer_f64_trunc(x: f64) -> f64 {
     x.trunc()
 }
 
 /// Implementation of f64.nearest
 #[allow(clippy::float_arithmetic, clippy::float_cmp)]
+#[no_mangle]
 pub extern "C" fn wasmer_f64_nearest(x: f64) -> f64 {
     // Rust doesn't have a nearest function, so do it manually.
     if x == 0.0 {
@@ -320,9 +328,16 @@ pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32
 }
 
 /// Implementation for raising a trap
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
     let trap = Trap::wasm(trap_code);
     raise_lib_trap(trap)
+}
+
+/// Probestack check
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_probestack() {
+    PROBESTACK();
 }
 
 /// The name of a runtime library routine.

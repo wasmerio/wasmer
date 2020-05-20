@@ -16,12 +16,12 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use wasm_common::entity::EntityRef;
 use wasm_common::SignatureIndex;
 use wasmer_compiler::{CompileError, FunctionBody};
-use wasmer_runtime::{Module, VMOffsets};
+use wasmer_runtime::{ModuleInfo, VMOffsets};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_trampoline_dynamic_function(
     isa: &dyn TargetIsa,
-    module: &Module,
+    module: &ModuleInfo,
     offsets: &VMOffsets,
     fn_builder_ctx: &mut FunctionBuilderContext,
     sig_index: &SignatureIndex,

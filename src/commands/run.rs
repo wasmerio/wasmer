@@ -8,9 +8,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use wasmer::*;
 #[cfg(feature = "cache")]
-use wasmer_cache::{Cache, FileSystemCache, IoDeserializeError, WasmHash};
-#[cfg(feature = "jit")]
-use wasmer_engine_jit::JITEngine;
+use wasmer_cache::{Cache, FileSystemCache, WasmHash};
 
 use structopt::StructOpt;
 
@@ -72,8 +70,9 @@ pub struct Run {
 impl Run {
     #[cfg(feature = "cache")]
     /// Get the Compiler Filesystem cache
-    fn get_cache(&self, compiler_name: String) -> Result<FileSystemCache> {
+    fn get_cache(&self, engine_name: String, compiler_name: String) -> Result<FileSystemCache> {
         let mut cache_dir_root = get_cache_dir();
+        cache_dir_root.push(engine_name);
         cache_dir_root.push(compiler_name);
         Ok(FileSystemCache::new(cache_dir_root)?)
     }
@@ -134,24 +133,35 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
-        #[cfg(feature = "jit")]
+        #[cfg(feature = "native")]
         {
-            if JITEngine::is_deserializable(&contents) {
+            use wasmer_engine_native::NativeEngine;
+            if NativeEngine::is_deserializable(&contents) {
                 let tunables = Tunables::default();
-                let engine = JITEngine::headless(tunables);
+                let engine = NativeEngine::headless(tunables);
                 let store = Store::new(Arc::new(engine));
-                let module = unsafe { Module::deserialize(&store, &contents)? };
+                let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
                 return Ok(module);
             }
         }
-        let (store, compiler_name) = self.compiler.get_store()?;
+        #[cfg(feature = "jit")]
+        {
+            if wasmer_engine_jit::JITEngine::is_deserializable(&contents) {
+                let tunables = Tunables::default();
+                let engine = JITEngine::headless(tunables);
+                let store = Store::new(Arc::new(engine));
+                let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
+                return Ok(module);
+            }
+        }
+        let (store, engine_name, compiler_name) = self.compiler.get_store()?;
         // We try to get it from cache, in case caching is enabled
         // and the file length is greater than 4KB.
         // For files smaller than 4KB caching is not worth,
         // as it takes space and the speedup is minimal.
         let mut module =
             if cfg!(feature = "cache") && !self.disable_cache && contents.len() > 0x1000 {
-                let mut cache = self.get_cache(compiler_name)?;
+                let mut cache = self.get_cache(engine_name, compiler_name)?;
                 // Try to get the hash from the provided `--cache-key`, otherwise
                 // generate one from the provided file `.wasm` contents.
                 let hash = self
@@ -163,11 +173,11 @@ impl Run {
                     Ok(module) => module,
                     Err(e) => {
                         match e {
-                            IoDeserializeError::Deserialize(e) => {
-                                warning!("cached module is corrupted: {}", e);
-                            }
-                            IoDeserializeError::Io(_) => {
+                            DeserializeError::Io(_) => {
                                 // Do not notify on IO errors
+                            }
+                            err => {
+                                warning!("cached module is corrupted: {}", err);
                             }
                         }
                         let module = Module::new(&store, &contents)?;

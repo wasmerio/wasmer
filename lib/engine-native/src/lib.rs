@@ -1,12 +1,16 @@
-//! Generic Engine abstraction for Wasmer Engines.
+//! Native backend for Wasmer compilers.
+//!
+//! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)
+//! it generates a shared object file (`.so` or `.dylib` depending on
+//! the target), saves it temporarily to disk and uses it natively
+//! via `dlopen` and `dlsym` (using the `libloading` library).
+//!
+//! Note: `.dll` generation for Windows is not yet supported
 
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
 #![cfg_attr(feature = "clippy", plugin(clippy(conf_file = "../../clippy.toml")))]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(clippy::new_without_default, clippy::new_without_default)
-)]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
 #![cfg_attr(
     feature = "cargo-clippy",
     warn(
@@ -23,21 +27,10 @@
 
 mod artifact;
 mod engine;
-mod error;
-mod resolver;
 mod serialize;
-mod trap;
-mod tunables;
 
-pub use crate::artifact::Artifact;
-pub use crate::engine::Engine;
-pub use crate::error::{
-    DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
-};
-pub use crate::resolver::{resolve_imports, NullResolver, Resolver};
-pub use crate::serialize::SerializableFunctionFrameInfo;
-pub use crate::trap::*;
-pub use crate::tunables::Tunables;
+pub use crate::artifact::NativeArtifact;
+pub use crate::engine::NativeEngine;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

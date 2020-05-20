@@ -15,7 +15,7 @@ use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, Table
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_runtime::VMBuiltinFunctionIndex;
 use wasmer_runtime::VMOffsets;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle};
+use wasmer_runtime::{MemoryPlan, MemoryStyle, ModuleInfo, TablePlan, TableStyle};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_func_name(func_index: FunctionIndex) -> ir::ExternalName {
@@ -32,13 +32,13 @@ pub fn type_of_vmtable_definition_current_elements(vmoffsets: &VMOffsets) -> ir:
     ir::Type::int(u16::from(vmoffsets.size_of_vmtable_definition_current_elements()) * 8).unwrap()
 }
 
-/// The `FuncEnvironment` implementation for use by the `ModuleEnvironment`.
+/// The `FuncEnvironment` implementation for use by the `ModuleInfoEnvironment`.
 pub struct FuncEnvironment<'module_environment> {
     /// Target-specified configuration.
     target_config: TargetFrontendConfig,
 
     /// The module-level environment which this function-level environment belongs to.
-    module: &'module_environment Module,
+    module: &'module_environment ModuleInfo,
 
     /// The module function signatures
     signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
@@ -91,7 +91,7 @@ pub struct FuncEnvironment<'module_environment> {
 impl<'module_environment> FuncEnvironment<'module_environment> {
     pub fn new(
         target_config: TargetFrontendConfig,
-        module: &'module_environment Module,
+        module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
         memory_plans: &'module_environment PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &'module_environment PrimaryMap<TableIndex, TablePlan>,

@@ -3,7 +3,7 @@
 
 #![deny(intra_doc_link_resolution_failure)]
 
-use crate::module::Module;
+use crate::module::ModuleInfo;
 use crate::VMBuiltinFunctionIndex;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
@@ -53,7 +53,7 @@ pub struct VMOffsets {
 
 impl VMOffsets {
     /// Return a new `VMOffsets` instance, for a given pointer size.
-    pub fn new(pointer_size: u8, module: &Module) -> Self {
+    pub fn new(pointer_size: u8, module: &ModuleInfo) -> Self {
         Self {
             pointer_size,
             num_signature_ids: cast_to_u32(module.signatures.len()),

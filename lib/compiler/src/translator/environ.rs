@@ -13,7 +13,7 @@ use wasm_common::{
     GlobalIndex, GlobalInit, GlobalType, ImportIndex, LocalFunctionIndex, MemoryIndex, MemoryType,
     SignatureIndex, TableIndex, TableType,
 };
-use wasmer_runtime::{Module, TableElements};
+use wasmer_runtime::{ModuleInfo, TableElements};
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]
@@ -29,9 +29,9 @@ pub struct FunctionBodyData<'a> {
 /// yet translated, and data initializers have not yet been copied out of the
 /// original buffer.
 /// The function bodies will be translated by a specific compiler backend.
-pub struct ModuleTranslation<'data> {
-    /// Module information.
-    pub module: Module,
+pub struct ModuleInfoTranslation<'data> {
+    /// ModuleInfo information.
+    pub module: ModuleInfo,
 
     /// References to the function bodies.
     pub function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -46,7 +46,7 @@ pub struct ModuleTranslation<'data> {
 /// Object containing the standalone environment information.
 pub struct ModuleEnvironment<'data> {
     /// The result to be filled in.
-    pub result: ModuleTranslation<'data>,
+    pub result: ModuleInfoTranslation<'data>,
     imports: u32,
 }
 
@@ -54,8 +54,8 @@ impl<'data> ModuleEnvironment<'data> {
     /// Allocates the environment data structures.
     pub fn new() -> Self {
         Self {
-            result: ModuleTranslation {
-                module: Module::new(),
+            result: ModuleInfoTranslation {
+                module: ModuleInfo::new(),
                 function_body_inputs: PrimaryMap::new(),
                 data_initializers: Vec::new(),
                 module_translation: None,
@@ -65,8 +65,8 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     /// Translate a wasm module using this environment. This consumes the
-    /// `ModuleEnvironment` and produces a `ModuleTranslation`.
-    pub fn translate(mut self, data: &'data [u8]) -> WasmResult<ModuleTranslation<'data>> {
+    /// `ModuleEnvironment` and produces a `ModuleInfoTranslation`.
+    pub fn translate(mut self, data: &'data [u8]) -> WasmResult<ModuleInfoTranslation<'data>> {
         assert!(self.result.module_translation.is_none());
         let module_translation = translate_module(data, &mut self)?;
         self.result.module_translation = Some(module_translation);
