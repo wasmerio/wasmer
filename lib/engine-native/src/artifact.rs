@@ -494,16 +494,20 @@ impl NativeArtifact {
 }
 
 impl Artifact for NativeArtifact {
-    fn module(&self) -> &Arc<ModuleInfo> {
-        &self.metadata.module
+    fn module(&self) -> Arc<ModuleInfo> {
+        self.metadata.module.clone()
     }
 
     fn module_ref(&self) -> &ModuleInfo {
         &self.metadata.module
     }
 
-    fn module_mut(&mut self) -> &mut ModuleInfo {
-        Arc::get_mut(&mut self.metadata.module).unwrap()
+    fn module_mut(&mut self) -> Option<&mut ModuleInfo> {
+        Arc::get_mut(&mut self.metadata.module)
+    }
+
+    fn register_frame_info(&self) {
+        // Do nothing for now
     }
 
     fn features(&self) -> &Features {

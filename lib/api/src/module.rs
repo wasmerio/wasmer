@@ -252,12 +252,14 @@ impl Module {
     /// assert_eq!(module.name(), Some("moduleName"));
     /// ```
     pub fn name(&self) -> Option<&str> {
-        self.artifact.module().name.as_deref()
+        self.artifact.module_ref().name.as_deref()
     }
 
     /// Sets the name of the current module.
-    ///
     /// This is normally useful for stacktraces and debugging.
+    ///
+    /// ## Important
+    /// If the module is already insantiated, this will silently fail.
     ///
     /// # Example
     ///
@@ -269,8 +271,11 @@ impl Module {
     /// assert_eq!(module.name(), Some("foo"));
     /// ```
     pub fn set_name(&mut self, name: &str) {
-        let compiled = Arc::get_mut(&mut self.artifact).unwrap();
-        compiled.module_mut().name = Some(name.to_string());
+        Arc::get_mut(&mut self.artifact)
+            .and_then(|artifact| artifact.module_mut())
+            .map(|mut module_info| {
+                module_info.name = Some(name.to_string());
+            });
     }
 
     /// Returns an iterator over the imported types in the Module.
@@ -294,7 +299,7 @@ impl Module {
     /// }
     /// ```
     pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
-        self.artifact.module().imports()
+        self.artifact.module_ref().imports()
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -317,7 +322,7 @@ impl Module {
     /// }
     /// ```
     pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
-        self.artifact.module().exports()
+        self.artifact.module_ref().exports()
     }
 
     pub fn store(&self) -> &Store {
@@ -331,6 +336,6 @@ impl Module {
     /// However, the usage is highly discouraged.
     #[doc(hidden)]
     pub fn info(&self) -> &ModuleInfo {
-        &self.artifact.module()
+        &self.artifact.module_ref()
     }
 }

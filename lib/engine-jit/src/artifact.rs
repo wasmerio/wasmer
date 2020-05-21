@@ -4,7 +4,7 @@
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
 use crate::serialize::{SerializableCompilation, SerializableModule};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
@@ -28,8 +28,7 @@ pub struct JITArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    #[allow(dead_code)]
-    frame_info_registration: Option<GlobalFrameInfoRegistration>,
+    frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
 }
 
 impl JITArtifact {
@@ -190,33 +189,42 @@ impl JITArtifact {
         let finished_dynamic_function_trampolines =
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
-        let frame_info_registration = register_frame_info(
-            serializable.module.clone(),
-            &finished_functions,
-            serializable.compilation.function_frame_info.clone(),
-        );
 
         Ok(Self {
             serializable,
             finished_functions,
             finished_dynamic_function_trampolines,
             signatures,
-            frame_info_registration,
+            frame_info_registration: Mutex::new(None),
         })
     }
 }
 
 impl Artifact for JITArtifact {
-    fn module(&self) -> &Arc<ModuleInfo> {
-        &self.serializable.module
+    fn module(&self) -> Arc<ModuleInfo> {
+        self.serializable.module.clone()
     }
 
     fn module_ref(&self) -> &ModuleInfo {
         &self.serializable.module
     }
 
-    fn module_mut(&mut self) -> &mut ModuleInfo {
-        Arc::get_mut(&mut self.serializable.module).unwrap()
+    fn module_mut(&mut self) -> Option<&mut ModuleInfo> {
+        Arc::get_mut(&mut self.serializable.module)
+    }
+
+    fn register_frame_info(&self) {
+        let mut info = self.frame_info_registration.lock().unwrap();
+        if info.is_some() {
+            return;
+        }
+        let frame_infos = &self.serializable.compilation.function_frame_info;
+        let finished_functions = &self.finished_functions;
+        *info = Some(register_frame_info(
+            self.serializable.module.clone(),
+            finished_functions,
+            frame_infos.clone(),
+        ));
     }
 
     fn features(&self) -> &Features {

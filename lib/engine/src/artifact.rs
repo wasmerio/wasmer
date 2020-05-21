@@ -20,14 +20,21 @@ use wasmer_runtime::{
 /// module as well as extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
 pub trait Artifact {
-    /// Return a pointer to the Arc module
-    fn module(&self) -> &Arc<ModuleInfo>;
+    /// Return a reference-counted pointer to the module
+    fn module(&self) -> Arc<ModuleInfo>;
 
     /// Return a pointer to a module.
     fn module_ref(&self) -> &ModuleInfo;
 
-    /// Return a mutable pointer to a module.
-    fn module_mut(&mut self) -> &mut ModuleInfo;
+    /// Gets a mutable reference to the info.
+    ///
+    /// Note: this will return `None` if the module is already instantiated.
+    fn module_mut(&mut self) -> Option<&mut ModuleInfo>;
+
+    /// Register thie `Artifact` stack frame information into the global scope.
+    ///
+    /// This is required to ensure that any traps can be properly symbolicated.
+    fn register_frame_info(&self);
 
     /// Returns the features for this Artifact
     fn features(&self) -> &Features;
@@ -90,8 +97,10 @@ pub trait Artifact {
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
 
+        self.register_frame_info();
+
         InstanceHandle::new(
-            module.clone(),
+            module,
             self.finished_functions().clone(),
             finished_memories,
             finished_tables,
