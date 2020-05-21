@@ -37,7 +37,7 @@ pub trait Artifact: Downcast {
     /// See `InstanceHandle::new`
     unsafe fn instantiate(
         &self,
-        tunables: &Tunables,
+        tunables: &dyn Tunables,
         sig_registry: &SignatureRegistry,
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,

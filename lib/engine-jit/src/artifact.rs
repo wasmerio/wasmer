@@ -4,23 +4,20 @@
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
 use crate::serialize::{SerializableCompilation, SerializableModule};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
-    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{CompileError, Features};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, Engine, GlobalFrameInfoRegistration,
-    InstantiationError, Resolver, RuntimeError, SerializableFunctionFrameInfo, SerializeError,
-    Tunables,
+    SerializableFunctionFrameInfo, SerializeError,
 };
-use wasmer_runtime::{
-    InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
-};
+use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex};
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
@@ -31,6 +28,7 @@ pub struct JITArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    #[allow(dead_code)]
     frame_info_registration: Option<GlobalFrameInfoRegistration>,
 }
 

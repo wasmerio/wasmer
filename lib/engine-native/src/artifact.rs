@@ -12,21 +12,15 @@ use std::sync::Arc;
 use tempfile::NamedTempFile;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{CompileError, Features, RelocationTarget};
-use wasmer_engine::{
-    Artifact, DeserializeError, Engine, InstantiationError, Resolver, RuntimeError, SerializeError,
-    Tunables,
-};
-use wasmer_runtime::{
-    InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
-    VMTrampoline,
-};
+use wasmer_engine::{Artifact, DeserializeError, Engine, SerializeError};
 use wasmer_runtime::{MemoryPlan, TablePlan};
+use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct NativeArtifact {
