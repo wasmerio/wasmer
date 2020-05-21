@@ -1,4 +1,5 @@
 use crate::config::LLVMConfig;
+use crate::object_file::load_object_file;
 use crate::translator::intrinsics::{func_type_to_llvm, Intrinsics};
 use inkwell::{
     context::Context, module::Linkage, passes::PassManager, targets::FileType, types::BasicType,
@@ -11,7 +12,7 @@ pub struct FuncTrampoline {
     ctx: Context,
 }
 
-const FUNCTION_SECTION: &'static str = "wasmer_trampoline";
+const FUNCTION_SECTION: &str = "wasmer_trampoline";
 
 impl FuncTrampoline {
     pub fn new() -> Self {
@@ -80,24 +81,34 @@ impl FuncTrampoline {
         }
         */
 
-        let object = memory_buffer.create_object_file().map_err(|()| {
-            CompileError::Codegen("failed to create object file from llvm ir".to_string())
-        })?;
-
-        let mut bytes = vec![];
-        for section in object.get_sections() {
-            if section.get_name().map(std::ffi::CStr::to_bytes) == Some(FUNCTION_SECTION.as_bytes())
-            {
-                bytes.extend(section.get_contents().to_vec());
-                break;
-            }
+        let mem_buf_slice = memory_buffer.as_slice();
+        let (function, sections) =
+            load_object_file(mem_buf_slice, FUNCTION_SECTION, None, |name: &String| {
+                Err(CompileError::Codegen(format!(
+                    "trampoline generation produced reference to unknown function {}",
+                    name
+                )))
+            })?;
+        if !sections.is_empty() {
+            return Err(CompileError::Codegen(
+                "trampoline generation produced custom sections".into(),
+            ));
         }
-        // TODO: remove debugging
-        //dbg!(&bytes);
+        if !function.relocations.is_empty() {
+            return Err(CompileError::Codegen(
+                "trampoline generation produced relocations".into(),
+            ));
+        }
+        if !function.jt_offsets.is_empty() {
+            return Err(CompileError::Codegen(
+                "trampoline generation produced jump tables".into(),
+            ));
+        }
+        // Ignore CompiledFunctionFrameInfo. Extra frame info isn't a problem.
 
         Ok(FunctionBody {
-            body: bytes,
-            unwind_info: None,
+            body: function.body.body,
+            unwind_info: function.body.unwind_info,
         })
     }
 }
