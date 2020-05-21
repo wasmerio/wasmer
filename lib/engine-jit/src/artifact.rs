@@ -256,7 +256,7 @@ impl Artifact for JITArtifact {
         let bytes = bincode::serialize(&self.serializable)
             .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
 
-        // We append the header
+        // Prepend the header.
         let mut serialized = Self::MAGIC_HEADER.to_vec();
         serialized.extend(bytes);
         Ok(serialized)
