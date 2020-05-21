@@ -5,7 +5,6 @@ use crate::engine::{NativeEngine, NativeEngineInner};
 use crate::serialize::ModuleMetadata;
 use faerie::{ArtifactBuilder, Decl, Link};
 use libloading::{Library, Symbol};
-use std::any::Any;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -20,8 +19,8 @@ use wasm_common::{
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{CompileError, Features, RelocationTarget};
 use wasmer_engine::{
-    resolve_imports, Artifact, DeserializeError, Engine, InstantiationError, Resolver,
-    RuntimeError, SerializeError, Tunables,
+    Artifact, DeserializeError, Engine, InstantiationError, Resolver, RuntimeError, SerializeError,
+    Tunables,
 };
 use wasmer_runtime::{
     InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
@@ -429,65 +428,14 @@ impl NativeArtifact {
         Self::from_parts(&mut engine_inner, metadata, shared_path, lib)
             .map_err(|e| DeserializeError::Compiler(e))
     }
-
-    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
-        &self.metadata.memory_plans
-    }
-
-    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
-        &self.metadata.table_plans
-    }
-
-    /// Crate an `Instance` from this `NativeArtifact`.
-    ///
-    /// # Unsafety
-    ///
-    /// See `InstanceHandle::new`
-    pub unsafe fn instantiate(
-        &self,
-        tunables: &Tunables,
-        sig_registry: &SignatureRegistry,
-        resolver: &dyn Resolver,
-        host_state: Box<dyn Any>,
-    ) -> Result<InstanceHandle, InstantiationError> {
-        let imports = resolve_imports(
-            &self.module(),
-            &sig_registry,
-            resolver,
-            &self.finished_dynamic_function_trampolines,
-            self.memory_plans(),
-            self.table_plans(),
-        )
-        .map_err(InstantiationError::Link)?;
-        let finished_memories = tunables
-            .create_memories(&self.module(), self.memory_plans())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-        let finished_tables = tunables
-            .create_tables(&self.module(), self.table_plans())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-        let finished_globals = tunables
-            .create_globals(&self.module())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-
-        InstanceHandle::new(
-            self.metadata.module.clone(),
-            self.finished_functions.clone(),
-            finished_memories,
-            finished_tables,
-            finished_globals,
-            imports,
-            self.signatures.clone(),
-            host_state,
-        )
-        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
-    }
 }
 
 impl Artifact for NativeArtifact {
-    fn module(&self) -> &ModuleInfo {
+    fn module(&self) -> &Arc<ModuleInfo> {
+        &self.metadata.module
+    }
+
+    fn module_ref(&self) -> &ModuleInfo {
         &self.metadata.module
     }
 
@@ -501,5 +449,27 @@ impl Artifact for NativeArtifact {
 
     fn data_initializers(&self) -> &Box<[OwnedDataInitializer]> {
         &self.metadata.data_initializers
+    }
+
+    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
+        &self.metadata.memory_plans
+    }
+
+    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
+        &self.metadata.table_plans
+    }
+
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {
+        &self.finished_functions
+    }
+
+    fn finished_dynamic_function_trampolines(
+        &self,
+    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody> {
+        &self.finished_dynamic_function_trampolines
+    }
+
+    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
+        &self.signatures
     }
 }

@@ -4,7 +4,6 @@
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
 use crate::serialize::{SerializableCompilation, SerializableModule};
-use std::any::Any;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
@@ -15,9 +14,9 @@ use wasm_common::{
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{CompileError, Features};
 use wasmer_engine::{
-    register_frame_info, resolve_imports, Artifact, DeserializeError, Engine,
-    GlobalFrameInfoRegistration, InstantiationError, Resolver, RuntimeError,
-    SerializableFunctionFrameInfo, SerializeError, Tunables,
+    register_frame_info, Artifact, DeserializeError, Engine, GlobalFrameInfoRegistration,
+    InstantiationError, Resolver, RuntimeError, SerializableFunctionFrameInfo, SerializeError,
+    Tunables,
 };
 use wasmer_runtime::{
     InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
@@ -201,66 +200,14 @@ impl JITArtifact {
             frame_info_registration,
         })
     }
-
-    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
-        &self.serializable.memory_plans
-    }
-
-    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
-        &self.serializable.table_plans
-    }
-
-    /// Crate an `Instance` from this `JITArtifact`.
-    ///
-    /// # Unsafety
-    ///
-    /// See `InstanceHandle::new`
-    pub unsafe fn instantiate(
-        &self,
-        tunables: &Tunables,
-        sig_registry: &SignatureRegistry,
-        resolver: &dyn Resolver,
-        host_state: Box<dyn Any>,
-    ) -> Result<InstanceHandle, InstantiationError> {
-        let imports = resolve_imports(
-            &self.module(),
-            &sig_registry,
-            resolver,
-            &self.finished_dynamic_function_trampolines,
-            self.memory_plans(),
-            self.table_plans(),
-        )
-        .map_err(InstantiationError::Link)?;
-
-        let finished_memories = tunables
-            .create_memories(&self.module(), self.memory_plans())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-        let finished_tables = tunables
-            .create_tables(&self.module(), self.table_plans())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-        let finished_globals = tunables
-            .create_globals(&self.module())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-
-        InstanceHandle::new(
-            self.serializable.module.clone(),
-            self.finished_functions.clone(),
-            finished_memories,
-            finished_tables,
-            finished_globals,
-            imports,
-            self.signatures.clone(),
-            host_state,
-        )
-        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
-    }
 }
 
 impl Artifact for JITArtifact {
-    fn module(&self) -> &ModuleInfo {
+    fn module(&self) -> &Arc<ModuleInfo> {
+        &self.serializable.module
+    }
+
+    fn module_ref(&self) -> &ModuleInfo {
         &self.serializable.module
     }
 
@@ -274,5 +221,27 @@ impl Artifact for JITArtifact {
 
     fn data_initializers(&self) -> &Box<[OwnedDataInitializer]> {
         &self.serializable.data_initializers
+    }
+
+    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
+        &self.serializable.memory_plans
+    }
+
+    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
+        &self.serializable.table_plans
+    }
+
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {
+        &self.finished_functions
+    }
+
+    fn finished_dynamic_function_trampolines(
+        &self,
+    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody> {
+        &self.finished_dynamic_function_trampolines
+    }
+
+    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
+        &self.signatures
     }
 }

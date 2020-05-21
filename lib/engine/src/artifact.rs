@@ -1,7 +1,16 @@
-use crate::{InstantiationError, RuntimeError};
-use wasm_common::{DataInitializer, OwnedDataInitializer};
+use crate::{resolve_imports, InstantiationError, Resolver, RuntimeError, Tunables};
+use std::any::Any;
+use std::sync::Arc;
+use wasm_common::entity::{BoxedSlice, PrimaryMap};
+use wasm_common::{
+    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
+    SignatureIndex, TableIndex,
+};
 use wasmer_compiler::Features;
-use wasmer_runtime::{InstanceHandle, ModuleInfo};
+use wasmer_runtime::{
+    InstanceHandle, MemoryPlan, ModuleInfo, SignatureRegistry, TablePlan, VMFunctionBody,
+    VMSharedSignatureIndex,
+};
 
 use downcast_rs::{impl_downcast, Downcast};
 
@@ -12,11 +21,62 @@ use downcast_rs::{impl_downcast, Downcast};
 /// for a given modue, as well as extra information needed to run the
 /// module at runtime.
 pub trait Artifact: Downcast {
+    /// Return a pointer to the Arc module
+    fn module(&self) -> &Arc<ModuleInfo>;
+
     /// Return a pointer to a module.
-    fn module(&self) -> &ModuleInfo;
+    fn module_ref(&self) -> &ModuleInfo;
 
     /// Return a mutable pointer to a module.
     fn module_mut(&mut self) -> &mut ModuleInfo;
+
+    /// Crate an `Instance` from this `Artifact`.
+    ///
+    /// # Unsafety
+    ///
+    /// See `InstanceHandle::new`
+    unsafe fn instantiate(
+        &self,
+        tunables: &Tunables,
+        sig_registry: &SignatureRegistry,
+        resolver: &dyn Resolver,
+        host_state: Box<dyn Any>,
+    ) -> Result<InstanceHandle, InstantiationError> {
+        let module = self.module();
+        let imports = resolve_imports(
+            &module,
+            &sig_registry,
+            resolver,
+            &self.finished_dynamic_function_trampolines(),
+            self.memory_plans(),
+            self.table_plans(),
+        )
+        .map_err(InstantiationError::Link)?;
+        let finished_memories = tunables
+            .create_memories(&module, self.memory_plans())
+            .map_err(InstantiationError::Link)?
+            .into_boxed_slice();
+        let finished_tables = tunables
+            .create_tables(&module, self.table_plans())
+            .map_err(InstantiationError::Link)?
+            .into_boxed_slice();
+        let finished_globals = tunables
+            .create_globals(&module)
+            .map_err(InstantiationError::Link)?
+            .into_boxed_slice();
+
+        InstanceHandle::new(
+            module.clone(),
+            self.finished_functions().clone(),
+            finished_memories,
+            finished_tables,
+            finished_globals,
+            imports,
+            self.signatures().clone(),
+            host_state,
+        )
+        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    }
 
     /// Finishes the instantiation of a just created `InstanceHandle`.
     ///
@@ -46,6 +106,25 @@ pub trait Artifact: Downcast {
 
     /// Returns data initializers to pass to `InstanceHandle::initialize`
     fn data_initializers(&self) -> &Box<[OwnedDataInitializer]>;
+
+    /// Returns the memory plans associated with this `Artifact`.
+    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan>;
+
+    /// Returns the table plans associated with this `Artifact`.
+    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan>;
+
+    /// Returns the functions allocated in memory or this `Artifact`
+    /// ready to be run.
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>;
+
+    /// Returns the dynamic funciton trampolines allocated in memory
+    /// for this `Artifact`, ready to be run.
+    fn finished_dynamic_function_trampolines(
+        &self,
+    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody>;
+
+    /// Returns the associated VM signatures for this `Artifact`.
+    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;
 }
 
 impl_downcast!(Artifact);
