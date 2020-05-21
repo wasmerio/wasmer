@@ -34,6 +34,10 @@ impl ElfSectionIndex {
     }
 }
 
+fn map_goblin_err(error: goblin::error::Error) -> CompileError {
+    CompileError::Codegen(format!("error parsing ELF file: {}", error))
+}
+
 pub fn load_object_file<F>(
     contents: &[u8],
     root_section: &str,
@@ -43,7 +47,7 @@ pub fn load_object_file<F>(
 where
     F: FnMut(&String) -> Result<Option<RelocationTarget>, CompileError>,
 {
-    // TODO: use phf?
+    // TODO: use perfect hash function?
     let mut libcalls = HashMap::new();
     libcalls.insert("vm.exception.trap".to_string(), LibCall::RaiseTrap);
     libcalls.insert("truncf".to_string(), LibCall::TruncF32);
@@ -55,12 +59,7 @@ where
     libcalls.insert("nearbyintf".to_string(), LibCall::NearestF32);
     libcalls.insert("nearbyint".to_string(), LibCall::NearestF64);
 
-    let object = goblin::Object::parse(&contents).unwrap();
-    let elf = match object {
-        goblin::Object::Elf(elf) => elf,
-        _ => unimplemented!("native object file type not supported"),
-    };
-
+    let elf = goblin::elf::Elf::parse(&contents).map_err(map_goblin_err)?;
     let get_section_name = |section: &goblin::elf::section_header::SectionHeader| {
         if section.sh_name == goblin::elf::section_header::SHN_UNDEF as _ {
             return None;
@@ -162,8 +161,13 @@ where
             let offset = reloc.r_offset as u32;
             let addend = reloc.r_addend.unwrap_or(0);
             let target = reloc.r_sym;
-            // TODO: error handling
-            let elf_target = elf.syms.get(target).unwrap();
+            let elf_target = elf.syms.get(target).ok_or_else(|| {
+                CompileError::Codegen(format!(
+                    "relocation refers to symbol {} past end of symbol table (len={})",
+                    target,
+                    elf.syms.len()
+                ))
+            })?;
             let elf_target_section = ElfSectionIndex::from_usize(elf_target.st_shndx)?;
             let reloc_target = if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
                 if visited.insert(elf_target_section) {
