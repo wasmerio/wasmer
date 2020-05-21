@@ -129,12 +129,7 @@ impl Engine for JITEngine {
         let compiled_module = compiled_module
             .downcast_ref::<JITArtifact>()
             .expect("The provided module is not a JIT compiled module");
-        compiled_module.instantiate(
-            self.tunables(),
-            self.inner().signatures(),
-            resolver,
-            Box::new(()),
-        )
+        compiled_module.instantiate(self, resolver, Box::new(()))
     }
 
     /// Finish the instantiation of a WebAssembly module

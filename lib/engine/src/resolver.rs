@@ -1,13 +1,13 @@
 //! Define the `Resolver` trait, allowing custom resolution for external
 //! references.
 
-use crate::error::{ImportError, LinkError};
+use crate::{Engine, ImportError, LinkError};
 use more_asserts::assert_ge;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::{
-    Export, Imports, SignatureRegistry, VMFunctionBody, VMFunctionImport, VMFunctionKind,
-    VMGlobalImport, VMMemoryImport, VMTableImport,
+    Export, Imports, VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport,
+    VMMemoryImport, VMTableImport,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -57,15 +57,17 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
     }
 }
 
-/// Get an `ExternType` given an export (and signatures in case is a function).
+/// Get an `ExternType` given an export (and Engine signatures in case is a function).
 fn get_extern_from_export(
     _module: &ModuleInfo,
-    signatures: &SignatureRegistry,
+    engine: &dyn Engine,
     export: &Export,
 ) -> ExternType {
     match export {
         Export::Function(ref f) => {
-            let func = signatures.lookup(f.signature).unwrap();
+            let func = engine
+                .lookup_signature(f.signature)
+                .expect("Signature not found in the engine");
             ExternType::Function(func)
         }
         Export::Table(ref t) => {
@@ -89,7 +91,7 @@ fn get_extern_from_export(
 /// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
 pub fn resolve_imports(
     module: &ModuleInfo,
-    signatures: &SignatureRegistry,
+    engine: &dyn Engine,
     resolver: &dyn Resolver,
     finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
@@ -113,7 +115,7 @@ pub fn resolve_imports(
             }
             Some(r) => r,
         };
-        let export_extern = get_extern_from_export(module, signatures, &resolved);
+        let export_extern = get_extern_from_export(module, engine, &resolved);
         if !export_extern.is_compatible_with(&import_extern) {
             return Err(LinkError::Import(
                 module_name.to_string(),

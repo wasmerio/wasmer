@@ -1,4 +1,4 @@
-use crate::{resolve_imports, InstantiationError, Resolver, RuntimeError, Tunables};
+use crate::{resolve_imports, Engine, InstantiationError, Resolver, RuntimeError, Tunables};
 use std::any::Any;
 use std::sync::Arc;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
@@ -37,15 +37,15 @@ pub trait Artifact: Downcast {
     /// See `InstanceHandle::new`
     unsafe fn instantiate(
         &self,
-        tunables: &dyn Tunables,
-        sig_registry: &SignatureRegistry,
+        engine: &dyn Engine,
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
         let module = self.module();
+        let tunables = engine.tunables();
         let imports = resolve_imports(
             &module,
-            &sig_registry,
+            engine,
             resolver,
             &self.finished_dynamic_function_trampolines(),
             self.memory_plans(),
