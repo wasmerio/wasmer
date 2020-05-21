@@ -30,7 +30,7 @@ use wasm_common::{
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, CustomSections,
-    FunctionBodyData, WasmResult,
+    FunctionBodyData, RelocationTarget, WasmResult,
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMBuiltinFunctionIndex, VMOffsets};
 
@@ -279,9 +279,20 @@ impl FuncTranslator {
         load_object_file(
             mem_buf_slice,
             ".wasmer_function",
-            local_func_index,
-            func_names,
-            wasm_module,
+            *local_func_index,
+            |name: &String| {
+                if let Some((index, _)) = func_names
+                    .iter()
+                    .find(|(_, func_name)| **func_name == *name)
+                {
+                    let local_index = wasm_module
+                        .local_func_index(index)
+                        .expect("relocation to non-local function");
+                    Ok(Some(RelocationTarget::LocalFunc(local_index)))
+                } else {
+                    Ok(None)
+                }
+            },
         )
     }
 }

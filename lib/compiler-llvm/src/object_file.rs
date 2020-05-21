@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
-use wasm_common::{FunctionIndex, LocalFunctionIndex};
+use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{
     CompileError, CompiledFunction, CompiledFunctionFrameInfo, CustomSection,
     CustomSectionProtection, CustomSections, FunctionAddressMap, FunctionBody,
@@ -10,7 +10,6 @@ use wasmer_compiler::{
     SourceLoc,
 };
 use wasmer_runtime::libcalls::LibCall;
-use wasmer_runtime::ModuleInfo;
 
 use wasm_common::entity::entity_impl;
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -36,13 +35,15 @@ impl ElfSectionIndex {
     }
 }
 
-pub fn load_object_file(
+pub fn load_object_file<F>(
     mem_buf_slice: &[u8],
     root_section: &str,
-    local_func_index: &LocalFunctionIndex,
-    func_names: &SecondaryMap<FunctionIndex, String>,
-    wasm_module: &ModuleInfo,
-) -> Result<(CompiledFunction, CustomSections), CompileError> {
+    local_func_index: LocalFunctionIndex,
+    mut symbol_name_to_relocation_target: F,
+) -> Result<(CompiledFunction, CustomSections), CompileError>
+where
+    F: FnMut(&String) -> Result<Option<RelocationTarget>, CompileError>,
+{
     // TODO: use phf?
     let mut libcalls = HashMap::new();
     libcalls.insert("vm.exception.trap".to_string(), LibCall::RaiseTrap);
@@ -104,7 +105,7 @@ pub fn load_object_file(
 
     section_targets.insert(
         root_section_index,
-        RelocationTarget::LocalFunc(*local_func_index),
+        RelocationTarget::LocalFunc(local_func_index),
     );
 
     let mut next_custom_section: u32 = 0;
@@ -175,22 +176,17 @@ pub fn load_object_file(
                 && elf_target_section == root_section_index
             {
                 // This is a function referencing its own byte stream.
-                RelocationTarget::LocalFunc(*local_func_index)
+                RelocationTarget::LocalFunc(local_func_index)
             } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
                 && elf_target_section.is_undef()
             {
                 // Not defined in this .o file. Maybe another local function?
                 let name = elf_target.st_name;
-                let name = elf.strtab.get(name).unwrap().unwrap();
-                if let Some((index, _)) =
-                    func_names.iter().find(|(_, func_name)| *func_name == name)
-                {
-                    let local_index = wasm_module
-                        .local_func_index(index)
-                        .expect("Relocation to non-local function");
-                    RelocationTarget::LocalFunc(local_index)
+                let name = elf.strtab.get(name).unwrap().unwrap().into();
+                if let Some(reloc_target) = symbol_name_to_relocation_target(&name)? {
+                    reloc_target
                 // Maybe a libcall then?
-                } else if let Some(libcall) = libcalls.get(name) {
+                } else if let Some(libcall) = libcalls.get(&name) {
                     RelocationTarget::LibCall(*libcall)
                 } else {
                     unimplemented!("reference to unknown symbol {}", name);
