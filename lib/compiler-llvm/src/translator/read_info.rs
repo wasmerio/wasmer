@@ -14,22 +14,18 @@ fn wp_type_to_type(ty: WpType) -> Result<Type, CompileError> {
         WpType::F32 => Ok(Type::F32),
         WpType::F64 => Ok(Type::F64),
         WpType::V128 => Ok(Type::V128),
-        _ => {
-            return Err(CompileError::Codegen(
-                "broken invariant, invalid type".to_string(),
-            ));
-        }
+        _ => Err(CompileError::Codegen(
+            "broken invariant, invalid type".to_string(),
+        )),
     }
 }
 
 pub fn blocktype_to_type(ty: WpTypeOrFuncType) -> Result<Type, CompileError> {
     match ty {
         WpTypeOrFuncType::Type(inner_ty) => Ok(wp_type_to_type(inner_ty)?),
-        _ => {
-            return Err(CompileError::Codegen(
-                "the wasmer llvm backend does not yet support the multi-value return extension"
-                    .to_string(),
-            ));
-        }
+        _ => Err(CompileError::Codegen(
+            "the wasmer llvm backend does not yet support the multi-value return extension"
+                .to_string(),
+        )),
     }
 }

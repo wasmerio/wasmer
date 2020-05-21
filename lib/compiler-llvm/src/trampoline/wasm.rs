@@ -23,7 +23,7 @@ impl FuncTrampoline {
         ty: &FunctionType,
         config: &LLVMConfig,
     ) -> Result<FunctionBody, CompileError> {
-        let mut module = self.ctx.create_module("");
+        let module = self.ctx.create_module("");
         let target_triple = config.target_triple();
         let target_machine = config.target_machine();
         module.set_triple(&target_triple);
@@ -59,13 +59,13 @@ impl FuncTrampoline {
 
         pass_manager.add_early_cse_pass();
 
-        pass_manager.run_on(&mut module);
+        pass_manager.run_on(&module);
 
         // TODO: remove debugging
         //module.print_to_stderr();
 
         let memory_buffer = target_machine
-            .write_to_memory_buffer(&mut module, FileType::Object)
+            .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
 
         /*
@@ -84,9 +84,7 @@ impl FuncTrampoline {
 
         let mut bytes = vec![];
         for section in object.get_sections() {
-            if section.get_name().map(std::ffi::CStr::to_bytes)
-                == Some("wasmer_trampoline".as_bytes())
-            {
+            if section.get_name().map(std::ffi::CStr::to_bytes) == Some(b"wasmer_trampoline") {
                 bytes.extend(section.get_contents().to_vec());
                 break;
             }
@@ -119,9 +117,9 @@ fn generate_trampoline<'ctx>(
         "");
     */
 
-    let (callee_vmctx_ptr, func_ptr, args_rets_ptr) = match trampoline_func.get_params().as_slice()
+    let (callee_vmctx_ptr, func_ptr, args_rets_ptr) = match *trampoline_func.get_params().as_slice()
     {
-        &[callee_vmctx_ptr, func_ptr, args_rets_ptr] => (
+        [callee_vmctx_ptr, func_ptr, args_rets_ptr] => (
             callee_vmctx_ptr,
             func_ptr.into_pointer_value(),
             args_rets_ptr.into_pointer_value(),
@@ -159,17 +157,17 @@ fn generate_trampoline<'ctx>(
 
         let arg = builder.build_load(typed_item_pointer, "arg");
         args_vec.push(arg);
-        i = i + 1;
+        i += 1;
         if *param_ty == Type::V128 {
-            i = i + 1;
+            i += 1;
         }
     }
 
     let call_site = builder.build_call(func_ptr, &args_vec, "call");
 
-    match func_sig.results() {
-        &[] => {}
-        &[one_ret] => {
+    match *func_sig.results() {
+        [] => {}
+        [one_ret] => {
             let ret_ptr_type = cast_ptr_ty(one_ret);
 
             let typed_ret_ptr =
