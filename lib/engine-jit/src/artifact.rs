@@ -11,9 +11,9 @@ use wasm_common::{
     DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
     SignatureIndex, TableIndex,
 };
-use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
+use wasmer_compiler::{CompileError, Features};
 use wasmer_engine::{
     register_frame_info, resolve_imports, Artifact, DeserializeError, Engine,
     GlobalFrameInfoRegistration, InstantiationError, Resolver, RuntimeError,
@@ -267,7 +267,7 @@ impl JITArtifact {
         &self,
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
-        let is_bulk_memory: bool = self.serializable.features.bulk_memory;
+        let is_bulk_memory: bool = self.features().bulk_memory;
         let data_initializers = self
             .data_initializers()
             .iter()
@@ -279,6 +279,11 @@ impl JITArtifact {
         handle
             .finish_instantiation(is_bulk_memory, &data_initializers)
             .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    }
+
+    /// Returns the features for this Artifact
+    pub fn features(&self) -> &Features {
+        &self.serializable.features
     }
 
     /// Returns data initializers to pass to `InstanceHandle::initialize`
