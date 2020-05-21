@@ -72,11 +72,11 @@ impl JITEngine {
         }
     }
 
-    pub(crate) fn compiler(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
+    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
         self.inner.lock().unwrap()
     }
 
-    pub(crate) fn compiler_mut(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
+    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
         self.inner.lock().unwrap()
     }
 
@@ -95,24 +95,24 @@ impl Engine for JITEngine {
 
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
-        let compiler = self.compiler();
+        let compiler = self.inner();
         compiler.signatures().register(func_type)
     }
 
     /// Lookup a signature
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
-        let compiler = self.compiler();
+        let compiler = self.inner();
         compiler.signatures().lookup(sig)
     }
 
     /// Retrieves a trampoline given a signature
     fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.compiler().function_call_trampoline(sig)
+        self.inner().function_call_trampoline(sig)
     }
 
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
-        self.compiler().validate(binary)
+        self.inner().validate(binary)
     }
 
     /// Compile a WebAssembly binary
@@ -129,7 +129,12 @@ impl Engine for JITEngine {
         let compiled_module = compiled_module
             .downcast_ref::<JITArtifact>()
             .expect("The provided module is not a JIT compiled module");
-        compiled_module.instantiate(&self, resolver, Box::new(()))
+        compiled_module.instantiate(
+            self.tunables(),
+            self.inner().signatures(),
+            resolver,
+            Box::new(()),
+        )
     }
 
     /// Finish the instantiation of a WebAssembly module

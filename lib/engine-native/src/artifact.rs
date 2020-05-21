@@ -22,7 +22,7 @@ use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::RelocationTarget;
 use wasmer_engine::{
     resolve_imports, Artifact, DeserializeError, Engine, InstantiationError, Resolver,
-    RuntimeError, SerializeError,
+    RuntimeError, SerializeError, Tunables,
 };
 use wasmer_runtime::{
     InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
@@ -441,13 +441,11 @@ impl NativeArtifact {
     /// See `InstanceHandle::new`
     pub unsafe fn instantiate(
         &self,
-        engine: &NativeEngine,
+        tunables: &Tunables,
+        sig_registry: &SignatureRegistry,
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
-        let engine_inner = engine.inner();
-        let tunables = engine.tunables();
-        let sig_registry: &SignatureRegistry = engine_inner.signatures();
         let imports = resolve_imports(
             &self.module(),
             &sig_registry,

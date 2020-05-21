@@ -17,7 +17,7 @@ use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{
     register_frame_info, resolve_imports, Artifact, DeserializeError, Engine,
     GlobalFrameInfoRegistration, InstantiationError, Resolver, RuntimeError,
-    SerializableFunctionFrameInfo, SerializeError,
+    SerializableFunctionFrameInfo, SerializeError, Tunables,
 };
 use wasmer_runtime::{
     InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
@@ -40,7 +40,7 @@ impl JITArtifact {
     #[cfg(feature = "compiler")]
     pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
-        let mut jit_compiler = jit.compiler_mut();
+        let mut inner_jit = jit.inner_mut();
         let tunables = jit.tunables();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
@@ -58,7 +58,7 @@ impl JITArtifact {
             .map(|(_index, table_type)| tunables.table_plan(*table_type))
             .collect();
 
-        let compiler = jit_compiler.compiler()?;
+        let compiler = inner_jit.compiler()?;
 
         // Compile the Module
         let compilation = compiler.compile_module(
@@ -110,12 +110,12 @@ impl JITArtifact {
         let serializable = SerializableModule {
             compilation: serializable_compilation,
             module: Arc::new(translation.module),
-            features: jit_compiler.compiler()?.features().clone(),
+            features: inner_jit.compiler()?.features().clone(),
             data_initializers,
             memory_plans,
             table_plans,
         };
-        Self::from_parts(&mut jit_compiler, serializable)
+        Self::from_parts(&mut inner_jit, serializable)
     }
 
     /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
@@ -143,22 +143,22 @@ impl JITArtifact {
         let serializable: SerializableModule = bincode::deserialize(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        Self::from_parts(&mut jit.compiler_mut(), serializable).map_err(DeserializeError::Compiler)
+        Self::from_parts(&mut jit.inner_mut(), serializable).map_err(DeserializeError::Compiler)
     }
 
     /// Construct a `JITArtifact` from component parts.
     pub fn from_parts(
-        jit_compiler: &mut JITEngineInner,
+        inner_jit: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let (finished_functions, finished_dynamic_function_trampolines) = jit_compiler.allocate(
+        let (finished_functions, finished_dynamic_function_trampolines) = inner_jit.allocate(
             &serializable.module,
             &serializable.compilation.function_bodies,
             &serializable.compilation.function_call_trampolines,
             &serializable.compilation.dynamic_function_trampolines,
         )?;
         let custom_sections =
-            jit_compiler.allocate_custom_sections(&serializable.compilation.custom_sections)?;
+            inner_jit.allocate_custom_sections(&serializable.compilation.custom_sections)?;
 
         link_module(
             &serializable.module,
@@ -171,7 +171,7 @@ impl JITArtifact {
 
         // Compute indices into the shared signature table.
         let signatures = {
-            let signature_registry = jit_compiler.signatures();
+            let signature_registry = inner_jit.signatures();
             serializable
                 .module
                 .signatures
@@ -181,7 +181,7 @@ impl JITArtifact {
         };
 
         // Make all code compiled thus far executable.
-        jit_compiler.publish_compiled_code();
+        inner_jit.publish_compiled_code();
 
         Ok(Self {
             serializable,
@@ -208,13 +208,11 @@ impl JITArtifact {
     /// See `InstanceHandle::new`
     pub unsafe fn instantiate(
         &self,
-        jit: &JITEngine,
+        tunables: &Tunables,
+        sig_registry: &SignatureRegistry,
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
-        let jit_compiler = jit.compiler();
-        let tunables = jit.tunables();
-        let sig_registry: &SignatureRegistry = jit_compiler.signatures();
         let imports = resolve_imports(
             &self.module(),
             &sig_registry,
@@ -280,6 +278,7 @@ impl JITArtifact {
             })
             .collect::<Vec<_>>()
     }
+
     /// Register this module's stack frame information into the global scope.
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
