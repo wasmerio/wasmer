@@ -1,4 +1,4 @@
-use crate::{resolve_imports, Engine, InstantiationError, Resolver, RuntimeError, Tunables};
+use crate::{resolve_imports, Engine, InstantiationError, Resolver, RuntimeError};
 use std::any::Any;
 use std::sync::Arc;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
@@ -8,8 +8,7 @@ use wasm_common::{
 };
 use wasmer_compiler::Features;
 use wasmer_runtime::{
-    InstanceHandle, MemoryPlan, ModuleInfo, SignatureRegistry, TablePlan, VMFunctionBody,
-    VMSharedSignatureIndex,
+    InstanceHandle, MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMSharedSignatureIndex,
 };
 
 use downcast_rs::{impl_downcast, Downcast};

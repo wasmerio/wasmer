@@ -1,14 +1,12 @@
 //! JIT compilation.
 
-use crate::error::InstantiationError;
-use crate::resolver::Resolver;
 use crate::tunables::Tunables;
 use crate::{Artifact, DeserializeError, SerializeError};
 use std::path::Path;
 use std::sync::Arc;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
-use wasmer_runtime::{InstanceHandle, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_runtime::{VMSharedSignatureIndex, VMTrampoline};
 
 /// A unimplemented Wasmer `Engine`.
 ///
@@ -33,20 +31,6 @@ pub trait Engine {
 
     /// Compile a WebAssembly binary
     fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError>;
-
-    /// Instantiates a WebAssembly module
-    unsafe fn instantiate(
-        &self,
-        compiled_module: &dyn Artifact,
-        resolver: &dyn Resolver,
-    ) -> Result<InstanceHandle, InstantiationError>;
-
-    /// Finish the instantiation of a WebAssembly module
-    unsafe fn finish_instantiation(
-        &self,
-        compiled_module: &dyn Artifact,
-        handle: &InstanceHandle,
-    ) -> Result<(), InstantiationError>;
 
     /// Serializes a WebAssembly module
     fn serialize(&self, compiled_module: &dyn Artifact) -> Result<Vec<u8>, SerializeError>;

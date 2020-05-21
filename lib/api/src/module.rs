@@ -223,19 +223,16 @@ impl Module {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
-            let instance_handle = self
-                .store
-                .engine()
-                .instantiate(self.artifact.borrow(), resolver)?;
+            let instance_handle =
+                self.artifact
+                    .instantiate(self.store.engine().as_ref(), resolver, Box::new(()))?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.store
-                .engine()
-                .finish_instantiation(self.artifact.borrow(), &instance_handle)?;
+            self.artifact.finish_instantiation(&instance_handle)?;
 
             Ok(instance_handle)
         }

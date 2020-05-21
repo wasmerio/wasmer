@@ -10,12 +10,9 @@ use wasmer_compiler::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
-use wasmer_engine::{
-    Artifact, DeserializeError, Engine, InstantiationError, Resolver, SerializeError, Tunables,
-};
+use wasmer_engine::{Artifact, DeserializeError, Engine, SerializeError, Tunables};
 use wasmer_runtime::{
-    InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
-    VMTrampoline,
+    ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
@@ -118,30 +115,6 @@ impl Engine for JITEngine {
     /// Compile a WebAssembly binary
     fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError> {
         Ok(Arc::new(JITArtifact::new(&self, binary)?))
-    }
-
-    /// Instantiates a WebAssembly module
-    unsafe fn instantiate(
-        &self,
-        compiled_module: &dyn Artifact,
-        resolver: &dyn Resolver,
-    ) -> Result<InstanceHandle, InstantiationError> {
-        let compiled_module = compiled_module
-            .downcast_ref::<JITArtifact>()
-            .expect("The provided module is not a JIT compiled module");
-        compiled_module.instantiate(self, resolver, Box::new(()))
-    }
-
-    /// Finish the instantiation of a WebAssembly module
-    unsafe fn finish_instantiation(
-        &self,
-        compiled_module: &dyn Artifact,
-        handle: &InstanceHandle,
-    ) -> Result<(), InstantiationError> {
-        let compiled_module = compiled_module
-            .downcast_ref::<JITArtifact>()
-            .expect("The provided module is not a JIT compiled module");
-        compiled_module.finish_instantiation(&handle)
     }
 
     /// Serializes a WebAssembly module
