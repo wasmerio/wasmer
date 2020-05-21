@@ -3,9 +3,9 @@ use crate::module::{MemoryPlan, TablePlan};
 use crate::table::Table;
 use crate::vmcontext::{
     VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
-    VMSharedSignatureIndex, VMTableDefinition,
+    VMTableDefinition,
 };
-use wasm_common::GlobalType;
+use wasm_common::{FunctionType, GlobalType};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]
@@ -30,10 +30,8 @@ pub struct ExportFunction {
     pub address: *const VMFunctionBody,
     /// Pointer to the containing `VMContext`.
     pub vmctx: *mut VMContext,
-    /// The function signature declaration, used for compatibilty checking.
-    ///
-    /// Note that this indexes within the module associated with `vmctx`.
-    pub signature: VMSharedSignatureIndex,
+    /// The function type, used for compatibilty checking.
+    pub signature: FunctionType,
     /// The function kind (it defines how it's the signature that provided `address` have)
     pub kind: VMFunctionKind,
 }

@@ -222,9 +222,11 @@ impl Module {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
-            let instance_handle =
-                self.artifact
-                    .instantiate(self.store.engine().as_ref(), resolver, Box::new(()))?;
+            let instance_handle = self.artifact.instantiate(
+                self.store.engine().tunables(),
+                resolver,
+                Box::new(()),
+            )?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any

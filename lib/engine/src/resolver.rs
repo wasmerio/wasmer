@@ -1,7 +1,7 @@
 //! Define the `Resolver` trait, allowing custom resolution for external
 //! references.
 
-use crate::{Engine, ImportError, LinkError};
+use crate::{ImportError, LinkError};
 use more_asserts::assert_ge;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
@@ -58,18 +58,9 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
 }
 
 /// Get an `ExternType` given an export (and Engine signatures in case is a function).
-fn get_extern_from_export(
-    _module: &ModuleInfo,
-    engine: &dyn Engine,
-    export: &Export,
-) -> ExternType {
+fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     match export {
-        Export::Function(ref f) => {
-            let func = engine
-                .lookup_signature(f.signature)
-                .expect("Signature not found in the engine");
-            ExternType::Function(func)
-        }
+        Export::Function(ref f) => ExternType::Function(f.signature.clone()),
         Export::Table(ref t) => {
             let table = t.plan().table;
             ExternType::Table(table)
@@ -91,7 +82,6 @@ fn get_extern_from_export(
 /// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
 pub fn resolve_imports(
     module: &ModuleInfo,
-    engine: &dyn Engine,
     resolver: &dyn Resolver,
     finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
@@ -115,7 +105,7 @@ pub fn resolve_imports(
             }
             Some(r) => r,
         };
-        let export_extern = get_extern_from_export(module, engine, &resolved);
+        let export_extern = get_extern_from_export(module, &resolved);
         if !export_extern.is_compatible_with(&import_extern) {
             return Err(LinkError::Import(
                 module_name.to_string(),

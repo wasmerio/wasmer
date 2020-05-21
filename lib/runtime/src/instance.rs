@@ -281,7 +281,7 @@ impl Instance {
     pub fn lookup_by_declaration(&self, export: &ExportIndex) -> Export {
         match export {
             ExportIndex::Function(index) => {
-                let signature = self.signature_id(self.module.functions[*index]);
+                let sig_index = &self.module.functions[*index];
                 let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
                 {
                     (
@@ -292,6 +292,7 @@ impl Instance {
                     let import = self.imported_function(*index);
                     (import.body, import.vmctx)
                 };
+                let function_type = self.module.signatures[*sig_index].clone();
                 ExportFunction {
                     address,
                     // Any function received is already static at this point as:
@@ -299,7 +300,7 @@ impl Instance {
                     // 2. All the imported functions are already static (because
                     //    they point to the trampolines rather than the dynamic addresses).
                     kind: VMFunctionKind::Static,
-                    signature,
+                    signature: function_type,
                     vmctx,
                 }
                 .into()
