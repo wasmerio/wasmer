@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
-use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{
     CompileError, CompiledFunction, CompiledFunctionFrameInfo, CustomSection,
     CustomSectionProtection, CustomSections, FunctionAddressMap, FunctionBody,
@@ -38,7 +37,7 @@ impl ElfSectionIndex {
 pub fn load_object_file<F>(
     mem_buf_slice: &[u8],
     root_section: &str,
-    local_func_index: LocalFunctionIndex,
+    self_referential_relocation_target: Option<RelocationTarget>,
     mut symbol_name_to_relocation_target: F,
 ) -> Result<(CompiledFunction, CustomSections), CompileError>
 where
@@ -103,10 +102,9 @@ where
 
     let mut section_to_custom_section = HashMap::new();
 
-    section_targets.insert(
-        root_section_index,
-        RelocationTarget::LocalFunc(local_func_index),
-    );
+    if let Some(reloc_target) = self_referential_relocation_target {
+        section_targets.insert(root_section_index, reloc_target);
+    };
 
     let mut next_custom_section: u32 = 0;
     let mut elf_section_to_target = |elf_section_index: ElfSectionIndex| {
@@ -174,9 +172,10 @@ where
                 elf_section_to_target(elf_target_section)
             } else if elf_target.st_type() == goblin::elf::sym::STT_FUNC
                 && elf_target_section == root_section_index
+                && self_referential_relocation_target.is_some()
             {
                 // This is a function referencing its own byte stream.
-                RelocationTarget::LocalFunc(local_func_index)
+                self_referential_relocation_target.unwrap()
             } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
                 && elf_target_section.is_undef()
             {
