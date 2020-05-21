@@ -3,12 +3,13 @@
 use crate::{
     error::{update_last_error, CApiError},
     export::wasmer_import_export_kind,
-    import::{wasmer_import_object_t, wasmer_import_t},
+    import::{wasmer_import_object_t, wasmer_import_t, CAPIImportObject},
     instance::{wasmer_instance_t, CAPIInstance},
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_int;
 use std::collections::HashMap;
+use std::ptr::NonNull;
 use std::slice;
 use wasmer::{Exports, Extern, Function, Global, ImportObject, Instance, Memory, Module, Table};
 
@@ -172,23 +173,27 @@ pub unsafe extern "C" fn wasmer_module_import_instantiate(
     module: *const wasmer_module_t,
     import_object: *const wasmer_import_object_t,
 ) -> wasmer_result_t {
-    let import_object: &ImportObject = &*(import_object as *const ImportObject);
+    // mutable to mutate through `instance_pointers_to_update` to make host functions work
+    let import_object: &mut CAPIImportObject = &mut *(import_object as *mut CAPIImportObject);
     let module: &Module = &*(module as *const Module);
 
-    let new_instance: Instance = match Instance::new(module, import_object) {
+    let new_instance: Instance = match Instance::new(module, &import_object.import_object) {
         Ok(instance) => instance,
         Err(error) => {
             update_last_error(error);
             return wasmer_result_t::WASMER_ERROR;
         }
     };
-    let imported_memories = todo!("get imported memories");
     let c_api_instance = CAPIInstance {
         instance: new_instance,
-        imported_memories,
+        imported_memories: import_object.imported_memories.clone(),
         ctx_data: None,
     };
-    *instance = Box::into_raw(Box::new(c_api_instance)) as *mut wasmer_instance_t;
+    let c_api_instance_pointer = Box::into_raw(Box::new(c_api_instance));
+    for to_update in import_object.instance_pointers_to_update.iter_mut() {
+        to_update.as_mut().instance_ptr = Some(NonNull::new_unchecked(c_api_instance_pointer));
+    }
+    *instance = c_api_instance_pointer as *mut wasmer_instance_t;
 
     return wasmer_result_t::WASMER_OK;
 }
