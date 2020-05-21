@@ -110,7 +110,7 @@ impl Engine for JITEngine {
     }
 
     /// Deserializes a WebAssembly module
-    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
+    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
         Ok(Arc::new(JITArtifact::deserialize(&self, &bytes)?))
     }
 }

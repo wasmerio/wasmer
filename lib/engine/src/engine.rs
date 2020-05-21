@@ -1,7 +1,7 @@
 //! JIT compilation.
 
 use crate::tunables::Tunables;
-use crate::{Artifact, DeserializeError, SerializeError};
+use crate::{Artifact, DeserializeError};
 use std::path::Path;
 use std::sync::Arc;
 use wasm_common::FunctionType;
@@ -33,10 +33,10 @@ pub trait Engine {
     fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError>;
 
     /// Deserializes a WebAssembly module
-    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError>;
+    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError>;
 
     /// Deserializes a WebAssembly module from a path
-    fn deserialize_from_file(
+    unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
     ) -> Result<Arc<dyn Artifact>, DeserializeError> {
