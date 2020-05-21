@@ -35,7 +35,7 @@ impl ElfSectionIndex {
 }
 
 pub fn load_object_file<F>(
-    mem_buf_slice: &[u8],
+    contents: &[u8],
     root_section: &str,
     self_referential_relocation_target: Option<RelocationTarget>,
     mut symbol_name_to_relocation_target: F,
@@ -55,7 +55,7 @@ where
     libcalls.insert("nearbyintf".to_string(), LibCall::NearestF32);
     libcalls.insert("nearbyint".to_string(), LibCall::NearestF64);
 
-    let object = goblin::Object::parse(&mem_buf_slice).unwrap();
+    let object = goblin::Object::parse(&contents).unwrap();
     let elf = match object {
         goblin::Object::Elf(elf) => elf,
         _ => unimplemented!("native object file type not supported"),
@@ -120,7 +120,7 @@ where
     let section_bytes = |elf_section_index: ElfSectionIndex| {
         let elf_section_index = elf_section_index.as_usize();
         let byte_range = elf.section_headers[elf_section_index].file_range();
-        mem_buf_slice[byte_range.start..byte_range.end].to_vec()
+        contents[byte_range.start..byte_range.end].to_vec()
     };
 
     // From elf section index to list of Relocations. Although we use a Vec,
