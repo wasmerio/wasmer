@@ -249,6 +249,7 @@ mod test {
     use super::*;
     use crate::{Global, Store, Val};
     use wasm_common::Type;
+    use wasmer_engine::ChainableNamedResolver;
     use wasmer_runtime::Export;
 
     #[test]
@@ -273,13 +274,13 @@ mod test {
 
         let resolver = imports1.chain_front(imports2);
 
-        let small_cat_export = resolver.resolve(0, "cat", "small");
-        assert!(small_cat_export.is_ok());
+        let small_cat_export = resolver.resolve_by_name("cat", "small");
+        assert!(small_cat_export.is_some());
 
-        let happy = resolver.resolve(0, "dog", "happy");
-        let small = resolver.resolve(0, "dog", "small");
-        assert!(happy.is_ok());
-        assert!(small.is_ok());
+        let happy = resolver.resolve_by_name("dog", "happy");
+        let small = resolver.resolve_by_name("dog", "small");
+        assert!(happy.is_some());
+        assert!(small.is_some());
     }
 
     #[test]
@@ -288,7 +289,7 @@ mod test {
         let g1 = Global::new(&store, Val::I32(0));
         let g2 = Global::new(&store, Val::I64(0));
 
-        let mut imports1 = imports! {
+        let imports1 = imports! {
             "dog" => {
                 "happy" => g1,
             },
@@ -301,10 +302,36 @@ mod test {
         };
 
         let resolver = imports1.chain_front(imports2);
-        let happy_dog_entry = resolver.resolve(0, "dog", "happy").unwrap();
+        let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
             happy_dog_global.global.ty == Type::I64
+        } else {
+            false
+        });
+
+        // now test it in reverse
+        let store = Store::default();
+        let g1 = Global::new(&store, Val::I32(0));
+        let g2 = Global::new(&store, Val::I64(0));
+
+        let imports1 = imports! {
+            "dog" => {
+                "happy" => g1,
+            },
+        };
+
+        let imports2 = imports! {
+            "dog" => {
+                "happy" => g2,
+            },
+        };
+
+        let resolver = imports1.chain_back(imports2);
+        let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
+
+        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.global.ty == Type::I32
         } else {
             false
         });
@@ -321,7 +348,7 @@ mod test {
             "dog" => namespace
         };
 
-        let happy_dog_entry = imports1.resolve(0, "dog", "happy").unwrap();
+        let happy_dog_entry = imports1.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
             happy_dog_global.global.ty == Type::I32
