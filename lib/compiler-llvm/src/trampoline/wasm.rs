@@ -11,6 +11,8 @@ pub struct FuncTrampoline {
     ctx: Context,
 }
 
+const FUNCTION_SECTION: &'static str = "wasmer_trampoline";
+
 impl FuncTrampoline {
     pub fn new() -> Self {
         Self {
@@ -45,7 +47,7 @@ impl FuncTrampoline {
         let trampoline_func = module.add_function("", trampoline_ty, Some(Linkage::External));
         trampoline_func
             .as_global_value()
-            .set_section("wasmer_trampoline");
+            .set_section(FUNCTION_SECTION);
         generate_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
         // TODO: remove debugging
@@ -84,7 +86,8 @@ impl FuncTrampoline {
 
         let mut bytes = vec![];
         for section in object.get_sections() {
-            if section.get_name().map(std::ffi::CStr::to_bytes) == Some(b"wasmer_trampoline") {
+            if section.get_name().map(std::ffi::CStr::to_bytes) == Some(FUNCTION_SECTION.as_bytes())
+            {
                 bytes.extend(section.get_contents().to_vec());
                 break;
             }
