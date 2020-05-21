@@ -395,8 +395,10 @@ pub unsafe extern "C" fn wasmer_import_object_imports_destroy(
         );
         match import.tag {
             wasmer_import_export_kind::WASM_FUNCTION => {
-                // TODO: Wrapped function
-                let _: Box<Function> = Box::from_raw(import.value.func as *mut _);
+                let function_wrapper: Box<FunctionWrapper> =
+                    Box::from_raw(import.value.func as *mut _);
+                let _: Box<Function> = Box::from_raw(function_wrapper.func.as_ptr());
+                let _: Box<LegacyEnv> = Box::from_raw(function_wrapper.legacy_env.as_ptr());
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
                 let _: Box<Global> = Box::from_raw(import.value.global as *mut _);

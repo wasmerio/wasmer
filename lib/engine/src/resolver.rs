@@ -250,13 +250,29 @@ pub struct NamedResolverChain<A: NamedResolver, B: NamedResolver> {
 
 /// A trait for chaining resolvers together.
 ///
-/// TODO: add example
+/// ```
+/// # fn chainable_test<A, B>(imports1: A, imports2: B)
+/// # where A: NamedResolver + Sized,
+/// #       B: Namedresolver + Sized,
+/// # {
+/// // override duplicates with imports from `imports2`
+/// imports1.chain_front(imports2);
+/// # }
+/// ```
 pub trait ChainableNamedResolver: NamedResolver + Sized {
     /// Chain a resolver in front of the current resolver.
     ///
     /// This will cause the second resolver to override the first.
     ///
-    /// TODO: add example
+    /// ```
+    /// # fn chainable_test<A, B>(imports1: A, imports2: B)
+    /// # where A: NamedResolver + Sized,
+    /// #       B: Namedresolver + Sized,
+    /// # {
+    /// // override duplicates with imports from `imports2`
+    /// imports1.chain_front(imports2);
+    /// # }
+    /// ```
     fn chain_front<U>(self, other: U) -> NamedResolverChain<U, Self>
     where
         U: NamedResolver,
@@ -268,7 +284,15 @@ pub trait ChainableNamedResolver: NamedResolver + Sized {
     ///
     /// This will cause the first resolver to override the second.
     ///
-    /// TODO: add example
+    /// ```
+    /// # fn chainable_test<A, B>(imports1: A, imports2: B)
+    /// # where A: NamedResolver + Sized,
+    /// #       B: Namedresolver + Sized,
+    /// # {
+    /// // override duplicates with imports from `imports1`
+    /// imports1.chain_back(imports2);
+    /// # }
+    /// ```
     fn chain_back<U>(self, other: U) -> NamedResolverChain<Self, U>
     where
         U: NamedResolver,
