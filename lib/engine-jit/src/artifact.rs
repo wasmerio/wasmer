@@ -32,7 +32,7 @@ pub struct JITArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
+    frame_info_registration: Option<GlobalFrameInfoRegistration>,
 }
 
 impl JITArtifact {
@@ -183,13 +183,22 @@ impl JITArtifact {
         // Make all code compiled thus far executable.
         inner_jit.publish_compiled_code();
 
+        let finished_functions = finished_functions.into_boxed_slice();
+        let finished_dynamic_function_trampolines =
+            finished_dynamic_function_trampolines.into_boxed_slice();
+        let signatures = signatures.into_boxed_slice();
+        let frame_info_registration = register_frame_info(
+            serializable.module.clone(),
+            &finished_functions,
+            serializable.compilation.function_frame_info.clone(),
+        );
+
         Ok(Self {
             serializable,
-            finished_functions: finished_functions.into_boxed_slice(),
-            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
-                .into_boxed_slice(),
-            signatures: signatures.into_boxed_slice(),
-            frame_info_registration: Mutex::new(None),
+            finished_functions,
+            finished_dynamic_function_trampolines,
+            signatures,
+            frame_info_registration,
         })
     }
 
@@ -236,9 +245,6 @@ impl JITArtifact {
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
 
-        // Register the frame info for the module
-        self.register_frame_info();
-
         InstanceHandle::new(
             self.serializable.module.clone(),
             self.finished_functions.clone(),
@@ -277,23 +283,6 @@ impl JITArtifact {
                 data: &*init.data,
             })
             .collect::<Vec<_>>()
-    }
-
-    /// Register this module's stack frame information into the global scope.
-    ///
-    /// This is required to ensure that any traps can be properly symbolicated.
-    fn register_frame_info(&self) {
-        let mut info = self.frame_info_registration.lock().unwrap();
-        if info.is_some() {
-            return;
-        }
-        let frame_infos = &self.serializable.compilation.function_frame_info;
-        let finished_functions = &self.finished_functions;
-        *info = Some(register_frame_info(
-            self.serializable.module.clone(),
-            finished_functions,
-            frame_infos.clone(),
-        ));
     }
 }
 

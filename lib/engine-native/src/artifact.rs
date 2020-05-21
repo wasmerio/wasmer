@@ -356,6 +356,11 @@ impl NativeArtifact {
         //     .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
         //     .collect::<PrimaryMap<LocalFunctionIndex, _>>();
         // Self::from_parts(&mut engine_inner, lib, metadata, )
+        // let frame_info_registration = register_frame_info(
+        //     serializable.module.clone(),
+        //     &finished_functions,
+        //     serializable.compilation.function_frame_info.clone(),
+        // );
 
         // Compute indices into the shared signature table.
         let signatures = {
