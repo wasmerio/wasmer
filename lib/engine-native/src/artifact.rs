@@ -38,6 +38,39 @@ fn to_compile_error(err: impl Error) -> CompileError {
 }
 
 impl NativeArtifact {
+    // Mach-O header in Mac
+    #[allow(dead_code)]
+    const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
+
+    // ELF Magic header for Linux (32 bit)
+    #[allow(dead_code)]
+    const MAGIC_HEADER_ELF_32: &'static [u8] = &[0x7f, b'E', b'L', b'F', 1];
+
+    // ELF Magic header for Linux (64 bit)
+    #[allow(dead_code)]
+    const MAGIC_HEADER_ELF_64: &'static [u8] = &[0x7f, b'E', b'L', b'F', 2];
+
+    /// Check if the provided bytes look like `NativeArtifact`.
+    ///
+    /// This means, if the bytes look like a shared object file in the target
+    /// system.
+    pub fn is_deserializable(bytes: &[u8]) -> bool {
+        cfg_if::cfg_if! {
+            if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
+                return bytes.starts_with(Self::MAGIC_HEADER_MH_CIGAM_64);
+            }
+            else if #[cfg(all(target_pointer_width = "64", target_os="linux"))] {
+                return bytes.starts_with(Self::MAGIC_HEADER_ELF_64);
+            }
+            else if #[cfg(all(target_pointer_width = "32", target_os="linux"))] {
+                return bytes.starts_with(Self::MAGIC_HEADER_ELF_32);
+            }
+            else {
+                false
+            }
+        }
+    }
+
     /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
     pub fn new(engine: &NativeEngine, data: &[u8]) -> Result<Self, CompileError> {
@@ -384,11 +417,6 @@ impl NativeArtifact {
         ))
     }
 
-    /// Serialize a NativeArtifact
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok(std::fs::read(&self.sharedobject_path)?)
-    }
-
     /// Deserialize a NativeArtifact
     pub unsafe fn deserialize_from_file(
         engine: &NativeEngine,
@@ -465,5 +493,10 @@ impl Artifact for NativeArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
+    }
+
+    /// Serialize a NativeArtifact
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        Ok(std::fs::read(&self.sharedobject_path)?)
     }
 }

@@ -1,4 +1,4 @@
-use crate::{resolve_imports, Engine, InstantiationError, Resolver, RuntimeError};
+use crate::{resolve_imports, Engine, InstantiationError, Resolver, RuntimeError, SerializeError};
 use std::any::Any;
 use std::sync::Arc;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
@@ -11,15 +11,13 @@ use wasmer_runtime::{
     InstanceHandle, MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMSharedSignatureIndex,
 };
 
-use downcast_rs::{impl_downcast, Downcast};
-
 /// An `Artifact` is the product that the `Engine` implementation
 /// produce and use.
 ///
 /// This means, the artifact that contains the compiled information
 /// for a given modue, as well as extra information needed to run the
 /// module at runtime.
-pub trait Artifact: Downcast {
+pub trait Artifact {
     /// Return a pointer to the Arc module
     fn module(&self) -> &Arc<ModuleInfo>;
 
@@ -124,6 +122,7 @@ pub trait Artifact: Downcast {
 
     /// Returns the associated VM signatures for this `Artifact`.
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;
-}
 
-impl_downcast!(Artifact);
+    /// Serializes an artifact into bytes
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
+}

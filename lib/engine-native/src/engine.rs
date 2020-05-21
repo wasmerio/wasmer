@@ -23,18 +23,6 @@ pub struct NativeEngine {
 }
 
 impl NativeEngine {
-    // Mach-O header in Mac
-    #[allow(dead_code)]
-    const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
-
-    // ELF Magic header for Linux (32 bit)
-    #[allow(dead_code)]
-    const MAGIC_HEADER_ELF_32: &'static [u8] = &[0x7f, b'E', b'L', b'F', 1];
-
-    // ELF Magic header for Linux (64 bit)
-    #[allow(dead_code)]
-    const MAGIC_HEADER_ELF_64: &'static [u8] = &[0x7f, b'E', b'L', b'F', 2];
-
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new(
@@ -105,25 +93,6 @@ impl NativeEngine {
     pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, NativeEngineInner> {
         self.inner.lock().unwrap()
     }
-
-    /// Check if the provided bytes look like a serialized
-    /// module by the `Native` implementation.
-    pub fn is_deserializable(bytes: &[u8]) -> bool {
-        cfg_if::cfg_if! {
-            if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
-                return &bytes[..Self::MAGIC_HEADER_MH_CIGAM_64.len()] == Self::MAGIC_HEADER_MH_CIGAM_64;
-            }
-            else if #[cfg(all(target_pointer_width = "64", target_os="linux"))] {
-                return &bytes[..Self::MAGIC_HEADER_ELF_64.len()] == Self::MAGIC_HEADER_ELF_64;
-            }
-            else if #[cfg(all(target_pointer_width = "32", target_os="linux"))] {
-                return &bytes[..Self::MAGIC_HEADER_ELF_32.len()] == Self::MAGIC_HEADER_ELF_32;
-            }
-            else {
-                false
-            }
-        }
-    }
 }
 
 impl Engine for NativeEngine {
@@ -159,18 +128,9 @@ impl Engine for NativeEngine {
         Ok(Arc::new(NativeArtifact::new(&self, binary)?))
     }
 
-    /// Serializes a WebAssembly module
-    fn serialize(&self, compiled_module: &dyn Artifact) -> Result<Vec<u8>, SerializeError> {
-        let compiled_module = compiled_module
-            .downcast_ref::<NativeArtifact>()
-            .expect("The provided module is not a Native compiled module");
-        let serialized = compiled_module.serialize()?;
-        Ok(serialized)
-    }
-
     /// Deserializes a WebAssembly module (binary content of a Shared Object file)
     fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        if !Self::is_deserializable(&bytes) {
+        if !NativeArtifact::is_deserializable(&bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
             ));
@@ -192,7 +152,7 @@ impl Engine for NativeEngine {
         let mut buffer = [0; 5];
         // read up to 5 bytes
         file.read_exact(&mut buffer)?;
-        if !Self::is_deserializable(&buffer) {
+        if !NativeArtifact::is_deserializable(&buffer) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
             ));

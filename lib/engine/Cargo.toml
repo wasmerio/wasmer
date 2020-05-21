@@ -25,7 +25,6 @@ serde = { version = "1.0", features = ["derive", "rc"] }
 serde_bytes = { version = "0.11" }
 bincode = "1.2"
 lazy_static = "1.4"
-downcast-rs = "1.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["winnt", "impl-default"] }

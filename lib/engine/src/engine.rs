@@ -32,9 +32,6 @@ pub trait Engine {
     /// Compile a WebAssembly binary
     fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError>;
 
-    /// Serializes a WebAssembly module
-    fn serialize(&self, compiled_module: &dyn Artifact) -> Result<Vec<u8>, SerializeError>;
-
     /// Deserializes a WebAssembly module
     fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError>;
 

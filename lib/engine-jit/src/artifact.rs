@@ -33,6 +33,13 @@ pub struct JITArtifact {
 }
 
 impl JITArtifact {
+    const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
+
+    /// Check if the provided bytes look like a serialized `JITArtifact`.
+    pub fn is_deserializable(bytes: &[u8]) -> bool {
+        bytes.starts_with(Self::MAGIC_HEADER)
+    }
+
     /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
     pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
@@ -123,21 +130,20 @@ impl JITArtifact {
         ))
     }
 
-    /// Serialize a JITArtifact
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        // let mut s = flexbuffers::FlexbufferSerializer::new();
-        // self.serializable.serialize(&mut s).map_err(|e| SerializeError::Generic(format!("{:?}", e)));
-        // Ok(s.take_buffer())
-        bincode::serialize(&self.serializable)
-            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))
-    }
-
     /// Deserialize a JITArtifact
     pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
+        if !Self::is_deserializable(bytes) {
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not wasmer-jit".to_string(),
+            ));
+        }
+
+        let inner_bytes = &bytes[Self::MAGIC_HEADER.len()..];
+
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        let serializable: SerializableModule = bincode::deserialize(bytes)
+        let serializable: SerializableModule = bincode::deserialize(inner_bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
         Self::from_parts(&mut jit.inner_mut(), serializable).map_err(DeserializeError::Compiler)
@@ -241,5 +247,18 @@ impl Artifact for JITArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
+    }
+
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        // let mut s = flexbuffers::FlexbufferSerializer::new();
+        // self.serializable.serialize(&mut s).map_err(|e| SerializeError::Generic(format!("{:?}", e)));
+        // Ok(s.take_buffer())
+        let bytes = bincode::serialize(&self.serializable)
+            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
+
+        // We append the header
+        let mut serialized = Self::MAGIC_HEADER.to_vec();
+        serialized.extend(bytes);
+        Ok(serialized)
     }
 }

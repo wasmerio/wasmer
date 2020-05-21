@@ -135,8 +135,8 @@ impl Run {
         let contents = std::fs::read(self.path.clone())?;
         #[cfg(feature = "native")]
         {
-            use wasmer_engine_native::NativeEngine;
-            if NativeEngine::is_deserializable(&contents) {
+            use wasmer_engine_native::{NativeArtifact, NativeEngine};
+            if NativeArtifact::is_deserializable(&contents) {
                 let tunables = Tunables::default();
                 let engine = NativeEngine::headless(tunables);
                 let store = Store::new(Arc::new(engine));
@@ -146,7 +146,8 @@ impl Run {
         }
         #[cfg(feature = "jit")]
         {
-            if wasmer_engine_jit::JITEngine::is_deserializable(&contents) {
+            use wasmer_engine_jit::{JITArtifact, JITEngine};
+            if JITArtifact::is_deserializable(&contents) {
                 let tunables = Tunables::default();
                 let engine = JITEngine::headless(tunables);
                 let store = Store::new(Arc::new(engine));

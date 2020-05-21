@@ -159,7 +159,7 @@ impl Module {
     /// let serialized = module.serialize()?;
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.store.engine().serialize(self.artifact.borrow())
+        self.artifact.serialize()
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
