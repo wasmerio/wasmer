@@ -39,7 +39,7 @@ pub trait Artifact {
     fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan>;
 
     /// Returns data initializers to pass to `InstanceHandle::initialize`
-    fn data_initializers(&self) -> &Box<[OwnedDataInitializer]>;
+    fn data_initializers(&self) -> &[OwnedDataInitializer];
 
     /// Returns the functions allocated in memory or this `Artifact`
     /// ready to be run.

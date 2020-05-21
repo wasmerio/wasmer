@@ -510,8 +510,8 @@ impl Artifact for NativeArtifact {
         &self.metadata.features
     }
 
-    fn data_initializers(&self) -> &Box<[OwnedDataInitializer]> {
-        &self.metadata.data_initializers
+    fn data_initializers(&self) -> &[OwnedDataInitializer] {
+        &*self.metadata.data_initializers
     }
 
     fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
