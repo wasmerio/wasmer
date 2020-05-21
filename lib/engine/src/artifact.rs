@@ -13,12 +13,12 @@ use wasmer_runtime::{
     InstanceHandle, MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMSharedSignatureIndex,
 };
 
-/// An `Artifact` is the product that the `Engine` implementation
-/// produce and use.
+/// An `Artifact` is the product that the `Engine`
+/// implementation produce and use.
 ///
-/// This means, the artifact that contains the compiled information
-/// for a given modue, as well as extra information needed to run the
-/// module at runtime.
+/// The `Artifact` contains the compiled data for a given
+/// module as well as extra information needed to run the
+/// module at runtime, such as [`ModuleInfo`] and [`Features`].
 pub trait Artifact {
     /// Return a pointer to the Arc module
     fn module(&self) -> &Arc<ModuleInfo>;
@@ -29,11 +29,39 @@ pub trait Artifact {
     /// Return a mutable pointer to a module.
     fn module_mut(&mut self) -> &mut ModuleInfo;
 
+    /// Returns the features for this Artifact
+    fn features(&self) -> &Features;
+
+    /// Returns the memory plans associated with this `Artifact`.
+    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan>;
+
+    /// Returns the table plans associated with this `Artifact`.
+    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan>;
+
+    /// Returns data initializers to pass to `InstanceHandle::initialize`
+    fn data_initializers(&self) -> &Box<[OwnedDataInitializer]>;
+
+    /// Returns the functions allocated in memory or this `Artifact`
+    /// ready to be run.
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>;
+
+    /// Returns the dynamic funciton trampolines allocated in memory
+    /// for this `Artifact`, ready to be run.
+    fn finished_dynamic_function_trampolines(
+        &self,
+    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody>;
+
+    /// Returns the associated VM signatures for this `Artifact`.
+    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;
+
+    /// Serializes an artifact into bytes
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
+
     /// Crate an `Instance` from this `Artifact`.
     ///
     /// # Unsafety
     ///
-    /// See `InstanceHandle::new`
+    /// See [`InstanceHandle::new`].
     unsafe fn instantiate(
         &self,
         tunables: &dyn Tunables,
@@ -79,7 +107,7 @@ pub trait Artifact {
     ///
     /// # Unsafety
     ///
-    /// See `InstanceHandle::finish_instantiation`
+    /// See [`InstanceHandle::finish_instantiation`].
     unsafe fn finish_instantiation(
         &self,
         handle: &InstanceHandle,
@@ -97,32 +125,4 @@ pub trait Artifact {
             .finish_instantiation(is_bulk_memory, &data_initializers)
             .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
-
-    /// Returns the features for this Artifact
-    fn features(&self) -> &Features;
-
-    /// Returns data initializers to pass to `InstanceHandle::initialize`
-    fn data_initializers(&self) -> &Box<[OwnedDataInitializer]>;
-
-    /// Returns the memory plans associated with this `Artifact`.
-    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan>;
-
-    /// Returns the table plans associated with this `Artifact`.
-    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan>;
-
-    /// Returns the functions allocated in memory or this `Artifact`
-    /// ready to be run.
-    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>;
-
-    /// Returns the dynamic funciton trampolines allocated in memory
-    /// for this `Artifact`, ready to be run.
-    fn finished_dynamic_function_trampolines(
-        &self,
-    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody>;
-
-    /// Returns the associated VM signatures for this `Artifact`.
-    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;
-
-    /// Serializes an artifact into bytes
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
 }

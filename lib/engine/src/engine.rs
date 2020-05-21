@@ -10,9 +10,10 @@ use wasmer_runtime::{VMSharedSignatureIndex, VMTrampoline};
 
 /// A unimplemented Wasmer `Engine`.
 ///
-/// This trait is used by implementors to implement custom engines,
+/// This trait is used by implementors to implement custom engines
 /// such as: JIT or Native.
-/// The product that this `Engine` produces (and consumes) is the [`Artifact`].
+///
+/// The product that an `Engine` produces and consumes is the [`Artifact`].
 pub trait Engine {
     /// Get the tunables
     fn tunables(&self) -> &dyn Tunables;
