@@ -496,21 +496,22 @@ impl NativeArtifact {
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
         let is_bulk_memory: bool = self.metadata.features.bulk_memory;
-        handle
-            .finish_instantiation(is_bulk_memory, &self.data_initializers())
-            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
-    }
-
-    /// Returns data initializers to pass to `InstanceHandle::initialize`
-    pub fn data_initializers(&self) -> Vec<DataInitializer<'_>> {
-        self.metadata
-            .data_initializers
+        let data_initializers = self
+            .data_initializers()
             .iter()
             .map(|init| DataInitializer {
                 location: init.location.clone(),
                 data: &*init.data,
             })
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        handle
+            .finish_instantiation(is_bulk_memory, &data_initializers)
+            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    }
+
+    /// Returns data initializers to pass to `InstanceHandle::initialize`
+    pub fn data_initializers(&self) -> &Box<[OwnedDataInitializer]> {
+        &self.metadata.data_initializers
     }
 }
 
