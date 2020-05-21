@@ -1,59 +1,46 @@
 use super::{
     intrinsics::{
-        func_type_to_llvm, tbaa_label, type_to_llvm, type_to_llvm_ptr, CtxType, GlobalCache,
-        Intrinsics, MemoryCache,
+        func_type_to_llvm, tbaa_label, type_to_llvm, CtxType, GlobalCache, Intrinsics, MemoryCache,
     },
     read_info::blocktype_to_type,
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State},
-    // LLVMBackendConfig, LLVMCallbacks,
 };
 use inkwell::{
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
-    //targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
     targets::FileType,
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
         VectorValue,
     },
-    AddressSpace,
-    // OptimizationLevel,
-    AtomicOrdering,
-    AtomicRMWBinOp,
-    FloatPredicate,
-    IntPredicate,
+    AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
-use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::num::TryFromIntError;
 
 use crate::config::LLVMConfig;
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasm_common::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryType,
-    Mutability, SignatureIndex, TableIndex, Type,
+    FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
-    to_wasm_error, wasm_unsupported, Addend, CodeOffset, CompileError, CompiledFunction,
-    CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, CustomSections,
-    FunctionAddressMap, FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation,
-    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc, WasmResult,
+    to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, CompiledFunctionFrameInfo,
+    CustomSection, CustomSectionProtection, CustomSections, FunctionAddressMap, FunctionBody,
+    FunctionBodyData, InstructionAddressMap, Relocation, RelocationKind, RelocationTarget,
+    SectionBody, SectionIndex, SourceLoc, WasmResult,
 };
 use wasmer_runtime::libcalls::LibCall;
-use wasmer_runtime::{
-    MemoryPlan, MemoryStyle, ModuleInfo, TablePlan, VMBuiltinFunctionIndex, VMOffsets,
-};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMBuiltinFunctionIndex, VMOffsets};
 
 // TODO: debugging
-use std::fs;
-use std::io::Write;
+//use std::fs;
+//use std::io::Write;
 
 use wasm_common::entity::entity_impl;
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -100,7 +87,7 @@ pub struct FuncTranslator {
     ctx: Context,
 }
 
-fn const_zero<'ctx>(ty: BasicTypeEnum<'ctx>) -> BasicValueEnum<'ctx> {
+fn const_zero(ty: BasicTypeEnum) -> BasicValueEnum {
     match ty {
         BasicTypeEnum::ArrayType(ty) => ty.const_zero().as_basic_value_enum(),
         BasicTypeEnum::FloatType(ty) => ty.const_zero().as_basic_value_enum(),
@@ -125,7 +112,7 @@ impl FuncTranslator {
         function_body: &FunctionBodyData,
         config: &LLVMConfig,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: &PrimaryMap<TableIndex, TablePlan>,
+        _table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<(CompiledFunction, CustomSections), CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
@@ -134,7 +121,7 @@ impl FuncTranslator {
             None => format!("<anonymous module> function {}", func_name),
             Some(module_name) => format!("module {} function {}", module_name, func_name),
         };
-        let mut module = self.ctx.create_module(module_name.as_str());
+        let module = self.ctx.create_module(module_name.as_str());
 
         let target_triple = config.target_triple();
         let target_machine = config.target_machine();
@@ -222,7 +209,7 @@ impl FuncTranslator {
             ctx: CtxType::new(wasm_module, &func, &cache_builder),
             unreachable_depth: 0,
             memory_plans,
-            table_plans,
+            _table_plans,
             module: &module,
             // TODO: pointer width
             vmoffsets: VMOffsets::new(8, &wasm_module),
@@ -233,7 +220,7 @@ impl FuncTranslator {
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
             let op = reader.read_operator().map_err(to_wasm_error)?;
-            fcg.translate_operator(op, wasm_module, pos)?;
+            fcg.translate_operator(op, pos)?;
         }
 
         // TODO: use phf?
@@ -310,12 +297,12 @@ impl FuncTranslator {
         pass_manager.add_slp_vectorize_pass();
         pass_manager.add_early_cse_pass();
 
-        pass_manager.run_on(&mut module);
+        pass_manager.run_on(&module);
 
         // TODO: llvm-callbacks llvm post-opt-ir
 
         let memory_buffer = target_machine
-            .write_to_memory_buffer(&mut module, FileType::Object)
+            .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
 
         // TODO: remove debugging.
@@ -339,15 +326,7 @@ impl FuncTranslator {
             if section.sh_name == goblin::elf::section_header::SHN_UNDEF as _ {
                 return None;
             }
-            let name = elf.strtab.get(section.sh_name);
-            if name.is_none() {
-                return None;
-            }
-            let name = name.unwrap();
-            if name.is_err() {
-                return None;
-            }
-            Some(name.unwrap())
+            elf.strtab.get(section.sh_name)?.ok()
         };
 
         // Build up a mapping from a section to its relocation sections.
@@ -1128,7 +1107,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     // Replaces any NaN with the canonical QNaN, otherwise leaves the value alone.
     fn canonicalize_nans(&self, value: BasicValueEnum<'ctx>) -> BasicValueEnum<'ctx> {
         let f_ty = value.get_type();
-        let canonicalized = if f_ty.is_vector_type() {
+        if f_ty.is_vector_type() {
             let value = value.into_vector_value();
             let f_ty = f_ty.into_vector_type();
             let zero = f_ty.const_zero();
@@ -1154,8 +1133,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             self.builder
                 .build_select(nan_cmp, canonical_qnan, value, "")
                 .as_basic_value_enum()
-        };
-        canonicalized
+        }
     }
 
     pub fn resolve_memory_ptr(
@@ -1170,9 +1148,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let intrinsics = &self.intrinsics;
         let context = &self.context;
         let module = &self.module;
-        let wasm_module = &self.wasm_module;
         let function = &self.function;
-        let ctx = &mut self.ctx;
 
         let memory_index = MemoryIndex::from_u32(0);
 
@@ -1191,14 +1167,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 current_length_ptr,
             } => {
                 // Bounds check it.
-                let current_length = builder.build_load(current_length_ptr, "");
-                // TODO: tbaa_label
                 let minimum = memory_plans[memory_index].memory.minimum;
-                let maximum = memory_plans[memory_index].memory.maximum;
-                // If the memory is dynamic, do a bounds check. For static we rely on
-                // the size being a multiple of the page size and hitting a guard page.
                 let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
                 let ptr_in_bounds = if offset.is_const() {
+                    // When the offset is constant, if it's below the minimum
+                    // memory size, we've statically shown that it's safe.
                     let load_offset_end = offset.const_add(value_size_v);
                     let ptr_in_bounds = load_offset_end.const_int_compare(
                         IntPredicate::ULE,
@@ -1217,6 +1190,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                     let current_length =
                         builder.build_load(current_length_ptr, "").into_int_value();
+                    // TODO: tbaa_label
 
                     builder.build_int_compare(
                         IntPredicate::ULE,
@@ -1431,7 +1405,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     ctx: CtxType<'ctx, 'a>,
     unreachable_depth: usize,
     memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
-    table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
+    _table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
 
     // This is support for stackmaps:
     /*
@@ -1447,12 +1421,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
-    fn translate_operator(
-        &mut self,
-        op: Operator,
-        module: &ModuleInfo,
-        _source_loc: u32,
-    ) -> Result<(), CompileError> {
+    fn translate_operator(&mut self, op: Operator, _source_loc: u32) -> Result<(), CompileError> {
         // TODO: remove this vmctx by moving everything into CtxType. Values
         // computed off vmctx usually benefit from caching.
         let vmctx = &self.ctx.basic().into_pointer_value();
@@ -1488,12 +1457,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#control-flow-instructions
              ***************************/
             Operator::Block { ty } => {
-                let current_block =
-                    self.builder
-                        .get_insert_block()
-                        .ok_or(CompileError::Codegen(
-                            "not currently in a block".to_string(),
-                        ))?;
+                let current_block = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let end_block = self.context.append_basic_block(self.function, "end");
                 self.builder.position_at_end(end_block);
@@ -1567,12 +1534,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::Br { relative_depth } => {
                 let frame = self.state.frame_at_depth(relative_depth)?;
 
-                let current_block =
-                    self.builder
-                        .get_insert_block()
-                        .ok_or(CompileError::Codegen(
-                            "not currently in a block".to_string(),
-                        ))?;
+                let current_block = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let value_len = if frame.is_loop() {
                     0
@@ -1601,12 +1566,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let cond = self.state.pop1()?;
                 let frame = self.state.frame_at_depth(relative_depth)?;
 
-                let current_block =
-                    self.builder
-                        .get_insert_block()
-                        .ok_or(CompileError::Codegen(
-                            "not currently in a block".to_string(),
-                        ))?;
+                let current_block = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let value_len = if frame.is_loop() {
                     0
@@ -1636,12 +1599,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.position_at_end(else_block);
             }
             Operator::BrTable { ref table } => {
-                let current_block =
-                    self.builder
-                        .get_insert_block()
-                        .ok_or(CompileError::Codegen(
-                            "not currently in a block".to_string(),
-                        ))?;
+                let current_block = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let (label_depths, default_depth) = table.read_table().map_err(to_wasm_error)?;
 
@@ -1692,12 +1653,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.reachable = false;
             }
             Operator::If { ty } => {
-                let current_block =
-                    self.builder
-                        .get_insert_block()
-                        .ok_or(CompileError::Codegen(
-                            "not currently in a block".to_string(),
-                        ))?;
+                let current_block = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
                 let if_then_block = self.context.append_basic_block(self.function, "if_then");
                 let if_else_block = self.context.append_basic_block(self.function, "if_else");
                 let end_block = self.context.append_basic_block(self.function, "if_end");
@@ -1737,12 +1696,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::Else => {
                 if self.state.reachable {
                     let frame = self.state.frame_at_depth(0)?;
-                    let current_block =
-                        self.builder
-                            .get_insert_block()
-                            .ok_or(CompileError::Codegen(
-                                "not currently in a block".to_string(),
-                            ))?;
+                    let current_block = self.builder.get_insert_block().ok_or_else(|| {
+                        CompileError::Codegen("not currently in a block".to_string())
+                    })?;
 
                     for phi in frame.phis().to_vec().iter().rev() {
                         let (value, info) = self.state.pop1_extra()?;
@@ -1772,12 +1728,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             Operator::End => {
                 let frame = self.state.pop_frame()?;
-                let current_block =
-                    self.builder
-                        .get_insert_block()
-                        .ok_or(CompileError::Codegen(
-                            "not currently in a block".to_string(),
-                        ))?;
+                let current_block = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 if self.state.reachable {
                     for phi in frame.phis().iter().rev() {
@@ -1832,12 +1786,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
             }
             Operator::Return => {
-                let current_block =
-                    self.builder
-                        .get_insert_block()
-                        .ok_or(CompileError::Codegen(
-                            "not currently in a block".to_string(),
-                        ))?;
+                let current_block = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let frame = self.state.outermost_frame()?;
                 for phi in frame.phis().to_vec().iter() {
@@ -2085,7 +2037,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
                 match self.ctx.global(global_index, self.intrinsics) {
-                    GlobalCache::Const { value } => {
+                    GlobalCache::Const { value: _ } => {
                         return Err(CompileError::Codegen(format!(
                             "global.set on immutable global index {}",
                             global_index.as_u32()
@@ -2144,23 +2096,22 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::Call { function_index } => {
                 let func_index = FunctionIndex::from_u32(function_index);
-                let sigindex = &module.functions[func_index];
-                let func_type = &module.signatures[*sigindex];
+                let sigindex = &self.wasm_module.functions[func_index];
+                let func_type = &self.wasm_module.signatures[*sigindex];
                 let func_name = &self.func_names[func_index];
                 let llvm_func_type = func_type_to_llvm(&self.context, &self.intrinsics, func_type);
 
-                let (func, callee_vmctx) = if let Some(local_func_index) =
-                    module.local_func_index(func_index)
+                let (func, callee_vmctx) = if self
+                    .wasm_module
+                    .local_func_index(func_index)
+                    .is_some()
                 {
                     // TODO: we could do this by comparing self.function indices instead
                     // of going through LLVM APIs and string comparisons.
-                    let func = self.module.get_function(func_name);
-                    let func = if func.is_none() {
+                    let func = self.module.get_function(func_name).unwrap_or_else(|| {
                         self.module
                             .add_function(func_name, llvm_func_type, Some(Linkage::External))
-                    } else {
-                        func.unwrap()
-                    };
+                    });
                     (func.as_global_value().as_pointer_value(), self.ctx.basic())
                 } else {
                     let offset = self.vmoffsets.vmctx_vmfunction_import(func_index);
@@ -2269,7 +2220,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 if let Some(basic_value) = call_site.try_as_basic_value().left() {
                     match func_type.results().len() {
                         1 => self.state.push1(basic_value),
-                        count @ _ => {
+                        count => {
                             // This is a multi-value return.
                             let struct_value = basic_value.into_struct_value();
                             for i in 0..(count as u32) {
@@ -2285,14 +2236,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::CallIndirect { index, table_index } => {
                 let sigindex = SignatureIndex::from_u32(index);
-                let func_type = &module.signatures[sigindex];
+                let func_type = &self.wasm_module.signatures[sigindex];
                 let expected_dynamic_sigindex =
                     self.ctx.dynamic_sigindex(sigindex, self.intrinsics);
                 let (table_base, table_bound) = self.ctx.table(
                     TableIndex::from_u32(table_index),
                     self.intrinsics,
                     self.module,
-                    &self.builder,
                 );
                 let func_index = self.state.pop1()?.into_int_value();
 
@@ -2312,32 +2262,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 };
 
                 // Load things from the anyfunc data structure.
-                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = unsafe {
-                    (
-                        self.builder
-                            .build_load(
-                                self.builder
-                                    .build_struct_gep(anyfunc_struct_ptr, 0, "func_ptr_ptr")
-                                    .unwrap(),
-                                "func_ptr",
-                            )
-                            .into_pointer_value(),
-                        self.builder
-                            .build_load(
-                                self.builder
-                                    .build_struct_gep(anyfunc_struct_ptr, 1, "sigindex_ptr")
-                                    .unwrap(),
-                                "sigindex",
-                            )
-                            .into_int_value(),
-                        self.builder.build_load(
+                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (
+                    self.builder
+                        .build_load(
                             self.builder
-                                .build_struct_gep(anyfunc_struct_ptr, 2, "ctx_ptr_ptr")
+                                .build_struct_gep(anyfunc_struct_ptr, 0, "func_ptr_ptr")
                                 .unwrap(),
-                            "ctx_ptr",
-                        ),
-                    )
-                };
+                            "func_ptr",
+                        )
+                        .into_pointer_value(),
+                    self.builder
+                        .build_load(
+                            self.builder
+                                .build_struct_gep(anyfunc_struct_ptr, 1, "sigindex_ptr")
+                                .unwrap(),
+                            "sigindex",
+                        )
+                        .into_int_value(),
+                    self.builder.build_load(
+                        self.builder
+                            .build_struct_gep(anyfunc_struct_ptr, 2, "ctx_ptr_ptr")
+                            .unwrap(),
+                        "ctx_ptr",
+                    ),
+                );
 
                 let truncated_table_bounds = self.builder.build_int_truncate(
                     table_bound,
@@ -8443,7 +8391,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let mem_index = MemoryIndex::from_u32(reserved);
                 let delta = self.state.pop1()?;
                 let (grow_fn, grow_fn_ty) =
-                    if let Some(local_mem_index) = module.local_memory_index(mem_index) {
+                    if self.wasm_module.local_memory_index(mem_index).is_some() {
                         (
                             VMBuiltinFunctionIndex::get_memory32_grow_index(),
                             self.intrinsics.memory32_grow_ptr_ty,
@@ -8487,7 +8435,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::MemorySize { reserved } => {
                 let mem_index = MemoryIndex::from_u32(reserved);
                 let (size_fn, size_fn_ty) =
-                    if let Some(local_mem_index) = module.local_memory_index(mem_index) {
+                    if self.wasm_module.local_memory_index(mem_index).is_some() {
                         (
                             VMBuiltinFunctionIndex::get_memory32_size_index(),
                             self.intrinsics.memory32_size_ptr_ty,
