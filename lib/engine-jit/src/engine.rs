@@ -10,7 +10,7 @@ use wasmer_compiler::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
-use wasmer_engine::{Artifact, DeserializeError, Engine, SerializeError, Tunables};
+use wasmer_engine::{Artifact, DeserializeError, Engine, Tunables};
 use wasmer_runtime::{
     ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };

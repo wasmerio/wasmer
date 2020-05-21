@@ -1,7 +1,6 @@
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
 use crate::InstantiationError;
-use std::borrow::Borrow;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
