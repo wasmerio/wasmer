@@ -1,6 +1,7 @@
 #![allow(deprecated)]
 
 mod functional_api;
+pub mod import;
 pub mod instance;
 pub mod module;
 pub mod types;
