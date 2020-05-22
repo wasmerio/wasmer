@@ -44,7 +44,10 @@ impl Instance {
             .ok_or(())
     }
 
-    #[deprecated(since = "__NEXT__VERSION__", note = "Please use `…` instead.")]
+    #[deprecated(
+        since = "__NEXT__VERSION__",
+        note = "Please use `instance.exports.get_function(name).call(params)` instead."
+    )]
     pub fn call(&self, name: &str, params: &[Value]) -> Result<Vec<Value>, Box<dyn Error>> {
         Ok(self
             .new_instance
