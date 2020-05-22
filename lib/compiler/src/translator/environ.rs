@@ -450,11 +450,21 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     /// Indicates that a custom section has been found in the wasm file
-    pub(crate) fn custom_section(
-        &mut self,
-        _name: &'data str,
-        _data: &'data [u8],
-    ) -> WasmResult<()> {
+    pub(crate) fn custom_section(&mut self, name: &'data str, data: &'data [u8]) -> WasmResult<()> {
+        let mut custom_sections = &self.result.module.custom_sections;
+        let name = name.to_string();
+        let data = data.to_owned();
+
+        match custom_sections.get_mut(&name) {
+            Some(sections) => sections.push(data),
+            None => {
+                let sections = Vec::with_capacity(1);
+                sections.push(data);
+
+                custom_sections.insert(name, sections);
+            }
+        }
+
         Ok(())
     }
 }
