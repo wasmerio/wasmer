@@ -22,8 +22,8 @@ use inkwell::{
 use std::collections::HashMap;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    FunctionIndex, FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, Pages,
-    SignatureIndex, TableIndex, Type,
+    FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, SignatureIndex, TableIndex,
+    Type,
 };
 use wasmer_runtime::ModuleInfo as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TrapCode, VMOffsets};
@@ -230,25 +230,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let ctx_ty = i8_ty;
         let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::Generic);
 
-        let local_memory_ty =
-            context.struct_type(&[i8_ptr_ty_basic, i64_ty_basic, i8_ptr_ty_basic], false);
-        let local_table_ty = local_memory_ty;
-        let local_global_ty = i64_ty;
-        let func_ctx_ty =
-            context.struct_type(&[ctx_ptr_ty.as_basic_type_enum(), i8_ptr_ty_basic], false);
-        let func_ctx_ptr_ty = func_ctx_ty.ptr_type(AddressSpace::Generic);
-        let imported_func_ty = context.struct_type(
-            &[i8_ptr_ty_basic, func_ctx_ptr_ty.as_basic_type_enum()],
-            false,
-        );
         let sigindex_ty = i32_ty;
-        let rt_intrinsics_ty = i8_ty;
-        let stack_lower_bound_ty = i8_ty;
-        let memory_base_ty = i8_ty;
-        let memory_bound_ty = i8_ty;
-        let internals_ty = i64_ty;
-        let interrupt_signal_mem_ty = i8_ty;
-        let local_function_ty = i8_ptr_ty;
 
         let anyfunc_ty = context.struct_type(
             &[
@@ -613,24 +595,16 @@ pub enum GlobalCache<'ctx> {
     Const { value: BasicValueEnum<'ctx> },
 }
 
-struct ImportedFuncCache<'ctx> {
-    func_ptr: PointerValue<'ctx>,
-    ctx_ptr: PointerValue<'ctx>,
-}
-
 pub struct CtxType<'ctx, 'a> {
     ctx_ptr_value: PointerValue<'ctx>,
 
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
 
-    cached_signal_mem: Option<PointerValue<'ctx>>,
-
     cached_memories: HashMap<MemoryIndex, MemoryCache<'ctx>>,
     cached_tables: HashMap<TableIndex, TableCache<'ctx>>,
     cached_sigindices: HashMap<SignatureIndex, IntValue<'ctx>>,
     cached_globals: HashMap<GlobalIndex, GlobalCache<'ctx>>,
-    cached_imported_functions: HashMap<FunctionIndex, ImportedFuncCache<'ctx>>,
 
     offsets: VMOffsets,
 }
@@ -647,13 +621,10 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             wasm_module,
             cache_builder,
 
-            cached_signal_mem: None,
-
             cached_memories: HashMap::new(),
             cached_tables: HashMap::new(),
             cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
-            cached_imported_functions: HashMap::new(),
 
             // TODO: pointer width
             offsets: VMOffsets::new(8, &wasm_module),
@@ -668,7 +639,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
-        module: &Module<'ctx>,
+        _module: &Module<'ctx>,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     ) -> MemoryCache<'ctx> {
         let (cached_memories, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
@@ -740,7 +711,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         table_index: TableIndex,
         intrinsics: &Intrinsics<'ctx>,
-        module: &Module<'ctx>,
+        _module: &Module<'ctx>,
     ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
         let (cached_tables, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_tables,
@@ -837,7 +808,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         index: TableIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
-        builder: &Builder<'ctx>,
     ) -> (PointerValue<'ctx>, IntValue<'ctx>) {
         let (ptr_to_base_ptr, ptr_to_bounds) = self.table_prepare(index, intrinsics, module);
         let base_ptr = self
@@ -1048,7 +1018,7 @@ pub fn func_type_to_llvm<'ctx>(
     match fntype.results() {
         &[] => intrinsics.void_ty.fn_type(&param_types, false),
         &[single_value] => type_to_llvm(intrinsics, single_value).fn_type(&param_types, false),
-        returns @ _ => {
+        returns => {
             let basic_types: Vec<_> = returns
                 .iter()
                 .map(|&ty| type_to_llvm(intrinsics, ty))

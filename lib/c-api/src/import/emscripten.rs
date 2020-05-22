@@ -8,7 +8,7 @@ use crate::{
 };
 
 use std::ptr;
-use wasmer::wasm::{Instance, Module};
+use wasmer::{Instance, Module, NamedResolver};
 use wasmer_emscripten::{EmscriptenData, EmscriptenGlobals};
 
 /// Type used to construct an import_object_t with Emscripten imports.
@@ -143,7 +143,13 @@ pub unsafe extern "C" fn wasmer_emscripten_generate_import_object(
     }
     // TODO: figure out if we should be using UnsafeCell here or something
     let g = &mut *(globals as *mut EmscriptenGlobals);
-    let import_object = Box::new(wasmer_emscripten::generate_emscripten_env(g));
+    let import_object_inner: Box<dyn NamedResolver> =
+        Box::new(wasmer_emscripten::generate_emscripten_env(g));
+    let import_object: Box<CAPIImportObject> = Box::new(CAPIImportObject {
+        import_object: import_object_inner,
+        imported_memories: vec![],
+        instance_pointers_to_update: vec![],
+    });
 
     Box::into_raw(import_object) as *mut wasmer_import_object_t
 }

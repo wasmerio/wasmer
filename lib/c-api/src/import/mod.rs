@@ -10,23 +10,18 @@ use crate::{
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_uint;
+use std::ffi::{c_void, CStr};
+use std::os::raw::c_char;
 use std::ptr::{self, NonNull};
-use std::{
-    //convert::TryFrom,
-    ffi::{c_void, CStr},
-    os::raw::c_char,
-    slice,
-    //sync::Arc,
-};
+use std::slice;
+// use std::sync::Arc;
+// use std::convert::TryFrom,
+use std::collections::HashMap;
 use wasmer::{
-    Function, FunctionType, Global, ImportObject, ImportObjectIterator, ImportType, Memory, Module,
-    RuntimeError, Table, Val, ValType,
+    ChainableNamedResolver, Exports, Extern, Function, FunctionType, Global, ImportObject,
+    ImportObjectIterator, ImportType, Memory, Module, NamedResolver, RuntimeError, Table, Val,
+    ValType,
 };
-//use wasmer::wasm::{Export, FuncSig, Global, Memory, Module, Table, Type};
-/*use wasmer_runtime_core::{
-    export::{Context, FuncPointer},
-    module::ImportName,
-};*/
 
 #[repr(C)]
 pub struct wasmer_import_t {
@@ -36,8 +31,24 @@ pub struct wasmer_import_t {
     pub value: wasmer_import_export_value,
 }
 
+// An opaque wrapper around `CAPIImportObject`
 #[repr(C)]
 pub struct wasmer_import_object_t;
+
+/// A wrapper around a Wasmer ImportObject with extra data to maintain the existing API
+pub(crate) struct CAPIImportObject {
+    /// The real wasmer `ImportObject`-like thing.
+    pub(crate) import_object: Box<dyn NamedResolver>,
+    /// List of pointers of memories that are imported into this import object. This is
+    /// required because the old Wasmer API allowed accessing these from the Instance
+    /// but the new/current API does not. So we store them here to pass them to the Instance
+    /// to allow functions to access this data for backwards compatibilty.
+    pub(crate) imported_memories: Vec<*mut Memory>,
+    /// List of pointers to `LegacyEnv`s used to patch imported functions to be able to
+    /// pass a the "vmctx" as the first argument.
+    /// Needed here because of extending import objects.
+    pub(crate) instance_pointers_to_update: Vec<NonNull<LegacyEnv>>,
+}
 
 #[repr(C)]
 #[derive(Clone)]
@@ -60,7 +71,12 @@ pub struct wasmer_import_object_iter_t;
 #[allow(clippy::cast_ptr_alignment)]
 #[no_mangle]
 pub extern "C" fn wasmer_import_object_new() -> NonNull<wasmer_import_object_t> {
-    let import_object = Box::new(ImportObject::new());
+    let import_object_inner: Box<dyn NamedResolver> = Box::new(ImportObject::new());
+    let import_object = Box::new(CAPIImportObject {
+        import_object: import_object_inner,
+        imported_memories: vec![],
+        instance_pointers_to_update: vec![],
+    });
 
     // TODO: use `Box::into_raw_non_null` when it becomes stable
     unsafe { NonNull::new_unchecked(Box::into_raw(import_object) as *mut wasmer_import_object_t) }
@@ -379,7 +395,10 @@ pub unsafe extern "C" fn wasmer_import_object_imports_destroy(
         );
         match import.tag {
             wasmer_import_export_kind::WASM_FUNCTION => {
-                let _: Box<Function> = Box::from_raw(import.value.func as *mut _);
+                let function_wrapper: Box<FunctionWrapper> =
+                    Box::from_raw(import.value.func as *mut _);
+                let _: Box<Function> = Box::from_raw(function_wrapper.func.as_ptr());
+                let _: Box<LegacyEnv> = Box::from_raw(function_wrapper.legacy_env.as_ptr());
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
                 let _: Box<Global> = Box::from_raw(import.value.global as *mut _);
@@ -402,12 +421,9 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
     imports: *const wasmer_import_t,
     imports_len: c_uint,
 ) -> wasmer_result_t {
-    todo!("Disabled until import object APIs change")
-    /*
-    let import_object: &mut ImportObject = &mut *(import_object as *mut ImportObject);
+    let import_object: &mut CAPIImportObject = &mut *(import_object as *mut CAPIImportObject);
 
-    let mut extensions: Vec<((String, String), Export)> = Vec::new();
-
+    let mut import_data: HashMap<String, Exports> = HashMap::new();
     let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
     for import in imports {
         let module_name = slice::from_raw_parts(
@@ -438,12 +454,16 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
                 let mem = import.value.memory as *mut Memory;
+                import_object.imported_memories.push(mem);
                 Extern::Memory((&*mem).clone())
             }
             wasmer_import_export_kind::WASM_FUNCTION => {
                 // TODO: investigate consistent usage of `FunctionWrapper` in this context
                 let func_wrapper = import.value.func as *mut FunctionWrapper;
-                let func_export = func_wrapper.func.as_ptr();
+                let func_export = (*func_wrapper).func.as_ptr();
+                import_object
+                    .instance_pointers_to_update
+                    .push((*func_wrapper).legacy_env);
                 Extern::Function((&*func_export).clone())
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
@@ -456,14 +476,34 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
             }
         };
 
-        let extension = ((module_name.to_string(), import_name.to_string()), export);
-        extensions.push(extension)
+        let export_entry = import_data
+            .entry(module_name.to_string())
+            .or_insert_with(Exports::new);
+        export_entry.insert(import_name.to_string(), export);
     }
 
-    import_object.extend(extensions);
+    let mut new_import_object = ImportObject::new();
+    for (k, v) in import_data {
+        new_import_object.register(k, v);
+    }
+
+    // We use `Option<Box<T>>` here to perform a swap (move value out and move a new value in)
+    // Thus this code will break if `size_of::<Option<Box<T>>>` != `size_of::<Box<T>>`.
+    debug_assert_eq!(
+        std::mem::size_of::<Option<Box<dyn NamedResolver>>>(),
+        std::mem::size_of::<Box<dyn NamedResolver>>()
+    );
+
+    let import_object_inner: &mut Option<Box<dyn NamedResolver>> =
+        &mut *(&mut import_object.import_object as *mut Box<dyn NamedResolver>
+            as *mut Option<Box<dyn NamedResolver>>);
+
+    let import_object_value = import_object_inner.take().unwrap();
+    let new_resolver: Box<dyn NamedResolver> =
+        Box::new(import_object_value.chain_front(new_import_object));
+    *import_object_inner = Some(new_resolver);
 
     return wasmer_result_t::WASMER_OK;
-        */
 }
 
 /// Gets import descriptors for the given module
@@ -834,6 +874,7 @@ pub unsafe extern "C" fn wasmer_import_object_destroy(
     import_object: Option<NonNull<wasmer_import_object_t>>,
 ) {
     if let Some(import_object) = import_object {
-        Box::from_raw(import_object.cast::<ImportObject>().as_ptr());
+        let _resolver_box: Box<Box<dyn NamedResolver>> =
+            Box::from_raw(import_object.cast::<Box<dyn NamedResolver>>().as_ptr());
     }
 }

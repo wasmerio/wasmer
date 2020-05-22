@@ -5,30 +5,24 @@ use crate::engine::{NativeEngine, NativeEngineInner};
 use crate::serialize::ModuleMetadata;
 use faerie::{ArtifactBuilder, Decl, Link};
 use libloading::{Library, Symbol};
-use std::any::Any;
 use std::error::Error;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
 use tempfile::NamedTempFile;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
-    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
 };
-use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::RelocationTarget;
-use wasmer_engine::{
-    resolve_imports, Artifact, DeserializeError, Engine, InstantiationError, Resolver,
-    RuntimeError, SerializeError,
-};
-use wasmer_runtime::{
-    InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
-    VMTrampoline,
-};
+use wasmer_compiler::{CompileError, Features, RelocationTarget};
+use wasmer_engine::{Artifact, DeserializeError, Engine, SerializeError};
 use wasmer_runtime::{MemoryPlan, TablePlan};
+use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct NativeArtifact {
@@ -46,6 +40,39 @@ fn to_compile_error(err: impl Error) -> CompileError {
 }
 
 impl NativeArtifact {
+    // Mach-O header in Mac
+    #[allow(dead_code)]
+    const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
+
+    // ELF Magic header for Linux (32 bit)
+    #[allow(dead_code)]
+    const MAGIC_HEADER_ELF_32: &'static [u8] = &[0x7f, b'E', b'L', b'F', 1];
+
+    // ELF Magic header for Linux (64 bit)
+    #[allow(dead_code)]
+    const MAGIC_HEADER_ELF_64: &'static [u8] = &[0x7f, b'E', b'L', b'F', 2];
+
+    /// Check if the provided bytes look like `NativeArtifact`.
+    ///
+    /// This means, if the bytes look like a shared object file in the target
+    /// system.
+    pub fn is_deserializable(bytes: &[u8]) -> bool {
+        cfg_if::cfg_if! {
+            if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
+                return bytes.starts_with(Self::MAGIC_HEADER_MH_CIGAM_64);
+            }
+            else if #[cfg(all(target_pointer_width = "64", target_os="linux"))] {
+                return bytes.starts_with(Self::MAGIC_HEADER_ELF_64);
+            }
+            else if #[cfg(all(target_pointer_width = "32", target_os="linux"))] {
+                return bytes.starts_with(Self::MAGIC_HEADER_ELF_32);
+            }
+            else {
+                false
+            }
+        }
+    }
+
     /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
     pub fn new(engine: &NativeEngine, data: &[u8]) -> Result<Self, CompileError> {
@@ -356,6 +383,11 @@ impl NativeArtifact {
         //     .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
         //     .collect::<PrimaryMap<LocalFunctionIndex, _>>();
         // Self::from_parts(&mut engine_inner, lib, metadata, )
+        // let frame_info_registration = register_frame_info(
+        //     serializable.module.clone(),
+        //     &finished_functions,
+        //     serializable.compilation.function_frame_info.clone(),
+        // );
 
         // Compute indices into the shared signature table.
         let signatures = {
@@ -387,13 +419,44 @@ impl NativeArtifact {
         ))
     }
 
-    /// Serialize a NativeArtifact
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok(std::fs::read(&self.sharedobject_path)?)
+    /// Deserialize a `NativeArtifact` from bytes.
+    pub unsafe fn deserialize(
+        engine: &NativeEngine,
+        bytes: &[u8],
+    ) -> Result<NativeArtifact, DeserializeError> {
+        if !Self::is_deserializable(&bytes) {
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not in any native format Wasmer can understand".to_string(),
+            ));
+        }
+        // Dump the bytes into a file, so we can read it with our `dlopen`
+        let named_file = NamedTempFile::new()?;
+        let (mut file, path) = named_file.keep().map_err(|e| e.error)?;
+        file.write_all(&bytes)?;
+        // We already checked for the header, so we don't need
+        // to check again.
+        Self::deserialize_from_file_unchecked(&engine, &path)
     }
 
-    /// Deserialize a NativeArtifact
+    /// Deserialize a `NativeArtifact` from a file path.
     pub unsafe fn deserialize_from_file(
+        engine: &NativeEngine,
+        path: &Path,
+    ) -> Result<NativeArtifact, DeserializeError> {
+        let mut file = File::open(&path)?;
+        let mut buffer = [0; 5];
+        // read up to 5 bytes
+        file.read_exact(&mut buffer)?;
+        if !Self::is_deserializable(&buffer) {
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not in any native format Wasmer can understand".to_string(),
+            ));
+        }
+        Self::deserialize_from_file_unchecked(&engine, &path)
+    }
+
+    /// Deserialize a `NativeArtifact` from a file path (unchecked).
+    pub unsafe fn deserialize_from_file_unchecked(
         engine: &NativeEngine,
         path: &Path,
     ) -> Result<NativeArtifact, DeserializeError> {
@@ -406,7 +469,10 @@ impl NativeArtifact {
         // to take the first element of the data to construct the slice from
         // it.
         let symbol: Symbol<*mut [u8; 10 + 1]> = lib.get(b"WASMER_METADATA").map_err(|e| {
-            DeserializeError::CorruptedBinary(format!("Symbol metadata loading failed: {}", e))
+            DeserializeError::CorruptedBinary(format!(
+                "The provided object file doesn't seem to be generated by Wasmer: {}",
+                e
+            ))
         })?;
         use std::ops::Deref;
         use std::slice;
@@ -425,6 +491,32 @@ impl NativeArtifact {
         Self::from_parts(&mut engine_inner, metadata, shared_path, lib)
             .map_err(|e| DeserializeError::Compiler(e))
     }
+}
+
+impl Artifact for NativeArtifact {
+    fn module(&self) -> Arc<ModuleInfo> {
+        self.metadata.module.clone()
+    }
+
+    fn module_ref(&self) -> &ModuleInfo {
+        &self.metadata.module
+    }
+
+    fn module_mut(&mut self) -> Option<&mut ModuleInfo> {
+        Arc::get_mut(&mut self.metadata.module)
+    }
+
+    fn register_frame_info(&self) {
+        // Do nothing for now
+    }
+
+    fn features(&self) -> &Features {
+        &self.metadata.features
+    }
+
+    fn data_initializers(&self) -> &[OwnedDataInitializer] {
+        &*self.metadata.data_initializers
+    }
 
     fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
         &self.metadata.memory_plans
@@ -434,89 +526,22 @@ impl NativeArtifact {
         &self.metadata.table_plans
     }
 
-    /// Crate an `Instance` from this `NativeArtifact`.
-    ///
-    /// # Unsafety
-    ///
-    /// See `InstanceHandle::new`
-    pub unsafe fn instantiate(
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {
+        &self.finished_functions
+    }
+
+    fn finished_dynamic_function_trampolines(
         &self,
-        engine: &NativeEngine,
-        resolver: &dyn Resolver,
-        host_state: Box<dyn Any>,
-    ) -> Result<InstanceHandle, InstantiationError> {
-        let engine_inner = engine.inner();
-        let tunables = engine.tunables();
-        let sig_registry: &SignatureRegistry = engine_inner.signatures();
-        let imports = resolve_imports(
-            &self.module(),
-            &sig_registry,
-            resolver,
-            &self.finished_dynamic_function_trampolines,
-            self.memory_plans(),
-            self.table_plans(),
-        )
-        .map_err(InstantiationError::Link)?;
-        let finished_memories = tunables
-            .create_memories(&self.module(), self.memory_plans())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-        let finished_tables = tunables
-            .create_tables(&self.module(), self.table_plans())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-        let finished_globals = tunables
-            .create_globals(&self.module())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-
-        InstanceHandle::new(
-            self.metadata.module.clone(),
-            self.finished_functions.clone(),
-            finished_memories,
-            finished_tables,
-            finished_globals,
-            imports,
-            self.signatures.clone(),
-            host_state,
-        )
-        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody> {
+        &self.finished_dynamic_function_trampolines
     }
 
-    /// Finishes the instantiation of a just created `InstanceHandle`.
-    ///
-    /// # Unsafety
-    ///
-    /// See `InstanceHandle::finish_instantiation`
-    pub unsafe fn finish_instantiation(
-        &self,
-        handle: &InstanceHandle,
-    ) -> Result<(), InstantiationError> {
-        let is_bulk_memory: bool = self.metadata.features.bulk_memory;
-        handle
-            .finish_instantiation(is_bulk_memory, &self.data_initializers())
-            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
+        &self.signatures
     }
 
-    /// Returns data initializers to pass to `InstanceHandle::initialize`
-    pub fn data_initializers(&self) -> Vec<DataInitializer<'_>> {
-        self.metadata
-            .data_initializers
-            .iter()
-            .map(|init| DataInitializer {
-                location: init.location.clone(),
-                data: &*init.data,
-            })
-            .collect::<Vec<_>>()
-    }
-}
-
-impl Artifact for NativeArtifact {
-    fn module(&self) -> &ModuleInfo {
-        &self.metadata.module
-    }
-
-    fn module_mut(&mut self) -> &mut ModuleInfo {
-        Arc::get_mut(&mut self.metadata.module).unwrap()
+    /// Serialize a NativeArtifact
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        Ok(std::fs::read(&self.sharedobject_path)?)
     }
 }

@@ -517,8 +517,7 @@ impl Function {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
         let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
-        let func_type = func.ty();
-        let signature = store.engine().register_signature(&func_type);
+        let signature = func.ty();
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -544,7 +543,6 @@ impl Function {
             });
         let address = std::ptr::null() as *const VMFunctionBody;
         let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
-        let signature = store.engine().register_signature(&ty);
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -553,7 +551,7 @@ impl Function {
                 address,
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
-                signature,
+                signature: ty.clone(),
             },
         }
     }
@@ -571,7 +569,6 @@ impl Function {
         });
         let address = std::ptr::null() as *const VMFunctionBody;
         let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
-        let signature = store.engine().register_signature(&ty);
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -580,7 +577,7 @@ impl Function {
                 address,
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
-                signature,
+                signature: ty.clone(),
             },
         }
     }
@@ -605,8 +602,7 @@ impl Function {
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
         let vmctx = env as *mut _ as *mut VMContext;
-        let func_type = func.ty();
-        let signature = store.engine().register_signature(&func_type);
+        let signature = func.ty();
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -622,11 +618,7 @@ impl Function {
 
     /// Returns the underlying type of this function.
     pub fn ty(&self) -> FunctionType {
-        self.store
-            .engine()
-            .lookup_signature(self.exported.signature)
-            .expect("missing signature")
-        // self.inner.unwrap().ty()
+        self.exported.signature.clone()
     }
 
     pub fn store(&self) -> &Store {
@@ -735,9 +727,10 @@ impl Function {
     }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
+        let vmsignature = store.engine().register_signature(&wasmer_export.signature);
         let trampoline = store
             .engine()
-            .function_call_trampoline(wasmer_export.signature)
+            .function_call_trampoline(vmsignature)
             .expect("Can't get call trampoline for the function");
         Self {
             store: store.clone(),
@@ -748,9 +741,13 @@ impl Function {
     }
 
     pub(crate) fn checked_anyfunc(&self) -> VMCallerCheckedAnyfunc {
+        let vmsignature = self
+            .store
+            .engine()
+            .register_signature(&self.exported.signature);
         VMCallerCheckedAnyfunc {
             func_ptr: self.exported.address,
-            type_index: self.exported.signature,
+            type_index: vmsignature,
             vmctx: self.exported.vmctx,
         }
     }

@@ -19,6 +19,20 @@ jobs:
           override: true
           components: rustfmt, clippy
       - run: make lint
+  
+  # Uncomment this once LLVM toolchain is added to the CI
+  # docs:
+  #   name: Docs
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Install Rust
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: nightly-2019-12-19
+  #         override: true
+  #         components: rustfmt, clippy
+  #     - run: make doc-local
 
   test:
     name: Test in ${{ matrix.build }}

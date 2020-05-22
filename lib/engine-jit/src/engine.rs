@@ -10,12 +10,9 @@ use wasmer_compiler::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
-use wasmer_engine::{
-    Artifact, DeserializeError, Engine, InstantiationError, Resolver, SerializeError, Tunables,
-};
+use wasmer_engine::{Artifact, DeserializeError, Engine, Tunables};
 use wasmer_runtime::{
-    InstanceHandle, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
-    VMTrampoline,
+    ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
@@ -26,8 +23,6 @@ pub struct JITEngine {
 }
 
 impl JITEngine {
-    const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
-
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new(
@@ -72,18 +67,12 @@ impl JITEngine {
         }
     }
 
-    pub(crate) fn compiler(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
+    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
         self.inner.lock().unwrap()
     }
 
-    pub(crate) fn compiler_mut(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
+    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
         self.inner.lock().unwrap()
-    }
-
-    /// Check if the provided bytes look like a serialized
-    /// module by the `JITEngine` implementation.
-    pub fn is_deserializable(bytes: &[u8]) -> bool {
-        bytes.starts_with(Self::MAGIC_HEADER)
     }
 }
 
@@ -95,24 +84,24 @@ impl Engine for JITEngine {
 
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
-        let compiler = self.compiler();
+        let compiler = self.inner();
         compiler.signatures().register(func_type)
     }
 
     /// Lookup a signature
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
-        let compiler = self.compiler();
+        let compiler = self.inner();
         compiler.signatures().lookup(sig)
     }
 
     /// Retrieves a trampoline given a signature
     fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.compiler().function_call_trampoline(sig)
+        self.inner().function_call_trampoline(sig)
     }
 
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
-        self.compiler().validate(binary)
+        self.inner().validate(binary)
     }
 
     /// Compile a WebAssembly binary
@@ -120,52 +109,9 @@ impl Engine for JITEngine {
         Ok(Arc::new(JITArtifact::new(&self, binary)?))
     }
 
-    /// Instantiates a WebAssembly module
-    unsafe fn instantiate(
-        &self,
-        compiled_module: &dyn Artifact,
-        resolver: &dyn Resolver,
-    ) -> Result<InstanceHandle, InstantiationError> {
-        let compiled_module = compiled_module
-            .downcast_ref::<JITArtifact>()
-            .expect("The provided module is not a JIT compiled module");
-        compiled_module.instantiate(&self, resolver, Box::new(()))
-    }
-
-    /// Finish the instantiation of a WebAssembly module
-    unsafe fn finish_instantiation(
-        &self,
-        compiled_module: &dyn Artifact,
-        handle: &InstanceHandle,
-    ) -> Result<(), InstantiationError> {
-        let compiled_module = compiled_module
-            .downcast_ref::<JITArtifact>()
-            .expect("The provided module is not a JIT compiled module");
-        compiled_module.finish_instantiation(&handle)
-    }
-
-    /// Serializes a WebAssembly module
-    fn serialize(&self, compiled_module: &dyn Artifact) -> Result<Vec<u8>, SerializeError> {
-        let compiled_module = compiled_module
-            .downcast_ref::<JITArtifact>()
-            .expect("The provided module is not a JIT compiled module");
-        // We append the header
-        let mut serialized = Self::MAGIC_HEADER.to_vec();
-        serialized.extend(compiled_module.serialize()?);
-        Ok(serialized)
-    }
-
     /// Deserializes a WebAssembly module
-    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        if !Self::is_deserializable(bytes) {
-            return Err(DeserializeError::Incompatible(
-                "The provided bytes are not wasmer-jit".to_string(),
-            ));
-        }
-        Ok(Arc::new(JITArtifact::deserialize(
-            &self,
-            &bytes[Self::MAGIC_HEADER.len()..],
-        )?))
+    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
+        Ok(Arc::new(JITArtifact::deserialize(&self, &bytes)?))
     }
 }
 

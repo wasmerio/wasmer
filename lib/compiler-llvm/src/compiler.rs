@@ -1,7 +1,3 @@
-//! Support for compiling with LLVM.
-// Allow unused imports while developing.
-#![allow(unused_imports, dead_code)]
-
 use crate::config::LLVMConfig;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
@@ -10,16 +6,12 @@ use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::Features;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
-    Compilation, CompileError, CompiledFunction, Compiler, CompilerConfig, CustomSection,
-    CustomSectionProtection, FunctionBody, FunctionBodyData, ModuleTranslationState, Relocation,
-    RelocationTarget, SectionBody, SectionIndex, Target, TrapInformation,
+    Compilation, CompileError, Compiler, CompilerConfig, FunctionBody, FunctionBodyData,
+    ModuleTranslationState, RelocationTarget, SectionIndex, Target,
 };
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, TrapCode};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
-use inkwell::targets::{InitializationConfig, Target as InkwellTarget};
-
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex}; // TODO: remove
+//use std::sync::{Arc, Mutex};
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
@@ -75,7 +67,7 @@ impl Compiler for LLVMCompiler {
                 .unwrap_or_else(|| format!("fn{}", func_index.index()));
         }
         let mut module_custom_sections = PrimaryMap::new();
-        let mut functions = function_body_inputs
+        let functions = function_body_inputs
             .into_iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
@@ -94,31 +86,25 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .map(|(mut compiled_function, mut function_custom_sections)| {
+            .map(|(mut compiled_function, function_custom_sections)| {
                 let first_section = module_custom_sections.len() as u32;
                 for (_, custom_section) in function_custom_sections.iter() {
                     // TODO: remove this call to clone()
                     let mut custom_section = custom_section.clone();
                     for mut reloc in &mut custom_section.relocations {
-                        match reloc.reloc_target {
-                            RelocationTarget::CustomSection(index) => {
-                                reloc.reloc_target = RelocationTarget::CustomSection(
-                                    SectionIndex::from_u32(first_section + index.as_u32()),
-                                )
-                            }
-                            _ => {}
+                        if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
+                            reloc.reloc_target = RelocationTarget::CustomSection(
+                                SectionIndex::from_u32(first_section + index.as_u32()),
+                            )
                         }
                     }
                     module_custom_sections.push(custom_section);
                 }
                 for mut reloc in &mut compiled_function.relocations {
-                    match reloc.reloc_target {
-                        RelocationTarget::CustomSection(index) => {
-                            reloc.reloc_target = RelocationTarget::CustomSection(
-                                SectionIndex::from_u32(first_section + index.as_u32()),
-                            )
-                        }
-                        _ => {}
+                    if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
+                        reloc.reloc_target = RelocationTarget::CustomSection(
+                            SectionIndex::from_u32(first_section + index.as_u32()),
+                        )
                     }
                 }
                 compiled_function
@@ -142,7 +128,7 @@ impl Compiler for LLVMCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        module: &ModuleInfo,
+        _module: &ModuleInfo,
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
         Ok(PrimaryMap::new())
         // unimplemented!("Dynamic function trampolines not yet implemented");

@@ -9,10 +9,13 @@ use std::{
 /// Note: large page support may be added in an opt-in manner in the [future].
 ///
 /// [future]: https://webassembly.org/docs/future-features/#large-page-support
-const WASM_PAGE_SIZE: usize = 0x10000;
+pub const WASM_PAGE_SIZE: usize = 0x10000;
 
 /// The number of pages we can have before we run out of byte index space.
-const WASM_MAX_PAGES: u32 = 0x10000;
+pub const WASM_MAX_PAGES: u32 = 0x10000;
+
+/// The minimum number of pages allowed.
+pub const WASM_MIN_PAGES: u32 = 0x100;
 
 /// Units of WebAssembly pages (as specified to be 65,536 bytes).
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
