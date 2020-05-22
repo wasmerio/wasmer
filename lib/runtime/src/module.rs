@@ -277,7 +277,7 @@ impl ModuleInfo {
         }
     }
 
-    /// Get the custom sections for the module given a `name`.
+    /// Get the custom sections of the module given a `name`.
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
         self.custom_sections
             .iter()
