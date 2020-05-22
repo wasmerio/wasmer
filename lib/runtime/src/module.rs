@@ -158,6 +158,9 @@ pub struct ModuleInfo {
 
     /// Number of imported globals in the module.
     pub num_imported_globals: usize,
+
+    /// Custom sections.
+    pub custom_sections: HashMap<String, Vec<Vec<u8>>>,
 }
 
 impl ModuleInfo {
@@ -183,6 +186,7 @@ impl ModuleInfo {
             num_imported_tables: 0,
             num_imported_memories: 0,
             num_imported_globals: 0,
+            custom_sections: HashMap::new(),
         }
     }
 
