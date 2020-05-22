@@ -64,4 +64,8 @@ impl Instance {
     pub fn exports(&self) -> &new::wasmer::Exports {
         &self.new_instance.exports
     }
+
+    pub fn module(&self) -> &new::wasmer::Module {
+        &self.new_instance.module()
+    }
 }
