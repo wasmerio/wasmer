@@ -10,8 +10,8 @@ use wasm_common::{
     FunctionType,
 };
 use wasm_common::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex,
-    MemoryIndex, SignatureIndex, TableIndex, Type,
+    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, SignatureIndex,
+    TableIndex, Type,
 };
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,

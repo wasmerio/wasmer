@@ -1,7 +1,6 @@
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
 use crate::InstantiationError;
-use std::borrow::Borrow;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
@@ -159,7 +158,7 @@ impl Module {
     /// let serialized = module.serialize()?;
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.store.engine().serialize(self.artifact.borrow())
+        self.artifact.serialize()
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
@@ -223,19 +222,18 @@ impl Module {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
-            let instance_handle = self
-                .store
-                .engine()
-                .instantiate(self.artifact.borrow(), resolver)?;
+            let instance_handle = self.artifact.instantiate(
+                self.store.engine().tunables(),
+                resolver,
+                Box::new(()),
+            )?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.store
-                .engine()
-                .finish_instantiation(self.artifact.borrow(), &instance_handle)?;
+            self.artifact.finish_instantiation(&instance_handle)?;
 
             Ok(instance_handle)
         }
@@ -254,12 +252,14 @@ impl Module {
     /// assert_eq!(module.name(), Some("moduleName"));
     /// ```
     pub fn name(&self) -> Option<&str> {
-        self.artifact.module().name.as_deref()
+        self.artifact.module_ref().name.as_deref()
     }
 
     /// Sets the name of the current module.
-    ///
     /// This is normally useful for stacktraces and debugging.
+    ///
+    /// ## Important
+    /// If the module is already insantiated, this will silently fail.
     ///
     /// # Example
     ///
@@ -271,8 +271,11 @@ impl Module {
     /// assert_eq!(module.name(), Some("foo"));
     /// ```
     pub fn set_name(&mut self, name: &str) {
-        let compiled = Arc::get_mut(&mut self.artifact).unwrap();
-        compiled.module_mut().name = Some(name.to_string());
+        Arc::get_mut(&mut self.artifact)
+            .and_then(|artifact| artifact.module_mut())
+            .map(|mut module_info| {
+                module_info.name = Some(name.to_string());
+            });
     }
 
     /// Returns an iterator over the imported types in the Module.
@@ -296,7 +299,7 @@ impl Module {
     /// }
     /// ```
     pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
-        self.artifact.module().imports()
+        self.artifact.module_ref().imports()
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -319,7 +322,7 @@ impl Module {
     /// }
     /// ```
     pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
-        self.artifact.module().exports()
+        self.artifact.module_ref().exports()
     }
 
     pub fn store(&self) -> &Store {
@@ -333,6 +336,6 @@ impl Module {
     /// However, the usage is highly discouraged.
     #[doc(hidden)]
     pub fn info(&self) -> &ModuleInfo {
-        &self.artifact.module()
+        &self.artifact.module_ref()
     }
 }

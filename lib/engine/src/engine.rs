@@ -1,20 +1,19 @@
 //! JIT compilation.
 
-use crate::error::InstantiationError;
-use crate::resolver::Resolver;
 use crate::tunables::Tunables;
-use crate::{Artifact, DeserializeError, SerializeError};
+use crate::{Artifact, DeserializeError};
 use std::path::Path;
 use std::sync::Arc;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
-use wasmer_runtime::{InstanceHandle, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_runtime::{VMSharedSignatureIndex, VMTrampoline};
 
 /// A unimplemented Wasmer `Engine`.
 ///
-/// This trait is used by implementors to implement custom engines,
+/// This trait is used by implementors to implement custom engines
 /// such as: JIT or Native.
-/// The product that this `Engine` produces (and consumes) is the [`Artifact`].
+///
+/// The product that an `Engine` produces and consumes is the [`Artifact`].
 pub trait Engine {
     /// Get the tunables
     fn tunables(&self) -> &dyn Tunables;
@@ -34,28 +33,11 @@ pub trait Engine {
     /// Compile a WebAssembly binary
     fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError>;
 
-    /// Instantiates a WebAssembly module
-    unsafe fn instantiate(
-        &self,
-        compiled_module: &dyn Artifact,
-        resolver: &dyn Resolver,
-    ) -> Result<InstanceHandle, InstantiationError>;
-
-    /// Finish the instantiation of a WebAssembly module
-    unsafe fn finish_instantiation(
-        &self,
-        compiled_module: &dyn Artifact,
-        handle: &InstanceHandle,
-    ) -> Result<(), InstantiationError>;
-
-    /// Serializes a WebAssembly module
-    fn serialize(&self, compiled_module: &dyn Artifact) -> Result<Vec<u8>, SerializeError>;
-
     /// Deserializes a WebAssembly module
-    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError>;
+    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError>;
 
     /// Deserializes a WebAssembly module from a path
-    fn deserialize_from_file(
+    unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
     ) -> Result<Arc<dyn Artifact>, DeserializeError> {
