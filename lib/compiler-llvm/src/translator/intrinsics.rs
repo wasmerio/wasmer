@@ -91,6 +91,7 @@ pub struct Intrinsics<'ctx> {
     pub debug_trap: FunctionValue<'ctx>,
 
     pub personality: FunctionValue<'ctx>,
+    pub stack_probe: Attribute,
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
@@ -351,6 +352,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 i32_ty.fn_type(&[], false),
                 Some(Linkage::External),
             ),
+            stack_probe: context.create_string_attribute("probe-stack", "vm.probestack"),
 
             void_ty,
             i1_ty,

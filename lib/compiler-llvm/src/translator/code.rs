@@ -7,6 +7,7 @@ use super::{
     state::{ControlFrame, ExtraInfo, IfElseState, State},
 };
 use inkwell::{
+    attributes::AttributeLoc,
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
@@ -35,7 +36,6 @@ use wasmer_compiler::{
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMBuiltinFunctionIndex, VMOffsets};
 
 // TODO: debugging
-//use std::fs;
 //use std::io::Write;
 
 // TODO
@@ -111,6 +111,7 @@ impl FuncTranslator {
         // TODO: mark vmctx align 16
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         // TODO: mark vmctx nofree
+        func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
         func.set_personality_function(intrinsics.personality);
         func.as_global_value().set_section(".wasmer_function");
 
@@ -268,7 +269,7 @@ impl FuncTranslator {
         // TODO: remove debugging.
         /*
         let mem_buf_slice = memory_buffer.as_slice();
-        let mut file = fs::File::create(format!("/home/nicholas/code{}.o", func_name)).unwrap();
+        let mut file = std::fs::File::create(format!("/home/nicholas/code{}.o", func_name)).unwrap();
         let mut pos = 0;
         while pos < mem_buf_slice.len() {
             pos += file.write(&mem_buf_slice[pos..]).unwrap();
