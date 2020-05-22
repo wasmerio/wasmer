@@ -110,6 +110,7 @@ impl DummyArtifact {
     ) -> Result<Self, CompileError> {
         let num_local_functions =
             metadata.module.functions.len() - metadata.module.num_imported_funcs;
+        // We prepare the pointers for the finished functions
         let finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> = (0
             ..num_local_functions)
             .map(|_| unsafe {
@@ -118,6 +119,8 @@ impl DummyArtifact {
                 func_pointer
             })
             .collect::<PrimaryMap<_, _>>();
+        
+        // We prepare the pointers for the finished dynamic function trampolines
         let finished_dynamic_function_trampolines: PrimaryMap<
             FunctionIndex,
             *const VMFunctionBody,
@@ -165,7 +168,7 @@ impl Artifact for DummyArtifact {
     }
 
     fn register_frame_info(&self) {
-        // Do nothing, since functions are local for the dummy engine
+        // Do nothing, since functions are not generated for the dummy engine
     }
 
     fn features(&self) -> &Features {

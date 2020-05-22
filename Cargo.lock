@@ -1938,6 +1938,9 @@ dependencies = [
 name = "wasmer-engine-dummy"
 version = "0.16.2"
 dependencies = [
+ "bincode",
+ "serde",
+ "serde_bytes",
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
