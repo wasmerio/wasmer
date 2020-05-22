@@ -282,6 +282,19 @@ impl Module {
             .map(LocalFunctionIndex::new)
     }
 
+    /// Returns the index of a function, i.e. “resolve” the function.
+    pub fn resolve_func(&self, name: &str) -> Option<&FunctionIndex> {
+        self.func_names
+            .iter()
+            .find_map(|(function_index, function_name)| {
+                if function_name.as_str() == name {
+                    Some(function_index)
+                } else {
+                    None
+                }
+            })
+    }
+
     /// Test whether the given function index is for an imported function.
     pub fn is_imported_function(&self, index: FunctionIndex) -> bool {
         index.index() < self.num_imported_funcs
