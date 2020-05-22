@@ -4,8 +4,6 @@ use crate::DummyArtifact;
 use std::sync::Arc;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
-#[cfg(feature = "compiler")]
-use wasmer_compiler::{Compiler, CompilerConfig};
 use wasmer_engine::{Artifact, DeserializeError, Engine, Tunables};
 use wasmer_runtime::{
     SignatureRegistry, VMContext, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,

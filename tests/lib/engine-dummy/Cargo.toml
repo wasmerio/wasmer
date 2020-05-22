@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 wasm-common = { path = "../../../lib/wasm-common", version = "0.16.2" }
-wasmer-compiler = { path = "../../../lib/compiler", version = "0.16.2" }
+wasmer-compiler = { path = "../../../lib/compiler", version = "0.16.2", features=["translator"] }
 wasmer-runtime = { path = "../../../lib/runtime", version = "0.16.2" }
 wasmer-engine = { path = "../../../lib/engine", version = "0.16.2" }
 serde = { version = "1.0.106", features = ["derive", "rc"] }

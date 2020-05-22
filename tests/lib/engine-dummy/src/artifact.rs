@@ -3,18 +3,14 @@
 
 use crate::engine::DummyEngine;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
     Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
-use wasmer_compiler::CompileError;
-#[cfg(feature = "compiler")]
-use wasmer_compiler::ModuleEnvironment;
-use wasmer_engine::{
-    Artifact, DeserializeError, Engine as _, GlobalFrameInfoRegistration, SerializeError,
-};
+use wasmer_compiler::{CompileError, ModuleEnvironment};
+use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError};
 use wasmer_runtime::{
     MemoryPlan, ModuleInfo, TablePlan, VMContext, VMFunctionBody, VMSharedSignatureIndex,
 };
@@ -55,7 +51,6 @@ impl DummyArtifact {
     }
 
     /// Compile a data buffer into a `DummyArtifact`, which may then be instantiated.
-    #[cfg(feature = "compiler")]
     pub fn new(engine: &DummyEngine, data: &[u8]) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let tunables = engine.tunables();
@@ -75,6 +70,13 @@ impl DummyArtifact {
             .map(|(_index, table_type)| tunables.table_plan(*table_type))
             .collect();
 
+        let data_initializers = translation
+            .data_initializers
+            .iter()
+            .map(OwnedDataInitializer::new)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
         let metadata = DummyArtifactMetadata {
             module: Arc::new(translation.module),
             features: Features::default(),
@@ -82,15 +84,7 @@ impl DummyArtifact {
             memory_plans,
             table_plans,
         };
-        Self::from_parts(&mut engine, serializable)
-    }
-
-    /// Compile a data buffer into a `DummyArtifact`, which may then be instantiated.
-    #[cfg(not(feature = "compiler"))]
-    pub fn new(_engine: &DummyEngine, _data: &[u8]) -> Result<Self, CompileError> {
-        Err(CompileError::Codegen(
-            "Compilation is not enabled in the engine".to_string(),
-        ))
+        Self::from_parts(&engine, metadata)
     }
 
     /// Deserialize a DummyArtifact
