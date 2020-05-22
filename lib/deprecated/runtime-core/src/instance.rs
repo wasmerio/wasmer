@@ -53,4 +53,12 @@ impl Instance {
             .call(params)?
             .into_vec())
     }
+
+    #[deprecated(
+        since = "__NEXT_VERSION__",
+        note = "Please use `instance.exports` instead."
+    )]
+    pub fn exports(&self) -> &new::wasmer::Exports {
+        &self.new_instance.exports
+    }
 }
