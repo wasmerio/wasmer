@@ -39,25 +39,28 @@ impl Default for Store {
         // sure this function doesn't emit a compile error even if
         // more than one compiler is enabled.
         #[allow(unreachable_code)]
-        fn get_config() -> Arc<dyn CompilerConfig + Send + Sync> {
+        fn get_config() -> Box<dyn CompilerConfig + Send + Sync> {
             #[cfg(feature = "cranelift")]
-            return Arc::new(wasmer_compiler_cranelift::CraneliftConfig::default());
+            return Box::new(wasmer_compiler_cranelift::CraneliftConfig::default());
 
             #[cfg(feature = "llvm")]
-            return Arc::new(wasmer_compiler_llvm::LLVMConfig::default());
+            return Box::new(wasmer_compiler_llvm::LLVMConfig::default());
 
             #[cfg(feature = "singlepass")]
-            return Arc::new(wasmer_compiler_singlepass::SinglepassConfig::default());
+            return Box::new(wasmer_compiler_singlepass::SinglepassConfig::default());
         }
 
         #[allow(unreachable_code)]
         fn get_engine(
-            config: Arc<dyn CompilerConfig + Send + Sync>,
+            config: Box<dyn CompilerConfig + Send + Sync>,
         ) -> Arc<dyn Engine + Send + Sync> {
             let tunables = Tunables::for_target(config.target().triple());
 
             #[cfg(feature = "jit")]
-            return Arc::new(wasmer_engine_jit::JITEngine::new(&*config, tunables));
+            return Arc::new(wasmer_engine_jit::JITEngine::new(config, tunables));
+
+            #[cfg(feature = "native")]
+            return Arc::new(wasmer_engine_native::NativeEngine::new(config, tunables));
         }
 
         let config = get_config();

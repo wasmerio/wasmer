@@ -27,6 +27,7 @@ wasmer-compiler-singlepass = { version = "0.16.2", path = "lib/compiler-singlepa
 wasmer-compiler-llvm = { version = "0.16.2", path = "lib/compiler-llvm", optional = true }
 wasmer-engine = { version = "0.16.2", path = "lib/engine" }
 wasmer-engine-jit = { version = "0.16.2", path = "lib/engine-jit", optional = true }
+wasmer-engine-native = { version = "0.16.2", path = "lib/engine-native", optional = true }
 wasmer-wasi = { version = "0.16.2", path = "lib/wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { version = "0.16.2", path = "lib/wasi-experimental-io-devices", optional = true }
 wasmer-wast = { version = "0.16.2", path = "tests/lib/wast", optional = true }
@@ -39,6 +40,7 @@ structopt = { version = "0.3", features = ["suggestions"] }
 distance = "0.4"
 # For the inspect subcommand
 bytesize = "1.0.0"
+cfg-if = "0.1.10"
 
 [workspace]
 members = [
@@ -53,22 +55,27 @@ rustc_version = "0.2"
 
 [dev-dependencies]
 anyhow = "1.0.28"
+blake3 = "0.3.3"
 test-utils = { path = "tests/lib/test-utils" }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wat", "wast", "wasi", "cranelift", "cache", "jit"]
+default = ["wat", "wast", "wasi", "cranelift", "cache", "jit", "native"]
 engine = []
 jit = [
     "wasmer-engine-jit",
+    "engine",
+]
+native = [
+    "wasmer-engine-native",
     "engine",
 ]
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
 wat = ["wasmer/wat"]
-compiler = ["wasmer-engine-jit/compiler",]
+compiler = ["wasmer-engine-jit/compiler", "wasmer-engine-native/compiler"]
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices",
     "wasi"

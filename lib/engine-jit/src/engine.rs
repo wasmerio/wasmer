@@ -1,19 +1,18 @@
 //! JIT compilation.
 
-use crate::{CodeMemory, CompiledModule};
+use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
-use wasmer_compiler::{CompileError, FunctionBody};
+use wasmer_compiler::{
+    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex,
+};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
-use wasmer_engine::{
-    CompiledModule as BaseCompiledModule, DeserializeError, Engine, InstantiationError, Resolver,
-    SerializeError, Tunables,
-};
+use wasmer_engine::{Artifact, DeserializeError, Engine, Tunables};
 use wasmer_runtime::{
-    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
@@ -24,17 +23,12 @@ pub struct JITEngine {
 }
 
 impl JITEngine {
-    const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
-
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new<C: CompilerConfig>(
-        config: &C,
+    pub fn new(
+        config: Box<dyn CompilerConfig>,
         tunables: impl Tunables + 'static + Send + Sync,
-    ) -> Self
-    where
-        C: ?Sized,
-    {
+    ) -> Self {
         let compiler = config.compiler();
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
@@ -73,18 +67,12 @@ impl JITEngine {
         }
     }
 
-    pub(crate) fn compiler(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
+    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
         self.inner.lock().unwrap()
     }
 
-    pub(crate) fn compiler_mut(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
+    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
         self.inner.lock().unwrap()
-    }
-
-    /// Check if the provided bytes look like a serialized
-    /// module by the `JITEngine` implementation.
-    pub fn is_deserializable(bytes: &[u8]) -> bool {
-        bytes.starts_with(Self::MAGIC_HEADER)
     }
 }
 
@@ -96,74 +84,34 @@ impl Engine for JITEngine {
 
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
-        let compiler = self.compiler();
+        let compiler = self.inner();
         compiler.signatures().register(func_type)
     }
 
     /// Lookup a signature
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
-        let compiler = self.compiler();
+        let compiler = self.inner();
         compiler.signatures().lookup(sig)
     }
 
     /// Retrieves a trampoline given a signature
     fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.compiler().function_call_trampoline(sig)
+        self.inner().function_call_trampoline(sig)
     }
 
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
-        self.compiler().validate(binary)
+        self.inner().validate(binary)
     }
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, CompileError> {
-        Ok(Arc::new(CompiledModule::new(&self, binary)?))
-    }
-
-    /// Instantiates a WebAssembly module
-    unsafe fn instantiate(
-        &self,
-        compiled_module: &dyn BaseCompiledModule,
-        resolver: &dyn Resolver,
-    ) -> Result<InstanceHandle, InstantiationError> {
-        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
-        compiled_module.instantiate(&self, resolver, Box::new(()))
-    }
-
-    /// Finish the instantiation of a WebAssembly module
-    unsafe fn finish_instantiation(
-        &self,
-        compiled_module: &dyn BaseCompiledModule,
-        handle: &InstanceHandle,
-    ) -> Result<(), InstantiationError> {
-        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
-        compiled_module.finish_instantiation(&handle)
-    }
-
-    /// Serializes a WebAssembly module
-    fn serialize(
-        &self,
-        compiled_module: &dyn BaseCompiledModule,
-    ) -> Result<Vec<u8>, SerializeError> {
-        let compiled_module = compiled_module.downcast_ref::<CompiledModule>().unwrap();
-        // We append the header
-        let mut serialized = Self::MAGIC_HEADER.to_vec();
-        serialized.extend(compiled_module.serialize()?);
-        Ok(serialized)
+    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError> {
+        Ok(Arc::new(JITArtifact::new(&self, binary)?))
     }
 
     /// Deserializes a WebAssembly module
-    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn BaseCompiledModule>, DeserializeError> {
-        if !Self::is_deserializable(bytes) {
-            return Err(DeserializeError::Incompatible(
-                "The provided bytes are not wasmer-jit".to_string(),
-            ));
-        }
-        Ok(Arc::new(CompiledModule::deserialize(
-            &self,
-            &bytes[Self::MAGIC_HEADER.len()..],
-        )?))
+    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
+        Ok(Arc::new(JITArtifact::deserialize(&self, &bytes)?))
     }
 }
 
@@ -206,10 +154,33 @@ impl JITEngineInner {
         ))
     }
 
+    pub(crate) fn allocate_custom_sections(
+        &mut self,
+        custom_sections: &PrimaryMap<SectionIndex, CustomSection>,
+    ) -> Result<PrimaryMap<SectionIndex, *const u8>, CompileError> {
+        let mut result = PrimaryMap::with_capacity(custom_sections.len());
+        for (_, section) in custom_sections.iter() {
+            let buffer: &[u8] = match section.protection {
+                CustomSectionProtection::Read => section.bytes.as_slice(),
+                CustomSectionProtection::ReadExecute => self
+                    .code_memory
+                    .allocate_for_executable_custom_section(&section.bytes)
+                    .map_err(|message| {
+                        CompileError::Resource(format!(
+                            "failed to allocate memory for custom section: {}",
+                            message
+                        ))
+                    })?,
+            };
+            result.push(buffer.as_ptr());
+        }
+        Ok(result)
+    }
+
     /// Compile the given function bodies.
     pub(crate) fn allocate(
         &mut self,
-        module: &Module,
+        module: &ModuleInfo,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
         dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,

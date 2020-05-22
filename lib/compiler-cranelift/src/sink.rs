@@ -6,11 +6,11 @@ use cranelift_codegen::ir::{self, ExternalName};
 use wasm_common::entity::EntityRef;
 use wasm_common::{FunctionIndex, LocalFunctionIndex};
 use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, SourceLoc, TrapInformation};
-use wasmer_runtime::{Module, TrapCode};
+use wasmer_runtime::{ModuleInfo, TrapCode};
 
 /// Implementation of a relocation sink that just saves all the information for later
 pub(crate) struct RelocSink<'a> {
-    module: &'a Module,
+    module: &'a ModuleInfo,
 
     /// Current function index.
     local_func_index: LocalFunctionIndex,
@@ -81,7 +81,7 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
 
 impl<'a> RelocSink<'a> {
     /// Return a new `RelocSink` instance.
-    pub fn new(module: &'a Module, func_index: FunctionIndex) -> Self {
+    pub fn new(module: &'a ModuleInfo, func_index: FunctionIndex) -> Self {
         let local_func_index = module
             .local_func_index(func_index)
             .expect("The provided function should be local");

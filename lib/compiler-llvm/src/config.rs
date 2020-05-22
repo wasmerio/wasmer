@@ -1,16 +1,14 @@
-// Allow unused imports while developing
-#![allow(unused_imports, dead_code)]
-
 use crate::compiler::LLVMCompiler;
 use inkwell::targets::{
-    CodeModel, InitializationConfig, RelocMode, Target as LLVMTarget, TargetMachine, TargetTriple,
+    CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
+    TargetTriple,
 };
 use inkwell::OptimizationLevel;
 use itertools::Itertools;
 use target_lexicon::Architecture;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, Features, Target, Triple};
 
-/// The InkWell Module type
+/// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
 
 /// The InkWell MemoryBuffer type
@@ -97,7 +95,7 @@ impl LLVMConfig {
         let cpu_features = &target.cpu_features();
 
         match triple.architecture {
-            Architecture::X86_64 => LLVMTarget::initialize_x86(&InitializationConfig {
+            Architecture::X86_64 => InkwellTarget::initialize_x86(&InitializationConfig {
                 asm_parser: true,
                 asm_printer: true,
                 base: true,
@@ -105,7 +103,7 @@ impl LLVMConfig {
                 info: true,
                 machine_code: true,
             }),
-            Architecture::Arm(_) => LLVMTarget::initialize_aarch64(&InitializationConfig {
+            Architecture::Arm(_) => InkwellTarget::initialize_aarch64(&InitializationConfig {
                 asm_parser: true,
                 asm_printer: true,
                 base: true,
@@ -119,36 +117,34 @@ impl LLVMConfig {
         // The CPU features formatted as LLVM strings
         let llvm_cpu_features = cpu_features
             .iter()
-            .filter_map(|feature| match feature {
-                CpuFeature::SSE2 => Some("+sse2"),
-                CpuFeature::SSE3 => Some("+sse3"),
-                CpuFeature::SSSE3 => Some("+ssse3"),
-                CpuFeature::SSE41 => Some("+sse4.1"),
-                CpuFeature::SSE42 => Some("+sse4.2"),
-                CpuFeature::POPCNT => Some("+popcnt"),
-                CpuFeature::AVX => Some("+avx"),
-                CpuFeature::BMI1 => Some("+bmi"),
-                CpuFeature::BMI2 => Some("+bmi2"),
-                CpuFeature::AVX2 => Some("+avx2"),
-                CpuFeature::AVX512DQ => Some("+avx512dq"),
-                CpuFeature::AVX512VL => Some("+avx512vl"),
-                CpuFeature::LZCNT => Some("+lzcnt"),
+            .map(|feature| match feature {
+                CpuFeature::SSE2 => "+sse2",
+                CpuFeature::SSE3 => "+sse3",
+                CpuFeature::SSSE3 => "+ssse3",
+                CpuFeature::SSE41 => "+sse4.1",
+                CpuFeature::SSE42 => "+sse4.2",
+                CpuFeature::POPCNT => "+popcnt",
+                CpuFeature::AVX => "+avx",
+                CpuFeature::BMI1 => "+bmi",
+                CpuFeature::BMI2 => "+bmi2",
+                CpuFeature::AVX2 => "+avx2",
+                CpuFeature::AVX512DQ => "+avx512dq",
+                CpuFeature::AVX512VL => "+avx512vl",
+                CpuFeature::LZCNT => "+lzcnt",
             })
             .join(",");
 
-        let arch_string = triple.architecture.to_string();
-        let llvm_target = LLVMTarget::from_triple(&self.target_triple()).unwrap();
-        let target_machine = llvm_target
+        let llvm_target = InkwellTarget::from_triple(&self.target_triple()).unwrap();
+        llvm_target
             .create_target_machine(
                 &self.target_triple(),
                 "generic",
                 &llvm_cpu_features,
-                self.opt_level.clone(),
+                self.opt_level,
                 self.reloc_mode(),
                 self.code_model(),
             )
-            .unwrap();
-        target_machine
+            .unwrap()
     }
 }
 
@@ -156,6 +152,10 @@ impl CompilerConfig for LLVMConfig {
     /// Gets the WebAssembly features
     fn features(&self) -> &Features {
         &self.features
+    }
+
+    fn enable_pic(&mut self) {
+        unimplemented!("PIC is not yet implemented in LLVM");
     }
 
     /// Gets the target that we will use for compiling

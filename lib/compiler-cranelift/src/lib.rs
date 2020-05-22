@@ -57,7 +57,7 @@ mod translator;
 pub use crate::compiler::CraneliftCompiler;
 pub use crate::config::CraneliftConfig;
 pub use crate::debug::{FrameLayout, FrameLayoutChange, FrameLayouts};
-pub use crate::debug::{ModuleMemoryOffset, ModuleVmctxInfo, ValueLabelsRanges};
+pub use crate::debug::{ModuleInfoMemoryOffset, ModuleInfoVmctxInfo, ValueLabelsRanges};
 pub use crate::trampoline::make_trampoline_function_call;
 
 /// Version number of this crate.

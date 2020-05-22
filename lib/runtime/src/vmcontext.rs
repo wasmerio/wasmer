@@ -23,13 +23,13 @@ pub struct VMFunctionImport {
 #[cfg(test)]
 mod test_vmfunction_import {
     use super::VMFunctionImport;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmfunction_import_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMFunctionImport>(),
@@ -59,7 +59,7 @@ pub struct VMDynamicFunctionImportContext<T: Sized> {
     /// The address of the inner dynamic function.
     ///
     /// Note: The function must be on the form of
-    /// `(*mut T, *mut VMContext, SignatureIndex, *mut i128)`.
+    /// `(*mut T, SignatureIndex, *mut i128)`.
     pub address: *const VMFunctionBody,
 
     /// The context that the inner dynamic function will receive.
@@ -69,13 +69,13 @@ pub struct VMDynamicFunctionImportContext<T: Sized> {
 #[cfg(test)]
 mod test_vmdynamicfunction_import_context {
     use super::VMDynamicFunctionImportContext;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmdynamicfunction_import_context_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMDynamicFunctionImportContext<usize>>(),
@@ -145,13 +145,13 @@ pub struct VMTableImport {
 #[cfg(test)]
 mod test_vmtable_import {
     use super::VMTableImport;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmtable_import_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMTableImport>(),
@@ -183,13 +183,13 @@ pub struct VMMemoryImport {
 #[cfg(test)]
 mod test_vmmemory_import {
     use super::VMMemoryImport;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmmemory_import_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMMemoryImport>(),
@@ -218,13 +218,13 @@ pub struct VMGlobalImport {
 #[cfg(test)]
 mod test_vmglobal_import {
     use super::VMGlobalImport;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmglobal_import_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMGlobalImport>(),
@@ -313,13 +313,13 @@ impl VMMemoryDefinition {
 #[cfg(test)]
 mod test_vmmemory_definition {
     use super::VMMemoryDefinition;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmmemory_definition_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMMemoryDefinition>(),
@@ -357,13 +357,13 @@ pub struct VMTableDefinition {
 #[cfg(test)]
 mod test_vmtable_definition {
     use super::VMTableDefinition;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmtable_definition_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMTableDefinition>(),
@@ -395,7 +395,7 @@ pub struct VMGlobalDefinition {
 #[cfg(test)]
 mod test_vmglobal_definition {
     use super::VMGlobalDefinition;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use more_asserts::assert_ge;
     use std::mem::{align_of, size_of};
 
@@ -410,7 +410,7 @@ mod test_vmglobal_definition {
 
     #[test]
     fn check_vmglobal_definition_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMGlobalDefinition>(),
@@ -420,7 +420,7 @@ mod test_vmglobal_definition {
 
     #[test]
     fn check_vmglobal_begins_aligned() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(offsets.vmctx_globals_begin() % 16, 0);
     }
@@ -562,13 +562,13 @@ pub struct VMSharedSignatureIndex(u32);
 #[cfg(test)]
 mod test_vmshared_signature_index {
     use super::VMSharedSignatureIndex;
-    use crate::module::Module;
+    use crate::module::ModuleInfo;
     use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
     use std::mem::size_of;
 
     #[test]
     fn check_vmshared_signature_index() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMSharedSignatureIndex>(),
@@ -616,13 +616,13 @@ pub struct VMCallerCheckedAnyfunc {
 #[cfg(test)]
 mod test_vmcaller_checked_anyfunc {
     use super::VMCallerCheckedAnyfunc;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmcaller_checked_anyfunc_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMCallerCheckedAnyfunc>(),
@@ -821,7 +821,6 @@ impl VMContext {
 ///
 pub type VMTrampoline = unsafe extern "C" fn(
     *mut VMContext,        // callee vmctx
-    *mut VMContext,        // caller vmctx
     *const VMFunctionBody, // function we're actually calling
     *mut u128,             // space for arguments and return values
 );

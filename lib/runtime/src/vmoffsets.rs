@@ -3,7 +3,7 @@
 
 #![deny(intra_doc_link_resolution_failure)]
 
-use crate::module::Module;
+use crate::module::ModuleInfo;
 use crate::VMBuiltinFunctionIndex;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
@@ -53,7 +53,7 @@ pub struct VMOffsets {
 
 impl VMOffsets {
     /// Return a new `VMOffsets` instance, for a given pointer size.
-    pub fn new(pointer_size: u8, module: &Module) -> Self {
+    pub fn new(pointer_size: u8, module: &ModuleInfo) -> Self {
         Self {
             pointer_size,
             num_signature_ids: cast_to_u32(module.signatures.len()),
@@ -129,13 +129,13 @@ impl VMOffsets {
 ///
 /// [`VMTableImport`]: crate::vmcontext::VMTableImport
 impl VMOffsets {
-    /// The offset of the `from` field.
+    /// The offset of the `definition` field.
     #[allow(clippy::erasing_op)]
     pub const fn vmtable_import_definition(&self) -> u8 {
         0 * self.pointer_size
     }
 
-    /// The offset of the `vmctx` field.
+    /// The offset of the `from` field.
     #[allow(clippy::identity_op)]
     pub const fn vmtable_import_from(&self) -> u8 {
         1 * self.pointer_size
@@ -552,7 +552,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to the `from` field in [`VMTableImport`] index `index`.
+    /// Return the offset to the `definition` field in [`VMTableImport`] index `index`.
     ///
     /// [`VMTableImport`]: crate::vmcontext::VMTableImport
     pub fn vmctx_vmtable_import_definition(&self, index: TableIndex) -> u32 {

@@ -5,7 +5,7 @@ use wasm_common::{
     TableType,
 };
 use wasmer_runtime::MemoryError;
-use wasmer_runtime::{LinearMemory, Module, Table, VMGlobalDefinition};
+use wasmer_runtime::{LinearMemory, ModuleInfo, Table, VMGlobalDefinition};
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// Tunables for an engine
@@ -25,7 +25,7 @@ pub trait Tunables {
     /// Allocate memory for just the memories of the current module.
     fn create_memories(
         &self,
-        module: &Module,
+        module: &ModuleInfo,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     ) -> Result<PrimaryMap<LocalMemoryIndex, LinearMemory>, LinkError> {
         let num_imports = module.num_imported_memories;
@@ -44,7 +44,7 @@ pub trait Tunables {
     /// Allocate memory for just the tables of the current module.
     fn create_tables(
         &self,
-        module: &Module,
+        module: &ModuleInfo,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<PrimaryMap<LocalTableIndex, Table>, LinkError> {
         let num_imports = module.num_imported_tables;
@@ -61,7 +61,7 @@ pub trait Tunables {
     /// with initializers applied.
     fn create_globals(
         &self,
-        module: &Module,
+        module: &ModuleInfo,
     ) -> Result<PrimaryMap<LocalGlobalIndex, VMGlobalDefinition>, LinkError> {
         let num_imports = module.num_imported_globals;
         let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);

@@ -47,7 +47,7 @@ impl RuntimeError {
                 // Self::new(format!("{}", error))
                 *error.downcast().expect("only `Trap` errors are supported")
             }
-            Trap::Jit { pc, backtrace } => {
+            Trap::Runtime { pc, backtrace } => {
                 let info = if info.should_process_frame(pc).unwrap_or(false) {
                     drop(info);
                     let mut info = FRAME_INFO.write().unwrap();

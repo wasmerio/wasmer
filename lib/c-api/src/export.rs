@@ -5,6 +5,7 @@ use crate::{
     error::{update_last_error, CApiError},
     global::wasmer_global_t,
     import::wasmer_import_func_t,
+    instance::CAPIInstance,
     memory::wasmer_memory_t,
     module::wasmer_module_t,
     table::wasmer_table_t,
@@ -14,7 +15,7 @@ use crate::{
 use libc::{c_int, c_uint};
 use std::ptr::{self, NonNull};
 use std::slice;
-use wasmer::{ExportType, ExternType, Function, ImportType, Instance, Memory, Module, Val};
+use wasmer::{ExportType, ExternType, Function, ImportType, Memory, Module, Val};
 
 /// Intermediate representation of an `Export` instance that is
 /// exposed to C.
@@ -23,7 +24,7 @@ pub(crate) struct NamedExport {
     pub(crate) export_type: ExportType,
 
     /// The instance that holds the export.
-    pub(crate) instance: NonNull<Instance>,
+    pub(crate) instance: NonNull<CAPIInstance>,
 }
 
 /// Opaque pointer to `ImportType`.
@@ -403,6 +404,7 @@ pub unsafe extern "C" fn wasmer_export_to_memory(
     let instance = named_export.instance.as_ref();
 
     if let Ok(exported_memory) = instance
+        .instance
         .exports
         .get::<Memory>(&named_export.export_type.name())
     {
@@ -477,7 +479,11 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
 
     let instance = named_export.instance.as_ref();
-    let f: &Function = match instance.exports.get(&named_export.export_type.name()) {
+    let f: &Function = match instance
+        .instance
+        .exports
+        .get(&named_export.export_type.name())
+    {
         Ok(f) => f,
         Err(err) => {
             update_last_error(err);

@@ -11,14 +11,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install Rust stable
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.42.0
+          toolchain: nightly-2019-12-19
           override: true
           components: rustfmt, clippy
       - run: make lint
+  
+  # Uncomment this once LLVM toolchain is added to the CI
+  # docs:
+  #   name: Docs
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Install Rust
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: nightly-2019-12-19
+  #         override: true
+  #         components: rustfmt, clippy
+  #     - run: make doc-local
 
   test:
     name: Test in ${{ matrix.build }}
@@ -45,6 +59,12 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
       - run: cargo test --release
+      - name: Set up dependencies for Mac OS
+        run: brew install automake
+        if: matrix.os == 'macos-latest'
+      - name: Set up dependencies for Windows
+        run: choco install llvm
+        if: matrix.os == 'windows-latest'
       - name: Build and Test C API
         run: |
           make capi

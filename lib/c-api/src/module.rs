@@ -3,12 +3,13 @@
 use crate::{
     error::{update_last_error, CApiError},
     export::wasmer_import_export_kind,
-    import::{wasmer_import_object_t, wasmer_import_t},
-    instance::wasmer_instance_t,
+    import::{wasmer_import_object_t, wasmer_import_t, CAPIImportObject},
+    instance::{wasmer_instance_t, CAPIInstance},
     wasmer_byte_array, wasmer_result_t,
 };
 use libc::c_int;
 use std::collections::HashMap;
+use std::ptr::NonNull;
 use std::slice;
 use wasmer::{Exports, Extern, Function, Global, ImportObject, Instance, Memory, Module, Table};
 
@@ -86,6 +87,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     imports_len: c_int,
 ) -> wasmer_result_t {
     let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
+    let mut imported_memories = vec![];
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
     for import in imports {
@@ -119,6 +121,7 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
         let export = match import.tag {
             wasmer_import_export_kind::WASM_MEMORY => {
                 let mem = import.value.memory as *mut Memory;
+                imported_memories.push(mem);
                 Extern::Memory((&*mem).clone())
             }
             wasmer_import_export_kind::WASM_FUNCTION => {
@@ -149,7 +152,13 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
         }
     };
 
-    *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
+    let c_api_instance = CAPIInstance {
+        instance: new_instance,
+        imported_memories,
+        ctx_data: None,
+    };
+
+    *instance = Box::into_raw(Box::new(c_api_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
 }
 
@@ -164,17 +173,27 @@ pub unsafe extern "C" fn wasmer_module_import_instantiate(
     module: *const wasmer_module_t,
     import_object: *const wasmer_import_object_t,
 ) -> wasmer_result_t {
-    let import_object: &ImportObject = &*(import_object as *const ImportObject);
+    // mutable to mutate through `instance_pointers_to_update` to make host functions work
+    let import_object: &mut CAPIImportObject = &mut *(import_object as *mut CAPIImportObject);
     let module: &Module = &*(module as *const Module);
 
-    let new_instance: Instance = match Instance::new(module, import_object) {
+    let new_instance: Instance = match Instance::new(module, &import_object.import_object) {
         Ok(instance) => instance,
         Err(error) => {
             update_last_error(error);
             return wasmer_result_t::WASMER_ERROR;
         }
     };
-    *instance = Box::into_raw(Box::new(new_instance)) as *mut wasmer_instance_t;
+    let c_api_instance = CAPIInstance {
+        instance: new_instance,
+        imported_memories: import_object.imported_memories.clone(),
+        ctx_data: None,
+    };
+    let c_api_instance_pointer = Box::into_raw(Box::new(c_api_instance));
+    for to_update in import_object.instance_pointers_to_update.iter_mut() {
+        to_update.as_mut().instance_ptr = Some(NonNull::new_unchecked(c_api_instance_pointer));
+    }
+    *instance = c_api_instance_pointer as *mut wasmer_instance_t;
 
     return wasmer_result_t::WASMER_OK;
 }

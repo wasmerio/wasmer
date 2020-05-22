@@ -55,7 +55,6 @@ entity_impl!(MemoryIndex);
 /// Index type of a signature (imported or local) inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
 pub struct SignatureIndex(u32);
 entity_impl!(SignatureIndex);
 

@@ -101,7 +101,7 @@ impl CpuFeature {
 }
 
 /// This is the target that we will use for compiling
-/// the WebAssembly Module, and then run it.
+/// the WebAssembly ModuleInfo, and then run it.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Target {
     triple: Triple,

@@ -5,16 +5,19 @@
 //! function called that one, and so forth.
 //!
 //! More info: https://en.wikipedia.org/wiki/Call_stack
-use crate::std::vec::Vec;
+use crate::lib::std::vec::Vec;
 use crate::{Addend, CodeOffset};
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
 /// Relocation Entry data
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FDERelocEntry(pub i64, pub usize, pub u8);
 
 /// Relocation entry for unwind info.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionTableReloc {
     /// Entry offest in the code block.
     pub offset: CodeOffset,
@@ -29,7 +32,8 @@ pub struct FunctionTableReloc {
 /// > fields.
 ///
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CompiledFunctionUnwindInfo {
     /// Windows UNWIND_INFO.
     Windows(Vec<u8>),

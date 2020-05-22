@@ -9,17 +9,19 @@
 //! the generated machine code, so a given frontend (JIT or native) can
 //! do the corresponding work to run it.
 
+use crate::lib::std::fmt;
+use crate::lib::std::vec::Vec;
 use crate::section::SectionIndex;
-use crate::std::vec::Vec;
 use crate::{Addend, CodeOffset, JumpTable};
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::LocalFunctionIndex;
 use wasmer_runtime::libcalls::LibCall;
 
 /// Relocation kinds for every ISA.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RelocationKind {
     /// absolute 4-byte
     Abs4,
@@ -31,9 +33,8 @@ pub enum RelocationKind {
     X86PCRelRodata4,
     /// x86 call to PC-relative 4-byte
     X86CallPCRel4,
-    // /// x86 call to PLT-relative 4-byte
-    // X86CallPLTRel4,
-
+    /// x86 call to PLT-relative 4-byte
+    X86CallPLTRel4,
     // /// x86 GOT PC-relative 4-byte
     // X86GOTPCRel4,
 
@@ -63,7 +64,7 @@ impl fmt::Display for RelocationKind {
             Self::X86PCRel4 => write!(f, "PCRel4"),
             Self::X86PCRelRodata4 => write!(f, "PCRelRodata4"),
             Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
-            // Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
+            Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
             // Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
             // Self::Arm32Call | Self::Arm64Call | Self::RiscvCall => write!(f, "Call"),
 
@@ -74,7 +75,8 @@ impl fmt::Display for RelocationKind {
 }
 
 /// A record of a relocation to perform.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Relocation {
     /// The relocation kind.
     pub kind: RelocationKind,
@@ -87,7 +89,8 @@ pub struct Relocation {
 }
 
 /// Destination function. Can be either user function or some special one, like `memory.grow`.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RelocationTarget {
     /// A relocation to a function defined locally in the wasm (not an imported one).
     LocalFunc(LocalFunctionIndex),
@@ -123,7 +126,7 @@ impl Relocation {
                     .unwrap();
                 (reloc_address, reloc_delta_u32 as u64)
             }
-            RelocationKind::X86CallPCRel4 => {
+            RelocationKind::X86CallPCRel4 | RelocationKind::X86CallPLTRel4 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
                 let reloc_delta_u32 = (target_func_address as u32)

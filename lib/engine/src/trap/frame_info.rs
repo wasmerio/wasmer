@@ -1,13 +1,13 @@
 //! This module is used for having backtraces in the Wasm runtime.
-//! Once the Compiler has compiled the Module, and we have a set of
+//! Once the Compiler has compiled the ModuleInfo, and we have a set of
 //! compiled functions (addresses and function index) and a module,
 //! then we can use this to set a backtrace for that module.
 //!
 //! # Example
 //! ```ignore
-//! use wasmer_runtime::{Module, FRAME_INFO};
+//! use wasmer_runtime::{ModuleInfo, FRAME_INFO};
 //!
-//! let module: Module = ...;
+//! let module: ModuleInfo = ...;
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
 use crate::serialize::SerializableFunctionFrameInfo;
@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock};
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
-use wasmer_runtime::{Module, VMFunctionBody};
+use wasmer_runtime::{ModuleInfo, VMFunctionBody};
 
 lazy_static::lazy_static! {
     /// This is a global cache of backtrace frame information for all active
@@ -39,7 +39,7 @@ pub struct GlobalFrameInfo {
     ///
     /// The key of this map is the highest address in the module and the value
     /// is the module's information, which also contains the start address.
-    ranges: BTreeMap<usize, ModuleFrameInfo>,
+    ranges: BTreeMap<usize, ModuleInfoFrameInfo>,
 }
 
 /// An RAII structure used to unregister a module's frame information when the
@@ -50,14 +50,14 @@ pub struct GlobalFrameInfoRegistration {
     key: usize,
 }
 
-struct ModuleFrameInfo {
+struct ModuleInfoFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
-    module: Arc<Module>,
+    module: Arc<ModuleInfo>,
     frame_infos: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
 }
 
-impl ModuleFrameInfo {
+impl ModuleInfoFrameInfo {
     fn function_debug_info(
         &self,
         local_index: LocalFunctionIndex,
@@ -193,7 +193,7 @@ impl GlobalFrameInfo {
     }
 
     /// Gets a module given a pc
-    fn module_info(&self, pc: usize) -> Option<&ModuleFrameInfo> {
+    fn module_info(&self, pc: usize) -> Option<&ModuleInfoFrameInfo> {
         let (end, module_info) = self.ranges.range(pc..).next()?;
         if pc < module_info.start || *end < pc {
             return None;
@@ -202,7 +202,7 @@ impl GlobalFrameInfo {
     }
 
     /// Gets a module given a pc
-    fn module_info_mut(&mut self, pc: usize) -> Option<&mut ModuleFrameInfo> {
+    fn module_info_mut(&mut self, pc: usize) -> Option<&mut ModuleInfoFrameInfo> {
         let (end, module_info) = self.ranges.range_mut(pc..).next()?;
         if pc < module_info.start || *end < pc {
             return None;
@@ -226,7 +226,7 @@ impl Drop for GlobalFrameInfoRegistration {
 /// then `None` will be returned. Otherwise the returned object, when
 /// dropped, will be used to unregister all name information from this map.
 pub fn register(
-    module: Arc<Module>,
+    module: Arc<ModuleInfo>,
     finished_functions: &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     frame_infos: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {
@@ -264,7 +264,7 @@ pub fn register(
     // ... then insert our range and assert nothing was there previously
     let prev = info.ranges.insert(
         max,
-        ModuleFrameInfo {
+        ModuleInfoFrameInfo {
             start: min,
             functions,
             module,
@@ -302,9 +302,9 @@ impl FrameInfo {
 
     /// Returns the identifer of the module that this frame is for.
     ///
-    /// Module identifiers are present in the `name` section of a WebAssembly
+    /// ModuleInfo identifiers are present in the `name` section of a WebAssembly
     /// binary, but this may not return the exact item in the `name` section.
-    /// Module names can be overwritten at construction time or perhaps inferred
+    /// ModuleInfo names can be overwritten at construction time or perhaps inferred
     /// from file names. The primary purpose of this function is to assist in
     /// debugging and therefore may be tweaked over time.
     ///

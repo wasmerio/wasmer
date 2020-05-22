@@ -60,6 +60,9 @@ pub enum TrapCode {
     /// Execution has potentially run too long and may be interrupted.
     /// This trap is resumable.
     Interrupt = 12,
+
+    /// An atomic memory access was attempted with an unaligned pointer.
+    UnalignedAtomic = 13,
     // /// A user-defined trap code.
     // User(u16),
 }
@@ -81,6 +84,7 @@ impl TrapCode {
             Self::BadConversionToInteger => "invalid conversion to integer",
             Self::UnreachableCodeReached => "unreachable",
             Self::Interrupt => "interrupt",
+            Self::UnalignedAtomic => "unaligned atomic access",
             // Self::User(_) => unreachable!(),
         }
     }
@@ -103,6 +107,7 @@ impl Display for TrapCode {
             BadConversionToInteger => "bad_toint",
             UnreachableCodeReached => "unreachable",
             Interrupt => "interrupt",
+            UnalignedAtomic => "unalign_atom",
             // User(x) => return write!(f, "user{}", x),
         };
         f.write_str(identifier)
@@ -128,6 +133,7 @@ impl FromStr for TrapCode {
             "bad_toint" => Ok(BadConversionToInteger),
             "unreachable" => Ok(UnreachableCodeReached),
             "interrupt" => Ok(Interrupt),
+            "unalign_atom" => Ok(UnalignedAtomic),
             // _ if s.starts_with("user") => s[4..].parse().map(User).map_err(|_| ()),
             _ => Err(()),
         }
@@ -139,7 +145,7 @@ mod tests {
     use super::*;
 
     // Everything but user-defined codes.
-    const CODES: [TrapCode; 13] = [
+    const CODES: [TrapCode; 14] = [
         TrapCode::StackOverflow,
         TrapCode::HeapSetterOutOfBounds,
         TrapCode::HeapAccessOutOfBounds,
@@ -153,6 +159,7 @@ mod tests {
         TrapCode::BadConversionToInteger,
         TrapCode::UnreachableCodeReached,
         TrapCode::Interrupt,
+        TrapCode::UnalignedAtomic,
     ];
 
     #[test]

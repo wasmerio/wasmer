@@ -1,17 +1,17 @@
 //! Define the `Resolver` trait, allowing custom resolution for external
 //! references.
 
-use crate::error::{ImportError, LinkError};
+use crate::{ImportError, LinkError};
 use more_asserts::assert_ge;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::{
-    Export, Imports, SignatureRegistry, VMFunctionBody, VMFunctionImport, VMFunctionKind,
-    VMGlobalImport, VMMemoryImport, VMTableImport,
+    Export, Imports, VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport,
+    VMMemoryImport, VMTableImport,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
-use wasmer_runtime::{MemoryStyle, Module};
+use wasmer_runtime::{MemoryStyle, ModuleInfo};
 
 /// Import resolver connects imports with available exported values.
 pub trait Resolver {
@@ -23,7 +23,52 @@ pub trait Resolver {
     ///
     /// The `module` and `field` arguments provided are the module/field names
     /// listed on the import itself.
-    fn resolve(&self, index: u32, module: &str, field: &str) -> Option<Export>;
+    ///
+    /// # Notes:
+    ///
+    /// The index is useful because some WebAssembly modules may rely on that
+    /// for resolving ambiguity in their imports. Such as:
+    /// ```
+    /// (module
+    ///   (import "" "" (func))
+    ///   (import "" "" (func (param i32) (result i32)))
+    /// )
+    /// ```
+    fn resolve(&self, _index: u32, module: &str, field: &str) -> Option<Export>;
+}
+
+/// Import resolver connects imports with available exported values.
+///
+/// This is a specific subtrait for [`Resolver`] for those users who don't
+/// care about the `index`, but only about the `module` and `field` for
+/// the resolution.
+pub trait NamedResolver {
+    /// Resolves an import a WebAssembly module to an export it's hooked up to.
+    ///
+    /// It receives the `module` and `field` names and return the [`Export`] in
+    /// case it's found.
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export>;
+}
+
+// All NamedResolvers should extend `Resolver`.
+impl<T: NamedResolver> Resolver for T {
+    /// By default this method will be calling [`NamedResolver::resolve_by_name`],
+    /// dismissing the provided `index`.
+    fn resolve(&self, _index: u32, module: &str, field: &str) -> Option<Export> {
+        self.resolve_by_name(module, field)
+    }
+}
+
+impl<T: NamedResolver> NamedResolver for &T {
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+        (**self).resolve_by_name(module, field)
+    }
+}
+
+impl NamedResolver for Box<dyn NamedResolver> {
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+        (**self).resolve_by_name(module, field)
+    }
 }
 
 /// `Resolver` implementation that always resolves to `None`.
@@ -36,7 +81,7 @@ impl Resolver for NullResolver {
 }
 
 /// Get an `ExternType` given a import index.
-fn get_extern_from_import(module: &Module, import_index: &ImportIndex) -> ExternType {
+fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> ExternType {
     match import_index {
         ImportIndex::Function(index) => {
             let func = module.signatures[module.functions[*index]].clone();
@@ -57,17 +102,10 @@ fn get_extern_from_import(module: &Module, import_index: &ImportIndex) -> Extern
     }
 }
 
-/// Get an `ExternType` given an export (and signatures in case is a function).
-fn get_extern_from_export(
-    _module: &Module,
-    signatures: &SignatureRegistry,
-    export: &Export,
-) -> ExternType {
+/// Get an `ExternType` given an export (and Engine signatures in case is a function).
+fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     match export {
-        Export::Function(ref f) => {
-            let func = signatures.lookup(f.signature).unwrap();
-            ExternType::Function(func)
-        }
+        Export::Function(ref f) => ExternType::Function(f.signature.clone()),
         Export::Table(ref t) => {
             let table = t.plan().table;
             ExternType::Table(table)
@@ -83,13 +121,12 @@ fn get_extern_from_export(
     }
 }
 
-/// This function allows to match all imports of a `Module` with concrete definitions provided by
+/// This function allows to match all imports of a `ModuleInfo` with concrete definitions provided by
 /// a `Resolver`.
 ///
 /// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
 pub fn resolve_imports(
-    module: &Module,
-    signatures: &SignatureRegistry,
+    module: &ModuleInfo,
     resolver: &dyn Resolver,
     finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
@@ -113,7 +150,7 @@ pub fn resolve_imports(
             }
             Some(r) => r,
         };
-        let export_extern = get_extern_from_export(module, signatures, &resolved);
+        let export_extern = get_extern_from_export(module, &resolved);
         if !export_extern.is_compatible_with(&import_extern) {
             return Err(LinkError::Import(
                 module_name.to_string(),
@@ -195,4 +232,91 @@ pub fn resolve_imports(
         memory_imports,
         global_imports,
     ))
+}
+
+/// A [`Resolver`] that links two resolvers together in a chain.
+pub struct NamedResolverChain<A: NamedResolver, B: NamedResolver> {
+    a: A,
+    b: B,
+}
+
+/// A trait for chaining resolvers together.
+///
+/// ```
+/// # fn chainable_test<A, B>(imports1: A, imports2: B)
+/// # where A: NamedResolver + Sized,
+/// #       B: Namedresolver + Sized,
+/// # {
+/// // override duplicates with imports from `imports2`
+/// imports1.chain_front(imports2);
+/// # }
+/// ```
+pub trait ChainableNamedResolver: NamedResolver + Sized {
+    /// Chain a resolver in front of the current resolver.
+    ///
+    /// This will cause the second resolver to override the first.
+    ///
+    /// ```
+    /// # fn chainable_test<A, B>(imports1: A, imports2: B)
+    /// # where A: NamedResolver + Sized,
+    /// #       B: Namedresolver + Sized,
+    /// # {
+    /// // override duplicates with imports from `imports2`
+    /// imports1.chain_front(imports2);
+    /// # }
+    /// ```
+    fn chain_front<U>(self, other: U) -> NamedResolverChain<U, Self>
+    where
+        U: NamedResolver,
+    {
+        NamedResolverChain { a: other, b: self }
+    }
+
+    /// Chain a resolver behind the current resolver.
+    ///
+    /// This will cause the first resolver to override the second.
+    ///
+    /// ```
+    /// # fn chainable_test<A, B>(imports1: A, imports2: B)
+    /// # where A: NamedResolver + Sized,
+    /// #       B: Namedresolver + Sized,
+    /// # {
+    /// // override duplicates with imports from `imports1`
+    /// imports1.chain_back(imports2);
+    /// # }
+    /// ```
+    fn chain_back<U>(self, other: U) -> NamedResolverChain<Self, U>
+    where
+        U: NamedResolver,
+    {
+        NamedResolverChain { a: self, b: other }
+    }
+}
+
+// We give these chain methods to all types implementing NamedResolver
+impl<T: NamedResolver> ChainableNamedResolver for T {}
+
+impl<A, B> NamedResolver for NamedResolverChain<A, B>
+where
+    A: NamedResolver,
+    B: NamedResolver,
+{
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+        self.a
+            .resolve_by_name(module, field)
+            .or_else(|| self.b.resolve_by_name(module, field))
+    }
+}
+
+impl<A, B> Clone for NamedResolverChain<A, B>
+where
+    A: NamedResolver + Clone,
+    B: NamedResolver + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            a: self.a.clone(),
+            b: self.b.clone(),
+        }
+    }
 }

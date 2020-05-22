@@ -321,7 +321,7 @@ pub enum Trap {
     User(Box<dyn Error + Send + Sync>),
 
     /// A trap raised from jit code
-    Jit {
+    Runtime {
         /// The program counter in JIT code where this trap happened.
         pc: usize,
         /// Native stack backtrace at the time the trap occurred
@@ -379,16 +379,14 @@ impl Trap {
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
     vmctx: *mut VMContext,
-    caller_vmctx: *mut VMContext,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(vmctx, || {
-        mem::transmute::<
-            _,
-            extern "C" fn(*mut VMContext, *mut VMContext, *const VMFunctionBody, *mut u8),
-        >(trampoline)(vmctx, caller_vmctx, callee, values_vec)
+        mem::transmute::<_, extern "C" fn(*mut VMContext, *const VMFunctionBody, *mut u8)>(
+            trampoline,
+        )(vmctx, callee, values_vec)
     })
 }
 
@@ -436,7 +434,7 @@ enum UnwindReason {
     Panic(Box<dyn Any + Send>),
     UserTrap(Box<dyn Error + Send + Sync>),
     LibTrap(Trap),
-    JitTrap { backtrace: Backtrace, pc: usize },
+    RuntimeTrap { backtrace: Backtrace, pc: usize },
 }
 
 impl CallThreadState {
@@ -465,9 +463,9 @@ impl CallThreadState {
                     Err(Trap::User(data))
                 }
                 UnwindReason::LibTrap(trap) => Err(trap),
-                UnwindReason::JitTrap { backtrace, pc } => {
+                UnwindReason::RuntimeTrap { backtrace, pc } => {
                     debug_assert_eq!(ret, 0);
-                    Err(Trap::Jit { pc, backtrace })
+                    Err(Trap::Runtime { pc, backtrace })
                 }
                 UnwindReason::Panic(panic) => {
                     debug_assert_eq!(ret, 0);
@@ -557,7 +555,7 @@ impl CallThreadState {
         }
         let backtrace = Backtrace::new_unresolved();
         self.reset_guard_page.set(reset_guard_page);
-        self.unwind.replace(UnwindReason::JitTrap {
+        self.unwind.replace(UnwindReason::RuntimeTrap {
             backtrace,
             pc: pc as usize,
         });

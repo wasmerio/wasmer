@@ -1,32 +1,28 @@
-//! Define `CompiledModule` to allow compiling and instantiating to be
+//! Define `JITArtifact` to allow compiling and instantiating to be
 //! done as separate steps.
 
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
 use crate::serialize::{SerializableCompilation, SerializableModule};
-use std::any::Any;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
-    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
 };
-use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
+use wasmer_compiler::{CompileError, Features};
 use wasmer_engine::{
-    register_frame_info, resolve_imports, CompiledModule as BaseCompiledModule, DeserializeError,
-    Engine, GlobalFrameInfoRegistration, InstantiationError, Resolver, RuntimeError,
+    register_frame_info, Artifact, DeserializeError, Engine, GlobalFrameInfoRegistration,
     SerializableFunctionFrameInfo, SerializeError,
 };
-use wasmer_runtime::{
-    InstanceHandle, Module, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
-};
+use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex};
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// A compiled wasm module, ready to be instantiated.
-pub struct CompiledModule {
+pub struct JITArtifact {
     serializable: SerializableModule,
 
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
@@ -35,12 +31,19 @@ pub struct CompiledModule {
     frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
 }
 
-impl CompiledModule {
-    /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
+impl JITArtifact {
+    const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
+
+    /// Check if the provided bytes look like a serialized `JITArtifact`.
+    pub fn is_deserializable(bytes: &[u8]) -> bool {
+        bytes.starts_with(Self::MAGIC_HEADER)
+    }
+
+    /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
     pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
-        let mut jit_compiler = jit.compiler_mut();
+        let mut inner_jit = jit.inner_mut();
         let tunables = jit.tunables();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
@@ -58,7 +61,7 @@ impl CompiledModule {
             .map(|(_index, table_type)| tunables.table_plan(*table_type))
             .collect();
 
-        let compiler = jit_compiler.compiler()?;
+        let compiler = inner_jit.compiler()?;
 
         // Compile the Module
         let compilation = compiler.compile_module(
@@ -110,15 +113,15 @@ impl CompiledModule {
         let serializable = SerializableModule {
             compilation: serializable_compilation,
             module: Arc::new(translation.module),
-            features: jit_compiler.compiler()?.features().clone(),
+            features: inner_jit.compiler()?.features().clone(),
             data_initializers,
             memory_plans,
             table_plans,
         };
-        Self::from_parts(&mut jit_compiler, serializable)
+        Self::from_parts(&mut inner_jit, serializable)
     }
 
-    /// Compile a data buffer into a `CompiledModule`, which may then be instantiated.
+    /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
     pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
@@ -126,50 +129,51 @@ impl CompiledModule {
         ))
     }
 
-    /// Serialize a CompiledModule
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        // let mut s = flexbuffers::FlexbufferSerializer::new();
-        // self.serializable.serialize(&mut s).map_err(|e| SerializeError::Generic(format!("{:?}", e)));
-        // Ok(s.take_buffer())
-        bincode::serialize(&self.serializable)
-            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))
-    }
-
-    /// Deserialize a CompiledModule
+    /// Deserialize a JITArtifact
     pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
+        if !Self::is_deserializable(bytes) {
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not wasmer-jit".to_string(),
+            ));
+        }
+
+        let inner_bytes = &bytes[Self::MAGIC_HEADER.len()..];
+
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        let serializable: SerializableModule = bincode::deserialize(bytes)
+        let serializable: SerializableModule = bincode::deserialize(inner_bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        Self::from_parts(&mut jit.compiler_mut(), serializable).map_err(DeserializeError::Compiler)
+        Self::from_parts(&mut jit.inner_mut(), serializable).map_err(DeserializeError::Compiler)
     }
 
-    /// Construct a `CompiledModule` from component parts.
+    /// Construct a `JITArtifact` from component parts.
     pub fn from_parts(
-        jit_compiler: &mut JITEngineInner,
+        inner_jit: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let (finished_functions, finished_dynamic_function_trampolines) = jit_compiler.allocate(
+        let (finished_functions, finished_dynamic_function_trampolines) = inner_jit.allocate(
             &serializable.module,
             &serializable.compilation.function_bodies,
             &serializable.compilation.function_call_trampolines,
             &serializable.compilation.dynamic_function_trampolines,
         )?;
+        let custom_sections =
+            inner_jit.allocate_custom_sections(&serializable.compilation.custom_sections)?;
 
         link_module(
             &serializable.module,
             &finished_functions,
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
-            &serializable.compilation.custom_sections,
+            &custom_sections,
             &serializable.compilation.custom_section_relocations,
         );
 
         // Compute indices into the shared signature table.
         let signatures = {
-            let signature_registry = jit_compiler.signatures();
+            let signature_registry = inner_jit.signatures();
             serializable
                 .module
                 .signatures
@@ -179,108 +183,36 @@ impl CompiledModule {
         };
 
         // Make all code compiled thus far executable.
-        jit_compiler.publish_compiled_code();
+        inner_jit.publish_compiled_code();
+
+        let finished_functions = finished_functions.into_boxed_slice();
+        let finished_dynamic_function_trampolines =
+            finished_dynamic_function_trampolines.into_boxed_slice();
+        let signatures = signatures.into_boxed_slice();
 
         Ok(Self {
             serializable,
-            finished_functions: finished_functions.into_boxed_slice(),
-            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
-                .into_boxed_slice(),
-            signatures: signatures.into_boxed_slice(),
+            finished_functions,
+            finished_dynamic_function_trampolines,
+            signatures,
             frame_info_registration: Mutex::new(None),
         })
     }
+}
 
-    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
-        &self.serializable.memory_plans
+impl Artifact for JITArtifact {
+    fn module(&self) -> Arc<ModuleInfo> {
+        self.serializable.module.clone()
     }
 
-    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
-        &self.serializable.table_plans
+    fn module_ref(&self) -> &ModuleInfo {
+        &self.serializable.module
     }
 
-    /// Crate an `Instance` from this `CompiledModule`.
-    ///
-    /// # Unsafety
-    ///
-    /// See `InstanceHandle::new`
-    pub unsafe fn instantiate(
-        &self,
-        jit: &JITEngine,
-        resolver: &dyn Resolver,
-        host_state: Box<dyn Any>,
-    ) -> Result<InstanceHandle, InstantiationError> {
-        let jit_compiler = jit.compiler();
-        let tunables = jit.tunables();
-        let sig_registry: &SignatureRegistry = jit_compiler.signatures();
-        let imports = resolve_imports(
-            &self.module(),
-            &sig_registry,
-            resolver,
-            &self.finished_dynamic_function_trampolines,
-            self.memory_plans(),
-            self.table_plans(),
-        )
-        .map_err(InstantiationError::Link)?;
-
-        let finished_memories = tunables
-            .create_memories(&self.module(), self.memory_plans())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-        let finished_tables = tunables
-            .create_tables(&self.module(), self.table_plans())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-        let finished_globals = tunables
-            .create_globals(&self.module())
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
-
-        // Register the frame info for the module
-        self.register_frame_info();
-
-        InstanceHandle::new(
-            self.serializable.module.clone(),
-            self.finished_functions.clone(),
-            finished_memories,
-            finished_tables,
-            finished_globals,
-            imports,
-            self.signatures.clone(),
-            host_state,
-        )
-        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    fn module_mut(&mut self) -> Option<&mut ModuleInfo> {
+        Arc::get_mut(&mut self.serializable.module)
     }
 
-    /// Finishes the instantiation of a just created `InstanceHandle`.
-    ///
-    /// # Unsafety
-    ///
-    /// See `InstanceHandle::finish_instantiation`
-    pub unsafe fn finish_instantiation(
-        &self,
-        handle: &InstanceHandle,
-    ) -> Result<(), InstantiationError> {
-        let is_bulk_memory: bool = self.serializable.features.bulk_memory;
-        handle
-            .finish_instantiation(is_bulk_memory, &self.data_initializers())
-            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
-    }
-
-    /// Returns data initializers to pass to `InstanceHandle::initialize`
-    pub fn data_initializers(&self) -> Vec<DataInitializer<'_>> {
-        self.serializable
-            .data_initializers
-            .iter()
-            .map(|init| DataInitializer {
-                location: init.location.clone(),
-                data: &*init.data,
-            })
-            .collect::<Vec<_>>()
-    }
-    /// Register this module's stack frame information into the global scope.
-    ///
-    /// This is required to ensure that any traps can be properly symbolicated.
     fn register_frame_info(&self) {
         let mut info = self.frame_info_registration.lock().unwrap();
         if info.is_some() {
@@ -294,14 +226,47 @@ impl CompiledModule {
             frame_infos.clone(),
         ));
     }
-}
 
-impl BaseCompiledModule for CompiledModule {
-    fn module(&self) -> &Module {
-        &self.serializable.module
+    fn features(&self) -> &Features {
+        &self.serializable.features
     }
 
-    fn module_mut(&mut self) -> &mut Module {
-        Arc::get_mut(&mut self.serializable.module).unwrap()
+    fn data_initializers(&self) -> &[OwnedDataInitializer] {
+        &*self.serializable.data_initializers
+    }
+
+    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
+        &self.serializable.memory_plans
+    }
+
+    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
+        &self.serializable.table_plans
+    }
+
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {
+        &self.finished_functions
+    }
+
+    fn finished_dynamic_function_trampolines(
+        &self,
+    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody> {
+        &self.finished_dynamic_function_trampolines
+    }
+
+    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
+        &self.signatures
+    }
+
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        // let mut s = flexbuffers::FlexbufferSerializer::new();
+        // self.serializable.serialize(&mut s).map_err(|e| SerializeError::Generic(format!("{:?}", e)));
+        // Ok(s.take_buffer())
+        let bytes = bincode::serialize(&self.serializable)
+            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
+
+        // Prepend the header.
+        let mut serialized = Self::MAGIC_HEADER.to_vec();
+        serialized.extend(bytes);
+        Ok(serialized)
     }
 }

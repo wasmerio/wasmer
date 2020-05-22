@@ -1,18 +1,19 @@
 //! JIT compilation.
 
-use crate::error::InstantiationError;
-use crate::resolver::Resolver;
 use crate::tunables::Tunables;
-use crate::{CompiledModule, DeserializeError, SerializeError};
+use crate::{Artifact, DeserializeError};
 use std::path::Path;
 use std::sync::Arc;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
-use wasmer_runtime::{InstanceHandle, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_runtime::{VMSharedSignatureIndex, VMTrampoline};
 
 /// A unimplemented Wasmer `Engine`.
-/// This trait is used by implementors to implement custom engines,
+///
+/// This trait is used by implementors to implement custom engines
 /// such as: JIT or Native.
+///
+/// The product that an `Engine` produces and consumes is the [`Artifact`].
 pub trait Engine {
     /// Get the tunables
     fn tunables(&self) -> &dyn Tunables;
@@ -30,36 +31,17 @@ pub trait Engine {
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError>;
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn CompiledModule>, CompileError>;
-
-    /// Instantiates a WebAssembly module
-    unsafe fn instantiate(
-        &self,
-        compiled_module: &dyn CompiledModule,
-        resolver: &dyn Resolver,
-    ) -> Result<InstanceHandle, InstantiationError>;
-
-    /// Finish the instantiation of a WebAssembly module
-    unsafe fn finish_instantiation(
-        &self,
-        compiled_module: &dyn CompiledModule,
-        handle: &InstanceHandle,
-    ) -> Result<(), InstantiationError>;
-
-    /// Serializes a WebAssembly module
-    fn serialize(&self, compiled_module: &dyn CompiledModule) -> Result<Vec<u8>, SerializeError>;
+    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError>;
 
     /// Deserializes a WebAssembly module
-    fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn CompiledModule>, DeserializeError>;
+    unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError>;
 
     /// Deserializes a WebAssembly module from a path
-    fn deserialize_from_file(
+    unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<dyn CompiledModule>, DeserializeError> {
-        // TODO: Return an IoDeserializeError, so we don't need to map the error
-        let bytes =
-            std::fs::read(file_ref).map_err(|e| DeserializeError::Generic(format!("{}", e)))?;
+    ) -> Result<Arc<dyn Artifact>, DeserializeError> {
+        let bytes = std::fs::read(file_ref)?;
         self.deserialize(&bytes)
     }
 }

@@ -2,7 +2,7 @@ use super::*;
 use crate::get_slice_checked;
 use libc::c_uchar;
 use std::{path::PathBuf, ptr, str};
-use wasmer::{Memory, MemoryType};
+use wasmer::{Memory, MemoryType, NamedResolver};
 use wasmer_wasi as wasi;
 
 #[derive(Debug, PartialEq)]
@@ -190,11 +190,11 @@ fn wasmer_wasi_generate_import_object_inner(
     let memory = Memory::new(store, memory_type);
     wasi_env.set_memory(&memory);
 
-    let import_object = Box::new(wasi::generate_import_object_from_env(
+    let import_object: Box<Box<dyn NamedResolver>> = Box::new(Box::new(wasi::generate_import_object_from_env(
         store,
         &mut wasi_env,
         version,
-    ));
+    )));
     Ok(Box::into_raw(import_object) as *mut wasmer_import_object_t)
     */
 }
@@ -216,11 +216,14 @@ pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wa
     let memory = Memory::new(store, memory_type).expect("create memory");
     wasi_env.set_memory(&memory);
     // TODO(mark): review lifetime of `Memory` here
-    let import_object = Box::new(wasi::generate_import_object_from_env(
-        store,
-        &mut wasi_env,
-        wasi::WasiVersion::Latest,
-    ));
+    let import_object_inner: Box<dyn NamedResolver> = Box::new(
+        wasi::generate_import_object_from_env(store, &mut wasi_env, wasi::WasiVersion::Latest),
+    );
+    let import_object: Box<CAPIImportObject> = Box::new(CAPIImportObject {
+        import_object: import_object_inner,
+        imported_memories: vec![],
+        instance_pointers_to_update: vec![],
+    });
 
     Box::into_raw(import_object) as *mut wasmer_import_object_t
 }

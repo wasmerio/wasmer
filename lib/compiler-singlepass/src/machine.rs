@@ -4,7 +4,7 @@ use crate::x64_decl::{new_machine_state, X64Register};
 use smallvec::smallvec;
 use smallvec::SmallVec;
 use std::collections::HashSet;
-use wasmparser::Type as WpType;
+use wasmer_compiler::wasmparser::Type as WpType;
 
 struct MachineStackOffset(usize);
 
@@ -288,9 +288,13 @@ impl Machine {
     }
 
     pub fn release_locations_only_osr_state(&mut self, n: usize) {
-        for _ in 0..n {
-            self.state.wasm_stack.pop().unwrap();
-        }
+        let new_length = self
+            .state
+            .wasm_stack
+            .len()
+            .checked_sub(n)
+            .expect("release_locations_only_osr_state: length underflow");
+        self.state.wasm_stack.truncate(new_length);
     }
 
     pub fn release_locations_keep_state<E: Emitter>(&self, assembler: &mut E, locs: &[Location]) {

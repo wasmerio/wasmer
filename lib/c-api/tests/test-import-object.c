@@ -119,7 +119,13 @@ int main()
     wasmer_import_t imports[] = {func_import, global_import, memory_import, table_import};
     int imports_len = sizeof(imports) / sizeof(imports[0]);
     // Add our imports to the import object
-    wasmer_import_object_extend(import_object, imports, imports_len);
+    wasmer_result_t extend_result = wasmer_import_object_extend(import_object, imports, imports_len);
+    if (extend_result != WASMER_OK)
+    {
+        print_wasmer_error();
+    }
+    assert(extend_result == WASMER_OK);
+    printf("Set up import object\n");
 
     // Read the wasm file bytes
     FILE *file = fopen("assets/hello_wasm.wasm", "r");

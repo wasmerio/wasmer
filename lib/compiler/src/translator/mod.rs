@@ -1,5 +1,5 @@
 //! This module defines the parser and translator from wasmparser
-//! to a common structure `Module`.
+//! to a common structure `ModuleInfo`.
 //!
 //! It's derived from [cranelift-wasm] but architected for multiple
 //! compilers rather than just Cranelift.
@@ -12,7 +12,7 @@ mod state;
 mod error;
 mod sections;
 
-pub use self::environ::{FunctionBodyData, ModuleEnvironment, ModuleTranslation};
+pub use self::environ::{FunctionBodyData, ModuleEnvironment, ModuleInfoTranslation};
 pub use self::error::to_wasm_error;
 pub use self::module::translate_module;
 pub use self::state::ModuleTranslationState;
