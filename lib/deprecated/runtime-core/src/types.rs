@@ -1,4 +1,17 @@
 use crate::new;
 
-pub type Value = new::wasmer::Val;
-pub type Type = new::wasmer::ValType;
+pub use new::wasmer::{Val as Value, ValType as Type};
+
+pub use new::wasm_common::{
+    //
+    FunctionIndex as FuncIndex,
+    GlobalIndex,
+    GlobalInit,
+    LocalFunctionIndex as LocalFuncIndex,
+    LocalGlobalIndex,
+    LocalMemoryIndex,
+    LocalTableIndex,
+    MemoryIndex,
+    SignatureIndex as SigIndex,
+    TableIndex,
+};
