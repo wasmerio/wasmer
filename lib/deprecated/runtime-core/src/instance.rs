@@ -35,7 +35,7 @@ impl Instance {
 
     #[deprecated(
         since = "__NEXT__VERSION__",
-        note = "Please use `instance.exports.get_function(name)."
+        note = "This method is no longer available."
     )]
     pub fn resolve_func(&self, name: &str) -> Result<usize, ()> {
         use self::new::EntityRef;
@@ -43,15 +43,8 @@ impl Instance {
         self.new_instance
             .module()
             .info()
-            .func_names
-            .iter()
-            .find_map(|(function_index, function_name)| {
-                if function_name.as_str() == name {
-                    Some(function_index.index())
-                } else {
-                    None
-                }
-            })
+            .resolve_func(name)
+            .map(|function_index| function_index.index())
             .ok_or(())
     }
 }
