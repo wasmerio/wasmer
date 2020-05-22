@@ -3,7 +3,8 @@ mod new {
     pub(crate) use wasmer::Instance;
 }
 
-use std::convert::Infallible;
+use crate::types::Value;
+use std::{convert::Infallible, error::Error};
 
 pub struct Instance {
     #[deprecated(
@@ -46,5 +47,15 @@ impl Instance {
             .resolve_func(name)
             .map(|function_index| function_index.index())
             .ok_or(())
+    }
+
+    #[deprecated(since = "__NEXT__VERSION__", note = "Please use `…` instead.")]
+    pub fn call(&self, name: &str, params: &[Value]) -> Result<Vec<Value>, Box<dyn Error>> {
+        Ok(self
+            .new_instance
+            .exports
+            .get_function(name)?
+            .call(params)?
+            .into_vec())
     }
 }
