@@ -61,13 +61,13 @@ impl ValAnyFunc for Val {
         if item.type_index == wasmer_runtime::VMSharedSignatureIndex::default() {
             return Val::AnyRef(AnyRef::Null);
         }
-        let func_type = store
+        let signature = store
             .engine()
             .lookup_signature(item.type_index)
             .expect("Signature not found in store");
         let export = wasmer_runtime::ExportFunction {
             address: item.func_ptr,
-            signature: func_type,
+            signature,
             // All functions in tables are already Static (as dynamic functions
             // are converted to use the trampolines with static signatures).
             kind: wasmer_runtime::VMFunctionKind::Static,

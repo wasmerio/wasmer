@@ -517,7 +517,7 @@ impl Function {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
         let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
-        let func_type = func.ty();
+        let signature = func.ty();
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -525,7 +525,7 @@ impl Function {
             exported: ExportFunction {
                 address,
                 vmctx,
-                signature: func_type,
+                signature,
                 kind: VMFunctionKind::Static,
             },
         }
@@ -602,7 +602,7 @@ impl Function {
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
         let vmctx = env as *mut _ as *mut VMContext;
-        let func_type = func.ty();
+        let signature = func.ty();
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -611,7 +611,7 @@ impl Function {
                 address,
                 kind: VMFunctionKind::Static,
                 vmctx,
-                signature: func_type,
+                signature,
             },
         }
     }

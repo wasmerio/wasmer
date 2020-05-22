@@ -292,7 +292,7 @@ impl Instance {
                     let import = self.imported_function(*index);
                     (import.body, import.vmctx)
                 };
-                let function_type = self.module.signatures[*sig_index].clone();
+                let signature = self.module.signatures[*sig_index].clone();
                 ExportFunction {
                     address,
                     // Any function received is already static at this point as:
@@ -300,7 +300,7 @@ impl Instance {
                     // 2. All the imported functions are already static (because
                     //    they point to the trampolines rather than the dynamic addresses).
                     kind: VMFunctionKind::Static,
-                    signature: function_type,
+                    signature,
                     vmctx,
                 }
                 .into()
