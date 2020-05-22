@@ -35,7 +35,7 @@ impl Instance {
 
     #[deprecated(
         since = "__NEXT__VERSION__",
-        note = "This method is no longer available."
+        note = "Please use `instance.module().info().resolve_func(name)` instead."
     )]
     pub fn resolve_func(&self, name: &str) -> Result<usize, ()> {
         use self::new::EntityRef;
