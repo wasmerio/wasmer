@@ -1,9 +1,4 @@
-mod new {
-    pub(crate) use wasm_common::entity::EntityRef;
-    pub(crate) use wasmer::Instance;
-}
-
-use crate::types::Value;
+use crate::{new, types::Value};
 use std::{convert::Infallible, error::Error};
 
 pub struct Instance {
@@ -14,7 +9,7 @@ pub struct Instance {
     pub module: (),
     // TODO
     //pub exports: Exports,
-    pub(crate) new_instance: new::Instance,
+    pub(crate) new_instance: new::wasmer::Instance,
 }
 
 impl Instance {
@@ -39,7 +34,7 @@ impl Instance {
         note = "Please use `instance.module().info().resolve_func(name)` instead."
     )]
     pub fn resolve_func(&self, name: &str) -> Result<usize, ()> {
-        use self::new::EntityRef;
+        use new::wasm_common::entity::EntityRef;
 
         self.new_instance
             .module()

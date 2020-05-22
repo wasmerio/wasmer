@@ -1,5 +1,3 @@
-mod new {
-    pub(crate) use wasmer::Val;
-}
+use crate::new;
 
-pub type Value = new::Val;
+pub type Value = new::wasmer::Val;
