@@ -7,8 +7,6 @@ pub struct Instance {
         note = "This field is no longer available. Take a look at `wasmer_runtime::InstanceHandle` instead."
     )]
     pub module: (),
-    // TODO
-    //pub exports: Exports,
     pub(crate) new_instance: new::wasmer::Instance,
 }
 
