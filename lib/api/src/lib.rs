@@ -312,8 +312,8 @@ pub mod error {
     //! Various error types returned by Wasmer APIs.
     pub use wasmer_runtime_core::backend::ExceptionCode;
     pub use wasmer_runtime_core::error::{
-        CallError, CompileError, CompileResult, CreationError, Error, LinkError, ResolveError,
-        RuntimeError,
+        CallError, CompileError, CompileResult, CreationError, Error, InvokeError, LinkError,
+        ResolveError, RuntimeError,
     };
 
     #[derive(Debug)]

@@ -7,12 +7,14 @@ use crate::{
     backing::{ImportBacking, LocalBacking},
     error::{CallResult, InvokeError, ResolveError, ResolveResult, Result, RuntimeError},
     export::{Context, Export, ExportIter, Exportable, FuncPointer},
+    fault::push_code_version,
     global::Global,
     import::{ImportObject, LikeNamespace},
     loader::Loader,
     memory::Memory,
     module::{ExportIndex, Module, ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
+    state::CodeVersion,
     structures::TypedIndex,
     table::Table,
     typed_func::{Func, Wasm, WasmTypeList},
@@ -105,6 +107,22 @@ impl Instance {
             exports,
             import_object: imports.clone(),
         };
+
+        // We need to push the code version so that the exception table can be read
+        // in the feault handler so that we can report traps correctly
+        #[cfg(unix)]
+        {
+            if let Some(msm) = instance.module.runnable_module.get_module_state_map() {
+                push_code_version(CodeVersion {
+                    baseline: true,
+                    msm: msm,
+                    base: instance.module.runnable_module.get_code().unwrap().as_ptr() as usize,
+                    backend: "singlepass",
+                    runnable_module: instance.module.runnable_module.clone(),
+                });
+            }
+            // error handling?
+        }
 
         if let Some(start_index) = instance.module.info.start_func {
             // We know that the start function takes no arguments and returns no values.
@@ -606,7 +624,6 @@ pub(crate) fn call_func_with_index_inner(
                 || RuntimeError::InvokeError(InvokeError::FailedWithNoError),
                 Into::into,
             );
-            dbg!(&error);
             Err(error.into())
         }
     };
