@@ -11,6 +11,13 @@ pub struct Instance {
 }
 
 impl Instance {
+    pub(crate) fn new(new_instance: new::wasmer::Instance) -> Self {
+        Self {
+            module: (),
+            new_instance,
+        }
+    }
+
     #[deprecated(
         since = "__NEXT__VERSION__",
         note = "This method is no longer available."
