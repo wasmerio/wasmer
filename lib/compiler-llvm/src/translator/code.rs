@@ -7,6 +7,7 @@ use super::{
     state::{ControlFrame, ExtraInfo, IfElseState, State},
 };
 use inkwell::{
+    attributes::AttributeLoc,
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
@@ -8245,6 +8246,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     ],
                     "",
                 );
+                size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
                 self.state.push1(size.try_as_basic_value().left().unwrap());
             }
             _ => {
