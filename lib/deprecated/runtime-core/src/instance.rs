@@ -1,6 +1,6 @@
 mod new {
-    use wasm_common::entity::EntityRef;
-    pub use wasmer::Instance;
+    pub(crate) use wasm_common::entity::EntityRef;
+    pub(crate) use wasmer::Instance;
 }
 
 use std::convert::Infallible;
@@ -21,7 +21,7 @@ impl Instance {
         since = "__NEXT__VERSION__",
         note = "This method is no longer available."
     )]
-    pub fn load<T>(&self, loader: T) -> Result<Self, ()> {
+    pub fn load<T>(&self, _loader: T) -> Result<Self, ()> {
         Err(())
     }
 
@@ -29,7 +29,7 @@ impl Instance {
         since = "__NEXT__VERSION__",
         note = "This method is no longer available."
     )]
-    pub fn func<Args, Rets>(&self, name: &str) -> Result<Infallible, ()> {
+    pub fn func<Args, Rets>(&self, _name: &str) -> Result<Infallible, ()> {
         Err(())
     }
 
@@ -38,6 +38,8 @@ impl Instance {
         note = "Please use `instance.exports.get_function(name)."
     )]
     pub fn resolve_func(&self, name: &str) -> Result<usize, ()> {
+        use self::new::EntityRef;
+
         self.new_instance
             .module()
             .info()
