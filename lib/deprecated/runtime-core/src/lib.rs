@@ -9,6 +9,7 @@ pub mod units;
 pub(crate) mod new {
     pub use wasm_common;
     pub use wasmer;
+    pub use wasmer_runtime;
 }
 
 pub use crate::instance::Instance;

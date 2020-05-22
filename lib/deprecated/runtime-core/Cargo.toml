@@ -12,3 +12,4 @@ edition = "2018"
 [dependencies]
 wasmer = { path = "../../api", version = "0.16.2" }
 wasm-common = { path = "../../wasm-common", version = "0.16.2" }
+wasmer-runtime = { path = "../../runtime", version = "0.16.2" }
