@@ -4,14 +4,14 @@ use crate::lib::std::borrow::ToOwned;
 use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::{WasmError, WasmResult};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::FunctionType;
 use wasm_common::{
-    DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FunctionIndex,
-    GlobalIndex, GlobalInit, GlobalType, ImportIndex, LocalFunctionIndex, MemoryIndex, MemoryType,
-    SignatureIndex, TableIndex, TableType,
+    CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
+    ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
+    LocalFunctionIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType,
 };
 use wasmer_runtime::{ModuleInfo, TableElements};
 
@@ -451,20 +451,22 @@ impl<'data> ModuleEnvironment<'data> {
 
     /// Indicates that a custom section has been found in the wasm file
     pub(crate) fn custom_section(&mut self, name: &'data str, data: &'data [u8]) -> WasmResult<()> {
-        let mut custom_sections = &self.result.module.custom_sections;
-        let name = name.to_string();
-        let data = data.to_owned();
-
-        match custom_sections.get_mut(&name) {
-            Some(sections) => sections.push(data),
-            None => {
-                let sections = Vec::with_capacity(1);
-                sections.push(data);
-
-                custom_sections.insert(name, sections);
-            }
-        }
-
+        let custom_section = CustomSectionIndex::from_u32(
+            self.result
+                .module
+                .custom_sections_data
+                .len()
+                .try_into()
+                .unwrap(),
+        );
+        self.result
+            .module
+            .custom_sections
+            .insert(String::from(name), custom_section);
+        self.result
+            .module
+            .custom_sections_data
+            .push(Arc::from(data));
         Ok(())
     }
 }

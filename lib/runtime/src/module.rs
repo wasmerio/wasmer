@@ -10,8 +10,8 @@ use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex, FunctionType,
-    GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
+    CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
+    FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, Pages,
     SignatureIndex, TableIndex, TableType,
 };
@@ -159,8 +159,11 @@ pub struct ModuleInfo {
     /// Number of imported globals in the module.
     pub num_imported_globals: usize,
 
-    /// Custom sections.
-    pub custom_sections: HashMap<String, Vec<Vec<u8>>>,
+    /// Custom sections in the module.
+    pub custom_sections: IndexMap<String, CustomSectionIndex>,
+
+    /// The data for each CustomSection in the module.
+    pub custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
 }
 
 impl ModuleInfo {
@@ -186,7 +189,8 @@ impl ModuleInfo {
             num_imported_tables: 0,
             num_imported_memories: 0,
             num_imported_globals: 0,
-            custom_sections: HashMap::new(),
+            custom_sections: IndexMap::new(),
+            custom_sections_data: PrimaryMap::new(),
         }
     }
 
@@ -271,6 +275,18 @@ impl ModuleInfo {
             iter,
             size: self.imports.len(),
         }
+    }
+
+    /// Get the custom sections for the module given a `name`.
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
+        self.custom_sections
+            .iter()
+            .filter_map(move |(section_name, section_index)| {
+                if name != section_name {
+                    return None;
+                }
+                Some(self.custom_sections_data[*section_index].clone())
+            })
     }
 
     /// Convert a `LocalFunctionIndex` into a `FunctionIndex`.

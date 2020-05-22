@@ -40,8 +40,9 @@ pub mod entity {
 pub use crate::data_initializer::{DataInitializer, DataInitializerLocation, OwnedDataInitializer};
 pub use crate::features::Features;
 pub use crate::indexes::{
-    DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex, LocalFunctionIndex,
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
+    CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
+    SignatureIndex, TableIndex,
 };
 pub use crate::native::{
     Func, HostFunction, NativeWasmType, ValueType, WasmExternType, WasmTypeList, WithEnv,
