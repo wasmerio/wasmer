@@ -32,4 +32,4 @@ docker run \
   --init \
   --workdir /checkout \
   "$image_tag" \
-  sh -c "HOME=/tmp PATH=\$PATH:/rust/bin exec cargo test --target ${TARGET} $@"
+  sh -c "HOME=/tmp PATH=\$PATH:/rust/bin exec cargo --locked test --target ${TARGET} $@"
