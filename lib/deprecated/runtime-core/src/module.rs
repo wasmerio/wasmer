@@ -1,7 +1,7 @@
 use crate::{cache::Artifact, instance::Instance, new};
 use std::{convert::Infallible, error::Error};
 
-pub use new::wasm_common::ExportIndex;
+pub use new::wasm_common::{DataInitializer, ExportIndex};
 
 pub struct Module {
     pub(crate) new_module: new::wasmer::Module,
