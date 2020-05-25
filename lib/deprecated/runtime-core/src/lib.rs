@@ -9,6 +9,7 @@ pub(crate) mod new {
 mod functional_api;
 pub mod import;
 pub mod instance;
+pub mod memory;
 pub mod module;
 pub mod types;
 pub mod units;
