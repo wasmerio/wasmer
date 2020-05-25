@@ -17,6 +17,7 @@ pub mod import;
 pub mod instance;
 pub mod memory;
 pub mod module;
+pub mod table;
 pub mod types;
 pub mod units;
 
