@@ -1,5 +1,5 @@
-use crate::{instance::Instance, new};
-use std::error::Error;
+use crate::{cache::Artifact, instance::Instance, new};
+use std::{convert::Infallible, error::Error};
 
 pub struct Module {
     pub(crate) new_module: new::wasmer::Module,
@@ -18,6 +18,10 @@ impl Module {
             &self.new_module,
             import_object,
         )?))
+    }
+
+    pub fn cache(&self) -> Result<Artifact, Infallible> {
+        Ok(Artifact::new(self.new_module.clone()))
     }
 
     pub fn info(&self) -> &new::wasmer_runtime::ModuleInfo {

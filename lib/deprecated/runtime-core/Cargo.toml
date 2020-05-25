@@ -10,6 +10,11 @@ categories = ["wasm"]
 edition = "2018"
 
 [dependencies]
-wasmer = { path = "../../api", version = "0.16.2" }
 wasm-common = { path = "../../wasm-common", version = "0.16.2" }
+wasmer = { path = "../../api", version = "0.16.2" }
+wasmer-compiler = { path = "../../compiler", version = "0.16.2", features = ["translator"] }
+wasmer-engine = { path = "../../engine", version = "0.16.2" }
 wasmer-runtime = { path = "../../runtime", version = "0.16.2" }
+
+[build-dependencies]
+blake3 = "0.3.1"
