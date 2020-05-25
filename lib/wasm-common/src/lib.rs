@@ -40,15 +40,16 @@ pub mod entity {
 pub use crate::data_initializer::{DataInitializer, DataInitializerLocation, OwnedDataInitializer};
 pub use crate::features::Features;
 pub use crate::indexes::{
-    DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex, LocalFunctionIndex,
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, SignatureIndex, TableIndex,
+    CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
+    SignatureIndex, TableIndex,
 };
 pub use crate::native::{
     Func, HostFunction, NativeWasmType, ValueType, WasmExternType, WasmTypeList, WithEnv,
     WithoutEnv,
 };
 pub use crate::r#ref::{AnyRef, HostInfo, HostRef};
-pub use crate::units::{Bytes, Pages};
+pub use crate::units::{Bytes, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
 pub use crate::values::Value;
 pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,

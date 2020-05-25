@@ -325,6 +325,17 @@ impl Module {
         self.artifact.module_ref().exports()
     }
 
+    /// Get the custom sections of the module given a `name`.
+    ///
+    /// # Important
+    ///
+    /// Following the WebAssembly spec, one name can have multiple
+    /// custom sections. That's why an iterator (rather than one element)
+    /// is returned.
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
+        self.artifact.module_ref().custom_sections(name)
+    }
+
     pub fn store(&self) -> &Store {
         &self.store
     }
