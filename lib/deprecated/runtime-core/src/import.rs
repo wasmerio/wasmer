@@ -28,3 +28,9 @@ impl Namespace {
         self.exports.contains(name)
     }
 }
+
+#[deprecated(
+    since = "__NEXT_VERSION__",
+    note = "Please use the `Exportable` trait instead."
+)]
+pub trait IsExport {}

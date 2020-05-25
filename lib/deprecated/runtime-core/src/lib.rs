@@ -22,6 +22,7 @@ pub mod types;
 pub mod units;
 
 pub use crate::cache::Artifact;
+pub use crate::import::IsExport;
 pub use crate::instance::Instance;
 pub use crate::module::Module;
 pub use crate::new::wasmer_compiler::wasmparser;
