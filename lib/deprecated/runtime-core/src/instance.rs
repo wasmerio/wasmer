@@ -1,4 +1,4 @@
-use crate::{new, values::Value};
+use crate::{new, types::Value};
 use std::{convert::Infallible, error::Error};
 
 pub struct Instance {
