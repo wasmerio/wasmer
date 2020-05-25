@@ -10,6 +10,7 @@ pub(crate) mod new {
 
 pub mod backend;
 pub mod cache;
+pub mod error;
 mod functional_api;
 pub mod global;
 pub mod import;
