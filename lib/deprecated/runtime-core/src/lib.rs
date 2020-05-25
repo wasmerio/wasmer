@@ -14,12 +14,8 @@ pub mod import {
 pub mod module;
 pub mod types;
 pub mod units;
-pub mod values {
-    pub use crate::new::wasmer::{Val as Value, ValType as Type};
-}
 
 pub use crate::instance::Instance;
 pub use crate::module::Module;
 pub use crate::units::{Bytes, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
-pub use crate::values::Value;
 pub use functional_api::{compile_with, compile_with_config, validate};

@@ -16,3 +16,4 @@ pub use new::wasm_common::{
     SignatureIndex as SigIndex,
     TableIndex,
 };
+pub use new::wasmer::{Val as Value, ValType as Type};
