@@ -1,7 +1,3 @@
-/*
-use wasmer_runtime_core::parse::{wp_type_to_type, LoadError};
-use wasmer_runtime_core::types::Type;
- */
 use wasm_common::Type;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::wasmparser::TypeOrFuncType as WpTypeOrFuncType;
