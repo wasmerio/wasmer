@@ -8,6 +8,7 @@ pub(crate) mod new {
     pub use wasmer_runtime;
 }
 
+pub mod backend;
 pub mod cache;
 mod functional_api;
 pub mod global;
