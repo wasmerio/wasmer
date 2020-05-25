@@ -7,6 +7,7 @@ pub use new::wasm_common::{
     FunctionIndex as FuncIndex,
     GlobalIndex,
     GlobalInit,
+    GlobalType as GlobalDescriptor,
     ImportType as ImportDescriptor,
     LocalFunctionIndex as LocalFuncIndex,
     LocalGlobalIndex,
