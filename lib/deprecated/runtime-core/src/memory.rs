@@ -1,11 +1,11 @@
-use crate::{new, types::ValueType, units::Pages};
+use crate::{error::MemoryError, new, types::ValueType, units::Pages};
 
 pub mod ptr {
     pub use crate::new::wasmer::{Array, Item, WasmPtr};
 }
 
 pub use new::wasm_common::MemoryType as MemoryDescriptor;
-pub use new::wasmer::{MemoryError, MemoryView};
+pub use new::wasmer::MemoryView;
 pub use new::wasmer_runtime::MemoryStyle as MemoryType;
 
 pub struct Memory {

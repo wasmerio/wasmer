@@ -1,5 +1,5 @@
-use crate::{cache::Artifact, instance::Instance, new};
-use std::{convert::Infallible, error::Error};
+use crate::{cache::Artifact, error::InstantiationError, instance::Instance, new};
+use std::convert::Infallible;
 
 pub use new::wasm_common::{DataInitializer, ExportIndex};
 
@@ -15,7 +15,7 @@ impl Module {
     pub fn instantiate(
         &self,
         import_object: &crate::import::ImportObject,
-    ) -> Result<Instance, Box<dyn Error>> {
+    ) -> Result<Instance, InstantiationError> {
         Ok(Instance::new(new::wasmer::Instance::new(
             &self.new_module,
             import_object,
