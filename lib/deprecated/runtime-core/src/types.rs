@@ -1,7 +1,5 @@
 use crate::new;
 
-pub use new::wasmer::{Val as Value, ValType as Type};
-
 pub use new::wasm_common::{
     //
     ExportType as ExportDescriptor,

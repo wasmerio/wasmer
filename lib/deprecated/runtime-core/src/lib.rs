@@ -1,21 +1,25 @@
 #![allow(deprecated)]
 
-mod functional_api;
-pub mod instance;
-pub mod module;
-pub mod types;
-pub mod units;
-
 pub(crate) mod new {
     pub use wasm_common;
     pub use wasmer;
     pub use wasmer_runtime;
 }
 
-pub use crate::instance::Instance;
-pub use crate::module::Module;
-pub use functional_api::{compile_with, compile_with_config, validate};
-
+mod functional_api;
+pub mod instance;
 pub mod import {
     pub use crate::new::wasmer::{imports, ImportObject, ImportObjectIterator};
 }
+pub mod module;
+pub mod types;
+pub mod units;
+pub mod values {
+    pub use crate::new::wasmer::{Val as Value, ValType as Type};
+}
+
+pub use crate::instance::Instance;
+pub use crate::module::Module;
+pub use crate::units::{Bytes, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
+pub use crate::values::Value;
+pub use functional_api::{compile_with, compile_with_config, validate};
