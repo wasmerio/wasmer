@@ -1,4 +1,4 @@
-use crate::{new, types::Value};
+use crate::{module::Module, new, types::Value};
 use std::{convert::Infallible, error::Error};
 
 pub use new::wasmer::Exports;
@@ -72,7 +72,7 @@ impl Instance {
         &self.new_instance.exports
     }
 
-    pub fn module(&self) -> &new::wasmer::Module {
-        &self.new_instance.module()
+    pub fn module(&self) -> Module {
+        Module::new(self.new_instance.module().clone())
     }
 }
