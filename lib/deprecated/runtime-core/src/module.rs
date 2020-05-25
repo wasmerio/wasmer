@@ -35,4 +35,18 @@ impl Module {
     pub fn exports(&self) -> Vec<crate::types::ExportDescriptor> {
         self.new_module.exports().collect()
     }
+
+    pub fn custom_sections<'a>(&self, name: &'a str) -> Option<Vec<Vec<u8>>> {
+        let custom_sections: Vec<Vec<u8>> = self
+            .new_module
+            .custom_sections(name)
+            .map(|custom_section| custom_section.to_vec())
+            .collect();
+
+        if custom_sections.is_empty() {
+            None
+        } else {
+            Some(custom_sections)
+        }
+    }
 }
