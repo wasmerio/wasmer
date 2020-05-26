@@ -34,3 +34,5 @@ pub mod prelude {
     pub use crate::import::{imports, ImportObject, Namespace};
     pub use crate::types::{FuncIndex, GlobalIndex, MemoryIndex, TableIndex, Type, Value};
 }
+
+pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
