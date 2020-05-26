@@ -1,6 +1,6 @@
 use crate::config::LLVMConfig;
 use crate::object_file::load_object_file;
-use crate::translator::intrinsics::{func_type_to_llvm, Intrinsics};
+use crate::translator::intrinsics::{func_type_to_llvm, type_to_llvm_ptr, Intrinsics};
 use inkwell::{
     context::Context, module::Linkage, passes::PassManager, targets::FileType, types::BasicType,
     values::FunctionValue, AddressSpace,
@@ -145,16 +145,6 @@ fn generate_trampoline<'ctx>(
         }
     };
 
-    let cast_ptr_ty = |wasmer_ty| match wasmer_ty {
-        Type::I32 => intrinsics.i32_ptr_ty,
-        Type::F32 => intrinsics.f32_ptr_ty,
-        Type::I64 => intrinsics.i64_ptr_ty,
-        Type::F64 => intrinsics.f64_ptr_ty,
-        Type::V128 => intrinsics.i128_ptr_ty,
-        Type::AnyRef => unimplemented!("anyref unimplemented in trampoline"),
-        Type::FuncRef => unimplemented!("funcref unimplemented in trampoline"),
-    };
-
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
     args_vec.push(callee_vmctx_ptr);
 
@@ -164,7 +154,7 @@ fn generate_trampoline<'ctx>(
         let item_pointer =
             unsafe { builder.build_in_bounds_gep(args_rets_ptr, &[index], "arg_ptr") };
 
-        let casted_pointer_type = cast_ptr_ty(*param_ty);
+        let casted_pointer_type = type_to_llvm_ptr(intrinsics, *param_ty);
 
         let typed_item_pointer =
             builder.build_pointer_cast(item_pointer, casted_pointer_type, "typed_arg_pointer");
@@ -182,7 +172,7 @@ fn generate_trampoline<'ctx>(
     match *func_sig.results() {
         [] => {}
         [one_ret] => {
-            let ret_ptr_type = cast_ptr_ty(one_ret);
+            let ret_ptr_type = type_to_llvm_ptr(intrinsics, one_ret);
 
             let typed_ret_ptr =
                 builder.build_pointer_cast(args_rets_ptr, ret_ptr_type, "typed_ret_ptr");

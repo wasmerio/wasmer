@@ -55,10 +55,7 @@ fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
     }
 }
 
-pub struct FuncTranslator {
-    ctx: Context,
-}
-
+// TODO: move this into inkwell.
 fn const_zero(ty: BasicTypeEnum) -> BasicValueEnum {
     match ty {
         BasicTypeEnum::ArrayType(ty) => ty.const_zero().as_basic_value_enum(),
@@ -68,6 +65,10 @@ fn const_zero(ty: BasicTypeEnum) -> BasicValueEnum {
         BasicTypeEnum::StructType(ty) => ty.const_zero().as_basic_value_enum(),
         BasicTypeEnum::VectorType(ty) => ty.const_zero().as_basic_value_enum(),
     }
+}
+
+pub struct FuncTranslator {
+    ctx: Context,
 }
 
 impl FuncTranslator {
