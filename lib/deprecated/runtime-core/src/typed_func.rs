@@ -90,3 +90,9 @@ impl Func {
         self.new_function.call(params)
     }
 }
+
+impl From<Func> for new::wasmer::Extern {
+    fn from(func: Func) -> Self {
+        new::wasmer::Extern::Function(func.new_function)
+    }
+}
