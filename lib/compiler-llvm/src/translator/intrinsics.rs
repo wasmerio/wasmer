@@ -532,7 +532,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
-        _module: &Module<'ctx>,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     ) -> MemoryCache<'ctx> {
         let (cached_memories, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
