@@ -21,6 +21,7 @@ pub use new::wasm_common::{
 };
 pub use new::wasmer::Val as Value;
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct GlobalDescriptor {
     pub mutable: bool,
     pub ty: Type,
