@@ -25,7 +25,7 @@ impl Global {
     }
 
     pub fn descriptor(&self) -> GlobalDescriptor {
-        self.new_global.ty().clone()
+        self.new_global.ty().into()
     }
 
     pub fn set(&self, value: Value) {

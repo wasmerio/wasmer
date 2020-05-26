@@ -7,7 +7,6 @@ pub use new::wasm_common::{
     FunctionIndex as FuncIndex,
     GlobalIndex,
     GlobalInit,
-    GlobalType as GlobalDescriptor,
     ImportType as ImportDescriptor,
     LocalFunctionIndex as LocalFuncIndex,
     LocalGlobalIndex,
@@ -17,6 +16,21 @@ pub use new::wasm_common::{
     SignatureIndex as SigIndex,
     TableIndex,
     TableType as TableDescriptor,
+    Type,
     ValueType,
 };
-pub use new::wasmer::{Val as Value, ValType as Type};
+pub use new::wasmer::Val as Value;
+
+pub struct GlobalDescriptor {
+    pub mutable: bool,
+    pub ty: Type,
+}
+
+impl From<&new::wasm_common::GlobalType> for GlobalDescriptor {
+    fn from(value: &new::wasm_common::GlobalType) -> Self {
+        Self {
+            mutable: value.mutability.into(),
+            ty: value.ty,
+        }
+    }
+}
