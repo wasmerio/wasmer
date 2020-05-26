@@ -65,15 +65,40 @@ impl Module {
     /// Reading from a WAT file.
     ///
     /// ```
+    /// use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
     /// let wat = "(module)";
     /// let module = Module::new(&store, wat)?;
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// Reading from bytes:
     ///
     /// ```
-    /// let bytes: Vec<u8> = vec![];
+    /// use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
+    /// // The following is the same as:
+    /// // (module
+    /// //   (type $t0 (func (param i32) (result i32)))
+    /// //   (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
+    /// //     get_local $p0
+    /// //     i32.const 1
+    /// //     i32.add)
+    /// // )
+    /// let bytes: Vec<u8> = vec![
+    ///     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60,
+    ///     0x01, 0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x0b, 0x01, 0x07,
+    ///     0x61, 0x64, 0x64, 0x5f, 0x6f, 0x6e, 0x65, 0x00, 0x00, 0x0a, 0x09, 0x01,
+    ///     0x07, 0x00, 0x20, 0x00, 0x41, 0x01, 0x6a, 0x0b, 0x00, 0x1a, 0x04, 0x6e,
+    ///     0x61, 0x6d, 0x65, 0x01, 0x0a, 0x01, 0x00, 0x07, 0x61, 0x64, 0x64, 0x5f,
+    ///     0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,
+    /// ];
     /// let module = Module::new(&store, bytes)?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[allow(unreachable_code)]
     pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Module, CompileError> {
@@ -153,9 +178,12 @@ impl Module {
     ///
     /// ```ignore
     /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// # let module = Module::from_file(&store, "path/to/foo.wasm")?;
     /// let serialized = module.serialize()?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         self.artifact.serialize()
@@ -178,8 +206,11 @@ impl Module {
     ///
     /// ```ignore
     /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let module = Module::deserialize(&store, serialized_data)?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub unsafe fn deserialize(store: &Store, bytes: &[u8]) -> Result<Self, DeserializeError> {
         let compiled = store.engine().deserialize(bytes)?;
@@ -198,7 +229,10 @@ impl Module {
     /// ```ignore
     /// # use wasmer::*;
     /// # let store = Store::default();
+    /// # fn main() -> anyhow::Result<()> {
     /// let module = Module::deserialize_from_file(&store, path)?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub unsafe fn deserialize_from_file(
         store: &Store,
@@ -247,9 +281,14 @@ impl Module {
     /// # Example
     ///
     /// ```
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
     /// let wat = "(module $moduleName)";
     /// let module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), Some("moduleName"));
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn name(&self) -> Option<&str> {
         self.artifact.module_ref().name.as_deref()
@@ -259,16 +298,23 @@ impl Module {
     /// This is normally useful for stacktraces and debugging.
     ///
     /// ## Important
-    /// If the module is already insantiated, this will silently fail.
+    /// 
+    /// If the module is already insantiated, setting a name will have
+    /// no effects (it will silently fail).
     ///
     /// # Example
     ///
     /// ```
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
     /// let wat = "(module)";
-    /// let module = Module::new(&store, wat)?;
+    /// let mut module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), None);
     /// module.set_name("foo");
     /// assert_eq!(module.name(), Some("foo"));
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn set_name(&mut self, name: &str) {
         Arc::get_mut(&mut self.artifact)
@@ -286,6 +332,8 @@ impl Module {
     /// # Example
     ///
     /// ```
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let wat = r#"(module
     ///     (import "host" "func1" (func))
@@ -297,6 +345,8 @@ impl Module {
     ///     assert!(import.name().contains("func"));
     ///     import.ty();
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
         self.artifact.module_ref().imports()
@@ -310,16 +360,20 @@ impl Module {
     /// # Example
     ///
     /// ```
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let wat = r#"(module
     ///     (func (export "namedfunc"))
     ///     (memory (export "namedmemory") 1)
     /// )"#;
     /// let module = Module::new(&store, wat)?;
-    /// for import in module.exports() {
-    ///     assert_eq!(export.name().contains("named"));
-    ///     export.ty();
+    /// for export_ in module.exports() {
+    ///     assert!(export_.name().contains("named"));
+    ///     export_.ty();
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
         self.artifact.module_ref().exports()

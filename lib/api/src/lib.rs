@@ -25,6 +25,7 @@ pub use crate::types::{
     AnyRef, ExportType, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Val, ValType,
 };
+pub use crate::types::{Val as Value};
 
 pub use target_lexicon::{Architecture, OperatingSystem, Triple, HOST};
 pub use wasm_common::{Bytes, Pages, ValueType, WasmExternType, WasmTypeList};
