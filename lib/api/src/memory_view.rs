@@ -8,42 +8,37 @@ use std::{cell::Cell, marker::PhantomData, ops::Deref, slice};
 pub trait Atomic {
     type Output;
 }
-impl Atomic for i8 {
-    type Output = AtomicI8;
+
+macro_rules! atomic {
+    ( $($for:ty => $output:ty),+ ) => {
+        $(
+            impl Atomic for $for {
+                type Output = $output;
+            }
+        )+
+    }
 }
-impl Atomic for i16 {
-    type Output = AtomicI16;
-}
-impl Atomic for i32 {
-    type Output = AtomicI32;
-}
-impl Atomic for i64 {
-    type Output = AtomicI64;
-}
-impl Atomic for u8 {
-    type Output = AtomicU8;
-}
-impl Atomic for u16 {
-    type Output = AtomicU16;
-}
-impl Atomic for u32 {
-    type Output = AtomicU32;
-}
-impl Atomic for u64 {
-    type Output = AtomicU64;
-}
-impl Atomic for f32 {
-    type Output = AtomicU32;
-}
-impl Atomic for f64 {
-    type Output = AtomicU64;
-}
+
+atomic!(
+    i8 => AtomicI8,
+    i16 => AtomicI16,
+    i32 => AtomicI32,
+    i64 => AtomicI64,
+    u8 => AtomicU8,
+    u16 => AtomicU16,
+    u32 => AtomicU32,
+    u64 => AtomicU64,
+    f32 => AtomicU32,
+    f64 => AtomicU64
+);
 
 /// A trait that represants an atomic type.
 pub trait Atomicity {}
+
 /// Atomically.
 pub struct Atomically;
 impl Atomicity for Atomically {}
+
 /// Non-atomically.
 pub struct NonAtomically;
 impl Atomicity for NonAtomically {}
