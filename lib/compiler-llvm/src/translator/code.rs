@@ -917,12 +917,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         memory_index: MemoryIndex,
         memaccess: InstructionValue<'ctx>,
     ) -> Result<(), CompileError> {
-        if let MemoryCache::Static { base_ptr: _ } = self.ctx.memory(
-            memory_index,
-            self.intrinsics,
-            self.module,
-            self.memory_plans,
-        ) {
+        if let MemoryCache::Static { base_ptr: _ } =
+            self.ctx
+                .memory(memory_index, self.intrinsics, self.memory_plans)
+        {
             // The best we've got is `volatile`.
             // TODO: convert unwrap fail to CompileError
             memaccess.set_volatile(true).unwrap();
@@ -959,7 +957,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let builder = &self.builder;
         let intrinsics = &self.intrinsics;
         let context = &self.context;
-        let module = &self.module;
         let function = &self.function;
 
         // Compute the offset into the storage.
@@ -968,10 +965,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let offset = builder.build_int_add(var_offset, imm_offset, "");
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr = match self
-            .ctx
-            .memory(memory_index, intrinsics, module, self.memory_plans)
-        {
+        let base_ptr = match self.ctx.memory(memory_index, intrinsics, self.memory_plans) {
             MemoryCache::Dynamic {
                 ptr_to_base_ptr,
                 current_length_ptr,
