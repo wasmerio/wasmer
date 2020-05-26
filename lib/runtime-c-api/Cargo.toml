@@ -48,4 +48,4 @@ wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]
 
 [build-dependencies]
-cbindgen = { path = "../../../Dev/cbindgen", version = "0.14" }
+cbindgen = { git = "https://github.com/eqrion/cbindgen", version = "0.14" }
