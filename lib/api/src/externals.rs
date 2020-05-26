@@ -5,8 +5,7 @@ use crate::types::{Val, ValAnyFunc};
 use crate::Mutability;
 use crate::RuntimeError;
 use crate::{ExternType, FunctionType, GlobalType, MemoryType, TableType, ValType};
-use std::cmp::max;
-use std::slice;
+use std::{cmp::max, fmt, slice};
 use wasm_common::{HostFunction, Pages, ValueType, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable,
@@ -194,6 +193,16 @@ impl Global {
             store: store.clone(),
             exported: wasmer_export,
         }
+    }
+}
+
+impl fmt::Debug for Global {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter
+            .debug_struct("Global")
+            .field("ty", &self.ty())
+            .field("value", &self.get())
+            .finish()
     }
 }
 
