@@ -152,6 +152,16 @@ where
                 // TODO: these constants are not per-arch, we'll need to
                 // make the whole match per-arch.
                 goblin::elf::reloc::R_X86_64_64 => RelocationKind::Abs8,
+                goblin::elf::reloc::R_X86_64_GOT64 => {
+                    return Err(CompileError::Codegen(
+                        "unimplemented PIC relocation R_X86_64_GOT64".into(),
+                    ));
+                }
+                goblin::elf::reloc::R_X86_64_GOTPC64 => {
+                    return Err(CompileError::Codegen(
+                        "unimplemented PIC relocation R_X86_64_GOTPC64".into(),
+                    ));
+                }
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown ELF relocation {}",
