@@ -1,4 +1,4 @@
-use crate::{module::Module, new, types::Value};
+use crate::{module::Module, new, structures::TypedIndex, types::Value};
 use std::{convert::Infallible, error::Error};
 
 pub use new::wasmer::Exports;
@@ -41,8 +41,6 @@ impl Instance {
         note = "Please use `instance.module().info().resolve_func(name)` instead."
     )]
     pub fn resolve_func(&self, name: &str) -> Result<usize, ()> {
-        use new::wasm_common::entity::EntityRef;
-
         self.new_instance
             .module()
             .info()
