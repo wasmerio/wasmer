@@ -18,3 +18,12 @@ wasmer-runtime = { path = "../../runtime", version = "0.16.2" }
 
 [build-dependencies]
 blake3 = "0.3.1"
+
+[features]
+default = ["wasmer/default"]
+cranelift = ["wasmer/cranelift"]
+llvm = ["wasmer/llvm"]
+singlepass = ["wasmer/singlepass"]
+default-backend-cranelift = ["cranelift"]
+default-backend-llvm = ["llvm"]
+default-backend-singlepass = ["singlepass"]
