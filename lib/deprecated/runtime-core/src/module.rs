@@ -3,6 +3,7 @@ use std::convert::Infallible;
 
 pub use new::wasm_common::{DataInitializer, ExportIndex};
 
+#[derive(Clone)]
 pub struct Module {
     pub(crate) new_module: new::wasmer::Module,
 }

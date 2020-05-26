@@ -3,6 +3,7 @@ use std::{convert::Infallible, error::Error};
 
 pub use new::wasmer::Exports;
 
+#[derive(Clone)]
 pub struct Instance {
     #[deprecated(
         since = "__NEXT_VERSION__",
