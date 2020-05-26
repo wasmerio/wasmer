@@ -40,6 +40,18 @@ pub fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> Pointe
     }
 }
 
+pub fn type_to_llvm<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
+    match ty {
+        Type::I32 => intrinsics.i32_ty.as_basic_type_enum(),
+        Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
+        Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
+        Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
+        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
+        Type::AnyRef => unimplemented!("anyref in the llvm backend"),
+        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+    }
+}
+
 /// Struct containing LLVM and VM intrinsics.
 pub struct Intrinsics<'ctx> {
     pub ctlz_i32: FunctionValue<'ctx>,
@@ -921,17 +933,5 @@ pub fn func_type_to_llvm<'ctx>(
                 .struct_type(&basic_types, false)
                 .fn_type(&param_types, false)
         }
-    }
-}
-
-pub fn type_to_llvm<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
-    match ty {
-        Type::I32 => intrinsics.i32_ty.as_basic_type_enum(),
-        Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
-        Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
-        Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
-        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
-        Type::AnyRef => unimplemented!("anyref in the llvm backend"),
-        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
     }
 }
