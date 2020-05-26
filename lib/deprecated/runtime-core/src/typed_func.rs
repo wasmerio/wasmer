@@ -74,12 +74,16 @@ impl Func {
         }
     }
 
+    pub fn signature(&self) -> &FuncDescriptor {
+        &self.signature
+    }
+
     pub fn params(&self) -> &[Type] {
-        self.signature.params()
+        self.signature().params()
     }
 
     pub fn returns(&self) -> &[Type] {
-        self.signature.results()
+        self.signature().results()
     }
 
     pub fn call(&self, params: &[Value]) -> Result<Box<[Value]>, RuntimeError> {
