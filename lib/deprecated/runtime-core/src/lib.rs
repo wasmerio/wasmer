@@ -34,7 +34,7 @@ pub use functional_api::{compile_with, compile_with_config, validate};
 
 pub mod prelude {
     pub use crate::import::{imports, ImportObject, Namespace};
-    pub use crate::typed_func::Function;
+    pub use crate::typed_func::Func;
     pub use crate::types::{FuncIndex, GlobalIndex, MemoryIndex, TableIndex, Type, Value};
 }
 
