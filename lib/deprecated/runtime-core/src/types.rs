@@ -6,6 +6,7 @@ pub use new::wasm_common::{
     ExternType as ExternDescriptor,
     FunctionIndex as FuncIndex,
     FunctionType as FuncDescriptor,
+    FunctionType as FuncSig,
     GlobalIndex,
     GlobalInit,
     ImportType as ImportDescriptor,
