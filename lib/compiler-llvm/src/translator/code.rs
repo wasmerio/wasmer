@@ -15,8 +15,8 @@ use inkwell::{
     targets::FileType,
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
-        BasicValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PhiValue, PointerValue,
-        VectorValue,
+        BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
+        PhiValue, PointerValue, VectorValue,
     },
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate,
 };
@@ -909,7 +909,39 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         }
     }
 
-    pub fn resolve_memory_ptr(
+    // If this memory access must trap when out of bounds (i.e. it is a memory
+    // access written in the user program as opposed to one used by our VM)
+    // then mark that it can't be delete.
+    fn mark_memaccess_nodelete(
+        &self,
+        _memory_index: MemoryIndex,
+        memaccess: InstructionValue<'ctx>,
+    ) -> Result<(), CompileError> {
+        // TODO: check the memory_index
+        // The best we've got is `volatile`.
+        memaccess.set_volatile(true).unwrap();
+        Ok(())
+    }
+
+    fn annotate_user_memaccess(
+        &self,
+        memory_index: MemoryIndex,
+        _memarg: &MemoryImmediate,
+        alignment: u32,
+        memaccess: InstructionValue<'ctx>,
+    ) -> Result<(), CompileError> {
+        memaccess.set_alignment(alignment).unwrap();
+        self.mark_memaccess_nodelete(memory_index, memaccess)?;
+        tbaa_label(
+            &self.module,
+            self.intrinsics,
+            format!("memory {}", memory_index.as_u32()),
+            memaccess,
+        );
+        Ok(())
+    }
+
+    fn resolve_memory_ptr(
         &mut self,
         memory_index: MemoryIndex,
         memarg: &MemoryImmediate,
@@ -5267,17 +5299,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     4,
                 )?;
                 let result = self.builder.build_load(effective_address, "");
-                result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     result.as_instruction_value().unwrap(),
-                );
+                )?;
                 self.state.push1(result);
             }
             Operator::I64Load { ref memarg } => {
@@ -5291,17 +5318,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     8,
                 )?;
                 let result = self.builder.build_load(effective_address, "");
-                result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     result.as_instruction_value().unwrap(),
-                );
+                )?;
                 self.state.push1(result);
             }
             Operator::F32Load { ref memarg } => {
@@ -5315,17 +5337,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     4,
                 )?;
                 let result = self.builder.build_load(effective_address, "");
-                result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     result.as_instruction_value().unwrap(),
-                );
+                )?;
                 self.state.push1(result);
             }
             Operator::F64Load { ref memarg } => {
@@ -5339,17 +5356,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     8,
                 )?;
                 let result = self.builder.build_load(effective_address, "");
-                result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     result.as_instruction_value().unwrap(),
-                );
+                )?;
                 self.state.push1(result);
             }
             Operator::V128Load { ref memarg } => {
@@ -5363,17 +5375,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     16,
                 )?;
                 let result = self.builder.build_load(effective_address, "");
-                result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     result.as_instruction_value().unwrap(),
-                );
+                )?;
                 self.state.push1(result);
             }
 
@@ -5389,13 +5396,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     4,
                 )?;
                 let store = self.builder.build_store(effective_address, value);
-                store.set_alignment(1).unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
+                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::I64Store { ref memarg } => {
                 let value = self.state.pop1()?;
@@ -5409,13 +5410,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     8,
                 )?;
                 let store = self.builder.build_store(effective_address, value);
-                store.set_alignment(1).unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
+                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::F32Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5430,13 +5425,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     4,
                 )?;
                 let store = self.builder.build_store(effective_address, v);
-                store.set_alignment(1).unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
+                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::F64Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5451,13 +5440,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     8,
                 )?;
                 let store = self.builder.build_store(effective_address, v);
-                store.set_alignment(1).unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
+                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::V128Store { ref memarg } => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5472,13 +5455,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     16,
                 )?;
                 let store = self.builder.build_store(effective_address, v);
-                store.set_alignment(1).unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
+                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::I32Load8S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
@@ -5491,17 +5468,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     1,
                 )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
-                narrow_result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     narrow_result.as_instruction_value().unwrap(),
-                );
+                )?;
                 let result = self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i32_ty,
@@ -5520,17 +5492,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     2,
                 )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
-                narrow_result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     narrow_result.as_instruction_value().unwrap(),
-                );
+                )?;
                 let result = self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i32_ty,
@@ -5552,17 +5519,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_load(effective_address, "")
                     .into_int_value();
-                narrow_result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     narrow_result.as_instruction_value().unwrap(),
-                );
+                )?;
                 let result =
                     self.builder
                         .build_int_s_extend(narrow_result, self.intrinsics.i64_ty, "");
@@ -5582,17 +5544,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_load(effective_address, "")
                     .into_int_value();
-                narrow_result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     narrow_result.as_instruction_value().unwrap(),
-                );
+                )?;
                 let result =
                     self.builder
                         .build_int_s_extend(narrow_result, self.intrinsics.i64_ty, "");
@@ -5609,17 +5566,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     4,
                 )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
-                narrow_result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     narrow_result.as_instruction_value().unwrap(),
-                );
+                )?;
                 let result = self.builder.build_int_s_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -5639,17 +5591,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     1,
                 )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
-                narrow_result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     narrow_result.as_instruction_value().unwrap(),
-                );
+                )?;
                 let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i32_ty,
@@ -5668,17 +5615,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     2,
                 )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
-                narrow_result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     narrow_result.as_instruction_value().unwrap(),
-                );
+                )?;
                 let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i32_ty,
@@ -5697,17 +5639,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     1,
                 )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
-                narrow_result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     narrow_result.as_instruction_value().unwrap(),
-                );
+                )?;
                 let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -5726,17 +5663,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     2,
                 )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
-                narrow_result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     narrow_result.as_instruction_value().unwrap(),
-                );
+                )?;
                 let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -5755,17 +5687,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     4,
                 )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
-                narrow_result
-                    .as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     narrow_result.as_instruction_value().unwrap(),
-                );
+                )?;
                 let result = self.builder.build_int_z_extend(
                     narrow_result.into_int_value(),
                     self.intrinsics.i64_ty,
@@ -5789,13 +5716,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
                 let store = self.builder.build_store(effective_address, narrow_value);
-                store.set_alignment(1).unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
+                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -5812,13 +5733,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
                 let store = self.builder.build_store(effective_address, narrow_value);
-                store.set_alignment(1).unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
+                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::I64Store32 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -5835,13 +5750,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
                 let store = self.builder.build_store(effective_address, narrow_value);
-                store.set_alignment(1).unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
+                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
             Operator::I8x16Neg => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -6215,16 +6124,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     1,
                 )?;
                 let elem = self.builder.build_load(effective_address, "");
-                elem.as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     elem.as_instruction_value().unwrap(),
-                );
+                )?;
                 let res = self.splat_vector(elem, self.intrinsics.i8x16_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -6240,16 +6145,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     2,
                 )?;
                 let elem = self.builder.build_load(effective_address, "");
-                elem.as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     elem.as_instruction_value().unwrap(),
-                );
+                )?;
                 let res = self.splat_vector(elem, self.intrinsics.i16x8_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -6265,16 +6166,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     4,
                 )?;
                 let elem = self.builder.build_load(effective_address, "");
-                elem.as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     elem.as_instruction_value().unwrap(),
-                );
+                )?;
                 let res = self.splat_vector(elem, self.intrinsics.i32x4_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -6290,16 +6187,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     8,
                 )?;
                 let elem = self.builder.build_load(effective_address, "");
-                elem.as_instruction_value()
-                    .unwrap()
-                    .set_alignment(1)
-                    .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
                     elem.as_instruction_value().unwrap(),
-                );
+                )?;
                 let res = self.splat_vector(elem, self.intrinsics.i64x2_ty);
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -6326,15 +6219,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.trap_if_misaligned(memarg, effective_address);
                 let result = self.builder.build_load(effective_address, "");
                 let load = result.as_instruction_value().unwrap();
-                load.set_alignment(4).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 4, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    load,
-                );
                 self.state.push1(result);
             }
             Operator::I64AtomicLoad { ref memarg } => {
@@ -6350,15 +6237,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.trap_if_misaligned(memarg, effective_address);
                 let result = self.builder.build_load(effective_address, "");
                 let load = result.as_instruction_value().unwrap();
-                load.set_alignment(8).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 8, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    load,
-                );
                 self.state.push1(result);
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
@@ -6377,15 +6258,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_load(effective_address, "")
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
-                load.set_alignment(1).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 1, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    load,
-                );
                 let result =
                     self.builder
                         .build_int_z_extend(narrow_result, self.intrinsics.i32_ty, "");
@@ -6407,15 +6282,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_load(effective_address, "")
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
-                load.set_alignment(2).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 2, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    load,
-                );
                 let result =
                     self.builder
                         .build_int_z_extend(narrow_result, self.intrinsics.i32_ty, "");
@@ -6437,15 +6306,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_load(effective_address, "")
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
-                load.set_alignment(1).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 1, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    load,
-                );
                 let result =
                     self.builder
                         .build_int_z_extend(narrow_result, self.intrinsics.i64_ty, "");
@@ -6467,15 +6330,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_load(effective_address, "")
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
-                load.set_alignment(2).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 2, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    load,
-                );
                 let result =
                     self.builder
                         .build_int_z_extend(narrow_result, self.intrinsics.i64_ty, "");
@@ -6497,15 +6354,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_load(effective_address, "")
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
-                load.set_alignment(4).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 4, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    load,
-                );
                 let result =
                     self.builder
                         .build_int_z_extend(narrow_result, self.intrinsics.i64_ty, "");
@@ -6524,16 +6375,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let store = self.builder.build_store(effective_address, value);
-                store.set_alignment(4).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 4, store)?;
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
             }
             Operator::I64AtomicStore { ref memarg } => {
                 let value = self.state.pop1()?;
@@ -6548,16 +6393,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let store = self.builder.build_store(effective_address, value);
-                store.set_alignment(8).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 8, store)?;
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
             }
             Operator::I32AtomicStore8 { ref memarg } | Operator::I64AtomicStore8 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -6575,16 +6414,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
                 let store = self.builder.build_store(effective_address, narrow_value);
-                store.set_alignment(1).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
             }
             Operator::I32AtomicStore16 { ref memarg }
             | Operator::I64AtomicStore16 { ref memarg } => {
@@ -6603,16 +6436,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
                 let store = self.builder.build_store(effective_address, narrow_value);
-                store.set_alignment(2).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 2, store)?;
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
             }
             Operator::I64AtomicStore32 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
@@ -6630,16 +6457,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
                 let store = self.builder.build_store(effective_address, narrow_value);
-                store.set_alignment(4).unwrap();
+                self.annotate_user_memaccess(memory_index, memarg, 4, store)?;
                 store
                     .set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
                     .unwrap();
-                tbaa_label(
-                    &self.module,
-                    self.intrinsics,
-                    format!("memory {}", memory_index.as_u32()),
-                    store,
-                );
             }
             Operator::I32AtomicRmw8AddU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
