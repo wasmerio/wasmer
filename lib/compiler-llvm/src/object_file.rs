@@ -58,6 +58,7 @@ where
     libcalls.insert("floor".to_string(), LibCall::FloorF64);
     libcalls.insert("nearbyintf".to_string(), LibCall::NearestF32);
     libcalls.insert("nearbyint".to_string(), LibCall::NearestF64);
+    libcalls.insert("vm.probestack".to_string(), LibCall::Probestack);
 
     let elf = goblin::elf::Elf::parse(&contents).map_err(map_goblin_err)?;
     let get_section_name = |section: &goblin::elf::section_header::SectionHeader| {

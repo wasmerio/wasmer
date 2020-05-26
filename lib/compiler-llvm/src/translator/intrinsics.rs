@@ -92,6 +92,7 @@ pub struct Intrinsics<'ctx> {
 
     pub personality: FunctionValue<'ctx>,
     pub readonly: Attribute,
+    pub stack_probe: Attribute,
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
@@ -332,6 +333,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
+            stack_probe: context.create_string_attribute("probe-stack", "vm.probestack"),
 
             void_ty,
             i1_ty,
