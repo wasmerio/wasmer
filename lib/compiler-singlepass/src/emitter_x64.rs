@@ -85,7 +85,6 @@ pub trait Emitter {
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_jmp(&mut self, condition: Condition, label: Self::Label);
     fn emit_jmp_location(&mut self, loc: Location);
-    fn emit_conditional_trap(&mut self, condition: Condition);
     fn emit_set(&mut self, condition: Condition, dst: GPR);
     fn emit_push(&mut self, sz: Size, src: Location);
     fn emit_pop(&mut self, sz: Size, dst: Location);
@@ -470,18 +469,6 @@ macro_rules! jmp_op {
     }
 }
 
-macro_rules! trap_op {
-    ($ins:ident, $assembler:tt) => {
-        dynasm!($assembler
-            ; $ins >trap
-            ; jmp >after
-            ; trap:
-            ; ud2
-            ; after:
-        );
-    }
-}
-
 macro_rules! avx_fn {
     ($ins:ident, $name:ident) => {
         fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
@@ -810,23 +797,6 @@ impl Emitter for Assembler {
             Location::GPR(x) => dynasm!(self ; jmp Rq(x as u8)),
             Location::Memory(base, disp) => dynasm!(self ; jmp QWORD [Rq(base as u8) + disp]),
             _ => panic!("singlepass can't emit JMP {:?}", loc),
-        }
-    }
-    fn emit_conditional_trap(&mut self, condition: Condition) {
-        match condition {
-            Condition::None => trap_op!(jmp, self),
-            Condition::Above => trap_op!(ja, self),
-            Condition::AboveEqual => trap_op!(jae, self),
-            Condition::Below => trap_op!(jb, self),
-            Condition::BelowEqual => trap_op!(jbe, self),
-            Condition::Greater => trap_op!(jg, self),
-            Condition::GreaterEqual => trap_op!(jge, self),
-            Condition::Less => trap_op!(jl, self),
-            Condition::LessEqual => trap_op!(jle, self),
-            Condition::Equal => trap_op!(je, self),
-            Condition::NotEqual => trap_op!(jne, self),
-            Condition::Signed => trap_op!(js, self),
-            Condition::Carry => trap_op!(jc, self),
         }
     }
     fn emit_set(&mut self, condition: Condition, dst: GPR) {

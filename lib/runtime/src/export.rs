@@ -91,7 +91,7 @@ impl From<ExportMemory> for Export {
 pub struct ExportGlobal {
     /// The address of the global storage.
     pub definition: *mut VMGlobalDefinition,
-    /// The global declaration, used for compatibilty checking.
+    /// The global declaration, used for compatibility checking.
     pub global: GlobalType,
 }
 

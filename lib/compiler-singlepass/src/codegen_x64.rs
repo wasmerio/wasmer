@@ -81,6 +81,17 @@ pub struct FuncGen<'a> {
 
     /// Relocation information.
     relocations: Vec<Relocation>,
+
+    /// A set of special labels for trapping.
+    special_labels: SpecialLabelSet,
+}
+
+struct SpecialLabelSet {
+    integer_division_by_zero: DynamicLabel,
+    heap_access_oob: DynamicLabel,
+    table_access_oob: DynamicLabel,
+    indirect_call_null: DynamicLabel,
+    bad_signature: DynamicLabel,
 }
 
 /// A trap table for a `RunnableModuleInfo`.
@@ -302,6 +313,12 @@ impl<'a> FuncGen<'a> {
         ret
     }
 
+    /// Marks one address as trappable with trap code `code`.
+    fn mark_address_with_trap_code(&mut self, code: TrapCode) {
+        let offset = self.assembler.get_offset().0;
+        self.trap_table.offset_to_code.insert(offset, code);
+    }
+
     /// Canonicalizes the floating point value at `input` into `output`.
     fn canonicalize_nan(&mut self, sz: Size, input: Location, output: Location) {
         let tmp1 = self.machine.acquire_temp_xmm().unwrap();
@@ -357,9 +374,10 @@ impl<'a> FuncGen<'a> {
         loc: Location,
     ) {
         self.assembler.emit_cmp(sz, Location::Imm32(0), loc);
-        self.mark_range_with_trap_code(TrapCode::IntegerDivisionByZero, |this| {
-            this.assembler.emit_conditional_trap(Condition::Equal)
-        });
+        self.assembler.emit_jmp(
+            Condition::Equal,
+            self.special_labels.integer_division_by_zero,
+        );
 
         match loc {
             Location::Imm64(_) | Location::Imm32(_) => {
@@ -1262,17 +1280,16 @@ impl<'a> FuncGen<'a> {
                     Location::Imm32(memarg.offset),
                     Location::GPR(tmp_addr),
                 );
-                self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
-                    this.assembler.emit_conditional_trap(Condition::Carry) // unsigned overflow
-                });
+                self.assembler
+                    .emit_jmp(Condition::Carry, self.special_labels.heap_access_oob);
+                // unsigned overflow
             }
 
             // Trap if the start address of the requested area is equal to or above that of the linear memory.
             self.assembler
                 .emit_cmp(Size::S32, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
-            self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
-                this.assembler.emit_conditional_trap(Condition::AboveEqual)
-            });
+            self.assembler
+                .emit_jmp(Condition::AboveEqual, self.special_labels.heap_access_oob);
 
             // Calculate end of word.
             if value_size != 0 {
@@ -1281,17 +1298,15 @@ impl<'a> FuncGen<'a> {
                     Location::Imm32(value_size as u32),
                     Location::GPR(tmp_addr),
                 );
-                self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
-                    this.assembler.emit_conditional_trap(Condition::Carry) // unsigned overflow
-                });
+                self.assembler
+                    .emit_jmp(Condition::Carry, self.special_labels.heap_access_oob);
             }
 
             // Trap if the end address of the requested area is above that of the linear memory.
             self.assembler
                 .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
-            self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
-                this.assembler.emit_conditional_trap(Condition::Above)
-            });
+            self.assembler
+                .emit_jmp(Condition::Above, self.special_labels.heap_access_oob);
 
             self.machine.release_temp_gpr(tmp_bound);
         }
@@ -1333,9 +1348,8 @@ impl<'a> FuncGen<'a> {
                 Location::Imm32(align - 1),
                 Location::GPR(tmp_aligncheck),
             );
-            self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
-                this.assembler.emit_conditional_trap(Condition::NotEqual)
-            });
+            self.assembler
+                .emit_jmp(Condition::NotEqual, self.special_labels.heap_access_oob);
             self.machine.release_temp_gpr(tmp_aligncheck);
         }
 
@@ -1796,6 +1810,15 @@ impl<'a> FuncGen<'a> {
                 .collect(),
         );
 
+        let mut assembler = Assembler::new().unwrap();
+        let special_labels = SpecialLabelSet {
+            integer_division_by_zero: assembler.get_label(),
+            heap_access_oob: assembler.get_label(),
+            table_access_oob: assembler.get_label(),
+            indirect_call_null: assembler.get_label(),
+            bad_signature: assembler.get_label(),
+        };
+
         let mut fg = FuncGen {
             module,
             config,
@@ -1803,7 +1826,7 @@ impl<'a> FuncGen<'a> {
             memory_plans,
             // table_plans,
             signature,
-            assembler: Assembler::new().unwrap(),
+            assembler,
             locals: vec![], // initialization deferred to emit_head
             local_types,
             value_stack: vec![],
@@ -1814,6 +1837,7 @@ impl<'a> FuncGen<'a> {
             fsm,
             trap_table: TrapTable::default(),
             relocations: vec![],
+            special_labels,
         };
         fg.emit_head()?;
         Ok(fg)
@@ -5286,9 +5310,8 @@ impl<'a> FuncGen<'a> {
 
                 self.assembler
                     .emit_cmp(Size::S32, func_index, Location::GPR(table_count));
-                self.mark_range_with_trap_code(TrapCode::TableAccessOutOfBounds, |this| {
-                    this.assembler.emit_conditional_trap(Condition::BelowEqual)
-                });
+                self.assembler
+                    .emit_jmp(Condition::BelowEqual, self.special_labels.table_access_oob);
                 self.assembler
                     .emit_mov(Size::S32, func_index, Location::GPR(table_count));
                 self.assembler.emit_imul_imm32_gpr64(
@@ -5318,9 +5341,8 @@ impl<'a> FuncGen<'a> {
                         (self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize) as i32,
                     ),
                 );
-                self.mark_range_with_trap_code(TrapCode::IndirectCallToNull, |this| {
-                    this.assembler.emit_conditional_trap(Condition::Equal)
-                });
+                self.assembler
+                    .emit_jmp(Condition::Equal, self.special_labels.indirect_call_null);
 
                 // Trap if signature mismatches.
                 self.assembler.emit_cmp(
@@ -5331,9 +5353,8 @@ impl<'a> FuncGen<'a> {
                         (self.vmoffsets.vmcaller_checked_anyfunc_type_index() as usize) as i32,
                     ),
                 );
-                self.mark_range_with_trap_code(TrapCode::BadSignature, |this| {
-                    this.assembler.emit_conditional_trap(Condition::NotEqual)
-                });
+                self.assembler
+                    .emit_jmp(Condition::NotEqual, self.special_labels.bad_signature);
 
                 self.machine.release_temp_gpr(sigidx);
                 self.machine.release_temp_gpr(table_count);
@@ -8113,6 +8134,32 @@ impl<'a> FuncGen<'a> {
     }
 
     pub fn finalize(mut self) -> CompiledFunction {
+        // Generate actual code for special labels.
+        self.assembler
+            .emit_label(self.special_labels.integer_division_by_zero);
+        self.mark_address_with_trap_code(TrapCode::IntegerDivisionByZero);
+        self.assembler.emit_ud2();
+
+        self.assembler
+            .emit_label(self.special_labels.heap_access_oob);
+        self.mark_address_with_trap_code(TrapCode::HeapAccessOutOfBounds);
+        self.assembler.emit_ud2();
+
+        self.assembler
+            .emit_label(self.special_labels.table_access_oob);
+        self.mark_address_with_trap_code(TrapCode::TableAccessOutOfBounds);
+        self.assembler.emit_ud2();
+
+        self.assembler
+            .emit_label(self.special_labels.indirect_call_null);
+        self.mark_address_with_trap_code(TrapCode::IndirectCallToNull);
+        self.assembler.emit_ud2();
+
+        self.assembler.emit_label(self.special_labels.bad_signature);
+        self.mark_address_with_trap_code(TrapCode::BadSignature);
+        self.assembler.emit_ud2();
+
+        // Notify the assembler backend to generate necessary code at end of function.
         self.assembler.finalize_function();
         CompiledFunction {
             body: FunctionBody {
