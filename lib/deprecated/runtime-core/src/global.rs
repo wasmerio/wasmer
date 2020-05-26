@@ -2,7 +2,9 @@ use crate::{
     new,
     types::{GlobalDescriptor, Value},
 };
+use std::fmt;
 
+#[derive(Clone)]
 pub struct Global {
     new_global: new::wasmer::Global,
 }
@@ -34,5 +36,11 @@ impl Global {
 
     pub fn get(&self) -> Value {
         self.new_global.get()
+    }
+}
+
+impl fmt::Debug for Global {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "{:?}", &self.new_global)
     }
 }
