@@ -913,18 +913,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     // access written in the user program as opposed to one used by our VM)
     // then mark that it can't be delete.
     fn mark_memaccess_nodelete(
-        &self,
-        _memory_index: MemoryIndex,
+        &mut self,
+        memory_index: MemoryIndex,
         memaccess: InstructionValue<'ctx>,
     ) -> Result<(), CompileError> {
-        // TODO: check the memory_index
-        // The best we've got is `volatile`.
-        memaccess.set_volatile(true).unwrap();
+        if let MemoryCache::Static { base_ptr: _ } = self.ctx.memory(
+            memory_index,
+            self.intrinsics,
+            self.module,
+            self.memory_plans,
+        ) {
+            // The best we've got is `volatile`.
+            // TODO: convert unwrap fail to CompileError
+            memaccess.set_volatile(true).unwrap();
+        }
         Ok(())
     }
 
     fn annotate_user_memaccess(
-        &self,
+        &mut self,
         memory_index: MemoryIndex,
         _memarg: &MemoryImmediate,
         alignment: u32,
