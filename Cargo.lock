@@ -2028,9 +2028,9 @@ dependencies = [
 
 [[package]]
 name = "serde_bytes"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "325a073952621257820e7a3469f55ba4726d8b28657e7e36653d1c36dc2c84ae"
+checksum = "3bf487fbf5c6239d7ea2ff8b10cb6b811cd4b5080d1c2aeed1dec18753c06e10"
 dependencies = [
  "serde",
 ]
