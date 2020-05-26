@@ -911,6 +911,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
     pub fn resolve_memory_ptr(
         &mut self,
+        memory_index: MemoryIndex,
         memarg: &MemoryImmediate,
         ptr_ty: PointerType<'ctx>,
         var_offset: IntValue<'ctx>,
@@ -921,8 +922,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let context = &self.context;
         let module = &self.module;
         let function = &self.function;
-
-        let memory_index = MemoryIndex::from_u32(0);
 
         // Compute the offset into the storage.
         let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
@@ -5259,8 +5258,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
              ***************************/
             Operator::I32Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 let result = self.builder.build_load(effective_address, "");
                 result
                     .as_instruction_value()
@@ -5277,8 +5281,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 let result = self.builder.build_load(effective_address, "");
                 result
                     .as_instruction_value()
@@ -5295,8 +5304,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F32Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.f32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.f32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 let result = self.builder.build_load(effective_address, "");
                 result
                     .as_instruction_value()
@@ -5313,8 +5327,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::F64Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.f64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.f64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 let result = self.builder.build_load(effective_address, "");
                 result
                     .as_instruction_value()
@@ -5331,8 +5350,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::V128Load { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i128_ptr_ty, offset, 16)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i128_ptr_ty,
+                    offset,
+                    16,
+                )?;
                 let result = self.builder.build_load(effective_address, "");
                 result
                     .as_instruction_value()
@@ -5351,8 +5375,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32Store { ref memarg } => {
                 let value = self.state.pop1()?;
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 let store = self.builder.build_store(effective_address, value);
                 store.set_alignment(1).unwrap();
                 tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
@@ -5360,8 +5389,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64Store { ref memarg } => {
                 let value = self.state.pop1()?;
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 let store = self.builder.build_store(effective_address, value);
                 store.set_alignment(1).unwrap();
                 tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
@@ -5370,8 +5404,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i);
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.f32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.f32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 let store = self.builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
                 tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
@@ -5380,8 +5419,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i);
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.f64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.f64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 let store = self.builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
                 tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
@@ -5390,16 +5434,26 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i);
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i128_ptr_ty, offset, 16)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i128_ptr_ty,
+                    offset,
+                    16,
+                )?;
                 let store = self.builder.build_store(effective_address, v);
                 store.set_alignment(1).unwrap();
                 tbaa_label(&self.module, self.intrinsics, "memory 0".into(), store);
             }
             Operator::I32Load8S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
                 narrow_result
                     .as_instruction_value()
@@ -5421,8 +5475,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32Load16S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
                 narrow_result
                     .as_instruction_value()
@@ -5444,8 +5503,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64Load8S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 let narrow_result = self
                     .builder
                     .build_load(effective_address, "")
@@ -5468,8 +5532,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64Load16S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 let narrow_result = self
                     .builder
                     .build_load(effective_address, "")
@@ -5492,8 +5561,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64Load32S { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
                 narrow_result
                     .as_instruction_value()
@@ -5516,8 +5590,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             Operator::I32Load8U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
                 narrow_result
                     .as_instruction_value()
@@ -5539,8 +5618,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32Load16U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
                 narrow_result
                     .as_instruction_value()
@@ -5562,8 +5646,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64Load8U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
                 narrow_result
                     .as_instruction_value()
@@ -5585,8 +5674,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64Load16U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
                 narrow_result
                     .as_instruction_value()
@@ -5608,8 +5702,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64Load32U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 let narrow_result = self.builder.build_load(effective_address, "");
                 narrow_result
                     .as_instruction_value()
@@ -5633,8 +5732,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32Store8 { ref memarg } | Operator::I64Store8 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -5645,8 +5749,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32Store16 { ref memarg } | Operator::I64Store16 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -5657,8 +5766,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64Store32 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
@@ -6029,8 +6143,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::V8x16LoadSplat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 let elem = self.builder.build_load(effective_address, "");
                 elem.as_instruction_value()
                     .unwrap()
@@ -6048,8 +6167,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::V16x8LoadSplat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 let elem = self.builder.build_load(effective_address, "");
                 elem.as_instruction_value()
                     .unwrap()
@@ -6067,8 +6191,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::V32x4LoadSplat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 let elem = self.builder.build_load(effective_address, "");
                 elem.as_instruction_value()
                     .unwrap()
@@ -6086,8 +6215,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::V64x2LoadSplat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 let elem = self.builder.build_load(effective_address, "");
                 elem.as_instruction_value()
                     .unwrap()
@@ -6114,8 +6248,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32AtomicLoad { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let result = self.builder.build_load(effective_address, "");
                 let load = result.as_instruction_value().unwrap();
@@ -6127,8 +6266,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64AtomicLoad { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let result = self.builder.build_load(effective_address, "");
                 let load = result.as_instruction_value().unwrap();
@@ -6140,8 +6284,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_result = self
                     .builder
@@ -6159,8 +6308,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I32AtomicLoad16U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_result = self
                     .builder
@@ -6178,8 +6332,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64AtomicLoad8U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_result = self
                     .builder
@@ -6197,8 +6356,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64AtomicLoad16U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_result = self
                     .builder
@@ -6216,8 +6380,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::I64AtomicLoad32U { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_result = self
                     .builder
@@ -6236,8 +6405,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicStore { ref memarg } => {
                 let value = self.state.pop1()?;
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let store = self.builder.build_store(effective_address, value);
                 store.set_alignment(4).unwrap();
@@ -6249,8 +6423,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicStore { ref memarg } => {
                 let value = self.state.pop1()?;
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let store = self.builder.build_store(effective_address, value);
                 store.set_alignment(8).unwrap();
@@ -6262,8 +6441,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicStore8 { ref memarg } | Operator::I64AtomicStore8 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6279,8 +6463,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             | Operator::I64AtomicStore16 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6295,8 +6484,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicStore32 { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6311,8 +6505,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw8AddU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6340,8 +6539,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw16AddU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6369,8 +6573,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmwAdd { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -6392,8 +6601,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw8AddU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6421,8 +6635,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw16AddU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6450,8 +6669,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw32AddU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6479,8 +6703,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmwAdd { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -6502,8 +6731,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw8SubU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6531,8 +6765,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw16SubU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6560,8 +6799,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmwSub { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -6583,8 +6827,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw8SubU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6612,8 +6861,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw16SubU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6641,8 +6895,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw32SubU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6670,8 +6929,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmwSub { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -6693,8 +6957,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw8AndU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6722,8 +6991,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw16AndU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6751,8 +7025,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmwAnd { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -6774,8 +7053,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw8AndU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6803,8 +7087,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw16AndU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6832,8 +7121,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw32AndU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6861,8 +7155,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmwAnd { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -6884,8 +7183,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw8OrU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6913,8 +7217,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw16OrU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6942,8 +7251,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmwOr { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -6968,8 +7282,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw8OrU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -6997,8 +7316,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw16OrU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7026,8 +7350,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw32OrU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7055,8 +7384,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmwOr { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -7078,8 +7412,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw8XorU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7107,8 +7446,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw16XorU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7136,8 +7480,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmwXor { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -7159,8 +7508,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw8XorU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7188,8 +7542,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw16XorU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7217,8 +7576,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw32XorU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7246,8 +7610,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmwXor { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -7269,8 +7638,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw8XchgU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7298,8 +7672,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmw16XchgU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7327,8 +7706,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32AtomicRmwXchg { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -7350,8 +7734,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw8XchgU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7379,8 +7768,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw16XchgU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7408,8 +7802,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmw32XchgU { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_value =
                     self.builder
@@ -7437,8 +7836,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64AtomicRmwXchg { ref memarg } => {
                 let value = self.state.pop1()?.into_int_value();
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -7463,8 +7867,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let new = self.apply_pending_canonicalization(new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_cmp = self
                     .builder
@@ -7504,8 +7913,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let new = self.apply_pending_canonicalization(new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_cmp = self
                     .builder
@@ -7545,8 +7959,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let new = self.apply_pending_canonicalization(new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
@@ -7573,8 +7992,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let new = self.apply_pending_canonicalization(new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i8_ptr_ty, offset, 1)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i8_ptr_ty,
+                    offset,
+                    1,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_cmp = self
                     .builder
@@ -7614,8 +8038,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let new = self.apply_pending_canonicalization(new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i16_ptr_ty, offset, 2)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i16_ptr_ty,
+                    offset,
+                    2,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_cmp = self
                     .builder
@@ -7655,8 +8084,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let new = self.apply_pending_canonicalization(new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i32_ptr_ty, offset, 4)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let narrow_cmp = self
                     .builder
@@ -7696,8 +8130,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let new = self.apply_pending_canonicalization(new, new_info);
                 let (cmp, new) = (cmp.into_int_value(), new.into_int_value());
                 let offset = self.state.pop1()?.into_int_value();
-                let effective_address =
-                    self.resolve_memory_ptr(memarg, self.intrinsics.i64_ptr_ty, offset, 8)?;
+                let effective_address = self.resolve_memory_ptr(
+                    MemoryIndex::from_u32(0),
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
                 self.trap_if_misaligned(memarg, effective_address);
                 let old = self
                     .builder
