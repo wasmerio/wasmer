@@ -1931,58 +1931,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
                 let func_name = &self.func_names[func_index];
-                let llvm_func_type = func_type_to_llvm(&self.context, &self.intrinsics, func_type);
 
-                let (func, callee_vmctx) = if self
-                    .wasm_module
-                    .local_func_index(func_index)
-                    .is_some()
-                {
-                    // TODO: we could do this by comparing self.function indices instead
-                    // of going through LLVM APIs and string comparisons.
-                    let func = self.module.get_function(func_name).unwrap_or_else(|| {
-                        self.module
-                            .add_function(func_name, llvm_func_type, Some(Linkage::External))
-                    });
-                    (func.as_global_value().as_pointer_value(), self.ctx.basic())
-                } else {
-                    let offset = self.vmoffsets.vmctx_vmfunction_import(func_index);
-                    let offset = self.intrinsics.i32_ty.const_int(offset.into(), false);
-                    let vmfunction_import_ptr =
-                        unsafe { self.builder.build_gep(*vmctx, &[offset], "") };
-                    let vmfunction_import_ptr = self
-                        .builder
-                        .build_bitcast(
-                            vmfunction_import_ptr,
-                            self.intrinsics.vmfunction_import_ptr_ty,
-                            "",
-                        )
-                        .into_pointer_value();
-
-                    let body_ptr_ptr = self
-                        .builder
-                        .build_struct_gep(
-                            vmfunction_import_ptr,
-                            self.intrinsics.vmfunction_import_body_element,
-                            "",
-                        )
-                        .unwrap();
-                    let body_ptr = self.builder.build_load(body_ptr_ptr, "");
-                    let body_ptr = self
-                        .builder
-                        .build_bitcast(body_ptr, llvm_func_type.ptr_type(AddressSpace::Generic), "")
-                        .into_pointer_value();
-                    let vmctx_ptr_ptr = self
-                        .builder
-                        .build_struct_gep(
-                            vmfunction_import_ptr,
-                            self.intrinsics.vmfunction_import_vmctx_element,
-                            "",
-                        )
-                        .unwrap();
-                    let vmctx_ptr = self.builder.build_load(vmctx_ptr_ptr, "");
-                    (body_ptr, vmctx_ptr)
-                };
+                let (func, callee_vmctx) = self.ctx.func(
+                    func_index,
+                    self.intrinsics,
+                    self.module,
+                    self.context,
+                    func_name,
+                    func_type,
+                );
 
                 let params: Vec<_> = std::iter::once(callee_vmctx)
                     .chain(

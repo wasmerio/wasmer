@@ -22,8 +22,8 @@ use inkwell::{
 use std::collections::HashMap;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, SignatureIndex, TableIndex,
-    Type,
+    FunctionIndex, FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, SignatureIndex,
+    TableIndex, Type,
 };
 use wasmer_runtime::ModuleInfo as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TrapCode, VMOffsets};
@@ -860,6 +860,65 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 },
             }
         })
+    }
+
+    pub fn func(
+        &mut self,
+        function_index: FunctionIndex,
+        intrinsics: &Intrinsics<'ctx>,
+        module: &Module<'ctx>,
+        context: &'ctx Context,
+        func_name: &String,
+        func_type: &FuncType,
+    ) -> (PointerValue<'ctx>, BasicValueEnum<'ctx>) {
+        let llvm_func_type = func_type_to_llvm(context, intrinsics, func_type);
+        if self.wasm_module.local_func_index(function_index).is_some() {
+            // TODO: we could do this by comparing self.function indices instead
+            // of going through LLVM APIs and string comparisons.
+            let func = module.get_function(func_name).unwrap_or_else(|| {
+                module.add_function(func_name, llvm_func_type, Some(Linkage::External))
+            });
+            (func.as_global_value().as_pointer_value(), self.basic())
+        } else {
+            let offset = self.offsets.vmctx_vmfunction_import(function_index);
+            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+            let vmfunction_import_ptr = unsafe {
+                self.cache_builder
+                    .build_gep(self.ctx_ptr_value, &[offset], "")
+            };
+            let vmfunction_import_ptr = self
+                .cache_builder
+                .build_bitcast(
+                    vmfunction_import_ptr,
+                    intrinsics.vmfunction_import_ptr_ty,
+                    "",
+                )
+                .into_pointer_value();
+
+            let body_ptr_ptr = self
+                .cache_builder
+                .build_struct_gep(
+                    vmfunction_import_ptr,
+                    intrinsics.vmfunction_import_body_element,
+                    "",
+                )
+                .unwrap();
+            let body_ptr = self.cache_builder.build_load(body_ptr_ptr, "");
+            let body_ptr = self
+                .cache_builder
+                .build_bitcast(body_ptr, llvm_func_type.ptr_type(AddressSpace::Generic), "")
+                .into_pointer_value();
+            let vmctx_ptr_ptr = self
+                .cache_builder
+                .build_struct_gep(
+                    vmfunction_import_ptr,
+                    intrinsics.vmfunction_import_vmctx_element,
+                    "",
+                )
+                .unwrap();
+            let vmctx_ptr = self.cache_builder.build_load(vmctx_ptr_ptr, "");
+            (body_ptr, vmctx_ptr)
+        }
     }
 }
 
