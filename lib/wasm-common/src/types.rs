@@ -484,7 +484,7 @@ impl std::fmt::Display for MemoryType {
 /// [`Module::imports`](crate::Module::imports) API. Each [`ImportType`]
 /// describes an import into the wasm module with the module/name that it's
 /// imported from as well as the type of item that's being imported.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ImportType<T = ExternType> {
     module: String,
@@ -532,7 +532,7 @@ impl<T> ImportType<T> {
 /// The `<T>` refefers to `ExternType`, however it can also refer to use
 /// `MemoryType`, `TableType`, `FunctionType` and `GlobalType` for ease of
 /// use.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ExportType<T = ExternType> {
     name: String,
