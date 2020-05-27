@@ -15,7 +15,7 @@ wasmer_compilers! {
             )
             (start $foo)
         "#;
-        let store = Store::default();
+        let store = get_store();
         let module = Module::new(&store, &wat)?;
         let func_type = FunctionType::new(vec![ValType::I32], vec![]);
         Instance::new(
@@ -44,7 +44,7 @@ wasmer_compilers! {
             )
             (start $foo)
         "#;
-        let store = Store::default();
+        let store = get_store();
         let module = Module::new(&store, &wat)?;
         struct MyEnv<'a> {
             pub num: i32,
@@ -97,7 +97,7 @@ wasmer_compilers! {
             )
             (start $foo)
         "#;
-        let store = Store::default();
+        let store = get_store();
         let module = Module::new(&store, &wat)?;
         Instance::new(
             &module,
@@ -142,7 +142,7 @@ wasmer_compilers! {
             )
             (start $foo)
         "#;
-        let store = Store::default();
+        let store = get_store();
         let module = Module::new(&store, &wat)?;
         struct MyEnv {
             pub num: i32,
