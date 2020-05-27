@@ -81,7 +81,7 @@ cfg_if::cfg_if! {
             let this_thread = libc::pthread_self();
             let stackaddr = libc::pthread_get_stackaddr_np(this_thread);
             let stacksize = libc::pthread_get_stacksize_np(this_thread);
-            (stackaddr as usize, stacksize)
+            (stackaddr as usize - stacksize, stacksize)
         }
 
         #[cfg(not(target_os = "macos"))]
@@ -112,9 +112,6 @@ cfg_if::cfg_if! {
                 libc::SIGSEGV | libc::SIGBUS => {
                     let addr = (*siginfo).si_addr() as usize;
                     let (stackaddr, stacksize) = thread_stack();
-                    dbg!(addr);
-                    dbg!(stackaddr);
-                    dbg!(stacksize);
                     // Assuming page size of 4KiB.
                     if stackaddr - 4096 < addr && addr < stackaddr + stacksize {
                         Some(TrapCode::StackOverflow)
