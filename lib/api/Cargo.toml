@@ -30,6 +30,7 @@ winapi = "0.3.8"
 
 [dev-dependencies]
 # for the binary wasmer.rs
+wasmer-engine-dummy = { path = "../../tests/lib/engine-dummy", version = "0.16.2" }
 libc = { version = "0.2.70", default-features = false }
 wat = "1.0.15"
 tempfile = "3.1"

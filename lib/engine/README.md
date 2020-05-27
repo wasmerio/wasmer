@@ -5,6 +5,12 @@ It currently has two implementations:
 * Wasmer JIT
 * Wasmer Native
 
+## Example Implementation
+
+Please check [`wasmer-engine-dummy`](../../tests/lib/engine-dummy/) for an example
+implementation for an Engine.
+
+
 ### Acknowledgments
 
 This project borrowed some of the code of the trap implementation from the [wasmtime-api](https://crates.io/crates/wasmtime), the code since then has evolved significantly.

@@ -51,14 +51,14 @@ impl JITArtifact {
         let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
             .module
             .memories
-            .iter()
-            .map(|(_index, memory_type)| tunables.memory_plan(*memory_type))
+            .values()
+            .map(|memory_type| tunables.memory_plan(*memory_type))
             .collect();
         let table_plans: PrimaryMap<TableIndex, TablePlan> = translation
             .module
             .tables
-            .iter()
-            .map(|(_index, table_type)| tunables.table_plan(*table_type))
+            .values()
+            .map(|table_type| tunables.table_plan(*table_type))
             .collect();
 
         let compiler = inner_jit.compiler()?;

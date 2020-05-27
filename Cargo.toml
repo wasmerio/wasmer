@@ -57,6 +57,7 @@ rustc_version = "0.2"
 anyhow = "1.0.28"
 blake3 = "0.3.3"
 test-utils = { path = "tests/lib/test-utils" }
+wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
