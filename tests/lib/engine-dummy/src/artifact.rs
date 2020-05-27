@@ -119,7 +119,7 @@ impl DummyArtifact {
                 func_pointer
             })
             .collect::<PrimaryMap<_, _>>();
-        
+
         // We prepare the pointers for the finished dynamic function trampolines
         let finished_dynamic_function_trampolines: PrimaryMap<
             FunctionIndex,
