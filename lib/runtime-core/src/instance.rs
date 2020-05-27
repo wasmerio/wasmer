@@ -19,6 +19,11 @@ use crate::{
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Type, Value},
     vm::{self, InternalField},
 };
+#[cfg(unix)]
+use crate::{
+    fault::{pop_code_version, push_code_version},
+    state::CodeVersion,
+};
 use smallvec::{smallvec, SmallVec};
 use std::{
     borrow::Borrow,
@@ -33,6 +38,9 @@ pub(crate) struct InstanceInner {
     pub(crate) backing: LocalBacking,
     import_backing: ImportBacking,
     pub(crate) vmctx: *mut vm::Ctx,
+    /// Used to control whether or not we `pop` a `CodeVersion` when dropping.
+    #[allow(dead_code)]
+    code_version_pushed: bool,
 }
 
 // manually implemented because InstanceInner contains a raw pointer to Ctx
@@ -42,6 +50,13 @@ impl Drop for InstanceInner {
     fn drop(&mut self) {
         // Drop the vmctx.
         unsafe { Box::from_raw(self.vmctx) };
+        // Prevent memory leak by freeing the code version; needed for error reporting with Singlepass
+        #[cfg(unix)]
+        {
+            if self.code_version_pushed {
+                pop_code_version();
+            }
+        }
     }
 }
 
@@ -77,6 +92,7 @@ impl Instance {
             backing,
             import_backing,
             vmctx: vmctx.as_mut_ptr(),
+            code_version_pushed: false,
         });
 
         // Initialize the vm::Ctx in-place after the backing
@@ -98,6 +114,36 @@ impl Instance {
             module: module.clone(),
             instance_inner: &*inner as *const InstanceInner,
         };
+
+        // We need to push the code version so that the exception table can be read
+        // in the feault handler so that we can report traps correctly
+        #[cfg(unix)]
+        {
+            let push_code_version_logic = || {
+                if let Some(msm) = module.runnable_module.get_module_state_map() {
+                    push_code_version(CodeVersion {
+                        baseline: true,
+                        msm,
+                        base: module.runnable_module.get_code()?.as_ptr() as usize,
+                        // convert from a `String` to a static string;
+                        // can't use `Backend` directly because it's defined in `runtime`.
+                        // This is a hack and we need to clean it up.
+                        backend: match module.info.backend.as_ref() {
+                            "llvm" => "llvm",
+                            "cranelift" => "cranelift",
+                            "singlepass" => "singlepass",
+                            "auto" => "auto",
+                            _ => "unknown backend",
+                        },
+                        runnable_module: module.runnable_module.clone(),
+                    });
+                    Some(())
+                } else {
+                    None
+                }
+            };
+            inner.code_version_pushed = push_code_version_logic().is_some();
+        }
 
         let instance = Instance {
             module,
@@ -606,7 +652,6 @@ pub(crate) fn call_func_with_index_inner(
                 || RuntimeError::InvokeError(InvokeError::FailedWithNoError),
                 Into::into,
             );
-            dbg!(&error);
             Err(error.into())
         }
     };

@@ -23,6 +23,14 @@ static TEST_WAT: &str = r#"
 )
 "#;
 
+/// WAT focused on traps
+static TEST_WAT_TRAP: &str = r#"
+(module
+  (func $unreachable-trap-fn (export "unreachable_trap_fn")
+    unreachable)
+)
+"#;
+
 fn append_custom_section(
     wasm: &mut Vec<u8>,
     custom_section_name: &str,
@@ -53,7 +61,7 @@ fn append_custom_section(
 }
 
 wasmer_backends! {
-    use super::{TEST_WAT, append_custom_section};
+    use super::{TEST_WAT, TEST_WAT_TRAP, append_custom_section};
 
     #[test]
     fn custom_section_parsing_works() {
@@ -232,7 +240,7 @@ wasmer_backends! {
     fn error_propagation() {
         use std::convert::Infallible;
         use wabt::wat2wasm;
-        use wasmer::{func, imports, error::RuntimeError, vm::Ctx, CompiledModule, Func, Module};
+        use wasmer::{imports, error::RuntimeError, vm::Ctx, CompiledModule, Func, Module};
 
         static WAT: &'static str = r#"
             (module
@@ -274,6 +282,31 @@ wasmer_backends! {
         } else {
             panic!("didn't return RuntimeError")
         }
+    }
+
+    #[test]
+    fn unreachable_trap_seen_correctly() {
+        use wasmer::{CompiledModule, Module, Func, imports};
+        use wasmer::error::{RuntimeError, InvokeError, ExceptionCode};
+
+        let wasm = wabt::wat2wasm(TEST_WAT_TRAP).unwrap();
+        let module = Module::new_with_compiler(wasm, get_compiler()).unwrap();
+
+        let instance = module
+            .instantiate(&imports! {})
+            .unwrap();
+
+        let unreachable_trap: Func<(), ()> = instance.exports.get("unreachable_trap_fn").unwrap();
+        let result = unreachable_trap.call();
+
+        assert!(
+        match result {
+            Err(RuntimeError::InvokeError(InvokeError::TrapCode {
+            code: ExceptionCode::Unreachable,
+            srcloc: _, // 48 (for when llvm-backend and singlepass-backend report sourcelocs correctly)
+            })) => true,
+            _ => false,
+        });
     }
 }
 
