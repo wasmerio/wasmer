@@ -1,14 +1,10 @@
+use anyhow::Result;
 use wasmer::*;
 
 #[test]
-fn module_get_name() -> anyhow::Result<()> {
+fn module_get_name() -> Result<()> {
     let store = Store::default();
-    let wat = r#"
-        (module
-        (func (export "run") (nop))
-        )
-    "#;
-
+    let wat = r#"(module)"#;
     let module = Module::new(&store, wat)?;
     assert_eq!(module.name(), None);
 
@@ -16,18 +12,14 @@ fn module_get_name() -> anyhow::Result<()> {
 }
 
 #[test]
-fn module_set_name() -> anyhow::Result<()> {
+fn module_set_name() -> Result<()> {
     let store = Store::default();
-    let wat = r#"
-        (module $from_name_section
-        (func (export "run") (nop))
-        )
-    "#;
-
-    let module = Module::new(&store, wat)?;
-    assert_eq!(module.name(), Some("from_name_section"));
+    let wat = r#"(module $name)"#;
     let mut module = Module::new(&store, wat)?;
-    module.set_name("override");
-    assert_eq!(module.name(), Some("override"));
+    assert_eq!(module.name(), Some("name"));
+
+    module.set_name("new_name");
+    assert_eq!(module.name(), Some("new_name"));
+
     Ok(())
 }
