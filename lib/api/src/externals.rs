@@ -26,7 +26,7 @@ pub enum Extern {
 impl Extern {
     pub fn ty(&self) -> ExternType {
         match self {
-            Extern::Function(ft) => ExternType::Function(ft.ty()),
+            Extern::Function(ft) => ExternType::Function(ft.ty().clone()),
             Extern::Memory(ft) => ExternType::Memory(*ft.ty()),
             Extern::Table(tt) => ExternType::Table(*tt.ty()),
             Extern::Global(gt) => ExternType::Global(*gt.ty()),
@@ -279,17 +279,18 @@ impl Table {
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
         let item = init.into_checked_anyfunc(&self.store)?;
         let table = self.table();
-        if let Some(len) = table.grow(delta) {
-            for i in 0..delta {
-                let i = len - (delta - i);
-                set_table_item(table, i, item.clone())?;
+        match table.grow(delta) {
+            Some(len) => {
+                for i in 0..delta {
+                    let i = len - (delta - i);
+                    set_table_item(table, i, item.clone())?;
+                }
+                Ok(len)
             }
-            Ok(len)
-        } else {
-            Err(RuntimeError::new(format!(
+            None => Err(RuntimeError::new(format!(
                 "failed to grow table by `{}`",
                 delta
-            )))
+            ))),
         }
     }
 
@@ -403,7 +404,10 @@ impl Memory {
         unsafe { &*self.exported.from }
     }
 
-    pub fn grow(&self, delta: Pages) -> Result<Pages, MemoryError> {
+    pub fn grow<IntoPages>(&self, delta: IntoPages) -> Result<Pages, MemoryError>
+    where
+        IntoPages: Into<Pages>,
+    {
         self.memory().grow(delta)
     }
 
@@ -617,8 +621,8 @@ impl Function {
     }
 
     /// Returns the underlying type of this function.
-    pub fn ty(&self) -> FunctionType {
-        self.exported.signature.clone()
+    pub fn ty(&self) -> &FunctionType {
+        &self.exported.signature
     }
 
     pub fn store(&self) -> &Store {

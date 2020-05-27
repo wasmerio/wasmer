@@ -298,7 +298,7 @@ impl Module {
     /// This is normally useful for stacktraces and debugging.
     ///
     /// ## Important
-    /// 
+    ///
     /// If the module is already insantiated, setting a name will have
     /// no effects (it will silently fail).
     ///
