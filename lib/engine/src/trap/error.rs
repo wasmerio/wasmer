@@ -47,7 +47,11 @@ impl RuntimeError {
                 // Self::new(format!("{}", error))
                 *error.downcast().expect("only `Trap` errors are supported")
             }
-            Trap::Runtime { pc, backtrace } => {
+            Trap::Runtime {
+                pc,
+                signal_trap,
+                backtrace,
+            } => {
                 let info = if info.should_process_frame(pc).unwrap_or(false) {
                     drop(info);
                     let mut info = FRAME_INFO.write().unwrap();
@@ -59,7 +63,9 @@ impl RuntimeError {
                 };
                 let code = info
                     .lookup_trap_info(pc)
-                    .map_or(TrapCode::StackOverflow, |info| info.trap_code);
+                    .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| {
+                        info.trap_code
+                    });
                 Self::new_wasm(info, Some(pc), code, backtrace)
             }
             Trap::Wasm {
