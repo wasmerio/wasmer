@@ -33,7 +33,7 @@ use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, CustomSections,
     FunctionBodyData, RelocationTarget, WasmResult,
 };
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
 // TODO: debugging
 //use std::io::Write;
@@ -185,8 +185,6 @@ impl FuncTranslator {
             memory_plans,
             _table_plans,
             module: &module,
-            // TODO: pointer width
-            vmoffsets: VMOffsets::new(8, &wasm_module),
             wasm_module,
             func_names,
         };
@@ -1237,7 +1235,6 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     track_state: bool,
     */
     module: &'a Module<'ctx>,
-    vmoffsets: VMOffsets,
     wasm_module: &'a ModuleInfo,
     func_names: &'a SecondaryMap<FunctionIndex, String>,
 }
@@ -8155,36 +8152,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
 
             Operator::MemoryGrow { reserved } => {
-                let mem_index = MemoryIndex::from_u32(reserved);
+                let memory_index = MemoryIndex::from_u32(reserved);
                 let delta = self.state.pop1()?;
-                let (grow_fn, grow_fn_ty) =
-                    if self.wasm_module.local_memory_index(mem_index).is_some() {
-                        (
-                            VMBuiltinFunctionIndex::get_memory32_grow_index(),
-                            self.intrinsics.memory32_grow_ptr_ty,
-                        )
-                    } else {
-                        (
-                            VMBuiltinFunctionIndex::get_imported_memory32_grow_index(),
-                            self.intrinsics.imported_memory32_grow_ptr_ty,
-                        )
-                    };
-                let offset = self.vmoffsets.vmctx_builtin_function(grow_fn);
-                let offset = self.intrinsics.i32_ty.const_int(offset.into(), false);
-                let grow_fn_ptr_ptr = unsafe { self.builder.build_gep(*vmctx, &[offset], "") };
-
-                let grow_fn_ptr_ptr = self
-                    .builder
-                    .build_bitcast(
-                        grow_fn_ptr_ptr,
-                        grow_fn_ty.ptr_type(AddressSpace::Generic),
-                        "",
-                    )
-                    .into_pointer_value();
-                let grow_fn_ptr = self
-                    .builder
-                    .build_load(grow_fn_ptr_ptr, "")
-                    .into_pointer_value();
+                let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics);
                 let grow = self.builder.build_call(
                     grow_fn_ptr,
                     &[
@@ -8200,35 +8170,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1(grow.try_as_basic_value().left().unwrap());
             }
             Operator::MemorySize { reserved } => {
-                let mem_index = MemoryIndex::from_u32(reserved);
-                let (size_fn, size_fn_ty) =
-                    if self.wasm_module.local_memory_index(mem_index).is_some() {
-                        (
-                            VMBuiltinFunctionIndex::get_memory32_size_index(),
-                            self.intrinsics.memory32_size_ptr_ty,
-                        )
-                    } else {
-                        (
-                            VMBuiltinFunctionIndex::get_imported_memory32_size_index(),
-                            self.intrinsics.imported_memory32_size_ptr_ty,
-                        )
-                    };
-                let offset = self.vmoffsets.vmctx_builtin_function(size_fn);
-                let offset = self.intrinsics.i32_ty.const_int(offset.into(), false);
-                let size_fn_ptr_ptr = unsafe { self.builder.build_gep(*vmctx, &[offset], "") };
-
-                let size_fn_ptr_ptr = self
-                    .builder
-                    .build_bitcast(
-                        size_fn_ptr_ptr,
-                        size_fn_ty.ptr_type(AddressSpace::Generic),
-                        "",
-                    )
-                    .into_pointer_value();
-                let size_fn_ptr = self
-                    .builder
-                    .build_load(size_fn_ptr_ptr, "")
-                    .into_pointer_value();
+                let memory_index = MemoryIndex::from_u32(reserved);
+                let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics);
                 let size = self.builder.build_call(
                     size_fn_ptr,
                     &[
