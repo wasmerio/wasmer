@@ -1,6 +1,7 @@
 use super::{
     intrinsics::{
-        func_type_to_llvm, tbaa_label, type_to_llvm, CtxType, GlobalCache, Intrinsics, MemoryCache,
+        func_type_to_llvm, tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache,
+        Intrinsics, MemoryCache,
     },
     read_info::blocktype_to_type,
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
@@ -1929,7 +1930,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let func_type = &self.wasm_module.signatures[*sigindex];
                 let func_name = &self.func_names[func_index];
 
-                let (func, callee_vmctx) = self.ctx.func(
+                let FunctionCache {
+                    func,
+                    vmctx: callee_vmctx,
+                } = self.ctx.func(
                     func_index,
                     self.intrinsics,
                     self.module,

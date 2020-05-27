@@ -501,9 +501,9 @@ pub enum GlobalCache<'ctx> {
 }
 
 #[derive(Clone, Copy)]
-struct FunctionCache<'ctx> {
-    func: PointerValue<'ctx>,
-    vmctx: BasicValueEnum<'ctx>,
+pub struct FunctionCache<'ctx> {
+    pub func: PointerValue<'ctx>,
+    pub vmctx: BasicValueEnum<'ctx>,
 }
 
 pub struct CtxType<'ctx, 'a> {
@@ -882,7 +882,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         context: &'ctx Context,
         func_name: &String,
         func_type: &FuncType,
-    ) -> (PointerValue<'ctx>, BasicValueEnum<'ctx>) {
+    ) -> FunctionCache<'ctx> {
         let (cached_functions, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_functions,
             self.wasm_module,
@@ -890,7 +890,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
             &self.offsets,
         );
-        let cached = *cached_functions.entry(function_index).or_insert_with(|| {
+        *cached_functions.entry(function_index).or_insert_with(|| {
             let llvm_func_type = func_type_to_llvm(context, intrinsics, func_type);
             if wasm_module.local_func_index(function_index).is_some() {
                 // TODO: assuming names are unique, we don't need the
@@ -939,8 +939,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     vmctx: vmctx_ptr,
                 }
             }
-        });
-        (cached.func, cached.vmctx)
+        })
     }
 
     pub fn memory_grow(
