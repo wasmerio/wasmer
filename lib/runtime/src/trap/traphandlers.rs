@@ -88,6 +88,27 @@ cfg_if::cfg_if! {
                 libc::SIGILL => &PREV_SIGILL,
                 _ => panic!("unknown signal: {}", signum),
             };
+            // We try to get the Code trap associated to this signal
+            let maybe_signal_trap = match signum {
+                libc::SIGSEGV | libc::SIGBUS => {
+                    let addr = (*siginfo).si_addr();
+                    let this_thread = libc::pthread_self();
+                    let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
+                    libc::pthread_getattr_np(this_thread, &mut thread_attrs);
+                    let mut stackaddr: *mut libc::c_void = ptr::null_mut();
+                    let mut stacksize: libc::size_t = 0;
+                    libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
+                    let addr = addr as usize;
+                    let stackaddr = stackaddr as usize;
+                    // Assuming page size of 4KiB.
+                    if stackaddr - 4096 < addr && addr < stackaddr + stacksize {
+                        Some(TrapCode::StackOverflow)
+                    } else {
+                        Some(TrapCode::HeapAccessOutOfBounds)
+                    }
+                }
+                _ => None,
+            };
             let handled = tls::with(|info| {
                 // If no wasm code is executing, we don't handle this as a wasm
                 // trap.
@@ -106,6 +127,7 @@ cfg_if::cfg_if! {
                 let jmp_buf = info.handle_trap(
                     get_pc(context),
                     false,
+                    maybe_signal_trap,
                     |handler| handler(signum, siginfo, context),
                 );
 
@@ -224,6 +246,8 @@ cfg_if::cfg_if! {
                 let jmp_buf = info.handle_trap(
                     (*(*exception_info).ContextRecord).Rip as *const u8,
                     record.ExceptionCode == EXCEPTION_STACK_OVERFLOW,
+                    // TODO: fix the signal trap associated to memory access in Windows
+                    None,
                     |handler| handler(exception_info),
                 );
                 if jmp_buf.is_null() {
@@ -326,6 +350,8 @@ pub enum Trap {
         pc: usize,
         /// Native stack backtrace at the time the trap occurred
         backtrace: Backtrace,
+        /// Optional trapcode associated to the signal that caused the trap
+        signal_trap: Option<TrapCode>,
     },
 
     /// A trap raised from a wasm libcall
@@ -434,7 +460,11 @@ enum UnwindReason {
     Panic(Box<dyn Any + Send>),
     UserTrap(Box<dyn Error + Send + Sync>),
     LibTrap(Trap),
-    RuntimeTrap { backtrace: Backtrace, pc: usize },
+    RuntimeTrap {
+        backtrace: Backtrace,
+        pc: usize,
+        signal_trap: Option<TrapCode>,
+    },
 }
 
 impl CallThreadState {
@@ -463,9 +493,17 @@ impl CallThreadState {
                     Err(Trap::User(data))
                 }
                 UnwindReason::LibTrap(trap) => Err(trap),
-                UnwindReason::RuntimeTrap { backtrace, pc } => {
+                UnwindReason::RuntimeTrap {
+                    backtrace,
+                    pc,
+                    signal_trap,
+                } => {
                     debug_assert_eq!(ret, 0);
-                    Err(Trap::Runtime { pc, backtrace })
+                    Err(Trap::Runtime {
+                        pc,
+                        backtrace,
+                        signal_trap,
+                    })
                 }
                 UnwindReason::Panic(panic) => {
                     debug_assert_eq!(ret, 0);
@@ -515,6 +553,7 @@ impl CallThreadState {
         &self,
         pc: *const u8,
         reset_guard_page: bool,
+        signal_trap: Option<TrapCode>,
         call_handler: impl Fn(&SignalHandler) -> bool,
     ) -> *const u8 {
         // If we hit a fault while handling a previous trap, that's quite bad,
@@ -557,6 +596,7 @@ impl CallThreadState {
         self.reset_guard_page.set(reset_guard_page);
         self.unwind.replace(UnwindReason::RuntimeTrap {
             backtrace,
+            signal_trap,
             pc: pc as usize,
         });
         self.handling_trap.set(false);

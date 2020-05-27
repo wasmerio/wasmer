@@ -40,6 +40,18 @@ pub fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> Pointe
     }
 }
 
+pub fn type_to_llvm<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
+    match ty {
+        Type::I32 => intrinsics.i32_ty.as_basic_type_enum(),
+        Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
+        Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
+        Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
+        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
+        Type::AnyRef => unimplemented!("anyref in the llvm backend"),
+        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+    }
+}
+
 /// Struct containing LLVM and VM intrinsics.
 pub struct Intrinsics<'ctx> {
     pub ctlz_i32: FunctionValue<'ctx>,
@@ -91,6 +103,8 @@ pub struct Intrinsics<'ctx> {
     pub debug_trap: FunctionValue<'ctx>,
 
     pub personality: FunctionValue<'ctx>,
+    pub readonly: Attribute,
+    pub stack_probe: Attribute,
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
@@ -141,22 +155,7 @@ pub struct Intrinsics<'ctx> {
     pub trap_table_access_oob: BasicValueEnum<'ctx>,
 
     // VM intrinsics.
-    pub memory_grow_dynamic_local: FunctionValue<'ctx>,
-    pub memory_grow_static_local: FunctionValue<'ctx>,
-    pub memory_grow_shared_local: FunctionValue<'ctx>,
-    pub memory_grow_dynamic_import: FunctionValue<'ctx>,
-    pub memory_grow_static_import: FunctionValue<'ctx>,
-    pub memory_grow_shared_import: FunctionValue<'ctx>,
-
-    pub memory_size_dynamic_local: FunctionValue<'ctx>,
-    pub memory_size_static_local: FunctionValue<'ctx>,
-    pub memory_size_shared_local: FunctionValue<'ctx>,
-    pub memory_size_dynamic_import: FunctionValue<'ctx>,
-    pub memory_size_static_import: FunctionValue<'ctx>,
-    pub memory_size_shared_import: FunctionValue<'ctx>,
-
     pub throw_trap: FunctionValue<'ctx>,
-    pub throw_breakpoint: FunctionValue<'ctx>,
 
     pub experimental_stackmap: FunctionValue<'ctx>,
 
@@ -258,13 +257,6 @@ impl<'ctx> Intrinsics<'ctx> {
         let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic, f32_ty_basic], false);
         let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic, f64_ty_basic], false);
 
-        let ret_i32_take_ctx_i32_i32 = i32_ty.fn_type(
-            &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
-            false,
-        );
-        let ret_i32_take_ctx_i32 =
-            i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false);
-
         let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
         let intrinsics = Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
@@ -351,6 +343,9 @@ impl<'ctx> Intrinsics<'ctx> {
                 i32_ty.fn_type(&[], false),
                 Some(Linkage::External),
             ),
+            readonly: context
+                .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
+            stack_probe: context.create_string_attribute("probe-stack", "vm.probestack"),
 
             void_ty,
             i1_ty,
@@ -419,67 +414,6 @@ impl<'ctx> Intrinsics<'ctx> {
                 .as_basic_value_enum(),
 
             // VM intrinsics.
-            memory_grow_dynamic_local: module.add_function(
-                "vm.memory.grow.dynamic.local",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-            memory_grow_static_local: module.add_function(
-                "vm.memory.grow.static.local",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-            memory_grow_shared_local: module.add_function(
-                "vm.memory.grow.shared.local",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-            memory_grow_dynamic_import: module.add_function(
-                "vm.memory.grow.dynamic.import",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-            memory_grow_static_import: module.add_function(
-                "vm.memory.grow.static.import",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-            memory_grow_shared_import: module.add_function(
-                "vm.memory.grow.shared.import",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-
-            memory_size_dynamic_local: module.add_function(
-                "vm.memory.size.dynamic.local",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
-            memory_size_static_local: module.add_function(
-                "vm.memory.size.static.local",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
-            memory_size_shared_local: module.add_function(
-                "vm.memory.size.shared.local",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
-            memory_size_dynamic_import: module.add_function(
-                "vm.memory.size.dynamic.import",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
-            memory_size_static_import: module.add_function(
-                "vm.memory.size.static.import",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
-            memory_size_shared_import: module.add_function(
-                "vm.memory.size.shared.import",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
             throw_trap: module.add_function(
                 "vm.exception.trap",
                 void_ty.fn_type(&[i32_ty_basic], false),
@@ -494,11 +428,6 @@ impl<'ctx> Intrinsics<'ctx> {
                     ],
                     true,
                 ),
-                None,
-            ),
-            throw_breakpoint: module.add_function(
-                "vm.breakpoint",
-                void_ty.fn_type(&[i64_ty_basic], false),
                 None,
             ),
 
@@ -539,34 +468,10 @@ impl<'ctx> Intrinsics<'ctx> {
 
         // TODO: mark vmctx args as nofree, align 16, dereferenceable(?)
 
-        let readonly =
-            context.create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0);
-        intrinsics
-            .memory_size_dynamic_local
-            .add_attribute(AttributeLoc::Function, readonly);
-        intrinsics
-            .memory_size_static_local
-            .add_attribute(AttributeLoc::Function, readonly);
-        intrinsics
-            .memory_size_shared_local
-            .add_attribute(AttributeLoc::Function, readonly);
-        intrinsics
-            .memory_size_dynamic_import
-            .add_attribute(AttributeLoc::Function, readonly);
-        intrinsics
-            .memory_size_static_import
-            .add_attribute(AttributeLoc::Function, readonly);
-        intrinsics
-            .memory_size_shared_import
-            .add_attribute(AttributeLoc::Function, readonly);
-
         let noreturn =
             context.create_enum_attribute(Attribute::get_named_enum_kind_id("noreturn"), 0);
         intrinsics
             .throw_trap
-            .add_attribute(AttributeLoc::Function, noreturn);
-        intrinsics
-            .throw_breakpoint
             .add_attribute(AttributeLoc::Function, noreturn);
 
         intrinsics
@@ -639,7 +544,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
-        _module: &Module<'ctx>,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     ) -> MemoryCache<'ctx> {
         let (cached_memories, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
@@ -1028,17 +932,5 @@ pub fn func_type_to_llvm<'ctx>(
                 .struct_type(&basic_types, false)
                 .fn_type(&param_types, false)
         }
-    }
-}
-
-pub fn type_to_llvm<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
-    match ty {
-        Type::I32 => intrinsics.i32_ty.as_basic_type_enum(),
-        Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
-        Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
-        Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
-        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
-        Type::AnyRef => unimplemented!("anyref in the llvm backend"),
-        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
     }
 }
