@@ -88,7 +88,7 @@ cfg_if::cfg_if! {
                 libc::SIGILL => &PREV_SIGILL,
                 _ => panic!("unknown signal: {}", signum),
             };
-            /// We try to get the Code trap associated to this signal
+            // We try to get the Code trap associated to this signal
             let maybe_signal_trap = match signum {
                 libc::SIGSEGV | libc::SIGBUS => {
                     let addr = (*siginfo).si_addr();
