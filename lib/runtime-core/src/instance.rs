@@ -2,8 +2,6 @@
 //!
 //! An "instance", or "instantiated module", is a compiled WebAssembly [`Module`] with its
 //! corresponding imports (via [`ImportObject`]) that is ready to execute.
-#[cfg(unix)]
-use crate::fault::{pop_code_version, push_code_version};
 use crate::{
     backend::RunnableModule,
     backing::{ImportBacking, LocalBacking},
@@ -15,12 +13,16 @@ use crate::{
     memory::Memory,
     module::{ExportIndex, Module, ModuleInfo, ModuleInner},
     sig_registry::SigRegistry,
-    state::CodeVersion,
     structures::TypedIndex,
     table::Table,
     typed_func::{Func, Wasm, WasmTypeList},
     types::{FuncIndex, FuncSig, GlobalIndex, LocalOrImport, MemoryIndex, TableIndex, Type, Value},
     vm::{self, InternalField},
+};
+#[cfg(unix)]
+use crate::{
+    fault::{pop_code_version, push_code_version},
+    state::CodeVersion,
 };
 use smallvec::{smallvec, SmallVec};
 use std::{
