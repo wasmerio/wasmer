@@ -544,6 +544,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
+        module: &Module<'ctx>,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     ) -> MemoryCache<'ctx> {
         let (cached_memories, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
@@ -572,10 +573,16 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                             "",
                         )
                         .into_pointer_value();
-                    cache_builder
+                    let memory_definition_ptr = cache_builder
                         .build_load(memory_definition_ptr_ptr, "")
-                        .into_pointer_value()
-                    // TODO: tbaa
+                        .into_pointer_value();
+                    tbaa_label(
+                        module,
+                        intrinsics,
+                        format!("memory {} definition", index.as_u32()),
+                        memory_definition_ptr.as_instruction_value().unwrap(),
+                    );
+                    memory_definition_ptr
                 };
             let memory_definition_ptr = cache_builder
                 .build_bitcast(
@@ -605,7 +612,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 }
             } else {
                 let base_ptr = cache_builder.build_load(base_ptr, "").into_pointer_value();
-                // TODO: tbaa
+                tbaa_label(
+                    module,
+                    intrinsics,
+                    format!("memory base_ptr {}", index.as_u32()),
+                    base_ptr.as_instruction_value().unwrap(),
+                );
                 MemoryCache::Static { base_ptr }
             }
         })
@@ -615,7 +627,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         table_index: TableIndex,
         intrinsics: &Intrinsics<'ctx>,
-        _module: &Module<'ctx>,
+        module: &Module<'ctx>,
     ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
         let (cached_tables, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_tables,
@@ -674,7 +686,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     let definition_ptr = cache_builder
                         .build_load(definition_ptr_ptr, "")
                         .into_pointer_value();
-                    // TODO: TBAA label
+                    tbaa_label(
+                        module,
+                        intrinsics,
+                        format!("table {} definition", table_index.as_u32()),
+                        definition_ptr.as_instruction_value().unwrap(),
+                    );
 
                     let offset = intrinsics
                         .i64_ty
@@ -741,6 +758,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         index: SignatureIndex,
         intrinsics: &Intrinsics<'ctx>,
+        module: &Module<'ctx>,
     ) -> IntValue<'ctx> {
         let (cached_sigindices, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_sigindices,
@@ -759,10 +777,16 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 .build_bitcast(sigindex_ptr, intrinsics.i32_ptr_ty, "")
                 .into_pointer_value();
 
-            cache_builder
+            let sigindex = cache_builder
                 .build_load(sigindex_ptr, "sigindex")
-                .into_int_value()
-            // TODO: tbaa
+                .into_int_value();
+            tbaa_label(
+                module,
+                intrinsics,
+                format!("sigindex {}", index.as_u32()),
+                sigindex.as_instruction_value().unwrap(),
+            );
+            sigindex
         })
     }
 
@@ -770,6 +794,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         index: GlobalIndex,
         intrinsics: &Intrinsics<'ctx>,
+        module: &Module<'ctx>,
     ) -> GlobalCache<'ctx> {
         let (cached_globals, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_globals,
@@ -800,10 +825,16 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         "",
                     )
                     .into_pointer_value();
-                cache_builder
+                let global_ptr = cache_builder
                     .build_load(global_ptr_ptr, "")
-                    .into_pointer_value()
-                // TODO: tbaa
+                    .into_pointer_value();
+                tbaa_label(
+                    module,
+                    intrinsics,
+                    format!("global_ptr {}", index.as_u32()),
+                    global_ptr.as_instruction_value().unwrap(),
+                );
+                global_ptr
             };
             let global_ptr = cache_builder
                 .build_bitcast(
@@ -814,10 +845,16 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 .into_pointer_value();
 
             match global_mutability {
-                Mutability::Const => GlobalCache::Const {
-                    // TODO: tbaa
-                    value: cache_builder.build_load(global_ptr, ""),
-                },
+                Mutability::Const => {
+                    let value = cache_builder.build_load(global_ptr, "");
+                    tbaa_label(
+                        module,
+                        intrinsics,
+                        format!("global {}", index.as_u32()),
+                        value.as_instruction_value().unwrap(),
+                    );
+                    GlobalCache::Const { value }
+                }
                 Mutability::Var => GlobalCache::Mut {
                     ptr_to_value: global_ptr,
                 },
