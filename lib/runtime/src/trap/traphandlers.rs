@@ -90,7 +90,23 @@ cfg_if::cfg_if! {
             };
             /// We try to get the Code trap associated to this signal
             let maybe_signal_trap = match signum {
-                libc::SIGSEGV | libc::SIGBUS => Some(TrapCode::HeapAccessOutOfBounds),
+                libc::SIGSEGV | libc::SIGBUS => {
+                    let addr = (*siginfo).si_addr();
+                    let this_thread = libc::pthread_self();
+                    let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
+                    libc::pthread_getattr_np(this_thread, &mut thread_attrs);
+                    let mut stackaddr: *mut libc::c_void = ptr::null_mut();
+                    let mut stacksize: libc::size_t = 0;
+                    libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
+                    let addr = addr as usize;
+                    let stackaddr = stackaddr as usize;
+                    // Assuming page size of 4KiB.
+                    if stackaddr - 4096 < addr && addr < stackaddr + stacksize {
+                        Some(TrapCode::StackOverflow)
+                    } else {
+                        Some(TrapCode::HeapAccessOutOfBounds)
+                    }
+                }
                 _ => None,
             };
             let handled = tls::with(|info| {
