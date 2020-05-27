@@ -93,11 +93,18 @@ cfg_if::cfg_if! {
                 libc::SIGSEGV | libc::SIGBUS => {
                     let addr = (*siginfo).si_addr();
                     let this_thread = libc::pthread_self();
-                    let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
-                    libc::pthread_getattr_np(this_thread, &mut thread_attrs);
-                    let mut stackaddr: *mut libc::c_void = ptr::null_mut();
-                    let mut stacksize: libc::size_t = 0;
-                    libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
+                    let (stackaddr, stacksize) = if cfg!(target_os = "macos") {
+                        let stackaddr = libc::pthread_get_stackaddr_np(this_thread);
+                        let stacksize = libc::pthread_get_stacksize_np(this_thread);
+                        (stackaddr as usize, stacksize)
+                    } else {
+                        let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
+                        libc::pthread_getattr_np(this_thread, &mut thread_attrs);
+                        let mut stackaddr: *mut libc::c_void = ptr::null_mut();
+                        let mut stacksize: libc::size_t = 0;
+                        libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
+                        (stackaddr as usize, stacksize)
+                    }
                     let addr = addr as usize;
                     let stackaddr = stackaddr as usize;
                     // Assuming page size of 4KiB.
