@@ -297,10 +297,9 @@ impl Module {
     /// Sets the name of the current module.
     /// This is normally useful for stacktraces and debugging.
     ///
-    /// ## Important
-    ///
-    /// If the module is already insantiated, setting a name will have
-    /// no effects (it will silently fail).
+    /// It will return `true` if the module name was changed successfully,
+    /// and return `false` otherwise (in case the module is already
+    /// instantiated).
     ///
     /// # Example
     ///
@@ -316,12 +315,14 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_name(&mut self, name: &str) {
+    pub fn set_name(&mut self, name: &str) -> bool {
         Arc::get_mut(&mut self.artifact)
             .and_then(|artifact| artifact.module_mut())
             .map(|mut module_info| {
                 module_info.name = Some(name.to_string());
-            });
+                true
+            })
+            .unwrap_or(false)
     }
 
     /// Returns an iterator over the imported types in the Module.
