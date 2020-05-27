@@ -18,13 +18,14 @@ crate-type = ["cdylib", "staticlib"]
 lazy_static = "1"
 libc = { version = "0.2", default-features = false }
 libffi = { version = "0.9" }
+paste = "0.1"
 # for generating code in the same way thot the wasm-c-api does
 # Commented out for now until we can find a solution to the exported function problem
 # wasmer-wasm-c-api = { version = "0.16.2", path = "crates/wasm-c-api" }
 
 [dependencies.wasmer]
 default-features = false
-features = ["compiler", "engine", "jit", "cranelift"]
+features = ["compiler", "engine", "jit"]
 path = "../api"
 version = "0.16.2"
 
@@ -55,4 +56,4 @@ wasi = ["wasmer-wasi"]
 ignore-wasm-c-api = []
 
 [build-dependencies]
-cbindgen = "0.14"
+cbindgen = { git = "https://github.com/eqrion/cbindgen", version = "0.14" }

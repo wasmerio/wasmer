@@ -172,8 +172,7 @@ dependencies = [
 [[package]]
 name = "cbindgen"
 version = "0.14.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "104ca409bbff8293739438c71820a2606111b5f8f81835536dc673dfd807369e"
+source = "git+https://github.com/eqrion/cbindgen#bb00d1c4a8e53c56880586987f0e1512fb252b9a"
 dependencies = [
  "clap",
  "heck",
@@ -1054,6 +1053,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3431e8f72b90f8a7af91dec890d9814000cb371258e0ec7370d93e085361f531"
+dependencies = [
+ "paste-impl",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "paste-impl"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25af5fc872ba284d8d84608bf8a0fa9b5376c96c23f503b007dfd9e34dde5606"
+dependencies = [
+ "proc-macro-hack",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1102,6 +1123,12 @@ dependencies = [
  "syn-mid",
  "version_check 0.9.1",
 ]
+
+[[package]]
+name = "proc-macro-hack"
+version = "0.5.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e0456befd48169b9f13ef0f0ad46d492cf9d2dbb918bcf38e01eed4ce3ec5e4"
 
 [[package]]
 name = "proc-macro2"
@@ -2063,6 +2090,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "libffi",
+ "paste",
  "wasm-common",
  "wasmer",
  "wasmer-wasi",

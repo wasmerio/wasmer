@@ -97,6 +97,9 @@
 #[macro_use]
 extern crate lazy_static;
 
+/// cbindgen:ignore
+pub mod wasm_c_api;
+
 pub mod error;
 pub mod export;
 pub mod global;
