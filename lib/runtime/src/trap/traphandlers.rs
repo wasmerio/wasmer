@@ -483,7 +483,7 @@ impl CallThreadState {
                     signal_trap,
                 } => {
                     debug_assert_eq!(ret, 0);
-                    Err(Trap::Jit {
+                    Err(Trap::Runtime {
                         pc,
                         backtrace,
                         signal_trap,
