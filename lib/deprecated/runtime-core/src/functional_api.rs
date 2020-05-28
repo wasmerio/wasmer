@@ -1,6 +1,10 @@
 use crate::{module::Module, new};
 use std::error::Error;
 
+pub fn compile(bytes: &[u8]) -> Result<Module, Box<dyn Error>> {
+    compile_with(bytes, ())
+}
+
 #[deprecated(
     since = "__NEXT_VERSION__",
     note = "Please use `Module::new(&store, bytes)` instead."
