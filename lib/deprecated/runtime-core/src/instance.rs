@@ -19,26 +19,14 @@ impl Instance {
         }
     }
 
-    #[deprecated(
-        since = "__NEXT__VERSION__",
-        note = "This method is no longer available."
-    )]
     pub fn load<T>(&self, _loader: T) -> Result<Self, ()> {
         Err(())
     }
 
-    #[deprecated(
-        since = "__NEXT__VERSION__",
-        note = "This method is no longer available."
-    )]
     pub fn func<Args, Rets>(&self, _name: &str) -> Result<Infallible, ()> {
         Err(())
     }
 
-    #[deprecated(
-        since = "__NEXT__VERSION__",
-        note = "Please use `instance.module().info().resolve_func(name)` instead."
-    )]
     pub fn resolve_func(&self, name: &str) -> Result<usize, ()> {
         self.new_instance
             .module()
@@ -48,10 +36,6 @@ impl Instance {
             .ok_or(())
     }
 
-    #[deprecated(
-        since = "__NEXT__VERSION__",
-        note = "Please use `instance.exports.get_function(name).call(params)` instead."
-    )]
     pub fn call(&self, name: &str, params: &[Value]) -> Result<Vec<Value>, Box<dyn Error>> {
         Ok(self
             .new_instance
@@ -61,10 +45,6 @@ impl Instance {
             .into_vec())
     }
 
-    #[deprecated(
-        since = "__NEXT_VERSION__",
-        note = "Please use `instance.exports` instead."
-    )]
     pub fn exports(&self) -> &new::wasmer::Exports {
         &self.new_instance.exports
     }
