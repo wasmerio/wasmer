@@ -1,8 +1,10 @@
 use crate::externals::{Extern, Function, Global, Memory, Table};
 use crate::import_object::LikeNamespace;
 use indexmap::IndexMap;
-use std::iter::FromIterator;
-use std::sync::Arc;
+use std::{
+    iter::{ExactSizeIterator, FromIterator},
+    sync::Arc,
+};
 use thiserror::Error;
 use wasmer_runtime::Export;
 
@@ -125,6 +127,79 @@ impl Exports {
         S: Into<String>,
     {
         self.map.contains_key(&name.into())
+    }
+
+    pub fn iter<'a>(
+        &'a self,
+    ) -> ExportsIterator<'a, impl Iterator<Item = (&'a String, &'a Extern)>> {
+        ExportsIterator {
+            iter: self.map.iter(),
+        }
+    }
+}
+
+/// An iterator over exports.
+pub struct ExportsIterator<'a, I>
+where
+    I: Iterator<Item = (&'a String, &'a Extern)> + Sized,
+{
+    iter: I,
+}
+
+impl<'a, I> Iterator for ExportsIterator<'a, I>
+where
+    I: Iterator<Item = (&'a String, &'a Extern)> + Sized,
+{
+    type Item = (&'a String, &'a Extern);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<'a, I> ExactSizeIterator for ExportsIterator<'a, I>
+where
+    I: Iterator<Item = (&'a String, &'a Extern)> + ExactSizeIterator + Sized,
+{
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+impl<'a, I> ExportsIterator<'a, I>
+where
+    I: Iterator<Item = (&'a String, &'a Extern)> + Sized,
+{
+    /// Get only the functions.
+    pub fn functions(self) -> impl Iterator<Item = (&'a String, &'a Function)> + Sized {
+        self.iter.filter_map(|(name, export)| match export {
+            Extern::Function(function) => Some((name, function)),
+            _ => None,
+        })
+    }
+
+    /// Get only the memories.
+    pub fn memories(self) -> impl Iterator<Item = (&'a String, &'a Memory)> + Sized {
+        self.iter.filter_map(|(name, export)| match export {
+            Extern::Memory(memory) => Some((name, memory)),
+            _ => None,
+        })
+    }
+
+    /// Get only the globals.
+    pub fn globals(self) -> impl Iterator<Item = (&'a String, &'a Global)> + Sized {
+        self.iter.filter_map(|(name, export)| match export {
+            Extern::Global(global) => Some((name, global)),
+            _ => None,
+        })
+    }
+
+    /// Get only the tables.
+    pub fn tables(self) -> impl Iterator<Item = (&'a String, &'a Table)> + Sized {
+        self.iter.filter_map(|(name, export)| match export {
+            Extern::Table(table) => Some((name, table)),
+            _ => None,
+        })
     }
 }
 
