@@ -107,7 +107,23 @@ impl StoreOptions {
 
     /// Get the Target architecture
     pub fn get_features(&self) -> Result<Features> {
-        Ok(Features::default())
+        let mut features = Features::default();
+        if self.features.threads || self.features.all {
+            features.threads(true);
+        }
+        if self.features.multi_value || self.features.all {
+            features.multi_value(true);
+        }
+        if self.features.simd || self.features.all {
+            features.simd(true);
+        }
+        if self.features.bulk_memory || self.features.all {
+            features.bulk_memory(true);
+        }
+        if self.features.reference_types || self.features.all {
+            features.reference_types(true);
+        }
+        Ok(features)
     }
 
     /// Get the Target architecture
