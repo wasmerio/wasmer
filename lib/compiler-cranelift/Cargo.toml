@@ -12,21 +12,21 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-hashbrown = { version = "0.7.2", optional = true }
-tracing = "0.1"
-cranelift-codegen = { version = "0.62.0", default-features = false }
-cranelift-frontend = { version = "0.62.0", default-features = false }
 wasmer-compiler = { path = "../compiler", version = "0.16.2", features = ["translator"], default-features = false }
 wasmer-runtime = { path = "../runtime", version = "0.16.2" }
 wasm-common = { path = "../wasm-common", version = "0.16.2", default-features = false }
-rayon = "1.3.0"
-serde = { version = "1.0.106", features = ["derive"] }
-more-asserts = "0.2.1"
+cranelift-codegen = { version = "0.62", default-features = false }
+cranelift-frontend = { version = "0.62", default-features = false }
+tracing = "0.1"
+hashbrown = { version = "0.7", optional = true }
+rayon = "1.3"
+serde = { version = "1.0", features = ["derive"] }
+more-asserts = "0.2"
 
 [dev-dependencies]
-target-lexicon = { version = "0.10.0", default-features = false }
-cranelift-codegen = { version = "0.62.0", features = ["enable-serde", "all-arch"] }
-lazy_static = "1.4.0"
+target-lexicon = { version = "0.10", default-features = false }
+cranelift-codegen = { version = "0.62", features = ["enable-serde", "all-arch"] }
+lazy_static = "1.4"
 
 [badges]
 maintenance = { status = "actively-developed" }

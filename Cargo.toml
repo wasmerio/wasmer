@@ -34,13 +34,13 @@ wasmer-wast = { version = "0.16.2", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "0.16.2", path = "lib/cache", optional = true }
 atty = "0.2"
 colored = "1.9"
-anyhow = "1.0.28"
+anyhow = "1.0"
 structopt = { version = "0.3", features = ["suggestions"] }
 # For the function names autosuggestion
 distance = "0.4"
 # For the inspect subcommand
-bytesize = "1.0.0"
-cfg-if = "0.1.10"
+bytesize = "1.0"
+cfg-if = "0.1"
 
 [workspace]
 members = [
@@ -49,20 +49,20 @@ members = [
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
-anyhow = "1.0.28"
+anyhow = "1.0"
 glob = "0.3"
 rustc_version = "0.2"
 
 [dev-dependencies]
-anyhow = "1.0.28"
-blake3 = "0.3.3"
+anyhow = "1.0"
+blake3 = "0.3"
 test-utils = { path = "tests/lib/test-utils" }
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wat", "wast", "wasi", "cranelift", "cache", "jit", "native"]
+default = ["wat", "wast", "wasi", "singlepass", "cache", "jit", "native"]
 engine = []
 jit = [
     "wasmer-engine-jit",
