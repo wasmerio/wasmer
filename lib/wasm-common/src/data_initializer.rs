@@ -4,7 +4,7 @@ use crate::indexes::{GlobalIndex, MemoryIndex};
 use serde::{Deserialize, Serialize};
 
 /// A memory index and offset within that memory where a data initialization
-/// should is to be performed.
+/// should be performed.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct DataInitializerLocation {
