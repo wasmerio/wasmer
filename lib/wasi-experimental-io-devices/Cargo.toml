@@ -12,9 +12,9 @@ license = "MIT"
 maintenance = { status = "experimental" }
 
 [dependencies]
-tracing = "0.1"
-minifb = "0.13"
 wasmer-wasi = { version = "0.16.2", path = "../wasi" }
+tracing = "0.1"
+minifb = "0.16"
 ref_thread_local = "0.0"
 serde = "1"
 typetag = "0.1"

@@ -5,5 +5,5 @@ edition = "2018"
 private = true
 
 [dependencies]
-anyhow = "1.0.28"
-target-lexicon = "0.10.0"
+anyhow = "1.0"
+target-lexicon = "0.10"

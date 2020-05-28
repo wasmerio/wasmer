@@ -15,14 +15,14 @@ wasm-common = { path = "../wasm-common", version = "0.16.2" }
 wasmer-compiler = { path = "../compiler", version = "0.16.2", default-features = false }
 wasmer-runtime = { path = "../runtime", version = "0.16.2" }
 wasmer-engine = { path = "../engine", version = "0.16.2" }
-faerie = "0.15.0"
-serde = { version = "1.0.106", features = ["derive", "rc"] }
-serde_bytes = { version = "0.11.3" }
-cfg-if = "0.1.10"
-bincode = "1.2.1"
-leb128 = "0.2.4"
-libloading = "0.6.2"
-tempfile = "3.1.0"
+faerie = "0.15"
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_bytes = { version = "0.11" }
+cfg-if = "0.1"
+bincode = "1.2"
+leb128 = "0.2"
+libloading = "0.6"
+tempfile = "3.1"
 
 [features]
 # Enable the `compiler` feature if you want the engine to compile
