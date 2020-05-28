@@ -129,7 +129,9 @@ impl Exports {
         self.map.contains_key(&name.into())
     }
 
-    pub fn iter<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = (&'a String, &'a Extern)>> {
+    pub fn iter<'a>(
+        &'a self,
+    ) -> ExportsIterator<'a, impl Iterator<Item = (&'a String, &'a Extern)>> {
         ExportsIterator {
             iter: self.map.iter(),
         }
