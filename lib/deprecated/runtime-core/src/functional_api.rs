@@ -1,8 +1,12 @@
-use crate::{module::Module, new};
-use std::error::Error;
+use crate::{cache::Artifact, module::Module, new};
+use std::{convert::Infallible, error::Error};
 
 pub fn compile(bytes: &[u8]) -> Result<Module, Box<dyn Error>> {
     compile_with(bytes, ())
+}
+
+pub fn load_cache_with(cache: Artifact) -> Result<Module, Infallible> {
+    Ok(cache.module())
 }
 
 #[deprecated(

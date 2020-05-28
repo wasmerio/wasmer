@@ -1,4 +1,4 @@
-use crate::new;
+use crate::{module::Module, new};
 
 #[derive(Debug)]
 pub enum Error {
@@ -25,6 +25,10 @@ impl Artifact {
         Ok(Self::new(
             new::wasmer::Module::deserialize(&store, bytes).map_err(Error::DeserializeError)?,
         ))
+    }
+
+    pub fn module(self) -> Module {
+        Module::new(self.new_module)
     }
 
     pub fn info(&self) -> &new::wasmer_runtime::ModuleInfo {
