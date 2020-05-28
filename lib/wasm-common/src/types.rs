@@ -96,7 +96,7 @@ impl From<&[u8]> for V128 {
 ///
 /// This list can be found in [`ImportType`] or [`ExportType`], so these types
 /// can either be imported or exported.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ExternType {
     /// This external type is the type of a WebAssembly function.
@@ -278,7 +278,7 @@ impl std::fmt::Display for FunctionType {
 }
 
 /// Indicator of whether a global is mutable or not
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Mutability {
     /// The global is constant and its value does not change
@@ -306,7 +306,7 @@ impl From<Mutability> for bool {
 }
 
 /// WebAssembly global.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct GlobalType {
     /// The type of the value stored in the global.
@@ -400,7 +400,7 @@ impl GlobalInit {
 /// Tables are contiguous chunks of a specific element, typically a `funcref` or
 /// an `anyref`. The most common use for tables is a function table through
 /// which `call_indirect` can invoke other functions.
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct TableType {
     /// The type of data stored in elements of the table.
@@ -439,7 +439,7 @@ impl std::fmt::Display for TableType {
 ///
 /// Memories are described in units of pages (64KB) and represent contiguous
 /// chunks of addressable memory.
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct MemoryType {
     /// The minimum number of pages in the memory.
@@ -484,7 +484,7 @@ impl std::fmt::Display for MemoryType {
 /// [`Module::imports`](crate::Module::imports) API. Each [`ImportType`]
 /// describes an import into the wasm module with the module/name that it's
 /// imported from as well as the type of item that's being imported.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ImportType<T = ExternType> {
     module: String,
@@ -532,7 +532,7 @@ impl<T> ImportType<T> {
 /// The `<T>` refefers to `ExternType`, however it can also refer to use
 /// `MemoryType`, `TableType`, `FunctionType` and `GlobalType` for ease of
 /// use.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ExportType<T = ExternType> {
     name: String,

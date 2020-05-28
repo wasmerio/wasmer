@@ -33,15 +33,18 @@ impl Instance {
     /// [`ImportObject`]: crate::ImportObject
     ///
     /// ```
-    /// # use wasmer::{imports, Store, Module, Global, Instance};
+    /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
+    /// # fn main() -> anyhow::Result<()> {
     /// let store = Store::default();
-    /// let module = Module::new(store, "(module)");
+    /// let module = Module::new(&store, "(module)")?;
     /// let imports = imports!{
     ///   "host" => {
-    ///     "var" => Global::new(Value::I32(2))
+    ///     "var" => Global::new(&store, Value::I32(2))
     ///   }
     /// };
-    /// let instance = Instance::new(&module, &imports);
+    /// let instance = Instance::new(&module, &imports)?;
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// ## Errors

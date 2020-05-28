@@ -1,0 +1,24 @@
+[package]
+name = "wasmer-engine-dummy"
+version = "0.16.2"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+description = "wasmer testing utils"
+edition = "2018"
+publish = false
+
+[dependencies]
+wasm-common = { path = "../../../lib/wasm-common", version = "0.16.2" }
+wasmer-compiler = { path = "../../../lib/compiler", version = "0.16.2", features=["translator"] }
+wasmer-runtime = { path = "../../../lib/runtime", version = "0.16.2" }
+wasmer-engine = { path = "../../../lib/engine", version = "0.16.2" }
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_bytes = { version = "0.11" }
+bincode = "1.2" 
+
+[features]
+# Enable the `compiler` feature if you want the engine to compile
+# and not be only on headless mode.
+compiler = []
+
+[badges]
+maintenance = { status = "actively-developed" }

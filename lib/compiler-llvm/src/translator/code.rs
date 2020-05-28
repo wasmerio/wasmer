@@ -1,6 +1,7 @@
 use super::{
     intrinsics::{
-        func_type_to_llvm, tbaa_label, type_to_llvm, CtxType, GlobalCache, Intrinsics, MemoryCache,
+        func_type_to_llvm, tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache,
+        Intrinsics, MemoryCache,
     },
     read_info::blocktype_to_type,
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
@@ -33,7 +34,7 @@ use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, CustomSections,
     FunctionBodyData, RelocationTarget, WasmResult,
 };
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
 // TODO: debugging
 //use std::io::Write;
@@ -185,8 +186,6 @@ impl FuncTranslator {
             memory_plans,
             _table_plans,
             module: &module,
-            // TODO: pointer width
-            vmoffsets: VMOffsets::new(8, &wasm_module),
             wasm_module,
             func_names,
         };
@@ -918,10 +917,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         memory_index: MemoryIndex,
         memaccess: InstructionValue<'ctx>,
     ) -> Result<(), CompileError> {
-        if let MemoryCache::Static { base_ptr: _ } =
-            self.ctx
-                .memory(memory_index, self.intrinsics, self.memory_plans)
-        {
+        if let MemoryCache::Static { base_ptr: _ } = self.ctx.memory(
+            memory_index,
+            self.intrinsics,
+            self.module,
+            self.memory_plans,
+        ) {
             // The best we've got is `volatile`.
             // TODO: convert unwrap fail to CompileError
             memaccess.set_volatile(true).unwrap();
@@ -966,89 +967,104 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let offset = builder.build_int_add(var_offset, imm_offset, "");
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr = match self.ctx.memory(memory_index, intrinsics, self.memory_plans) {
-            MemoryCache::Dynamic {
-                ptr_to_base_ptr,
-                current_length_ptr,
-            } => {
-                // Bounds check it.
-                let minimum = self.memory_plans[memory_index].memory.minimum;
-                let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
-                let ptr_in_bounds = if offset.is_const() {
-                    // When the offset is constant, if it's below the minimum
-                    // memory size, we've statically shown that it's safe.
-                    let load_offset_end = offset.const_add(value_size_v);
-                    let ptr_in_bounds = load_offset_end.const_int_compare(
-                        IntPredicate::ULE,
-                        intrinsics.i64_ty.const_int(minimum.bytes().0 as u64, false),
-                    );
-                    if ptr_in_bounds.get_zero_extended_constant() == Some(1) {
-                        Some(ptr_in_bounds)
+        let base_ptr =
+            match self
+                .ctx
+                .memory(memory_index, intrinsics, self.module, self.memory_plans)
+            {
+                MemoryCache::Dynamic {
+                    ptr_to_base_ptr,
+                    current_length_ptr,
+                } => {
+                    // Bounds check it.
+                    let minimum = self.memory_plans[memory_index].memory.minimum;
+                    let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
+                    let ptr_in_bounds = if offset.is_const() {
+                        // When the offset is constant, if it's below the minimum
+                        // memory size, we've statically shown that it's safe.
+                        let load_offset_end = offset.const_add(value_size_v);
+                        let ptr_in_bounds = load_offset_end.const_int_compare(
+                            IntPredicate::ULE,
+                            intrinsics.i64_ty.const_int(minimum.bytes().0 as u64, false),
+                        );
+                        if ptr_in_bounds.get_zero_extended_constant() == Some(1) {
+                            Some(ptr_in_bounds)
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
-                } else {
-                    None
-                }
-                .unwrap_or_else(|| {
-                    let load_offset_end = builder.build_int_add(offset, value_size_v, "");
+                    .unwrap_or_else(|| {
+                        let load_offset_end = builder.build_int_add(offset, value_size_v, "");
 
-                    let current_length =
-                        builder.build_load(current_length_ptr, "").into_int_value();
-                    // TODO: tbaa_label
+                        let current_length =
+                            builder.build_load(current_length_ptr, "").into_int_value();
+                        tbaa_label(
+                            self.module,
+                            self.intrinsics,
+                            format!("memory {} length", memory_index.as_u32()),
+                            current_length.as_instruction_value().unwrap(),
+                        );
 
-                    builder.build_int_compare(
-                        IntPredicate::ULE,
-                        load_offset_end,
-                        current_length,
-                        "",
-                    )
-                });
-                if !ptr_in_bounds.is_constant_int()
-                    || ptr_in_bounds.get_zero_extended_constant().unwrap() != 1
-                {
-                    // LLVM may have folded this into 'i1 true' in which case we know
-                    // the pointer is in bounds. LLVM may also have folded it into a
-                    // constant expression, not known to be either true or false yet.
-                    // If it's false, unknown-but-constant, or not-a-constant, emit a
-                    // runtime bounds check. LLVM may yet succeed at optimizing it away.
-                    let ptr_in_bounds = builder
-                        .build_call(
-                            intrinsics.expect_i1,
-                            &[
-                                ptr_in_bounds.as_basic_value_enum(),
-                                intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
-                            ],
-                            "ptr_in_bounds_expect",
+                        builder.build_int_compare(
+                            IntPredicate::ULE,
+                            load_offset_end,
+                            current_length,
+                            "",
                         )
-                        .try_as_basic_value()
-                        .left()
-                        .unwrap()
-                        .into_int_value();
+                    });
+                    if !ptr_in_bounds.is_constant_int()
+                        || ptr_in_bounds.get_zero_extended_constant().unwrap() != 1
+                    {
+                        // LLVM may have folded this into 'i1 true' in which case we know
+                        // the pointer is in bounds. LLVM may also have folded it into a
+                        // constant expression, not known to be either true or false yet.
+                        // If it's false, unknown-but-constant, or not-a-constant, emit a
+                        // runtime bounds check. LLVM may yet succeed at optimizing it away.
+                        let ptr_in_bounds = builder
+                            .build_call(
+                                intrinsics.expect_i1,
+                                &[
+                                    ptr_in_bounds.as_basic_value_enum(),
+                                    intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                                ],
+                                "ptr_in_bounds_expect",
+                            )
+                            .try_as_basic_value()
+                            .left()
+                            .unwrap()
+                            .into_int_value();
 
-                    let in_bounds_continue_block =
-                        context.append_basic_block(*function, "in_bounds_continue_block");
-                    let not_in_bounds_block =
-                        context.append_basic_block(*function, "not_in_bounds_block");
-                    builder.build_conditional_branch(
-                        ptr_in_bounds,
-                        in_bounds_continue_block,
-                        not_in_bounds_block,
+                        let in_bounds_continue_block =
+                            context.append_basic_block(*function, "in_bounds_continue_block");
+                        let not_in_bounds_block =
+                            context.append_basic_block(*function, "not_in_bounds_block");
+                        builder.build_conditional_branch(
+                            ptr_in_bounds,
+                            in_bounds_continue_block,
+                            not_in_bounds_block,
+                        );
+                        builder.position_at_end(not_in_bounds_block);
+                        builder.build_call(
+                            intrinsics.throw_trap,
+                            &[intrinsics.trap_memory_oob],
+                            "throw",
+                        );
+                        builder.build_unreachable();
+                        builder.position_at_end(in_bounds_continue_block);
+                    }
+                    let ptr_to_base = builder.build_load(ptr_to_base_ptr, "").into_pointer_value();
+                    tbaa_label(
+                        self.module,
+                        self.intrinsics,
+                        format!("memory base_ptr {}", memory_index.as_u32()),
+                        ptr_to_base.as_instruction_value().unwrap(),
                     );
-                    builder.position_at_end(not_in_bounds_block);
-                    builder.build_call(
-                        intrinsics.throw_trap,
-                        &[intrinsics.trap_memory_oob],
-                        "throw",
-                    );
-                    builder.build_unreachable();
-                    builder.position_at_end(in_bounds_continue_block);
+                    ptr_to_base
                 }
-                builder.build_load(ptr_to_base_ptr, "").into_pointer_value()
-                // TODO: tbaa label
-            }
-            MemoryCache::Static { base_ptr } => base_ptr,
-        };
+                MemoryCache::Static { base_ptr } => base_ptr,
+            };
         let value_ptr = unsafe { builder.build_gep(base_ptr, &[offset], "") };
         Ok(builder
             .build_bitcast(value_ptr, ptr_ty, "")
@@ -1220,7 +1236,6 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     track_state: bool,
     */
     module: &'a Module<'ctx>,
-    vmoffsets: VMOffsets,
     wasm_module: &'a ModuleInfo,
     func_names: &'a SecondaryMap<FunctionIndex, String>,
 }
@@ -1828,20 +1843,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                match self.ctx.global(global_index, self.intrinsics) {
+                match self.ctx.global(global_index, self.intrinsics, self.module) {
                     GlobalCache::Const { value } => {
                         self.state.push1(value);
                     }
                     GlobalCache::Mut { ptr_to_value } => {
                         let value = self.builder.build_load(ptr_to_value, "");
-                        // TODO: tbaa
+                        tbaa_label(
+                            self.module,
+                            self.intrinsics,
+                            format!("global {}", global_index.as_u32()),
+                            value.as_instruction_value().unwrap(),
+                        );
                         self.state.push1(value);
                     }
                 }
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                match self.ctx.global(global_index, self.intrinsics) {
+                match self.ctx.global(global_index, self.intrinsics, self.module) {
                     GlobalCache::Const { value: _ } => {
                         return Err(CompileError::Codegen(format!(
                             "global.set on immutable global index {}",
@@ -1851,8 +1871,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     GlobalCache::Mut { ptr_to_value } => {
                         let (value, info) = self.state.pop1_extra()?;
                         let value = self.apply_pending_canonicalization(value, info);
-                        self.builder.build_store(ptr_to_value, value);
-                        // TODO: tbaa
+                        let store = self.builder.build_store(ptr_to_value, value);
+                        tbaa_label(
+                            self.module,
+                            self.intrinsics,
+                            format!("global {}", global_index.as_u32()),
+                            store,
+                        );
                     }
                 }
             }
@@ -1904,58 +1929,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
                 let func_name = &self.func_names[func_index];
-                let llvm_func_type = func_type_to_llvm(&self.context, &self.intrinsics, func_type);
 
-                let (func, callee_vmctx) = if self
-                    .wasm_module
-                    .local_func_index(func_index)
-                    .is_some()
-                {
-                    // TODO: we could do this by comparing self.function indices instead
-                    // of going through LLVM APIs and string comparisons.
-                    let func = self.module.get_function(func_name).unwrap_or_else(|| {
-                        self.module
-                            .add_function(func_name, llvm_func_type, Some(Linkage::External))
-                    });
-                    (func.as_global_value().as_pointer_value(), self.ctx.basic())
-                } else {
-                    let offset = self.vmoffsets.vmctx_vmfunction_import(func_index);
-                    let offset = self.intrinsics.i32_ty.const_int(offset.into(), false);
-                    let vmfunction_import_ptr =
-                        unsafe { self.builder.build_gep(*vmctx, &[offset], "") };
-                    let vmfunction_import_ptr = self
-                        .builder
-                        .build_bitcast(
-                            vmfunction_import_ptr,
-                            self.intrinsics.vmfunction_import_ptr_ty,
-                            "",
-                        )
-                        .into_pointer_value();
-
-                    let body_ptr_ptr = self
-                        .builder
-                        .build_struct_gep(
-                            vmfunction_import_ptr,
-                            self.intrinsics.vmfunction_import_body_element,
-                            "",
-                        )
-                        .unwrap();
-                    let body_ptr = self.builder.build_load(body_ptr_ptr, "");
-                    let body_ptr = self
-                        .builder
-                        .build_bitcast(body_ptr, llvm_func_type.ptr_type(AddressSpace::Generic), "")
-                        .into_pointer_value();
-                    let vmctx_ptr_ptr = self
-                        .builder
-                        .build_struct_gep(
-                            vmfunction_import_ptr,
-                            self.intrinsics.vmfunction_import_vmctx_element,
-                            "",
-                        )
-                        .unwrap();
-                    let vmctx_ptr = self.builder.build_load(vmctx_ptr_ptr, "");
-                    (body_ptr, vmctx_ptr)
-                };
+                let FunctionCache {
+                    func,
+                    vmctx: callee_vmctx,
+                } = self.ctx.func(
+                    func_index,
+                    self.intrinsics,
+                    self.module,
+                    self.context,
+                    func_name,
+                    func_type,
+                );
 
                 let params: Vec<_> = std::iter::once(callee_vmctx)
                     .chain(
@@ -2043,7 +2028,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let sigindex = SignatureIndex::from_u32(index);
                 let func_type = &self.wasm_module.signatures[sigindex];
                 let expected_dynamic_sigindex =
-                    self.ctx.dynamic_sigindex(sigindex, self.intrinsics);
+                    self.ctx
+                        .dynamic_sigindex(sigindex, self.intrinsics, self.module);
                 let (table_base, table_bound) = self.ctx.table(
                     TableIndex::from_u32(table_index),
                     self.intrinsics,
@@ -8170,36 +8156,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
 
             Operator::MemoryGrow { reserved } => {
-                let mem_index = MemoryIndex::from_u32(reserved);
+                let memory_index = MemoryIndex::from_u32(reserved);
                 let delta = self.state.pop1()?;
-                let (grow_fn, grow_fn_ty) =
-                    if self.wasm_module.local_memory_index(mem_index).is_some() {
-                        (
-                            VMBuiltinFunctionIndex::get_memory32_grow_index(),
-                            self.intrinsics.memory32_grow_ptr_ty,
-                        )
-                    } else {
-                        (
-                            VMBuiltinFunctionIndex::get_imported_memory32_grow_index(),
-                            self.intrinsics.imported_memory32_grow_ptr_ty,
-                        )
-                    };
-                let offset = self.vmoffsets.vmctx_builtin_function(grow_fn);
-                let offset = self.intrinsics.i32_ty.const_int(offset.into(), false);
-                let grow_fn_ptr_ptr = unsafe { self.builder.build_gep(*vmctx, &[offset], "") };
-
-                let grow_fn_ptr_ptr = self
-                    .builder
-                    .build_bitcast(
-                        grow_fn_ptr_ptr,
-                        grow_fn_ty.ptr_type(AddressSpace::Generic),
-                        "",
-                    )
-                    .into_pointer_value();
-                let grow_fn_ptr = self
-                    .builder
-                    .build_load(grow_fn_ptr_ptr, "")
-                    .into_pointer_value();
+                let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics);
                 let grow = self.builder.build_call(
                     grow_fn_ptr,
                     &[
@@ -8215,35 +8174,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1(grow.try_as_basic_value().left().unwrap());
             }
             Operator::MemorySize { reserved } => {
-                let mem_index = MemoryIndex::from_u32(reserved);
-                let (size_fn, size_fn_ty) =
-                    if self.wasm_module.local_memory_index(mem_index).is_some() {
-                        (
-                            VMBuiltinFunctionIndex::get_memory32_size_index(),
-                            self.intrinsics.memory32_size_ptr_ty,
-                        )
-                    } else {
-                        (
-                            VMBuiltinFunctionIndex::get_imported_memory32_size_index(),
-                            self.intrinsics.imported_memory32_size_ptr_ty,
-                        )
-                    };
-                let offset = self.vmoffsets.vmctx_builtin_function(size_fn);
-                let offset = self.intrinsics.i32_ty.const_int(offset.into(), false);
-                let size_fn_ptr_ptr = unsafe { self.builder.build_gep(*vmctx, &[offset], "") };
-
-                let size_fn_ptr_ptr = self
-                    .builder
-                    .build_bitcast(
-                        size_fn_ptr_ptr,
-                        size_fn_ty.ptr_type(AddressSpace::Generic),
-                        "",
-                    )
-                    .into_pointer_value();
-                let size_fn_ptr = self
-                    .builder
-                    .build_load(size_fn_ptr_ptr, "")
-                    .into_pointer_value();
+                let memory_index = MemoryIndex::from_u32(reserved);
+                let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics);
                 let size = self.builder.build_call(
                     size_fn_ptr,
                     &[

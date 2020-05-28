@@ -189,7 +189,7 @@ impl IntoIterator for ImportObject {
 ///
 /// # Usage:
 /// ```
-/// # use wasmer::{Func, Store};
+/// # use wasmer::{Function, Store};
 /// # let store = Store::default();
 /// use wasmer::imports;
 ///
