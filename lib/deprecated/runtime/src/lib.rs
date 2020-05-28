@@ -81,13 +81,13 @@ impl Backend {
 
 impl Default for Backend {
     fn default() -> Self {
-        #[cfg(all(feature = "default-backend-singlepass", not(feature = "docs")))]
+        #[cfg(feature = "default-backend-singlepass")]
         return Backend::Singlepass;
 
-        #[cfg(any(feature = "default-backend-cranelift", feature = "docs"))]
+        #[cfg(feature = "default-backend-cranelift")]
         return Backend::Cranelift;
 
-        #[cfg(all(feature = "default-backend-llvm", not(feature = "docs")))]
+        #[cfg(feature = "default-backend-llvm")]
         return Backend::LLVM;
 
         #[cfg(not(any(
