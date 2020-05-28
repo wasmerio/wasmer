@@ -44,3 +44,11 @@ impl fmt::Debug for Global {
         write!(formatter, "{:?}", &self.new_global)
     }
 }
+
+impl From<&new::wasmer::Global> for Global {
+    fn from(new_global: &new::wasmer::Global) -> Self {
+        Self {
+            new_global: new_global.clone(),
+        }
+    }
+}
