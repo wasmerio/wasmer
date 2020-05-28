@@ -1,8 +1,6 @@
 use crate::{module::Module, new, structures::TypedIndex, types::Value};
 use std::{convert::Infallible, error::Error};
 
-pub use new::wasmer::Exports;
-
 #[derive(Clone)]
 pub struct Instance {
     #[deprecated(
@@ -67,7 +65,7 @@ impl Instance {
         since = "__NEXT_VERSION__",
         note = "Please use `instance.exports` instead."
     )]
-    pub fn exports(&self) -> &Exports {
+    pub fn exports(&self) -> &new::wasmer::Exports {
         &self.new_instance.exports
     }
 
