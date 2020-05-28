@@ -86,7 +86,7 @@ pub trait Compiler {
     /// This allows us to call easily Wasm functions, such as:
     ///
     /// ```ignore
-    /// let func = instance.exports.func("my_func");
+    /// let func = instance.exports.get_function("my_func");
     /// func.call(&[Value::I32(1)]);
     /// ```
     fn compile_function_call_trampolines(
@@ -100,15 +100,15 @@ pub trait Compiler {
     /// This allows us to create dynamic Wasm functions, such as:
     ///
     /// ```ignore
-    /// fn my_func(values: Vec<Val>) -> Vec<Val> {
-    /// // do something
+    /// fn my_func(values: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+    ///     // do something
     /// }
     ///
-    /// let my_func_type = FuncType::new(vec![Type::I32], vec![Type::I32]);
+    /// let my_func_type = FunctionType::new(vec![Type::I32], vec![Type::I32]);
     /// let imports = imports!{
-    ///   "namespace" => {
-    ///     "my_func" => Func::new_dynamic(my_func_type, my_func),s
-    ///   }
+    ///     "namespace" => {
+    ///         "my_func" => Function::new_dynamic(my_func_type, my_func),
+    ///     }
     /// }
     /// ```
     fn compile_dynamic_function_trampolines(
