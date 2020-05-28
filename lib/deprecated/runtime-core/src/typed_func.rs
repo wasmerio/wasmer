@@ -7,7 +7,6 @@ use crate::{
 
 pub struct Func {
     new_function: new::wasmer::Function,
-    signature: FuncDescriptor,
 }
 
 impl Func {
@@ -19,12 +18,9 @@ impl Func {
         Env: Sized,
     {
         let store = Default::default();
-        let new_function = new::wasmer::Function::new::<F, Args, Rets, Env>(&store, func);
-        let signature = new_function.ty();
 
         Self {
-            new_function,
-            signature,
+            new_function: new::wasmer::Function::new::<F, Args, Rets, Env>(&store, func),
         }
     }
 
@@ -36,12 +32,9 @@ impl Func {
         Env: Sized,
     {
         let store = Default::default();
-        let new_function = new::wasmer::Function::new_env::<F, Args, Rets, Env>(&store, env, func);
-        let signature = new_function.ty();
 
         Self {
-            new_function,
-            signature,
+            new_function: new::wasmer::Function::new_env::<F, Args, Rets, Env>(&store, env, func),
         }
     }
 
@@ -50,12 +43,9 @@ impl Func {
         F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static,
     {
         let store = Default::default();
-        let new_function = new::wasmer::Function::new_dynamic(&store, ty, func);
-        let signature = new_function.ty();
 
         Self {
-            new_function,
-            signature,
+            new_function: new::wasmer::Function::new_dynamic(&store, ty, func),
         }
     }
 
@@ -65,17 +55,14 @@ impl Func {
         Env: Sized,
     {
         let store = Default::default();
-        let new_function = new::wasmer::Function::new_dynamic_env::<F, Env>(&store, ty, env, func);
-        let signature = new_function.ty();
 
         Self {
-            new_function,
-            signature,
+            new_function: new::wasmer::Function::new_dynamic_env::<F, Env>(&store, ty, env, func),
         }
     }
 
     pub fn signature(&self) -> &FuncDescriptor {
-        &self.signature
+        self.new_function.ty()
     }
 
     pub fn params(&self) -> &[Type] {
