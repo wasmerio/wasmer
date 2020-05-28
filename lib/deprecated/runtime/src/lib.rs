@@ -8,11 +8,11 @@ pub use wasmer_runtime_core::memory::ptr::{Array, Item, WasmPtr};
 pub use wasmer_runtime_core::memory::Memory;
 pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::table::Table;
-pub use wasmer_runtime_core::types::Value;
+pub use wasmer_runtime_core::types;
 
 pub use wasmer_runtime_core::import::imports;
 pub use wasmer_runtime_core::typed_func::Func;
-pub use wasmer_runtime_core::{compile, compile_with, validate};
+pub use wasmer_runtime_core::{compile, compile_with, load_cache_with, validate};
 
 pub mod memory {
     pub use wasmer_runtime_core::memory::{Atomically, Memory, MemoryView};
