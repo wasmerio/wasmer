@@ -83,3 +83,11 @@ impl From<Func> for new::wasmer::Extern {
         new::wasmer::Extern::Function(func.new_function)
     }
 }
+
+impl From<&new::wasmer::Function> for Func {
+    fn from(new_function: &new::wasmer::Function) -> Self {
+        Self {
+            new_function: new_function.clone(),
+        }
+    }
+}
