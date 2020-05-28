@@ -20,7 +20,11 @@ pub fn wast_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     let compiler = out.path.get(0).unwrap();
 
     // The implementation of `run_wast` lives in /tests/spectest.rs
-    let body = format!("crate::run_wast(r#\"{}\"#, \"{}\")", p.display(), compiler);
+    let body = format!(
+        "crate::wast::run_wast(r#\"{}\"#, \"{}\")",
+        p.display(),
+        compiler
+    );
 
     Some(Test {
         name: testname,
@@ -52,7 +56,7 @@ pub fn emscripten_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 
     // The implementation of `run_emscripten` lives in /tests/emtest.rs
     let body = format!(
-        "crate::run_emscripten(r#\"{}\"#, r#\"{}\"#, \"{}\")",
+        "crate::emscripten::run_emscripten(r#\"{}\"#, r#\"{}\"#, \"{}\")",
         p.display(),
         outfile.display(),
         compiler
@@ -88,7 +92,7 @@ pub fn wasi_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 
     // The implementation of `run_wasi` lives in /tests/wasitest.rs
     let body = format!(
-        "crate::run_wasi(r#\"{}\"#, r#\"{}\"#, \"{}\")",
+        "crate::wasi::run_wasi(r#\"{}\"#, r#\"{}\"#, \"{}\")",
         p.display(),
         outfile.display(),
         compiler

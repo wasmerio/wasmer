@@ -37,6 +37,9 @@ pub struct LLVMConfig {
     /// The optimization levels when optimizing the IR.
     pub opt_level: OptimizationLevel,
 
+    /// Whether to emit PIC.
+    pub is_pic: bool,
+
     features: Features,
     target: Target,
 }
@@ -72,12 +75,17 @@ impl LLVMConfig {
             enable_nan_canonicalization: true,
             enable_verifier: false,
             opt_level: OptimizationLevel::Aggressive,
+            is_pic: false,
             features,
             target,
         }
     }
     fn reloc_mode(&self) -> RelocMode {
-        RelocMode::Static
+        if self.is_pic {
+            RelocMode::PIC
+        } else {
+            RelocMode::Static
+        }
     }
 
     fn code_model(&self) -> CodeModel {
@@ -149,22 +157,25 @@ impl LLVMConfig {
 }
 
 impl CompilerConfig for LLVMConfig {
-    /// Gets the WebAssembly features
+    /// Gets the WebAssembly features.
     fn features(&self) -> &Features {
         &self.features
     }
 
+    /// Emit code suitable for dlopen.
     fn enable_pic(&mut self) {
-        unimplemented!("PIC is not yet implemented in LLVM");
+        // TODO: although we can emit PIC, the object file parser does not yet
+        // support all the relocations.
+        self.is_pic = true;
     }
 
-    /// Gets the target that we will use for compiling
+    /// Gets the target that we will use for compiling.
     /// the WebAssembly module
     fn target(&self) -> &Target {
         &self.target
     }
 
-    /// Transform it into the compiler
+    /// Transform it into the compiler.
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(LLVMCompiler::new(&self))
     }

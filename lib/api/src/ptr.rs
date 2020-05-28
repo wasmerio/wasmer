@@ -26,7 +26,7 @@ pub struct Item;
 /// # use wasmer::Memory;
 /// # use wasmer::WasmPtr;
 /// pub fn host_import(memory: Memory, ptr: WasmPtr<u32>) {
-///     let derefed_ptr = ptr.deref(memory).expect("pointer in bounds");
+///     let derefed_ptr = ptr.deref(&memory).expect("pointer in bounds");
 ///     let inner_val: u32 = derefed_ptr.get();
 ///     println!("Got {} from Wasm memory address 0x{:X}", inner_val, ptr.offset());
 ///     // update the value being pointed to

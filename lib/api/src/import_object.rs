@@ -30,12 +30,12 @@ pub trait LikeNamespace {
 ///
 /// # Usage:
 /// ```ignore
-/// use wasmer::{ImportObject, Exports};
+/// use wasmer::{Exports, ImportObject, Function};
 ///
 /// let mut import_object = ImportObject::new();
 /// let mut env = Exports::new();
 ///
-/// env.insert("foo", func!(foo));
+/// env.insert("foo", Function::new(foo));
 /// import_object.register("env", env);
 ///
 /// fn foo(n: i32) -> i32 {
@@ -189,7 +189,7 @@ impl IntoIterator for ImportObject {
 ///
 /// # Usage:
 /// ```
-/// # use wasmer::{Func, Store};
+/// # use wasmer::{Function, Store};
 /// # let store = Store::default();
 /// use wasmer::imports;
 ///

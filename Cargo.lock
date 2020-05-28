@@ -445,6 +445,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d9d8664cf849d7d0f3114a3a387d2f5e4303176d746d5a951aaddc66dfe9240"
 
 [[package]]
+name = "dlib"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77e51249a9d823a4cb79e3eca6dcd756153e8ed0157b6c04775d04bf1b13b76a"
+dependencies = [
+ "libloading 0.5.2",
+]
+
+[[package]]
+name = "downcast-rs"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52ba6eb47c2131e784a38b726eb54c1e1484904f013e576a25354d0124161af6"
+
+[[package]]
 name = "dynasm"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -890,16 +905,23 @@ dependencies = [
 
 [[package]]
 name = "minifb"
-version = "0.13.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55cbdf43445926b65e07992f06019321e7481df8fd656dcb6871d00cdbd9fc73"
+checksum = "b18d2987dac6afdd7f6d81101a3b422b7da3e6799d7f11863ad006d8ccd562b2"
 dependencies = [
  "cast",
  "cc",
  "orbclient",
+ "raw-window-handle",
+ "tempfile",
  "time",
+ "wayland-client",
+ "wayland-cursor",
+ "wayland-protocols",
  "winapi",
  "x11-dl",
+ "xkb",
+ "xkbcommon-sys",
 ]
 
 [[package]]
@@ -907,6 +929,19 @@ name = "more-asserts"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
+
+[[package]]
+name = "nix"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50e4785f2c3b7589a0d0c1dd60285e1188adac4006e8abd6dd578e1567027363"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cfg-if",
+ "libc",
+ "void",
+]
 
 [[package]]
 name = "nom"
@@ -1251,6 +1286,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "raw-window-handle"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a441a7a6c80ad6473bd4b74ec1c9a4c951794285bf941c2126f607c72e48211"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "rayon"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1360,6 +1404,12 @@ name = "ryu"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed3d612bc64430efeb3f7ee6ef26d590dce0c43249217bddc62112540c7941e1"
+
+[[package]]
+name = "scoped-tls"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea6a9290e3c9cf0f18145ef7ffa62d68ee0bf5fcd651017e586dc7fd5da448c2"
 
 [[package]]
 name = "scopeguard"
@@ -1760,6 +1810,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "078775d0255232fb988e6fccf26ddc9d1ac274299aaedcedce21c6f72cc533ce"
 
 [[package]]
+name = "void"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
+
+[[package]]
 name = "wasi"
 version = "0.9.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1791,6 +1847,7 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-engine",
+ "wasmer-engine-dummy",
  "wasmer-engine-jit",
  "wasmer-engine-native",
  "wasmer-runtime",
@@ -1821,6 +1878,7 @@ dependencies = [
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-engine",
+ "wasmer-engine-dummy",
  "wasmer-engine-jit",
  "wasmer-engine-native",
  "wasmer-wasi",
@@ -1934,6 +1992,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-engine-dummy"
+version = "0.16.2"
+dependencies = [
+ "bincode",
+ "serde",
+ "serde_bytes",
+ "wasm-common",
+ "wasmer-compiler",
+ "wasmer-engine",
+ "wasmer-runtime",
+]
+
+[[package]]
 name = "wasmer-engine-jit"
 version = "0.16.2"
 dependencies = [
@@ -2034,7 +2105,7 @@ dependencies = [
  "anyhow",
  "thiserror",
  "wasmer",
- "wast 14.0.0",
+ "wast 17.0.0",
 ]
 
 [[package]]
@@ -2042,15 +2113,6 @@ name = "wasmparser"
 version = "0.51.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aeb1956b19469d1c5e63e459d29e7b5aa0f558d9f16fcef09736f8a265e6c10a"
-
-[[package]]
-name = "wast"
-version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47b11c94c63d5365a76ea287f8e6e5b6050233fae4b2423aea2a1e126a385e17"
-dependencies = [
- "leb128",
-]
 
 [[package]]
 name = "wast"
@@ -2062,12 +2124,91 @@ dependencies = [
 ]
 
 [[package]]
+name = "wast"
+version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a0e1c36b928fca33dbaf96235188f5fad22ee87100e26cc606bd0fbabdf1932"
+dependencies = [
+ "leb128",
+]
+
+[[package]]
 name = "wat"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a02463c6661a0d5a089d795e2e49ab34594b41265e8bd5ff3e0810e2a1f84222"
 dependencies = [
  "wast 16.0.0",
+]
+
+[[package]]
+name = "wayland-client"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a42cb608953ec8e132c7f53fde722cca9bfbf8b2071d685dbbb8df2b567fee8b"
+dependencies = [
+ "bitflags",
+ "downcast-rs",
+ "libc",
+ "nix",
+ "scoped-tls",
+ "wayland-commons",
+ "wayland-scanner",
+ "wayland-sys",
+]
+
+[[package]]
+name = "wayland-commons"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8caa2f106138cf71358c6a9e84468e4406069cec93cbd6dbfce92225fc175932"
+dependencies = [
+ "nix",
+ "once_cell",
+ "smallvec",
+ "wayland-sys",
+]
+
+[[package]]
+name = "wayland-cursor"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d774f69a6a4a9eac6d1a29cea45a4750ee7f997520421b2068f099a11b4cbba"
+dependencies = [
+ "wayland-client",
+ "wayland-sys",
+]
+
+[[package]]
+name = "wayland-protocols"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f784a990d5fa6d846fa93eb8d3bb744ff1e6ec60c7f785b0a0ee2f1a1f20bee9"
+dependencies = [
+ "bitflags",
+ "wayland-client",
+ "wayland-commons",
+ "wayland-scanner",
+]
+
+[[package]]
+name = "wayland-scanner"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f45ddc08a8078f3efa96b5f413268cc9c53b30712891de081fbc1d5846fbc736"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "xml-rs",
+]
+
+[[package]]
+name = "wayland-sys"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80f9fc64f9045ad5ff491886a9460437655353e8be73c1b3f29f569342553319"
+dependencies = [
+ "dlib",
 ]
 
 [[package]]
@@ -2121,3 +2262,30 @@ dependencies = [
  "maybe-uninit",
  "pkg-config",
 ]
+
+[[package]]
+name = "xkb"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aec02bc5de902aa579f3d2f2c522edaf40fa42963cbaffe645b058ddcc68fdb2"
+dependencies = [
+ "bitflags",
+ "libc",
+ "xkbcommon-sys",
+]
+
+[[package]]
+name = "xkbcommon-sys"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa434980dca02ebf28795d71e570dbb78316d095a228707efd6117bf8246d78b"
+dependencies = [
+ "libc",
+ "pkg-config",
+]
+
+[[package]]
+name = "xml-rs"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b07db065a5cf61a7e4ba64f29e67db906fb1787316516c4e6e5ff0fea1efcd8a"

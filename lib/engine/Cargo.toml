@@ -14,13 +14,13 @@ edition = "2018"
 wasm-common = { path = "../wasm-common", version = "0.16.2" }
 wasmer-compiler = { path = "../compiler", version = "0.16.2", default-features = false }
 wasmer-runtime = { path = "../runtime", version = "0.16.2" }
-target-lexicon = { version = "0.10.0", default-features = false }
+target-lexicon = { version = "0.10", default-features = false }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 backtrace = "0.3"
 rustc-demangle = "0.1"
 more-asserts = "0.2"
-thiserror = "1.0.16"
-region = "2.1.2"
+thiserror = "1.0"
+region = "2.1"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_bytes = { version = "0.11" }
 bincode = "1.2"

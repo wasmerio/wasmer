@@ -1,0 +1,213 @@
+//! Define `DummyArtifact` to allow compiling and instantiating to be
+//! done as separate steps.
+
+use crate::engine::DummyEngine;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use wasm_common::entity::{BoxedSlice, PrimaryMap};
+use wasm_common::{
+    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
+};
+use wasmer_compiler::{CompileError, ModuleEnvironment};
+use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError};
+use wasmer_runtime::{
+    MemoryPlan, ModuleInfo, TablePlan, VMContext, VMFunctionBody, VMSharedSignatureIndex,
+};
+
+/// Serializable struct for the artifact
+#[derive(Serialize, Deserialize)]
+pub struct DummyArtifactMetadata {
+    pub module: Arc<ModuleInfo>,
+    pub features: Features,
+    pub data_initializers: Box<[OwnedDataInitializer]>,
+    // Plans for that module
+    pub memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
+    pub table_plans: PrimaryMap<TableIndex, TablePlan>,
+}
+
+/// A Dummy artifact.
+///
+/// This artifact will point to fake finished functions and trampolines
+/// as no functions are really compiled.
+pub struct DummyArtifact {
+    metadata: DummyArtifactMetadata,
+
+    finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
+    signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+}
+
+extern "C" fn dummy_function(_context: *mut VMContext) {
+    panic!("Dummy engine can't generate functions")
+}
+
+impl DummyArtifact {
+    const MAGIC_HEADER: &'static [u8] = b"\0wasmer-dummy";
+
+    /// Check if the provided bytes look like a serialized `DummyArtifact`.
+    pub fn is_deserializable(bytes: &[u8]) -> bool {
+        bytes.starts_with(Self::MAGIC_HEADER)
+    }
+
+    /// Compile a data buffer into a `DummyArtifact`, which may then be instantiated.
+    pub fn new(engine: &DummyEngine, data: &[u8]) -> Result<Self, CompileError> {
+        let environ = ModuleEnvironment::new();
+        let tunables = engine.tunables();
+
+        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
+
+        let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
+            .module
+            .memories
+            .values()
+            .map(|memory_type| tunables.memory_plan(*memory_type))
+            .collect();
+        let table_plans: PrimaryMap<TableIndex, TablePlan> = translation
+            .module
+            .tables
+            .values()
+            .map(|table_type| tunables.table_plan(*table_type))
+            .collect();
+
+        let data_initializers = translation
+            .data_initializers
+            .iter()
+            .map(OwnedDataInitializer::new)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        let metadata = DummyArtifactMetadata {
+            module: Arc::new(translation.module),
+            features: Features::default(),
+            data_initializers,
+            memory_plans,
+            table_plans,
+        };
+        Self::from_parts(&engine, metadata)
+    }
+
+    /// Deserialize a DummyArtifact
+    pub fn deserialize(engine: &DummyEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
+        if !Self::is_deserializable(bytes) {
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not of the dummy engine".to_string(),
+            ));
+        }
+
+        let inner_bytes = &bytes[Self::MAGIC_HEADER.len()..];
+
+        let metadata: DummyArtifactMetadata = bincode::deserialize(inner_bytes)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+
+        Self::from_parts(&engine, metadata).map_err(DeserializeError::Compiler)
+    }
+
+    /// Construct a `DummyArtifact` from component parts.
+    pub fn from_parts(
+        engine: &DummyEngine,
+        metadata: DummyArtifactMetadata,
+    ) -> Result<Self, CompileError> {
+        let num_local_functions =
+            metadata.module.functions.len() - metadata.module.num_imported_funcs;
+        // We prepare the pointers for the finished functions
+        let finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> = (0
+            ..num_local_functions)
+            .map(|_| unsafe {
+                let func_pointer = std::slice::from_raw_parts(dummy_function as *const (), 0);
+                let func_pointer = std::mem::transmute::<_, *mut [VMFunctionBody]>(func_pointer);
+                func_pointer
+            })
+            .collect::<PrimaryMap<_, _>>();
+
+        // We prepare the pointers for the finished dynamic function trampolines
+        let finished_dynamic_function_trampolines: PrimaryMap<
+            FunctionIndex,
+            *const VMFunctionBody,
+        > = (0..metadata.module.num_imported_funcs)
+            .map(|_| unsafe {
+                std::mem::transmute::<_, *const VMFunctionBody>(dummy_function as *const ())
+            })
+            .collect::<PrimaryMap<_, _>>();
+
+        // Compute indices into the shared signature table.
+        let signatures = {
+            metadata
+                .module
+                .signatures
+                .values()
+                .map(|sig| engine.register_signature(sig))
+                .collect::<PrimaryMap<_, _>>()
+        };
+
+        let finished_functions = finished_functions.into_boxed_slice();
+        let finished_dynamic_function_trampolines =
+            finished_dynamic_function_trampolines.into_boxed_slice();
+        let signatures = signatures.into_boxed_slice();
+
+        Ok(Self {
+            metadata,
+            finished_functions,
+            finished_dynamic_function_trampolines,
+            signatures,
+        })
+    }
+}
+
+impl Artifact for DummyArtifact {
+    fn module(&self) -> Arc<ModuleInfo> {
+        self.metadata.module.clone()
+    }
+
+    fn module_ref(&self) -> &ModuleInfo {
+        &self.metadata.module
+    }
+
+    fn module_mut(&mut self) -> Option<&mut ModuleInfo> {
+        Arc::get_mut(&mut self.metadata.module)
+    }
+
+    fn register_frame_info(&self) {
+        // Do nothing, since functions are not generated for the dummy engine
+    }
+
+    fn features(&self) -> &Features {
+        &self.metadata.features
+    }
+
+    fn data_initializers(&self) -> &[OwnedDataInitializer] {
+        &*self.metadata.data_initializers
+    }
+
+    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
+        &self.metadata.memory_plans
+    }
+
+    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
+        &self.metadata.table_plans
+    }
+
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {
+        &self.finished_functions
+    }
+
+    fn finished_dynamic_function_trampolines(
+        &self,
+    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody> {
+        &self.finished_dynamic_function_trampolines
+    }
+
+    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
+        &self.signatures
+    }
+
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        let bytes = bincode::serialize(&self.metadata)
+            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
+
+        // Prepend the header.
+        let mut serialized = Self::MAGIC_HEADER.to_vec();
+        serialized.extend(bytes);
+        Ok(serialized)
+    }
+}
