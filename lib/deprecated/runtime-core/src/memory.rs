@@ -5,7 +5,7 @@ pub mod ptr {
 }
 
 pub use new::wasm_common::MemoryType as MemoryDescriptor;
-pub use new::wasmer::MemoryView;
+pub use new::wasmer::{Atomically, MemoryView};
 pub use new::wasmer_runtime::MemoryStyle as MemoryType;
 
 pub struct Memory {

@@ -1,0 +1,23 @@
+[package]
+name = "wasmer-runtime-old"
+version = "0.16.2"
+description = "Wasmer runtime library"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+keywords = ["wasm", "webassembly", "runtime", "sandbox", "secure"]
+categories = ["wasm", "api-bindings"]
+edition = "2018"
+readme = "README.md"
+
+[dependencies]
+wasmer-runtime-core = { path = "../runtime-core/", version = "0.16.2" }
+
+[features]
+default = ["wasmer-runtime-core/default"]
+cranelift = ["wasmer-runtime-core/cranelift"]
+llvm = ["wasmer-runtime-core/llvm"]
+singlepass = ["wasmer-runtime-core/singlepass"]
+default-backend-cranelift = ["wasmer-runtime-core/default-backend-cranelift"]
+default-backend-llvm = ["wasmer-runtime-core/default-backend-llvm"]
+default-backend-singlepass = ["wasmer-runtime-core/default-backend-singlepass"]

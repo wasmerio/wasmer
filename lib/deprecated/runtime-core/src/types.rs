@@ -15,6 +15,7 @@ pub use new::wasm_common::{
     LocalMemoryIndex,
     LocalTableIndex,
     MemoryIndex,
+    MemoryType as MemoryDescriptor,
     SignatureIndex as SigIndex,
     TableIndex,
     TableType as TableDescriptor,
