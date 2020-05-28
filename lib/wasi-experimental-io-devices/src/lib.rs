@@ -164,11 +164,15 @@ impl FrameBufferState {
 
     pub fn draw(&mut self) {
         self.window
-            .update_with_buffer(if self.front_buffer {
-                &self.data_1[..]
-            } else {
-                &self.data_2[..]
-            })
+            .update_with_buffer(
+                if self.front_buffer {
+                    &self.data_1[..]
+                } else {
+                    &self.data_2[..]
+                },
+                self.x_size.try_into().unwrap(),
+                self.y_size.try_into().unwrap(),
+            )
             .expect("Internal error! Failed to draw to framebuffer");
     }
 
