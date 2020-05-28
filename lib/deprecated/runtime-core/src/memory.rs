@@ -37,3 +37,11 @@ impl Memory {
         self.new_memory.view()
     }
 }
+
+impl From<&new::wasmer::Memory> for Memory {
+    fn from(new_memory: &new::wasmer::Memory) -> Self {
+        Self {
+            new_memory: new_memory.clone(),
+        }
+    }
+}
