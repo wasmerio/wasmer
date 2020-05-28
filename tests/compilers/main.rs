@@ -4,5 +4,5 @@
 
 #[macro_use]
 mod macros;
-mod trampolines;
+mod imports;
 mod wast;
