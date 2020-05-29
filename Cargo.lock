@@ -2087,6 +2087,7 @@ name = "wasmer-runtime-c-api"
 version = "0.16.2"
 dependencies = [
  "cbindgen",
+ "cfg-if",
  "lazy_static",
  "libc",
  "libffi",

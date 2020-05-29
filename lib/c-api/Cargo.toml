@@ -15,6 +15,7 @@ readme = "README.md"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
+cfg-if = "0.1"
 lazy_static = "1"
 libc = { version = "0.2", default-features = false }
 libffi = { version = "0.9" }
