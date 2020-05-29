@@ -1280,9 +1280,7 @@ impl<'a> FuncGen<'a> {
                     Location::Imm32(memarg.offset),
                     Location::GPR(tmp_addr),
                 );
-                self.assembler
-                    .emit_jmp(Condition::Carry, self.special_labels.heap_access_oob);
-                // unsigned overflow
+                // Overflow is checked outside the `need_check` block, so we don't need to check it here.
             }
 
             // Trap if the start address of the requested area is equal to or above that of the linear memory.
@@ -1320,6 +1318,10 @@ impl<'a> FuncGen<'a> {
                 Location::Imm32(memarg.offset as u32),
                 Location::GPR(tmp_addr),
             );
+
+            // Trap if offset calculation overflowed.
+            self.assembler
+                .emit_jmp(Condition::Carry, self.special_labels.heap_access_oob);
         }
         self.assembler
             .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
