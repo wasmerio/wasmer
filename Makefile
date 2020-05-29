@@ -73,7 +73,7 @@ doc-local:
 RUSTFLAGS := "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects" # TODO: add `-D missing-docs`
 lint:
 	cargo fmt --all -- --check
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy
+	RUSTFLAGS=${RUSTFLAGS} cargo clippy $(compiler_features)
 
 capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \

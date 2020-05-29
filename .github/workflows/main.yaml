@@ -58,7 +58,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
-      - run: cargo test --release
+      - run: make test
       - name: Set up dependencies for Mac OS
         run: brew install automake
         if: matrix.os == 'macos-latest'
