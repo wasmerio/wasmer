@@ -373,7 +373,7 @@ impl Machine {
         let callee_saved_regs_size = static_area_size;
 
         // Now we can determine concrete locations for locals.
-        let mut locations: Vec<Location> = (0..n)
+        let locations: Vec<Location> = (0..n)
             .map(|i| get_local_location(i, callee_saved_regs_size))
             .collect();
 
