@@ -8369,7 +8369,7 @@ pub fn gen_std_dynamic_import_trampoline(
     // Copy arguments.
     if sig.params().len() > 0 {
         let mut argalloc = ArgumentRegisterAllocator::default();
-        argalloc.next(Type::I32).unwrap(); // skip VMContext
+        argalloc.next(Type::I64).unwrap(); // skip VMContext
 
         let mut stack_param_count: usize = 0;
 
@@ -8499,7 +8499,7 @@ pub fn gen_import_call_trampoline(
 
         // Copy arguments.
         let mut argalloc = ArgumentRegisterAllocator::default();
-        argalloc.next(Type::I32).unwrap(); // skip VMContext
+        argalloc.next(Type::I64).unwrap(); // skip VMContext
         let mut caller_stack_offset: i32 = 0;
         for (i, ty) in sig.params().iter().enumerate() {
             let prev_loc = param_locations[i];
