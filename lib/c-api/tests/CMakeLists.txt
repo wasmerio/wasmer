@@ -22,9 +22,9 @@ add_executable(test-module-import-instantiate test-module-import-instantiate.c)
 
 # Wasm C API tests
 add_executable(wasm-c-api-hello wasm-c-api/example/hello.c)
-#add_executable(wasm-c-api-memory wasm-c-api/example/memory.c)
-#add_executable(wasm-c-api-global wasm-c-api/example/global.c)
-#add_executable(wasm-c-api-serialize wasm-c-api/example/serialize.c)
+add_executable(wasm-c-api-memory wasm-c-api/example/memory.c)
+add_executable(wasm-c-api-global wasm-c-api/example/global.c)
+add_executable(wasm-c-api-serialize wasm-c-api/example/serialize.c)
 
 if (DEFINED WASI_TESTS)
     add_executable(test-wasi-import-object test-wasi-import-object.c)
@@ -148,23 +148,23 @@ add_test(NAME wasm-c-api-hello
          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
 )
 
-#target_link_libraries(wasm-c-api-memory general ${WASMER_LIB})
-#target_compile_options(wasm-c-api-memory PRIVATE ${COMPILER_OPTIONS})
-#add_test(NAME wasm-c-api-memory
-#         COMMAND wasm-c-api-memory
-#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
-#)
-#
-#target_link_libraries(wasm-c-api-global general ${WASMER_LIB})
-#target_compile_options(wasm-c-api-global PRIVATE ${COMPILER_OPTIONS})
-#add_test(NAME wasm-c-api-global
-#         COMMAND wasm-c-api-global
-#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
-#)
-#
-#target_link_libraries(wasm-c-api-serialize general ${WASMER_LIB})
-#target_compile_options(wasm-c-api-serialize PRIVATE ${COMPILER_OPTIONS})
-#add_test(NAME wasm-c-api-serialize
-#         COMMAND wasm-c-api-serialize
-#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
-#)
+target_link_libraries(wasm-c-api-memory general ${WASMER_LIB})
+target_compile_options(wasm-c-api-memory PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-memory
+         COMMAND wasm-c-api-memory
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
+)
+
+target_link_libraries(wasm-c-api-global general ${WASMER_LIB})
+target_compile_options(wasm-c-api-global PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-global
+         COMMAND wasm-c-api-global
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
+)
+
+target_link_libraries(wasm-c-api-serialize general ${WASMER_LIB})
+target_compile_options(wasm-c-api-serialize PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-serialize
+         COMMAND wasm-c-api-serialize
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
+)
