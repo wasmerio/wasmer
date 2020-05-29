@@ -126,6 +126,11 @@ impl Memory {
             exported: wasmer_export,
         }
     }
+
+    /// Returns whether or not these two globals refer to the same data.
+    pub fn same(&self, other: &Memory) -> bool {
+        self.exported.same(&other.exported)
+    }
 }
 
 impl<'a> Exportable<'a> for Memory {

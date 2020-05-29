@@ -1,5 +1,6 @@
 //! entrypoints for the standard C API
 
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ffi::c_void;
 use std::mem;
@@ -8,9 +9,9 @@ use std::slice;
 use std::sync::Arc;
 
 use wasmer::{
-    Extern, ExternType, Function, FunctionType, Global, GlobalType, ImportObject, Instance,
-    LikeNamespace, Memory, MemoryType, Module, Mutability, Pages, RuntimeError, Store, Val,
-    ValType,
+    CompilerConfig, Engine, Exports, Extern, ExternType, Function, FunctionType, Global,
+    GlobalType, ImportObject, Instance, JITEngine, Memory, MemoryType, Module, Mutability, Pages,
+    RuntimeError, Store, Tunables, Val, ValType,
 };
 
 // TODO: remove delete from macro generation, need to do that manually
@@ -41,29 +42,44 @@ pub extern "C" fn wasm_config_new() -> *mut wasm_config_t {
 }
 
 #[repr(C)]
-pub struct wasm_engine_t {}
+pub struct wasm_engine_t {
+    inner: Arc<dyn Engine + Send + Sync>,
+}
 
-#[no_mangle]
-pub extern "C" fn wasm_engine_new() -> *mut wasm_engine_t {
-    let mut wasmer_heap_string = "WASMER ENGINE".to_string();
-    wasmer_heap_string.shrink_to_fit();
-    let boxed_string: Box<String> = Box::new(wasmer_heap_string);
-    Box::into_raw(boxed_string) as *mut wasm_engine_t
+fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
+    // TODO: use cfg-if
+    #[cfg(feature = "cranelift-backend")]
+    Box::new(wasmer::CraneliftConfig::default())
+    /*
+    #[cfg(feature = "singlepass-backend")]
+    Box::new(wasmer::SinglepassConfig::default())
+
+    #[cfg(feature = "llvm-backend")]
+    Box::new(wasmer::LLVMConfig::default())
+        */
 }
 
 #[no_mangle]
-pub extern "C" fn wasm_engine_delete(wasm_engine_address: *mut wasm_engine_t) {
-    if !wasm_engine_address.is_null() {
-        // this should not leak memory:
-        // we should double check it to make sure though
-        let _boxed_str: Box<String> = unsafe { Box::from_raw(wasm_engine_address as *mut String) };
+pub extern "C" fn wasm_engine_new() -> NonNull<wasm_engine_t> {
+    let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
+    let tunables = Tunables::default();
+    let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::new(compiler_config, tunables));
+    let wasm_engine = Box::new(wasm_engine_t { inner: engine });
+    unsafe { NonNull::new_unchecked(Box::into_raw(wasm_engine)).cast::<wasm_engine_t>() }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_engine_delete(wasm_engine_address: Option<NonNull<wasm_engine_t>>) {
+    if let Some(e_inner) = wasm_engine_address {
+        // this should probably be a no-op
+        Box::from_raw(e_inner.as_ptr());
     }
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_engine_new_with_config(
     _config_ptr: *mut wasm_config_t,
-) -> *mut wasm_engine_t {
+) -> NonNull<wasm_engine_t> {
     wasm_engine_new()
 }
 
@@ -80,42 +96,26 @@ pub unsafe extern "C" fn wasm_instance_new(
     // own
     _traps: *mut *mut wasm_trap_t,
 ) -> Option<NonNull<wasm_instance_t>> {
-    let module = &(&*module).inner;
-    let module_imports = module.imports();
+    let wasm_module = &(&*module).inner;
+    let module_imports = wasm_module.imports();
     let module_import_count = module_imports.len();
     let imports = argument_import_iter(imports);
-    let mut import_object = ImportObject::new();
     let mut imports_processed = 0;
-    /*
-    for (
-        ImportDescriptor {
-            namespace,
-            name,
-            ty,
-        },
-        import,
-    ) in module_imports.into_iter().zip(imports)
-    {
+    let mut org_map: HashMap<String, Exports> = HashMap::new();
+    for (import_type, import) in module_imports.into_iter().zip(imports) {
         imports_processed += 1;
-        // TODO: review this code and consider doing it without internal mutation (build up external data Namespaces and then register them with the ImportObject)
-        if import_object.with_namespace(&namespace, |_| ()).is_none() {
-            import_object.register(&namespace, Namespace::new());
-        }
-        match (ty, import.export.clone()) {
+        let entry = org_map
+            .entry(import_type.module().to_string())
+            .or_insert_with(Exports::new);
+
+        let extrn = match (import_type.ty(), &import.inner) {
             (ExternType::Function(expected_signature), Extern::Function(f)) => {
                 if expected_signature != f.ty() {
                     // TODO: report error
                     return None;
                 }
 
-                import_object
-                    .with_namespace_mut(
-                        &namespace,
-                        |ns: &mut (dyn LikeNamespace + Send)| -> Option<()> {
-                            ns.maybe_insert(&name, import.export.clone())
-                        },
-                    )
-                    .expect("failed to modify namespace: TODO handle this error");
+                entry.insert(import_type.name(), import.inner.clone())
             }
             (ExternType::Global(global_ty), Extern::Global(extern_global)) => {
                 if global_ty != extern_global.ty() {
@@ -123,14 +123,7 @@ pub unsafe extern "C" fn wasm_instance_new(
                     return None;
                 }
 
-                import_object
-                    .with_namespace_mut(
-                        &namespace,
-                        |ns: &mut (dyn LikeNamespace + Send)| -> Option<()> {
-                            ns.maybe_insert(&name, import.export.clone())
-                        },
-                    )
-                    .expect("failed to modify namespace");
+                entry.insert(import_type.name(), import.inner.clone())
             }
             (ExternType::Memory(_), Extern::Memory(_)) => todo!("memory"),
             (ExternType::Table(_), Extern::Table(_)) => todo!("table"),
@@ -138,20 +131,25 @@ pub unsafe extern "C" fn wasm_instance_new(
                 // type mismatch: report error here
                 return None;
             }
-        }
+        };
     }
-    */
-    todo!("instance new");
     if module_import_count != imports_processed {
         // handle this error
         return None;
     }
 
+    let mut import_object = ImportObject::new();
+    for (ns, exports) in org_map {
+        import_object.register(ns, exports);
+    }
+
     let instance = Arc::new(
-        Instance::new(module, &import_object)
+        Instance::new(wasm_module, &import_object)
             .expect("failed to instantiate: TODO handle this error"),
     );
-    NonNull::new(Box::into_raw(Box::new(wasm_instance_t { inner: instance })))
+    Some(NonNull::new_unchecked(Box::into_raw(Box::new(
+        wasm_instance_t { inner: instance },
+    ))))
 }
 
 #[no_mangle]
@@ -210,7 +208,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
         .iter()
         .map(|(name, r#extern)| {
             let function = if let Extern::Function { .. } = r#extern {
-                instance.exports.get(&name).ok().cloned()
+                instance.exports.get_function(&name).ok().cloned()
 
             /*let sig_idx = SigRegistry::lookup_sig_index(signature);
             let trampoline = instance.module.runnable_module.get_trampoline(&instance.module.info, sig_idx).expect("wasm trampoline");
@@ -220,8 +218,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
             };
             Box::into_raw(Box::new(wasm_extern_t {
                 instance: Some(Arc::clone(instance)),
-                function,
-                inner: *r#extern,
+                inner: r#extern.clone(),
             }))
         })
         .collect::<Vec<*mut wasm_extern_t>>();
@@ -246,7 +243,8 @@ pub unsafe extern "C" fn wasm_module_new(
     let bytes = &*bytes;
     // TODO: review lifetime of byte slice
     let wasm_byte_slice: &[u8] = slice::from_raw_parts_mut(bytes.data, bytes.size);
-    let store: &Store = store_ptr?.cast::<Store>().as_ref();
+    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
+    let store = store_ptr.as_ref();
     let result = Module::from_binary(store, wasm_byte_slice);
     let module = match result {
         Ok(module) => module,
@@ -256,9 +254,11 @@ pub unsafe extern "C" fn wasm_module_new(
         }
     };
 
-    NonNull::new(Box::into_raw(Box::new(wasm_module_t {
-        inner: Arc::new(module),
-    })))
+    Some(NonNull::new_unchecked(Box::into_raw(Box::new(
+        wasm_module_t {
+            inner: Arc::new(module),
+        },
+    ))))
 }
 
 #[no_mangle]
@@ -282,7 +282,8 @@ pub unsafe extern "C" fn wasm_module_deserialize(
         (&*bytes).into_slice().unwrap()
     };
 
-    let store: &Store = store_ptr?.cast::<Store>().as_ref();
+    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
+    let store = store_ptr.as_ref();
     let module = if let Ok(module) = Module::deserialize(store, byte_slice) {
         module
     } else {
@@ -290,9 +291,11 @@ pub unsafe extern "C" fn wasm_module_deserialize(
         return None;
     };
 
-    NonNull::new(Box::into_raw(Box::new(wasm_module_t {
-        inner: Arc::new(module),
-    })))
+    Some(NonNull::new_unchecked(Box::into_raw(Box::new(
+        wasm_module_t {
+            inner: Arc::new(module),
+        },
+    ))))
 }
 
 #[no_mangle]
@@ -321,124 +324,112 @@ pub unsafe extern "C" fn wasm_module_serialize(
 pub struct wasm_store_t {}
 
 #[no_mangle]
-pub extern "C" fn wasm_store_new(_wasm_engine: *mut wasm_engine_t) -> *mut wasm_store_t {
-    let mut wasmer_heap_string = "WASMER STORE".to_string();
-    wasmer_heap_string.shrink_to_fit();
-    let boxed_string: Box<String> = Box::new(wasmer_heap_string);
-    Box::into_raw(boxed_string) as *mut wasm_store_t
+pub unsafe extern "C" fn wasm_store_new(
+    wasm_engine_ptr: Option<NonNull<wasm_engine_t>>,
+) -> Option<NonNull<wasm_store_t>> {
+    let wasm_engine_ptr = wasm_engine_ptr?;
+    let wasm_engine = wasm_engine_ptr.as_ref();
+    let store = Store::new(wasm_engine.inner.clone());
+    Some(NonNull::new_unchecked(
+        Box::into_raw(Box::new(store)) as *mut wasm_store_t
+    ))
 }
 
 #[no_mangle]
-pub extern "C" fn wasm_store_delete(wasm_store_address: *mut wasm_store_t) {
-    if !wasm_store_address.is_null() {
+pub unsafe extern "C" fn wasm_store_delete(wasm_store: Option<NonNull<wasm_store_t>>) {
+    if let Some(s_inner) = wasm_store {
         // this should not leak memory:
         // we should double check it to make sure though
-        let _boxed_str: Box<String> = unsafe { Box::from_raw(wasm_store_address as *mut String) };
+        let _: Box<Store> = Box::from_raw(s_inner.cast::<Store>().as_ptr());
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_func_as_extern(func_ptr: *mut wasm_func_t) -> *mut wasm_extern_t {
-    let func = &*func_ptr;
-    /*match func.callback {
-        CallbackType::WithEnv { .. } => todo!("wasm_func_as_extern for funcs with envs"),
-        CallbackType::WithoutEnv(callback) => {
-            let r#extern = Extern::Function {
-                func: FuncPointer::new(callback as *const _),
-                // TODO: figure out how to use `Context` correctly here
-                ctx: Context::Internal,
-                signature: Arc::clone(&func.functype),
-            };
+pub unsafe extern "C" fn wasm_func_as_extern(
+    func_ptr: Option<NonNull<wasm_func_t>>,
+) -> Option<NonNull<wasm_extern_t>> {
+    let func_ptr = func_ptr?;
+    let func = func_ptr.as_ref();
 
-            Box::into_raw(Box::new(wasm_extern_t {
-                instance: func.instance.clone(),
-                function: None,
-                inner: r#extern,
-            }))
-        }
-    }*/
-    todo!("func as extern");
+    let r#extern = Box::new(wasm_extern_t {
+        instance: func.instance.clone(),
+        inner: Extern::Function(func.inner.clone()),
+    });
+    Some(NonNull::new_unchecked(Box::into_raw(r#extern)))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_as_extern(
-    global_ptr: *mut wasm_global_t,
-) -> *mut wasm_extern_t {
-    let global = &*global_ptr;
-    Box::into_raw(Box::new(wasm_extern_t {
+    global_ptr: Option<NonNull<wasm_global_t>>,
+) -> Option<NonNull<wasm_extern_t>> {
+    let global_ptr = global_ptr?;
+    let global = global_ptr.as_ref();
+
+    let r#extern = Box::new(wasm_extern_t {
         // update this if global does hold onto an `instance`
         instance: None,
-        function: None,
-        inner: Extern::Global(global.global.clone()),
-    }))
+        inner: Extern::Global(global.inner.clone()),
+    });
+    Some(NonNull::new_unchecked(Box::into_raw(r#extern)))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_as_extern(
-    memory_ptr: *mut wasm_memory_t,
-) -> *mut wasm_extern_t {
-    let memory = &*memory_ptr;
-    Box::into_raw(Box::new(wasm_extern_t {
+    memory_ptr: Option<NonNull<wasm_memory_t>>,
+) -> Option<NonNull<wasm_extern_t>> {
+    let memory_ptr = memory_ptr?;
+    let memory = memory_ptr.as_ref();
+
+    let r#extern = Box::new(wasm_extern_t {
         // update this if global does hold onto an `instance`
         instance: None,
-        function: None,
-        inner: Extern::Memory(memory.memory.clone()),
-    }))
+        inner: Extern::Memory(memory.inner.clone()),
+    });
+    Some(NonNull::new_unchecked(Box::into_raw(r#extern)))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_func(extrn: *mut wasm_extern_t) -> *mut wasm_func_t {
-    let extrn = &*extrn;
-    /*
-    match &extrn.inner {
-        Extern::Function(f) => {
-            let func = Box::new(wasm_func_t {
-                instance: extrn.instance.clone(),
-                function: extrn.function.as_ref().map(|r| r as *const _),
-                functype: Arc::clone(signature),
-                callback: match ctx {
-                    Context::Internal => CallbackType::WithoutEnv(
-                        // TOOD: fix this transmute, this isn't safe because the struct isn't transparent
-                        mem::transmute(func),
-                    ),
-                    // this is probably doubly wrong: understand `External` better
-                    Context::External(_) => CallbackType::WithoutEnv(
-                        // TOOD: fix this transmute, this isn't safe because the struct isn't transparent
-                        mem::transmute(func),
-                    ),
-                    unhandled_context => todo!(
-                        "Handle other types of wasm Context: {:?}",
-                        unhandled_context
-                    ),
-                },
-            });
-            Box::into_raw(func)
-        }
-        _ => return ptr::null_mut(),
-    }
-    */
-    todo!("extern as func");
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_global(extrn: *mut wasm_extern_t) -> *mut wasm_global_t {
-    let extrn = &*extrn;
-    match &extrn.inner {
-        Extern::Global(global) => Box::into_raw(Box::new(wasm_global_t {
-            global: global.clone(),
-        })),
-        _ => ptr::null_mut(),
+pub unsafe extern "C" fn wasm_extern_as_func(
+    extern_ptr: Option<NonNull<wasm_extern_t>>,
+) -> Option<NonNull<wasm_func_t>> {
+    let extern_ptr = extern_ptr?;
+    let r#extern = extern_ptr.as_ref();
+    if let Extern::Function(f) = &r#extern.inner {
+        let wasm_func = Box::new(wasm_func_t {
+            inner: f.clone(),
+            instance: r#extern.instance.clone(),
+        });
+        Some(NonNull::new_unchecked(Box::into_raw(wasm_func)))
+    } else {
+        None
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_memory(extrn: *mut wasm_extern_t) -> *mut wasm_memory_t {
-    let extrn = &*extrn;
-    match &extrn.inner {
-        Extern::Memory(memory) => Box::into_raw(Box::new(wasm_memory_t {
-            memory: memory.clone(),
-        })),
-        _ => ptr::null_mut(),
+pub unsafe extern "C" fn wasm_extern_as_global(
+    extern_ptr: Option<NonNull<wasm_extern_t>>,
+) -> Option<NonNull<wasm_global_t>> {
+    let extern_ptr = extern_ptr?;
+    let r#extern = extern_ptr.as_ref();
+    if let Extern::Global(g) = &r#extern.inner {
+        let wasm_global = Box::new(wasm_global_t { inner: g.clone() });
+        Some(NonNull::new_unchecked(Box::into_raw(wasm_global)))
+    } else {
+        None
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_extern_as_memory(
+    extern_ptr: Option<NonNull<wasm_extern_t>>,
+) -> Option<NonNull<wasm_memory_t>> {
+    let extern_ptr = extern_ptr?;
+    let r#extern = extern_ptr.as_ref();
+    if let Extern::Memory(m) = &r#extern.inner {
+        let wasm_memory = Box::new(wasm_memory_t { inner: m.clone() });
+        Some(NonNull::new_unchecked(Box::into_raw(wasm_memory)))
+    } else {
+        None
     }
 }
 
@@ -454,6 +445,7 @@ enum wasm_mutability_enum {
 }
 
 impl wasm_mutability_enum {
+    #[allow(dead_code)]
     fn is_mutable(self) -> bool {
         self == Self::WASM_VAR
     }
@@ -516,6 +508,7 @@ pub enum wasm_valkind_enum {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub union wasm_val_inner {
     int32_t: i32,
     int64_t: i64,
@@ -528,6 +521,15 @@ pub union wasm_val_inner {
 pub struct wasm_val_t {
     kind: wasm_valkind_t,
     of: wasm_val_inner,
+}
+
+impl Clone for wasm_val_t {
+    fn clone(&self) -> Self {
+        wasm_val_t {
+            kind: self.kind,
+            of: self.of.clone(),
+        }
+    }
 }
 
 #[no_mangle]
@@ -597,7 +599,15 @@ impl TryFrom<Val> for wasm_val_t {
     type Error = &'static str;
 
     fn try_from(item: Val) -> Result<Self, Self::Error> {
-        Ok(match item {
+        wasm_val_t::try_from(&item)
+    }
+}
+
+impl TryFrom<&Val> for wasm_val_t {
+    type Error = &'static str;
+
+    fn try_from(item: &Val) -> Result<Self, Self::Error> {
+        Ok(match *item {
             Val::I32(v) => wasm_val_t {
                 of: wasm_val_inner { int32_t: v },
                 kind: wasm_valkind_enum::WASM_I32 as _,
@@ -615,6 +625,7 @@ impl TryFrom<Val> for wasm_val_t {
                 kind: wasm_valkind_enum::WASM_F64 as _,
             },
             Val::V128(_) => return Err("128bit SIMD types not yet supported in Wasm C API"),
+            _ => todo!("Handle these values in TryFrom<Val> for wasm_val_t"),
         })
     }
 }
@@ -633,43 +644,56 @@ pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
 #[allow(non_camel_case_types)]
 pub type wasm_env_finalizer_t = unsafe extern "C" fn(c_void);
 
-#[allow(dead_code)]
-#[repr(C)]
-enum CallbackType {
-    WithoutEnv(wasm_func_callback_t),
-    WithEnv {
-        callback: wasm_func_callback_with_env_t,
-        env: c_void,
-        finalizer: wasm_env_finalizer_t,
-    },
-}
-
 #[repr(C)]
 pub struct wasm_func_t {
-    // hack to make it just work for now
-    inner: Option<*const Function>,
+    inner: Function,
     // this is how we ensure the instance stays alive
     instance: Option<Arc<Instance>>,
-    functype: Arc<FunctionType>,
-    callback: CallbackType,
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
-    _store: *mut wasm_store_t,
+    store: Option<NonNull<wasm_store_t>>,
     ft: *const wasm_functype_t,
     callback: wasm_func_callback_t,
-) -> *mut wasm_func_t {
+) -> Option<NonNull<wasm_func_t>> {
     // TODO: handle null pointers?
+    let store_ptr = store?.cast::<Store>();
+    let store = store_ptr.as_ref();
     let new_ft = wasm_functype_copy(ft as *mut _);
     let func_sig = functype_to_real_type(new_ft);
+    let num_rets = func_sig.results().len();
+    let inner_callback = move |args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
+        let processed_args = args
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<wasm_val_t>, _>>()
+            .expect("Argument conversion failed");
+
+        let mut results = vec![
+            wasm_val_t {
+                kind: wasm_valkind_enum::WASM_I64 as _,
+                of: wasm_val_inner { int64_t: 0 },
+            };
+            num_rets
+        ];
+
+        let _traps = callback(processed_args.as_ptr(), results.as_mut_ptr());
+        // TODO: do something with `traps`
+
+        let processed_results = results
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<Val>, _>>()
+            .expect("Result conversion failed");
+        Ok(processed_results)
+    };
+    let f = Function::new_dynamic(store, &func_sig, inner_callback);
     let wasm_func = Box::new(wasm_func_t {
         instance: None,
-        inner: None,
-        functype: func_sig,
-        callback: CallbackType::WithoutEnv(callback),
+        inner: f,
     });
-    Box::into_raw(wasm_func)
+    Some(NonNull::new_unchecked(Box::into_raw(wasm_func)))
 }
 
 #[no_mangle]
@@ -680,6 +704,8 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     env: c_void,
     finalizer: wasm_env_finalizer_t,
 ) -> *mut wasm_func_t {
+    todo!("wasm_func_new_with_env")
+    /*
     // TODO: handle null pointers?
     let new_ft = wasm_functype_copy(ft as *mut _);
     let func_sig = functype_to_real_type(new_ft);
@@ -687,13 +713,9 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
         instance: None,
         inner: None,
         functype: func_sig,
-        callback: CallbackType::WithEnv {
-            callback,
-            env,
-            finalizer,
-        },
     });
     Box::into_raw(wasm_func)
+    */
 }
 
 #[no_mangle]
@@ -712,88 +734,81 @@ pub unsafe extern "C" fn wasm_func_call(
     let func = &*func;
 
     let wasm_traps;
-    if let Some(dynfunc) = func.inner {
-        let dynfunc = &*dynfunc;
-        let mut params = vec![];
-        for (i, param) in func.functype.params().iter().enumerate() {
-            let arg = &(*args.add(i));
+    let mut params = vec![];
+    for (i, param) in func.inner.ty().params().iter().enumerate() {
+        let arg = &(*args.add(i));
 
-            match param {
-                ValType::I32 => {
-                    if arg.kind != wasm_valkind_enum::WASM_I32 as u8 {
-                        // todo: error handling
-                        panic!("type mismatch!");
-                    }
-                    params.push(Val::I32(arg.of.int32_t));
+        match param {
+            ValType::I32 => {
+                if arg.kind != wasm_valkind_enum::WASM_I32 as u8 {
+                    // todo: error handling
+                    panic!("type mismatch!");
                 }
-                ValType::I64 => {
-                    if arg.kind != wasm_valkind_enum::WASM_I64 as u8 {
-                        // todo: error handling
-                        panic!("type mismatch!");
-                    }
-                    params.push(Val::I64(arg.of.int64_t));
-                }
-                ValType::F32 => {
-                    if arg.kind != wasm_valkind_enum::WASM_F32 as u8 {
-                        // todo: error handling
-                        panic!("type mismatch!");
-                    }
-                    params.push(Val::F32(arg.of.float32_t));
-                }
-                ValType::F64 => {
-                    if arg.kind != wasm_valkind_enum::WASM_F64 as u8 {
-                        // todo: error handling
-                        panic!("type mismatch!");
-                    }
-                    params.push(Val::F64(arg.of.float64_t));
-                }
-                ValType::V128 => todo!("Handle v128 case in `wasm_func_call`"),
-                _ => todo!("unhandled value cases in `wasm_func_call`"),
+                params.push(Val::I32(arg.of.int32_t));
             }
+            ValType::I64 => {
+                if arg.kind != wasm_valkind_enum::WASM_I64 as u8 {
+                    // todo: error handling
+                    panic!("type mismatch!");
+                }
+                params.push(Val::I64(arg.of.int64_t));
+            }
+            ValType::F32 => {
+                if arg.kind != wasm_valkind_enum::WASM_F32 as u8 {
+                    // todo: error handling
+                    panic!("type mismatch!");
+                }
+                params.push(Val::F32(arg.of.float32_t));
+            }
+            ValType::F64 => {
+                if arg.kind != wasm_valkind_enum::WASM_F64 as u8 {
+                    // todo: error handling
+                    panic!("type mismatch!");
+                }
+                params.push(Val::F64(arg.of.float64_t));
+            }
+            ValType::V128 => todo!("Handle v128 case in `wasm_func_call`"),
+            _ => todo!("unhandled value cases in `wasm_func_call`"),
         }
+    }
 
-        match dynfunc.call(&params) {
-            Ok(wasm_results) => {
-                for (i, actual_result) in wasm_results.iter().enumerate() {
-                    let result_loc = &mut (*results.add(i));
-                    match *actual_result {
-                        Val::I32(v) => {
-                            result_loc.of.int32_t = v;
-                            result_loc.kind = wasm_valkind_enum::WASM_I32 as u8;
-                        }
-                        Val::I64(v) => {
-                            result_loc.of.int64_t = v;
-                            result_loc.kind = wasm_valkind_enum::WASM_I64 as u8;
-                        }
-                        Val::F32(v) => {
-                            result_loc.of.float32_t = v;
-                            result_loc.kind = wasm_valkind_enum::WASM_F32 as u8;
-                        }
-                        Val::F64(v) => {
-                            result_loc.of.float64_t = v;
-                            result_loc.kind = wasm_valkind_enum::WASM_F64 as u8;
-                        }
-                        Val::V128(_) => todo!("Handle v128 case in wasm_func_call"),
+    match func.inner.call(&params) {
+        Ok(wasm_results) => {
+            for (i, actual_result) in wasm_results.iter().enumerate() {
+                let result_loc = &mut (*results.add(i));
+                match *actual_result {
+                    Val::I32(v) => {
+                        result_loc.of.int32_t = v;
+                        result_loc.kind = wasm_valkind_enum::WASM_I32 as u8;
                     }
+                    Val::I64(v) => {
+                        result_loc.of.int64_t = v;
+                        result_loc.kind = wasm_valkind_enum::WASM_I64 as u8;
+                    }
+                    Val::F32(v) => {
+                        result_loc.of.float32_t = v;
+                        result_loc.kind = wasm_valkind_enum::WASM_F32 as u8;
+                    }
+                    Val::F64(v) => {
+                        result_loc.of.float64_t = v;
+                        result_loc.kind = wasm_valkind_enum::WASM_F64 as u8;
+                    }
+                    Val::V128(_) => todo!("Handle v128 case in wasm_func_call"),
+                    _ => todo!("handle other vals"),
                 }
-                wasm_traps = ptr::null_mut();
             }
-            // TODO: handle traps
-            /*
-            Err(CallError::Runtime(e)) => {
-                wasm_traps = Box::into_raw(Box::new(e)) as _;
-            }
-            */
-            Err(_) => {
-                // TODO: handle this
-                panic!("resolve error!");
-            }
+            wasm_traps = ptr::null_mut();
         }
-    } else {
-        wasm_traps = match func.callback {
-            CallbackType::WithoutEnv(fp) => fp(args, results),
-            _ => unimplemented!("Host calls with `wasm_func_call`"),
-        };
+        // TODO: handle traps
+        /*
+        Err(CallError::Runtime(e)) => {
+            wasm_traps = Box::into_raw(Box::new(e)) as _;
+        }
+        */
+        Err(_) => {
+            // TODO: handle this
+            panic!("resolve error!");
+        }
     }
 
     wasm_traps
@@ -802,19 +817,19 @@ pub unsafe extern "C" fn wasm_func_call(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_param_arity(func: *const wasm_func_t) -> usize {
     let func = &*func;
-    func.functype.params().len()
+    func.inner.ty().params().len()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_result_arity(func: *const wasm_func_t) -> usize {
     let func = &*func;
-    func.functype.results().len()
+    func.inner.ty().results().len()
 }
 
 #[repr(C)]
 pub struct wasm_global_t {
     // maybe needs to hold onto instance
-    global: Global,
+    inner: Global,
 }
 
 #[no_mangle]
@@ -826,14 +841,17 @@ pub unsafe extern "C" fn wasm_global_new(
     let gt = &*(gt_ptr as *const GlobalType);
     let val = &*val_ptr;
     let wasm_val = val.try_into().ok()?;
-    let store: &Store = store_ptr?.cast::<Store>().as_ref();
+    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
+    let store = store_ptr.as_ref();
     let global = if gt.mutability.is_mutable() {
         Global::new_mut(store, wasm_val)
     } else {
         Global::new(store, wasm_val)
     };
 
-    NonNull::new(Box::into_raw(Box::new(wasm_global_t { global })))
+    Some(NonNull::new_unchecked(Box::into_raw(Box::new(
+        wasm_global_t { inner: global },
+    ))))
 }
 
 #[no_mangle]
@@ -851,14 +869,14 @@ pub unsafe extern "C" fn wasm_global_copy(global_ptr: *const wasm_global_t) -> *
     // do shallow copy
 
     Box::into_raw(Box::new(wasm_global_t {
-        global: wasm_global.global.clone(),
+        inner: wasm_global.inner.clone(),
     }))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_get(global_ptr: *const wasm_global_t, out: *mut wasm_val_t) {
     let wasm_global = &*global_ptr;
-    let value = wasm_global.global.get();
+    let value = wasm_global.inner.get();
     *out = value.try_into().unwrap();
 }
 
@@ -870,7 +888,7 @@ pub unsafe extern "C" fn wasm_global_set(
     let wasm_global: &mut wasm_global_t = &mut *global_ptr;
     let val: &wasm_val_t = &*val_ptr;
     let value: Val = val.try_into().unwrap();
-    wasm_global.global.set(value);
+    wasm_global.inner.set(value);
 }
 
 #[no_mangle]
@@ -881,13 +899,13 @@ pub unsafe extern "C" fn wasm_global_same(
     let wasm_global1 = &*global_ptr1;
     let wasm_global2 = &*global_ptr2;
 
-    wasm_global1.global.same(&wasm_global2.global)
+    wasm_global1.inner.same(&wasm_global2.inner)
 }
 
 #[repr(C)]
 pub struct wasm_memory_t {
     // maybe needs to hold onto instance
-    memory: Memory,
+    inner: Memory,
 }
 
 #[no_mangle]
@@ -896,11 +914,14 @@ pub unsafe extern "C" fn wasm_memory_new(
     mt_ptr: *const wasm_memorytype_t,
 ) -> Option<NonNull<wasm_memory_t>> {
     let md = (&*(mt_ptr as *const MemoryType)).clone();
-    let store: &Store = store_ptr?.cast::<Store>().as_ref();
+    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
+    let store = store_ptr.as_ref();
 
     // TODO: report this error
     let memory = Memory::new(store, md).ok()?;
-    NonNull::new(Box::into_raw(Box::new(wasm_memory_t { memory })))
+    Some(NonNull::new_unchecked(Box::into_raw(Box::new(
+        wasm_memory_t { inner: memory },
+    ))))
 }
 
 #[no_mangle]
@@ -918,7 +939,7 @@ pub unsafe extern "C" fn wasm_memory_copy(memory_ptr: *const wasm_memory_t) -> *
     // do shallow copy
 
     Box::into_raw(Box::new(wasm_memory_t {
-        memory: wasm_memory.memory.clone(),
+        inner: wasm_memory.inner.clone(),
     }))
 }
 
@@ -933,7 +954,7 @@ pub unsafe extern "C" fn wasm_memory_type(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_data(memory_ptr: *mut wasm_memory_t) -> *mut u8 {
     let memory = &mut *memory_ptr;
-    mem::transmute::<&[std::cell::Cell<u8>], &[u8]>(&memory.memory.view()[..]) as *const [u8]
+    mem::transmute::<&[std::cell::Cell<u8>], &[u8]>(&memory.inner.view()[..]) as *const [u8]
         as *const u8 as *mut u8
 }
 
@@ -941,21 +962,21 @@ pub unsafe extern "C" fn wasm_memory_data(memory_ptr: *mut wasm_memory_t) -> *mu
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_data_size(memory_ptr: *const wasm_memory_t) -> usize {
     let memory = &*memory_ptr;
-    memory.memory.size().bytes().0
+    memory.inner.size().bytes().0
 }
 
 // size in pages
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_size(memory_ptr: *const wasm_memory_t) -> u32 {
     let memory = &*memory_ptr;
-    memory.memory.size().0 as _
+    memory.inner.size().0 as _
 }
 
 // delta is in pages
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_grow(memory_ptr: *mut wasm_memory_t, delta: u32) -> bool {
     let memory = &mut *memory_ptr;
-    memory.memory.grow(Pages(delta)).is_ok()
+    memory.inner.grow(Pages(delta)).is_ok()
 }
 
 #[no_mangle]
@@ -966,7 +987,7 @@ pub unsafe extern "C" fn wasm_memory_same(
     let wasm_memory1 = &*memory_ptr1;
     let wasm_memory2 = &*memory_ptr2;
 
-    wasm_memory1.memory.same(&wasm_memory2.memory)
+    wasm_memory1.inner.same(&wasm_memory2.inner)
 }
 
 macro_rules! wasm_declare_own {
@@ -1145,8 +1166,6 @@ pub unsafe extern "C" fn wasm_trap_trace(trap: *const wasm_trap_t, out_ptr: *mut
 
 #[repr(C)]
 pub struct wasm_extern_t {
-    // Hack for Wasm functions: TODO clean this up
-    function: Option<Function>,
     // this is how we ensure the instance stays alive
     instance: Option<Arc<Instance>>,
     inner: Extern,
@@ -1284,21 +1303,21 @@ wasm_declare_vec!(functype);
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_new(
     // own
-    params: *mut wasm_valtype_vec_t,
+    params: Option<NonNull<wasm_valtype_vec_t>>,
     // own
-    results: *mut wasm_valtype_vec_t,
-) -> *mut wasm_functype_t {
-    wasm_functype_new_inner(params, results).unwrap_or(ptr::null_mut())
+    results: Option<NonNull<wasm_valtype_vec_t>>,
+) -> Option<NonNull<wasm_functype_t>> {
+    wasm_functype_new_inner(params?, results?)
 }
 
 unsafe fn wasm_functype_new_inner(
     // own
-    params: *mut wasm_valtype_vec_t,
+    params: NonNull<wasm_valtype_vec_t>,
     // own
-    results: *mut wasm_valtype_vec_t,
-) -> Option<*mut wasm_functype_t> {
-    let params = &*params;
-    let results = &*results;
+    results: NonNull<wasm_valtype_vec_t>,
+) -> Option<NonNull<wasm_functype_t>> {
+    let params = params.as_ref();
+    let results = results.as_ref();
     let params: Vec<ValType> = params
         .into_slice()?
         .iter()
@@ -1313,7 +1332,9 @@ unsafe fn wasm_functype_new_inner(
         .collect::<Vec<_>>();
 
     let funcsig = Arc::new(FunctionType::new(params, results));
-    Some(Arc::into_raw(funcsig) as *mut wasm_functype_t)
+    Some(NonNull::new_unchecked(
+        Arc::into_raw(funcsig) as *mut wasm_functype_t
+    ))
 }
 
 #[no_mangle]

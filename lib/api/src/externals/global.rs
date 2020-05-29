@@ -108,6 +108,11 @@ impl Global {
             exported: wasmer_export,
         }
     }
+
+    /// Returns whether or not these two globals refer to the same data.
+    pub fn same(&self, other: &Global) -> bool {
+        self.exported.same(&other.exported)
+    }
 }
 
 impl fmt::Debug for Global {

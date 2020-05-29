@@ -51,6 +51,7 @@ If you wish to use more than one compiler, you can simply import it from it's ow
 use wasmer::{Store, Engine};
 use wasmer_compiler_singlepass::SinglepassConfig;
 
+// TODO: update this, this is now out of date:
 let engine = Engine::new(SinglepassConfig::default());
 let store = Store::new_config(&engine);
 ```"#
