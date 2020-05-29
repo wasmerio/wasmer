@@ -128,9 +128,19 @@ impl Compiler for LLVMCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        _module: &ModuleInfo,
+        module: &ModuleInfo,
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
-        Ok(PrimaryMap::new())
-        // unimplemented!("Dynamic function trampolines not yet implemented");
+        Ok(module
+            .functions
+            .values()
+            .take(module.num_imported_funcs)
+            .collect::<Vec<_>>()
+            .par_iter()
+            .map_init(FuncTrampoline::new, |func_trampoline, sig_index| {
+                func_trampoline.dynamic_trampoline(&module.signatures[**sig_index], self.config())
+            })
+            .collect::<Result<Vec<_>, CompileError>>()?
+            .into_iter()
+            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
     }
 }
