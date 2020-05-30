@@ -1280,9 +1280,7 @@ impl<'a> FuncGen<'a> {
                     Location::Imm32(memarg.offset),
                     Location::GPR(tmp_addr),
                 );
-                self.assembler
-                    .emit_jmp(Condition::Carry, self.special_labels.heap_access_oob);
-                // unsigned overflow
+                // Overflow is checked outside the `need_check` block, so we don't need to check it here.
             }
 
             // Trap if the start address of the requested area is equal to or above that of the linear memory.
@@ -1320,6 +1318,10 @@ impl<'a> FuncGen<'a> {
                 Location::Imm32(memarg.offset as u32),
                 Location::GPR(tmp_addr),
             );
+
+            // Trap if offset calculation overflowed.
+            self.assembler
+                .emit_jmp(Condition::Carry, self.special_labels.heap_access_oob);
         }
         self.assembler
             .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
@@ -8349,11 +8351,104 @@ pub fn gen_std_trampoline(sig: FunctionType) -> FunctionBody {
     }
 }
 
+/// Generates dynamic import function call trampoline for a function type.
+pub fn gen_std_dynamic_import_trampoline(
+    vmoffsets: &VMOffsets,
+    sig: &FunctionType,
+) -> FunctionBody {
+    let mut a = Assembler::new().unwrap();
+
+    // Allocate argument array.
+    let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
+    a.emit_sub(
+        Size::S64,
+        Location::Imm32(stack_offset as _),
+        Location::GPR(GPR::RSP),
+    );
+
+    // Copy arguments.
+    if sig.params().len() > 0 {
+        let mut argalloc = ArgumentRegisterAllocator::default();
+        argalloc.next(Type::I64).unwrap(); // skip VMContext
+
+        let mut stack_param_count: usize = 0;
+
+        for (i, ty) in sig.params().iter().enumerate() {
+            let source_loc = match argalloc.next(*ty) {
+                Some(X64Register::GPR(gpr)) => Location::GPR(gpr),
+                Some(X64Register::XMM(xmm)) => Location::XMM(xmm),
+                None => {
+                    a.emit_mov(
+                        Size::S64,
+                        Location::Memory(GPR::RSP, (stack_offset + 8 + stack_param_count * 8) as _),
+                        Location::GPR(GPR::RAX),
+                    );
+                    stack_param_count += 1;
+                    Location::GPR(GPR::RAX)
+                }
+            };
+            a.emit_mov(
+                Size::S64,
+                source_loc,
+                Location::Memory(GPR::RSP, (i * 16) as _),
+            );
+
+            // Zero upper 64 bits.
+            a.emit_mov(
+                Size::S64,
+                Location::Imm32(0),
+                Location::Memory(GPR::RSP, (i * 16 + 8) as _),
+            );
+        }
+    }
+
+    // Load target address.
+    a.emit_mov(
+        Size::S64,
+        Location::Memory(
+            GPR::RDI,
+            vmoffsets.vmdynamicfunction_import_context_address() as i32,
+        ),
+        Location::GPR(GPR::RAX),
+    );
+
+    // Load values array.
+    a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RSI));
+
+    // Call target.
+    a.emit_call_location(Location::GPR(GPR::RAX));
+
+    // Fetch return value.
+    if sig.results().len() > 0 {
+        assert_eq!(sig.results().len(), 1);
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RSP, 0),
+            Location::GPR(GPR::RAX),
+        );
+    }
+
+    // Release values array.
+    a.emit_add(
+        Size::S64,
+        Location::Imm32(stack_offset as _),
+        Location::GPR(GPR::RSP),
+    );
+
+    // Return.
+    a.emit_ret();
+
+    FunctionBody {
+        body: a.finalize().unwrap().to_vec(),
+        unwind_info: None,
+    }
+}
+
 // Singlepass calls import functions through a trampoline.
 pub fn gen_import_call_trampoline(
     vmoffsets: &VMOffsets,
     index: FunctionIndex,
-    sig: FunctionType,
+    sig: &FunctionType,
 ) -> CustomSection {
     let mut a = Assembler::new().unwrap();
 
@@ -8404,7 +8499,7 @@ pub fn gen_import_call_trampoline(
 
         // Copy arguments.
         let mut argalloc = ArgumentRegisterAllocator::default();
-        argalloc.next(Type::I32).unwrap(); // skip VMContext
+        argalloc.next(Type::I64).unwrap(); // skip VMContext
         let mut caller_stack_offset: i32 = 0;
         for (i, ty) in sig.params().iter().enumerate() {
             let prev_loc = param_locations[i];

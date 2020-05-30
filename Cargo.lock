@@ -461,9 +461,9 @@ checksum = "52ba6eb47c2131e784a38b726eb54c1e1484904f013e576a25354d0124161af6"
 
 [[package]]
 name = "dynasm"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42a814e1edeb85dd2a3c6fc0d6bf76d02ca5695d438c70ecee3d90774f3259c5"
+checksum = "48be6e89d4c88d2945d5c57d50a2d7c46325a3ae358a11cdf263c545eace97c6"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -476,9 +476,9 @@ dependencies = [
 
 [[package]]
 name = "dynasmrt"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a393aaeb4441a48bcf47b5b6155971f82cc1eb77e22855403ccc0415ac8328d"
+checksum = "7dce4800e1140e94ad07e35e789df569516fd795223600a96f3b01887a42e0da"
 dependencies = [
  "byteorder",
  "memmap",
@@ -702,7 +702,7 @@ dependencies = [
 [[package]]
 name = "inkwell"
 version = "0.1.0"
-source = "git+https://github.com/theDan64/inkwell?rev=1bfecc0a095d7ffdfa20a64630864f0297349508#1bfecc0a095d7ffdfa20a64630864f0297349508"
+source = "git+https://github.com/theDan64/inkwell?rev=fdf895777e937c974204e879cf1102cf7a727c42#fdf895777e937c974204e879cf1102cf7a727c42"
 dependencies = [
  "either",
  "inkwell_internals",
@@ -715,8 +715,8 @@ dependencies = [
 
 [[package]]
 name = "inkwell_internals"
-version = "0.1.0"
-source = "git+https://github.com/theDan64/inkwell?rev=1bfecc0a095d7ffdfa20a64630864f0297349508#1bfecc0a095d7ffdfa20a64630864f0297349508"
+version = "0.2.0"
+source = "git+https://github.com/theDan64/inkwell?rev=fdf895777e937c974204e879cf1102cf7a727c42#fdf895777e937c974204e879cf1102cf7a727c42"
 dependencies = [
  "proc-macro2",
  "quote",

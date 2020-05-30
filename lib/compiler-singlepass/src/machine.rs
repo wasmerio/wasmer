@@ -333,44 +333,90 @@ impl Machine {
         n: usize,
         n_params: usize,
     ) -> Vec<Location> {
-        // Use callee-saved registers for locals.
-        fn get_local_location(idx: usize) -> Location {
+        // Determine whether a local should be allocated on the stack.
+        fn is_local_on_stack(idx: usize) -> bool {
+            idx > 3
+        }
+
+        // Determine a local's location.
+        fn get_local_location(idx: usize, callee_saved_regs_size: usize) -> Location {
+            // Use callee-saved registers for the first locals.
             match idx {
                 0 => Location::GPR(GPR::R12),
                 1 => Location::GPR(GPR::R13),
                 2 => Location::GPR(GPR::R14),
                 3 => Location::GPR(GPR::RBX),
-                _ => Location::Memory(GPR::RBP, -(((idx - 3) * 8) as i32)),
+                _ => Location::Memory(GPR::RBP, -(((idx - 3) * 8 + callee_saved_regs_size) as i32)),
             }
         }
 
-        let mut locations: Vec<Location> = vec![];
-        let mut allocated: usize = 0;
+        // How many machine stack slots will all the locals use?
+        let num_mem_slots = (0..n).filter(|&x| is_local_on_stack(x)).count();
 
-        // Determine locations for parameters.
-        for i in 0..n_params {
-            let loc = Self::get_param_location(i + 1);
-            locations.push(match loc {
-                Location::GPR(_) => {
-                    let old_idx = allocated;
-                    allocated += 1;
-                    get_local_location(old_idx)
-                }
-                Location::Memory(_, _) => {
-                    let old_idx = allocated;
-                    allocated += 1;
-                    get_local_location(old_idx)
-                }
-                _ => unreachable!(),
-            });
+        // Total size (in bytes) of the pre-allocated "static area" for this function's
+        // locals and callee-saved registers.
+        let mut static_area_size: usize = 0;
+
+        // Callee-saved registers used for locals.
+        // Keep this consistent with the "Save callee-saved registers" code below.
+        for i in 0..n {
+            // If a local is not stored on stack, then it is allocated to a callee-saved register.
+            if !is_local_on_stack(i) {
+                static_area_size += 8;
+            }
         }
 
-        // Determine locations for normal locals.
-        for _ in n_params..n {
-            locations.push(get_local_location(allocated));
-            allocated += 1;
+        // Callee-saved R15 for vmctx.
+        static_area_size += 8;
+
+        // Total size of callee saved registers.
+        let callee_saved_regs_size = static_area_size;
+
+        // Now we can determine concrete locations for locals.
+        let locations: Vec<Location> = (0..n)
+            .map(|i| get_local_location(i, callee_saved_regs_size))
+            .collect();
+
+        // Add size of locals on stack.
+        static_area_size += num_mem_slots * 8;
+
+        // Allocate save area, without actually writing to it.
+        a.emit_sub(
+            Size::S64,
+            Location::Imm32(static_area_size as _),
+            Location::GPR(GPR::RSP),
+        );
+
+        // Save callee-saved registers.
+        for loc in locations.iter() {
+            if let Location::GPR(x) = *loc {
+                self.stack_offset.0 += 8;
+                a.emit_mov(
+                    Size::S64,
+                    *loc,
+                    Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)),
+                );
+                self.state.stack_values.push(MachineValue::PreserveRegister(
+                    X64Register::GPR(x).to_index(),
+                ));
+            }
         }
 
+        // Save R15 for vmctx use.
+        self.stack_offset.0 += 8;
+        a.emit_mov(
+            Size::S64,
+            Location::GPR(GPR::R15),
+            Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)),
+        );
+        self.state.stack_values.push(MachineValue::PreserveRegister(
+            X64Register::GPR(GPR::R15).to_index(),
+        ));
+
+        // Save the offset of register save area.
+        self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
+
+        // Save location information for locals.
         for (i, loc) in locations.iter().enumerate() {
             match *loc {
                 Location::GPR(x) => {
@@ -384,47 +430,9 @@ impl Machine {
             }
         }
 
-        // How many machine stack slots did all the locals use?
-        let num_mem_slots = locations
-            .iter()
-            .filter(|&&loc| match loc {
-                Location::Memory(_, _) => true,
-                _ => false,
-            })
-            .count();
-
-        // Move RSP down to reserve space for machine stack slots.
-        if num_mem_slots > 0 {
-            a.emit_sub(
-                Size::S64,
-                Location::Imm32((num_mem_slots * 8) as u32),
-                Location::GPR(GPR::RSP),
-            );
-            self.stack_offset.0 += num_mem_slots * 8;
-        }
-
-        // Save callee-saved registers.
-        for loc in locations.iter() {
-            if let Location::GPR(x) = *loc {
-                a.emit_push(Size::S64, *loc);
-                self.stack_offset.0 += 8;
-                self.state.stack_values.push(MachineValue::PreserveRegister(
-                    X64Register::GPR(x).to_index(),
-                ));
-            }
-        }
-
-        // Save R15 for vmctx use.
-        a.emit_push(Size::S64, Location::GPR(GPR::R15));
-        self.stack_offset.0 += 8;
-        self.state.stack_values.push(MachineValue::PreserveRegister(
-            X64Register::GPR(GPR::R15).to_index(),
-        ));
-
-        // Save the offset of static area.
-        self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
-
         // Load in-register parameters into the allocated locations.
+        // Locals are allocated on the stack from higher address to lower address,
+        // so we won't skip the stack guard page here.
         for i in 0..n_params {
             let loc = Self::get_param_location(i + 1);
             match loc {
@@ -445,17 +453,20 @@ impl Machine {
             }
         }
 
-        // Load vmctx.
+        // Initialize all normal locals to zero.
+        for i in n_params..n {
+            a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
+        }
+
+        // Load vmctx into R15.
         a.emit_mov(
             Size::S64,
             Self::get_param_location(0),
             Location::GPR(GPR::R15),
         );
 
-        // Initialize all normal locals to zero.
-        for i in n_params..n {
-            a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
-        }
+        // Add the size of all locals allocated to stack.
+        self.stack_offset.0 += static_area_size - callee_saved_regs_size;
 
         locations
     }
