@@ -159,10 +159,6 @@ pub unsafe extern "C" fn wasm_instance_exports(
         .map(|(name, r#extern)| {
             let function = if let Extern::Function { .. } = r#extern {
                 instance.exports.get_function(&name).ok().cloned()
-
-            /*let sig_idx = SigRegistry::lookup_sig_index(signature);
-            let trampoline = instance.module.runnable_module.get_trampoline(&instance.module.info, sig_idx).expect("wasm trampoline");
-            Some(trampoline)*/
             } else {
                 None
             };
