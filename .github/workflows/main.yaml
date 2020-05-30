@@ -58,13 +58,35 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
-      - run: make test
+      - name: Install LLVM (Windows)
+        if: matrix.os == 'windows-latest'
+        run: choco install llvm
+        # run: |
+        #   curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/LLVM-10.0.0-win64.exe -L -o llvm-installer.exe
+        #   7z x llvm-installer.exe -oC:/llvm-10
+        #   echo ::add-path::C:/llvm-10/bin
+        #   echo ::set-env name=LLVM_SYS_100_PREFIX::C:/llvm-10
+        #   echo ::set-env name=LIBCLANG_PATH::C:/llvm-10/bin/libclang.dll
+      - name: Install LLVM (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -L -o llvm.tar.xz
+          mkdir -p /opt/llvm-10
+          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
+          echo ::add-path::/opt/llvm-10/bin
+          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
+      - name: Install LLVM (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
+          mkdir -p /opt/llvm-10
+          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
+          echo ::add-path::/opt/llvm-10/bin
+          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
       - name: Set up dependencies for Mac OS
         run: brew install automake
         if: matrix.os == 'macos-latest'
-      - name: Set up dependencies for Windows
-        run: choco install llvm
-        if: matrix.os == 'windows-latest'
+      - run: make test
       - name: Build and Test C API
         run: |
           make capi
