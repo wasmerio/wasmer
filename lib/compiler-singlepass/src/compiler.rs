@@ -132,7 +132,7 @@ impl Compiler for SinglepassCompiler {
         &self,
         signatures: &[FunctionType],
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
-        let vmoffsets = VMOffsets::new(8, module);
+        let vmoffsets = VMOffsets::new_for_trampolines(8);
         Ok(signatures
             .par_iter()
             .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
