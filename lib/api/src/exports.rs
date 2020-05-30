@@ -129,6 +129,7 @@ impl Exports {
         self.map.contains_key(&name.into())
     }
 
+    /// Get an iterator over the exports.
     pub fn iter<'a>(
         &'a self,
     ) -> ExportsIterator<'a, impl Iterator<Item = (&'a String, &'a Extern)>> {

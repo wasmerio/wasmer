@@ -7,6 +7,7 @@ mod import_object;
 mod instance;
 mod memory_view;
 mod module;
+mod ordered_resolver;
 mod ptr;
 mod store;
 mod tunables;
@@ -18,6 +19,7 @@ pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace
 pub use crate::instance::Instance;
 pub use crate::memory_view::{Atomically, MemoryView};
 pub use crate::module::Module;
+pub use crate::ordered_resolver::OrderedResolver;
 pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
 pub use crate::tunables::Tunables;
@@ -51,6 +53,7 @@ If you wish to use more than one compiler, you can simply import it from it's ow
 use wasmer::{Store, Engine};
 use wasmer_compiler_singlepass::SinglepassConfig;
 
+// TODO: update this, this is now out of date:
 let engine = Engine::new(SinglepassConfig::default());
 let store = Store::new_config(&engine);
 ```"#

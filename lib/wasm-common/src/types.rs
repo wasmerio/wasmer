@@ -287,6 +287,13 @@ pub enum Mutability {
     Var,
 }
 
+impl Mutability {
+    /// Returns a boolean indicating if the enum is set to mutable.
+    pub fn is_mutable(&self) -> bool {
+        (*self).into()
+    }
+}
+
 impl From<bool> for Mutability {
     fn from(val: bool) -> Self {
         match val {
