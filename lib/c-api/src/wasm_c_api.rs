@@ -102,10 +102,7 @@ pub unsafe extern "C" fn wasm_instance_new(
         .cloned()
         .collect();
 
-    let instance = Arc::new(
-        Instance::new(wasm_module, &resolver)
-            .expect("failed to instantiate: TODO handle this error"),
-    );
+    let instance = Arc::new(c_try!(Instance::new(wasm_module, &resolver)));
     Some(Box::new(wasm_instance_t { inner: instance }))
 }
 
@@ -197,14 +194,7 @@ pub unsafe extern "C" fn wasm_module_new(
     let wasm_byte_slice: &[u8] = slice::from_raw_parts_mut(bytes.data, bytes.size);
     let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
     let store = store_ptr.as_ref();
-    let result = Module::from_binary(store, wasm_byte_slice);
-    let module = match result {
-        Ok(module) => module,
-        Err(_) => {
-            // TODO: error handling here
-            return None;
-        }
-    };
+    let module = c_try!(Module::from_binary(store, wasm_byte_slice));
 
     Some(Box::new(wasm_module_t {
         inner: Arc::new(module),
@@ -230,12 +220,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
 
     let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
     let store = store_ptr.as_ref();
-    let module = if let Ok(module) = Module::deserialize(store, byte_slice) {
-        module
-    } else {
-        // TODO: error handling here
-        return None;
-    };
+    let module = c_try!(Module::deserialize(store, byte_slice));
 
     Some(NonNull::new_unchecked(Box::into_raw(Box::new(
         wasm_module_t {
