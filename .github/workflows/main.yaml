@@ -60,12 +60,13 @@ jobs:
           override: true
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
-        run: |
-          curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/LLVM-10.0.0-win64.exe -L -o llvm-installer.exe
-          7z x llvm-installer.exe -oC:/llvm-10
-          echo ::add-path::C:/llvm-10/bin
-          echo ::set-env name=LLVM_SYS_100_PREFIX::C:/llvm-10
-          echo ::set-env name=LIBCLANG_PATH::C:/llvm-10/bin/libclang.dll
+        run: choco install llvm
+        # run: |
+        #   curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/LLVM-10.0.0-win64.exe -L -o llvm-installer.exe
+        #   7z x llvm-installer.exe -oC:/llvm-10
+        #   echo ::add-path::C:/llvm-10/bin
+        #   echo ::set-env name=LLVM_SYS_100_PREFIX::C:/llvm-10
+        #   echo ::set-env name=LIBCLANG_PATH::C:/llvm-10/bin/libclang.dll
       - name: Install LLVM (macOS)
         if: matrix.os == 'macos-latest'
         run: |
@@ -86,9 +87,6 @@ jobs:
         run: brew install automake
         if: matrix.os == 'macos-latest'
       - run: make test
-      # - name: Set up dependencies for Windows
-      #   run: choco install llvm
-      #   if: matrix.os == 'windows-latest'
       - name: Build and Test C API
         run: |
           make capi
