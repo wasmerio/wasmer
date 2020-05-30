@@ -1,6 +1,5 @@
 //! entrypoints for the standard C API
 
-use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ffi::c_void;
 use std::mem;
@@ -9,10 +8,29 @@ use std::slice;
 use std::sync::Arc;
 
 use wasmer::{
-    CompilerConfig, Engine, Exports, Extern, ExternType, Function, FunctionType, Global,
-    GlobalType, ImportObject, Instance, JITEngine, Memory, MemoryType, Module, Mutability, Pages,
-    RuntimeError, Store, Tunables, Val, ValType,
+    CompilerConfig, Engine, Extern, Function, FunctionType, Global, GlobalType, Instance,
+    JITEngine, Memory, MemoryType, Module, Mutability, OrderedResolver, Pages, RuntimeError, Store,
+    Table, TableType, Tunables, Val, ValType,
 };
+
+use crate::error::update_last_error;
+
+macro_rules! c_try {
+    ($expr:expr) => {{
+        let res: Result<_, _> = $expr;
+        match res {
+            Ok(val) => val,
+            Err(err) => {
+                update_last_error(err);
+                return None;
+            }
+        }
+    }};
+    ($expr:expr, $e:expr) => {{
+        let opt: Option<_> = $expr;
+        c_try!(opt.ok_or_else(|| $e))
+    }};
+}
 
 /// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
 #[repr(C)]
@@ -78,58 +96,14 @@ pub unsafe extern "C" fn wasm_instance_new(
     let module_imports = wasm_module.imports();
     let module_import_count = module_imports.len();
     let imports = argument_import_iter(imports);
-    let mut imports_processed = 0;
-    let mut org_map: HashMap<String, Exports> = HashMap::new();
-    for (import_type, import) in module_imports.into_iter().zip(imports) {
-        imports_processed += 1;
-        let entry = org_map
-            .entry(import_type.module().to_string())
-            .or_insert_with(Exports::new);
-
-        match (import_type.ty(), &import.inner) {
-            (ExternType::Function(expected_signature), Extern::Function(f)) => {
-                if expected_signature != f.ty() {
-                    // TODO: report error
-                    return None;
-                }
-            }
-            (ExternType::Global(global_ty), Extern::Global(extern_global)) => {
-                if global_ty != extern_global.ty() {
-                    // TODO: report error
-                    return None;
-                }
-            }
-            (ExternType::Memory(memory_ty), Extern::Memory(extern_memory)) => {
-                if memory_ty != extern_memory.ty() {
-                    // TODO: report error
-                    return None;
-                }
-            }
-            (ExternType::Table(table_ty), Extern::Table(extern_table)) => {
-                if table_ty != extern_table.ty() {
-                    // TODO: report error
-                    return None;
-                }
-            }
-            _ => {
-                // type mismatch: report error here
-                return None;
-            }
-        }
-        entry.insert(import_type.name(), import.inner.clone())
-    }
-    if module_import_count != imports_processed {
-        // handle this error
-        return None;
-    }
-
-    let mut import_object = ImportObject::new();
-    for (ns, exports) in org_map {
-        import_object.register(ns, exports);
-    }
+    let resolver: OrderedResolver = imports
+        .map(|imp| &imp.inner)
+        .take(module_import_count)
+        .cloned()
+        .collect();
 
     let instance = Arc::new(
-        Instance::new(wasm_module, &import_object)
+        Instance::new(wasm_module, &resolver)
             .expect("failed to instantiate: TODO handle this error"),
     );
     Some(Box::new(wasm_instance_t { inner: instance }))
@@ -357,6 +331,20 @@ pub unsafe extern "C" fn wasm_memory_as_extern(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn wasm_table_as_extern(
+    table_ptr: Option<NonNull<wasm_table_t>>,
+) -> Option<Box<wasm_extern_t>> {
+    let table_ptr = table_ptr?;
+    let table = table_ptr.as_ref();
+
+    Some(Box::new(wasm_extern_t {
+        // update this if global does hold onto an `instance`
+        instance: None,
+        inner: Extern::Table(table.inner.clone()),
+    }))
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_func(
     extern_ptr: Option<NonNull<wasm_extern_t>>,
 ) -> Option<Box<wasm_func_t>> {
@@ -393,6 +381,19 @@ pub unsafe extern "C" fn wasm_extern_as_memory(
     let r#extern = extern_ptr.as_ref();
     if let Extern::Memory(m) = &r#extern.inner {
         Some(Box::new(wasm_memory_t { inner: m.clone() }))
+    } else {
+        None
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_extern_as_table(
+    extern_ptr: Option<NonNull<wasm_extern_t>>,
+) -> Option<Box<wasm_table_t>> {
+    let extern_ptr = extern_ptr?;
+    let r#extern = extern_ptr.as_ref();
+    if let Extern::Table(t) = &r#extern.inner {
+        Some(Box::new(wasm_table_t { inner: t.clone() }))
     } else {
         None
     }
@@ -785,16 +786,13 @@ pub struct wasm_memory_t {
 pub unsafe extern "C" fn wasm_memory_new(
     store_ptr: Option<NonNull<wasm_store_t>>,
     mt_ptr: *const wasm_memorytype_t,
-) -> Option<NonNull<wasm_memory_t>> {
+) -> Option<Box<wasm_memory_t>> {
     let md = (&*(mt_ptr as *const MemoryType)).clone();
     let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
     let store = store_ptr.as_ref();
 
-    // TODO: report this error
-    let memory = Memory::new(store, md).ok()?;
-    Some(NonNull::new_unchecked(Box::into_raw(Box::new(
-        wasm_memory_t { inner: memory },
-    ))))
+    let memory = c_try!(Memory::new(store, md));
+    Some(Box::new(wasm_memory_t { inner: memory }))
 }
 
 #[no_mangle]
@@ -845,6 +843,52 @@ pub unsafe extern "C" fn wasm_memory_same(
     wasm_memory2: &wasm_memory_t,
 ) -> bool {
     wasm_memory1.inner.same(&wasm_memory2.inner)
+}
+
+#[repr(C)]
+pub struct wasm_table_t {
+    // maybe needs to hold onto instance
+    inner: Table,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_table_new(
+    store_ptr: Option<NonNull<wasm_store_t>>,
+    mt_ptr: *const wasm_tabletype_t,
+    init: *const wasm_ref_t,
+) -> Option<Box<wasm_table_t>> {
+    let tt = (&*(mt_ptr as *const TableType)).clone();
+    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
+    let store = store_ptr.as_ref();
+
+    let init_val = todo!("get val from init somehow");
+
+    let table = c_try!(Table::new(store, tt, init_val));
+    Some(Box::new(wasm_table_t { inner: table }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_table_delete(_table: Option<Box<wasm_table_t>>) {}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_table_copy(wasm_table: &wasm_table_t) -> Box<wasm_table_t> {
+    // do shallow copy
+    Box::new(wasm_table_t {
+        inner: wasm_table.inner.clone(),
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_table_same(
+    wasm_table1: &wasm_table_t,
+    wasm_table2: &wasm_table_t,
+) -> bool {
+    wasm_table1.inner.same(&wasm_table2.inner)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_table_size(wasm_table: &wasm_table_t) -> usize {
+    wasm_table.inner.size() as _
 }
 
 macro_rules! wasm_declare_own {
@@ -1095,6 +1139,41 @@ unsafe fn wasm_globaltype_new_inner(
     ))
 }
 
+// opaque type wrapping `GlobalType`
+#[repr(C)]
+pub struct wasm_tabletype_t {}
+
+wasm_declare_vec!(tabletype);
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_tabletype_new(
+    // own
+    valtype: Box<wasm_valtype_t>,
+    limits: &wasm_limits_t,
+) -> NonNull<wasm_tabletype_t> {
+    // TODO: investigate if `0` is in fact a sentinel value here
+    let max_elements = if limits.max == 0 {
+        None
+    } else {
+        Some(limits.max as _)
+    };
+    let out = NonNull::new_unchecked(Box::into_raw(Box::new(TableType::new(
+        (*valtype).into(),
+        limits.min as _,
+        max_elements,
+    ))) as *mut wasm_tabletype_t);
+    wasm_valtype_delete(Some(valtype));
+
+    out
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_tabletype_delete(tabletype: Option<NonNull<wasm_tabletype_t>>) {
+    if let Some(g_inner) = tabletype {
+        let _ = Box::from_raw(g_inner.cast::<TableType>().as_ptr());
+    }
+}
+
 // opaque type wrapping `MemoryType`
 #[repr(C)]
 pub struct wasm_memorytype_t {}
@@ -1109,10 +1188,7 @@ pub struct wasm_limits_t {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memorytype_new(
-    limits: *const wasm_limits_t,
-) -> NonNull<wasm_memorytype_t> {
-    let limits = *limits;
+pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> NonNull<wasm_memorytype_t> {
     let min_pages = Pages(limits.min as _);
     // TODO: investigate if `0` is in fact a sentinel value here
     let max_pages = if limits.max == 0 {

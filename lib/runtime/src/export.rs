@@ -56,6 +56,11 @@ impl ExportTable {
     pub fn plan(&self) -> &TablePlan {
         unsafe { self.from.as_ref().unwrap() }.plan()
     }
+
+    /// Returns whether or not the two `ExportTable`s refer to the same Memory.
+    pub fn same(&self, other: &Self) -> bool {
+        self.definition == other.definition && self.from == other.from
+    }
 }
 
 impl From<ExportTable> for Export {

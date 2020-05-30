@@ -120,6 +120,11 @@ impl Table {
             exported: wasmer_export,
         }
     }
+
+    /// Returns whether or not these two tables refer to the same data.
+    pub fn same(&self, other: &Self) -> bool {
+        self.exported.same(&other.exported)
+    }
 }
 
 impl<'a> Exportable<'a> for Table {
