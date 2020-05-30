@@ -246,9 +246,12 @@ impl StoreOptions {
 // If we don't have a compiler, but we have an engine
 #[cfg(all(not(feature = "compiler"), feature = "engine"))]
 impl StoreOptions {
-    fn get_engine_headless(&self, tunables: Tunables) -> Result<(Arc<dyn Engine>, String)> {
+    fn get_engine_headless(
+        &self,
+        tunables: Tunables,
+    ) -> Result<(Arc<dyn Engine + Send + Sync>, String)> {
         let engine_type = self.get_engine()?;
-        let engine: Arc<dyn Engine> = match engine_type {
+        let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
             EngineOptions::JIT => Arc::new(wasmer_engine_jit::JITEngine::headless(tunables)),
             #[cfg(feature = "native")]
@@ -264,6 +267,11 @@ impl StoreOptions {
         return Ok((engine, engine_type.to_string()));
     }
 
+    /// Get the Target architecture
+    pub fn get_target(&self) -> Result<Target> {
+        Ok(Target::default())
+    }
+
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, String, String)> {
         // Get the tunables for the current host
@@ -277,6 +285,11 @@ impl StoreOptions {
 // If we don't have any engine enabled
 #[cfg(not(feature = "engine"))]
 impl StoreOptions {
+    /// Get the Target architecture
+    pub fn get_target(&self) -> Result<Target> {
+        bail!("No engines are enabled");
+    }
+
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, String, String)> {
         bail!("No engines are enabled");
