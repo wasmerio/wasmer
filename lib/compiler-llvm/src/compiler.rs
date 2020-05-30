@@ -128,16 +128,12 @@ impl Compiler for LLVMCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        module: &ModuleInfo,
+        signatures: &[FunctionType],
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
-        Ok(module
-            .functions
-            .values()
-            .take(module.num_imported_funcs)
-            .collect::<Vec<_>>()
+        Ok(signatures
             .par_iter()
-            .map_init(FuncTrampoline::new, |func_trampoline, sig_index| {
-                func_trampoline.dynamic_trampoline(&module.signatures[**sig_index], self.config())
+            .map_init(FuncTrampoline::new, |func_trampoline, func_type| {
+                func_trampoline.dynamic_trampoline(&func_type, self.config())
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()

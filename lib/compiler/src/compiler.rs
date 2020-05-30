@@ -113,6 +113,6 @@ pub trait Compiler {
     /// ```
     fn compile_dynamic_function_trampolines(
         &self,
-        module: &ModuleInfo,
+        signatures: &[FunctionType],
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError>;
 }

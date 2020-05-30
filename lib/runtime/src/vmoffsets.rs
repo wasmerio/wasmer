@@ -66,6 +66,24 @@ impl VMOffsets {
             num_local_globals: cast_to_u32(module.globals.len()),
         }
     }
+
+    /// Return a new `VMOffsets` instance, for a given pointer size
+    /// skipping the `ModuleInfo`.
+    ///
+    /// Note: This should only when generating code for trampolines.
+    pub fn new_for_trampolines(pointer_size: u8) -> Self {
+        Self {
+            pointer_size,
+            num_signature_ids: 0,
+            num_imported_functions: 0,
+            num_imported_tables: 0,
+            num_imported_memories: 0,
+            num_imported_globals: 0,
+            num_local_tables: 0,
+            num_local_memories: 0,
+            num_local_globals: 0,
+        }
+    }
 }
 
 /// Offsets for [`VMFunctionImport`].

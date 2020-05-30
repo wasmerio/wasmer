@@ -99,16 +99,8 @@ impl NativeArtifact {
 
         let compiler = engine_inner.compiler()?;
 
-        // Compile the Module
-        let compilation = compiler.compile_module(
-            &translation.module,
-            translation.module_translation.as_ref().unwrap(),
-            translation.function_body_inputs,
-            memory_plans.clone(),
-            table_plans.clone(),
-        )?;
-
-        // Compile the function call trampolines
+        // Compile the trampolines
+        // We compile the call trampolines for all the signatures
         let func_types = translation
             .module
             .signatures
@@ -120,9 +112,25 @@ impl NativeArtifact {
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, _>>();
 
-        // Compile the dynamic function trampolines
+        // We compile the dynamic function trampolines only for the imported functions
+        let func_types = translation
+            .module
+            .functions
+            .values()
+            .take(translation.module.num_imported_funcs)
+            .map(|&sig_index| translation.module.signatures[sig_index].clone())
+            .collect::<Vec<_>>();
         let dynamic_function_trampolines =
-            compiler.compile_dynamic_function_trampolines(&translation.module)?;
+            compiler.compile_dynamic_function_trampolines(&func_types)?;
+
+        // Compile the Module
+        let compilation = compiler.compile_module(
+            &translation.module,
+            translation.module_translation.as_ref().unwrap(),
+            translation.function_body_inputs,
+            memory_plans.clone(),
+            table_plans.clone(),
+        )?;
 
         let data_initializers = translation
             .data_initializers

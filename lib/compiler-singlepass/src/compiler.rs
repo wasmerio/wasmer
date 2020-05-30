@@ -130,18 +130,12 @@ impl Compiler for SinglepassCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        module: &ModuleInfo,
+        signatures: &[FunctionType],
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
         let vmoffsets = VMOffsets::new(8, module);
-        Ok(module
-            .functions
-            .values()
-            .take(module.num_imported_funcs)
-            .collect::<Vec<_>>()
+        Ok(signatures
             .par_iter()
-            .map(|&&sig_index| {
-                gen_std_dynamic_import_trampoline(&vmoffsets, &module.signatures[sig_index])
-            })
+            .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
