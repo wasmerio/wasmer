@@ -209,7 +209,7 @@ impl StoreOptions {
                 impl LLVMCallbacks for Callbacks {
                     fn preopt_ir(&self, kind: &CompiledFunctionKind, module: &InkwellModule) {
                         let mut path = self.debug_dir.clone();
-                        path.push(format!("{}.preopt.ir", function_kind_to_filename(kind)));
+                        path.push(format!("{}.preopt.ll", function_kind_to_filename(kind)));
                         module
                             .print_to_file(&path)
                             .expect("Error while dumping pre optimized LLVM IR");
