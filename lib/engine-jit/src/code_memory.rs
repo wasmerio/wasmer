@@ -8,6 +8,8 @@ use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{FunctionBody, SectionBody};
 use wasmer_runtime::{Mmap, VMFunctionBody};
 
+const ARCH_FUNCTION_ALIGNMENT: usize = 16;
+
 struct CodeMemoryEntry {
     mmap: ManuallyDrop<Mmap>,
     table: ManuallyDrop<FunctionTable>,
@@ -82,9 +84,10 @@ impl CodeMemory {
     ) -> Result<&mut [VMFunctionBody], String> {
         let size = Self::function_allocation_size(func);
 
-        let (buf, table, start) = self.allocate(size)?;
+        let (buf, table, start) = self.allocate(size, ARCH_FUNCTION_ALIGNMENT)?;
 
         let (_, _, _, vmfunc) = Self::copy_function(func, start as u32, buf, table);
+        assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
 
         Ok(vmfunc)
     }
@@ -95,7 +98,7 @@ impl CodeMemory {
         section: &SectionBody,
     ) -> Result<&mut [u8], String> {
         let section = section.as_slice();
-        let (buf, _, _) = self.allocate(section.len())?;
+        let (buf, _, _) = self.allocate(section.len(), ARCH_FUNCTION_ALIGNMENT)?;
         buf.copy_from_slice(section);
         Ok(buf)
     }
@@ -107,20 +110,24 @@ impl CodeMemory {
         &mut self,
         compilation: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
     ) -> Result<Box<[&mut [VMFunctionBody]]>, String> {
-        let total_len = compilation
-            .values()
-            .fold(0, |acc, func| acc + Self::function_allocation_size(func));
+        let total_len = compilation.values().fold(0, |acc, func| {
+            acc + get_align_padding_size(acc, ARCH_FUNCTION_ALIGNMENT)
+                + Self::function_allocation_size(func)
+        });
 
-        let (mut buf, mut table, start) = self.allocate(total_len)?;
+        let (mut buf, mut table, start) = self.allocate(total_len, ARCH_FUNCTION_ALIGNMENT)?;
         let mut result = Vec::with_capacity(compilation.len());
         let mut start = start as u32;
+        let mut padding = 0usize;
 
         for func in compilation.values() {
             let (next_start, next_buf, next_table, vmfunc) =
-                Self::copy_function(func, start, buf, table);
+                Self::copy_function(func, start + padding as u32, &mut buf[padding..], table);
+            assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
 
             result.push(vmfunc);
 
+            padding = get_align_padding_size(next_start as usize, ARCH_FUNCTION_ALIGNMENT);
             start = next_start;
             buf = next_buf;
             table = next_table;
@@ -160,15 +167,30 @@ impl CodeMemory {
     /// * A mutable slice which references the allocated memory
     /// * A function table instance where unwind information is registered
     /// * The offset within the current mmap that the slice starts at
-    ///
-    /// TODO: Add an alignment flag.
-    fn allocate(&mut self, size: usize) -> Result<(&mut [u8], &mut FunctionTable, usize), String> {
-        if self.current.mmap.len() - self.position < size {
+    fn allocate(
+        &mut self,
+        size: usize,
+        alignment: usize,
+    ) -> Result<(&mut [u8], &mut FunctionTable, usize), String> {
+        assert!(alignment > 0);
+
+        let align_padding = get_align_padding_size(self.position, alignment);
+        let padded_size = size + align_padding;
+
+        let old_position;
+
+        if self.current.mmap.len() - self.position < padded_size {
+            // If we are allocating a new region, then it is already aligned to page boundary - no need to apply padding here.
             self.push_current(cmp::max(0x10000, size))?;
+            old_position = 0;
+            self.position += size;
+        } else {
+            // Otherwise, apply padding.
+            old_position = self.position + align_padding;
+            self.position += padded_size;
         }
 
-        let old_position = self.position;
-        self.position += size;
+        assert!(old_position % alignment == 0);
 
         Ok((
             &mut self.current.mmap.as_mut_slice()[old_position..self.position],
@@ -258,6 +280,14 @@ impl CodeMemory {
         self.position = 0;
 
         Ok(())
+    }
+}
+
+/// Calculates the minimum number of padding bytes required to fulfill `alignment`.
+fn get_align_padding_size(position: usize, alignment: usize) -> usize {
+    match position % alignment {
+        0 => 0,
+        x => alignment - x,
     }
 }
 
