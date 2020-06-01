@@ -1,8 +1,7 @@
 use crate::config::{CompiledFunctionKind, LLVMConfig};
 use crate::object_file::load_object_file;
-use crate::translator::intrinsics::{
-    func_type_to_llvm, type_to_llvm, type_to_llvm_ptr, Intrinsics,
-};
+use crate::translator::abi::func_type_to_llvm;
+use crate::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
 use inkwell::{
     context::Context,
     module::Linkage,
@@ -45,7 +44,8 @@ impl FuncTrampoline {
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
 
-        let callee_ty = func_type_to_llvm(&self.ctx, &intrinsics, ty);
+        // TODO: pass attrs to generate_trampoline.
+        let (callee_ty, _) = func_type_to_llvm(&self.ctx, &intrinsics, ty);
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ctx_ptr_ty.as_basic_type_enum(), // callee_vmctx ptr

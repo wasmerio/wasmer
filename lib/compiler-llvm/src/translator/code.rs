@@ -1,8 +1,7 @@
 use super::{
     abi,
     intrinsics::{
-        func_type_to_llvm, tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache,
-        Intrinsics, MemoryCache,
+        tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
     read_info::blocktype_to_type,
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
@@ -107,9 +106,12 @@ impl FuncTranslator {
             .unwrap();
 
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
-        let func_type = func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type);
+        let (func_type, func_attrs) = abi::func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type);
 
         let func = module.add_function(&func_name, func_type, Some(Linkage::External));
+        for (attr, attr_loc) in func_attrs {
+            func.add_attribute(attr_loc, attr);
+        }
         // TODO: mark vmctx align 16
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         // TODO: mark vmctx nofree
@@ -2185,7 +2187,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.build_unreachable();
                 self.builder.position_at_end(continue_block);
 
-                let llvm_func_type = func_type_to_llvm(&self.context, &self.intrinsics, func_type);
+                let (llvm_func_type, llvm_func_attrs) =
+                    abi::func_type_to_llvm(&self.context, &self.intrinsics, func_type);
 
                 let params = self.state.popn_save_extra(func_type.params().len())?;
 
@@ -2246,6 +2249,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let call_site = self
                     .builder
                     .build_call(typed_func_ptr, &params, "indirect_call");
+                for (attr, attr_loc) in llvm_func_attrs {
+                    call_site.add_attribute(attr_loc, attr);
+                }
                 /*
                 if self.track_state {
                     if let Some(offset) = opcode_offset {

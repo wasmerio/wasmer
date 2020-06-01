@@ -4,14 +4,14 @@
 //!
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
+use super::abi;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
     types::{
-        BasicType, BasicTypeEnum, FloatType, FunctionType, IntType, PointerType, StructType,
-        VectorType, VoidType,
+        BasicType, BasicTypeEnum, FloatType, IntType, PointerType, StructType, VectorType, VoidType,
     },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
@@ -891,12 +891,18 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.offsets,
         );
         *cached_functions.entry(function_index).or_insert_with(|| {
-            let llvm_func_type = func_type_to_llvm(context, intrinsics, func_type);
+            let (llvm_func_type, llvm_func_attrs) =
+                abi::func_type_to_llvm(context, intrinsics, func_type);
             if wasm_module.local_func_index(function_index).is_some() {
                 // TODO: assuming names are unique, we don't need the
                 // get_function call.
                 let func = module.get_function(func_name).unwrap_or_else(|| {
-                    module.add_function(func_name, llvm_func_type, Some(Linkage::External))
+                    let func =
+                        module.add_function(func_name, llvm_func_type, Some(Linkage::External));
+                    for (attr, attr_loc) in llvm_func_attrs {
+                        func.add_attribute(attr_loc, attr);
+                    }
+                    func
                 });
                 FunctionCache {
                     func: func.as_global_value().as_pointer_value(),
@@ -1104,33 +1110,4 @@ pub fn tbaa_label<'ctx>(
     // Attach the access tag to the instruction.
     let tbaa_kind = context.get_kind_id("tbaa");
     instruction.set_metadata(type_tbaa, tbaa_kind);
-}
-
-pub fn func_type_to_llvm<'ctx>(
-    context: &'ctx Context,
-    intrinsics: &Intrinsics<'ctx>,
-    fntype: &FuncType,
-) -> FunctionType<'ctx> {
-    let user_param_types = fntype
-        .params()
-        .iter()
-        .map(|&ty| type_to_llvm(intrinsics, ty));
-    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
-        .chain(user_param_types)
-        .collect();
-
-    match fntype.results() {
-        &[] => intrinsics.void_ty.fn_type(&param_types, false),
-        &[single_value] => type_to_llvm(intrinsics, single_value).fn_type(&param_types, false),
-        returns => {
-            let basic_types: Vec<_> = returns
-                .iter()
-                .map(|&ty| type_to_llvm(intrinsics, ty))
-                .collect();
-
-            context
-                .struct_type(&basic_types, false)
-                .fn_type(&param_types, false)
-        }
-    }
 }

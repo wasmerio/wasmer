@@ -10,7 +10,7 @@
     missing_docs,
 )]
 
-use crate::translator::intrinsics::{Intrinsics, type_to_llvm};
+use crate::translator::intrinsics::{type_to_llvm, Intrinsics};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
@@ -45,7 +45,7 @@ pub fn get_vmctx_ptr_param<'ctx>(func_value: &FunctionValue<'ctx>) -> PointerVal
 }
 
 // Given a wasm function type, produce an llvm function declaration.
-pub fn func_sig_to_llvm<'ctx>(
+pub fn func_type_to_llvm<'ctx>(
     context: &'ctx Context,
     intrinsics: &Intrinsics<'ctx>,
     sig: &FuncSig,
