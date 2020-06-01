@@ -113,8 +113,8 @@ cfg_if::cfg_if! {
                     let addr = (*siginfo).si_addr() as usize;
                     let (stackaddr, stacksize) = thread_stack();
                     // The stack and its guard page covers the
-                    // range [stackaddr - 1 page .. stackaddr + stacksize).
-                    // We assuming the page size is 4KiB.
+                    //  range [stackaddr - guard pages .. stackaddr + stacksize).
+                    // We assume the guard page is 1 page, and pages are 4KiB.
                     if stackaddr - 4096 <= addr && addr < stackaddr + stacksize {
                         Some(TrapCode::StackOverflow)
                     } else {
