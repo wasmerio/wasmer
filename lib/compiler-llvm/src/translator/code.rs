@@ -2200,26 +2200,36 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let llvm_func_type = func_type_to_llvm(&self.context, &self.intrinsics, func_type);
 
-                let pushed_args = self.state.popn_save_extra(func_type.params().len())?;
+                let params = self.state.popn_save_extra(func_type.params().len())?;
 
-                let args: Vec<_> = std::iter::once(ctx_ptr)
-                    .chain(pushed_args.into_iter().enumerate().map(|(i, (v, info))| {
-                        match func_type.params()[i] {
+                // Apply pending canonicalizations.
+                let params =
+                    params
+                        .iter()
+                        .zip(func_type.params().iter())
+                        .map(|((v, info), wasm_ty)| match wasm_ty {
                             Type::F32 => self.builder.build_bitcast(
-                                self.apply_pending_canonicalization(v, info),
+                                self.apply_pending_canonicalization(*v, *info),
                                 self.intrinsics.f32_ty,
                                 "",
                             ),
                             Type::F64 => self.builder.build_bitcast(
-                                self.apply_pending_canonicalization(v, info),
+                                self.apply_pending_canonicalization(*v, *info),
                                 self.intrinsics.f64_ty,
                                 "",
                             ),
-                            Type::V128 => self.apply_pending_canonicalization(v, info),
-                            _ => v,
-                        }
-                    }))
-                    .collect();
+                            Type::V128 => self.apply_pending_canonicalization(*v, *info),
+                            _ => *v,
+                        });
+
+                let params = abi::args_to_call(
+                    // TODO: should be an alloca_builder.
+                    &self.builder,
+                    func_type,
+                    callee_vmctx.into_pointer_value(),
+                    &func.get_type().get_element_type().into_function_type(),
+                    params.collect::<Vec<_>>().as_slice(),
+                );
 
                 let typed_func_ptr = self.builder.build_pointer_cast(
                     func_ptr,
