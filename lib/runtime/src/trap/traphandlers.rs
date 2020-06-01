@@ -112,7 +112,9 @@ cfg_if::cfg_if! {
                 libc::SIGSEGV | libc::SIGBUS => {
                     let addr = (*siginfo).si_addr() as usize;
                     let (stackaddr, stacksize) = thread_stack();
-                    // Assuming page size of 4KiB.
+                    // The stack and its guard page covers the
+                    // range [stackaddr - 1 page .. stackaddr + stacksize).
+                    // We assuming the page size is 4KiB.
                     if stackaddr - 4096 <= addr && addr < stackaddr + stacksize {
                         Some(TrapCode::StackOverflow)
                     } else {
