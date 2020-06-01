@@ -36,7 +36,7 @@ impl FuncTrampoline {
         ty: &FunctionType,
         config: &LLVMConfig,
     ) -> Result<FunctionBody, CompileError> {
-        // The function type, used for the callbacks
+        // The function type, used for the callbacks.
         let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
         let module = self.ctx.create_module("");
         let target_triple = config.target_triple();
