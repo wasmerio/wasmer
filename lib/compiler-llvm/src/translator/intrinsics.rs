@@ -880,7 +880,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
         context: &'ctx Context,
-        func_name: &String,
+        func_name: &str,
         func_type: &FuncType,
     ) -> FunctionCache<'ctx> {
         let (cached_functions, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
