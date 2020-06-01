@@ -89,7 +89,7 @@ impl FuncTranslator {
         _table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<(CompiledFunction, CustomSections), CompileError> {
-        // The function type, used for the callbacks
+        // The function type, used for the callbacks.
         let function = CompiledFunctionKind::Local(local_func_index.clone());
         let func_index = wasm_module.func_index(*local_func_index);
         let func_name = &func_names[func_index];
