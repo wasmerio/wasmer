@@ -32,6 +32,7 @@ wasmer-wasi = { version = "0.16.2", path = "lib/wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { version = "0.16.2", path = "lib/wasi-experimental-io-devices", optional = true }
 wasmer-wast = { version = "0.16.2", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "0.16.2", path = "lib/cache", optional = true }
+wasm-common = { version = "0.16.2", path = "lib/wasm-common" }
 atty = "0.2"
 colored = "1.9"
 anyhow = "1.0"
