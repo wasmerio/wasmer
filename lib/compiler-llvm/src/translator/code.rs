@@ -2015,22 +2015,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                if let Some(basic_value) = call_site.try_as_basic_value().left() {
-                    match func_type.results().len() {
-                        1 => self.state.push1(basic_value),
-                        count => {
-                            // This is a multi-value return.
-                            let struct_value = basic_value.into_struct_value();
-                            for i in 0..(count as u32) {
-                                let value = self
-                                    .builder
-                                    .build_extract_value(struct_value, i, "")
-                                    .unwrap();
-                                self.state.push1(value);
-                            }
-                        }
-                    }
-                }
+                abi::rets_from_call(&self.builder, &self.intrinsics, call_site, func_type)
+                    .iter()
+                    .for_each(|ret| self.state.push1(*ret));
             }
             Operator::CallIndirect { index, table_index } => {
                 let sigindex = SignatureIndex::from_u32(index);
@@ -2226,8 +2213,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     // TODO: should be an alloca_builder.
                     &self.builder,
                     func_type,
-                    callee_vmctx.into_pointer_value(),
-                    &func.get_type().get_element_type().into_function_type(),
+                    ctx_ptr.into_pointer_value(),
+                    &llvm_func_type,
                     params.collect::<Vec<_>>().as_slice(),
                 );
 
@@ -2258,7 +2245,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 */
                 let call_site = self
                     .builder
-                    .build_call(typed_func_ptr, &args, "indirect_call");
+                    .build_call(typed_func_ptr, &params, "indirect_call");
                 /*
                 if self.track_state {
                     if let Some(offset) = opcode_offset {
@@ -2275,30 +2262,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                match func_type.results() {
-                    [] => {}
-                    [_] => {
-                        let value = call_site.try_as_basic_value().left().unwrap();
-                        self.state.push1(match func_type.results()[0] {
-                            Type::F32 => self.builder.build_bitcast(
-                                value,
-                                self.intrinsics.f32_ty,
-                                "ret_cast",
-                            ),
-                            Type::F64 => self.builder.build_bitcast(
-                                value,
-                                self.intrinsics.f64_ty,
-                                "ret_cast",
-                            ),
-                            _ => value,
-                        });
-                    }
-                    _ => {
-                        return Err(CompileError::Codegen(
-                            "Operator::CallIndirect multi-value returns unimplemented".to_string(),
-                        ));
-                    }
-                }
+                abi::rets_from_call(&self.builder, &self.intrinsics, call_site, func_type)
+                    .iter()
+                    .for_each(|ret| self.state.push1(*ret));
             }
 
             /***************************
