@@ -216,7 +216,7 @@ impl StoreOptions {
                     }
                     fn postopt_ir(&self, kind: &CompiledFunctionKind, module: &InkwellModule) {
                         let mut path = self.debug_dir.clone();
-                        path.push(format!("{}.postopt.ir", function_kind_to_filename(kind)));
+                        path.push(format!("{}.postopt.ll", function_kind_to_filename(kind)));
                         module
                             .print_to_file(&path)
                             .expect("Error while dumping post optimized LLVM IR");
