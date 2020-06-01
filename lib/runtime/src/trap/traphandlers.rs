@@ -113,7 +113,7 @@ cfg_if::cfg_if! {
                     let addr = (*siginfo).si_addr() as usize;
                     let (stackaddr, stacksize) = thread_stack();
                     // Assuming page size of 4KiB.
-                    if stackaddr - 4096 < addr && addr < stackaddr + stacksize {
+                    if stackaddr - 4096 <= addr && addr < stackaddr + stacksize {
                         Some(TrapCode::StackOverflow)
                     } else {
                         Some(TrapCode::HeapAccessOutOfBounds)
