@@ -530,7 +530,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         cache_builder: &'a Builder<'ctx>,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
-            ctx_ptr_value: func_value.get_nth_param(0).unwrap().into_pointer_value(),
+            ctx_ptr_value: abi::get_vmctx_ptr_param(func_value),
 
             wasm_module,
             cache_builder,

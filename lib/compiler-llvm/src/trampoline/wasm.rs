@@ -1,8 +1,9 @@
 use crate::config::{CompiledFunctionKind, LLVMConfig};
 use crate::object_file::load_object_file;
-use crate::translator::abi::func_type_to_llvm;
+use crate::translator::abi::{func_type_to_llvm, rets_from_call};
 use crate::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
 use inkwell::{
+    attributes::{Attribute, AttributeLoc},
     context::Context,
     module::Linkage,
     passes::PassManager,
@@ -44,8 +45,7 @@ impl FuncTrampoline {
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
 
-        // TODO: pass attrs to generate_trampoline.
-        let (callee_ty, _) = func_type_to_llvm(&self.ctx, &intrinsics, ty);
+        let (callee_ty, callee_attrs) = func_type_to_llvm(&self.ctx, &intrinsics, ty);
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ctx_ptr_ty.as_basic_type_enum(), // callee_vmctx ptr
@@ -61,7 +61,7 @@ impl FuncTrampoline {
         trampoline_func
             .as_global_value()
             .set_section(FUNCTION_SECTION);
-        generate_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
+        generate_trampoline(trampoline_func, ty, &callee_attrs, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.preopt_ir(&function, &module);
@@ -210,6 +210,7 @@ impl FuncTrampoline {
 fn generate_trampoline<'ctx>(
     trampoline_func: FunctionValue,
     func_sig: &FunctionType,
+    func_attrs: &Vec<(Attribute, AttributeLoc)>,
     context: &'ctx Context,
     intrinsics: &Intrinsics<'ctx>,
 ) -> Result<(), CompileError> {
@@ -240,6 +241,44 @@ fn generate_trampoline<'ctx>(
     };
 
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
+
+    let func_sig_returns_bitwidths = func_sig
+        .results()
+        .iter()
+        .map(|ty| match ty {
+            Type::I32 | Type::F32 => 32,
+            Type::I64 | Type::F64 => 64,
+            Type::V128 => 128,
+            Type::AnyRef => unimplemented!("anyref in the llvm backend"),
+            Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+        })
+        .collect::<Vec<i32>>();
+
+    let _is_sret = match func_sig_returns_bitwidths.as_slice() {
+        []
+        | [_]
+        | [32, 64]
+        | [64, 32]
+        | [64, 64]
+        | [32, 32]
+        | [32, 32, 32]
+        | [32, 32, 64]
+        | [64, 32, 32]
+        | [32, 32, 32, 32] => false,
+        _ => {
+            let basic_types: Vec<_> = func_sig
+                .results()
+                .iter()
+                .map(|&ty| type_to_llvm(intrinsics, ty))
+                .collect();
+
+            let sret_ty = context.struct_type(&basic_types, false);
+            args_vec.push(builder.build_alloca(sret_ty, "sret").into());
+
+            true
+        }
+    };
+
     args_vec.push(callee_vmctx_ptr);
 
     let mut i = 0;
@@ -262,25 +301,27 @@ fn generate_trampoline<'ctx>(
     }
 
     let call_site = builder.build_call(func_ptr, &args_vec, "call");
-
-    match *func_sig.results() {
-        [] => {}
-        [one_ret] => {
-            let ret_ptr_type = type_to_llvm_ptr(intrinsics, one_ret);
-
-            let typed_ret_ptr =
-                builder.build_pointer_cast(args_rets_ptr, ret_ptr_type, "typed_ret_ptr");
-            builder.build_store(
-                typed_ret_ptr,
-                call_site.try_as_basic_value().left().unwrap(),
-            );
-        }
-        _ => {
-            return Err(CompileError::Codegen(
-                "trampoline function multi-value returns unimplemented".to_string(),
-            ));
-        }
+    for (attr, attr_loc) in func_attrs {
+        call_site.add_attribute(*attr_loc, *attr);
     }
+
+    let rets = rets_from_call(&builder, intrinsics, call_site, func_sig);
+    let mut idx = 0;
+    rets.iter().for_each(|v| {
+        let ptr = unsafe {
+            builder.build_gep(
+                args_rets_ptr,
+                &[intrinsics.i32_ty.const_int(idx, false)],
+                "",
+            )
+        };
+        let ptr = builder.build_pointer_cast(ptr, v.get_type().ptr_type(AddressSpace::Generic), "");
+        builder.build_store(ptr, *v);
+        if v.get_type() == intrinsics.i128_ty.as_basic_type_enum() {
+            idx = idx + 1;
+        }
+        idx = idx + 1;
+    });
 
     builder.build_return(None);
     Ok(())
