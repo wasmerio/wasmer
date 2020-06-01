@@ -1911,6 +1911,7 @@ dependencies = [
  "structopt",
  "test-generator",
  "test-utils",
+ "wasm-common",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",
