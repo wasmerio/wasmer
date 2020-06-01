@@ -27,7 +27,7 @@ pub enum CompiledFunctionKind {
     DynamicFunctionTrampoline(FunctionType),
 }
 
-/// Callbacks to the different LLVM compilation phases
+/// Callbacks to the different LLVM compilation phases.
 pub trait LLVMCallbacks: Send + Sync {
     fn preopt_ir(&self, function: &CompiledFunctionKind, module: &InkwellModule);
     fn postopt_ir(&self, function: &CompiledFunctionKind, module: &InkwellModule);
