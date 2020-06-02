@@ -5586,6 +5586,17 @@ impl<'a> FuncGen<'a> {
                 self.control_stack.push(frame);
             }
             Operator::Loop { ty } => {
+                // Pad with NOPs to the next 16-byte boundary.
+                // Here we don't use the dynasm `.align 16` attribute because it pads the alignment with single-byte nops
+                // which may lead to efficiency problems.
+                match self.assembler.get_offset().0 % 16 {
+                    0 => {}
+                    x => {
+                        self.assembler.emit_nop_n(16 - x);
+                    }
+                }
+                assert_eq!(self.assembler.get_offset().0 % 16, 0);
+
                 let label = self.assembler.get_label();
                 let state_diff_id = self.get_state_diff();
                 let _activate_offset = self.assembler.get_offset().0;

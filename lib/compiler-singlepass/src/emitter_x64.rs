@@ -72,10 +72,15 @@ pub trait Emitter {
     fn finalize_function(&mut self) {}
 
     fn emit_u64(&mut self, x: u64);
+    fn emit_bytes(&mut self, bytes: &[u8]);
 
     fn emit_label(&mut self, label: Self::Label);
 
     fn emit_nop(&mut self);
+
+    /// A high-level assembler method. Emits an instruction sequence of length `n` that is functionally
+    /// equivalent to a `nop` instruction, without guarantee about the underlying implementation.
+    fn emit_nop_n(&mut self, n: usize);
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location);
@@ -648,12 +653,50 @@ impl Emitter for Assembler {
         self.push_u64(x);
     }
 
+    fn emit_bytes(&mut self, bytes: &[u8]) {
+        for &b in bytes {
+            self.push(b);
+        }
+    }
+
     fn emit_label(&mut self, label: Self::Label) {
         dynasm!(self ; => label);
     }
 
     fn emit_nop(&mut self) {
         dynasm!(self ; nop);
+    }
+
+    fn emit_nop_n(&mut self, mut n: usize) {
+        /*
+            1      90H                            NOP
+            2      66 90H                         66 NOP
+            3      0F 1F 00H                      NOP DWORD ptr [EAX]
+            4      0F 1F 40 00H                   NOP DWORD ptr [EAX + 00H]
+            5      0F 1F 44 00 00H                NOP DWORD ptr [EAX + EAX*1 + 00H]
+            6      66 0F 1F 44 00 00H             NOP DWORD ptr [AX + AX*1 + 00H]
+            7      0F 1F 80 00 00 00 00H          NOP DWORD ptr [EAX + 00000000H]
+            8      0F 1F 84 00 00 00 00 00H       NOP DWORD ptr [AX + AX*1 + 00000000H]
+            9      66 0F 1F 84 00 00 00 00 00H    NOP DWORD ptr [AX + AX*1 + 00000000H]
+        */
+        while n >= 9 {
+            n -= 9;
+            self.emit_bytes(&[0x66, 0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00]);
+            // 9-byte nop
+        }
+        let seq: &[u8] = match n {
+            0 => &[],
+            1 => &[0x90],
+            2 => &[0x66, 0x90],
+            3 => &[0x0f, 0x1f, 0x00],
+            4 => &[0x0f, 0x1f, 0x40, 0x00],
+            5 => &[0x0f, 0x1f, 0x44, 0x00, 0x00],
+            6 => &[0x66, 0x0f, 0x1f, 0x44, 0x00, 0x00],
+            7 => &[0x0f, 0x1f, 0x80, 0x00, 0x00, 0x00, 0x00],
+            8 => &[0x0f, 0x1f, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00],
+            _ => unreachable!(),
+        };
+        self.emit_bytes(seq);
     }
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) {
