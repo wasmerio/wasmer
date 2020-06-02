@@ -8,9 +8,9 @@ use std::slice;
 use std::sync::Arc;
 
 use wasmer::{
-    CompilerConfig, Engine, Extern, Function, FunctionType, Global, GlobalType, Instance,
-    JITEngine, Memory, MemoryType, Module, Mutability, OrderedResolver, Pages, RuntimeError, Store,
-    Table, TableType, Tunables, Val, ValType,
+    CompilerConfig, Engine, Extern, ExternType, Function, FunctionType, Global, GlobalType,
+    Instance, JITEngine, Memory, MemoryType, Module, Mutability, OrderedResolver, Pages,
+    RuntimeError, Store, Table, TableType, Tunables, Val, ValType,
 };
 
 use crate::error::update_last_error;
@@ -381,6 +381,9 @@ pub unsafe extern "C" fn wasm_extern_as_table(
 }
 
 #[allow(non_camel_case_types)]
+pub type wasm_table_size_t = u32;
+
+#[allow(non_camel_case_types)]
 pub type wasm_mutability_t = u8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -410,11 +413,26 @@ impl TryFrom<wasm_mutability_t> for wasm_mutability_enum {
     }
 }
 
+impl From<wasm_mutability_enum> for wasm_mutability_t {
+    fn from(other: wasm_mutability_enum) -> Self {
+        other as wasm_mutability_t
+    }
+}
+
 impl From<wasm_mutability_enum> for Mutability {
     fn from(other: wasm_mutability_enum) -> Self {
         match other {
             wasm_mutability_enum::WASM_CONST => Mutability::Const,
             wasm_mutability_enum::WASM_VAR => Mutability::Var,
+        }
+    }
+}
+
+impl From<Mutability> for wasm_mutability_enum {
+    fn from(other: Mutability) -> Self {
+        match other {
+            Mutability::Const => wasm_mutability_enum::WASM_CONST,
+            Mutability::Var => wasm_mutability_enum::WASM_VAR,
         }
     }
 }
@@ -442,6 +460,14 @@ impl From<wasm_valtype_t> for ValType {
     }
 }
 
+impl From<ValType> for wasm_valtype_t {
+    fn from(other: ValType) -> Self {
+        Self {
+            valkind: other.into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 #[repr(u8)]
@@ -452,6 +478,20 @@ pub enum wasm_valkind_enum {
     WASM_F64,
     WASM_ANYREF = 128,
     WASM_FUNCREF,
+}
+
+impl From<ValType> for wasm_valkind_enum {
+    fn from(other: ValType) -> Self {
+        match other {
+            ValType::I32 => Self::WASM_I32,
+            ValType::I64 => Self::WASM_I64,
+            ValType::F32 => Self::WASM_F32,
+            ValType::F64 => Self::WASM_F64,
+            ValType::V128 => todo!("no 128 type in C API yet!"),
+            ValType::AnyRef => Self::WASM_ANYREF,
+            ValType::FuncRef => Self::WASM_FUNCREF,
+        }
+    }
 }
 
 #[repr(C)]
@@ -582,7 +622,7 @@ pub type wasm_func_callback_t =
 
 #[allow(non_camel_case_types)]
 pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
-    c_void,
+    *mut c_void,
     args: *const wasm_val_t,
     results: *mut wasm_val_t,
 ) -> *mut wasm_trap_t;
@@ -600,14 +640,13 @@ pub struct wasm_func_t {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
     store: Option<NonNull<wasm_store_t>>,
-    ft: *const wasm_functype_t,
+    ft: &wasm_functype_t,
     callback: wasm_func_callback_t,
 ) -> Option<Box<wasm_func_t>> {
     // TODO: handle null pointers?
     let store_ptr = store?.cast::<Store>();
     let store = store_ptr.as_ref();
-    let new_ft = wasm_functype_copy(NonNull::new(ft as *mut _))?;
-    let func_sig = functype_to_real_type(new_ft);
+    let func_sig = ft.sig();
     let num_rets = func_sig.results().len();
     let inner_callback = move |args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
         let processed_args = args
@@ -643,24 +682,52 @@ pub unsafe extern "C" fn wasm_func_new(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new_with_env(
-    _store: *mut wasm_store_t,
-    ft: *const wasm_functype_t,
+    store: Option<NonNull<wasm_store_t>>,
+    ft: &wasm_functype_t,
     callback: wasm_func_callback_with_env_t,
-    env: c_void,
+    env: *mut c_void,
     finalizer: wasm_env_finalizer_t,
-) -> *mut wasm_func_t {
-    todo!("wasm_func_new_with_env")
-    /*
+) -> Option<Box<wasm_func_t>> {
     // TODO: handle null pointers?
-    let new_ft = wasm_functype_copy(ft as *mut _);
-    let func_sig = functype_to_real_type(new_ft);
-    let wasm_func = Box::new(wasm_func_t {
+    let store_ptr = store?.cast::<Store>();
+    let store = store_ptr.as_ref();
+    let func_sig = ft.sig();
+    let num_rets = func_sig.results().len();
+    let inner_callback = move |env: &mut c_void, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
+        let processed_args = args
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<wasm_val_t>, _>>()
+            .expect("Argument conversion failed");
+
+        let mut results = vec![
+            wasm_val_t {
+                kind: wasm_valkind_enum::WASM_I64 as _,
+                of: wasm_val_inner { int64_t: 0 },
+            };
+            num_rets
+        ];
+
+        let _traps = callback(env, processed_args.as_ptr(), results.as_mut_ptr());
+        // TODO: do something with `traps`
+
+        let processed_results = results
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<Val>, _>>()
+            .expect("Result conversion failed");
+        Ok(processed_results)
+    };
+    let f = Function::new_dynamic_env(
+        store,
+        &func_sig,
+        mem::transmute::<*mut c_void, &mut c_void>(env),
+        inner_callback,
+    );
+    Some(Box::new(wasm_func_t {
         instance: None,
-        inner: None,
-        functype: func_sig,
-    });
-    Box::into_raw(wasm_func)
-    */
+        inner: f,
+    }))
 }
 
 #[no_mangle]
@@ -709,10 +776,10 @@ pub struct wasm_global_t {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_new(
     store_ptr: Option<NonNull<wasm_store_t>>,
-    gt_ptr: *const wasm_globaltype_t,
+    gt: &wasm_globaltype_t,
     val: &wasm_val_t,
 ) -> Option<Box<wasm_global_t>> {
-    let gt = &*(gt_ptr as *const GlobalType);
+    let gt = gt.as_globaltype();
     let wasm_val = val.try_into().ok()?;
     let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
     let store = store_ptr.as_ref();
@@ -766,9 +833,9 @@ pub struct wasm_memory_t {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_new(
     store_ptr: Option<NonNull<wasm_store_t>>,
-    mt_ptr: *const wasm_memorytype_t,
+    mt: &wasm_memorytype_t,
 ) -> Option<Box<wasm_memory_t>> {
-    let md = (&*(mt_ptr as *const MemoryType)).clone();
+    let md = mt.as_memorytype().clone();
     let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
     let store = store_ptr.as_ref();
 
@@ -835,10 +902,10 @@ pub struct wasm_table_t {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_new(
     store_ptr: Option<NonNull<wasm_store_t>>,
-    mt_ptr: *const wasm_tabletype_t,
+    tt: &wasm_tabletype_t,
     init: *const wasm_ref_t,
 ) -> Option<Box<wasm_table_t>> {
-    let tt = (&*(mt_ptr as *const TableType)).clone();
+    let tt = tt.as_tabletype().clone();
     let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
     let store = store_ptr.as_ref();
 
@@ -870,6 +937,17 @@ pub unsafe extern "C" fn wasm_table_same(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_size(wasm_table: &wasm_table_t) -> usize {
     wasm_table.inner.size() as _
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_table_grow(
+    _wasm_table: &mut wasm_table_t,
+    _delta: wasm_table_size_t,
+    _init: *mut wasm_ref_t,
+) -> bool {
+    // TODO: maybe need to look at result to return `true`; also maybe report error here
+    //wasm_table.inner.grow(delta, init).is_ok()
+    todo!("Blocked on transforming AnyRef into a val type")
 }
 
 macro_rules! wasm_declare_own {
@@ -1003,7 +1081,9 @@ macro_rules! wasm_declare_ref_base {
 pub type wasm_byte_t = u8;
 wasm_declare_vec!(byte);
 
-wasm_declare_ref_base!(ref);
+// opaque type over `AnyRef`?
+#[allow(non_camel_case_types)]
+pub struct wasm_ref_t;
 
 // opaque type which is a `RuntimeError`
 #[repr(C)]
@@ -1084,9 +1164,24 @@ pub unsafe extern "C" fn wasm_valtype_kind(valtype: *const wasm_valtype_t) -> wa
 //wasm_declare_ref!(trap);
 //wasm_declare_ref!(foreign);
 
-// opaque type wrapping `GlobalType`
-#[repr(C)]
-pub struct wasm_globaltype_t {}
+#[derive(Clone)]
+#[repr(transparent)]
+#[allow(non_camel_case_types)]
+pub struct wasm_globaltype_t {
+    extrn: wasm_externtype_t,
+}
+
+impl wasm_globaltype_t {
+    fn as_globaltype(&self) -> &GlobalType {
+        if let ExternType::Global(ref g) = self.extrn.inner {
+            g
+        } else {
+            unreachable!(
+                "Data corruption detected: `wasm_globaltype_t` does not contain a `GlobalType`"
+            );
+        }
+    }
+}
 
 wasm_declare_vec!(globaltype);
 
@@ -1095,69 +1190,140 @@ pub unsafe extern "C" fn wasm_globaltype_new(
     // own
     valtype: Option<Box<wasm_valtype_t>>,
     mutability: wasm_mutability_t,
-) -> Option<NonNull<wasm_globaltype_t>> {
+) -> Option<Box<wasm_globaltype_t>> {
     wasm_globaltype_new_inner(valtype?, mutability)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_globaltype_delete(globaltype: Option<NonNull<wasm_globaltype_t>>) {
-    if let Some(g_inner) = globaltype {
-        let _ = Box::from_raw(g_inner.cast::<GlobalType>().as_ptr());
-    }
-}
+pub unsafe extern "C" fn wasm_globaltype_delete(_globaltype: Option<Box<wasm_globaltype_t>>) {}
 
 unsafe fn wasm_globaltype_new_inner(
     // own
     valtype: Box<wasm_valtype_t>,
     mutability: wasm_mutability_t,
-) -> Option<NonNull<wasm_globaltype_t>> {
+) -> Option<Box<wasm_globaltype_t>> {
     let me: wasm_mutability_enum = mutability.try_into().ok()?;
-    let gd = Box::new(GlobalType::new((*valtype).into(), me.into()));
+    let gd = Box::new(wasm_globaltype_t {
+        extrn: wasm_externtype_t {
+            inner: ExternType::Global(GlobalType::new((*valtype).into(), me.into())),
+        },
+    });
     wasm_valtype_delete(Some(valtype));
 
-    Some(NonNull::new_unchecked(
-        Box::into_raw(gd) as *mut wasm_globaltype_t
-    ))
+    Some(gd)
 }
 
-// opaque type wrapping `GlobalType`
+#[no_mangle]
+pub unsafe extern "C" fn wasm_globaltype_mutability(
+    globaltype: &wasm_globaltype_t,
+) -> wasm_mutability_t {
+    let gt = globaltype.as_globaltype();
+    wasm_mutability_enum::from(gt.mutability).into()
+}
+
+// TODO: fix memory leak
+// this function leaks memory because the returned limits pointer is not owned
+#[no_mangle]
+pub unsafe extern "C" fn wasm_globaltype_content(
+    globaltype: &wasm_globaltype_t,
+) -> *const wasm_valtype_t {
+    let gt = globaltype.as_globaltype();
+    Box::into_raw(Box::new(gt.ty.into()))
+}
+
+#[derive(Clone)]
 #[repr(C)]
-pub struct wasm_tabletype_t {}
+#[allow(non_camel_case_types)]
+pub struct wasm_tabletype_t {
+    extrn: wasm_externtype_t,
+}
 
 wasm_declare_vec!(tabletype);
+
+impl wasm_tabletype_t {
+    fn as_tabletype(&self) -> &TableType {
+        if let ExternType::Table(ref t) = self.extrn.inner {
+            t
+        } else {
+            unreachable!(
+                "Data corruption detected: `wasm_tabletype_t` does not contain a `TableType`"
+            );
+        }
+    }
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_new(
     // own
     valtype: Box<wasm_valtype_t>,
     limits: &wasm_limits_t,
-) -> NonNull<wasm_tabletype_t> {
+) -> Box<wasm_tabletype_t> {
     // TODO: investigate if `0` is in fact a sentinel value here
     let max_elements = if limits.max == 0 {
         None
     } else {
         Some(limits.max as _)
     };
-    let out = NonNull::new_unchecked(Box::into_raw(Box::new(TableType::new(
-        (*valtype).into(),
-        limits.min as _,
-        max_elements,
-    ))) as *mut wasm_tabletype_t);
+    let out = Box::new(wasm_tabletype_t {
+        extrn: wasm_externtype_t {
+            inner: ExternType::Table(TableType::new(
+                (*valtype).into(),
+                limits.min as _,
+                max_elements,
+            )),
+        },
+    });
     wasm_valtype_delete(Some(valtype));
 
     out
 }
 
+// TODO: fix memory leak
+// this function leaks memory because the returned limits pointer is not owned
 #[no_mangle]
-pub unsafe extern "C" fn wasm_tabletype_delete(tabletype: Option<NonNull<wasm_tabletype_t>>) {
-    if let Some(g_inner) = tabletype {
-        let _ = Box::from_raw(g_inner.cast::<TableType>().as_ptr());
-    }
+pub unsafe extern "C" fn wasm_tabletype_limits(
+    tabletype: &wasm_tabletype_t,
+) -> *const wasm_limits_t {
+    let tt = tabletype.as_tabletype();
+    Box::into_raw(Box::new(wasm_limits_t {
+        min: tt.minimum as _,
+        max: tt.maximum.unwrap_or(0),
+    }))
 }
 
+// TODO: fix memory leak
+// this function leaks memory because the returned limits pointer is not owned
+#[no_mangle]
+pub unsafe extern "C" fn wasm_tabletype_element(
+    tabletype: &wasm_tabletype_t,
+) -> *const wasm_valtype_t {
+    let tt = tabletype.as_tabletype();
+
+    Box::into_raw(Box::new(tt.ty.into()))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_tabletype_delete(_tabletype: Option<Box<wasm_tabletype_t>>) {}
+
 // opaque type wrapping `MemoryType`
-#[repr(C)]
-pub struct wasm_memorytype_t {}
+#[derive(Clone)]
+#[repr(transparent)]
+#[allow(non_camel_case_types)]
+pub struct wasm_memorytype_t {
+    extrn: wasm_externtype_t,
+}
+
+impl wasm_memorytype_t {
+    pub(crate) fn as_memorytype(&self) -> &MemoryType {
+        if let ExternType::Memory(ref mt) = self.extrn.inner {
+            mt
+        } else {
+            unreachable!(
+                "Data corruption detected: `wasm_memorytype_t` does not contain a `MemoryType`"
+            );
+        }
+    }
+}
 
 wasm_declare_vec!(memorytype);
 
@@ -1169,7 +1335,7 @@ pub struct wasm_limits_t {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> NonNull<wasm_memorytype_t> {
+pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
     let min_pages = Pages(limits.min as _);
     // TODO: investigate if `0` is in fact a sentinel value here
     let max_pages = if limits.max == 0 {
@@ -1177,35 +1343,43 @@ pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> NonNull<
     } else {
         Some(Pages(limits.max as _))
     };
-    NonNull::new_unchecked(
-        Box::into_raw(Box::new(MemoryType::new(min_pages, max_pages, false)))
-            as *mut wasm_memorytype_t,
-    )
+    Box::new(wasm_memorytype_t {
+        extrn: wasm_externtype_t {
+            inner: ExternType::Memory(MemoryType::new(min_pages, max_pages, false)),
+        },
+    })
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memorytype_delete(memorytype: *mut wasm_memorytype_t) {
-    if !memorytype.is_null() {
-        let _ = Box::from_raw(memorytype as *mut MemoryType);
-    }
-}
+pub unsafe extern "C" fn wasm_memorytype_delete(_memorytype: Option<Box<wasm_memorytype_t>>) {}
 
 // TODO: fix memory leak
 // this function leaks memory because the returned limits pointer is not owned
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memorytype_limits(
-    mt: *const wasm_memorytype_t,
-) -> *const wasm_limits_t {
-    let md = &*(mt as *const MemoryType);
+pub unsafe extern "C" fn wasm_memorytype_limits(mt: &wasm_memorytype_t) -> *const wasm_limits_t {
+    let md = mt.as_memorytype();
     Box::into_raw(Box::new(wasm_limits_t {
         min: md.minimum.bytes().0 as _,
         max: md.maximum.map(|max| max.bytes().0 as _).unwrap_or(0),
     }))
 }
 
-// opaque type wrapping `Arc<FunctionType>`
-#[repr(C)]
-pub struct wasm_functype_t {}
+#[derive(Clone)]
+#[allow(non_camel_case_types)]
+#[repr(transparent)]
+pub struct wasm_functype_t {
+    extrn: wasm_externtype_t,
+}
+
+impl wasm_functype_t {
+    pub(crate) fn sig(&self) -> &FunctionType {
+        if let ExternType::Function(ref f) = self.extrn.inner {
+            f
+        } else {
+            unreachable!("data corruption: `wasm_functype_t` does not contain a function")
+        }
+    }
+}
 
 wasm_declare_vec!(functype);
 
@@ -1215,7 +1389,7 @@ pub unsafe extern "C" fn wasm_functype_new(
     params: Option<NonNull<wasm_valtype_vec_t>>,
     // own
     results: Option<NonNull<wasm_valtype_vec_t>>,
-) -> Option<NonNull<wasm_functype_t>> {
+) -> Option<Box<wasm_functype_t>> {
     wasm_functype_new_inner(params?, results?)
 }
 
@@ -1224,7 +1398,7 @@ unsafe fn wasm_functype_new_inner(
     params: NonNull<wasm_valtype_vec_t>,
     // own
     results: NonNull<wasm_valtype_vec_t>,
-) -> Option<NonNull<wasm_functype_t>> {
+) -> Option<Box<wasm_functype_t>> {
     let params = params.as_ref();
     let results = results.as_ref();
     let params: Vec<ValType> = params
@@ -1240,10 +1414,10 @@ unsafe fn wasm_functype_new_inner(
         .map(Into::into)
         .collect::<Vec<_>>();
 
-    let funcsig = Arc::new(FunctionType::new(params, results));
-    Some(NonNull::new_unchecked(
-        Arc::into_raw(funcsig) as *mut wasm_functype_t
-    ))
+    let extrn = wasm_externtype_t {
+        inner: ExternType::Function(FunctionType::new(params, results)),
+    };
+    Some(Box::new(wasm_functype_t { extrn }))
 }
 
 #[no_mangle]
@@ -1252,21 +1426,215 @@ pub unsafe extern "C" fn wasm_functype_delete(_ft: Option<Box<wasm_functype_t>>)
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_copy(
     arg: Option<NonNull<wasm_functype_t>>,
-) -> Option<NonNull<wasm_functype_t>> {
-    let funcsig = functype_to_real_type(arg?);
-    let new_funcsig = Arc::clone(&funcsig);
-    // don't free the original Arc
-    mem::forget(funcsig);
-    Some(NonNull::new_unchecked(
-        Arc::into_raw(new_funcsig) as *mut wasm_functype_t
-    ))
+) -> Option<Box<wasm_functype_t>> {
+    let arg = arg?;
+    let funcsig = arg.as_ref();
+    Some(Box::new(funcsig.clone()))
 }
 
-unsafe fn functype_to_real_type(arg: NonNull<wasm_functype_t>) -> Arc<FunctionType> {
-    Arc::from_raw(arg.cast::<FunctionType>().as_ptr())
+// TODO:
+#[no_mangle]
+pub unsafe extern "C" fn wasm_functype_params(
+    _ft: *const wasm_functype_t,
+) -> *const wasm_valtype_vec_t {
+    /*let ft = &*(ft as *const FunctionType);
+    ft.params()*/
+    todo!("wasm_functype_params")
 }
 
 #[repr(C)]
 pub struct wasm_frame_t {}
 
 wasm_declare_vec!(frame);
+
+#[derive(Clone)]
+#[allow(non_camel_case_types)]
+#[repr(transparent)]
+pub struct wasm_externtype_t {
+    inner: ExternType,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_extern_type(e: &wasm_extern_t) -> Box<wasm_externtype_t> {
+    Box::new(wasm_externtype_t {
+        inner: e.inner.ty(),
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_externtype_delete(_et: Option<Box<wasm_externtype_t>>) {}
+
+#[allow(non_camel_case_types)]
+type wasm_externkind_t = u8;
+
+#[allow(non_camel_case_types)]
+#[repr(u8)]
+pub enum wasm_externkind_enum {
+    WASM_EXTERN_FUNC = 0,
+    WASM_EXTERN_GLOBAL = 1,
+    WASM_EXTERN_TABLE = 2,
+    WASM_EXTERN_MEMORY = 3,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_extern_kind(e: &wasm_extern_t) -> wasm_externkind_t {
+    wasm_externkind_enum::from(e.inner.ty()) as wasm_externkind_t
+}
+
+impl From<ExternType> for wasm_externkind_enum {
+    fn from(other: ExternType) -> Self {
+        (&other).into()
+    }
+}
+impl From<&ExternType> for wasm_externkind_enum {
+    fn from(other: &ExternType) -> Self {
+        match other {
+            ExternType::Function(_) => Self::WASM_EXTERN_FUNC,
+            ExternType::Global(_) => Self::WASM_EXTERN_GLOBAL,
+            ExternType::Table(_) => Self::WASM_EXTERN_TABLE,
+            ExternType::Memory(_) => Self::WASM_EXTERN_MEMORY,
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_externtype_kind(et: &wasm_externtype_t) -> wasm_externkind_t {
+    wasm_externkind_enum::from(&et.inner) as wasm_externkind_t
+}
+
+impl<'a> TryFrom<&'a wasm_externtype_t> for &'a wasm_functype_t {
+    type Error = &'static str;
+    fn try_from(other: &wasm_externtype_t) -> Result<Self, Self::Error> {
+        if let ExternType::Function(_) = other.inner {
+            Ok(unsafe { &*(other as *const _ as *const Self) })
+        } else {
+            Err("Wrong type: expected function")
+        }
+    }
+}
+impl<'a> TryFrom<&'a wasm_externtype_t> for &'a wasm_globaltype_t {
+    type Error = &'static str;
+    fn try_from(other: &wasm_externtype_t) -> Result<Self, Self::Error> {
+        if let ExternType::Global(_) = other.inner {
+            Ok(unsafe { &*(other as *const _ as *const Self) })
+        } else {
+            Err("Wrong type: expected global")
+        }
+    }
+}
+impl<'a> TryFrom<&'a wasm_externtype_t> for &'a wasm_memorytype_t {
+    type Error = &'static str;
+    fn try_from(other: &wasm_externtype_t) -> Result<Self, Self::Error> {
+        if let ExternType::Memory(_) = other.inner {
+            Ok(unsafe { &*(other as *const _ as *const Self) })
+        } else {
+            Err("Wrong type: expected memory")
+        }
+    }
+}
+impl<'a> TryFrom<&'a wasm_externtype_t> for &'a wasm_tabletype_t {
+    type Error = &'static str;
+    fn try_from(other: &wasm_externtype_t) -> Result<Self, Self::Error> {
+        if let ExternType::Table(_) = other.inner {
+            Ok(unsafe { &*(other as *const _ as *const Self) })
+        } else {
+            Err("Wrong type: expected memory")
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_externtype_as_functype_const(
+    et: &wasm_externtype_t,
+) -> Option<&wasm_functype_t> {
+    et.try_into().ok()
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_externtype_as_functype(
+    et: &wasm_externtype_t,
+) -> Option<&wasm_functype_t> {
+    et.try_into().ok()
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_functype_as_externtype_const(
+    ft: &wasm_functype_t,
+) -> &wasm_externtype_t {
+    &ft.extrn
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_functype_as_externtype(ft: &wasm_functype_t) -> &wasm_externtype_t {
+    &ft.extrn
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_externtype_as_memorytype_const(
+    et: &wasm_externtype_t,
+) -> Option<&wasm_memorytype_t> {
+    et.try_into().ok()
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_externtype_as_memorytype(
+    et: &wasm_externtype_t,
+) -> Option<&wasm_memorytype_t> {
+    et.try_into().ok()
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memorytype_as_externtype_const(
+    mt: &wasm_memorytype_t,
+) -> &wasm_externtype_t {
+    &mt.extrn
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_memorytype_as_externtype(
+    mt: &wasm_memorytype_t,
+) -> &wasm_externtype_t {
+    &mt.extrn
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_externtype_as_globaltype_const(
+    et: &wasm_externtype_t,
+) -> Option<&wasm_globaltype_t> {
+    et.try_into().ok()
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_externtype_as_globaltype(
+    et: &wasm_externtype_t,
+) -> Option<&wasm_globaltype_t> {
+    et.try_into().ok()
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_globaltype_as_externtype_const(
+    gt: &wasm_globaltype_t,
+) -> &wasm_externtype_t {
+    &gt.extrn
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_globaltype_as_externtype(
+    gt: &wasm_globaltype_t,
+) -> &wasm_externtype_t {
+    &gt.extrn
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_externtype_as_tabletype_const(
+    et: &wasm_externtype_t,
+) -> Option<&wasm_tabletype_t> {
+    et.try_into().ok()
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_externtype_as_tabletype(
+    et: &wasm_externtype_t,
+) -> Option<&wasm_tabletype_t> {
+    et.try_into().ok()
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_tabletype_as_externtype_const(
+    tt: &wasm_tabletype_t,
+) -> &wasm_externtype_t {
+    &tt.extrn
+}
+#[no_mangle]
+pub unsafe extern "C" fn wasm_tabletype_as_externtype(tt: &wasm_tabletype_t) -> &wasm_externtype_t {
+    &tt.extrn
+}
