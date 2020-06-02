@@ -66,7 +66,7 @@ build-wapm:
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
 
 build-docs:
-	cargo doc --release --all-features --document-private-items --no-deps
+	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace
 
 build-docs-capi:
 	cd lib/c-api/ && doxygen doxyfile
