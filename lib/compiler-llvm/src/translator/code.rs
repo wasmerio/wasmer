@@ -1528,10 +1528,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let phis = blocktype_to_types(ty, self.wasm_module)
                     .iter()
-                    .map(|&ty| {
-                        self.builder
-                            .build_phi(type_to_llvm(self.intrinsics, ty), "")
-                    })
+                    .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
+                    .map(|ty| self.builder.build_phi(ty, ""))
                     .collect();
 
                 self.state.push_block(end_block, phis);
@@ -1547,20 +1545,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.position_at_end(loop_next);
                 let phis = blocktype_to_types(ty, self.wasm_module)
                     .iter()
-                    .map(|&ty| {
-                        self.builder
-                            .build_phi(type_to_llvm(self.intrinsics, ty), "")
-                    })
+                    .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
+                    .map(|ty| self.builder.build_phi(ty, ""))
                     .collect();
 
                 self.builder.position_at_end(loop_body);
                 let loop_phis: SmallVec<[PhiValue<'ctx>; 1]> =
                     blocktype_to_param_types(ty, self.wasm_module)
                         .iter()
-                        .map(|&ty| {
-                            self.builder
-                                .build_phi(type_to_llvm(self.intrinsics, ty), "")
-                        })
+                        .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
+                        .map(|ty| self.builder.build_phi(ty, ""))
                         .collect();
                 for phi in loop_phis.iter().rev() {
                     let (value, info) = self.state.pop1_extra()?;
@@ -1741,10 +1735,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                     let phis = blocktype_to_types(ty, self.wasm_module)
                         .iter()
-                        .map(|&ty| {
-                            self.builder
-                                .build_phi(type_to_llvm(self.intrinsics, ty), "")
-                        })
+                        .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
+                        .map(|ty| self.builder.build_phi(ty, ""))
                         .collect();
 
                     self.builder.position_at_end(current_block);
@@ -1766,19 +1758,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let else_phis: SmallVec<[PhiValue<'ctx>; 1]> =
                     blocktype_to_param_types(ty, self.wasm_module)
                         .iter()
-                        .map(|&ty| {
-                            self.builder
-                                .build_phi(type_to_llvm(self.intrinsics, ty), "")
-                        })
+                        .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
+                        .map(|ty| self.builder.build_phi(ty, ""))
                         .collect();
                 self.builder.position_at_end(if_then_block);
                 let then_phis: SmallVec<[PhiValue<'ctx>; 1]> =
                     blocktype_to_param_types(ty, self.wasm_module)
                         .iter()
-                        .map(|&ty| {
-                            self.builder
-                                .build_phi(type_to_llvm(self.intrinsics, ty), "")
-                        })
+                        .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
+                        .map(|ty| self.builder.build_phi(ty, ""))
                         .collect();
                 for (else_phi, then_phi) in else_phis.iter().rev().zip(then_phis.iter().rev()) {
                     let (value, info) = self.state.pop1_extra()?;
