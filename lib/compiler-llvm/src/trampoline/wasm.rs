@@ -287,7 +287,7 @@ fn generate_trampoline<'ctx>(
         let item_pointer =
             unsafe { builder.build_in_bounds_gep(args_rets_ptr, &[index], "arg_ptr") };
 
-        let casted_pointer_type = type_to_llvm_ptr(intrinsics, *param_ty);
+        let casted_pointer_type = type_to_llvm_ptr(intrinsics, *param_ty)?;
 
         let typed_item_pointer =
             builder.build_pointer_cast(item_pointer, casted_pointer_type, "typed_arg_pointer");
@@ -367,7 +367,7 @@ fn generate_dynamic_trampoline<'ctx>(
             )
         };
         let ptr = builder
-            .build_bitcast(ptr, type_to_llvm_ptr(intrinsics, func_sig.params()[i]), "")
+            .build_bitcast(ptr, type_to_llvm_ptr(intrinsics, func_sig.params()[i])?, "")
             .into_pointer_value();
         builder.build_store(ptr, trampoline_func.get_nth_param(i as u32 + 1).unwrap());
     }
@@ -413,7 +413,7 @@ fn generate_dynamic_trampoline<'ctx>(
                 )
             };
             let ptr = builder
-                .build_bitcast(ptr, type_to_llvm_ptr(intrinsics, *ty), "")
+                .build_bitcast(ptr, type_to_llvm_ptr(intrinsics, *ty)?, "")
                 .into_pointer_value();
             let ret = builder.build_load(ptr, "");
             builder.build_return(Some(&ret));

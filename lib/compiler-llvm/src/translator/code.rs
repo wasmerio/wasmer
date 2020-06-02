@@ -2166,12 +2166,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                match self.ctx.global(global_index, self.intrinsics, self.module) {
+                match self
+                    .ctx
+                    .global(global_index, self.intrinsics, self.module)?
+                {
                     GlobalCache::Const { value } => {
-                        self.state.push1(value);
+                        self.state.push1(*value);
                     }
                     GlobalCache::Mut { ptr_to_value } => {
-                        let value = self.builder.build_load(ptr_to_value, "");
+                        let value = self.builder.build_load(*ptr_to_value, "");
                         tbaa_label(
                             self.module,
                             self.intrinsics,
@@ -2184,7 +2187,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                match self.ctx.global(global_index, self.intrinsics, self.module) {
+                match self
+                    .ctx
+                    .global(global_index, self.intrinsics, self.module)?
+                {
                     GlobalCache::Const { value: _ } => {
                         return Err(CompileError::Codegen(format!(
                             "global.set on immutable global index {}",
@@ -2192,6 +2198,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         )))
                     }
                     GlobalCache::Mut { ptr_to_value } => {
+                        let ptr_to_value = *ptr_to_value;
                         let (value, info) = self.state.pop1_extra()?;
                         let value = self.apply_pending_canonicalization(value, info);
                         let store = self.builder.build_store(ptr_to_value, value);

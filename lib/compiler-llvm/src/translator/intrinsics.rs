@@ -29,15 +29,20 @@ use wasmer_compiler::CompileError;
 use wasmer_runtime::ModuleInfo as WasmerCompilerModule;
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
-pub fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerType<'ctx> {
+pub fn type_to_llvm_ptr<'ctx>(
+    intrinsics: &Intrinsics<'ctx>,
+    ty: Type,
+) -> Result<PointerType<'ctx>, CompileError> {
     match ty {
-        Type::I32 => intrinsics.i32_ptr_ty,
-        Type::I64 => intrinsics.i64_ptr_ty,
-        Type::F32 => intrinsics.f32_ptr_ty,
-        Type::F64 => intrinsics.f64_ptr_ty,
-        Type::V128 => intrinsics.i128_ptr_ty,
-        Type::AnyRef => unimplemented!("anyref in the llvm backend"),
-        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+        Type::I32 => Ok(intrinsics.i32_ptr_ty),
+        Type::I64 => Ok(intrinsics.i64_ptr_ty),
+        Type::F32 => Ok(intrinsics.f32_ptr_ty),
+        Type::F64 => Ok(intrinsics.f64_ptr_ty),
+        Type::V128 => Ok(intrinsics.i128_ptr_ty),
+        ty => Err(CompileError::Codegen(format!(
+            "type_to_llvm: unimplemented wasm_common type {:?}",
+            ty
+        ))),
     }
 }
 
@@ -814,7 +819,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         index: GlobalIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
-    ) -> GlobalCache<'ctx> {
+    ) -> Result<&GlobalCache<'ctx>, CompileError> {
         let (cached_globals, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_globals,
             self.wasm_module,
@@ -822,61 +827,64 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
             &self.offsets,
         );
-        *cached_globals.entry(index).or_insert_with(|| {
-            let global_type = wasm_module.globals[index];
-            let global_value_type = global_type.ty;
+        Ok(match cached_globals.entry(index) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                let global_type = wasm_module.globals[index];
+                let global_value_type = global_type.ty;
 
-            let global_mutability = global_type.mutability;
-            let global_ptr = if let Some(local_global_index) = wasm_module.local_global_index(index)
-            {
-                let offset = offsets.vmctx_vmglobal_definition(local_global_index);
-                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") }
-            } else {
-                let offset = offsets.vmctx_vmglobal_import(index);
-                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                let global_ptr_ptr =
-                    unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
-                let global_ptr_ptr = cache_builder
+                let global_mutability = global_type.mutability;
+                let global_ptr =
+                    if let Some(local_global_index) = wasm_module.local_global_index(index) {
+                        let offset = offsets.vmctx_vmglobal_definition(local_global_index);
+                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") }
+                    } else {
+                        let offset = offsets.vmctx_vmglobal_import(index);
+                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                        let global_ptr_ptr =
+                            unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                        let global_ptr_ptr = cache_builder
+                            .build_bitcast(
+                                global_ptr_ptr,
+                                intrinsics.i32_ptr_ty.ptr_type(AddressSpace::Generic),
+                                "",
+                            )
+                            .into_pointer_value();
+                        let global_ptr = cache_builder
+                            .build_load(global_ptr_ptr, "")
+                            .into_pointer_value();
+                        tbaa_label(
+                            module,
+                            intrinsics,
+                            format!("global_ptr {}", index.as_u32()),
+                            global_ptr.as_instruction_value().unwrap(),
+                        );
+                        global_ptr
+                    };
+                let global_ptr = cache_builder
                     .build_bitcast(
-                        global_ptr_ptr,
-                        intrinsics.i32_ptr_ty.ptr_type(AddressSpace::Generic),
+                        global_ptr,
+                        type_to_llvm_ptr(&intrinsics, global_value_type)?,
                         "",
                     )
                     .into_pointer_value();
-                let global_ptr = cache_builder
-                    .build_load(global_ptr_ptr, "")
-                    .into_pointer_value();
-                tbaa_label(
-                    module,
-                    intrinsics,
-                    format!("global_ptr {}", index.as_u32()),
-                    global_ptr.as_instruction_value().unwrap(),
-                );
-                global_ptr
-            };
-            let global_ptr = cache_builder
-                .build_bitcast(
-                    global_ptr,
-                    type_to_llvm_ptr(&intrinsics, global_value_type),
-                    "",
-                )
-                .into_pointer_value();
 
-            match global_mutability {
-                Mutability::Const => {
-                    let value = cache_builder.build_load(global_ptr, "");
-                    tbaa_label(
-                        module,
-                        intrinsics,
-                        format!("global {}", index.as_u32()),
-                        value.as_instruction_value().unwrap(),
-                    );
-                    GlobalCache::Const { value }
-                }
-                Mutability::Var => GlobalCache::Mut {
-                    ptr_to_value: global_ptr,
-                },
+                entry.insert(match global_mutability {
+                    Mutability::Const => {
+                        let value = cache_builder.build_load(global_ptr, "");
+                        tbaa_label(
+                            module,
+                            intrinsics,
+                            format!("global {}", index.as_u32()),
+                            value.as_instruction_value().unwrap(),
+                        );
+                        GlobalCache::Const { value }
+                    }
+                    Mutability::Var => GlobalCache::Mut {
+                        ptr_to_value: global_ptr,
+                    },
+                })
             }
         })
     }
