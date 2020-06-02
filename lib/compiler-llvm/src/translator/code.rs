@@ -1818,6 +1818,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 self.builder.position_at_end(*if_else_block);
                 self.state.reachable = true;
+
+                if let ControlFrame::IfElse { else_phis, .. } = self.state.frame_at_depth(0)? {
+                    // Push our own 'else' phi nodes to the stack.
+                    for phi in else_phis.clone().iter() {
+                        self.state.push1(phi.as_basic_value());
+                    }
+                };
             }
 
             Operator::End => {
