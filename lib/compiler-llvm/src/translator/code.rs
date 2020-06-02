@@ -3,7 +3,7 @@ use super::{
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
-    read_info::blocktype_to_type,
+    read_info::{blocktype_to_param_types, blocktype_to_types},
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State},
 };
@@ -14,7 +14,9 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     targets::FileType,
-    types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
+    types::{
+        BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, StructType, VectorType,
+    },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionOpcode, InstructionValue,
         IntValue, PhiValue, PointerValue, VectorValue,
@@ -27,7 +29,8 @@ use crate::config::{CompiledFunctionKind, LLVMConfig};
 use crate::object_file::load_object_file;
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasm_common::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex, Type,
 };
 use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
@@ -144,11 +147,17 @@ impl FuncTranslator {
             BinaryReader::new_with_offset(function_body.data, function_body.module_offset);
 
         let mut params = vec![];
+        let first_param =
+            if func_type.get_return_type().is_none() && wasm_fn_type.results().len() > 1 {
+                2
+            } else {
+                1
+            };
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty);
             let value = func
-                .get_nth_param((idx as u32).checked_add(1).unwrap())
+                .get_nth_param((idx as u32).checked_add(first_param).unwrap())
                 .unwrap();
             // TODO: don't interleave allocas and stores.
             let alloca = cache_builder.build_alloca(ty, "param");
@@ -198,26 +207,7 @@ impl FuncTranslator {
             fcg.translate_operator(op, pos)?;
         }
 
-        let results = fcg.state.popn_save_extra(wasm_fn_type.results().len())?;
-        match results.as_slice() {
-            [] => {
-                fcg.builder.build_return(None);
-            }
-            [(one_value, one_value_info)] => {
-                let builder = &fcg.builder;
-                let one_value = fcg.apply_pending_canonicalization(*one_value, *one_value_info);
-                builder.build_return(Some(&builder.build_bitcast(
-                    one_value.as_basic_value_enum(),
-                    type_to_llvm(&intrinsics, wasm_fn_type.results()[0]),
-                    "return",
-                )));
-            }
-            _ => {
-                return Err(CompileError::Codegen(
-                    "multi-value returns not yet implemented".to_string(),
-                ));
-            }
-        }
+        fcg.finalize(wasm_fn_type)?;
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.preopt_ir(&function, &module);
@@ -1132,6 +1122,254 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         self.builder.position_at_end(continue_block);
     }
+
+    fn finalize(&mut self, wasm_fn_type: &FunctionType) -> Result<(), CompileError> {
+        let func_type = self.function.get_type();
+
+        let results = self.state.popn_save_extra(wasm_fn_type.results().len())?;
+        let is_32 = |value: &BasicValueEnum| {
+            (value.is_int_value() && value.into_int_value().get_type() == self.intrinsics.i32_ty)
+                || (value.is_float_value()
+                    && value.into_float_value().get_type() == self.intrinsics.f32_ty)
+        };
+        let is_64 = |value: &BasicValueEnum| {
+            (value.is_int_value() && value.into_int_value().get_type() == self.intrinsics.i64_ty)
+                || (value.is_float_value()
+                    && value.into_float_value().get_type() == self.intrinsics.f64_ty)
+        };
+        let is_f32 = |value: &BasicValueEnum| {
+            value.is_float_value() && value.into_float_value().get_type() == self.intrinsics.f32_ty
+        };
+
+        let pack_i32s = |low: IntValue<'ctx>, high: IntValue<'ctx>| {
+            assert!(low.get_type() == self.intrinsics.i32_ty);
+            assert!(high.get_type() == self.intrinsics.i32_ty);
+            let low = self
+                .builder
+                .build_int_z_extend(low, self.intrinsics.i64_ty, "");
+            let high = self
+                .builder
+                .build_int_z_extend(high, self.intrinsics.i64_ty, "");
+            let high = self.builder.build_left_shift(
+                high,
+                self.intrinsics.i64_ty.const_int(32, false),
+                "",
+            );
+            self.builder.build_or(low, high, "")
+        };
+
+        let pack_f32s = |first: FloatValue<'ctx>, second: FloatValue<'ctx>| -> VectorValue<'ctx> {
+            assert!(first.get_type() == self.intrinsics.f32_ty);
+            assert!(second.get_type() == self.intrinsics.f32_ty);
+            let vec_ty = self.intrinsics.f32_ty.vec_type(2);
+            let vec = self.builder.build_insert_element(
+                vec_ty.get_undef(),
+                first,
+                self.intrinsics.i32_zero,
+                "",
+            );
+            let vec = self.builder.build_insert_element(
+                vec,
+                second,
+                self.intrinsics.i32_ty.const_int(1, false),
+                "",
+            );
+            vec
+        };
+
+        let build_struct = |ty: StructType<'ctx>, values: &[BasicValueEnum<'ctx>]| {
+            let mut struct_value = ty.get_undef();
+            for (i, v) in values.iter().enumerate() {
+                struct_value = self
+                    .builder
+                    .build_insert_value(struct_value, *v, i as u32, "")
+                    .unwrap()
+                    .into_struct_value();
+            }
+            struct_value
+        };
+
+        match results.as_slice() {
+            [] => {
+                self.builder.build_return(None);
+            }
+            [(one_value, one_value_info)] => {
+                let one_value = self.apply_pending_canonicalization(*one_value, *one_value_info);
+                self.builder.build_return(Some(&self.builder.build_bitcast(
+                    one_value.as_basic_value_enum(),
+                    type_to_llvm(&self.intrinsics, wasm_fn_type.results()[0]),
+                    "return",
+                )));
+            }
+            [(v1, v1i), (v2, v2i)] if is_f32(v1) && is_f32(v2) => {
+                let v1 = self
+                    .apply_pending_canonicalization(*v1, *v1i)
+                    .into_float_value();
+                let v2 = self
+                    .apply_pending_canonicalization(*v2, *v2i)
+                    .into_float_value();
+                let ret = pack_f32s(v1, v2);
+                self.builder.build_return(Some(&ret));
+            }
+            [(v1, v1i), (v2, v2i)] if is_32(v1) && is_32(v2) => {
+                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
+                let v2 = self.apply_pending_canonicalization(*v2, *v2i);
+                let v1 = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i32_ty, "")
+                    .into_int_value();
+                let v2 = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i32_ty, "")
+                    .into_int_value();
+                let ret = pack_i32s(v1, v2);
+                self.builder.build_return(Some(&ret));
+            }
+            [(v1, v1i), (v2, v2i)] => {
+                assert!(!(is_32(v1) && is_32(v2)));
+                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
+                let v2 = self.apply_pending_canonicalization(*v2, *v2i);
+                let struct_value = build_struct(
+                    func_type.get_return_type().unwrap().into_struct_type(),
+                    &[v1, v2],
+                );
+                self.builder.build_return(Some(&struct_value));
+            }
+            [(v1, v1i), (v2, v2i), (v3, v3i)] if is_f32(&v1) && is_f32(&v2) => {
+                let v1 = self
+                    .apply_pending_canonicalization(*v1, *v1i)
+                    .into_float_value();
+                let v2 = self
+                    .apply_pending_canonicalization(*v2, *v2i)
+                    .into_float_value();
+                let v3 = self.apply_pending_canonicalization(*v3, *v3i);
+                let struct_value = build_struct(
+                    func_type.get_return_type().unwrap().into_struct_type(),
+                    &[pack_f32s(v1, v2).as_basic_value_enum(), v3],
+                );
+                self.builder.build_return(Some(&struct_value));
+            }
+            [(v1, v1i), (v2, v2i), (v3, v3i)] if is_32(&v1) && is_32(&v2) => {
+                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
+                let v2 = self.apply_pending_canonicalization(*v2, *v2i);
+                let v3 = self.apply_pending_canonicalization(*v3, *v3i);
+                let v1 = self
+                    .builder
+                    .build_bitcast(v1, self.intrinsics.i32_ty, "")
+                    .into_int_value();
+                let v2 = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i32_ty, "")
+                    .into_int_value();
+                let struct_value = build_struct(
+                    func_type.get_return_type().unwrap().into_struct_type(),
+                    &[pack_i32s(v1, v2).as_basic_value_enum(), v3],
+                );
+                self.builder.build_return(Some(&struct_value));
+            }
+            [(v1, v1i), (v2, v2i), (v3, v3i)] if is_64(&v1) && is_f32(&v2) && is_f32(&v3) => {
+                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
+                let v2 = self
+                    .apply_pending_canonicalization(*v2, *v2i)
+                    .into_float_value();
+                let v3 = self
+                    .apply_pending_canonicalization(*v3, *v3i)
+                    .into_float_value();
+                let struct_value = build_struct(
+                    func_type.get_return_type().unwrap().into_struct_type(),
+                    &[v1, pack_f32s(v2, v3).as_basic_value_enum()],
+                );
+                self.builder.build_return(Some(&struct_value));
+            }
+            [(v1, v1i), (v2, v2i), (v3, v3i)] if is_64(&v1) && is_32(&v2) && is_32(&v3) => {
+                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
+                let v2 = self.apply_pending_canonicalization(*v2, *v2i);
+                let v3 = self.apply_pending_canonicalization(*v3, *v3i);
+                let v2 = self
+                    .builder
+                    .build_bitcast(v2, self.intrinsics.i32_ty, "")
+                    .into_int_value();
+                let v3 = self
+                    .builder
+                    .build_bitcast(v3, self.intrinsics.i32_ty, "")
+                    .into_int_value();
+                let struct_value = build_struct(
+                    func_type.get_return_type().unwrap().into_struct_type(),
+                    &[v1, pack_i32s(v2, v3).as_basic_value_enum()],
+                );
+                self.builder.build_return(Some(&struct_value));
+            }
+            [(v1, v1i), (v2, v2i), (v3, v3i), (v4, v4i)]
+                if is_32(v1) && is_32(v2) && is_32(v3) && is_32(v4) =>
+            {
+                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
+                let v2 = self.apply_pending_canonicalization(*v2, *v2i);
+                let v3 = self.apply_pending_canonicalization(*v3, *v3i);
+                let v4 = self.apply_pending_canonicalization(*v4, *v4i);
+                let v1v2_pack = if is_f32(&v1) && is_f32(&v2) {
+                    pack_f32s(v1.into_float_value(), v2.into_float_value()).into()
+                } else {
+                    let v1 = self
+                        .builder
+                        .build_bitcast(v1, self.intrinsics.i32_ty, "")
+                        .into_int_value();
+                    let v2 = self
+                        .builder
+                        .build_bitcast(v2, self.intrinsics.i32_ty, "")
+                        .into_int_value();
+                    pack_i32s(v1, v2).into()
+                };
+                let v3v4_pack = if is_f32(&v3) && is_f32(&v4) {
+                    pack_f32s(v3.into_float_value(), v4.into_float_value()).into()
+                } else {
+                    let v3 = self
+                        .builder
+                        .build_bitcast(v3, self.intrinsics.i32_ty, "")
+                        .into_int_value();
+                    let v4 = self
+                        .builder
+                        .build_bitcast(v4, self.intrinsics.i32_ty, "")
+                        .into_int_value();
+                    pack_i32s(v3, v4).into()
+                };
+                let struct_value = build_struct(
+                    func_type.get_return_type().unwrap().into_struct_type(),
+                    &[v1v2_pack, v3v4_pack],
+                );
+                self.builder.build_return(Some(&struct_value));
+            }
+            results @ _ => {
+                let sret = self
+                    .function
+                    .get_first_param()
+                    .unwrap()
+                    .into_pointer_value();
+                let mut struct_value = sret
+                    .get_type()
+                    .get_element_type()
+                    .into_struct_type()
+                    .get_undef();
+                let mut idx = 0;
+                for (value, info) in results {
+                    let one_value = self.apply_pending_canonicalization(*value, *info);
+                    let one_value = self.builder.build_bitcast(
+                        one_value,
+                        type_to_llvm(&self.intrinsics, wasm_fn_type.results()[idx]),
+                        "",
+                    );
+                    struct_value = self
+                        .builder
+                        .build_insert_value(struct_value, one_value, idx as u32, "")
+                        .unwrap()
+                        .into_struct_value();
+                    idx = idx + 1;
+                }
+                self.builder.build_store(sret, struct_value);
+                self.builder.build_return(None);
+            }
+        }
+        Ok(())
+    }
 }
 
 /*
@@ -1288,15 +1526,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let end_block = self.context.append_basic_block(self.function, "end");
                 self.builder.position_at_end(end_block);
 
-                let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
-                    let llvm_ty = type_to_llvm(self.intrinsics, wasmer_ty);
-                    [llvm_ty]
-                        .iter()
-                        .map(|&ty| self.builder.build_phi(ty, ""))
-                        .collect()
-                } else {
-                    SmallVec::new()
-                };
+                let phis = blocktype_to_types(ty, self.wasm_module)
+                    .iter()
+                    .map(|&ty| {
+                        self.builder
+                            .build_phi(type_to_llvm(self.intrinsics, ty), "")
+                    })
+                    .collect();
 
                 self.state.push_block(end_block, phis);
                 self.builder.position_at_end(current_block);
@@ -1304,21 +1540,36 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::Loop { ty } => {
                 let loop_body = self.context.append_basic_block(self.function, "loop_body");
                 let loop_next = self.context.append_basic_block(self.function, "loop_outer");
+                let pre_loop_block = self.builder.get_insert_block().unwrap();
 
                 self.builder.build_unconditional_branch(loop_body);
 
                 self.builder.position_at_end(loop_next);
-                let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
-                    let llvm_ty = type_to_llvm(self.intrinsics, wasmer_ty);
-                    [llvm_ty]
-                        .iter()
-                        .map(|&ty| self.builder.build_phi(ty, ""))
-                        .collect()
-                } else {
-                    SmallVec::new()
-                };
+                let phis = blocktype_to_types(ty, self.wasm_module)
+                    .iter()
+                    .map(|&ty| {
+                        self.builder
+                            .build_phi(type_to_llvm(self.intrinsics, ty), "")
+                    })
+                    .collect();
 
                 self.builder.position_at_end(loop_body);
+                let loop_phis: SmallVec<[PhiValue<'ctx>; 1]> =
+                    blocktype_to_param_types(ty, self.wasm_module)
+                        .iter()
+                        .map(|&ty| {
+                            self.builder
+                                .build_phi(type_to_llvm(self.intrinsics, ty), "")
+                        })
+                        .collect();
+                for phi in loop_phis.iter().rev() {
+                    let (value, info) = self.state.pop1_extra()?;
+                    let value = self.apply_pending_canonicalization(value, info);
+                    phi.add_incoming(&[(&value, pre_loop_block)]);
+                }
+                for phi in &loop_phis {
+                    self.state.push1(phi.as_basic_value());
+                }
 
                 /*
                 if self.track_state {
@@ -1352,7 +1603,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                self.state.push_loop(loop_body, loop_next, phis);
+                self.state.push_loop(loop_body, loop_next, loop_phis, phis);
             }
             Operator::Br { relative_depth } => {
                 let frame = self.state.frame_at_depth(relative_depth)?;
@@ -1362,13 +1613,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let value_len = if frame.is_loop() {
-                    0
+                let phis = if frame.is_loop() {
+                    frame.loop_body_phis()
                 } else {
-                    frame.phis().len()
+                    frame.phis()
                 };
 
-                let values = self.state.peekn_extra(value_len)?;
+                let len = phis.len();
+                let values = self.state.peekn_extra(len)?;
                 let values = values
                     .iter()
                     .map(|(v, info)| self.apply_pending_canonicalization(*v, *info));
@@ -1382,7 +1634,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 self.builder.build_unconditional_branch(*frame.br_dest());
 
-                self.state.popn(value_len)?;
+                self.state.popn(len)?;
                 self.state.reachable = false;
             }
             Operator::BrIf { relative_depth } => {
@@ -1394,18 +1646,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let value_len = if frame.is_loop() {
-                    0
+                let phis = if frame.is_loop() {
+                    frame.loop_body_phis()
                 } else {
-                    frame.phis().len()
+                    frame.phis()
                 };
 
-                let param_stack = self.state.peekn_extra(value_len)?;
+                let param_stack = self.state.peekn_extra(phis.len())?;
                 let param_stack = param_stack
                     .iter()
                     .map(|(v, info)| self.apply_pending_canonicalization(*v, *info));
 
-                for (phi, value) in frame.phis().iter().zip(param_stack) {
+                for (phi, value) in phis.iter().zip(param_stack) {
                     phi.add_incoming(&[(&value, current_block)]);
                 }
 
@@ -1433,14 +1685,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let default_frame = self.state.frame_at_depth(default_depth)?;
 
-                let args = if default_frame.is_loop() {
-                    Vec::new()
+                let phis = if default_frame.is_loop() {
+                    default_frame.loop_body_phis()
                 } else {
-                    let res_len = default_frame.phis().len();
-                    self.state.peekn(res_len)?
+                    default_frame.phis()
                 };
+                let args = self.state.peekn(phis.len())?;
 
-                for (phi, value) in default_frame.phis().iter().zip(args.iter()) {
+                for (phi, value) in phis.iter().zip(args.iter()) {
                     phi.add_incoming(&[(value, current_block)]);
                 }
 
@@ -1487,15 +1739,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let end_phis = {
                     self.builder.position_at_end(end_block);
 
-                    let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
-                        let llvm_ty = type_to_llvm(self.intrinsics, wasmer_ty);
-                        [llvm_ty]
-                            .iter()
-                            .map(|&ty| self.builder.build_phi(ty, ""))
-                            .collect()
-                    } else {
-                        SmallVec::new()
-                    };
+                    let phis = blocktype_to_types(ty, self.wasm_module)
+                        .iter()
+                        .map(|&ty| {
+                            self.builder
+                                .build_phi(type_to_llvm(self.intrinsics, ty), "")
+                        })
+                        .collect();
 
                     self.builder.position_at_end(current_block);
                     phis
@@ -1512,9 +1762,42 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 self.builder
                     .build_conditional_branch(cond_value, if_then_block, if_else_block);
+                self.builder.position_at_end(if_else_block);
+                let else_phis: SmallVec<[PhiValue<'ctx>; 1]> =
+                    blocktype_to_param_types(ty, self.wasm_module)
+                        .iter()
+                        .map(|&ty| {
+                            self.builder
+                                .build_phi(type_to_llvm(self.intrinsics, ty), "")
+                        })
+                        .collect();
                 self.builder.position_at_end(if_then_block);
-                self.state
-                    .push_if(if_then_block, if_else_block, end_block, end_phis);
+                let then_phis: SmallVec<[PhiValue<'ctx>; 1]> =
+                    blocktype_to_param_types(ty, self.wasm_module)
+                        .iter()
+                        .map(|&ty| {
+                            self.builder
+                                .build_phi(type_to_llvm(self.intrinsics, ty), "")
+                        })
+                        .collect();
+                for (else_phi, then_phi) in else_phis.iter().rev().zip(then_phis.iter().rev()) {
+                    let (value, info) = self.state.pop1_extra()?;
+                    let value = self.apply_pending_canonicalization(value, info);
+                    else_phi.add_incoming(&[(&value, current_block)]);
+                    then_phi.add_incoming(&[(&value, current_block)]);
+                }
+                for phi in then_phis.iter() {
+                    self.state.push1(phi.as_basic_value());
+                }
+
+                self.state.push_if(
+                    if_then_block,
+                    if_else_block,
+                    end_block,
+                    then_phis,
+                    else_phis,
+                    end_phis,
+                );
             }
             Operator::Else => {
                 if self.state.reachable {
@@ -1570,10 +1853,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     if_else,
                     next,
                     if_else_state,
+                    else_phis,
                     ..
                 } = &frame
                 {
                     if let IfElseState::If = if_else_state {
+                        for (phi, else_phi) in frame.phis().iter().zip(else_phis.iter()) {
+                            phi.add_incoming(&[(&else_phi.as_basic_value(), *if_else)]);
+                        }
                         self.builder.position_at_end(*if_else);
                         self.builder.build_unconditional_branch(*next);
                     }
@@ -1936,6 +2223,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let FunctionCache {
                     func,
                     vmctx: callee_vmctx,
+                    attrs,
                 } = self.ctx.func(
                     func_index,
                     self.intrinsics,
@@ -1944,6 +2232,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     func_name,
                     func_type,
                 );
+                let func = *func;
+                let callee_vmctx = *callee_vmctx;
+                let attrs = attrs.clone();
 
                 /*
                 let func_ptr = self.llvm.functions.borrow_mut()[&func_index];
@@ -2000,7 +2291,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
+
                 let call_site = self.builder.build_call(func, &params, "");
+                for (attr, attr_loc) in attrs {
+                    call_site.add_attribute(attr_loc, attr);
+                }
                 /*
                 if self.track_state {
                     if let Some(offset) = opcode_offset {

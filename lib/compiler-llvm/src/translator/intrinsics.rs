@@ -500,10 +500,11 @@ pub enum GlobalCache<'ctx> {
     Const { value: BasicValueEnum<'ctx> },
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct FunctionCache<'ctx> {
     pub func: PointerValue<'ctx>,
     pub vmctx: BasicValueEnum<'ctx>,
+    pub attrs: Vec<(Attribute, AttributeLoc)>,
 }
 
 pub struct CtxType<'ctx, 'a> {
@@ -882,7 +883,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         context: &'ctx Context,
         func_name: &str,
         func_type: &FuncType,
-    ) -> FunctionCache<'ctx> {
+    ) -> &FunctionCache<'ctx> {
         let (cached_functions, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_functions,
             self.wasm_module,
@@ -890,7 +891,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
             &self.offsets,
         );
-        *cached_functions.entry(function_index).or_insert_with(|| {
+        cached_functions.entry(function_index).or_insert_with(|| {
             let (llvm_func_type, llvm_func_attrs) =
                 abi::func_type_to_llvm(context, intrinsics, func_type);
             if wasm_module.local_func_index(function_index).is_some() {
@@ -899,14 +900,15 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 let func = module.get_function(func_name).unwrap_or_else(|| {
                     let func =
                         module.add_function(func_name, llvm_func_type, Some(Linkage::External));
-                    for (attr, attr_loc) in llvm_func_attrs {
-                        func.add_attribute(attr_loc, attr);
+                    for (attr, attr_loc) in &llvm_func_attrs {
+                        func.add_attribute(*attr_loc, *attr);
                     }
                     func
                 });
                 FunctionCache {
                     func: func.as_global_value().as_pointer_value(),
                     vmctx: ctx_ptr_value.as_basic_value_enum(),
+                    attrs: llvm_func_attrs,
                 }
             } else {
                 let offset = offsets.vmctx_vmfunction_import(function_index);
@@ -943,6 +945,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 FunctionCache {
                     func: body_ptr,
                     vmctx: vmctx_ptr,
+                    attrs: llvm_func_attrs,
                 }
             }
         })
