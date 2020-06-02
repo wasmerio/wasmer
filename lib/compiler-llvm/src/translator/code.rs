@@ -36,9 +36,6 @@ use wasmer_compiler::{
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
-// TODO: debugging
-//use std::io::Write;
-
 // TODO
 fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
     match ty {
