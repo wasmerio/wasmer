@@ -28,7 +28,8 @@ add_executable(wasm-c-api-global wasm-c-api/example/global.c)
 add_executable(wasm-c-api-serialize wasm-c-api/example/serialize.c)
 add_executable(wasm-c-api-callback wasm-c-api/example/callback.c)
 #add_executable(wasm-c-api-finalize wasm-c-api/example/finalize.c)
-#add_executable(wasm-c-api-reflect wasm-c-api/example/reflect.c)
+add_executable(wasm-c-api-reflect wasm-c-api/example/reflect.c)
+#add_executable(wasm-c-api-start wasm-c-api/example/start.c)
 
 if (DEFINED WASI_TESTS)
     add_executable(test-wasi-import-object test-wasi-import-object.c)
@@ -194,10 +195,16 @@ add_test(NAME wasm-c-api-callback
 #         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
 #)
 
-#target_link_libraries(wasm-c-api-reflect general ${WASMER_LIB})
-#target_compile_options(wasm-c-api-reflect PRIVATE ${COMPILER_OPTIONS})
-#add_test(NAME wasm-c-api-reflect
-#         COMMAND wasm-c-api-reflect
+target_link_libraries(wasm-c-api-reflect general ${WASMER_LIB})
+target_compile_options(wasm-c-api-reflect PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-reflect
+         COMMAND wasm-c-api-reflect
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
+)
+
+#target_link_libraries(wasm-c-api-start general ${WASMER_LIB})
+#target_compile_options(wasm-c-api-start PRIVATE ${COMPILER_OPTIONS})
+#add_test(NAME wasm-c-api-start
+#         COMMAND wasm-c-api-start
 #         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
 #)
-

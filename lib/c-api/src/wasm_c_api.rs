@@ -8,9 +8,9 @@ use std::slice;
 use std::sync::Arc;
 
 use wasmer::{
-    CompilerConfig, Engine, Extern, ExternType, Function, FunctionType, Global, GlobalType,
-    Instance, JITEngine, Memory, MemoryType, Module, Mutability, OrderedResolver, Pages,
-    RuntimeError, Store, Table, TableType, Tunables, Val, ValType,
+    CompilerConfig, Engine, ExportType, Extern, ExternType, Function, FunctionType, Global,
+    GlobalType, Instance, JITEngine, Memory, MemoryType, Module, Mutability, OrderedResolver,
+    Pages, RuntimeError, Store, Table, TableType, Tunables, Val, ValType,
 };
 
 use crate::error::update_last_error;
@@ -199,6 +199,25 @@ pub unsafe extern "C" fn wasm_module_new(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>) {}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_module_exports(
+    module: &wasm_module_t,
+    out: &mut wasm_exporttype_vec_t,
+) {
+    let mut exports = module
+        .inner
+        .exports()
+        .map(Into::into)
+        .map(Box::new)
+        .map(Box::into_raw)
+        .collect::<Vec<*mut wasm_exporttype_t>>();
+
+    debug_assert_eq!(exports.len(), exports.capacity());
+    out.size = exports.len();
+    out.data = exports.as_mut_ptr();
+    mem::forget(exports);
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_deserialize(
@@ -1458,14 +1477,44 @@ pub unsafe extern "C" fn wasm_functype_copy(
     Some(Box::new(funcsig.clone()))
 }
 
-// TODO:
+// TODO: fix memory leak
 #[no_mangle]
-pub unsafe extern "C" fn wasm_functype_params(
-    _ft: *const wasm_functype_t,
-) -> *const wasm_valtype_vec_t {
-    /*let ft = &*(ft as *const FunctionType);
-    ft.params()*/
-    todo!("wasm_functype_params")
+pub unsafe extern "C" fn wasm_functype_params(ft: &wasm_functype_t) -> *const wasm_valtype_vec_t {
+    let mut valtypes = ft
+        .sig()
+        .params()
+        .iter()
+        .cloned()
+        .map(Into::into)
+        .map(Box::new)
+        .map(Box::into_raw)
+        .collect::<Vec<*mut wasm_valtype_t>>();
+    let out = Box::into_raw(Box::new(wasm_valtype_vec_t {
+        size: valtypes.len(),
+        data: valtypes.as_mut_ptr(),
+    }));
+    mem::forget(valtypes);
+    out as *const _
+}
+
+// TODO: fix memory leak
+#[no_mangle]
+pub unsafe extern "C" fn wasm_functype_results(ft: &wasm_functype_t) -> *const wasm_valtype_vec_t {
+    let mut valtypes = ft
+        .sig()
+        .results()
+        .iter()
+        .cloned()
+        .map(Into::into)
+        .map(Box::new)
+        .map(Box::into_raw)
+        .collect::<Vec<*mut wasm_valtype_t>>();
+    let out = Box::into_raw(Box::new(wasm_valtype_vec_t {
+        size: valtypes.len(),
+        data: valtypes.as_mut_ptr(),
+    }));
+    mem::forget(valtypes);
+    out as *const _
 }
 
 #[derive(Debug)]
@@ -1490,6 +1539,18 @@ pub unsafe extern "C" fn wasm_extern_type(e: &wasm_extern_t) -> Box<wasm_externt
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_delete(_et: Option<Box<wasm_externtype_t>>) {}
+
+impl From<ExternType> for wasm_externtype_t {
+    fn from(other: ExternType) -> Self {
+        Self { inner: other }
+    }
+}
+
+impl From<&ExternType> for wasm_externtype_t {
+    fn from(other: &ExternType) -> Self {
+        other.clone().into()
+    }
+}
 
 #[allow(non_camel_case_types)]
 type wasm_externkind_t = u8;
@@ -1529,139 +1590,214 @@ pub unsafe extern "C" fn wasm_externtype_kind(et: &wasm_externtype_t) -> wasm_ex
     wasm_externkind_enum::from(&et.inner) as wasm_externkind_t
 }
 
-impl<'a> TryFrom<&'a wasm_externtype_t> for &'a wasm_functype_t {
-    type Error = &'static str;
-    fn try_from(other: &wasm_externtype_t) -> Result<Self, Self::Error> {
+#[derive(Debug, Clone, Error)]
+#[error("failed to convert from `wasm_externtype_t`: {0}")]
+pub struct ExternTypeConversionError(&'static str);
+impl From<&'static str> for ExternTypeConversionError {
+    fn from(other: &'static str) -> Self {
+        Self(other)
+    }
+}
+
+impl TryFrom<&'static wasm_externtype_t> for &'static wasm_functype_t {
+    type Error = ExternTypeConversionError;
+    fn try_from(other: &'static wasm_externtype_t) -> Result<Self, Self::Error> {
         if let ExternType::Function(_) = other.inner {
-            Ok(unsafe { &*(other as *const _ as *const Self) })
+            Ok(unsafe { mem::transmute::<&'static wasm_externtype_t, Self>(other) })
         } else {
-            Err("Wrong type: expected function")
+            Err(ExternTypeConversionError("Wrong type: expected function"))
         }
     }
 }
-impl<'a> TryFrom<&'a wasm_externtype_t> for &'a wasm_globaltype_t {
-    type Error = &'static str;
-    fn try_from(other: &wasm_externtype_t) -> Result<Self, Self::Error> {
+impl TryFrom<&'static wasm_externtype_t> for &'static wasm_globaltype_t {
+    type Error = ExternTypeConversionError;
+    fn try_from(other: &'static wasm_externtype_t) -> Result<Self, Self::Error> {
         if let ExternType::Global(_) = other.inner {
-            Ok(unsafe { &*(other as *const _ as *const Self) })
+            Ok(unsafe { mem::transmute::<&'static wasm_externtype_t, Self>(other) })
         } else {
-            Err("Wrong type: expected global")
+            Err(ExternTypeConversionError("Wrong type: expected global"))
         }
     }
 }
-impl<'a> TryFrom<&'a wasm_externtype_t> for &'a wasm_memorytype_t {
-    type Error = &'static str;
-    fn try_from(other: &wasm_externtype_t) -> Result<Self, Self::Error> {
+impl TryFrom<&'static wasm_externtype_t> for &'static wasm_memorytype_t {
+    type Error = ExternTypeConversionError;
+    fn try_from(other: &'static wasm_externtype_t) -> Result<Self, Self::Error> {
         if let ExternType::Memory(_) = other.inner {
-            Ok(unsafe { &*(other as *const _ as *const Self) })
+            Ok(unsafe { mem::transmute::<&'static wasm_externtype_t, Self>(other) })
         } else {
-            Err("Wrong type: expected memory")
+            Err(ExternTypeConversionError("Wrong type: expected memory"))
         }
     }
 }
-impl<'a> TryFrom<&'a wasm_externtype_t> for &'a wasm_tabletype_t {
-    type Error = &'static str;
-    fn try_from(other: &wasm_externtype_t) -> Result<Self, Self::Error> {
+impl TryFrom<&'static wasm_externtype_t> for &'static wasm_tabletype_t {
+    type Error = ExternTypeConversionError;
+    fn try_from(other: &'static wasm_externtype_t) -> Result<Self, Self::Error> {
         if let ExternType::Table(_) = other.inner {
-            Ok(unsafe { &*(other as *const _ as *const Self) })
+            Ok(unsafe { mem::transmute::<&'static wasm_externtype_t, Self>(other) })
         } else {
-            Err("Wrong type: expected memory")
+            Err(ExternTypeConversionError("Wrong type: expected table"))
         }
     }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_functype_const(
-    et: &wasm_externtype_t,
-) -> Option<&wasm_functype_t> {
-    et.try_into().ok()
+    et: &'static wasm_externtype_t,
+) -> Option<&'static wasm_functype_t> {
+    Some(c_try!(et.try_into()))
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_functype(
-    et: &wasm_externtype_t,
-) -> Option<&wasm_functype_t> {
-    et.try_into().ok()
+    et: &'static wasm_externtype_t,
+) -> Option<&'static wasm_functype_t> {
+    Some(c_try!(et.try_into()))
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_as_externtype_const(
-    ft: &wasm_functype_t,
-) -> &wasm_externtype_t {
+    ft: &'static wasm_functype_t,
+) -> &'static wasm_externtype_t {
     &ft.extern_
 }
 #[no_mangle]
-pub unsafe extern "C" fn wasm_functype_as_externtype(ft: &wasm_functype_t) -> &wasm_externtype_t {
+pub unsafe extern "C" fn wasm_functype_as_externtype(
+    ft: &'static wasm_functype_t,
+) -> &'static wasm_externtype_t {
     &ft.extern_
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_memorytype_const(
-    et: &wasm_externtype_t,
-) -> Option<&wasm_memorytype_t> {
-    et.try_into().ok()
+    et: &'static wasm_externtype_t,
+) -> Option<&'static wasm_memorytype_t> {
+    Some(c_try!(et.try_into()))
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_memorytype(
-    et: &wasm_externtype_t,
-) -> Option<&wasm_memorytype_t> {
-    et.try_into().ok()
+    et: &'static wasm_externtype_t,
+) -> Option<&'static wasm_memorytype_t> {
+    Some(c_try!(et.try_into()))
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_as_externtype_const(
-    mt: &wasm_memorytype_t,
-) -> &wasm_externtype_t {
+    mt: &'static wasm_memorytype_t,
+) -> &'static wasm_externtype_t {
     &mt.extern_
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_as_externtype(
-    mt: &wasm_memorytype_t,
-) -> &wasm_externtype_t {
+    mt: &'static wasm_memorytype_t,
+) -> &'static wasm_externtype_t {
     &mt.extern_
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_globaltype_const(
-    et: &wasm_externtype_t,
-) -> Option<&wasm_globaltype_t> {
-    et.try_into().ok()
+    et: &'static wasm_externtype_t,
+) -> Option<&'static wasm_globaltype_t> {
+    Some(c_try!(et.try_into()))
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_globaltype(
-    et: &wasm_externtype_t,
-) -> Option<&wasm_globaltype_t> {
-    et.try_into().ok()
+    et: &'static wasm_externtype_t,
+) -> Option<&'static wasm_globaltype_t> {
+    Some(c_try!(et.try_into()))
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_as_externtype_const(
-    gt: &wasm_globaltype_t,
-) -> &wasm_externtype_t {
+    gt: &'static wasm_globaltype_t,
+) -> &'static wasm_externtype_t {
     &gt.extern_
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_as_externtype(
-    gt: &wasm_globaltype_t,
-) -> &wasm_externtype_t {
+    gt: &'static wasm_globaltype_t,
+) -> &'static wasm_externtype_t {
     &gt.extern_
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_tabletype_const(
-    et: &wasm_externtype_t,
-) -> Option<&wasm_tabletype_t> {
-    et.try_into().ok()
+    et: &'static wasm_externtype_t,
+) -> Option<&'static wasm_tabletype_t> {
+    Some(c_try!(et.try_into()))
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_tabletype(
-    et: &wasm_externtype_t,
-) -> Option<&wasm_tabletype_t> {
-    et.try_into().ok()
+    et: &'static wasm_externtype_t,
+) -> Option<&'static wasm_tabletype_t> {
+    Some(c_try!(et.try_into()))
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_as_externtype_const(
-    tt: &wasm_tabletype_t,
-) -> &wasm_externtype_t {
+    tt: &'static wasm_tabletype_t,
+) -> &'static wasm_externtype_t {
     &tt.extern_
 }
 #[no_mangle]
-pub unsafe extern "C" fn wasm_tabletype_as_externtype(tt: &wasm_tabletype_t) -> &wasm_externtype_t {
+pub unsafe extern "C" fn wasm_tabletype_as_externtype(
+    tt: &'static wasm_tabletype_t,
+) -> &'static wasm_externtype_t {
     &tt.extern_
+}
+
+#[allow(non_camel_case_types)]
+type wasm_name_t = wasm_byte_vec_t;
+
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct wasm_exporttype_t {
+    name: NonNull<wasm_name_t>,
+    extern_type: NonNull<wasm_externtype_t>,
+}
+
+wasm_declare_boxed_vec!(exporttype);
+
+#[no_mangle]
+pub extern "C" fn wasm_exporttype_new(
+    name: NonNull<wasm_name_t>,
+    extern_type: NonNull<wasm_externtype_t>,
+) -> Box<wasm_exporttype_t> {
+    Box::new(wasm_exporttype_t { name, extern_type })
+}
+
+#[no_mangle]
+pub extern "C" fn wasm_exporttype_name(et: &'static wasm_exporttype_t) -> &'static wasm_name_t {
+    unsafe { et.name.as_ref() }
+}
+
+#[no_mangle]
+pub extern "C" fn wasm_exporttype_type(
+    et: &'static wasm_exporttype_t,
+) -> &'static wasm_externtype_t {
+    unsafe { et.extern_type.as_ref() }
+}
+
+impl From<ExportType> for wasm_exporttype_t {
+    fn from(other: ExportType) -> Self {
+        (&other).into()
+    }
+}
+
+impl From<&ExportType> for wasm_exporttype_t {
+    fn from(other: &ExportType) -> Self {
+        // TODO: double check that freeing String as `Vec<u8>` is valid
+        let name = {
+            let mut heap_str: Box<str> = other.name().to_string().into_boxed_str();
+            let char_ptr = heap_str.as_mut_ptr();
+            let str_len = heap_str.bytes().len();
+            let name_inner = wasm_name_t {
+                size: str_len,
+                data: char_ptr,
+            };
+            Box::leak(heap_str);
+            unsafe { NonNull::new_unchecked(Box::into_raw(Box::new(name_inner))) }
+        };
+
+        let extern_type = {
+            let extern_type: wasm_externtype_t = other.ty().into();
+            unsafe { NonNull::new_unchecked(Box::into_raw(Box::new(extern_type))) }
+        };
+
+        wasm_exporttype_t { name, extern_type }
+    }
 }
