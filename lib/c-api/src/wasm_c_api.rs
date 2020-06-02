@@ -1194,12 +1194,12 @@ pub unsafe extern "C" fn wasm_valtype_kind(valtype: *const wasm_valtype_t) -> wa
 #[repr(transparent)]
 #[allow(non_camel_case_types)]
 pub struct wasm_globaltype_t {
-    extrn: wasm_externtype_t,
+    extern_: wasm_externtype_t,
 }
 
 impl wasm_globaltype_t {
     fn as_globaltype(&self) -> &GlobalType {
-        if let ExternType::Global(ref g) = self.extrn.inner {
+        if let ExternType::Global(ref g) = self.extern_.inner {
             g
         } else {
             unreachable!(
@@ -1230,7 +1230,7 @@ unsafe fn wasm_globaltype_new_inner(
 ) -> Option<Box<wasm_globaltype_t>> {
     let me: wasm_mutability_enum = mutability.try_into().ok()?;
     let gd = Box::new(wasm_globaltype_t {
-        extrn: wasm_externtype_t {
+        extern_: wasm_externtype_t {
             inner: ExternType::Global(GlobalType::new((*valtype).into(), me.into())),
         },
     });
@@ -1261,14 +1261,14 @@ pub unsafe extern "C" fn wasm_globaltype_content(
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub struct wasm_tabletype_t {
-    extrn: wasm_externtype_t,
+    extern_: wasm_externtype_t,
 }
 
 wasm_declare_vec!(tabletype);
 
 impl wasm_tabletype_t {
     fn as_tabletype(&self) -> &TableType {
-        if let ExternType::Table(ref t) = self.extrn.inner {
+        if let ExternType::Table(ref t) = self.extern_.inner {
             t
         } else {
             unreachable!(
@@ -1291,7 +1291,7 @@ pub unsafe extern "C" fn wasm_tabletype_new(
         Some(limits.max as _)
     };
     let out = Box::new(wasm_tabletype_t {
-        extrn: wasm_externtype_t {
+        extern_: wasm_externtype_t {
             inner: ExternType::Table(TableType::new(
                 (*valtype).into(),
                 limits.min as _,
@@ -1336,12 +1336,12 @@ pub unsafe extern "C" fn wasm_tabletype_delete(_tabletype: Option<Box<wasm_table
 #[repr(transparent)]
 #[allow(non_camel_case_types)]
 pub struct wasm_memorytype_t {
-    extrn: wasm_externtype_t,
+    extern_: wasm_externtype_t,
 }
 
 impl wasm_memorytype_t {
     pub(crate) fn as_memorytype(&self) -> &MemoryType {
-        if let ExternType::Memory(ref mt) = self.extrn.inner {
+        if let ExternType::Memory(ref mt) = self.extern_.inner {
             mt
         } else {
             unreachable!(
@@ -1370,7 +1370,7 @@ pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm
         Some(Pages(limits.max as _))
     };
     Box::new(wasm_memorytype_t {
-        extrn: wasm_externtype_t {
+        extern_: wasm_externtype_t {
             inner: ExternType::Memory(MemoryType::new(min_pages, max_pages, false)),
         },
     })
@@ -1394,12 +1394,12 @@ pub unsafe extern "C" fn wasm_memorytype_limits(mt: &wasm_memorytype_t) -> *cons
 #[allow(non_camel_case_types)]
 #[repr(transparent)]
 pub struct wasm_functype_t {
-    extrn: wasm_externtype_t,
+    extern_: wasm_externtype_t,
 }
 
 impl wasm_functype_t {
     pub(crate) fn sig(&self) -> &FunctionType {
-        if let ExternType::Function(ref f) = self.extrn.inner {
+        if let ExternType::Function(ref f) = self.extern_.inner {
             f
         } else {
             unreachable!("data corruption: `wasm_functype_t` does not contain a function")
@@ -1440,10 +1440,10 @@ unsafe fn wasm_functype_new_inner(
         .map(Into::into)
         .collect::<Vec<_>>();
 
-    let extrn = wasm_externtype_t {
+    let extern_ = wasm_externtype_t {
         inner: ExternType::Function(FunctionType::new(params, results)),
     };
-    Some(Box::new(wasm_functype_t { extrn }))
+    Some(Box::new(wasm_functype_t { extern_ }))
 }
 
 #[no_mangle]
@@ -1586,11 +1586,11 @@ pub unsafe extern "C" fn wasm_externtype_as_functype(
 pub unsafe extern "C" fn wasm_functype_as_externtype_const(
     ft: &wasm_functype_t,
 ) -> &wasm_externtype_t {
-    &ft.extrn
+    &ft.extern_
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_as_externtype(ft: &wasm_functype_t) -> &wasm_externtype_t {
-    &ft.extrn
+    &ft.extern_
 }
 
 #[no_mangle]
@@ -1609,13 +1609,13 @@ pub unsafe extern "C" fn wasm_externtype_as_memorytype(
 pub unsafe extern "C" fn wasm_memorytype_as_externtype_const(
     mt: &wasm_memorytype_t,
 ) -> &wasm_externtype_t {
-    &mt.extrn
+    &mt.extern_
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_as_externtype(
     mt: &wasm_memorytype_t,
 ) -> &wasm_externtype_t {
-    &mt.extrn
+    &mt.extern_
 }
 
 #[no_mangle]
@@ -1634,13 +1634,13 @@ pub unsafe extern "C" fn wasm_externtype_as_globaltype(
 pub unsafe extern "C" fn wasm_globaltype_as_externtype_const(
     gt: &wasm_globaltype_t,
 ) -> &wasm_externtype_t {
-    &gt.extrn
+    &gt.extern_
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_as_externtype(
     gt: &wasm_globaltype_t,
 ) -> &wasm_externtype_t {
-    &gt.extrn
+    &gt.extern_
 }
 
 #[no_mangle]
@@ -1659,9 +1659,9 @@ pub unsafe extern "C" fn wasm_externtype_as_tabletype(
 pub unsafe extern "C" fn wasm_tabletype_as_externtype_const(
     tt: &wasm_tabletype_t,
 ) -> &wasm_externtype_t {
-    &tt.extrn
+    &tt.extern_
 }
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_as_externtype(tt: &wasm_tabletype_t) -> &wasm_externtype_t {
-    &tt.extrn
+    &tt.extern_
 }
