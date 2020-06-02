@@ -967,18 +967,10 @@ macro_rules! wasm_declare_own {
 macro_rules! wasm_declare_vec_inner {
     ($name:ident) => {
         paste::item! {
-
-
-            #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
-                // TODO: actually implement this
-                [<wasm_ $name _vec_new>](out, length);
-            }
-
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new_empty>](out: *mut [<wasm_ $name _vec_t>]) {
                 // TODO: actually implement this
-                [<wasm_ $name _vec_new>](out, 0);
+                [<wasm_ $name _vec_new_uninitialized>](out, 0);
             }
 
             #[no_mangle]
@@ -1013,11 +1005,24 @@ macro_rules! wasm_declare_vec {
                 }
             }
 
+            // TODO: investigate possible memory leak on `init` (owned pointer)
             #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, /* TODO: this arg count is wrong)*/) {
+            pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *mut [<wasm_ $name _t>]) {
                 let mut bytes: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
+                for i in 0..length {
+                    bytes.push(ptr::read(init.add(i)));
+                }
                 let pointer = bytes.as_mut_ptr();
                 debug_assert!(bytes.len() == bytes.capacity());
+                (*out).data = pointer;
+                (*out).size = length;
+                mem::forget(bytes);
+            }
+
+            #[no_mangle]
+            pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
+                let mut bytes: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
+                let pointer = bytes.as_mut_ptr();
                 (*out).data = pointer;
                 (*out).size = length;
                 mem::forget(bytes);
@@ -1047,11 +1052,24 @@ macro_rules! wasm_declare_boxed_vec {
                 }
             }
 
+            // TODO: investigate possible memory leak on `init` (owned pointer)
             #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, /* TODO: this arg count is wrong)*/) {
+            pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *const *mut [<wasm_ $name _t>]) {
                 let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
+                for i in 0..length {
+                    bytes.push(*init.add(i));
+                }
                 let pointer = bytes.as_mut_ptr();
                 debug_assert!(bytes.len() == bytes.capacity());
+                (*out).data = pointer;
+                (*out).size = length;
+                mem::forget(bytes);
+            }
+
+            #[no_mangle]
+            pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
+                let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
+                let pointer = bytes.as_mut_ptr();
                 (*out).data = pointer;
                 (*out).size = length;
                 mem::forget(bytes);
@@ -1140,7 +1158,15 @@ pub struct wasm_valtype_t {
     valkind: wasm_valkind_enum,
 }
 
-wasm_declare_vec!(valtype);
+impl Default for wasm_valtype_t {
+    fn default() -> Self {
+        Self {
+            valkind: wasm_valkind_enum::WASM_I32,
+        }
+    }
+}
+
+wasm_declare_boxed_vec!(valtype);
 
 #[no_mangle]
 pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> Option<Box<wasm_valtype_t>> {
@@ -1164,7 +1190,7 @@ pub unsafe extern "C" fn wasm_valtype_kind(valtype: *const wasm_valtype_t) -> wa
 //wasm_declare_ref!(trap);
 //wasm_declare_ref!(foreign);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(transparent)]
 #[allow(non_camel_case_types)]
 pub struct wasm_globaltype_t {
@@ -1231,7 +1257,7 @@ pub unsafe extern "C" fn wasm_globaltype_content(
     Box::into_raw(Box::new(gt.ty.into()))
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub struct wasm_tabletype_t {
@@ -1306,7 +1332,7 @@ pub unsafe extern "C" fn wasm_tabletype_element(
 pub unsafe extern "C" fn wasm_tabletype_delete(_tabletype: Option<Box<wasm_tabletype_t>>) {}
 
 // opaque type wrapping `MemoryType`
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(transparent)]
 #[allow(non_camel_case_types)]
 pub struct wasm_memorytype_t {
@@ -1364,7 +1390,7 @@ pub unsafe extern "C" fn wasm_memorytype_limits(mt: &wasm_memorytype_t) -> *cons
     }))
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[allow(non_camel_case_types)]
 #[repr(transparent)]
 pub struct wasm_functype_t {
@@ -1404,13 +1430,13 @@ unsafe fn wasm_functype_new_inner(
     let params: Vec<ValType> = params
         .into_slice()?
         .iter()
-        .copied()
+        .map(|&ptr| *ptr)
         .map(Into::into)
         .collect::<Vec<_>>();
     let results: Vec<ValType> = results
         .into_slice()?
         .iter()
-        .copied()
+        .map(|&ptr| *ptr)
         .map(Into::into)
         .collect::<Vec<_>>();
 
@@ -1442,12 +1468,13 @@ pub unsafe extern "C" fn wasm_functype_params(
     todo!("wasm_functype_params")
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct wasm_frame_t {}
 
 wasm_declare_vec!(frame);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[allow(non_camel_case_types)]
 #[repr(transparent)]
 pub struct wasm_externtype_t {
