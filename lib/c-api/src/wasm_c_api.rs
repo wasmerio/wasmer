@@ -448,8 +448,8 @@ impl From<wasm_valkind_enum> for ValType {
             WASM_I64 => ValType::I64,
             WASM_F32 => ValType::F32,
             WASM_F64 => ValType::F64,
-            WASM_ANYREF => todo!("WASM_ANYREF variant not yet implemented"),
-            WASM_FUNCREF => todo!("WASM_FUNCREF variant not yet implemented"),
+            WASM_ANYREF => ValType::AnyRef,
+            WASM_FUNCREF => ValType::FuncRef,
         }
     }
 }
@@ -472,12 +472,12 @@ impl From<ValType> for wasm_valtype_t {
 #[allow(non_camel_case_types)]
 #[repr(u8)]
 pub enum wasm_valkind_enum {
-    WASM_I32,
-    WASM_I64,
-    WASM_F32,
-    WASM_F64,
+    WASM_I32 = 0,
+    WASM_I64 = 1,
+    WASM_F32 = 2,
+    WASM_F64 = 3,
     WASM_ANYREF = 128,
-    WASM_FUNCREF,
+    WASM_FUNCREF = 129,
 }
 
 impl From<ValType> for wasm_valkind_enum {
@@ -487,7 +487,7 @@ impl From<ValType> for wasm_valkind_enum {
             ValType::I64 => Self::WASM_I64,
             ValType::F32 => Self::WASM_F32,
             ValType::F64 => Self::WASM_F64,
-            ValType::V128 => todo!("no 128 type in C API yet!"),
+            ValType::V128 => todo!("no v128 type in Wasm C API yet!"),
             ValType::AnyRef => Self::WASM_ANYREF,
             ValType::FuncRef => Self::WASM_FUNCREF,
         }
