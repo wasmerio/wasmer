@@ -45,7 +45,7 @@ impl FuncTrampoline {
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
 
-        let (callee_ty, callee_attrs) = func_type_to_llvm(&self.ctx, &intrinsics, ty);
+        let (callee_ty, callee_attrs) = func_type_to_llvm(&self.ctx, &intrinsics, ty)?;
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ctx_ptr_ty.as_basic_type_enum(), // callee_vmctx ptr
@@ -134,13 +134,13 @@ impl FuncTrampoline {
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
 
-        let params = iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
+        let params = iter::once(Ok(intrinsics.ctx_ptr_ty.as_basic_type_enum()))
             .chain(
                 ty.params()
                     .iter()
                     .map(|param_ty| type_to_llvm(&intrinsics, *param_ty)),
             )
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()?;
         let trampoline_ty = intrinsics.void_ty.fn_type(params.as_slice(), false);
 
         let trampoline_func = module.add_function("", trampoline_ty, Some(Linkage::External));
@@ -270,7 +270,7 @@ fn generate_trampoline<'ctx>(
                 .results()
                 .iter()
                 .map(|&ty| type_to_llvm(intrinsics, ty))
-                .collect();
+                .collect::<Result<_, _>>()?;
 
             let sret_ty = context.struct_type(&basic_types, false);
             args_vec.push(builder.build_alloca(sret_ty, "sret").into());

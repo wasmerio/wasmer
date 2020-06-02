@@ -23,6 +23,7 @@ use inkwell::{
     AddressSpace,
 };
 use wasm_common::{FunctionType as FuncSig, Type};
+use wasmer_compiler::CompileError;
 
 // Given a function definition, retrieve the parameter that is the vmctx pointer.
 pub fn get_vmctx_ptr_param<'ctx>(func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
@@ -49,11 +50,11 @@ pub fn func_type_to_llvm<'ctx>(
     context: &'ctx Context,
     intrinsics: &Intrinsics<'ctx>,
     sig: &FuncSig,
-) -> (FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>) {
+) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError> {
     let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
 
     let param_types =
-        std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum()).chain(user_param_types);
+        std::iter::once(Ok(intrinsics.ctx_ptr_ty.as_basic_type_enum())).chain(user_param_types);
 
     let sig_returns_bitwidths = sig
         .results()
@@ -67,18 +68,18 @@ pub fn func_type_to_llvm<'ctx>(
         })
         .collect::<Vec<i32>>();
 
-    match sig_returns_bitwidths.as_slice() {
+    Ok(match sig_returns_bitwidths.as_slice() {
         [] => (
             intrinsics
                 .void_ty
-                .fn_type(&param_types.collect::<Vec<_>>(), false),
+                .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
             vec![],
         ),
         [_] => {
             let single_value = sig.results()[0];
             (
-                type_to_llvm(intrinsics, single_value)
-                    .fn_type(&param_types.collect::<Vec<_>>(), false),
+                type_to_llvm(intrinsics, single_value)?
+                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
                 vec![],
             )
         }
@@ -87,12 +88,12 @@ pub fn func_type_to_llvm<'ctx>(
                 .results()
                 .iter()
                 .map(|&ty| type_to_llvm(intrinsics, ty))
-                .collect();
+                .collect::<Result<_, _>>()?;
 
             (
                 context
                     .struct_type(&basic_types, false)
-                    .fn_type(&param_types.collect::<Vec<_>>(), false),
+                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
                 vec![],
             )
         }
@@ -100,13 +101,13 @@ pub fn func_type_to_llvm<'ctx>(
             intrinsics
                 .f32_ty
                 .vec_type(2)
-                .fn_type(&param_types.collect::<Vec<_>>(), false),
+                .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
             vec![],
         ),
         [32, 32] => (
             intrinsics
                 .i64_ty
-                .fn_type(&param_types.collect::<Vec<_>>(), false),
+                .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
             vec![],
         ),
         [32, 32, _] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
@@ -114,11 +115,11 @@ pub fn func_type_to_llvm<'ctx>(
                 .struct_type(
                     &[
                         intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
-                        type_to_llvm(intrinsics, sig.results()[2]),
+                        type_to_llvm(intrinsics, sig.results()[2])?,
                     ],
                     false,
                 )
-                .fn_type(&param_types.collect::<Vec<_>>(), false),
+                .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
             vec![],
         ),
         [32, 32, _] => (
@@ -126,35 +127,35 @@ pub fn func_type_to_llvm<'ctx>(
                 .struct_type(
                     &[
                         intrinsics.i64_ty.as_basic_type_enum(),
-                        type_to_llvm(intrinsics, sig.results()[2]),
+                        type_to_llvm(intrinsics, sig.results()[2])?,
                     ],
                     false,
                 )
-                .fn_type(&param_types.collect::<Vec<_>>(), false),
+                .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
             vec![],
         ),
         [64, 32, 32] if sig.results()[1] == Type::F32 && sig.results()[2] == Type::F32 => (
             context
                 .struct_type(
                     &[
-                        type_to_llvm(intrinsics, sig.results()[0]),
+                        type_to_llvm(intrinsics, sig.results()[0])?,
                         intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
                     ],
                     false,
                 )
-                .fn_type(&param_types.collect::<Vec<_>>(), false),
+                .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
             vec![],
         ),
         [64, 32, 32] => (
             context
                 .struct_type(
                     &[
-                        type_to_llvm(intrinsics, sig.results()[0]),
+                        type_to_llvm(intrinsics, sig.results()[0])?,
                         intrinsics.i64_ty.as_basic_type_enum(),
                     ],
                     false,
                 )
-                .fn_type(&param_types.collect::<Vec<_>>(), false),
+                .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
             vec![],
         ),
         [32, 32, 32, 32] => (
@@ -174,7 +175,7 @@ pub fn func_type_to_llvm<'ctx>(
                     ],
                     false,
                 )
-                .fn_type(&param_types.collect::<Vec<_>>(), false),
+                .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
             vec![],
         ),
         _ => {
@@ -182,25 +183,25 @@ pub fn func_type_to_llvm<'ctx>(
                 .results()
                 .iter()
                 .map(|&ty| type_to_llvm(intrinsics, ty))
-                .collect();
+                .collect::<Result<_, _>>()?;
 
             let sret = context
                 .struct_type(&basic_types, false)
                 .ptr_type(AddressSpace::Generic);
 
-            let param_types = std::iter::once(sret.as_basic_type_enum()).chain(param_types);
+            let param_types = std::iter::once(Ok(sret.as_basic_type_enum())).chain(param_types);
 
             (
                 intrinsics
                     .void_ty
-                    .fn_type(&param_types.collect::<Vec<_>>(), false),
+                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
                 vec![(
                     context.create_enum_attribute(Attribute::get_named_enum_kind_id("sret"), 0),
                     AttributeLoc::Param(0),
                 )],
             )
         }
-    }
+    })
 }
 
 // Marshall wasm stack values into function parameters.

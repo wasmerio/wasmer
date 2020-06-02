@@ -3,7 +3,6 @@ use super::{
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
-    read_info::{blocktype_to_param_types, blocktype_to_types},
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State},
 };
@@ -35,9 +34,13 @@ use wasm_common::{
 use wasmer_compiler::wasmparser::{BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, CompiledFunction, CustomSections,
-    FunctionBodyData, RelocationTarget,
+    FunctionBodyData, ModuleTranslationState, RelocationTarget,
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
+
+fn to_compile_error(err: impl std::error::Error) -> CompileError {
+    CompileError::Codegen(format!("{}", err))
+}
 
 // TODO: move this into inkwell.
 fn const_zero(ty: BasicTypeEnum) -> BasicValueEnum {
@@ -65,6 +68,7 @@ impl FuncTranslator {
     pub fn translate(
         &mut self,
         wasm_module: &ModuleInfo,
+        module_translation: &ModuleTranslationState,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVMConfig,
@@ -92,7 +96,7 @@ impl FuncTranslator {
             .unwrap();
 
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
-        let (func_type, func_attrs) = abi::func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type);
+        let (func_type, func_attrs) = abi::func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type)?;
 
         let func = module.add_function(&func_name, func_type, Some(Linkage::External));
         for (attr, attr_loc) in func_attrs {
@@ -120,9 +124,8 @@ impl FuncTranslator {
         let phis: SmallVec<[PhiValue; 1]> = wasm_fn_type
             .results()
             .iter()
-            .map(|&wasm_ty| type_to_llvm(&intrinsics, wasm_ty))
-            .map(|ty| builder.build_phi(ty, ""))
-            .collect();
+            .map(|&wasm_ty| type_to_llvm(&intrinsics, wasm_ty).map(|ty| builder.build_phi(ty, "")))
+            .collect::<Result<_, _>>()?;
         state.push_block(return_, phis);
         builder.position_at_end(start_of_code);
 
@@ -138,7 +141,7 @@ impl FuncTranslator {
             };
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
-            let ty = type_to_llvm(&intrinsics, ty);
+            let ty = type_to_llvm(&intrinsics, ty)?;
             let value = func
                 .get_nth_param((idx as u32).checked_add(first_param).unwrap())
                 .unwrap();
@@ -155,8 +158,8 @@ impl FuncTranslator {
             let (count, ty) = reader
                 .read_local_decl(&mut counter)
                 .map_err(to_wasm_error)?;
-            let ty = wptype_to_type(ty)?;
-            let ty = type_to_llvm(&intrinsics, ty);
+            let ty = wptype_to_type(ty).map_err(to_compile_error)?;
+            let ty = type_to_llvm(&intrinsics, ty)?;
             // TODO: don't interleave allocas and stores.
             for _ in 0..count {
                 let alloca = cache_builder.build_alloca(ty, "local");
@@ -180,6 +183,7 @@ impl FuncTranslator {
             memory_plans,
             _table_plans,
             module: &module,
+            module_translation,
             wasm_module,
             func_names,
         };
@@ -1180,7 +1184,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let one_value = self.apply_pending_canonicalization(*one_value, *one_value_info);
                 self.builder.build_return(Some(&self.builder.build_bitcast(
                     one_value.as_basic_value_enum(),
-                    type_to_llvm(&self.intrinsics, wasm_fn_type.results()[0]),
+                    type_to_llvm(&self.intrinsics, wasm_fn_type.results()[0])?,
                     "return",
                 )));
             }
@@ -1337,7 +1341,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     let one_value = self.apply_pending_canonicalization(*value, *info);
                     let one_value = self.builder.build_bitcast(
                         one_value,
-                        type_to_llvm(&self.intrinsics, wasm_fn_type.results()[idx]),
+                        type_to_llvm(&self.intrinsics, wasm_fn_type.results()[idx])?,
                         "",
                     );
                     struct_value = self
@@ -1460,6 +1464,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     track_state: bool,
     */
     module: &'a Module<'ctx>,
+    module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
     func_names: &'a SecondaryMap<FunctionIndex, String>,
 }
@@ -1509,11 +1514,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let end_block = self.context.append_basic_block(self.function, "end");
                 self.builder.position_at_end(end_block);
 
-                let phis = blocktype_to_types(ty, self.wasm_module)
+                let phis: SmallVec<[PhiValue<'ctx>; 1]> = self
+                    .module_translation
+                    .blocktype_params_results(ty)?
+                    .1
                     .iter()
-                    .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
-                    .map(|ty| self.builder.build_phi(ty, ""))
-                    .collect();
+                    .map(|&wp_ty| {
+                        wptype_to_type(wp_ty)
+                            .map_err(to_compile_error)
+                            .and_then(|wasm_ty| {
+                                type_to_llvm(self.intrinsics, wasm_ty)
+                                    .map(|ty| self.builder.build_phi(ty, ""))
+                            })
+                    })
+                    .collect::<Result<_, _>>()?;
 
                 self.state.push_block(end_block, phis);
                 self.builder.position_at_end(current_block);
@@ -1526,19 +1540,35 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.build_unconditional_branch(loop_body);
 
                 self.builder.position_at_end(loop_next);
-                let phis = blocktype_to_types(ty, self.wasm_module)
+                let phis = self
+                    .module_translation
+                    .blocktype_params_results(ty)?
+                    .1
                     .iter()
-                    .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
-                    .map(|ty| self.builder.build_phi(ty, ""))
-                    .collect();
-
+                    .map(|&wp_ty| {
+                        wptype_to_type(wp_ty)
+                            .map_err(to_compile_error)
+                            .and_then(|wasm_ty| {
+                                type_to_llvm(self.intrinsics, wasm_ty)
+                                    .map(|ty| self.builder.build_phi(ty, ""))
+                            })
+                    })
+                    .collect::<Result<_, _>>()?;
                 self.builder.position_at_end(loop_body);
-                let loop_phis: SmallVec<[PhiValue<'ctx>; 1]> =
-                    blocktype_to_param_types(ty, self.wasm_module)
-                        .iter()
-                        .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
-                        .map(|ty| self.builder.build_phi(ty, ""))
-                        .collect();
+                let loop_phis: SmallVec<[PhiValue<'ctx>; 1]> = self
+                    .module_translation
+                    .blocktype_params_results(ty)?
+                    .0
+                    .iter()
+                    .map(|&wp_ty| {
+                        wptype_to_type(wp_ty)
+                            .map_err(to_compile_error)
+                            .and_then(|wasm_ty| {
+                                type_to_llvm(self.intrinsics, wasm_ty)
+                                    .map(|ty| self.builder.build_phi(ty, ""))
+                            })
+                    })
+                    .collect::<Result<_, _>>()?;
                 for phi in loop_phis.iter().rev() {
                     let (value, info) = self.state.pop1_extra()?;
                     let value = self.apply_pending_canonicalization(value, info);
@@ -1716,11 +1746,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let end_phis = {
                     self.builder.position_at_end(end_block);
 
-                    let phis = blocktype_to_types(ty, self.wasm_module)
+                    let phis = self
+                        .module_translation
+                        .blocktype_params_results(ty)?
+                        .1
                         .iter()
-                        .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
-                        .map(|ty| self.builder.build_phi(ty, ""))
-                        .collect();
+                        .map(|&wp_ty| {
+                            wptype_to_type(wp_ty)
+                                .map_err(to_compile_error)
+                                .and_then(|wasm_ty| {
+                                    type_to_llvm(self.intrinsics, wasm_ty)
+                                        .map(|ty| self.builder.build_phi(ty, ""))
+                                })
+                        })
+                        .collect::<Result<_, _>>()?;
 
                     self.builder.position_at_end(current_block);
                     phis
@@ -1738,19 +1777,35 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder
                     .build_conditional_branch(cond_value, if_then_block, if_else_block);
                 self.builder.position_at_end(if_else_block);
-                let else_phis: SmallVec<[PhiValue<'ctx>; 1]> =
-                    blocktype_to_param_types(ty, self.wasm_module)
-                        .iter()
-                        .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
-                        .map(|ty| self.builder.build_phi(ty, ""))
-                        .collect();
+                let else_phis: SmallVec<[PhiValue<'ctx>; 1]> = self
+                    .module_translation
+                    .blocktype_params_results(ty)?
+                    .0
+                    .iter()
+                    .map(|&wp_ty| {
+                        wptype_to_type(wp_ty)
+                            .map_err(to_compile_error)
+                            .and_then(|wasm_ty| {
+                                type_to_llvm(self.intrinsics, wasm_ty)
+                                    .map(|ty| self.builder.build_phi(ty, ""))
+                            })
+                    })
+                    .collect::<Result<_, _>>()?;
                 self.builder.position_at_end(if_then_block);
-                let then_phis: SmallVec<[PhiValue<'ctx>; 1]> =
-                    blocktype_to_param_types(ty, self.wasm_module)
-                        .iter()
-                        .map(|&wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
-                        .map(|ty| self.builder.build_phi(ty, ""))
-                        .collect();
+                let then_phis: SmallVec<[PhiValue<'ctx>; 1]> = self
+                    .module_translation
+                    .blocktype_params_results(ty)?
+                    .0
+                    .iter()
+                    .map(|&wp_ty| {
+                        wptype_to_type(wp_ty)
+                            .map_err(to_compile_error)
+                            .and_then(|wasm_ty| {
+                                type_to_llvm(self.intrinsics, wasm_ty)
+                                    .map(|ty| self.builder.build_phi(ty, ""))
+                            })
+                    })
+                    .collect::<Result<_, _>>()?;
                 for (else_phi, then_phi) in else_phis.iter().rev().zip(then_phis.iter().rev()) {
                     let (value, info) = self.state.pop1_extra()?;
                     let value = self.apply_pending_canonicalization(value, info);
@@ -2209,7 +2264,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.context,
                     func_name,
                     func_type,
-                );
+                )?;
                 let func = *func;
                 let callee_vmctx = *callee_vmctx;
                 let attrs = attrs.clone();
@@ -2461,7 +2516,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.position_at_end(continue_block);
 
                 let (llvm_func_type, llvm_func_attrs) =
-                    abi::func_type_to_llvm(&self.context, &self.intrinsics, func_type);
+                    abi::func_type_to_llvm(&self.context, &self.intrinsics, func_type)?;
 
                 let params = self.state.popn_save_extra(func_type.params().len())?;
 
