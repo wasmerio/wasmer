@@ -1890,7 +1890,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let frame = self.state.outermost_frame()?;
-                for phi in frame.phis().to_vec().iter() {
+                for phi in frame.phis().to_vec().iter().rev() {
                     let (arg, info) = self.state.pop1_extra()?;
                     let arg = self.apply_pending_canonicalization(arg, info);
                     phi.add_incoming(&[(&arg, current_block)]);
