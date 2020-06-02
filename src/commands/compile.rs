@@ -1,7 +1,6 @@
 use crate::store::StoreOptions;
 use crate::warning;
 use anyhow::{Context, Result};
-use std::fs;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use wasmer::*;
@@ -63,8 +62,7 @@ impl Compile {
         println!("Compiler: {}", compiler_name);
         println!("Target: {}", target.triple());
         let module = Module::from_file(&store, &self.path)?;
-        let serialized = module.serialize()?;
-        fs::write(&self.output, serialized)?;
+        let _ = module.serialize_to_file(&self.output)?;
         eprintln!(
             "✔ File compiled successfully to `{}`.",
             self.output.display(),

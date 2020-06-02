@@ -3,7 +3,7 @@
 use crate::DummyArtifact;
 use std::sync::Arc;
 use wasm_common::FunctionType;
-use wasmer_compiler::CompileError;
+use wasmer_compiler::{CompileError, Features};
 use wasmer_engine::{Artifact, DeserializeError, Engine, Tunables};
 use wasmer_runtime::{
     SignatureRegistry, VMContext, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
@@ -21,6 +21,7 @@ extern "C" fn dummy_trampoline(
 #[derive(Clone)]
 pub struct DummyEngine {
     signatures: Arc<SignatureRegistry>,
+    features: Arc<Features>,
     tunables: Arc<dyn Tunables + Send + Sync>,
 }
 
@@ -30,7 +31,12 @@ impl DummyEngine {
         Self {
             signatures: Arc::new(SignatureRegistry::new()),
             tunables: Arc::new(tunables),
+            features: Arc::new(Default::default()),
         }
+    }
+
+    pub fn features(&self) -> &Features {
+        &self.features
     }
 }
 
@@ -51,10 +57,31 @@ impl Engine for DummyEngine {
     }
 
     /// Retrieves a trampoline given a signature
-    fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
+    fn function_call_trampoline(&self, _sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
         Some(dummy_trampoline)
     }
 
+    #[cfg(feature = "compiler")]
+    /// Validates a WebAssembly module
+    fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
+        use wasmer_compiler::wasmparser::{
+            validate, OperatorValidatorConfig, ValidatingParserConfig,
+        };
+
+        let features = self.features();
+        let config = ValidatingParserConfig {
+            operator_config: OperatorValidatorConfig {
+                enable_threads: features.threads,
+                enable_reference_types: features.reference_types,
+                enable_bulk_memory: features.bulk_memory,
+                enable_simd: features.simd,
+                enable_multi_value: features.multi_value,
+            },
+        };
+        validate(binary, Some(config)).map_err(|e| CompileError::Validate(format!("{}", e)))
+    }
+
+    #[cfg(not(feature = "compiler"))]
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
         // We mark all Wasm modules as valid

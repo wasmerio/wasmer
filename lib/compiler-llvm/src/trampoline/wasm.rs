@@ -1,4 +1,4 @@
-use crate::config::LLVMConfig;
+use crate::config::{CompiledFunctionKind, LLVMConfig};
 use crate::object_file::load_object_file;
 use crate::translator::intrinsics::{
     func_type_to_llvm, type_to_llvm, type_to_llvm_ptr, Intrinsics,
@@ -36,6 +36,8 @@ impl FuncTrampoline {
         ty: &FunctionType,
         config: &LLVMConfig,
     ) -> Result<FunctionBody, CompileError> {
+        // The function type, used for the callbacks.
+        let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
         let module = self.ctx.create_module("");
         let target_triple = config.target_triple();
         let target_machine = config.target_machine();
@@ -61,8 +63,9 @@ impl FuncTrampoline {
             .set_section(FUNCTION_SECTION);
         generate_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
-        // TODO: remove debugging
-        //module.print_to_stderr();
+        if let Some(ref callbacks) = config.callbacks {
+            callbacks.preopt_ir(&function, &module);
+        }
 
         let pass_manager = PassManager::create(());
 
@@ -74,22 +77,17 @@ impl FuncTrampoline {
 
         pass_manager.run_on(&module);
 
-        // TODO: remove debugging
-        //module.print_to_stderr();
+        if let Some(ref callbacks) = config.callbacks {
+            callbacks.postopt_ir(&function, &module);
+        }
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
 
-        /*
-        // TODO: remove debugging
-        let mem_buf_slice = memory_buffer.as_slice();
-        let mut file = fs::File::create("/home/nicholas/trampoline.o").unwrap();
-        let mut pos = 0;
-        while pos < mem_buf_slice.len() {
-            pos += file.write(&mem_buf_slice[pos..]).unwrap();
+        if let Some(ref callbacks) = config.callbacks {
+            callbacks.obj_memory_buffer(&function, &memory_buffer);
         }
-        */
 
         let mem_buf_slice = memory_buffer.as_slice();
         let (function, sections) =
@@ -127,6 +125,8 @@ impl FuncTrampoline {
         ty: &FunctionType,
         config: &LLVMConfig,
     ) -> Result<FunctionBody, CompileError> {
+        // The function type, used for the callbacks
+        let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());
         let module = self.ctx.create_module("");
         let target_triple = config.target_triple();
         let target_machine = config.target_machine();
@@ -149,8 +149,9 @@ impl FuncTrampoline {
             .set_section(FUNCTION_SECTION);
         generate_dynamic_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
-        // TODO: remove debugging
-        //module.print_to_stderr();
+        if let Some(ref callbacks) = config.callbacks {
+            callbacks.preopt_ir(&function, &module);
+        }
 
         let pass_manager = PassManager::create(());
 
@@ -162,22 +163,17 @@ impl FuncTrampoline {
 
         pass_manager.run_on(&module);
 
-        // TODO: remove debugging
-        //module.print_to_stderr();
+        if let Some(ref callbacks) = config.callbacks {
+            callbacks.postopt_ir(&function, &module);
+        }
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
 
-        /*
-        // TODO: remove debugging
-        let mem_buf_slice = memory_buffer.as_slice();
-        let mut file = fs::File::create("/home/nicholas/trampoline.o").unwrap();
-        let mut pos = 0;
-        while pos < mem_buf_slice.len() {
-            pos += file.write(&mem_buf_slice[pos..]).unwrap();
+        if let Some(ref callbacks) = config.callbacks {
+            callbacks.obj_memory_buffer(&function, &memory_buffer);
         }
-        */
 
         let mem_buf_slice = memory_buffer.as_slice();
         let (function, sections) =

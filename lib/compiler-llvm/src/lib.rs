@@ -21,4 +21,6 @@ mod trampoline;
 mod translator;
 
 pub use crate::compiler::LLVMCompiler;
-pub use crate::config::{InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVMConfig};
+pub use crate::config::{
+    CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVMConfig,
+};

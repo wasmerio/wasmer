@@ -23,7 +23,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 
-use crate::config::LLVMConfig;
+use crate::config::{CompiledFunctionKind, LLVMConfig};
 use crate::object_file::load_object_file;
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasm_common::{
@@ -89,6 +89,8 @@ impl FuncTranslator {
         _table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<(CompiledFunction, CustomSections), CompileError> {
+        // The function type, used for the callbacks.
+        let function = CompiledFunctionKind::Local(local_func_index.clone());
         let func_index = wasm_module.func_index(*local_func_index);
         let func_name = &func_names[func_index];
         let module_name = match wasm_module.name.as_ref() {
@@ -217,10 +219,10 @@ impl FuncTranslator {
             }
         }
 
-        // TODO: debugging
-        //module.print_to_stderr();
+        if let Some(ref callbacks) = config.callbacks {
+            callbacks.preopt_ir(&function, &module);
+        }
 
-        // TODO: llvm-callbacks pre-opt-ir
         let pass_manager = PassManager::create(());
 
         if config.enable_verifier {
@@ -260,21 +262,17 @@ impl FuncTranslator {
 
         pass_manager.run_on(&module);
 
-        // TODO: llvm-callbacks llvm post-opt-ir
+        if let Some(ref callbacks) = config.callbacks {
+            callbacks.postopt_ir(&function, &module);
+        }
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
 
-        // TODO: remove debugging.
-        /*
-        let mem_buf_slice = memory_buffer.as_slice();
-        let mut file = std::fs::File::create(format!("/home/nicholas/code{}.o", func_name)).unwrap();
-        let mut pos = 0;
-        while pos < mem_buf_slice.len() {
-            pos += file.write(&mem_buf_slice[pos..]).unwrap();
+        if let Some(ref callbacks) = config.callbacks {
+            callbacks.obj_memory_buffer(&function, &memory_buffer);
         }
-        */
 
         let mem_buf_slice = memory_buffer.as_slice();
         load_object_file(

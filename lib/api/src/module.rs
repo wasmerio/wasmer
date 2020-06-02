@@ -171,8 +171,8 @@ impl Module {
         Ok(Self::from_compiled_module(store, compiled))
     }
 
-    /// Serializes a module into it a propietary serializable format,
-    /// so it can be used later by [`Module::deserialize`].
+    /// Serializes a module into a binary representation that the `Engine`
+    /// can later process via [`Module::deserialize`].
     ///
     /// # Usage
     ///
@@ -187,6 +187,24 @@ impl Module {
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         self.artifact.serialize()
+    }
+
+    /// Serializes a module into a file that the `Engine`
+    /// can later process via [`Module::deserialize_from_file`].
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
+    /// # let module = Module::from_file(&store, "path/to/foo.wasm")?;
+    /// module.serialize_to_file("path/to/foo.so")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError> {
+        self.artifact.serialize_to_file(path.as_ref())
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
