@@ -77,6 +77,9 @@ pub trait Emitter {
     fn emit_label(&mut self, label: Self::Label);
 
     fn emit_nop(&mut self);
+
+    /// A high-level assembler method. Emits an instruction sequence of length `n` that is functionally
+    /// equivalent to a `nop` instruction, without guarantee about the underlying implementation.
     fn emit_nop_n(&mut self, n: usize);
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
