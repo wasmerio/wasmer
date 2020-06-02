@@ -32,29 +32,12 @@ use wasm_common::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type,
 };
-use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
+use wasmer_compiler::wasmparser::{BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
-    to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, CustomSections,
-    FunctionBodyData, RelocationTarget, WasmResult,
+    to_wasm_error, wptype_to_type, CompileError, CompiledFunction, CustomSections,
+    FunctionBodyData, RelocationTarget,
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
-
-// TODO
-fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
-    match ty {
-        wasmparser::Type::I32 => Ok(Type::I32),
-        wasmparser::Type::I64 => Ok(Type::I64),
-        wasmparser::Type::F32 => Ok(Type::F32),
-        wasmparser::Type::F64 => Ok(Type::F64),
-        wasmparser::Type::V128 => Ok(Type::V128),
-        wasmparser::Type::AnyRef => Ok(Type::AnyRef),
-        wasmparser::Type::AnyFunc => Ok(Type::FuncRef),
-        ty => Err(wasm_unsupported!(
-            "wptype_to_irtype: parser wasm type {:?}",
-            ty
-        )),
-    }
-}
 
 // TODO: move this into inkwell.
 fn const_zero(ty: BasicTypeEnum) -> BasicValueEnum {
