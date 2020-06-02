@@ -13,9 +13,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     targets::FileType,
-    types::{
-        BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, StructType, VectorType,
-    },
+    types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionOpcode, InstructionValue,
         IntValue, PhiValue, PointerValue, VectorValue,
@@ -1114,243 +1112,44 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let func_type = self.function.get_type();
 
         let results = self.state.popn_save_extra(wasm_fn_type.results().len())?;
-        let is_32 = |value: &BasicValueEnum| {
-            (value.is_int_value() && value.into_int_value().get_type() == self.intrinsics.i32_ty)
-                || (value.is_float_value()
-                    && value.into_float_value().get_type() == self.intrinsics.f32_ty)
-        };
-        let is_64 = |value: &BasicValueEnum| {
-            (value.is_int_value() && value.into_int_value().get_type() == self.intrinsics.i64_ty)
-                || (value.is_float_value()
-                    && value.into_float_value().get_type() == self.intrinsics.f64_ty)
-        };
-        let is_f32 = |value: &BasicValueEnum| {
-            value.is_float_value() && value.into_float_value().get_type() == self.intrinsics.f32_ty
-        };
-
-        let pack_i32s = |low: IntValue<'ctx>, high: IntValue<'ctx>| {
-            assert!(low.get_type() == self.intrinsics.i32_ty);
-            assert!(high.get_type() == self.intrinsics.i32_ty);
-            let low = self
-                .builder
-                .build_int_z_extend(low, self.intrinsics.i64_ty, "");
-            let high = self
-                .builder
-                .build_int_z_extend(high, self.intrinsics.i64_ty, "");
-            let high = self.builder.build_left_shift(
-                high,
-                self.intrinsics.i64_ty.const_int(32, false),
-                "",
-            );
-            self.builder.build_or(low, high, "")
-        };
-
-        let pack_f32s = |first: FloatValue<'ctx>, second: FloatValue<'ctx>| -> VectorValue<'ctx> {
-            assert!(first.get_type() == self.intrinsics.f32_ty);
-            assert!(second.get_type() == self.intrinsics.f32_ty);
-            let vec_ty = self.intrinsics.f32_ty.vec_type(2);
-            let vec = self.builder.build_insert_element(
-                vec_ty.get_undef(),
-                first,
-                self.intrinsics.i32_zero,
-                "",
-            );
-            self.builder.build_insert_element(
-                vec,
-                second,
-                self.intrinsics.i32_ty.const_int(1, false),
-                "",
-            )
-        };
-
-        let build_struct = |ty: StructType<'ctx>, values: &[BasicValueEnum<'ctx>]| {
-            let mut struct_value = ty.get_undef();
-            for (i, v) in values.iter().enumerate() {
+        let results = results
+            .into_iter()
+            .map(|(v, i)| self.apply_pending_canonicalization(v, i));
+        if wasm_fn_type.results().is_empty() {
+            self.builder.build_return(None);
+        } else if abi::is_sret(wasm_fn_type)? {
+            let sret = self
+                .function
+                .get_first_param()
+                .unwrap()
+                .into_pointer_value();
+            let mut struct_value = sret
+                .get_type()
+                .get_element_type()
+                .into_struct_type()
+                .get_undef();
+            for (idx, value) in results.enumerate() {
+                let value = self.builder.build_bitcast(
+                    value,
+                    type_to_llvm(&self.intrinsics, wasm_fn_type.results()[idx])?,
+                    "",
+                );
                 struct_value = self
                     .builder
-                    .build_insert_value(struct_value, *v, i as u32, "")
+                    .build_insert_value(struct_value, value, idx as u32, "")
                     .unwrap()
                     .into_struct_value();
             }
-            struct_value
-        };
-
-        match results.as_slice() {
-            [] => {
-                self.builder.build_return(None);
-            }
-            [(one_value, one_value_info)] => {
-                let one_value = self.apply_pending_canonicalization(*one_value, *one_value_info);
-                self.builder.build_return(Some(&self.builder.build_bitcast(
-                    one_value.as_basic_value_enum(),
-                    type_to_llvm(&self.intrinsics, wasm_fn_type.results()[0])?,
-                    "return",
-                )));
-            }
-            [(v1, v1i), (v2, v2i)] if is_f32(v1) && is_f32(v2) => {
-                let v1 = self
-                    .apply_pending_canonicalization(*v1, *v1i)
-                    .into_float_value();
-                let v2 = self
-                    .apply_pending_canonicalization(*v2, *v2i)
-                    .into_float_value();
-                let ret = pack_f32s(v1, v2);
-                self.builder.build_return(Some(&ret));
-            }
-            [(v1, v1i), (v2, v2i)] if is_32(v1) && is_32(v2) => {
-                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
-                let v2 = self.apply_pending_canonicalization(*v2, *v2i);
-                let v1 = self
-                    .builder
-                    .build_bitcast(v1, self.intrinsics.i32_ty, "")
-                    .into_int_value();
-                let v2 = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i32_ty, "")
-                    .into_int_value();
-                let ret = pack_i32s(v1, v2);
-                self.builder.build_return(Some(&ret));
-            }
-            [(v1, v1i), (v2, v2i)] => {
-                assert!(!(is_32(v1) && is_32(v2)));
-                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
-                let v2 = self.apply_pending_canonicalization(*v2, *v2i);
-                let struct_value = build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[v1, v2],
-                );
-                self.builder.build_return(Some(&struct_value));
-            }
-            [(v1, v1i), (v2, v2i), (v3, v3i)] if is_f32(&v1) && is_f32(&v2) => {
-                let v1 = self
-                    .apply_pending_canonicalization(*v1, *v1i)
-                    .into_float_value();
-                let v2 = self
-                    .apply_pending_canonicalization(*v2, *v2i)
-                    .into_float_value();
-                let v3 = self.apply_pending_canonicalization(*v3, *v3i);
-                let struct_value = build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[pack_f32s(v1, v2).as_basic_value_enum(), v3],
-                );
-                self.builder.build_return(Some(&struct_value));
-            }
-            [(v1, v1i), (v2, v2i), (v3, v3i)] if is_32(&v1) && is_32(&v2) => {
-                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
-                let v2 = self.apply_pending_canonicalization(*v2, *v2i);
-                let v3 = self.apply_pending_canonicalization(*v3, *v3i);
-                let v1 = self
-                    .builder
-                    .build_bitcast(v1, self.intrinsics.i32_ty, "")
-                    .into_int_value();
-                let v2 = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i32_ty, "")
-                    .into_int_value();
-                let struct_value = build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[pack_i32s(v1, v2).as_basic_value_enum(), v3],
-                );
-                self.builder.build_return(Some(&struct_value));
-            }
-            [(v1, v1i), (v2, v2i), (v3, v3i)] if is_64(&v1) && is_f32(&v2) && is_f32(&v3) => {
-                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
-                let v2 = self
-                    .apply_pending_canonicalization(*v2, *v2i)
-                    .into_float_value();
-                let v3 = self
-                    .apply_pending_canonicalization(*v3, *v3i)
-                    .into_float_value();
-                let struct_value = build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[v1, pack_f32s(v2, v3).as_basic_value_enum()],
-                );
-                self.builder.build_return(Some(&struct_value));
-            }
-            [(v1, v1i), (v2, v2i), (v3, v3i)] if is_64(&v1) && is_32(&v2) && is_32(&v3) => {
-                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
-                let v2 = self.apply_pending_canonicalization(*v2, *v2i);
-                let v3 = self.apply_pending_canonicalization(*v3, *v3i);
-                let v2 = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i32_ty, "")
-                    .into_int_value();
-                let v3 = self
-                    .builder
-                    .build_bitcast(v3, self.intrinsics.i32_ty, "")
-                    .into_int_value();
-                let struct_value = build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[v1, pack_i32s(v2, v3).as_basic_value_enum()],
-                );
-                self.builder.build_return(Some(&struct_value));
-            }
-            [(v1, v1i), (v2, v2i), (v3, v3i), (v4, v4i)]
-                if is_32(v1) && is_32(v2) && is_32(v3) && is_32(v4) =>
-            {
-                let v1 = self.apply_pending_canonicalization(*v1, *v1i);
-                let v2 = self.apply_pending_canonicalization(*v2, *v2i);
-                let v3 = self.apply_pending_canonicalization(*v3, *v3i);
-                let v4 = self.apply_pending_canonicalization(*v4, *v4i);
-                let v1v2_pack = if is_f32(&v1) && is_f32(&v2) {
-                    pack_f32s(v1.into_float_value(), v2.into_float_value()).into()
-                } else {
-                    let v1 = self
-                        .builder
-                        .build_bitcast(v1, self.intrinsics.i32_ty, "")
-                        .into_int_value();
-                    let v2 = self
-                        .builder
-                        .build_bitcast(v2, self.intrinsics.i32_ty, "")
-                        .into_int_value();
-                    pack_i32s(v1, v2).into()
-                };
-                let v3v4_pack = if is_f32(&v3) && is_f32(&v4) {
-                    pack_f32s(v3.into_float_value(), v4.into_float_value()).into()
-                } else {
-                    let v3 = self
-                        .builder
-                        .build_bitcast(v3, self.intrinsics.i32_ty, "")
-                        .into_int_value();
-                    let v4 = self
-                        .builder
-                        .build_bitcast(v4, self.intrinsics.i32_ty, "")
-                        .into_int_value();
-                    pack_i32s(v3, v4).into()
-                };
-                let struct_value = build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[v1v2_pack, v3v4_pack],
-                );
-                self.builder.build_return(Some(&struct_value));
-            }
-            results => {
-                let sret = self
-                    .function
-                    .get_first_param()
-                    .unwrap()
-                    .into_pointer_value();
-                let mut struct_value = sret
-                    .get_type()
-                    .get_element_type()
-                    .into_struct_type()
-                    .get_undef();
-                for (idx, (value, info)) in results.iter().enumerate() {
-                    let one_value = self.apply_pending_canonicalization(*value, *info);
-                    let one_value = self.builder.build_bitcast(
-                        one_value,
-                        type_to_llvm(&self.intrinsics, wasm_fn_type.results()[idx])?,
-                        "",
-                    );
-                    struct_value = self
-                        .builder
-                        .build_insert_value(struct_value, one_value, idx as u32, "")
-                        .unwrap()
-                        .into_struct_value();
-                }
-                self.builder.build_store(sret, struct_value);
-                self.builder.build_return(None);
-            }
+            self.builder.build_store(sret, struct_value);
+            self.builder.build_return(None);
+        } else {
+            self.builder
+                .build_return(Some(&abi::pack_values_for_register_return(
+                    &self.intrinsics,
+                    &self.builder,
+                    &results.collect::<Vec<_>>(),
+                    &func_type,
+                )?));
         }
         Ok(())
     }

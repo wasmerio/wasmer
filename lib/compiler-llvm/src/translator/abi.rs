@@ -15,7 +15,7 @@ use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
-    types::{BasicType, FunctionType},
+    types::{BasicType, FunctionType, StructType},
     values::{
         BasicValue, BasicValueEnum, CallSiteValue, FloatValue, FunctionValue, IntValue,
         PointerValue, VectorValue,
@@ -432,4 +432,149 @@ pub fn rets_from_call<'ctx>(
             vec![]
         }
     }
+}
+
+pub fn is_sret(func_sig: &FuncSig) -> Result<bool, CompileError> {
+    let func_sig_returns_bitwidths = func_sig
+        .results()
+        .iter()
+        .map(|ty| match ty {
+            Type::I32 | Type::F32 => Ok(32),
+            Type::I64 | Type::F64 => Ok(64),
+            Type::V128 => Ok(128),
+            ty => Err(CompileError::Codegen(format!(
+                "is_sret: unimplemented wasm_common type {:?}",
+                ty
+            ))),
+        })
+        .collect::<Result<Vec<i32>, _>>()?;
+
+    Ok(match func_sig_returns_bitwidths.as_slice() {
+        []
+        | [_]
+        | [32, 64]
+        | [64, 32]
+        | [64, 64]
+        | [32, 32]
+        | [32, 32, 32]
+        | [32, 32, 64]
+        | [64, 32, 32]
+        | [32, 32, 32, 32] => false,
+        _ => true,
+    })
+}
+
+pub fn pack_values_for_register_return<'ctx>(
+    intrinsics: &Intrinsics<'ctx>,
+    builder: &Builder<'ctx>,
+    values: &[BasicValueEnum<'ctx>],
+    func_type: &FunctionType<'ctx>,
+) -> Result<BasicValueEnum<'ctx>, CompileError> {
+    let is_32 = |value: BasicValueEnum| {
+        (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i32_ty)
+            || (value.is_float_value() && value.into_float_value().get_type() == intrinsics.f32_ty)
+    };
+    let is_64 = |value: BasicValueEnum| {
+        (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
+            || (value.is_float_value() && value.into_float_value().get_type() == intrinsics.f64_ty)
+    };
+    let is_f32 = |value: BasicValueEnum| {
+        value.is_float_value() && value.into_float_value().get_type() == intrinsics.f32_ty
+    };
+
+    let pack_i32s = |low: BasicValueEnum<'ctx>, high: BasicValueEnum<'ctx>| {
+        assert!(low.get_type() == intrinsics.i32_ty.as_basic_type_enum());
+        assert!(high.get_type() == intrinsics.i32_ty.as_basic_type_enum());
+        let (low, high) = (low.into_int_value(), high.into_int_value());
+        let low = builder.build_int_z_extend(low, intrinsics.i64_ty, "");
+        let high = builder.build_int_z_extend(high, intrinsics.i64_ty, "");
+        let high = builder.build_left_shift(high, intrinsics.i64_ty.const_int(32, false), "");
+        builder.build_or(low, high, "").as_basic_value_enum()
+    };
+
+    let pack_f32s = |first: BasicValueEnum<'ctx>,
+                     second: BasicValueEnum<'ctx>|
+     -> BasicValueEnum<'ctx> {
+        assert!(first.get_type() == intrinsics.f32_ty.as_basic_type_enum());
+        assert!(second.get_type() == intrinsics.f32_ty.as_basic_type_enum());
+        let (first, second) = (first.into_float_value(), second.into_float_value());
+        let vec_ty = intrinsics.f32_ty.vec_type(2);
+        let vec = builder.build_insert_element(vec_ty.get_undef(), first, intrinsics.i32_zero, "");
+        builder
+            .build_insert_element(vec, second, intrinsics.i32_ty.const_int(1, false), "")
+            .as_basic_value_enum()
+    };
+
+    let build_struct = |ty: StructType<'ctx>, values: &[BasicValueEnum<'ctx>]| {
+        let mut struct_value = ty.get_undef();
+        for (i, v) in values.iter().enumerate() {
+            struct_value = builder
+                .build_insert_value(struct_value, *v, i as u32, "")
+                .unwrap()
+                .into_struct_value();
+        }
+        struct_value.as_basic_value_enum()
+    };
+
+    Ok(match *values {
+        [one_value] => one_value,
+        [v1, v2] if is_f32(v1) && is_f32(v2) => pack_f32s(v1, v2),
+        [v1, v2] if is_32(v1) && is_32(v2) => {
+            let v1 = builder.build_bitcast(v1, intrinsics.i32_ty, "");
+            let v2 = builder.build_bitcast(v2, intrinsics.i32_ty, "");
+            pack_i32s(v1, v2)
+        }
+        [v1, v2] => {
+            assert!(!(is_32(v1) && is_32(v2)));
+            build_struct(
+                func_type.get_return_type().unwrap().into_struct_type(),
+                &[v1, v2],
+            )
+        }
+        [v1, v2, v3] if is_f32(v1) && is_f32(v2) => build_struct(
+            func_type.get_return_type().unwrap().into_struct_type(),
+            &[pack_f32s(v1, v2), v3],
+        ),
+        [v1, v2, v3] if is_32(v1) && is_32(v2) => {
+            let v1 = builder.build_bitcast(v1, intrinsics.i32_ty, "");
+            let v2 = builder.build_bitcast(v2, intrinsics.i32_ty, "");
+            build_struct(
+                func_type.get_return_type().unwrap().into_struct_type(),
+                &[pack_i32s(v1, v2), v3],
+            )
+        }
+        [v1, v2, v3] if is_64(v1) && is_f32(v2) && is_f32(v3) => build_struct(
+            func_type.get_return_type().unwrap().into_struct_type(),
+            &[v1, pack_f32s(v2, v3)],
+        ),
+        [v1, v2, v3] if is_64(v1) && is_32(v2) && is_32(v3) => {
+            let v2 = builder.build_bitcast(v2, intrinsics.i32_ty, "");
+            let v3 = builder.build_bitcast(v3, intrinsics.i32_ty, "");
+            build_struct(
+                func_type.get_return_type().unwrap().into_struct_type(),
+                &[v1, pack_i32s(v2, v3)],
+            )
+        }
+        [v1, v2, v3, v4] if is_32(v1) && is_32(v2) && is_32(v3) && is_32(v4) => {
+            let v1v2_pack = if is_f32(v1) && is_f32(v2) {
+                pack_f32s(v1, v2)
+            } else {
+                let v1 = builder.build_bitcast(v1, intrinsics.i32_ty, "");
+                let v2 = builder.build_bitcast(v2, intrinsics.i32_ty, "");
+                pack_i32s(v1, v2)
+            };
+            let v3v4_pack = if is_f32(v3) && is_f32(v4) {
+                pack_f32s(v3, v4)
+            } else {
+                let v3 = builder.build_bitcast(v3, intrinsics.i32_ty, "");
+                let v4 = builder.build_bitcast(v4, intrinsics.i32_ty, "");
+                pack_i32s(v3, v4)
+            };
+            build_struct(
+                func_type.get_return_type().unwrap().into_struct_type(),
+                &[v1v2_pack, v3v4_pack],
+            )
+        }
+        _ => unreachable!("called to perform register return on struct return or void function"),
+    })
 }

@@ -1,6 +1,6 @@
 use crate::config::{CompiledFunctionKind, LLVMConfig};
 use crate::object_file::load_object_file;
-use crate::translator::abi::{func_type_to_llvm, rets_from_call};
+use crate::translator::abi::{func_type_to_llvm, is_sret, rets_from_call};
 use crate::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -242,46 +242,16 @@ fn generate_trampoline<'ctx>(
 
     let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
 
-    let func_sig_returns_bitwidths = func_sig
-        .results()
-        .iter()
-        .map(|ty| match ty {
-            Type::I32 | Type::F32 => Ok(32),
-            Type::I64 | Type::F64 => Ok(64),
-            Type::V128 => Ok(128),
-            ty => {
-                return Err(CompileError::Codegen(format!(
-                    "generate_trampoline: unimplemented wasm_common type {:?}",
-                    ty
-                )))
-            }
-        })
-        .collect::<Result<Vec<i32>, _>>()?;
+    if is_sret(func_sig)? {
+        let basic_types: Vec<_> = func_sig
+            .results()
+            .iter()
+            .map(|&ty| type_to_llvm(intrinsics, ty))
+            .collect::<Result<_, _>>()?;
 
-    let _is_sret = match func_sig_returns_bitwidths.as_slice() {
-        []
-        | [_]
-        | [32, 64]
-        | [64, 32]
-        | [64, 64]
-        | [32, 32]
-        | [32, 32, 32]
-        | [32, 32, 64]
-        | [64, 32, 32]
-        | [32, 32, 32, 32] => false,
-        _ => {
-            let basic_types: Vec<_> = func_sig
-                .results()
-                .iter()
-                .map(|&ty| type_to_llvm(intrinsics, ty))
-                .collect::<Result<_, _>>()?;
-
-            let sret_ty = context.struct_type(&basic_types, false);
-            args_vec.push(builder.build_alloca(sret_ty, "sret").into());
-
-            true
-        }
-    };
+        let sret_ty = context.struct_type(&basic_types, false);
+        args_vec.push(builder.build_alloca(sret_ty, "sret").into());
+    }
 
     args_vec.push(callee_vmctx_ptr);
 
