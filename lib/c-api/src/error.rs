@@ -12,7 +12,6 @@ thread_local! {
 }
 
 pub fn update_last_error<E: Error + 'static>(err: E) {
-    dbg!(&err);
     LAST_ERROR.with(|prev| {
         *prev.borrow_mut() = Some(Box::new(err));
     });
