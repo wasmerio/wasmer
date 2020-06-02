@@ -5587,6 +5587,8 @@ impl<'a> FuncGen<'a> {
             }
             Operator::Loop { ty } => {
                 // Pad with NOPs to the next 16-byte boundary.
+                // Here we don't use the dynasm `.align 16` attribute because it pads the alignment with single-byte nops
+                // which may lead to efficiency problems.
                 match self.assembler.get_offset().0 % 16 {
                     0 => {}
                     x => {

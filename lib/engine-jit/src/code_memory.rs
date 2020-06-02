@@ -8,6 +8,11 @@ use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{FunctionBody, SectionBody};
 use wasmer_runtime::{Mmap, VMFunctionBody};
 
+/// The optimal alignment for functions.
+///
+/// On x86-64, this is 16 since it's what the optimizations assume.
+/// When we add support for other architectures, we should also figure out their
+/// optimal alignment values.
 const ARCH_FUNCTION_ALIGNMENT: usize = 16;
 
 struct CodeMemoryEntry {
