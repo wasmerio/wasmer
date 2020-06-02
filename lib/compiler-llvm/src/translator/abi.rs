@@ -227,17 +227,15 @@ pub fn args_to_call<'ctx>(
         None
     };
 
-    let values = std::iter::once(ctx_ptr.as_basic_value_enum()).chain(values.iter().map(|x| *x));
+    let values = std::iter::once(ctx_ptr.as_basic_value_enum()).chain(values.iter().copied());
 
-    let values = if sret.is_some() {
-        std::iter::once(sret.unwrap().as_basic_value_enum())
+    if let Some(sret) = sret {
+        std::iter::once(sret.as_basic_value_enum())
             .chain(values)
             .collect()
     } else {
         values.collect()
-    };
-
-    values
+    }
 }
 
 // Given a CallSite, extract the returned values and return them in a Vec.
@@ -315,7 +313,7 @@ pub fn rets_from_call<'ctx>(
                 let (low, high) = split_i64(value);
                 let low = casted(low.into(), func_sig.results()[0]);
                 let high = casted(high.into(), func_sig.results()[1]);
-                return vec![low.into(), high.into()];
+                return vec![low, high];
             }
             if basic_value.get_type() == f32x2_ty {
                 assert!(func_sig.results().len() == 2);
@@ -341,35 +339,35 @@ pub fn rets_from_call<'ctx>(
             match func_sig_returns_bitwidths.as_slice() {
                 [32, 64] | [64, 32] | [64, 64] => {
                     assert!(func_sig.results().len() == 2);
-                    vec![rets[0].into(), rets[1].into()]
+                    vec![rets[0], rets[1]]
                 }
                 [32, 32, _]
                     if rets[0].get_type() == intrinsics.f32_ty.vec_type(2).as_basic_type_enum() =>
                 {
                     assert!(func_sig.results().len() == 3);
                     let (rets0, rets1) = extract_f32x2(rets[0].into_vector_value());
-                    vec![rets0.into(), rets1.into(), rets[1].into()]
+                    vec![rets0.into(), rets1.into(), rets[1]]
                 }
                 [32, 32, _] => {
                     assert!(func_sig.results().len() == 3);
                     let (low, high) = split_i64(rets[0].into_int_value());
                     let low = casted(low.into(), func_sig.results()[0]);
                     let high = casted(high.into(), func_sig.results()[1]);
-                    vec![low.into(), high.into(), rets[1].into()]
+                    vec![low, high, rets[1]]
                 }
                 [64, 32, 32]
                     if rets[1].get_type() == intrinsics.f32_ty.vec_type(2).as_basic_type_enum() =>
                 {
                     assert!(func_sig.results().len() == 3);
                     let (rets1, rets2) = extract_f32x2(rets[1].into_vector_value());
-                    vec![rets[0].into(), rets1.into(), rets2.into()]
+                    vec![rets[0], rets1.into(), rets2.into()]
                 }
                 [64, 32, 32] => {
                     assert!(func_sig.results().len() == 3);
                     let (rets1, rets2) = split_i64(rets[1].into_int_value());
                     let rets1 = casted(rets1.into(), func_sig.results()[1]);
                     let rets2 = casted(rets2.into(), func_sig.results()[2]);
-                    vec![rets[0].into(), rets1.into(), rets2.into()]
+                    vec![rets[0], rets1, rets2]
                 }
                 [32, 32, 32, 32] => {
                     assert!(func_sig.results().len() == 4);
@@ -395,7 +393,7 @@ pub fn rets_from_call<'ctx>(
                     let high0 = casted(high0, func_sig.results()[1]);
                     let low1 = casted(low1, func_sig.results()[2]);
                     let high1 = casted(high1, func_sig.results()[3]);
-                    vec![low0.into(), high0.into(), low1.into(), high1.into()]
+                    vec![low0, high0, low1, high1]
                 }
                 _ => unreachable!("expected an sret for this type"),
             }
@@ -430,7 +428,7 @@ pub fn rets_from_call<'ctx>(
             assert!(func_sig.results().len() == rets.len());
             rets
         } else {
-            assert!(func_sig.results().len() == 0);
+            assert!(func_sig.results().is_empty());
             vec![]
         }
     }

@@ -77,7 +77,7 @@ impl FuncTranslator {
         func_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<(CompiledFunction, CustomSections), CompileError> {
         // The function type, used for the callbacks.
-        let function = CompiledFunctionKind::Local(local_func_index.clone());
+        let function = CompiledFunctionKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
         let func_name = &func_names[func_index];
         let module_name = match wasm_module.name.as_ref() {
@@ -1155,13 +1155,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.intrinsics.i32_zero,
                 "",
             );
-            let vec = self.builder.build_insert_element(
+            self.builder.build_insert_element(
                 vec,
                 second,
                 self.intrinsics.i32_ty.const_int(1, false),
                 "",
-            );
-            vec
+            )
         };
 
         let build_struct = |ty: StructType<'ctx>, values: &[BasicValueEnum<'ctx>]| {
@@ -1325,7 +1324,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
                 self.builder.build_return(Some(&struct_value));
             }
-            results @ _ => {
+            results => {
                 let sret = self
                     .function
                     .get_first_param()
@@ -1336,8 +1335,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .get_element_type()
                     .into_struct_type()
                     .get_undef();
-                let mut idx = 0;
-                for (value, info) in results {
+                for (idx, (value, info)) in results.iter().enumerate() {
                     let one_value = self.apply_pending_canonicalization(*value, *info);
                     let one_value = self.builder.build_bitcast(
                         one_value,
@@ -1349,7 +1347,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         .build_insert_value(struct_value, one_value, idx as u32, "")
                         .unwrap()
                         .into_struct_value();
-                    idx = idx + 1;
                 }
                 self.builder.build_store(sret, struct_value);
                 self.builder.build_return(None);

@@ -210,7 +210,7 @@ impl FuncTrampoline {
 fn generate_trampoline<'ctx>(
     trampoline_func: FunctionValue,
     func_sig: &FunctionType,
-    func_attrs: &Vec<(Attribute, AttributeLoc)>,
+    func_attrs: &[(Attribute, AttributeLoc)],
     context: &'ctx Context,
     intrinsics: &Intrinsics<'ctx>,
 ) -> Result<(), CompileError> {
@@ -318,9 +318,9 @@ fn generate_trampoline<'ctx>(
         let ptr = builder.build_pointer_cast(ptr, v.get_type().ptr_type(AddressSpace::Generic), "");
         builder.build_store(ptr, *v);
         if v.get_type() == intrinsics.i128_ty.as_basic_type_enum() {
-            idx = idx + 1;
+            idx += 1;
         }
-        idx = idx + 1;
+        idx += 1;
     });
 
     builder.build_return(None);
