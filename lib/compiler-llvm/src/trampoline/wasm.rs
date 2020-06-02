@@ -246,13 +246,17 @@ fn generate_trampoline<'ctx>(
         .results()
         .iter()
         .map(|ty| match ty {
-            Type::I32 | Type::F32 => 32,
-            Type::I64 | Type::F64 => 64,
-            Type::V128 => 128,
-            Type::AnyRef => unimplemented!("anyref in the llvm backend"),
-            Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+            Type::I32 | Type::F32 => Ok(32),
+            Type::I64 | Type::F64 => Ok(64),
+            Type::V128 => Ok(128),
+            ty => {
+                return Err(CompileError::Codegen(format!(
+                    "generate_trampoline: unimplemented wasm_common type {:?}",
+                    ty
+                )))
+            }
         })
-        .collect::<Vec<i32>>();
+        .collect::<Result<Vec<i32>, _>>()?;
 
     let _is_sret = match func_sig_returns_bitwidths.as_slice() {
         []
