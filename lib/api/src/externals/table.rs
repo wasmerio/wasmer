@@ -6,6 +6,11 @@ use crate::RuntimeError;
 use crate::TableType;
 use wasmer_runtime::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
 
+/// The `Table` struct is an array-like structure representing a WebAssembly Table,
+/// which stores function references.
+///
+/// A table created by the host or in WebAssembly code will be accessible and
+/// mutable from both host and WebAssembly.
 #[derive(Clone)]
 pub struct Table {
     store: Store,
@@ -23,6 +28,9 @@ fn set_table_item(
 }
 
 impl Table {
+    /// Creates a new `Table` with the provided `TableType` definition
+    /// and an indicated `init` value that will be set to all the elements
+    /// in the table.
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.engine().tunables();
@@ -50,6 +58,7 @@ impl Table {
         unsafe { &*self.exported.from }
     }
 
+    /// Gets the underlying [`TableType`].
     pub fn ty(&self) -> &TableType {
         &self.exported.plan().table
     }
@@ -58,28 +67,35 @@ impl Table {
         &self.store
     }
 
+    /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, index: u32) -> Option<Val> {
         let item = self.table().get(index)?;
         Some(ValAnyFunc::from_checked_anyfunc(item, &self.store))
     }
 
+    /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(&self, index: u32, val: Val) -> Result<(), RuntimeError> {
         let item = val.into_checked_anyfunc(&self.store)?;
         set_table_item(self.table(), index, item)
     }
 
+    /// Retrieves the size of the `Table` (in elements)
     pub fn size(&self) -> u32 {
         self.table().size()
     }
 
+    /// Grows the size of the `Table` by `delta`, initializating
+    /// the elements with the provided `init` value.
+    ///
+    /// It returns the previous size of the `Table` in case is able
+    /// to grow the Table successfully.
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
         let item = init.into_checked_anyfunc(&self.store)?;
         let table = self.table();
         match table.grow(delta) {
             Some(len) => {
                 for i in 0..delta {
-                    let i = len - (delta - i);
-                    set_table_item(table, i, item.clone())?;
+                    set_table_item(table, len + i, item.clone())?;
                 }
                 Ok(len)
             }
@@ -90,6 +106,8 @@ impl Table {
         }
     }
 
+    /// Copies the `len` elements of `src_table` starting at `src_index`
+    /// to the destination table `dst_table` at index `dst_index`.
     pub fn copy(
         dst_table: &Table,
         dst_index: u32,
