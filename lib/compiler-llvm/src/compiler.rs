@@ -49,7 +49,7 @@ impl Compiler for LLVMCompiler {
     fn compile_module<'data, 'module>(
         &self,
         module: &'module ModuleInfo,
-        _module_translation: &ModuleTranslationState,
+        module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
@@ -76,6 +76,7 @@ impl Compiler for LLVMCompiler {
                 //let mut data = data.lock().unwrap();
                 func_translator.translate(
                     module,
+                    module_translation,
                     i,
                     input,
                     self.config(),

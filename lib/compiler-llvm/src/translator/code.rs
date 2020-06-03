@@ -1,9 +1,8 @@
 use super::{
+    abi,
     intrinsics::{
-        func_type_to_llvm, tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache,
-        Intrinsics, MemoryCache,
+        tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
-    read_info::blocktype_to_type,
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State},
 };
@@ -27,30 +26,18 @@ use crate::config::{CompiledFunctionKind, LLVMConfig};
 use crate::object_file::load_object_file;
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasm_common::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex, Type,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex, Type,
 };
-use wasmer_compiler::wasmparser::{self, BinaryReader, MemoryImmediate, Operator};
+use wasmer_compiler::wasmparser::{BinaryReader, MemoryImmediate, Operator};
 use wasmer_compiler::{
-    to_wasm_error, wasm_unsupported, CompileError, CompiledFunction, CustomSections,
-    FunctionBodyData, RelocationTarget, WasmResult,
+    to_wasm_error, wptype_to_type, CompileError, CompiledFunction, CustomSections,
+    FunctionBodyData, ModuleTranslationState, RelocationTarget,
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
-// TODO
-fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
-    match ty {
-        wasmparser::Type::I32 => Ok(Type::I32),
-        wasmparser::Type::I64 => Ok(Type::I64),
-        wasmparser::Type::F32 => Ok(Type::F32),
-        wasmparser::Type::F64 => Ok(Type::F64),
-        wasmparser::Type::V128 => Ok(Type::V128),
-        wasmparser::Type::AnyRef => Ok(Type::AnyRef),
-        wasmparser::Type::AnyFunc => Ok(Type::FuncRef),
-        ty => Err(wasm_unsupported!(
-            "wptype_to_irtype: parser wasm type {:?}",
-            ty
-        )),
-    }
+fn to_compile_error(err: impl std::error::Error) -> CompileError {
+    CompileError::Codegen(format!("{}", err))
 }
 
 // TODO: move this into inkwell.
@@ -79,6 +66,7 @@ impl FuncTranslator {
     pub fn translate(
         &mut self,
         wasm_module: &ModuleInfo,
+        module_translation: &ModuleTranslationState,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVMConfig,
@@ -87,7 +75,7 @@ impl FuncTranslator {
         func_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<(CompiledFunction, CustomSections), CompileError> {
         // The function type, used for the callbacks.
-        let function = CompiledFunctionKind::Local(local_func_index.clone());
+        let function = CompiledFunctionKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
         let func_name = &func_names[func_index];
         let module_name = match wasm_module.name.as_ref() {
@@ -106,9 +94,12 @@ impl FuncTranslator {
             .unwrap();
 
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
-        let func_type = func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type);
+        let (func_type, func_attrs) = abi::func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type)?;
 
         let func = module.add_function(&func_name, func_type, Some(Linkage::External));
+        for (attr, attr_loc) in func_attrs {
+            func.add_attribute(attr_loc, attr);
+        }
         // TODO: mark vmctx align 16
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         // TODO: mark vmctx nofree
@@ -131,9 +122,8 @@ impl FuncTranslator {
         let phis: SmallVec<[PhiValue; 1]> = wasm_fn_type
             .results()
             .iter()
-            .map(|&wasm_ty| type_to_llvm(&intrinsics, wasm_ty))
-            .map(|ty| builder.build_phi(ty, ""))
-            .collect();
+            .map(|&wasm_ty| type_to_llvm(&intrinsics, wasm_ty).map(|ty| builder.build_phi(ty, "")))
+            .collect::<Result<_, _>>()?;
         state.push_block(return_, phis);
         builder.position_at_end(start_of_code);
 
@@ -141,11 +131,17 @@ impl FuncTranslator {
             BinaryReader::new_with_offset(function_body.data, function_body.module_offset);
 
         let mut params = vec![];
+        let first_param =
+            if func_type.get_return_type().is_none() && wasm_fn_type.results().len() > 1 {
+                2
+            } else {
+                1
+            };
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
-            let ty = type_to_llvm(&intrinsics, ty);
+            let ty = type_to_llvm(&intrinsics, ty)?;
             let value = func
-                .get_nth_param((idx as u32).checked_add(1).unwrap())
+                .get_nth_param((idx as u32).checked_add(first_param).unwrap())
                 .unwrap();
             // TODO: don't interleave allocas and stores.
             let alloca = cache_builder.build_alloca(ty, "param");
@@ -160,8 +156,8 @@ impl FuncTranslator {
             let (count, ty) = reader
                 .read_local_decl(&mut counter)
                 .map_err(to_wasm_error)?;
-            let ty = wptype_to_type(ty)?;
-            let ty = type_to_llvm(&intrinsics, ty);
+            let ty = wptype_to_type(ty).map_err(to_compile_error)?;
+            let ty = type_to_llvm(&intrinsics, ty)?;
             // TODO: don't interleave allocas and stores.
             for _ in 0..count {
                 let alloca = cache_builder.build_alloca(ty, "local");
@@ -185,6 +181,7 @@ impl FuncTranslator {
             memory_plans,
             _table_plans,
             module: &module,
+            module_translation,
             wasm_module,
             func_names,
         };
@@ -195,26 +192,7 @@ impl FuncTranslator {
             fcg.translate_operator(op, pos)?;
         }
 
-        let results = fcg.state.popn_save_extra(wasm_fn_type.results().len())?;
-        match results.as_slice() {
-            [] => {
-                fcg.builder.build_return(None);
-            }
-            [(one_value, one_value_info)] => {
-                let builder = &fcg.builder;
-                let one_value = fcg.apply_pending_canonicalization(*one_value, *one_value_info);
-                builder.build_return(Some(&builder.build_bitcast(
-                    one_value.as_basic_value_enum(),
-                    type_to_llvm(&intrinsics, wasm_fn_type.results()[0]),
-                    "return",
-                )));
-            }
-            _ => {
-                return Err(CompileError::Codegen(
-                    "multi-value returns not yet implemented".to_string(),
-                ));
-            }
-        }
+        fcg.finalize(wasm_fn_type)?;
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.preopt_ir(&function, &module);
@@ -1129,6 +1107,52 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         self.builder.position_at_end(continue_block);
     }
+
+    fn finalize(&mut self, wasm_fn_type: &FunctionType) -> Result<(), CompileError> {
+        let func_type = self.function.get_type();
+
+        let results = self.state.popn_save_extra(wasm_fn_type.results().len())?;
+        let results = results
+            .into_iter()
+            .map(|(v, i)| self.apply_pending_canonicalization(v, i));
+        if wasm_fn_type.results().is_empty() {
+            self.builder.build_return(None);
+        } else if abi::is_sret(wasm_fn_type)? {
+            let sret = self
+                .function
+                .get_first_param()
+                .unwrap()
+                .into_pointer_value();
+            let mut struct_value = sret
+                .get_type()
+                .get_element_type()
+                .into_struct_type()
+                .get_undef();
+            for (idx, value) in results.enumerate() {
+                let value = self.builder.build_bitcast(
+                    value,
+                    type_to_llvm(&self.intrinsics, wasm_fn_type.results()[idx])?,
+                    "",
+                );
+                struct_value = self
+                    .builder
+                    .build_insert_value(struct_value, value, idx as u32, "")
+                    .unwrap()
+                    .into_struct_value();
+            }
+            self.builder.build_store(sret, struct_value);
+            self.builder.build_return(None);
+        } else {
+            self.builder
+                .build_return(Some(&abi::pack_values_for_register_return(
+                    &self.intrinsics,
+                    &self.builder,
+                    &results.collect::<Vec<_>>(),
+                    &func_type,
+                )?));
+        }
+        Ok(())
+    }
 }
 
 /*
@@ -1236,6 +1260,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     track_state: bool,
     */
     module: &'a Module<'ctx>,
+    module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
     func_names: &'a SecondaryMap<FunctionIndex, String>,
 }
@@ -1285,15 +1310,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let end_block = self.context.append_basic_block(self.function, "end");
                 self.builder.position_at_end(end_block);
 
-                let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
-                    let llvm_ty = type_to_llvm(self.intrinsics, wasmer_ty);
-                    [llvm_ty]
-                        .iter()
-                        .map(|&ty| self.builder.build_phi(ty, ""))
-                        .collect()
-                } else {
-                    SmallVec::new()
-                };
+                let phis: SmallVec<[PhiValue<'ctx>; 1]> = self
+                    .module_translation
+                    .blocktype_params_results(ty)?
+                    .1
+                    .iter()
+                    .map(|&wp_ty| {
+                        wptype_to_type(wp_ty)
+                            .map_err(to_compile_error)
+                            .and_then(|wasm_ty| {
+                                type_to_llvm(self.intrinsics, wasm_ty)
+                                    .map(|ty| self.builder.build_phi(ty, ""))
+                            })
+                    })
+                    .collect::<Result<_, _>>()?;
 
                 self.state.push_block(end_block, phis);
                 self.builder.position_at_end(current_block);
@@ -1301,21 +1331,45 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::Loop { ty } => {
                 let loop_body = self.context.append_basic_block(self.function, "loop_body");
                 let loop_next = self.context.append_basic_block(self.function, "loop_outer");
+                let pre_loop_block = self.builder.get_insert_block().unwrap();
 
                 self.builder.build_unconditional_branch(loop_body);
 
                 self.builder.position_at_end(loop_next);
-                let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
-                    let llvm_ty = type_to_llvm(self.intrinsics, wasmer_ty);
-                    [llvm_ty]
-                        .iter()
-                        .map(|&ty| self.builder.build_phi(ty, ""))
-                        .collect()
-                } else {
-                    SmallVec::new()
-                };
-
+                let blocktypes = self.module_translation.blocktype_params_results(ty)?;
+                let phis = blocktypes
+                    .1
+                    .iter()
+                    .map(|&wp_ty| {
+                        wptype_to_type(wp_ty)
+                            .map_err(to_compile_error)
+                            .and_then(|wasm_ty| {
+                                type_to_llvm(self.intrinsics, wasm_ty)
+                                    .map(|ty| self.builder.build_phi(ty, ""))
+                            })
+                    })
+                    .collect::<Result<_, _>>()?;
                 self.builder.position_at_end(loop_body);
+                let loop_phis: SmallVec<[PhiValue<'ctx>; 1]> = blocktypes
+                    .0
+                    .iter()
+                    .map(|&wp_ty| {
+                        wptype_to_type(wp_ty)
+                            .map_err(to_compile_error)
+                            .and_then(|wasm_ty| {
+                                type_to_llvm(self.intrinsics, wasm_ty)
+                                    .map(|ty| self.builder.build_phi(ty, ""))
+                            })
+                    })
+                    .collect::<Result<_, _>>()?;
+                for phi in loop_phis.iter().rev() {
+                    let (value, info) = self.state.pop1_extra()?;
+                    let value = self.apply_pending_canonicalization(value, info);
+                    phi.add_incoming(&[(&value, pre_loop_block)]);
+                }
+                for phi in &loop_phis {
+                    self.state.push1(phi.as_basic_value());
+                }
 
                 /*
                 if self.track_state {
@@ -1349,7 +1403,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                self.state.push_loop(loop_body, loop_next, phis);
+                self.state.push_loop(loop_body, loop_next, loop_phis, phis);
             }
             Operator::Br { relative_depth } => {
                 let frame = self.state.frame_at_depth(relative_depth)?;
@@ -1359,13 +1413,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let value_len = if frame.is_loop() {
-                    0
+                let phis = if frame.is_loop() {
+                    frame.loop_body_phis()
                 } else {
-                    frame.phis().len()
+                    frame.phis()
                 };
 
-                let values = self.state.peekn_extra(value_len)?;
+                let len = phis.len();
+                let values = self.state.peekn_extra(len)?;
                 let values = values
                     .iter()
                     .map(|(v, info)| self.apply_pending_canonicalization(*v, *info));
@@ -1373,13 +1428,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // For each result of the block we're branching to,
                 // pop a value off the value stack and load it into
                 // the corresponding phi.
-                for (phi, value) in frame.phis().iter().zip(values) {
+                for (phi, value) in phis.iter().zip(values) {
                     phi.add_incoming(&[(&value, current_block)]);
                 }
 
                 self.builder.build_unconditional_branch(*frame.br_dest());
 
-                self.state.popn(value_len)?;
+                self.state.popn(len)?;
                 self.state.reachable = false;
             }
             Operator::BrIf { relative_depth } => {
@@ -1391,18 +1446,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let value_len = if frame.is_loop() {
-                    0
+                let phis = if frame.is_loop() {
+                    frame.loop_body_phis()
                 } else {
-                    frame.phis().len()
+                    frame.phis()
                 };
 
-                let param_stack = self.state.peekn_extra(value_len)?;
+                let param_stack = self.state.peekn_extra(phis.len())?;
                 let param_stack = param_stack
                     .iter()
                     .map(|(v, info)| self.apply_pending_canonicalization(*v, *info));
 
-                for (phi, value) in frame.phis().iter().zip(param_stack) {
+                for (phi, value) in phis.iter().zip(param_stack) {
                     phi.add_incoming(&[(&value, current_block)]);
                 }
 
@@ -1430,14 +1485,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let default_frame = self.state.frame_at_depth(default_depth)?;
 
-                let args = if default_frame.is_loop() {
-                    Vec::new()
+                let phis = if default_frame.is_loop() {
+                    default_frame.loop_body_phis()
                 } else {
-                    let res_len = default_frame.phis().len();
-                    self.state.peekn(res_len)?
+                    default_frame.phis()
                 };
+                let args = self.state.peekn(phis.len())?;
 
-                for (phi, value) in default_frame.phis().iter().zip(args.iter()) {
+                for (phi, value) in phis.iter().zip(args.iter()) {
                     phi.add_incoming(&[(value, current_block)]);
                 }
 
@@ -1484,15 +1539,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let end_phis = {
                     self.builder.position_at_end(end_block);
 
-                    let phis = if let Ok(wasmer_ty) = blocktype_to_type(ty) {
-                        let llvm_ty = type_to_llvm(self.intrinsics, wasmer_ty);
-                        [llvm_ty]
-                            .iter()
-                            .map(|&ty| self.builder.build_phi(ty, ""))
-                            .collect()
-                    } else {
-                        SmallVec::new()
-                    };
+                    let phis = self
+                        .module_translation
+                        .blocktype_params_results(ty)?
+                        .1
+                        .iter()
+                        .map(|&wp_ty| {
+                            wptype_to_type(wp_ty)
+                                .map_err(to_compile_error)
+                                .and_then(|wasm_ty| {
+                                    type_to_llvm(self.intrinsics, wasm_ty)
+                                        .map(|ty| self.builder.build_phi(ty, ""))
+                                })
+                        })
+                        .collect::<Result<_, _>>()?;
 
                     self.builder.position_at_end(current_block);
                     phis
@@ -1509,9 +1569,45 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 self.builder
                     .build_conditional_branch(cond_value, if_then_block, if_else_block);
+                self.builder.position_at_end(if_else_block);
+                let block_param_types = self
+                    .module_translation
+                    .blocktype_params_results(ty)?
+                    .0
+                    .iter()
+                    .map(|&wp_ty| {
+                        wptype_to_type(wp_ty)
+                            .map_err(to_compile_error)
+                            .and_then(|wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let else_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
+                    .iter()
+                    .map(|&ty| self.builder.build_phi(ty, ""))
+                    .collect();
                 self.builder.position_at_end(if_then_block);
-                self.state
-                    .push_if(if_then_block, if_else_block, end_block, end_phis);
+                let then_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
+                    .iter()
+                    .map(|&ty| self.builder.build_phi(ty, ""))
+                    .collect();
+                for (else_phi, then_phi) in else_phis.iter().rev().zip(then_phis.iter().rev()) {
+                    let (value, info) = self.state.pop1_extra()?;
+                    let value = self.apply_pending_canonicalization(value, info);
+                    else_phi.add_incoming(&[(&value, current_block)]);
+                    then_phi.add_incoming(&[(&value, current_block)]);
+                }
+                for phi in then_phis.iter() {
+                    self.state.push1(phi.as_basic_value());
+                }
+
+                self.state.push_if(
+                    if_then_block,
+                    if_else_block,
+                    end_block,
+                    then_phis,
+                    else_phis,
+                    end_phis,
+                );
             }
             Operator::Else => {
                 if self.state.reachable {
@@ -1544,6 +1640,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 self.builder.position_at_end(*if_else_block);
                 self.state.reachable = true;
+
+                if let ControlFrame::IfElse { else_phis, .. } = self.state.frame_at_depth(0)? {
+                    // Push our own 'else' phi nodes to the stack.
+                    for phi in else_phis.clone().iter() {
+                        self.state.push1(phi.as_basic_value());
+                    }
+                };
             }
 
             Operator::End => {
@@ -1567,10 +1670,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     if_else,
                     next,
                     if_else_state,
+                    else_phis,
                     ..
                 } = &frame
                 {
                     if let IfElseState::If = if_else_state {
+                        for (phi, else_phi) in frame.phis().iter().zip(else_phis.iter()) {
+                            phi.add_incoming(&[(&else_phi.as_basic_value(), *if_else)]);
+                        }
                         self.builder.position_at_end(*if_else);
                         self.builder.build_unconditional_branch(*next);
                     }
@@ -1612,7 +1719,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let frame = self.state.outermost_frame()?;
-                for phi in frame.phis().to_vec().iter() {
+                for phi in frame.phis().to_vec().iter().rev() {
                     let (arg, info) = self.state.pop1_extra()?;
                     let arg = self.apply_pending_canonicalization(arg, info);
                     phi.add_incoming(&[(&arg, current_block)]);
@@ -1843,12 +1950,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                match self.ctx.global(global_index, self.intrinsics, self.module) {
+                match self
+                    .ctx
+                    .global(global_index, self.intrinsics, self.module)?
+                {
                     GlobalCache::Const { value } => {
-                        self.state.push1(value);
+                        self.state.push1(*value);
                     }
                     GlobalCache::Mut { ptr_to_value } => {
-                        let value = self.builder.build_load(ptr_to_value, "");
+                        let value = self.builder.build_load(*ptr_to_value, "");
                         tbaa_label(
                             self.module,
                             self.intrinsics,
@@ -1861,7 +1971,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                match self.ctx.global(global_index, self.intrinsics, self.module) {
+                match self
+                    .ctx
+                    .global(global_index, self.intrinsics, self.module)?
+                {
                     GlobalCache::Const { value: _ } => {
                         return Err(CompileError::Codegen(format!(
                             "global.set on immutable global index {}",
@@ -1869,6 +1982,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         )))
                     }
                     GlobalCache::Mut { ptr_to_value } => {
+                        let ptr_to_value = *ptr_to_value;
                         let (value, info) = self.state.pop1_extra()?;
                         let value = self.apply_pending_canonicalization(value, info);
                         let store = self.builder.build_store(ptr_to_value, value);
@@ -1933,6 +2047,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let FunctionCache {
                     func,
                     vmctx: callee_vmctx,
+                    attrs,
                 } = self.ctx.func(
                     func_index,
                     self.intrinsics,
@@ -1940,37 +2055,47 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.context,
                     func_name,
                     func_type,
-                );
-
-                let params: Vec<_> = std::iter::once(callee_vmctx)
-                    .chain(
-                        self.state
-                            .peekn_extra(func_type.params().len())?
-                            .iter()
-                            .enumerate()
-                            .map(|(i, (v, info))| match func_type.params()[i] {
-                                Type::F32 => self.builder.build_bitcast(
-                                    self.apply_pending_canonicalization(*v, *info),
-                                    self.intrinsics.f32_ty,
-                                    "",
-                                ),
-                                Type::F64 => self.builder.build_bitcast(
-                                    self.apply_pending_canonicalization(*v, *info),
-                                    self.intrinsics.f64_ty,
-                                    "",
-                                ),
-                                Type::V128 => self.apply_pending_canonicalization(*v, *info),
-                                _ => *v,
-                            }),
-                    )
-                    .collect();
+                )?;
+                let func = *func;
+                let callee_vmctx = *callee_vmctx;
+                let attrs = attrs.clone();
 
                 /*
                 let func_ptr = self.llvm.functions.borrow_mut()[&func_index];
 
                 (params, func_ptr.as_global_value().as_pointer_value())
                 */
-                self.state.popn(func_type.params().len())?;
+                let params = self.state.popn_save_extra(func_type.params().len())?;
+
+                // Apply pending canonicalizations.
+                let params =
+                    params
+                        .iter()
+                        .zip(func_type.params().iter())
+                        .map(|((v, info), wasm_ty)| match wasm_ty {
+                            Type::F32 => self.builder.build_bitcast(
+                                self.apply_pending_canonicalization(*v, *info),
+                                self.intrinsics.f32_ty,
+                                "",
+                            ),
+                            Type::F64 => self.builder.build_bitcast(
+                                self.apply_pending_canonicalization(*v, *info),
+                                self.intrinsics.f64_ty,
+                                "",
+                            ),
+                            Type::V128 => self.apply_pending_canonicalization(*v, *info),
+                            _ => *v,
+                        });
+
+                let params = abi::args_to_call(
+                    // TODO: should be an alloca_builder.
+                    &self.builder,
+                    func_type,
+                    callee_vmctx.into_pointer_value(),
+                    &func.get_type().get_element_type().into_function_type(),
+                    params.collect::<Vec<_>>().as_slice(),
+                );
+
                 /*
                 if self.track_state {
                     if let Some(offset) = opcode_offset {
@@ -1990,7 +2115,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
+
                 let call_site = self.builder.build_call(func, &params, "");
+                for (attr, attr_loc) in attrs {
+                    call_site.add_attribute(attr_loc, attr);
+                }
                 /*
                 if self.track_state {
                     if let Some(offset) = opcode_offset {
@@ -2007,22 +2136,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                if let Some(basic_value) = call_site.try_as_basic_value().left() {
-                    match func_type.results().len() {
-                        1 => self.state.push1(basic_value),
-                        count => {
-                            // This is a multi-value return.
-                            let struct_value = basic_value.into_struct_value();
-                            for i in 0..(count as u32) {
-                                let value = self
-                                    .builder
-                                    .build_extract_value(struct_value, i, "")
-                                    .unwrap();
-                                self.state.push1(value);
-                            }
-                        }
-                    }
-                }
+                abi::rets_from_call(&self.builder, &self.intrinsics, call_site, func_type)
+                    .iter()
+                    .for_each(|ret| self.state.push1(*ret));
             }
             Operator::CallIndirect { index, table_index } => {
                 let sigindex = SignatureIndex::from_u32(index);
@@ -2190,28 +2306,39 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.build_unreachable();
                 self.builder.position_at_end(continue_block);
 
-                let llvm_func_type = func_type_to_llvm(&self.context, &self.intrinsics, func_type);
+                let (llvm_func_type, llvm_func_attrs) =
+                    abi::func_type_to_llvm(&self.context, &self.intrinsics, func_type)?;
 
-                let pushed_args = self.state.popn_save_extra(func_type.params().len())?;
+                let params = self.state.popn_save_extra(func_type.params().len())?;
 
-                let args: Vec<_> = std::iter::once(ctx_ptr)
-                    .chain(pushed_args.into_iter().enumerate().map(|(i, (v, info))| {
-                        match func_type.params()[i] {
+                // Apply pending canonicalizations.
+                let params =
+                    params
+                        .iter()
+                        .zip(func_type.params().iter())
+                        .map(|((v, info), wasm_ty)| match wasm_ty {
                             Type::F32 => self.builder.build_bitcast(
-                                self.apply_pending_canonicalization(v, info),
+                                self.apply_pending_canonicalization(*v, *info),
                                 self.intrinsics.f32_ty,
                                 "",
                             ),
                             Type::F64 => self.builder.build_bitcast(
-                                self.apply_pending_canonicalization(v, info),
+                                self.apply_pending_canonicalization(*v, *info),
                                 self.intrinsics.f64_ty,
                                 "",
                             ),
-                            Type::V128 => self.apply_pending_canonicalization(v, info),
-                            _ => v,
-                        }
-                    }))
-                    .collect();
+                            Type::V128 => self.apply_pending_canonicalization(*v, *info),
+                            _ => *v,
+                        });
+
+                let params = abi::args_to_call(
+                    // TODO: should be an alloca_builder.
+                    &self.builder,
+                    func_type,
+                    ctx_ptr.into_pointer_value(),
+                    &llvm_func_type,
+                    params.collect::<Vec<_>>().as_slice(),
+                );
 
                 let typed_func_ptr = self.builder.build_pointer_cast(
                     func_ptr,
@@ -2240,7 +2367,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 */
                 let call_site = self
                     .builder
-                    .build_call(typed_func_ptr, &args, "indirect_call");
+                    .build_call(typed_func_ptr, &params, "indirect_call");
+                for (attr, attr_loc) in llvm_func_attrs {
+                    call_site.add_attribute(attr_loc, attr);
+                }
                 /*
                 if self.track_state {
                     if let Some(offset) = opcode_offset {
@@ -2257,30 +2387,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                match func_type.results() {
-                    [] => {}
-                    [_] => {
-                        let value = call_site.try_as_basic_value().left().unwrap();
-                        self.state.push1(match func_type.results()[0] {
-                            Type::F32 => self.builder.build_bitcast(
-                                value,
-                                self.intrinsics.f32_ty,
-                                "ret_cast",
-                            ),
-                            Type::F64 => self.builder.build_bitcast(
-                                value,
-                                self.intrinsics.f64_ty,
-                                "ret_cast",
-                            ),
-                            _ => value,
-                        });
-                    }
-                    _ => {
-                        return Err(CompileError::Codegen(
-                            "Operator::CallIndirect multi-value returns unimplemented".to_string(),
-                        ));
-                    }
-                }
+                abi::rets_from_call(&self.builder, &self.intrinsics, call_site, func_type)
+                    .iter()
+                    .for_each(|ret| self.state.push1(*ret));
             }
 
             /***************************

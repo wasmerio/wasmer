@@ -68,10 +68,7 @@ pub struct LLVMConfig {
 impl LLVMConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(mut features: Features, target: Target) -> Self {
-        // Override the default multi-value switch
-        features.multi_value = false;
-
+    pub fn new(features: Features, target: Target) -> Self {
         let operating_system =
             if target.triple().operating_system == wasmer_compiler::OperatingSystem::Darwin {
                 // LLVM detects static relocation + darwin + 64-bit and

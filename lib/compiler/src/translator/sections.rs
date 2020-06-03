@@ -42,7 +42,7 @@ pub fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
         wasmparser::Type::AnyRef => Ok(Type::AnyRef),
         wasmparser::Type::AnyFunc => Ok(Type::FuncRef),
         ty => Err(wasm_unsupported!(
-            "wptype_to_irtype: parser wasm type {:?}",
+            "wptype_to_type: wasmparser type {:?}",
             ty
         )),
     }
