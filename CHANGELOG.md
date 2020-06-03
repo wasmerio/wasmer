@@ -2,6 +2,7 @@
 
 ## **[Unreleased]**
 
+- [#1466](https://github.com/wasmerio/wasmer/pull/1466) Fix possible deadlock in `clif-backend` and `runtime-core`
 - [#1439](https://github.com/wasmerio/wasmer/pull/1439) Move `wasmer-interface-types` into its own repository
 
 ## 0.17.0 - 2020-05-11

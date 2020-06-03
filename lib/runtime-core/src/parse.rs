@@ -269,9 +269,7 @@ pub fn read_module<
                     let sig = info_read
                         .signatures
                         .get(
-                            *info
-                                .read()
-                                .unwrap()
+                            *info_read
                                 .func_assoc
                                 .get(FuncIndex::new(
                                     id as usize + info_read.imported_functions.len(),

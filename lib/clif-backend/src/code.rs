@@ -80,13 +80,16 @@ impl ModuleCodeGenerator<CraneliftFunctionCodeGenerator, Caller, CodegenError>
         let func_index = LocalFuncIndex::new(self.functions.len());
         let name = ir::ExternalName::user(0, func_index.index() as u32);
 
-        let sig = generate_signature(
-            self,
-            self.get_func_type(
-                &module_info.read().unwrap(),
-                Converter(func_index.convert_up(&module_info.read().unwrap())).into(),
-            ),
-        );
+        let sig = {
+            let module_info = module_info.read().unwrap();
+            generate_signature(
+                self,
+                self.get_func_type(
+                    &module_info,
+                    Converter(func_index.convert_up(&module_info)).into(),
+                ),
+            )
+        };
 
         let func = ir::Function::with_name_signature(name, sig);
 
@@ -315,68 +318,69 @@ impl FuncEnvironment for FunctionEnvironment {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let (local_global_addr, ty) = match global_index
-            .local_or_import(&self.module_info.read().unwrap())
-        {
-            LocalOrImport::Local(local_global_index) => {
-                let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: (vm::Ctx::offset_globals() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                });
-
-                let offset = local_global_index.index() * mem::size_of::<*mut vm::LocalGlobal>();
-
-                let local_global_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
-                    base: globals_base_addr,
-                    offset: (offset as i64).into(),
-                    global_type: ptr_type,
-                });
-
-                let ty = self.module_info.read().unwrap().globals[local_global_index]
-                    .desc
-                    .ty;
-
-                (
-                    func.create_global_value(ir::GlobalValueData::Load {
-                        base: local_global_ptr_ptr,
-                        offset: 0.into(),
+        let (local_global_addr, ty) = {
+            let module_info = self.module_info.read().unwrap();
+            match global_index.local_or_import(&module_info) {
+                LocalOrImport::Local(local_global_index) => {
+                    let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+                        base: vmctx,
+                        offset: (vm::Ctx::offset_globals() as i32).into(),
                         global_type: ptr_type,
                         readonly: true,
-                    }),
-                    ty,
-                )
-            }
-            LocalOrImport::Import(import_global_index) => {
-                let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: (vm::Ctx::offset_imported_globals() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                });
+                    });
 
-                let offset = import_global_index.index() * mem::size_of::<*mut vm::LocalGlobal>();
+                    let offset =
+                        local_global_index.index() * mem::size_of::<*mut vm::LocalGlobal>();
 
-                let local_global_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
-                    base: globals_base_addr,
-                    offset: (offset as i64).into(),
-                    global_type: ptr_type,
-                });
+                    let local_global_ptr_ptr =
+                        func.create_global_value(ir::GlobalValueData::IAddImm {
+                            base: globals_base_addr,
+                            offset: (offset as i64).into(),
+                            global_type: ptr_type,
+                        });
 
-                let ty = self.module_info.read().unwrap().imported_globals[import_global_index]
-                    .1
-                    .ty;
+                    let ty = module_info.globals[local_global_index].desc.ty;
 
-                (
-                    func.create_global_value(ir::GlobalValueData::Load {
-                        base: local_global_ptr_ptr,
-                        offset: 0.into(),
+                    (
+                        func.create_global_value(ir::GlobalValueData::Load {
+                            base: local_global_ptr_ptr,
+                            offset: 0.into(),
+                            global_type: ptr_type,
+                            readonly: true,
+                        }),
+                        ty,
+                    )
+                }
+                LocalOrImport::Import(import_global_index) => {
+                    let globals_base_addr = func.create_global_value(ir::GlobalValueData::Load {
+                        base: vmctx,
+                        offset: (vm::Ctx::offset_imported_globals() as i32).into(),
                         global_type: ptr_type,
                         readonly: true,
-                    }),
-                    ty,
-                )
+                    });
+
+                    let offset =
+                        import_global_index.index() * mem::size_of::<*mut vm::LocalGlobal>();
+
+                    let local_global_ptr_ptr =
+                        func.create_global_value(ir::GlobalValueData::IAddImm {
+                            base: globals_base_addr,
+                            offset: (offset as i64).into(),
+                            global_type: ptr_type,
+                        });
+
+                    let ty = module_info.imported_globals[import_global_index].1.ty;
+
+                    (
+                        func.create_global_value(ir::GlobalValueData::Load {
+                            base: local_global_ptr_ptr,
+                            offset: 0.into(),
+                            global_type: ptr_type,
+                            readonly: true,
+                        }),
+                        ty,
+                    )
+                }
             }
         };
 
@@ -401,8 +405,9 @@ impl FuncEnvironment for FunctionEnvironment {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let (local_memory_ptr_ptr, description) =
-            match mem_index.local_or_import(&self.module_info.read().unwrap()) {
+        let (local_memory_ptr_ptr, description) = {
+            let module_info = self.module_info.read().unwrap();
+            match mem_index.local_or_import(&module_info) {
                 LocalOrImport::Local(local_mem_index) => {
                     let memories_base_addr = func.create_global_value(ir::GlobalValueData::Load {
                         base: vmctx,
@@ -420,7 +425,7 @@ impl FuncEnvironment for FunctionEnvironment {
                             offset: (local_memory_ptr_offset as i64).into(),
                             global_type: ptr_type,
                         }),
-                        self.module_info.read().unwrap().memories[local_mem_index],
+                        module_info.memories[local_mem_index],
                     )
                 }
                 LocalOrImport::Import(import_mem_index) => {
@@ -440,10 +445,11 @@ impl FuncEnvironment for FunctionEnvironment {
                             offset: (local_memory_ptr_offset as i64).into(),
                             global_type: ptr_type,
                         }),
-                        self.module_info.read().unwrap().imported_memories[import_mem_index].1,
+                        module_info.imported_memories[import_mem_index].1,
                     )
                 }
-            };
+            }
+        };
 
         let (local_memory_ptr, local_memory_base) = {
             let local_memory_ptr = func.create_global_value(ir::GlobalValueData::Load {
@@ -510,52 +516,52 @@ impl FuncEnvironment for FunctionEnvironment {
         let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
         let ptr_type = self.pointer_type();
 
-        let (table_struct_ptr_ptr, description) = match table_index
-            .local_or_import(&self.module_info.read().unwrap())
-        {
-            LocalOrImport::Local(local_table_index) => {
-                let tables_base = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: (vm::Ctx::offset_tables() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                });
+        let (table_struct_ptr_ptr, description) = {
+            let module_info = self.module_info.read().unwrap();
+            match table_index.local_or_import(&module_info) {
+                LocalOrImport::Local(local_table_index) => {
+                    let tables_base = func.create_global_value(ir::GlobalValueData::Load {
+                        base: vmctx,
+                        offset: (vm::Ctx::offset_tables() as i32).into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    });
 
-                let table_struct_ptr_offset =
-                    local_table_index.index() * vm::LocalTable::size() as usize;
+                    let table_struct_ptr_offset =
+                        local_table_index.index() * vm::LocalTable::size() as usize;
 
-                let table_struct_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
-                    base: tables_base,
-                    offset: (table_struct_ptr_offset as i64).into(),
-                    global_type: ptr_type,
-                });
+                    let table_struct_ptr_ptr =
+                        func.create_global_value(ir::GlobalValueData::IAddImm {
+                            base: tables_base,
+                            offset: (table_struct_ptr_offset as i64).into(),
+                            global_type: ptr_type,
+                        });
 
-                (
-                    table_struct_ptr_ptr,
-                    self.module_info.read().unwrap().tables[local_table_index],
-                )
-            }
-            LocalOrImport::Import(import_table_index) => {
-                let tables_base = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: (vm::Ctx::offset_imported_tables() as i32).into(),
-                    global_type: ptr_type,
-                    readonly: true,
-                });
+                    (table_struct_ptr_ptr, module_info.tables[local_table_index])
+                }
+                LocalOrImport::Import(import_table_index) => {
+                    let tables_base = func.create_global_value(ir::GlobalValueData::Load {
+                        base: vmctx,
+                        offset: (vm::Ctx::offset_imported_tables() as i32).into(),
+                        global_type: ptr_type,
+                        readonly: true,
+                    });
 
-                let table_struct_ptr_offset =
-                    import_table_index.index() * vm::LocalTable::size() as usize;
+                    let table_struct_ptr_offset =
+                        import_table_index.index() * vm::LocalTable::size() as usize;
 
-                let table_struct_ptr_ptr = func.create_global_value(ir::GlobalValueData::IAddImm {
-                    base: tables_base,
-                    offset: (table_struct_ptr_offset as i64).into(),
-                    global_type: ptr_type,
-                });
+                    let table_struct_ptr_ptr =
+                        func.create_global_value(ir::GlobalValueData::IAddImm {
+                            base: tables_base,
+                            offset: (table_struct_ptr_offset as i64).into(),
+                            global_type: ptr_type,
+                        });
 
-                (
-                    table_struct_ptr_ptr,
-                    self.module_info.read().unwrap().imported_tables[import_table_index].1,
-                )
+                    (
+                        table_struct_ptr_ptr,
+                        module_info.imported_tables[import_table_index].1,
+                    )
+                }
             }
         };
 
@@ -864,19 +870,21 @@ impl FuncEnvironment for FunctionEnvironment {
 
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
 
-        let (namespace, mem_index, description) =
-            match mem_index.local_or_import(&self.module_info.read().unwrap()) {
+        let (namespace, mem_index, description) = {
+            let module_info = self.module_info.read().unwrap();
+            match mem_index.local_or_import(&module_info) {
                 LocalOrImport::Local(local_mem_index) => (
                     call_names::LOCAL_NAMESPACE,
                     local_mem_index.index(),
-                    self.module_info.read().unwrap().memories[local_mem_index],
+                    module_info.memories[local_mem_index],
                 ),
                 LocalOrImport::Import(import_mem_index) => (
                     call_names::IMPORT_NAMESPACE,
                     import_mem_index.index(),
-                    self.module_info.read().unwrap().imported_memories[import_mem_index].1,
+                    module_info.imported_memories[import_mem_index].1,
                 ),
-            };
+            }
+        };
 
         let name_index = match description.memory_type() {
             MemoryType::Dynamic => call_names::DYNAMIC_MEM_GROW,
@@ -928,19 +936,21 @@ impl FuncEnvironment for FunctionEnvironment {
 
         let mem_index: MemoryIndex = Converter(clif_mem_index).into();
 
-        let (namespace, mem_index, description) =
-            match mem_index.local_or_import(&self.module_info.read().unwrap()) {
+        let (namespace, mem_index, description) = {
+            let module_info = self.module_info.read().unwrap();
+            match mem_index.local_or_import(&module_info) {
                 LocalOrImport::Local(local_mem_index) => (
                     call_names::LOCAL_NAMESPACE,
                     local_mem_index.index(),
-                    self.module_info.read().unwrap().memories[local_mem_index],
+                    module_info.memories[local_mem_index],
                 ),
                 LocalOrImport::Import(import_mem_index) => (
                     call_names::IMPORT_NAMESPACE,
                     import_mem_index.index(),
-                    self.module_info.read().unwrap().imported_memories[import_mem_index].1,
+                    module_info.imported_memories[import_mem_index].1,
                 ),
-            };
+            }
+        };
 
         let name_index = match description.memory_type() {
             MemoryType::Dynamic => call_names::DYNAMIC_MEM_SIZE,
