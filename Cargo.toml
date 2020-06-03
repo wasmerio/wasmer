@@ -19,6 +19,11 @@ default-run = "wasmer"
 publish = false
 autoexamples = false
 
+[[bin]]
+name = "wasmer"
+path = "src/bin/wasmer.rs"
+doc = false
+
 [dependencies]
 wasmer = { version = "0.16.2", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "0.16.2", path = "lib/compiler" }
