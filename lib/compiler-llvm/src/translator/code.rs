@@ -1572,7 +1572,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder
                     .build_conditional_branch(cond_value, if_then_block, if_else_block);
                 self.builder.position_at_end(if_else_block);
-                let else_phis: SmallVec<[PhiValue<'ctx>; 1]> = self
+                let block_param_types = self
                     .module_translation
                     .blocktype_params_results(ty)?
                     .0
@@ -1580,27 +1580,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .map(|&wp_ty| {
                         wptype_to_type(wp_ty)
                             .map_err(to_compile_error)
-                            .and_then(|wasm_ty| {
-                                type_to_llvm(self.intrinsics, wasm_ty)
-                                    .map(|ty| self.builder.build_phi(ty, ""))
-                            })
+                            .and_then(|wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
                     })
-                    .collect::<Result<_, _>>()?;
+                    .collect::<Result<Vec<_>, _>>()?;
+                let else_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
+                    .iter()
+                    .map(|&ty| self.builder.build_phi(ty, ""))
+                    .collect();
                 self.builder.position_at_end(if_then_block);
-                let then_phis: SmallVec<[PhiValue<'ctx>; 1]> = self
-                    .module_translation
-                    .blocktype_params_results(ty)?
-                    .0
+                let then_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
                     .iter()
-                    .map(|&wp_ty| {
-                        wptype_to_type(wp_ty)
-                            .map_err(to_compile_error)
-                            .and_then(|wasm_ty| {
-                                type_to_llvm(self.intrinsics, wasm_ty)
-                                    .map(|ty| self.builder.build_phi(ty, ""))
-                            })
-                    })
-                    .collect::<Result<_, _>>()?;
+                    .map(|&ty| self.builder.build_phi(ty, ""))
+                    .collect();
                 for (else_phi, then_phi) in else_phis.iter().rev().zip(then_phis.iter().rev()) {
                     let (value, info) = self.state.pop1_extra()?;
                     let value = self.apply_pending_canonicalization(value, info);
