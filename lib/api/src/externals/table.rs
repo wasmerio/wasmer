@@ -28,9 +28,9 @@ fn set_table_item(
 }
 
 impl Table {
-    /// Creates a new `Table` with the provided `TableType` definition
-    /// and an indicated `init` value that will be set to all the elements
-    /// in the table.
+    /// Creates a new `Table` with the provided [`TableType`] definition.
+    /// 
+    /// All the elements in the table will be set to the `init` value.
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.engine().tunables();
@@ -89,6 +89,10 @@ impl Table {
     ///
     /// It returns the previous size of the `Table` in case is able
     /// to grow the Table successfully.
+    /// 
+    /// # Errors
+    ///
+    /// Returns an error if the delta is out of bounds.
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
         let item = init.into_checked_anyfunc(&self.store)?;
         let table = self.table();
@@ -108,6 +112,11 @@ impl Table {
 
     /// Copies the `len` elements of `src_table` starting at `src_index`
     /// to the destination table `dst_table` at index `dst_index`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the range is out of bounds of either the source or
+    /// destination tables.
     pub fn copy(
         dst_table: &Table,
         dst_index: u32,
