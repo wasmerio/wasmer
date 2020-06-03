@@ -2106,6 +2106,7 @@ dependencies = [
  "libc",
  "libffi",
  "paste",
+ "thiserror",
  "wasm-common",
  "wasmer",
  "wasmer-wasi",
