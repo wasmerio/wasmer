@@ -1336,9 +1336,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.build_unconditional_branch(loop_body);
 
                 self.builder.position_at_end(loop_next);
-                let phis = self
+                let blocktypes = self
                     .module_translation
-                    .blocktype_params_results(ty)?
+                    .blocktype_params_results(ty)?;
+                let phis = blocktypes
                     .1
                     .iter()
                     .map(|&wp_ty| {
@@ -1351,9 +1352,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     })
                     .collect::<Result<_, _>>()?;
                 self.builder.position_at_end(loop_body);
-                let loop_phis: SmallVec<[PhiValue<'ctx>; 1]> = self
-                    .module_translation
-                    .blocktype_params_results(ty)?
+                let loop_phis: SmallVec<[PhiValue<'ctx>; 1]> = blocktypes
                     .0
                     .iter()
                     .map(|&wp_ty| {
