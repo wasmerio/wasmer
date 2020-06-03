@@ -29,7 +29,7 @@ fn set_table_item(
 
 impl Table {
     /// Creates a new `Table` with the provided [`TableType`] definition.
-    /// 
+    ///
     /// All the elements in the table will be set to the `init` value.
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
@@ -89,10 +89,10 @@ impl Table {
     ///
     /// It returns the previous size of the `Table` in case is able
     /// to grow the Table successfully.
-    /// 
+    ///
     /// # Errors
     ///
-    /// Returns an error if the delta is out of bounds.
+    /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
         let item = init.into_checked_anyfunc(&self.store)?;
         let table = self.table();
