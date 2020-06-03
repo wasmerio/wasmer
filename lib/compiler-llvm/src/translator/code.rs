@@ -1336,9 +1336,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.build_unconditional_branch(loop_body);
 
                 self.builder.position_at_end(loop_next);
-                let blocktypes = self
-                    .module_translation
-                    .blocktype_params_results(ty)?;
+                let blocktypes = self.module_translation.blocktype_params_results(ty)?;
                 let phis = blocktypes
                     .1
                     .iter()
