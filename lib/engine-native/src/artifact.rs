@@ -296,7 +296,7 @@ impl NativeArtifact {
                 match target_triple.binary_format {
                     BinaryFormat::Macho => format!("-Wl,-U,_{}", libcall),
                     BinaryFormat::Elf => format!("-Wl,--undefined={}", libcall),
-                    binary_format => {
+                    _ => {
                         // We should already be filtering only valid binary formats before
                         // so this should never happen.
                         unreachable!()
@@ -338,7 +338,7 @@ impl NativeArtifact {
         // println!("Stderr: {}", String::from_utf8(output.stderr).unwrap());
         // println!("shared_filepath {:?}", shared_filepath);
         if is_cross_compiling {
-            Self::from_parts_crosscompiled(&mut engine_inner, metadata, shared_filepath)
+            Self::from_parts_crosscompiled(metadata, shared_filepath)
         } else {
             let lib = Library::new(&shared_filepath).map_err(to_compile_error)?;
             Self::from_parts(&mut engine_inner, metadata, shared_filepath, lib)
@@ -373,13 +373,12 @@ impl NativeArtifact {
 
     /// Construct a `NativeArtifact` from component parts.
     pub fn from_parts_crosscompiled(
-        engine_inner: &mut NativeEngineInner,
         metadata: ModuleMetadata,
         sharedobject_path: PathBuf,
     ) -> Result<Self, CompileError> {
-        let mut finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
+        let finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
             PrimaryMap::new();
-        let mut finished_dynamic_function_trampolines: PrimaryMap<
+        let finished_dynamic_function_trampolines: PrimaryMap<
             FunctionIndex,
             *const VMFunctionBody,
         > = PrimaryMap::new();
@@ -488,15 +487,6 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
         })
-    }
-
-    fn preinstantiate(&self) -> Result<(), InstantiationError> {
-        if self.library.is_none() {
-            return Err(InstantiationError::Link(LinkError::Trap(
-                RuntimeError::new("Cross compiled artifacts can't be instantiated."),
-            )));
-        }
-        Ok(())
     }
 
     /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
@@ -626,6 +616,15 @@ impl Artifact for NativeArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
+    }
+
+    fn preinstantiate(&self) -> Result<(), InstantiationError> {
+        if self.library.is_none() {
+            return Err(InstantiationError::Link(LinkError::Trap(
+                RuntimeError::new("Cross compiled artifacts can't be instantiated."),
+            )));
+        }
+        Ok(())
     }
 
     /// Serialize a NativeArtifact
