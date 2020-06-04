@@ -30,6 +30,7 @@ wasmer-compiler = { version = "0.16.2", path = "lib/compiler" }
 wasmer-compiler-cranelift = { version = "0.16.2", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "0.16.2", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "0.16.2", path = "lib/compiler-llvm", optional = true }
+wasmer-emscripten = { version = "0.16.2", path = "lib/emscripten", optional = true }
 wasmer-engine = { version = "0.16.2", path = "lib/engine" }
 wasmer-engine-jit = { version = "0.16.2", path = "lib/engine-jit", optional = true }
 wasmer-engine-native = { version = "0.16.2", path = "lib/engine-native", optional = true }
@@ -81,6 +82,7 @@ native = [
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
+emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = ["wasmer-engine-jit/compiler", "wasmer-engine-native/compiler"]
 experimental-io-devices = [
