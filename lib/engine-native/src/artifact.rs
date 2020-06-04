@@ -299,7 +299,7 @@ impl NativeArtifact {
                     _ => {
                         // We should already be filtering only valid binary formats before
                         // so this should never happen.
-                        unreachable!()
+                        unreachable!("Incorrect binary format")
                     }
                 }
             })
@@ -334,9 +334,7 @@ impl NativeArtifact {
                 std::str::from_utf8(&output.stderr).unwrap().trim_end()
             )));
         }
-        // println!("Stdout: {}", String::from_utf8(output.stdout).unwrap());
-        // println!("Stderr: {}", String::from_utf8(output.stderr).unwrap());
-        // println!("shared_filepath {:?}", shared_filepath);
+        tracing::trace!("gcc command result {:?}", output);
         if is_cross_compiling {
             Self::from_parts_crosscompiled(metadata, shared_filepath)
         } else {

@@ -2,7 +2,6 @@ use crate::store::StoreOptions;
 use crate::warning;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
-use std::str::FromStr;
 use structopt::StructOpt;
 use wasmer::*;
 
