@@ -31,7 +31,15 @@ impl Instance {
         self.new_instance
             .module()
             .info()
-            .resolve_func(name)
+            .func_names
+            .iter()
+            .find_map(|(function_index, function_name)| {
+                if function_name.as_str() == name {
+                    Some(function_index)
+                } else {
+                    None
+                }
+            })
             .map(|function_index| function_index.index())
             .ok_or(())
     }
