@@ -11,8 +11,6 @@
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
 #[macro_use]
-extern crate wasmer_runtime_core;
-#[macro_use]
 extern crate log;
 
 use lazy_static::lazy_static;
@@ -20,21 +18,19 @@ use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{f64, ffi::c_void};
-use wasmer_runtime_core::{
+use wasmer::{
+    imports, Function, FunctionType, Global, ImportObject, Instance, Memory, MemoryType, Module,
+    Pages, Table, TableType, Val, ValType,
+};
+/*use wasmer_runtime_core::{
     error::{CallError, CallResult, ResolveError},
     export::Export,
     func,
-    global::Global,
-    import::ImportObject,
-    imports,
-    memory::Memory,
     module::ImportName,
-    table::Table,
-    types::{ElementType, FuncSig, MemoryDescriptor, TableDescriptor, Type, Value},
-    units::Pages,
+    types::ElementType,
     vm::Ctx,
-    DynFunc, Func, Instance, IsExport, Module,
-};
+    DynFunc, IsExport,
+};*/
 
 #[cfg(unix)]
 use ::libc::DIR as LibcDir;
@@ -86,8 +82,8 @@ const TOTAL_STACK: u32 = 5_242_880;
 const STATIC_BUMP: u32 = 215_536;
 
 lazy_static! {
-    static ref OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG: FuncSig =
-        { FuncSig::new(vec![], vec![Type::I32]) };
+    static ref OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG: FunctionType =
+        { FunctionType::new(vec![], vec![Type::I32]) };
 }
 
 // The address globals begin at. Very low in memory, for code size and optimization opportunities.
@@ -514,10 +510,10 @@ impl EmscriptenGlobals {
         let (memory_min, memory_max, shared) = get_emscripten_memory_size(&module)?;
 
         // Memory initialization
-        let memory_type = MemoryDescriptor::new(memory_min, memory_max, shared)?;
+        let memory_type = MemoryType::new(memory_min, memory_max, shared)?;
         let memory = Memory::new(memory_type).unwrap();
 
-        let table_type = TableDescriptor {
+        let table_type = TableTable {
             element: ElementType::Anyfunc,
             minimum: table_min,
             maximum: table_max,
