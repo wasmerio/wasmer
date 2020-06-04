@@ -44,7 +44,7 @@ impl Compile {
                 .cpu_features
                 .clone()
                 .into_iter()
-                .fold(CpuFeature::set(), |a, b| a | b);
+                .fold(CpuFeature::SSE2, |a, b| a | b);
             // Cranelift requires SSE2, so we have this "hack" for now to facilitate
             // usage
             features = features | CpuFeature::SSE2;
