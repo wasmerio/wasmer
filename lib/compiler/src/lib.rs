@@ -80,7 +80,8 @@ pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Reloca
 pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};
 pub use crate::sourceloc::SourceLoc;
 pub use crate::target::{
-    Architecture, BinaryFormat, CallingConvention, CpuFeature, OperatingSystem, Target, Triple,
+    Architecture, BinaryFormat, CallingConvention, CpuFeature, OperatingSystem,
+    ParseCpuFeatureError, Target, Triple,
 };
 #[cfg(feature = "translator")]
 pub use crate::translator::{

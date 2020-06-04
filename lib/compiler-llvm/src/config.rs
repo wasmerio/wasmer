@@ -8,7 +8,7 @@ use itertools::Itertools;
 use std::sync::Arc;
 use target_lexicon::Architecture;
 use wasm_common::{FunctionType, LocalFunctionIndex};
-use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, Features, Target, Triple};
+use wasmer_compiler::{Compiler, CompilerConfig, Features, Target, Triple};
 
 /// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
@@ -142,23 +142,11 @@ impl LLVMConfig {
         }
 
         // The CPU features formatted as LLVM strings
+        // We can safely map to gcc-like features as the CPUFeatures
+        // are complaint with the same string representations as gcc.
         let llvm_cpu_features = cpu_features
             .iter()
-            .map(|feature| match feature {
-                CpuFeature::SSE2 => "+sse2",
-                CpuFeature::SSE3 => "+sse3",
-                CpuFeature::SSSE3 => "+ssse3",
-                CpuFeature::SSE41 => "+sse4.1",
-                CpuFeature::SSE42 => "+sse4.2",
-                CpuFeature::POPCNT => "+popcnt",
-                CpuFeature::AVX => "+avx",
-                CpuFeature::BMI1 => "+bmi",
-                CpuFeature::BMI2 => "+bmi2",
-                CpuFeature::AVX2 => "+avx2",
-                CpuFeature::AVX512DQ => "+avx512dq",
-                CpuFeature::AVX512VL => "+avx512vl",
-                CpuFeature::LZCNT => "+lzcnt",
-            })
+            .map(|feature| format!("+{}", feature.to_string()))
             .join(",");
 
         let llvm_target = InkwellTarget::from_triple(&self.target_triple()).unwrap();

@@ -27,6 +27,9 @@ pub struct Compile {
 
     #[structopt(flatten)]
     compiler: StoreOptions,
+
+    #[structopt(short = "m", multiple = true)]
+    cpu_features: Vec<CpuFeature>,
 }
 
 impl Compile {
@@ -37,9 +40,13 @@ impl Compile {
     }
     fn inner_execute(&self) -> Result<()> {
         let target = if let Some(ref target_triple) = self.target_triple {
-            let mut features = CpuFeature::set();
-            // Cranelift requires SSE2, so we have this "hack" for now until
-            // we are able to pass custom features
+            let mut features = self
+                .cpu_features
+                .clone()
+                .into_iter()
+                .fold(CpuFeature::set(), |a, b| a | b);
+            // Cranelift requires SSE2, so we have this "hack" for now to facilitate
+            // usage
             features = features | CpuFeature::SSE2;
             Target::new(target_triple.clone(), features)
         } else {
