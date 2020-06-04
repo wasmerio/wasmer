@@ -1,5 +1,5 @@
 use crate::{cache::Artifact, error::InstantiationError, instance::Instance, new};
-use std::convert::Infallible;
+use std::convert::{AsRef, Infallible};
 
 pub use new::wasm_common::{DataInitializer, ExportIndex};
 
@@ -39,10 +39,10 @@ impl Module {
         self.new_module.exports().collect()
     }
 
-    pub fn custom_sections<'a>(&self, name: &'a str) -> Option<Vec<Vec<u8>>> {
+    pub fn custom_sections<'a>(&self, name: impl AsRef<str>) -> Option<Vec<Vec<u8>>> {
         let custom_sections: Vec<Vec<u8>> = self
             .new_module
-            .custom_sections(name)
+            .custom_sections(name.as_ref())
             .map(|custom_section| custom_section.to_vec())
             .collect();
 
