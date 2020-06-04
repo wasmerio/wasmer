@@ -143,7 +143,7 @@ impl LLVMConfig {
 
         // The CPU features formatted as LLVM strings
         // We can safely map to gcc-like features as the CPUFeatures
-        // are complaint with the same string representations as gcc.
+        // are compliant with the same string representations as gcc.
         let llvm_cpu_features = cpu_features
             .iter()
             .map(|feature| format!("+{}", feature.to_string()))
