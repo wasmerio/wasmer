@@ -1,7 +1,7 @@
 //! This module permits to create native functions
 //! easily in Rust, thanks to it's advanced typing system.
 
-use crate::types::{FuncType, Type};
+use crate::types::{FunctionType, Type};
 use std::convert::Infallible;
 use std::marker::PhantomData;
 
@@ -261,52 +261,34 @@ pub struct FunctionBody(*mut u8);
 
 /// Represents a function that can be used by WebAssembly.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Func<Args = (), Rets = (), Env = ()> {
+pub struct Func<Args = (), Rets = ()> {
     address: *const FunctionBody,
-    env: Option<*mut Env>,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
 unsafe impl<Args, Rets> Send for Func<Args, Rets> {}
 
-impl<Args, Rets, Env> Func<Args, Rets, Env>
+impl<Args, Rets> Func<Args, Rets>
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
-    Env: Sized,
 {
     /// Creates a new `Func`.
-    pub fn new<F>(func: F) -> Self
+    pub fn new<F, T, E>(func: F) -> Self
     where
-        F: HostFunction<Args, Rets, WithoutEnv, Env>,
+        F: HostFunction<Args, Rets, T, E>,
+        T: HostFunctionKind,
+        E: Sized,
     {
         Self {
-            env: None,
-            address: func.to_raw(),
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Creates a new `Func` with a given `env`.
-    pub fn new_env<F>(env: &mut Env, func: F) -> Self
-    where
-        F: HostFunction<Args, Rets, WithEnv, Env>,
-    {
-        Self {
-            env: Some(env),
             address: func.to_raw(),
             _phantom: PhantomData,
         }
     }
 
     /// Get the type of the Func
-    pub fn ty(&self) -> FuncType {
-        FuncType::new(Args::wasm_types(), Rets::wasm_types())
-    }
-
-    /// Get the type of the Func
-    pub fn env(&self) -> Option<*mut Env> {
-        self.env
+    pub fn ty(&self) -> FunctionType {
+        FunctionType::new(Args::wasm_types(), Rets::wasm_types())
     }
 
     /// Get the address of the Func
@@ -418,7 +400,7 @@ macro_rules! impl_traits {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
                 // unimplemented!("");
-                extern fn wrap<$( $x, )* Rets, FN>( _: usize, _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                extern fn wrap<$( $x, )* Rets, FN>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
                 where
                     Rets: WasmTypeList,
                     $($x: WasmExternType,)*
@@ -497,7 +479,7 @@ macro_rules! impl_traits {
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
-                extern fn wrap<$( $x, )* Rets, FN, T>( ctx: &mut T, _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                extern fn wrap<$( $x, )* Rets, FN, T>( ctx: &mut T, $($x: $x::Native, )* ) -> Rets::CStruct
                 where
                     Rets: WasmTypeList,
                     $($x: WasmExternType,)*
@@ -633,36 +615,36 @@ mod test_func {
 
     #[test]
     fn test_function_types() {
-        assert_eq!(Func::new(func).ty(), FuncType::new(vec![], vec![]));
+        assert_eq!(Function::new(func).ty(), FunctionType::new(vec![], vec![]));
         assert_eq!(
-            Func::new(func__i32).ty(),
-            FuncType::new(vec![], vec![Type::I32])
+            Function::new(func__i32).ty(),
+            FunctionType::new(vec![], vec![Type::I32])
         );
         assert_eq!(
-            Func::new(func_i32).ty(),
-            FuncType::new(vec![Type::I32], vec![])
+            Function::new(func_i32).ty(),
+            FunctionType::new(vec![Type::I32], vec![])
         );
         assert_eq!(
-            Func::new(func_i32__i32).ty(),
-            FuncType::new(vec![Type::I32], vec![Type::I32])
+            Function::new(func_i32__i32).ty(),
+            FunctionType::new(vec![Type::I32], vec![Type::I32])
         );
         assert_eq!(
-            Func::new(func_i32_i32__i32).ty(),
-            FuncType::new(vec![Type::I32, Type::I32], vec![Type::I32])
+            Function::new(func_i32_i32__i32).ty(),
+            FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
         );
         assert_eq!(
-            Func::new(func_i32_i32__i32_i32).ty(),
-            FuncType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
+            Function::new(func_i32_i32__i32_i32).ty(),
+            FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
         );
         assert_eq!(
-            Func::new(func_f32_i32__i32_f32).ty(),
-            FuncType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
+            Function::new(func_f32_i32__i32_f32).ty(),
+            FunctionType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
         );
     }
 
     #[test]
     fn test_function_pointer() {
-        let f = Func::new(func_i32__i32);
+        let f = Function::new(func_i32__i32);
         let function = unsafe {
             std::mem::transmute::<*const FunctionBody, fn(i32, i32, i32) -> i32>(f.address)
         };
@@ -680,17 +662,17 @@ mod test_func {
             pub num: i32,
         };
         let mut my_env = Env { num: 2 };
-        let f = Func::new_env(&mut my_env, func_i32__i32_env);
+        let f = Function::new_env(&mut my_env, func_i32__i32_env);
         let function = unsafe {
-            std::mem::transmute::<*const FunctionBody, fn(&mut Env, i32, i32) -> i32>(f.address)
+            std::mem::transmute::<*const FunctionBody, fn(&mut Env, i32) -> i32>(f.address)
         };
-        assert_eq!(function(&mut my_env, 2, 3), 6);
+        assert_eq!(function(&mut my_env, 3), 6);
         assert_eq!(my_env.num, 10);
     }
 
     #[test]
     fn test_function_call() {
-        let f = Func::new(func_i32__i32);
+        let f = Function::new(func_i32__i32);
         let x = |args: <(i32, i32) as WasmTypeList>::Array,
                  rets: &mut <(i32, i32) as WasmTypeList>::Array| {
             let result = func_i32_i32__i32_i32(args[0] as _, args[1] as _);

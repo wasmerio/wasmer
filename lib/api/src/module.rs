@@ -5,9 +5,11 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
-use wasmer_compiler::{CompileError, WasmError};
-use wasmer_jit::{CompiledModule, DeserializeError, Resolver, SerializeError};
-use wasmer_runtime::InstanceHandle;
+use wasmer_compiler::CompileError;
+#[cfg(feature = "wat")]
+use wasmer_compiler::WasmError;
+use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError};
+use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, ModuleInfo};
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -25,12 +27,17 @@ pub enum IoCompileError {
 ///
 /// ## Cloning a module
 ///
-/// Cloning a moudle is cheap: it does a shallow copy of the compiled
+/// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
 #[derive(Clone)]
 pub struct Module {
     store: Store,
-    compiled: Arc<CompiledModule>,
+    artifact: Arc<dyn Artifact>,
+
+    #[cfg(feature = "wat")]
+    #[doc(hidden)]
+    // If the module was compiled from a wat file.
+    pub from_wat: bool,
 }
 
 impl Module {
@@ -58,26 +65,57 @@ impl Module {
     /// Reading from a WAT file.
     ///
     /// ```
+    /// use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
     /// let wat = "(module)";
     /// let module = Module::new(&store, wat)?;
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// Reading from bytes:
     ///
     /// ```
-    /// let bytes: Vec<u8> = vec![];
+    /// use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
+    /// // The following is the same as:
+    /// // (module
+    /// //   (type $t0 (func (param i32) (result i32)))
+    /// //   (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
+    /// //     get_local $p0
+    /// //     i32.const 1
+    /// //     i32.add)
+    /// // )
+    /// let bytes: Vec<u8> = vec![
+    ///     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60,
+    ///     0x01, 0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x0b, 0x01, 0x07,
+    ///     0x61, 0x64, 0x64, 0x5f, 0x6f, 0x6e, 0x65, 0x00, 0x00, 0x0a, 0x09, 0x01,
+    ///     0x07, 0x00, 0x20, 0x00, 0x41, 0x01, 0x6a, 0x0b, 0x00, 0x1a, 0x04, 0x6e,
+    ///     0x61, 0x6d, 0x65, 0x01, 0x0a, 0x01, 0x00, 0x07, 0x61, 0x64, 0x64, 0x5f,
+    ///     0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,
+    /// ];
     /// let module = Module::new(&store, bytes)?;
+    /// # Ok(())
+    /// # }
     /// ```
+    #[allow(unreachable_code)]
     pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Module, CompileError> {
         #[cfg(feature = "wat")]
         {
+            let might_be_wat = !bytes.as_ref().starts_with(b"\0asm");
             let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
                 CompileError::Wasm(WasmError::Generic(format!(
                     "Error when converting wat: {}",
                     e
                 )))
             })?;
-            return Module::from_binary(store, bytes.as_ref());
+            let mut module = Module::from_binary(store, bytes.as_ref())?;
+            // We can assume it was a wat file if is not "wasm" looking
+            // and the previous step succeeded.
+            module.from_wat = might_be_wat;
+            return Ok(module);
         }
 
         Module::from_binary(store, bytes.as_ref())
@@ -133,27 +171,48 @@ impl Module {
         Ok(Self::from_compiled_module(store, compiled))
     }
 
-    /// Serializes a module into it a propietary serializable format,
-    /// so it can be used later by [`Module::deserialize`].
+    /// Serializes a module into a binary representation that the `Engine`
+    /// can later process via [`Module::deserialize`].
     ///
     /// # Usage
     ///
     /// ```ignore
     /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// # let module = Module::from_file(&store, "path/to/foo.wasm")?;
     /// let serialized = module.serialize()?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.store.engine().serialize(&self.compiled)
+        self.artifact.serialize()
+    }
+
+    /// Serializes a module into a file that the `Engine`
+    /// can later process via [`Module::deserialize_from_file`].
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
+    /// # let module = Module::from_file(&store, "path/to/foo.wasm")?;
+    /// module.serialize_to_file("path/to/foo.so")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError> {
+        self.artifact.serialize_to_file(path.as_ref())
     }
 
     /// Deserializes a a serialized Module binary into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
     ///
-    /// # Unsafety
+    /// # Safety
     ///
-    /// This function is inherently `unsafe` as the provided bytes:
+    /// This function is inherently **unsafe** as the provided bytes:
     /// 1. Are going to be deserialized directly into Rust objects.
     /// 2. Contains the function assembly bodies and, if intercepted,
     ///    a malicious actor could inject code into executable
@@ -165,18 +224,48 @@ impl Module {
     ///
     /// ```ignore
     /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let module = Module::deserialize(&store, serialized_data)?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub unsafe fn deserialize(store: &Store, bytes: &[u8]) -> Result<Self, DeserializeError> {
         let compiled = store.engine().deserialize(bytes)?;
         Ok(Self::from_compiled_module(store, compiled))
     }
 
-    fn from_compiled_module(store: &Store, compiled: CompiledModule) -> Self {
+    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// > Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// # Safety
+    ///
+    /// Please check [`Module::deserialize`].
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # let store = Store::default();
+    /// # fn main() -> anyhow::Result<()> {
+    /// let module = Module::deserialize_from_file(&store, path)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub unsafe fn deserialize_from_file(
+        store: &Store,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        let artifact = store.engine().deserialize_from_file(path.as_ref())?;
+        Ok(Self::from_compiled_module(store, artifact))
+    }
+
+    fn from_compiled_module(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
         Module {
             store: store.clone(),
-            compiled: Arc::new(compiled),
+            artifact,
+            #[cfg(feature = "wat")]
+            from_wat: false,
         }
     }
 
@@ -184,7 +273,22 @@ impl Module {
         &self,
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
-        self.store.engine().instantiate(&self.compiled, resolver)
+        unsafe {
+            let instance_handle = self.artifact.instantiate(
+                self.store.engine().tunables(),
+                resolver,
+                Box::new(()),
+            )?;
+
+            // After the instance handle is created, we need to initialize
+            // the data, call the start function and so. However, if any
+            // of this steps traps, we still need to keep the instance alive
+            // as some of the Instance elements may have placed in other
+            // instance tables.
+            self.artifact.finish_instantiation(&instance_handle)?;
+
+            Ok(instance_handle)
+        }
     }
 
     /// Returns the name of the current module.
@@ -195,30 +299,48 @@ impl Module {
     /// # Example
     ///
     /// ```
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
     /// let wat = "(module $moduleName)";
     /// let module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), Some("moduleName"));
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn name(&self) -> Option<&str> {
-        self.compiled.module().name.as_deref()
+        self.artifact.module_ref().name.as_deref()
     }
 
     /// Sets the name of the current module.
-    ///
     /// This is normally useful for stacktraces and debugging.
+    ///
+    /// It will return `true` if the module name was changed successfully,
+    /// and return `false` otherwise (in case the module is already
+    /// instantiated).
     ///
     /// # Example
     ///
     /// ```
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let store = Store::default();
     /// let wat = "(module)";
-    /// let module = Module::new(&store, wat)?;
+    /// let mut module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), None);
     /// module.set_name("foo");
     /// assert_eq!(module.name(), Some("foo"));
+    /// # Ok(())
+    /// # }
     /// ```
-    pub fn set_name(&mut self, name: &str) {
-        let compiled = Arc::get_mut(&mut self.compiled).unwrap();
-        Arc::get_mut(compiled.module_mut()).unwrap().name = Some(name.to_string());
+    pub fn set_name(&mut self, name: &str) -> bool {
+        Arc::get_mut(&mut self.artifact)
+            .and_then(|artifact| artifact.module_mut())
+            .map(|mut module_info| {
+                module_info.name = Some(name.to_string());
+                true
+            })
+            .unwrap_or(false)
     }
 
     /// Returns an iterator over the imported types in the Module.
@@ -229,6 +351,8 @@ impl Module {
     /// # Example
     ///
     /// ```
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let wat = r#"(module
     ///     (import "host" "func1" (func))
@@ -240,9 +364,11 @@ impl Module {
     ///     assert!(import.name().contains("func"));
     ///     import.ty();
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
-    pub fn imports<'a>(&'a self) -> impl Iterator<Item = ImportType> + 'a {
-        self.compiled.module().imports()
+    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+        self.artifact.module_ref().imports()
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -253,22 +379,47 @@ impl Module {
     /// # Example
     ///
     /// ```
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let wat = r#"(module
     ///     (func (export "namedfunc"))
     ///     (memory (export "namedmemory") 1)
     /// )"#;
     /// let module = Module::new(&store, wat)?;
-    /// for import in module.exports() {
-    ///     assert_eq!(export.name().contains("named"));
-    ///     export.ty();
+    /// for export_ in module.exports() {
+    ///     assert!(export_.name().contains("named"));
+    ///     export_.ty();
     /// }
+    /// # Ok(())
+    /// # }
     /// ```
-    pub fn exports<'a>(&'a self) -> impl Iterator<Item = ExportType> + 'a {
-        self.compiled.module().exports()
+    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+        self.artifact.module_ref().exports()
+    }
+
+    /// Get the custom sections of the module given a `name`.
+    ///
+    /// # Important
+    ///
+    /// Following the WebAssembly spec, one name can have multiple
+    /// custom sections. That's why an iterator (rather than one element)
+    /// is returned.
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
+        self.artifact.module_ref().custom_sections(name)
     }
 
     pub fn store(&self) -> &Store {
         &self.store
+    }
+
+    /// The ABI of the ModuleInfo is very unstable, we refactor it very often.
+    /// This funciton is public because in some cases it can be useful to get some
+    /// extra information from the module.
+    ///
+    /// However, the usage is highly discouraged.
+    #[doc(hidden)]
+    pub fn info(&self) -> &ModuleInfo {
+        &self.artifact.module_ref()
     }
 }

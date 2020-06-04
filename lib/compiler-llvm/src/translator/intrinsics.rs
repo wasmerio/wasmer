@@ -4,14 +4,14 @@
 //!
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
+use super::abi;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
     types::{
-        BasicType, BasicTypeEnum, FloatType, FunctionType, IntType, PointerType, StructType,
-        VectorType, VoidType,
+        BasicType, BasicTypeEnum, FloatType, IntType, PointerType, StructType, VectorType, VoidType,
     },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
@@ -19,36 +19,47 @@ use inkwell::{
     },
     AddressSpace,
 };
-use std::collections::HashMap;
-/*
-use wasmer_runtime_core::{
-    memory::MemoryType,
-    module::ModuleInfo,
-    structures::TypedIndex,
-    types::{
-        GlobalIndex, ImportedFuncIndex, LocalOrImport, MemoryIndex, SignatureIndex, TableIndex, Type,
-    },
-    units::Pages,
-    vm::{Ctx, INTERNALS_SIZE},
-};
-*/
+use std::collections::{hash_map::Entry, HashMap};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    FuncIndex, FuncType, GlobalIndex, MemoryIndex, Mutability, Pages, SignatureIndex, TableIndex,
-    Type,
+    FunctionIndex, FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, SignatureIndex,
+    TableIndex, Type,
 };
-use wasmer_runtime::Module as WasmerCompilerModule;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, VMOffsets};
+use wasmer_compiler::CompileError;
+use wasmer_runtime::ModuleInfo as WasmerCompilerModule;
+use wasmer_runtime::{MemoryPlan, MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
-fn type_to_llvm_ptr<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> PointerType<'ctx> {
+pub fn type_to_llvm_ptr<'ctx>(
+    intrinsics: &Intrinsics<'ctx>,
+    ty: Type,
+) -> Result<PointerType<'ctx>, CompileError> {
     match ty {
-        Type::I32 => intrinsics.i32_ptr_ty,
-        Type::I64 => intrinsics.i64_ptr_ty,
-        Type::F32 => intrinsics.f32_ptr_ty,
-        Type::F64 => intrinsics.f64_ptr_ty,
-        Type::V128 => intrinsics.i128_ptr_ty,
-        Type::AnyRef => unimplemented!("anyref in the llvm backend"),
-        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+        Type::I32 => Ok(intrinsics.i32_ptr_ty),
+        Type::I64 => Ok(intrinsics.i64_ptr_ty),
+        Type::F32 => Ok(intrinsics.f32_ptr_ty),
+        Type::F64 => Ok(intrinsics.f64_ptr_ty),
+        Type::V128 => Ok(intrinsics.i128_ptr_ty),
+        ty => Err(CompileError::Codegen(format!(
+            "type_to_llvm: unimplemented wasm_common type {:?}",
+            ty
+        ))),
+    }
+}
+
+pub fn type_to_llvm<'ctx>(
+    intrinsics: &Intrinsics<'ctx>,
+    ty: Type,
+) -> Result<BasicTypeEnum<'ctx>, CompileError> {
+    match ty {
+        Type::I32 => Ok(intrinsics.i32_ty.as_basic_type_enum()),
+        Type::I64 => Ok(intrinsics.i64_ty.as_basic_type_enum()),
+        Type::F32 => Ok(intrinsics.f32_ty.as_basic_type_enum()),
+        Type::F64 => Ok(intrinsics.f64_ty.as_basic_type_enum()),
+        Type::V128 => Ok(intrinsics.i128_ty.as_basic_type_enum()),
+        ty => Err(CompileError::Codegen(format!(
+            "type_to_llvm: unimplemented wasm_common type {:?}",
+            ty
+        ))),
     }
 }
 
@@ -103,6 +114,8 @@ pub struct Intrinsics<'ctx> {
     pub debug_trap: FunctionValue<'ctx>,
 
     pub personality: FunctionValue<'ctx>,
+    pub readonly: Attribute,
+    pub stack_probe: Attribute,
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
@@ -143,31 +156,32 @@ pub struct Intrinsics<'ctx> {
     pub f64x2_zero: VectorValue<'ctx>,
 
     pub trap_unreachable: BasicValueEnum<'ctx>,
+    pub trap_call_indirect_null: BasicValueEnum<'ctx>,
     pub trap_call_indirect_sig: BasicValueEnum<'ctx>,
-    pub trap_call_indirect_oob: BasicValueEnum<'ctx>,
     pub trap_memory_oob: BasicValueEnum<'ctx>,
     pub trap_illegal_arithmetic: BasicValueEnum<'ctx>,
-    pub trap_misaligned_atomic: BasicValueEnum<'ctx>,
+    pub trap_integer_division_by_zero: BasicValueEnum<'ctx>,
+    pub trap_bad_conversion_to_integer: BasicValueEnum<'ctx>,
+    pub trap_unaligned_atomic: BasicValueEnum<'ctx>,
+    pub trap_table_access_oob: BasicValueEnum<'ctx>,
 
     // VM intrinsics.
-    pub memory_grow_dynamic_local: FunctionValue<'ctx>,
-    pub memory_grow_static_local: FunctionValue<'ctx>,
-    pub memory_grow_shared_local: FunctionValue<'ctx>,
-    pub memory_grow_dynamic_import: FunctionValue<'ctx>,
-    pub memory_grow_static_import: FunctionValue<'ctx>,
-    pub memory_grow_shared_import: FunctionValue<'ctx>,
-
-    pub memory_size_dynamic_local: FunctionValue<'ctx>,
-    pub memory_size_static_local: FunctionValue<'ctx>,
-    pub memory_size_shared_local: FunctionValue<'ctx>,
-    pub memory_size_dynamic_import: FunctionValue<'ctx>,
-    pub memory_size_static_import: FunctionValue<'ctx>,
-    pub memory_size_shared_import: FunctionValue<'ctx>,
-
     pub throw_trap: FunctionValue<'ctx>,
-    pub throw_breakpoint: FunctionValue<'ctx>,
 
     pub experimental_stackmap: FunctionValue<'ctx>,
+
+    pub vmfunction_import_ptr_ty: PointerType<'ctx>,
+    pub vmfunction_import_body_element: u32,
+    pub vmfunction_import_vmctx_element: u32,
+
+    pub vmmemory_definition_ptr_ty: PointerType<'ctx>,
+    pub vmmemory_definition_base_element: u32,
+    pub vmmemory_definition_current_length_element: u32,
+
+    pub memory32_grow_ptr_ty: PointerType<'ctx>,
+    pub imported_memory32_grow_ptr_ty: PointerType<'ctx>,
+    pub memory32_size_ptr_ty: PointerType<'ctx>,
+    pub imported_memory32_size_ptr_ty: PointerType<'ctx>,
 
     pub ctx_ptr_ty: PointerType<'ctx>,
 }
@@ -221,97 +235,21 @@ impl<'ctx> Intrinsics<'ctx> {
         let f32x4_ty_basic = f32x4_ty.as_basic_type_enum();
         let f64x2_ty_basic = f64x2_ty.as_basic_type_enum();
         let i8_ptr_ty_basic = i8_ptr_ty.as_basic_type_enum();
+        let i64_ptr_ty_basic = i64_ptr_ty.as_basic_type_enum();
 
         let ctx_ty = i8_ty;
         let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::Generic);
 
-        let local_memory_ty =
-            context.struct_type(&[i8_ptr_ty_basic, i64_ty_basic, i8_ptr_ty_basic], false);
-        let local_table_ty = local_memory_ty;
-        let local_global_ty = i64_ty;
-        let func_ctx_ty =
-            context.struct_type(&[ctx_ptr_ty.as_basic_type_enum(), i8_ptr_ty_basic], false);
-        let func_ctx_ptr_ty = func_ctx_ty.ptr_type(AddressSpace::Generic);
-        let imported_func_ty = context.struct_type(
-            &[i8_ptr_ty_basic, func_ctx_ptr_ty.as_basic_type_enum()],
-            false,
-        );
         let sigindex_ty = i32_ty;
-        let rt_intrinsics_ty = i8_ty;
-        let stack_lower_bound_ty = i8_ty;
-        let memory_base_ty = i8_ty;
-        let memory_bound_ty = i8_ty;
-        let internals_ty = i64_ty;
-        let interrupt_signal_mem_ty = i8_ty;
-        let local_function_ty = i8_ptr_ty;
 
         let anyfunc_ty = context.struct_type(
             &[
                 i8_ptr_ty_basic,
-                ctx_ptr_ty.as_basic_type_enum(),
                 sigindex_ty.as_basic_type_enum(),
+                ctx_ptr_ty.as_basic_type_enum(),
             ],
             false,
         );
-
-        /*
-        ctx_ty.set_body(
-            &[
-                local_memory_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_table_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_global_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_memory_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_table_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_global_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                imported_func_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                sigindex_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                rt_intrinsics_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                stack_lower_bound_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                memory_base_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                memory_bound_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                internals_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                interrupt_signal_mem_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-                local_function_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(),
-            ],
-            false,
-        );
-        */
 
         let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
         let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);
@@ -329,13 +267,6 @@ impl<'ctx> Intrinsics<'ctx> {
 
         let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic, f32_ty_basic], false);
         let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic, f64_ty_basic], false);
-
-        let ret_i32_take_ctx_i32_i32 = i32_ty.fn_type(
-            &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
-            false,
-        );
-        let ret_i32_take_ctx_i32 =
-            i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false);
 
         let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
         let intrinsics = Self {
@@ -423,6 +354,9 @@ impl<'ctx> Intrinsics<'ctx> {
                 i32_ty.fn_type(&[], false),
                 Some(Linkage::External),
             ),
+            readonly: context
+                .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
+            stack_probe: context.create_string_attribute("probe-stack", "vm.probestack"),
 
             void_ty,
             i1_ty,
@@ -462,75 +396,35 @@ impl<'ctx> Intrinsics<'ctx> {
             f32x4_zero,
             f64x2_zero,
 
-            trap_unreachable: i32_zero.as_basic_value_enum(),
-            trap_call_indirect_sig: i32_ty.const_int(1, false).as_basic_value_enum(),
-            trap_call_indirect_oob: i32_ty.const_int(3, false).as_basic_value_enum(),
-            trap_memory_oob: i32_ty.const_int(2, false).as_basic_value_enum(),
-            trap_illegal_arithmetic: i32_ty.const_int(4, false).as_basic_value_enum(),
-            trap_misaligned_atomic: i32_ty.const_int(5, false).as_basic_value_enum(),
+            trap_unreachable: i32_ty
+                .const_int(TrapCode::UnreachableCodeReached as _, false)
+                .as_basic_value_enum(),
+            trap_call_indirect_null: i32_ty
+                .const_int(TrapCode::IndirectCallToNull as _, false)
+                .as_basic_value_enum(),
+            trap_call_indirect_sig: i32_ty
+                .const_int(TrapCode::BadSignature as _, false)
+                .as_basic_value_enum(),
+            trap_memory_oob: i32_ty
+                .const_int(TrapCode::OutOfBounds as _, false)
+                .as_basic_value_enum(),
+            trap_illegal_arithmetic: i32_ty
+                .const_int(TrapCode::IntegerOverflow as _, false)
+                .as_basic_value_enum(),
+            trap_integer_division_by_zero: i32_ty
+                .const_int(TrapCode::IntegerDivisionByZero as _, false)
+                .as_basic_value_enum(),
+            trap_bad_conversion_to_integer: i32_ty
+                .const_int(TrapCode::BadConversionToInteger as _, false)
+                .as_basic_value_enum(),
+            trap_unaligned_atomic: i32_ty
+                .const_int(TrapCode::UnalignedAtomic as _, false)
+                .as_basic_value_enum(),
+            trap_table_access_oob: i32_ty
+                .const_int(TrapCode::TableAccessOutOfBounds as _, false)
+                .as_basic_value_enum(),
 
             // VM intrinsics.
-            memory_grow_dynamic_local: module.add_function(
-                "vm.memory.grow.dynamic.local",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-            memory_grow_static_local: module.add_function(
-                "vm.memory.grow.static.local",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-            memory_grow_shared_local: module.add_function(
-                "vm.memory.grow.shared.local",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-            memory_grow_dynamic_import: module.add_function(
-                "vm.memory.grow.dynamic.import",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-            memory_grow_static_import: module.add_function(
-                "vm.memory.grow.static.import",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-            memory_grow_shared_import: module.add_function(
-                "vm.memory.grow.shared.import",
-                ret_i32_take_ctx_i32_i32,
-                None,
-            ),
-
-            memory_size_dynamic_local: module.add_function(
-                "vm.memory.size.dynamic.local",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
-            memory_size_static_local: module.add_function(
-                "vm.memory.size.static.local",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
-            memory_size_shared_local: module.add_function(
-                "vm.memory.size.shared.local",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
-            memory_size_dynamic_import: module.add_function(
-                "vm.memory.size.dynamic.import",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
-            memory_size_static_import: module.add_function(
-                "vm.memory.size.static.import",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
-            memory_size_shared_import: module.add_function(
-                "vm.memory.size.shared.import",
-                ret_i32_take_ctx_i32,
-                None,
-            ),
             throw_trap: module.add_function(
                 "vm.exception.trap",
                 void_ty.fn_type(&[i32_ty_basic], false),
@@ -547,44 +441,48 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
-            throw_breakpoint: module.add_function(
-                "vm.breakpoint",
-                void_ty.fn_type(&[i64_ty_basic], false),
-                None,
-            ),
+
+            vmfunction_import_ptr_ty: context
+                .struct_type(&[i8_ptr_ty_basic, i8_ptr_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+            vmfunction_import_body_element: 0,
+            vmfunction_import_vmctx_element: 1,
+
+            // TODO: this i64 is actually a rust usize
+            vmmemory_definition_ptr_ty: context
+                .struct_type(&[i8_ptr_ty_basic, i64_ptr_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+            vmmemory_definition_base_element: 0,
+            vmmemory_definition_current_length_element: 1,
+
+            memory32_grow_ptr_ty: i32_ty
+                .fn_type(
+                    &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            imported_memory32_grow_ptr_ty: i32_ty
+                .fn_type(
+                    &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            memory32_size_ptr_ty: i32_ty
+                .fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+            imported_memory32_size_ptr_ty: i32_ty
+                .fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false)
+                .ptr_type(AddressSpace::Generic),
+
             ctx_ptr_ty,
         };
 
         // TODO: mark vmctx args as nofree, align 16, dereferenceable(?)
 
-        let readonly =
-            context.create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0);
-        intrinsics
-            .memory_size_dynamic_local
-            .add_attribute(AttributeLoc::Function, readonly);
-        intrinsics
-            .memory_size_static_local
-            .add_attribute(AttributeLoc::Function, readonly);
-        intrinsics
-            .memory_size_shared_local
-            .add_attribute(AttributeLoc::Function, readonly);
-        intrinsics
-            .memory_size_dynamic_import
-            .add_attribute(AttributeLoc::Function, readonly);
-        intrinsics
-            .memory_size_static_import
-            .add_attribute(AttributeLoc::Function, readonly);
-        intrinsics
-            .memory_size_shared_import
-            .add_attribute(AttributeLoc::Function, readonly);
-
         let noreturn =
             context.create_enum_attribute(Attribute::get_named_enum_kind_id("noreturn"), 0);
         intrinsics
             .throw_trap
-            .add_attribute(AttributeLoc::Function, noreturn);
-        intrinsics
-            .throw_breakpoint
             .add_attribute(AttributeLoc::Function, noreturn);
 
         intrinsics
@@ -596,17 +494,10 @@ pub enum MemoryCache<'ctx> {
     /// The memory moves around.
     Dynamic {
         ptr_to_base_ptr: PointerValue<'ctx>,
-        ptr_to_bounds: PointerValue<'ctx>,
-        minimum: Pages,
-        maximum: Option<Pages>,
+        current_length_ptr: PointerValue<'ctx>,
     },
     /// The memory is always in the same place.
-    Static {
-        base_ptr: PointerValue<'ctx>,
-        bounds: IntValue<'ctx>,
-        minimum: Pages,
-        maximum: Option<Pages>,
-    },
+    Static { base_ptr: PointerValue<'ctx> },
 }
 
 struct TableCache<'ctx> {
@@ -620,9 +511,11 @@ pub enum GlobalCache<'ctx> {
     Const { value: BasicValueEnum<'ctx> },
 }
 
-struct ImportedFuncCache<'ctx> {
-    func_ptr: PointerValue<'ctx>,
-    ctx_ptr: PointerValue<'ctx>,
+#[derive(Clone)]
+pub struct FunctionCache<'ctx> {
+    pub func: PointerValue<'ctx>,
+    pub vmctx: BasicValueEnum<'ctx>,
+    pub attrs: Vec<(Attribute, AttributeLoc)>,
 }
 
 pub struct CtxType<'ctx, 'a> {
@@ -631,19 +524,15 @@ pub struct CtxType<'ctx, 'a> {
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
 
-    cached_signal_mem: Option<PointerValue<'ctx>>,
-
     cached_memories: HashMap<MemoryIndex, MemoryCache<'ctx>>,
     cached_tables: HashMap<TableIndex, TableCache<'ctx>>,
     cached_sigindices: HashMap<SignatureIndex, IntValue<'ctx>>,
     cached_globals: HashMap<GlobalIndex, GlobalCache<'ctx>>,
-    cached_imported_functions: HashMap<FuncIndex, ImportedFuncCache<'ctx>>,
+    cached_functions: HashMap<FunctionIndex, FunctionCache<'ctx>>,
+    cached_memory_grow: HashMap<MemoryIndex, PointerValue<'ctx>>,
+    cached_memory_size: HashMap<MemoryIndex, PointerValue<'ctx>>,
 
     offsets: VMOffsets,
-}
-
-fn offset_to_index(offset: u32) -> u32 {
-    (offset as usize / ::std::mem::size_of::<usize>()) as u32
 }
 
 impl<'ctx, 'a> CtxType<'ctx, 'a> {
@@ -653,18 +542,18 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         cache_builder: &'a Builder<'ctx>,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
-            ctx_ptr_value: func_value.get_nth_param(0).unwrap().into_pointer_value(),
+            ctx_ptr_value: abi::get_vmctx_ptr_param(func_value),
 
             wasm_module,
             cache_builder,
-
-            cached_signal_mem: None,
 
             cached_memories: HashMap::new(),
             cached_tables: HashMap::new(),
             cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
-            cached_imported_functions: HashMap::new(),
+            cached_functions: HashMap::new(),
+            cached_memory_grow: HashMap::new(),
+            cached_memory_size: HashMap::new(),
 
             // TODO: pointer width
             offsets: VMOffsets::new(8, &wasm_module),
@@ -674,28 +563,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
     pub fn basic(&self) -> BasicValueEnum<'ctx> {
         self.ctx_ptr_value.as_basic_value_enum()
     }
-    /*
-        pub fn signal_mem(&mut self) -> PointerValue<'ctx> {
-            if let Some(x) = self.cached_signal_mem {
-                return x;
-            }
 
-            let (ctx_ptr_value, cache_builder) = (self.ctx_ptr_value, &self.cache_builder);
-
-            let ptr_ptr = unsafe {
-                cache_builder.build_struct_gep(
-                    ctx_ptr_value,
-                    offset_to_index(Ctx::offset_interrupt_signal_mem()),
-                    "interrupt_signal_mem_ptr",
-                )
-            };
-            let ptr = cache_builder
-                .build_load(ptr_ptr, "interrupt_signal_mem")
-                .into_pointer_value();
-            self.cached_signal_mem = Some(ptr);
-            ptr
-        }
-    */
     pub fn memory(
         &mut self,
         index: MemoryIndex,
@@ -710,136 +578,78 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
             &self.offsets,
         );
+        let memory_plan = &memory_plans[index];
         *cached_memories.entry(index).or_insert_with(|| {
-            let (memory_array_ptr_ptr, index, memory_type, minimum, maximum, field_name) = {
-                let desc = memory_plans.get(index).unwrap();
-                if let Some(local_mem_index) = wasm_module.local_memory_index(index) {
-                    let byte_offset = intrinsics.i64_ty.const_int(
-                        offsets
-                            .vmctx_vmmemory_definition_base(local_mem_index)
-                            .into(),
-                        false,
-                    );
-                    (
-                        unsafe {
-                            cache_builder.build_gep(
-                                ctx_ptr_value,
-                                &[byte_offset],
-                                "memory_base_ptr_ptr",
-                            )
-                        },
-                        local_mem_index.index() as u64,
-                        desc.style.clone(),
-                        desc.memory.minimum,
-                        desc.memory.maximum,
-                        "context_field_ptr_to_local_memory",
-                    )
+            let memory_definition_ptr =
+                if let Some(local_memory_index) = wasm_module.local_memory_index(index) {
+                    let offset = offsets.vmctx_vmmemory_definition(local_memory_index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                    unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") }
                 } else {
-                    let byte_offset = intrinsics.i64_ty.const_int(
-                        offsets.vmctx_vmmemory_import_definition(index).into(),
-                        false,
-                    );
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_imported_memories_begin()),
-                                    "memory_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        index.index() as u64,
-                        desc.style.clone(),
-                        desc.memory.minimum,
-                        desc.memory.maximum,
-                        "context_field_ptr_to_imported_memory",
-                    )
-                }
-            };
-
-            let memory_array_ptr = cache_builder
-                .build_load(memory_array_ptr_ptr, "memory_array_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                field_name,
-                memory_array_ptr.as_instruction_value().unwrap(),
-                None,
-            );
-            let const_index = intrinsics.i32_ty.const_int(index, false);
-            let memory_ptr_ptr = unsafe {
-                cache_builder.build_in_bounds_gep(
-                    memory_array_ptr,
-                    &[const_index],
-                    "memory_ptr_ptr",
-                )
-            };
-            let memory_ptr = cache_builder
-                .build_load(memory_ptr_ptr, "memory_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                "memory_ptr",
-                memory_ptr.as_instruction_value().unwrap(),
-                Some(index as u32),
-            );
-
-            let (ptr_to_base_ptr, ptr_to_bounds) = unsafe {
-                (
-                    cache_builder
-                        .build_struct_gep(memory_ptr, 0, "base_ptr")
-                        .unwrap(),
-                    cache_builder
-                        .build_struct_gep(memory_ptr, 1, "bounds_ptr")
-                        .unwrap(),
-                )
-            };
-
-            match memory_type {
-                MemoryStyle::Dynamic => MemoryCache::Dynamic {
-                    ptr_to_base_ptr,
-                    ptr_to_bounds,
-                    minimum,
-                    maximum,
-                },
-                MemoryStyle::Static { bound: _ } => {
-                    let base_ptr = cache_builder
-                        .build_load(ptr_to_base_ptr, "base")
+                    let offset = offsets.vmctx_vmmemory_import(index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                    let memory_definition_ptr_ptr =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let memory_definition_ptr_ptr = cache_builder
+                        .build_bitcast(
+                            memory_definition_ptr_ptr,
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
                         .into_pointer_value();
-                    let bounds = cache_builder
-                        .build_load(ptr_to_bounds, "bounds")
-                        .into_int_value();
+                    let memory_definition_ptr = cache_builder
+                        .build_load(memory_definition_ptr_ptr, "")
+                        .into_pointer_value();
                     tbaa_label(
                         module,
                         intrinsics,
-                        "static_memory_base",
-                        base_ptr.as_instruction_value().unwrap(),
-                        Some(index as u32),
+                        format!("memory {} definition", index.as_u32()),
+                        memory_definition_ptr.as_instruction_value().unwrap(),
                     );
-                    tbaa_label(
-                        module,
-                        intrinsics,
-                        "static_memory_bounds",
-                        bounds.as_instruction_value().unwrap(),
-                        Some(index as u32),
-                    );
-                    MemoryCache::Static {
-                        base_ptr,
-                        bounds,
-                        minimum,
-                        maximum,
-                    }
+                    memory_definition_ptr
+                };
+            let memory_definition_ptr = cache_builder
+                .build_bitcast(
+                    memory_definition_ptr,
+                    intrinsics.vmmemory_definition_ptr_ty,
+                    "",
+                )
+                .into_pointer_value();
+            let base_ptr = cache_builder
+                .build_struct_gep(
+                    memory_definition_ptr,
+                    intrinsics.vmmemory_definition_base_element,
+                    "",
+                )
+                .unwrap();
+            if memory_plan.style == MemoryStyle::Dynamic {
+                let current_length_ptr = cache_builder
+                    .build_struct_gep(
+                        memory_definition_ptr,
+                        intrinsics.vmmemory_definition_current_length_element,
+                        "",
+                    )
+                    .unwrap();
+                MemoryCache::Dynamic {
+                    ptr_to_base_ptr: base_ptr,
+                    current_length_ptr,
                 }
+            } else {
+                let base_ptr = cache_builder.build_load(base_ptr, "").into_pointer_value();
+                tbaa_label(
+                    module,
+                    intrinsics,
+                    format!("memory base_ptr {}", index.as_u32()),
+                    base_ptr.as_instruction_value().unwrap(),
+                );
+                MemoryCache::Static { base_ptr }
             }
         })
     }
 
-    pub fn table_prepare(
+    fn table_prepare(
         &mut self,
-        index: TableIndex,
+        table_index: TableIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
     ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
@@ -853,74 +663,82 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         let TableCache {
             ptr_to_base_ptr,
             ptr_to_bounds,
-        } = *cached_tables.entry(index).or_insert_with(|| {
-            let (table_array_ptr_ptr, index, field_name) =
-                if let Some(local_table_index) = wasm_module.local_table_index(index) {
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_tables_begin()),
-                                    "table_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        local_table_index.index() as u64,
-                        "context_field_ptr_to_local_table",
-                    )
+        } = *cached_tables.entry(table_index).or_insert_with(|| {
+            let (ptr_to_base_ptr, ptr_to_bounds) =
+                if let Some(local_table_index) = wasm_module.local_table_index(table_index) {
+                    let offset = intrinsics.i64_ty.const_int(
+                        offsets
+                            .vmctx_vmtable_definition_base(local_table_index)
+                            .into(),
+                        false,
+                    );
+                    let ptr_to_base_ptr =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let ptr_to_base_ptr = cache_builder
+                        .build_bitcast(
+                            ptr_to_base_ptr,
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
+                        .into_pointer_value();
+                    let offset = intrinsics.i64_ty.const_int(
+                        offsets
+                            .vmctx_vmtable_definition_current_elements(local_table_index)
+                            .into(),
+                        false,
+                    );
+                    let ptr_to_bounds =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let ptr_to_bounds = cache_builder
+                        .build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, "")
+                        .into_pointer_value();
+                    (ptr_to_base_ptr, ptr_to_bounds)
                 } else {
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_imported_tables_begin()),
-                                    "table_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        index.index() as u64,
-                        "context_field_ptr_to_import_table",
-                    )
+                    let offset = intrinsics.i64_ty.const_int(
+                        offsets.vmctx_vmtable_import_definition(table_index).into(),
+                        false,
+                    );
+                    let definition_ptr_ptr =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let definition_ptr_ptr = cache_builder
+                        .build_bitcast(
+                            definition_ptr_ptr,
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
+                        .into_pointer_value();
+                    let definition_ptr = cache_builder
+                        .build_load(definition_ptr_ptr, "")
+                        .into_pointer_value();
+                    tbaa_label(
+                        module,
+                        intrinsics,
+                        format!("table {} definition", table_index.as_u32()),
+                        definition_ptr.as_instruction_value().unwrap(),
+                    );
+
+                    let offset = intrinsics
+                        .i64_ty
+                        .const_int(offsets.vmtable_definition_base().into(), false);
+                    let ptr_to_base_ptr =
+                        unsafe { cache_builder.build_gep(definition_ptr, &[offset], "") };
+                    let ptr_to_base_ptr = cache_builder
+                        .build_bitcast(
+                            ptr_to_base_ptr,
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
+                        .into_pointer_value();
+                    let offset = intrinsics
+                        .i64_ty
+                        .const_int(offsets.vmtable_definition_current_elements().into(), false);
+                    let ptr_to_bounds =
+                        unsafe { cache_builder.build_gep(definition_ptr, &[offset], "") };
+                    let ptr_to_bounds = cache_builder
+                        .build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, "")
+                        .into_pointer_value();
+                    (ptr_to_base_ptr, ptr_to_bounds)
                 };
-
-            let table_array_ptr = cache_builder
-                .build_load(table_array_ptr_ptr, "table_array_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                field_name,
-                table_array_ptr.as_instruction_value().unwrap(),
-                None,
-            );
-            let const_index = intrinsics.i32_ty.const_int(index, false);
-            let table_ptr_ptr = unsafe {
-                cache_builder.build_in_bounds_gep(table_array_ptr, &[const_index], "table_ptr_ptr")
-            };
-            let table_ptr = cache_builder
-                .build_load(table_ptr_ptr, "table_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                "table_ptr",
-                table_array_ptr.as_instruction_value().unwrap(),
-                Some(index as u32),
-            );
-
-            let (ptr_to_base_ptr, ptr_to_bounds) = unsafe {
-                (
-                    cache_builder
-                        .build_struct_gep(table_ptr, 0, "base_ptr")
-                        .unwrap(),
-                    cache_builder
-                        .build_struct_gep(table_ptr, 1, "bounds_ptr")
-                        .unwrap(),
-                )
-            };
-
             TableCache {
                 ptr_to_base_ptr,
                 ptr_to_bounds,
@@ -935,26 +753,27 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         index: TableIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
-        builder: &Builder<'ctx>,
     ) -> (PointerValue<'ctx>, IntValue<'ctx>) {
         let (ptr_to_base_ptr, ptr_to_bounds) = self.table_prepare(index, intrinsics, module);
-        let base_ptr = builder
+        let base_ptr = self
+            .cache_builder
             .build_load(ptr_to_base_ptr, "base_ptr")
             .into_pointer_value();
-        let bounds = builder.build_load(ptr_to_bounds, "bounds").into_int_value();
+        let bounds = self
+            .cache_builder
+            .build_load(ptr_to_bounds, "bounds")
+            .into_int_value();
         tbaa_label(
             module,
             intrinsics,
-            "table_base_ptr",
+            format!("table_base_ptr {}", index.index()),
             base_ptr.as_instruction_value().unwrap(),
-            Some(index.index() as u32),
         );
         tbaa_label(
             module,
             intrinsics,
-            "table_bounds",
+            format!("table_bounds {}", index.index()),
             bounds.as_instruction_value().unwrap(),
-            Some(index.index() as u32),
         );
         (base_ptr, bounds)
     }
@@ -963,6 +782,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         index: SignatureIndex,
         intrinsics: &Intrinsics<'ctx>,
+        module: &Module<'ctx>,
     ) -> IntValue<'ctx> {
         let (cached_sigindices, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_sigindices,
@@ -971,27 +791,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.offsets,
         );
         *cached_sigindices.entry(index).or_insert_with(|| {
-            /*
-            let sigindex_array_ptr_ptr = unsafe {
-                cache_builder.build_struct_gep(
-                    ctx_ptr_value,
-                    offset_to_index(offsets.vmctx_signature_ids_begin()),
-                    "sigindex_array_ptr_ptr",
-                )
-            };
-            let sigindex_array_ptr = cache_builder
-                .build_load(sigindex_array_ptr_ptr, "sigindex_array_ptr")
-                .into_pointer_value();
-            let const_index = intrinsics.i32_ty.const_int(index.index() as u64, false);
-
-            let sigindex_ptr = unsafe {
-                cache_builder.build_in_bounds_gep(
-                    sigindex_array_ptr,
-                    &[const_index],
-                    "sigindex_ptr",
-                )
-            };
-             */
             let byte_offset = intrinsics
                 .i64_ty
                 .const_int(offsets.vmctx_vmshared_signature_id(index).into(), false);
@@ -1002,211 +801,264 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 .build_bitcast(sigindex_ptr, intrinsics.i32_ptr_ty, "")
                 .into_pointer_value();
 
-            cache_builder
+            let sigindex = cache_builder
                 .build_load(sigindex_ptr, "sigindex")
-                .into_int_value()
+                .into_int_value();
+            tbaa_label(
+                module,
+                intrinsics,
+                format!("sigindex {}", index.as_u32()),
+                sigindex.as_instruction_value().unwrap(),
+            );
+            sigindex
         })
     }
 
-    pub fn global_cache(
+    pub fn global(
         &mut self,
         index: GlobalIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
-    ) -> GlobalCache<'ctx> {
-        let (cached_globals, ctx_ptr_value, wasm_module, cache_builder, offsets) = (
+    ) -> Result<&GlobalCache<'ctx>, CompileError> {
+        let (cached_globals, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_globals,
-            self.ctx_ptr_value,
             self.wasm_module,
+            self.ctx_ptr_value,
             &self.cache_builder,
             &self.offsets,
         );
-        *cached_globals.entry(index).or_insert_with(|| {
-            let (globals_array_ptr_ptr, index, mutable, wasmer_ty, field_name) = {
-                let desc = wasm_module.globals.get(index).unwrap();
-                if let Some(_local_global_index) = wasm_module.local_global_index(index) {
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_globals_begin()),
-                                    "globals_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        index.index() as u64,
-                        desc.mutability,
-                        desc.ty,
-                        "context_field_ptr_to_local_globals",
+        Ok(match cached_globals.entry(index) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                let global_type = wasm_module.globals[index];
+                let global_value_type = global_type.ty;
+
+                let global_mutability = global_type.mutability;
+                let global_ptr =
+                    if let Some(local_global_index) = wasm_module.local_global_index(index) {
+                        let offset = offsets.vmctx_vmglobal_definition(local_global_index);
+                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") }
+                    } else {
+                        let offset = offsets.vmctx_vmglobal_import(index);
+                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                        let global_ptr_ptr =
+                            unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                        let global_ptr_ptr = cache_builder
+                            .build_bitcast(
+                                global_ptr_ptr,
+                                intrinsics.i32_ptr_ty.ptr_type(AddressSpace::Generic),
+                                "",
+                            )
+                            .into_pointer_value();
+                        let global_ptr = cache_builder
+                            .build_load(global_ptr_ptr, "")
+                            .into_pointer_value();
+                        tbaa_label(
+                            module,
+                            intrinsics,
+                            format!("global_ptr {}", index.as_u32()),
+                            global_ptr.as_instruction_value().unwrap(),
+                        );
+                        global_ptr
+                    };
+                let global_ptr = cache_builder
+                    .build_bitcast(
+                        global_ptr,
+                        type_to_llvm_ptr(&intrinsics, global_value_type)?,
+                        "",
                     )
-                } else {
-                    (
-                        unsafe {
-                            cache_builder
-                                .build_struct_gep(
-                                    ctx_ptr_value,
-                                    offset_to_index(offsets.vmctx_imported_globals_begin()),
-                                    "globals_array_ptr_ptr",
-                                )
-                                .unwrap()
-                        },
-                        index.index() as u64,
-                        desc.mutability,
-                        desc.ty,
-                        "context_field_ptr_to_imported_globals",
-                    )
-                }
-            };
+                    .into_pointer_value();
 
-            let llvm_ptr_ty = type_to_llvm_ptr(intrinsics, wasmer_ty);
-
-            let global_array_ptr = cache_builder
-                .build_load(globals_array_ptr_ptr, "global_array_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                field_name,
-                global_array_ptr.as_instruction_value().unwrap(),
-                None,
-            );
-            let const_index = intrinsics.i32_ty.const_int(index, false);
-            let global_ptr_ptr = unsafe {
-                cache_builder.build_in_bounds_gep(
-                    global_array_ptr,
-                    &[const_index],
-                    "global_ptr_ptr",
-                )
-            };
-            let global_ptr = cache_builder
-                .build_load(global_ptr_ptr, "global_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                "global_ptr",
-                global_ptr.as_instruction_value().unwrap(),
-                Some(index as u32),
-            );
-
-            let global_ptr_typed =
-                cache_builder.build_pointer_cast(global_ptr, llvm_ptr_ty, "global_ptr_typed");
-
-            let mutable = mutable == Mutability::Var;
-            if mutable {
-                GlobalCache::Mut {
-                    ptr_to_value: global_ptr_typed,
-                }
-            } else {
-                let value = cache_builder.build_load(global_ptr_typed, "global_value");
-                tbaa_label(
-                    module,
-                    intrinsics,
-                    "global",
-                    value.as_instruction_value().unwrap(),
-                    Some(index as u32),
-                );
-                GlobalCache::Const { value }
+                entry.insert(match global_mutability {
+                    Mutability::Const => {
+                        let value = cache_builder.build_load(global_ptr, "");
+                        tbaa_label(
+                            module,
+                            intrinsics,
+                            format!("global {}", index.as_u32()),
+                            value.as_instruction_value().unwrap(),
+                        );
+                        GlobalCache::Const { value }
+                    }
+                    Mutability::Var => GlobalCache::Mut {
+                        ptr_to_value: global_ptr,
+                    },
+                })
             }
         })
     }
 
-    pub fn imported_func(
+    pub fn func(
         &mut self,
-        index: FuncIndex,
+        function_index: FunctionIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
-    ) -> (PointerValue<'ctx>, PointerValue<'ctx>) {
-        let (cached_imported_functions, ctx_ptr_value, cache_builder, offsets) = (
-            &mut self.cached_imported_functions,
-            self.ctx_ptr_value,
+        context: &'ctx Context,
+        func_name: &str,
+        func_type: &FuncType,
+    ) -> Result<&FunctionCache<'ctx>, CompileError> {
+        let (cached_functions, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
+            &mut self.cached_functions,
+            self.wasm_module,
+            &self.ctx_ptr_value,
             &self.cache_builder,
             &self.offsets,
         );
-        let imported_func_cache = cached_imported_functions.entry(index).or_insert_with(|| {
-            let func_array_ptr_ptr = unsafe {
-                cache_builder
-                    .build_struct_gep(
-                        ctx_ptr_value,
-                        offset_to_index(offsets.vmctx_imported_functions_begin()),
-                        "imported_func_array_ptr_ptr",
-                    )
-                    .unwrap()
-            };
-            let func_array_ptr = cache_builder
-                .build_load(func_array_ptr_ptr, "func_array_ptr")
-                .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                "context_field_ptr_to_imported_funcs",
-                func_array_ptr.as_instruction_value().unwrap(),
-                None,
-            );
-            let const_index = intrinsics.i32_ty.const_int(index.index() as u64, false);
-            let imported_func_ptr = unsafe {
-                cache_builder.build_in_bounds_gep(
-                    func_array_ptr,
-                    &[const_index],
-                    "imported_func_ptr",
-                )
-            };
-            let (func_ptr_ptr, func_ctx_ptr_ptr) = unsafe {
+        Ok(match cached_functions.entry(function_index) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                let (llvm_func_type, llvm_func_attrs) =
+                    abi::func_type_to_llvm(context, intrinsics, func_type)?;
+                if wasm_module.local_func_index(function_index).is_some() {
+                    // TODO: assuming names are unique, we don't need the
+                    // get_function call.
+                    let func = module.get_function(func_name).unwrap_or_else(|| {
+                        let func =
+                            module.add_function(func_name, llvm_func_type, Some(Linkage::External));
+                        for (attr, attr_loc) in &llvm_func_attrs {
+                            func.add_attribute(*attr_loc, *attr);
+                        }
+                        func
+                    });
+                    entry.insert(FunctionCache {
+                        func: func.as_global_value().as_pointer_value(),
+                        vmctx: ctx_ptr_value.as_basic_value_enum(),
+                        attrs: llvm_func_attrs,
+                    })
+                } else {
+                    let offset = offsets.vmctx_vmfunction_import(function_index);
+                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                    let vmfunction_import_ptr =
+                        unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+                    let vmfunction_import_ptr = cache_builder
+                        .build_bitcast(
+                            vmfunction_import_ptr,
+                            intrinsics.vmfunction_import_ptr_ty,
+                            "",
+                        )
+                        .into_pointer_value();
+
+                    let body_ptr_ptr = cache_builder
+                        .build_struct_gep(
+                            vmfunction_import_ptr,
+                            intrinsics.vmfunction_import_body_element,
+                            "",
+                        )
+                        .unwrap();
+                    let body_ptr = cache_builder.build_load(body_ptr_ptr, "");
+                    let body_ptr = cache_builder
+                        .build_bitcast(body_ptr, llvm_func_type.ptr_type(AddressSpace::Generic), "")
+                        .into_pointer_value();
+                    let vmctx_ptr_ptr = cache_builder
+                        .build_struct_gep(
+                            vmfunction_import_ptr,
+                            intrinsics.vmfunction_import_vmctx_element,
+                            "",
+                        )
+                        .unwrap();
+                    let vmctx_ptr = cache_builder.build_load(vmctx_ptr_ptr, "");
+                    entry.insert(FunctionCache {
+                        func: body_ptr,
+                        vmctx: vmctx_ptr,
+                        attrs: llvm_func_attrs,
+                    })
+                }
+            }
+        })
+    }
+
+    pub fn memory_grow(
+        &mut self,
+        memory_index: MemoryIndex,
+        intrinsics: &Intrinsics<'ctx>,
+    ) -> PointerValue<'ctx> {
+        let (cached_memory_grow, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_grow,
+            &self.wasm_module,
+            &self.offsets,
+            &self.cache_builder,
+            &self.ctx_ptr_value,
+        );
+        *cached_memory_grow.entry(memory_index).or_insert_with(|| {
+            let (grow_fn, grow_fn_ty) = if wasm_module.local_memory_index(memory_index).is_some() {
                 (
-                    cache_builder
-                        .build_struct_gep(imported_func_ptr, 0, "func_ptr_ptr")
-                        .unwrap(),
-                    cache_builder
-                        .build_struct_gep(imported_func_ptr, 1, "func_ctx_ptr_ptr")
-                        .unwrap(),
+                    VMBuiltinFunctionIndex::get_memory32_grow_index(),
+                    intrinsics.memory32_grow_ptr_ty,
+                )
+            } else {
+                (
+                    VMBuiltinFunctionIndex::get_imported_memory32_grow_index(),
+                    intrinsics.imported_memory32_grow_ptr_ty,
                 )
             };
+            let offset = offsets.vmctx_builtin_function(grow_fn);
+            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+            let grow_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
 
-            let func_ptr = cache_builder
-                .build_load(func_ptr_ptr, "func_ptr")
+            let grow_fn_ptr_ptr = cache_builder
+                .build_bitcast(
+                    grow_fn_ptr_ptr,
+                    grow_fn_ty.ptr_type(AddressSpace::Generic),
+                    "",
+                )
                 .into_pointer_value();
-            let func_ctx_ptr = cache_builder
-                .build_load(func_ctx_ptr_ptr, "func_ctx_ptr")
-                .into_pointer_value();
-            let ctx_ptr_ptr = unsafe {
-                cache_builder
-                    .build_struct_gep(func_ctx_ptr, 0, "ctx_ptr")
-                    .unwrap()
+            cache_builder
+                .build_load(grow_fn_ptr_ptr, "")
+                .into_pointer_value()
+        })
+    }
+
+    pub fn memory_size(
+        &mut self,
+        memory_index: MemoryIndex,
+        intrinsics: &Intrinsics<'ctx>,
+    ) -> PointerValue<'ctx> {
+        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_size,
+            &self.wasm_module,
+            &self.offsets,
+            &self.cache_builder,
+            &self.ctx_ptr_value,
+        );
+        *cached_memory_size.entry(memory_index).or_insert_with(|| {
+            let (size_fn, size_fn_ty) = if wasm_module.local_memory_index(memory_index).is_some() {
+                (
+                    VMBuiltinFunctionIndex::get_memory32_size_index(),
+                    intrinsics.memory32_size_ptr_ty,
+                )
+            } else {
+                (
+                    VMBuiltinFunctionIndex::get_imported_memory32_size_index(),
+                    intrinsics.imported_memory32_size_ptr_ty,
+                )
             };
-            let ctx_ptr = cache_builder
-                .build_load(ctx_ptr_ptr, "ctx_ptr")
+            let offset = offsets.vmctx_builtin_function(size_fn);
+            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+            let size_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+
+            let size_fn_ptr_ptr = cache_builder
+                .build_bitcast(
+                    size_fn_ptr_ptr,
+                    size_fn_ty.ptr_type(AddressSpace::Generic),
+                    "",
+                )
                 .into_pointer_value();
-            tbaa_label(
-                module,
-                intrinsics,
-                "imported_func_ptr",
-                func_ptr.as_instruction_value().unwrap(),
-                Some(index.index() as u32),
-            );
-            tbaa_label(
-                module,
-                intrinsics,
-                "imported_func_ctx_ptr",
-                ctx_ptr.as_instruction_value().unwrap(),
-                Some(index.index() as u32),
-            );
 
-            ImportedFuncCache { func_ptr, ctx_ptr }
-        });
-
-        (imported_func_cache.func_ptr, imported_func_cache.ctx_ptr)
+            cache_builder
+                .build_load(size_fn_ptr_ptr, "")
+                .into_pointer_value()
+        })
     }
 }
 
 // Given an instruction that operates on memory, mark the access as not aliasing
-// other memory accesses which have a different (label, index) pair.
+// other memory accesses which have a different label.
 pub fn tbaa_label<'ctx>(
     module: &Module<'ctx>,
     intrinsics: &Intrinsics<'ctx>,
-    label: &str,
+    label: String,
     instruction: InstructionValue<'ctx>,
-    index: Option<u32>,
 ) {
     // To convey to LLVM that two pointers must be pointing to distinct memory,
     // we use LLVM's Type Based Aliasing Analysis, or TBAA, to mark the memory
@@ -1241,11 +1093,6 @@ pub fn tbaa_label<'ctx>(
 
     // Construct (or look up) the type descriptor, for example
     //   `!"local 0" = !{!"local 0", !wasmer_tbaa_root}`.
-    let label = if let Some(idx) = index {
-        format!("{}{}", label, idx)
-    } else {
-        label.to_string()
-    };
     let type_label = context.metadata_string(label.as_str());
     let type_tbaa = module
         .get_global_metadata(label.as_str())
@@ -1283,45 +1130,4 @@ pub fn tbaa_label<'ctx>(
     // Attach the access tag to the instruction.
     let tbaa_kind = context.get_kind_id("tbaa");
     instruction.set_metadata(type_tbaa, tbaa_kind);
-}
-
-pub fn func_type_to_llvm<'ctx>(
-    context: &'ctx Context,
-    intrinsics: &Intrinsics<'ctx>,
-    fntype: &FuncType,
-) -> FunctionType<'ctx> {
-    let user_param_types = fntype
-        .params()
-        .iter()
-        .map(|&ty| type_to_llvm(intrinsics, ty));
-    let param_types: Vec<_> = std::iter::once(intrinsics.ctx_ptr_ty.as_basic_type_enum())
-        .chain(user_param_types)
-        .collect();
-
-    match fntype.results() {
-        &[] => intrinsics.void_ty.fn_type(&param_types, false),
-        &[single_value] => type_to_llvm(intrinsics, single_value).fn_type(&param_types, false),
-        returns @ _ => {
-            let basic_types: Vec<_> = returns
-                .iter()
-                .map(|&ty| type_to_llvm(intrinsics, ty))
-                .collect();
-
-            context
-                .struct_type(&basic_types, false)
-                .fn_type(&param_types, false)
-        }
-    }
-}
-
-pub fn type_to_llvm<'ctx>(intrinsics: &Intrinsics<'ctx>, ty: Type) -> BasicTypeEnum<'ctx> {
-    match ty {
-        Type::I32 => intrinsics.i32_ty.as_basic_type_enum(),
-        Type::I64 => intrinsics.i64_ty.as_basic_type_enum(),
-        Type::F32 => intrinsics.f32_ty.as_basic_type_enum(),
-        Type::F64 => intrinsics.f64_ty.as_basic_type_enum(),
-        Type::V128 => intrinsics.i128_ty.as_basic_type_enum(),
-        Type::AnyRef => unimplemented!("anyref in the llvm backend"),
-        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
-    }
 }

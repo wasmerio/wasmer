@@ -4,7 +4,7 @@ version = "0.16.2"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wasmer testing utils"
 edition = "2018"
-private = true
+publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,14 +13,20 @@ wasmer-compiler = { path = "../../../lib/compiler", version = "0.16.2" }
 wasmer-compiler-singlepass = { path = "../../../lib/compiler-singlepass", version = "0.16.2", optional = true }
 wasmer-compiler-cranelift = { path = "../../../lib/compiler-cranelift", version = "0.16.2", optional = true }
 wasmer-compiler-llvm = { path = "../../../lib/compiler-llvm", version = "0.16.2", optional = true }
+wasmer-engine-jit = { path = "../../../lib/engine-jit", version = "0.16.2" }
+wasmer = { path = "../../../lib/api", version = "0.16.2", default-features = false }
 
 [features]
-compiler-singlepass = [
+compiler = []
+singlepass = [
     "wasmer-compiler-singlepass",
+    "compiler",
 ]
-compiler-cranelift = [
+cranelift = [
     "wasmer-compiler-cranelift",
+    "compiler",
 ]
-compiler-llvm = [
+llvm = [
     "wasmer-compiler-llvm",
+    "compiler",
 ]

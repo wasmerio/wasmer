@@ -1,12 +1,14 @@
 use crate::common::get_cache_dir;
 use crate::store::StoreOptions;
-use anyhow::{anyhow, bail, Context, Result};
+use crate::suggestions::suggest_function_exports;
+use crate::warning;
+use anyhow::{anyhow, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use wasmer::*;
 #[cfg(feature = "cache")]
-use wasmer_cache::{Cache, FileSystemCache, IoDeserializeError, WasmHash};
+use wasmer_cache::{Cache, FileSystemCache, WasmHash};
 
 use structopt::StructOpt;
 
@@ -68,8 +70,9 @@ pub struct Run {
 impl Run {
     #[cfg(feature = "cache")]
     /// Get the Compiler Filesystem cache
-    fn get_cache(&self, compiler_name: String) -> Result<FileSystemCache> {
+    fn get_cache(&self, engine_name: String, compiler_name: String) -> Result<FileSystemCache> {
         let mut cache_dir_root = get_cache_dir();
+        cache_dir_root.push(engine_name);
         cache_dir_root.push(compiler_name);
         Ok(FileSystemCache::new(cache_dir_root)?)
     }
@@ -79,14 +82,14 @@ impl Run {
             .context(format!("failed to run `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let module = self.get_module()?;
+        let module = self
+            .get_module()
+            .with_context(|| "module instantiation failed")?;
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
             let instance = Instance::new(&module, &imports)?;
-            let result = self
-                .invoke_function(&instance, &invoke, &self.args)
-                .with_context(|| format!("failed to invoke `{}`", invoke))?;
+            let result = self.invoke_function(&instance, &invoke, &self.args)?;
             println!(
                 "{}",
                 result
@@ -99,7 +102,8 @@ impl Run {
         }
 
         // If WASI is enabled, try to execute it with it
-        if cfg!(feature = "wasi") {
+        #[cfg(feature = "wasi")]
+        {
             let wasi_version = Wasi::get_version(&module);
             if let Some(version) = wasi_version {
                 let program_name = self
@@ -110,17 +114,18 @@ impl Run {
                             .file_name()
                             .map(|f| f.to_string_lossy().to_string())
                     })
-                    .unwrap_or("".to_string());
+                    .unwrap_or_default();
                 return self
                     .wasi
-                    .execute(module, version, program_name, self.args.clone());
+                    .execute(module, version, program_name, self.args.clone())
+                    .with_context(|| "WASI execution failed");
             }
         }
 
         // Try to instantiate the wasm file, with no provided imports
         let imports = imports! {};
         let instance = Instance::new(&module, &imports)?;
-        let start: &Func = instance.exports.get("_start")?;
+        let start: Function = self.try_find_function(&instance, "_start", &[])?;
         start.call(&[])?;
 
         Ok(())
@@ -128,38 +133,50 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
-        if Engine::is_deserializable(&contents) {
-            let (compiler_config, _compiler_name) = self.compiler.get_compiler_config()?;
-            let tunables = self.compiler.get_tunables(&*compiler_config);
-            let engine = Engine::new(&*compiler_config, tunables);
-            let store = Store::new(&engine);
-            let module = unsafe { Module::deserialize(&store, &contents)? };
-            return Ok(module);
+        #[cfg(feature = "native")]
+        {
+            if wasmer_engine_native::NativeArtifact::is_deserializable(&contents) {
+                let tunables = Tunables::default();
+                let engine = wasmer_engine_native::NativeEngine::headless(tunables);
+                let store = Store::new(Arc::new(engine));
+                let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
+                return Ok(module);
+            }
         }
-        let (store, compiler_name) = self.compiler.get_store()?;
+        #[cfg(feature = "jit")]
+        {
+            if wasmer_engine_jit::JITArtifact::is_deserializable(&contents) {
+                let tunables = Tunables::default();
+                let engine = wasmer_engine_jit::JITEngine::headless(tunables);
+                let store = Store::new(Arc::new(engine));
+                let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
+                return Ok(module);
+            }
+        }
+        let (store, engine_name, compiler_name) = self.compiler.get_store()?;
         // We try to get it from cache, in case caching is enabled
         // and the file length is greater than 4KB.
         // For files smaller than 4KB caching is not worth,
         // as it takes space and the speedup is minimal.
         let mut module =
             if cfg!(feature = "cache") && !self.disable_cache && contents.len() > 0x1000 {
-                let mut cache = self.get_cache(compiler_name)?;
+                let mut cache = self.get_cache(engine_name, compiler_name)?;
                 // Try to get the hash from the provided `--cache-key`, otherwise
                 // generate one from the provided file `.wasm` contents.
                 let hash = self
                     .cache_key
                     .as_ref()
                     .and_then(|key| WasmHash::from_str(&key).ok())
-                    .unwrap_or(WasmHash::generate(&contents));
-                let module = match unsafe { cache.load(&store, hash) } {
+                    .unwrap_or_else(|| WasmHash::generate(&contents));
+                match unsafe { cache.load(&store, hash) } {
                     Ok(module) => module,
                     Err(e) => {
                         match e {
-                            IoDeserializeError::Deserialize(e) => {
-                                eprintln!("Warning: error while getting module from cache: {}", e);
-                            }
-                            IoDeserializeError::Io(_) => {
+                            DeserializeError::Io(_) => {
                                 // Do not notify on IO errors
+                            }
+                            err => {
+                                warning!("cached module is corrupted: {}", err);
                             }
                         }
                         let module = Module::new(&store, &contents)?;
@@ -167,8 +184,7 @@ impl Run {
                         cache.store(hash, module.clone())?;
                         module
                     }
-                };
-                module
+                }
             } else {
                 Module::new(&store, &contents)?
             };
@@ -178,13 +194,58 @@ impl Run {
         Ok(module)
     }
 
+    fn try_find_function(
+        &self,
+        instance: &Instance,
+        name: &str,
+        args: &[String],
+    ) -> Result<Function> {
+        Ok(instance
+            .exports
+            .get_function(&name)
+            .map_err(|e| {
+                if instance.module().info().functions.is_empty() {
+                    anyhow!("The module has no exported functions to call.")
+                } else {
+                    let suggested_functions = suggest_function_exports(instance.module(), "");
+                    let names = suggested_functions
+                        .iter()
+                        .take(3)
+                        .map(|arg| format!("`{}`", arg))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let suggested_command = format!(
+                        "wasmer {} -i {} {}",
+                        self.path.display(),
+                        suggested_functions.get(0).unwrap(),
+                        args.join(" ")
+                    );
+                    let suggestion = format!(
+                        "Similar functions found: {}.\nTry with: {}",
+                        names, suggested_command
+                    );
+                    match e {
+                        ExportError::Missing(_) => {
+                            anyhow!("No export `{}` found in the module.\n{}", name, suggestion)
+                        }
+                        ExportError::IncompatibleType => anyhow!(
+                            "Export `{}` found, but is not a function.\n{}",
+                            name,
+                            suggestion
+                        ),
+                    }
+                }
+            })?
+            .clone())
+    }
+
     fn invoke_function(
         &self,
         instance: &Instance,
         invoke: &str,
-        args: &Vec<String>,
+        args: &[String],
     ) -> Result<Box<[Val]>> {
-        let func: &Func = instance.exports.get(&invoke)?;
+        let func: Function = self.try_find_function(&instance, invoke, args)?;
         let func_ty = func.ty();
         let required_arguments = func_ty.params().len();
         let provided_arguments = args.len();

@@ -1,0 +1,6 @@
+status = [
+    "wasmerio.wasmer"
+]
+required_approvals = 1
+timeout_sec = 7200
+delete_merged_branches = true 

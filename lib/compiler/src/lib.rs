@@ -8,6 +8,7 @@
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
 #![cfg_attr(feature = "std", deny(unstable_features))]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "clippy", plugin(clippy(conf_file = "../../clippy.toml")))]
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
 #![cfg_attr(
@@ -23,60 +24,77 @@
         clippy::use_self
     )
 )]
-#![no_std]
 
-#[cfg(not(feature = "std"))]
-#[macro_use]
-extern crate alloc as std;
-#[cfg(feature = "std")]
-#[macro_use]
-extern crate std;
+#[cfg(all(feature = "std", feature = "core"))]
+compile_error!(
+    "The `std` and `core` features are both enabled, which is an error. Please enable only once."
+);
 
-#[cfg(not(feature = "std"))]
-use hashbrown::HashMap;
-#[cfg(feature = "std")]
-use std::collections::HashMap;
+#[cfg(all(not(feature = "std"), not(feature = "core")))]
+compile_error!("Both the `std` and `core` features are disabled. Please enable one of them.");
+
+#[cfg(feature = "core")]
+extern crate alloc;
+
+mod lib {
+    #[cfg(feature = "core")]
+    pub mod std {
+        #[macro_use]
+        pub use alloc::{borrow, boxed, string, vec};
+        pub use core::fmt;
+        pub use hashbrown as collections;
+    }
+
+    #[cfg(feature = "std")]
+    pub mod std {
+        pub use std::{borrow, boxed, collections, fmt, string, vec};
+    }
+}
 
 mod address_map;
+#[cfg(feature = "translator")]
 mod compiler;
-mod config;
 mod error;
 mod function;
 mod jump_table;
 mod relocation;
+mod target;
 mod trap;
 mod unwind;
+#[cfg(feature = "translator")]
 #[macro_use]
 mod translator;
 mod section;
 mod sourceloc;
 
 pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
-pub use crate::compiler::Compiler;
-pub use crate::config::{
-    Architecture, CallingConvention, CompilerConfig, CpuFeature, Features, OperatingSystem, Target,
-    Triple,
-};
-pub use crate::error::CompileError;
+#[cfg(feature = "translator")]
+pub use crate::compiler::{Compiler, CompilerConfig};
+pub use crate::error::{CompileError, WasmError, WasmResult};
 pub use crate::function::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, FunctionBody,
     Functions,
 };
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
 pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};
-pub use crate::section::{CustomSection, CustomSectionProtection, SectionIndex};
+pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};
 pub use crate::sourceloc::SourceLoc;
+pub use crate::target::{
+    Architecture, CallingConvention, CpuFeature, OperatingSystem, Target, Triple,
+};
+#[cfg(feature = "translator")]
 pub use crate::translator::{
-    to_wasm_error, translate_module, FunctionBodyData, ModuleEnvironment, ModuleTranslation,
-    ModuleTranslationState, WasmError, WasmResult,
+    to_wasm_error, translate_module, wptype_to_type, FunctionBodyData, ModuleEnvironment,
+    ModuleInfoTranslation, ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;
 pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTableReloc};
 
+pub use wasm_common::Features;
+
+#[cfg(feature = "translator")]
 /// wasmparser is exported as a module to slim compiler dependencies
-pub mod wasmparser {
-    pub use wasmparser::*;
-}
+pub use wasmparser;
 
 /// Offset in bytes from the beginning of the function.
 pub type CodeOffset = u32;

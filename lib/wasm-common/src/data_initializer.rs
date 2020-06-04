@@ -4,8 +4,8 @@ use crate::indexes::{GlobalIndex, MemoryIndex};
 use serde::{Deserialize, Serialize};
 
 /// A memory index and offset within that memory where a data initialization
-/// should is to be performed.
-#[derive(Clone)]
+/// should be performed.
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct DataInitializerLocation {
     /// The index of the memory to initialize.
@@ -19,6 +19,7 @@ pub struct DataInitializerLocation {
 }
 
 /// A data initializer for linear memory.
+#[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct DataInitializer<'data> {
     /// The location where the initialization is to be performed.
@@ -30,7 +31,7 @@ pub struct DataInitializer<'data> {
 
 /// As `DataInitializer` but owning the data rather than
 /// holding a reference to it
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OwnedDataInitializer {
     /// The location where the initialization is to be performed.
     pub location: DataInitializerLocation,

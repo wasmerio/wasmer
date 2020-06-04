@@ -3,7 +3,6 @@ use inkwell::{
     values::{BasicValue, BasicValueEnum, PhiValue},
 };
 use smallvec::SmallVec;
-use std::cell::Cell;
 use std::ops::{BitAnd, BitOr, BitOrAssign};
 use wasmer_compiler::CompileError;
 
@@ -18,13 +17,16 @@ pub enum ControlFrame<'ctx> {
         body: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
         phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        loop_body_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
     },
     IfElse {
         if_then: BasicBlock<'ctx>,
         if_else: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
-        phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        then_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        else_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
         if_else_state: IfElseState,
     },
@@ -54,9 +56,20 @@ impl<'ctx> ControlFrame<'ctx> {
 
     pub fn phis(&self) -> &[PhiValue<'ctx>] {
         match self {
-            ControlFrame::Block { ref phis, .. }
-            | ControlFrame::Loop { ref phis, .. }
-            | ControlFrame::IfElse { ref phis, .. } => phis.as_slice(),
+            ControlFrame::Block { ref phis, .. } | ControlFrame::Loop { ref phis, .. } => {
+                phis.as_slice()
+            }
+            ControlFrame::IfElse { ref next_phis, .. } => next_phis.as_slice(),
+        }
+    }
+
+    /// PHI nodes for stack values in the loop body.
+    pub fn loop_body_phis(&self) -> &[PhiValue<'ctx>] {
+        match self {
+            ControlFrame::Block { .. } | ControlFrame::IfElse { .. } => &[],
+            ControlFrame::Loop {
+                ref loop_body_phis, ..
+            } => loop_body_phis.as_slice(),
         }
     }
 
@@ -182,13 +195,12 @@ impl BitAnd for ExtraInfo {
             (false, true) => ExtraInfo::arithmetic_f64(),
             (true, true) => ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
         };
-        let info = match (self.has_pending_f32_nan(), self.has_pending_f64_nan()) {
+        match (self.has_pending_f32_nan(), self.has_pending_f64_nan()) {
             (false, false) => info,
             (true, false) => info | ExtraInfo::pending_f32_nan(),
             (false, true) => info | ExtraInfo::pending_f64_nan(),
             (true, true) => unreachable!("Can't form ExtraInfo with two pending canonicalizations"),
-        };
-        info
+        }
     }
 }
 
@@ -196,7 +208,6 @@ impl BitAnd for ExtraInfo {
 pub struct State<'ctx> {
     pub stack: Vec<(BasicValueEnum<'ctx>, ExtraInfo)>,
     control_stack: Vec<ControlFrame<'ctx>>,
-    value_counter: Cell<usize>,
 
     pub reachable: bool,
 }
@@ -206,13 +217,12 @@ impl<'ctx> State<'ctx> {
         Self {
             stack: vec![],
             control_stack: vec![],
-            value_counter: Cell::new(0),
             reachable: true,
         }
     }
 
     pub fn has_control_frames(&self) -> bool {
-        return !self.control_stack.is_empty();
+        !self.control_stack.is_empty()
     }
 
     pub fn reset_stack(&mut self, frame: &ControlFrame<'ctx>) {
@@ -234,9 +244,9 @@ impl<'ctx> State<'ctx> {
     }
 
     pub fn outermost_frame(&self) -> Result<&ControlFrame<'ctx>, CompileError> {
-        self.control_stack.get(0).ok_or(CompileError::Codegen(
-            "outermost_frame: invalid control stack depth".to_string(),
-        ))
+        self.control_stack.get(0).ok_or_else(|| {
+            CompileError::Codegen("outermost_frame: invalid control stack depth".to_string())
+        })
     }
 
     pub fn frame_at_depth(&self, depth: u32) -> Result<&ControlFrame<'ctx>, CompileError> {
@@ -244,9 +254,9 @@ impl<'ctx> State<'ctx> {
             .control_stack
             .len()
             .checked_sub(1 + (depth as usize))
-            .ok_or(CompileError::Codegen(
-                "frame_at_depth: invalid control stack depth".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                CompileError::Codegen("frame_at_depth: invalid control stack depth".to_string())
+            })?;
         Ok(&self.control_stack[index])
     }
 
@@ -258,23 +268,16 @@ impl<'ctx> State<'ctx> {
             .control_stack
             .len()
             .checked_sub(1 + (depth as usize))
-            .ok_or(CompileError::Codegen(
-                "frame_at_depth_mut: invalid control stack depth".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                CompileError::Codegen("frame_at_depth_mut: invalid control stack depth".to_string())
+            })?;
         Ok(&mut self.control_stack[index])
     }
 
     pub fn pop_frame(&mut self) -> Result<ControlFrame<'ctx>, CompileError> {
-        self.control_stack.pop().ok_or(CompileError::Codegen(
-            "pop_frame: cannot pop from control stack".to_string(),
-        ))
-    }
-
-    pub fn var_name(&self) -> String {
-        let counter = self.value_counter.get();
-        let s = format!("s{}", counter);
-        self.value_counter.set(counter + 1);
-        s
+        self.control_stack.pop().ok_or_else(|| {
+            CompileError::Codegen("pop_frame: cannot pop from control stack".to_string())
+        })
     }
 
     pub fn push1<T: BasicValue<'ctx>>(&mut self, value: T) {
@@ -290,9 +293,9 @@ impl<'ctx> State<'ctx> {
     }
 
     pub fn pop1_extra(&mut self) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), CompileError> {
-        self.stack.pop().ok_or(CompileError::Codegen(
-            "pop1_extra: invalid value stack".to_string(),
-        ))
+        self.stack
+            .pop()
+            .ok_or_else(|| CompileError::Codegen("pop1_extra: invalid value stack".to_string()))
     }
 
     pub fn pop2(&mut self) -> Result<(BasicValueEnum<'ctx>, BasicValueEnum<'ctx>), CompileError> {
@@ -332,13 +335,10 @@ impl<'ctx> State<'ctx> {
     }
 
     pub fn peek1_extra(&self) -> Result<(BasicValueEnum<'ctx>, ExtraInfo), CompileError> {
-        let index = self
-            .stack
-            .len()
-            .checked_sub(1)
-            .ok_or(CompileError::Codegen(
-                "peek1_extra: invalid value stack".to_string(),
-            ))?;
+        let index =
+            self.stack.len().checked_sub(1).ok_or_else(|| {
+                CompileError::Codegen("peek1_extra: invalid value stack".to_string())
+            })?;
         Ok(self.stack[index])
     }
 
@@ -350,13 +350,10 @@ impl<'ctx> State<'ctx> {
         &self,
         n: usize,
     ) -> Result<&[(BasicValueEnum<'ctx>, ExtraInfo)], CompileError> {
-        let index = self
-            .stack
-            .len()
-            .checked_sub(n)
-            .ok_or(CompileError::Codegen(
-                "peekn_extra: invalid value stack".to_string(),
-            ))?;
+        let index =
+            self.stack.len().checked_sub(n).ok_or_else(|| {
+                CompileError::Codegen("peekn_extra: invalid value stack".to_string())
+            })?;
         Ok(&self.stack[index..])
     }
 
@@ -374,9 +371,7 @@ impl<'ctx> State<'ctx> {
             .stack
             .len()
             .checked_sub(n)
-            .ok_or(CompileError::Codegen(
-                "popn: invalid value stack".to_string(),
-            ))?;
+            .ok_or_else(|| CompileError::Codegen("popn: invalid value stack".to_string()))?;
 
         self.stack.truncate(index);
         Ok(())
@@ -394,11 +389,13 @@ impl<'ctx> State<'ctx> {
         &mut self,
         body: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
+        loop_body_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         phis: SmallVec<[PhiValue<'ctx>; 1]>,
     ) {
         self.control_stack.push(ControlFrame::Loop {
             body,
             next,
+            loop_body_phis,
             phis,
             stack_size_snapshot: self.stack.len(),
         });
@@ -409,13 +406,17 @@ impl<'ctx> State<'ctx> {
         if_then: BasicBlock<'ctx>,
         if_else: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
-        phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        then_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        else_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
     ) {
         self.control_stack.push(ControlFrame::IfElse {
             if_then,
             if_else,
             next,
-            phis,
+            then_phis,
+            else_phis,
+            next_phis,
             stack_size_snapshot: self.stack.len(),
             if_else_state: IfElseState::If,
         });

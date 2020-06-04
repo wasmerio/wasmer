@@ -2,8 +2,8 @@
 name = "test-generator"
 version = "0.1.0"
 edition = "2018"
-private = true
+publish = false
 
 [dependencies]
-anyhow = "1.0.28"
-target-lexicon = "0.10.0"
+anyhow = "1.0"
+target-lexicon = "0.10"

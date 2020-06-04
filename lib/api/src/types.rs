@@ -1,14 +1,14 @@
-use crate::externals::Func;
+use crate::externals::Function;
 use crate::store::{Store, StoreObject};
 use crate::RuntimeError;
 use std::ptr;
 use wasm_common::Value;
 pub use wasm_common::{
-    AnyRef, ExportType, ExternType, FuncType, GlobalType, HostInfo, HostRef, ImportType,
+    AnyRef, ExportType, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Type as ValType,
 };
 
-pub type Val = Value<Func>;
+pub type Val = Value<Function>;
 
 impl StoreObject for Val {
     fn comes_from_same_store(&self, store: &Store) -> bool {
@@ -21,8 +21,8 @@ impl StoreObject for Val {
     }
 }
 
-impl From<Func> for Val {
-    fn from(val: Func) -> Val {
+impl From<Function> for Val {
+    fn from(val: Function) -> Val {
         Val::FuncRef(val)
     }
 }
@@ -59,14 +59,21 @@ impl ValAnyFunc for Val {
 
     fn from_checked_anyfunc(item: wasmer_runtime::VMCallerCheckedAnyfunc, store: &Store) -> Val {
         if item.type_index == wasmer_runtime::VMSharedSignatureIndex::default() {
-            Val::AnyRef(AnyRef::Null);
+            return Val::AnyRef(AnyRef::Null);
         }
+        let signature = store
+            .engine()
+            .lookup_signature(item.type_index)
+            .expect("Signature not found in store");
         let export = wasmer_runtime::ExportFunction {
             address: item.func_ptr,
-            signature: item.type_index,
+            signature,
+            // All functions in tables are already Static (as dynamic functions
+            // are converted to use the trampolines with static signatures).
+            kind: wasmer_runtime::VMFunctionKind::Static,
             vmctx: item.vmctx,
         };
-        let f = Func::from_export(store, export);
+        let f = Function::from_export(store, export);
         Val::FuncRef(f)
     }
 }

@@ -1,4 +1,4 @@
-use wasmer::{ExternType, ImportType, Module};
+use wasmer::{ExternType, Module};
 
 #[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.
@@ -44,7 +44,7 @@ const SNAPSHOT1_NAMESPACE: &str = "wasi_snapshot_preview1";
 /// detection is faster than the non-strict one.
 pub fn get_wasi_version(module: &Module, strict: bool) -> Option<WasiVersion> {
     let mut imports = module.imports().filter_map(|extern_| match extern_.ty() {
-        ExternType::Func(_f) => Some(extern_.module().to_owned()),
+        ExternType::Function(_f) => Some(extern_.module().to_owned()),
         _ => None,
     });
 

@@ -19,20 +19,30 @@ pub struct Table {
 
 impl Table {
     /// Create a new table instance with specified minimum and maximum number of elements.
-    pub fn new(plan: &TablePlan) -> Self {
+    pub fn new(plan: &TablePlan) -> Result<Self, String> {
         match plan.table.ty {
             Type::FuncRef => (),
-            ty => unimplemented!("tables of types other than anyfunc ({})", ty),
+            ty => return Err(format!("tables of types other than anyfunc ({})", ty)),
         };
+        if let Some(max) = plan.table.maximum {
+            if max < plan.table.minimum {
+                return Err(format!(
+                    "Table minimum ({}) is larger than maximum ({})!",
+                    plan.table.minimum, max
+                ));
+            }
+        }
         match plan.style {
-            TableStyle::CallerChecksSignature => Self {
+            TableStyle::CallerChecksSignature => Ok(Self {
                 vec: RefCell::new(vec![
                     VMCallerCheckedAnyfunc::default();
-                    usize::try_from(plan.table.minimum).unwrap()
+                    usize::try_from(plan.table.minimum).map_err(|_| {
+                        "Table minimum is bigger than usize".to_string()
+                    })?
                 ]),
                 maximum: plan.table.maximum,
                 plan: plan.clone(),
-            },
+            }),
         }
     }
 
@@ -49,9 +59,10 @@ impl Table {
     /// Grow table by the specified amount of elements.
     ///
     /// Returns `None` if table can't be grown by the specified amount
-    /// of elements.
+    /// of elements, otherwise returns the previous size of the table.
     pub fn grow(&self, delta: u32) -> Option<u32> {
-        let new_len = self.size().checked_add(delta)?;
+        let size = self.size();
+        let new_len = size.checked_add(delta)?;
         if self.maximum.map_or(false, |max| new_len > max) {
             return None;
         }
@@ -59,7 +70,7 @@ impl Table {
             usize::try_from(new_len).unwrap(),
             VMCallerCheckedAnyfunc::default(),
         );
-        Some(new_len)
+        Some(size)
     }
 
     /// Get reference to the specified element.
@@ -146,7 +157,7 @@ impl Table {
     ///
     /// This function is used in the `wasmer_runtime::Instance` to retrieve
     /// the host table pointer and interact with the host table directly.
-    pub fn as_mut_ptr(&self) -> *mut Table {
-        self as *const Table as *mut Table
+    pub fn as_mut_ptr(&self) -> *mut Self {
+        self as *const Self as *mut Self
     }
 }

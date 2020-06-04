@@ -12,6 +12,15 @@ pub struct SinglepassConfig {
     /// deterministically across different architectures.
     pub enable_nan_canonicalization: bool,
 
+    /// Enable stack check.
+    ///
+    /// When enabled, an explicit stack depth check will be performed on entry
+    /// to each function to prevent stack overflow.
+    ///
+    /// Note that this doesn't guarantee deterministic execution across
+    /// different platforms.
+    pub enable_stack_check: bool,
+
     features: Features,
     target: Target,
 }
@@ -19,9 +28,13 @@ pub struct SinglepassConfig {
 impl SinglepassConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(features: Features, target: Target) -> Self {
+    pub fn new(mut features: Features, target: Target) -> Self {
+        // Override the default multi-value switch
+        features.multi_value = false;
+
         Self {
             enable_nan_canonicalization: true,
+            enable_stack_check: false,
             features,
             target,
         }
@@ -34,6 +47,11 @@ impl CompilerConfig for SinglepassConfig {
         &self.features
     }
 
+    fn enable_pic(&mut self) {
+        // Do nothing, since singlepass already emits
+        // PIC code.
+    }
+
     /// Gets the target that we will use for compiling
     /// the WebAssembly module
     fn target(&self) -> &Target {
@@ -41,7 +59,7 @@ impl CompilerConfig for SinglepassConfig {
     }
 
     /// Transform it into the compiler
-    fn compiler(&self) -> Box<dyn Compiler> {
+    fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(SinglepassCompiler::new(&self))
     }
 }

@@ -8,7 +8,7 @@ use std::{
     ffi::c_void,
     sync::{Arc, Mutex},
 };
-use wasmer_jit::Resolver;
+use wasmer_engine::NamedResolver;
 use wasmer_runtime::Export;
 
 /// The `LikeNamespace` trait represents objects that act as a namespace for imports.
@@ -30,12 +30,12 @@ pub trait LikeNamespace {
 ///
 /// # Usage:
 /// ```ignore
-/// use wasmer::{ImportObject, Exports};
+/// use wasmer::{Exports, ImportObject, Function};
 ///
 /// let mut import_object = ImportObject::new();
 /// let mut env = Exports::new();
 ///
-/// env.insert("foo", func!(foo));
+/// env.insert("foo", Function::new(foo));
 /// import_object.register("env", env);
 ///
 /// fn foo(n: i32) -> i32 {
@@ -151,8 +151,8 @@ impl ImportObject {
     }
 }
 
-impl Resolver for ImportObject {
-    fn resolve(&self, _idx: u32, module: &str, name: &str) -> Option<Export> {
+impl NamedResolver for ImportObject {
+    fn resolve_by_name(&self, module: &str, name: &str) -> Option<Export> {
         self.get_export(module, name)
     }
 }
@@ -180,12 +180,6 @@ impl IntoIterator for ImportObject {
     }
 }
 
-impl Extend<((String, String), Export)> for ImportObject {
-    fn extend<T: IntoIterator<Item = ((String, String), Export)>>(&mut self, _iter: T) {
-        unimplemented!("Extend not yet implemented");
-    }
-}
-
 // The import! macro for ImportObject
 
 /// Generate an [`ImportObject`] easily with the `imports!` macro.
@@ -194,13 +188,15 @@ impl Extend<((String, String), Export)> for ImportObject {
 ///
 ///
 /// # Usage:
-/// ```ignore
-/// use wasmer::{imports, func};
+/// ```
+/// # use wasmer::{Function, Store};
+/// # let store = Store::default();
+/// use wasmer::imports;
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => func!(foo),
-///     },
+///         "foo" => Function::new(&store, foo)
+///     }
 /// };
 ///
 /// fn foo(n: i32) -> i32 {
@@ -208,6 +204,7 @@ impl Extend<((String, String), Export)> for ImportObject {
 /// }
 /// ```
 #[macro_export]
+// TOOD: port of lost fixes of imports macro from wasmer master/imports macro tests
 macro_rules! imports {
     ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {{
         use $crate::ImportObject;
@@ -224,24 +221,8 @@ macro_rules! imports {
     }};
 }
 
-/// Generate an [`Namespace`] easily with the `namespace!` macro.
-///
-/// [`Namespace`]: struct.Namespace.html
-///
-///
-/// # Usage:
-/// ```ignore
-/// use wasmer::{namespace, func};
-///
-/// let env = namespace! {
-///     "foo" => func!(foo),
-/// };
-///
-/// fn foo(n: i32) -> i32 {
-///     n
-/// }
-/// ```
 #[macro_export]
+#[doc(hidden)]
 macro_rules! namespace {
     ($( $imp_name:expr => $import_item:expr ),* $(,)? ) => {
         $crate::import_namespace!({ $( $imp_name => $import_item, )* })
@@ -265,17 +246,18 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::{Global, Store, Val};
     use wasm_common::Type;
+    use wasmer_engine::ChainableNamedResolver;
     use wasmer_runtime::Export;
 
     #[test]
-    #[ignore]
-    fn extending_works() {
+    fn chaining_works() {
         let store = Store::default();
         let g = Global::new(&store, Val::I32(0));
 
-        let mut imports1 = imports! {
+        let imports1 = imports! {
             "dog" => {
                 "happy" => g.clone()
             }
@@ -290,25 +272,24 @@ mod test {
             }
         };
 
-        imports1.extend(imports2);
+        let resolver = imports1.chain_front(imports2);
 
-        let small_cat_export = imports1.get_export("cat", "small");
+        let small_cat_export = resolver.resolve_by_name("cat", "small");
         assert!(small_cat_export.is_some());
 
-        let happy = imports1.get_export("dog", "happy");
-        let small = imports1.get_export("dog", "small");
+        let happy = resolver.resolve_by_name("dog", "happy");
+        let small = resolver.resolve_by_name("dog", "small");
         assert!(happy.is_some());
         assert!(small.is_some());
     }
 
     #[test]
-    #[ignore]
     fn extending_conflict_overwrites() {
         let store = Store::default();
         let g1 = Global::new(&store, Val::I32(0));
         let g2 = Global::new(&store, Val::I64(0));
 
-        let mut imports1 = imports! {
+        let imports1 = imports! {
             "dog" => {
                 "happy" => g1,
             },
@@ -320,11 +301,37 @@ mod test {
             },
         };
 
-        imports1.extend(imports2);
-        let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
+        let resolver = imports1.chain_front(imports2);
+        let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
             happy_dog_global.global.ty == Type::I64
+        } else {
+            false
+        });
+
+        // now test it in reverse
+        let store = Store::default();
+        let g1 = Global::new(&store, Val::I32(0));
+        let g2 = Global::new(&store, Val::I64(0));
+
+        let imports1 = imports! {
+            "dog" => {
+                "happy" => g1,
+            },
+        };
+
+        let imports2 = imports! {
+            "dog" => {
+                "happy" => g2,
+            },
+        };
+
+        let resolver = imports1.chain_back(imports2);
+        let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
+
+        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.global.ty == Type::I32
         } else {
             false
         });
@@ -341,7 +348,7 @@ mod test {
             "dog" => namespace
         };
 
-        let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
+        let happy_dog_entry = imports1.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
             happy_dog_global.global.ty == Type::I32

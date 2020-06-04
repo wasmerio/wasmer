@@ -2,18 +2,23 @@
 // Allow unused imports while developing.
 #![allow(unused_imports, dead_code)]
 
+use crate::codegen_x64::{
+    gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
+    CodegenError, FuncGen,
+};
 use crate::config::SinglepassConfig;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
-use wasm_common::{FuncIndex, FuncType, LocalFuncIndex, MemoryIndex, TableIndex};
-use wasmer_compiler::FunctionBodyData;
+use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
+use wasmer_compiler::wasmparser::{BinaryReader, BinaryReaderError};
 use wasmer_compiler::TrapInformation;
-use wasmer_compiler::{Compilation, CompileError, Compiler, FunctionBody};
+use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
-use wasmer_runtime::Module;
+use wasmer_compiler::{FunctionBody, FunctionBodyData};
+use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::TrapCode;
-use wasmer_runtime::{MemoryPlan, TablePlan};
+use wasmer_runtime::{MemoryPlan, TablePlan, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
@@ -46,32 +51,113 @@ impl Compiler for SinglepassCompiler {
         self.config.target()
     }
 
-    /// Compile the module using LLVM, producing a compilation result with
+    /// Compile the module using Singlepass, producing a compilation result with
     /// associated relocations.
     fn compile_module(
         &self,
-        _module: &Module,
+        module: &ModuleInfo,
         _module_translation: &ModuleTranslationState,
-        _function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'_>>,
-        _memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        _table_plans: PrimaryMap<TableIndex, TablePlan>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
+        table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
-        // Note to implementors: please use rayon paralell iterator to generate
-        // the machine code in parallel.
-        // Here's an example on how Cranelift is doing it:
-        // https://github.com/wasmerio/wasmer-reborn/blob/master/lib/compiler-cranelift/src/compiler.rs#L202-L267
-        Err(CompileError::Codegen(
-            "Singlepass compilation not supported yet".to_owned(),
-        ))
+        let vmoffsets = VMOffsets::new(8, module);
+        let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
+            .map(FunctionIndex::new)
+            .collect::<Vec<_>>()
+            .into_par_iter()
+            .map(|i| {
+                gen_import_call_trampoline(&vmoffsets, i, &module.signatures[module.functions[i]])
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect();
+        let functions = function_body_inputs
+            .into_iter()
+            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
+            .par_iter()
+            .map(|(i, input)| {
+                let mut reader = BinaryReader::new_with_offset(input.data, input.module_offset);
+
+                // This local list excludes arguments.
+                let mut locals = vec![];
+                let num_locals = reader.read_local_count().map_err(to_compile_error)?;
+                for _ in 0..num_locals {
+                    let mut counter = 0;
+                    let (count, ty) = reader
+                        .read_local_decl(&mut counter)
+                        .map_err(to_compile_error)?;
+                    for _ in 0..count {
+                        locals.push(ty);
+                    }
+                }
+
+                let mut generator = FuncGen::new(
+                    module,
+                    &self.config,
+                    &vmoffsets,
+                    &memory_plans,
+                    &table_plans,
+                    *i,
+                    &locals,
+                )
+                .map_err(to_compile_error)?;
+
+                while generator.has_control_frames() {
+                    let op = reader.read_operator().map_err(to_compile_error)?;
+                    generator.feed_operator(op).map_err(to_compile_error)?;
+                }
+
+                Ok(generator.finalize())
+            })
+            .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
+            .into_iter()
+            .collect::<PrimaryMap<LocalFunctionIndex, CompiledFunction>>();
+
+        Ok(Compilation::new(functions, import_trampolines))
     }
 
-    fn compile_wasm_trampolines(
+    fn compile_function_call_trampolines(
         &self,
-        _signatures: &[FuncType],
+        signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError> {
-        // Note: do not implement this yet
-        Err(CompileError::Codegen(
-            "Singlepass trampoline compilation not supported yet".to_owned(),
-        ))
+        Ok(signatures
+            .par_iter()
+            .cloned()
+            .map(gen_std_trampoline)
+            .collect())
     }
+
+    fn compile_dynamic_function_trampolines(
+        &self,
+        signatures: &[FunctionType],
+    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
+        let vmoffsets = VMOffsets::new_for_trampolines(8);
+        Ok(signatures
+            .par_iter()
+            .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
+    }
+}
+
+trait ToCompileError {
+    fn to_compile_error(self) -> CompileError;
+}
+
+impl ToCompileError for BinaryReaderError {
+    fn to_compile_error(self) -> CompileError {
+        CompileError::Codegen(self.message().into())
+    }
+}
+
+impl ToCompileError for CodegenError {
+    fn to_compile_error(self) -> CompileError {
+        CompileError::Codegen(self.message)
+    }
+}
+
+fn to_compile_error<T: ToCompileError>(x: T) -> CompileError {
+    x.to_compile_error()
 }

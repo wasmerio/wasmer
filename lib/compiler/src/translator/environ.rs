@@ -1,19 +1,19 @@
-use super::error::{WasmError, WasmResult};
 use super::module::translate_module;
 use super::state::ModuleTranslationState;
-use crate::std::borrow::ToOwned;
-use crate::std::string::ToString;
-use crate::std::{boxed::Box, string::String, vec::Vec};
-use std::convert::TryFrom;
+use crate::lib::std::borrow::ToOwned;
+use crate::lib::std::string::ToString;
+use crate::lib::std::{boxed::Box, string::String, vec::Vec};
+use crate::{WasmError, WasmResult};
+use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::FuncType;
+use wasm_common::FunctionType;
 use wasm_common::{
-    DataIndex, DataInitializer, DataInitializerLocation, ElemIndex, ExportIndex, FuncIndex,
-    GlobalIndex, GlobalType, ImportIndex, LocalFuncIndex, MemoryIndex, MemoryType, SignatureIndex,
-    TableIndex, TableType,
+    CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
+    ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
+    LocalFunctionIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType,
 };
-use wasmer_runtime::{Module, TableElements};
+use wasmer_runtime::{ModuleInfo, TableElements};
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]
@@ -29,12 +29,12 @@ pub struct FunctionBodyData<'a> {
 /// yet translated, and data initializers have not yet been copied out of the
 /// original buffer.
 /// The function bodies will be translated by a specific compiler backend.
-pub struct ModuleTranslation<'data> {
-    /// Module information.
-    pub module: Module,
+pub struct ModuleInfoTranslation<'data> {
+    /// ModuleInfo information.
+    pub module: ModuleInfo,
 
     /// References to the function bodies.
-    pub function_body_inputs: PrimaryMap<LocalFuncIndex, FunctionBodyData<'data>>,
+    pub function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
 
     /// References to the data initializers.
     pub data_initializers: Vec<DataInitializer<'data>>,
@@ -46,7 +46,7 @@ pub struct ModuleTranslation<'data> {
 /// Object containing the standalone environment information.
 pub struct ModuleEnvironment<'data> {
     /// The result to be filled in.
-    pub result: ModuleTranslation<'data>,
+    pub result: ModuleInfoTranslation<'data>,
     imports: u32,
 }
 
@@ -54,8 +54,8 @@ impl<'data> ModuleEnvironment<'data> {
     /// Allocates the environment data structures.
     pub fn new() -> Self {
         Self {
-            result: ModuleTranslation {
-                module: Module::new(),
+            result: ModuleInfoTranslation {
+                module: ModuleInfo::new(),
                 function_body_inputs: PrimaryMap::new(),
                 data_initializers: Vec::new(),
                 module_translation: None,
@@ -65,8 +65,8 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     /// Translate a wasm module using this environment. This consumes the
-    /// `ModuleEnvironment` and produces a `ModuleTranslation`.
-    pub fn translate(mut self, data: &'data [u8]) -> WasmResult<ModuleTranslation<'data>> {
+    /// `ModuleEnvironment` and produces a `ModuleInfoTranslation`.
+    pub fn translate(mut self, data: &'data [u8]) -> WasmResult<ModuleInfoTranslation<'data>> {
         assert!(self.result.module_translation.is_none());
         let module_translation = translate_module(data, &mut self)?;
         self.result.module_translation = Some(module_translation);
@@ -102,7 +102,7 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn declare_signature(&mut self, sig: FuncType) -> WasmResult<()> {
+    pub(crate) fn declare_signature(&mut self, sig: FunctionType) -> WasmResult<()> {
         // TODO: Deduplicate signatures.
         self.result.module.signatures.push(sig);
         Ok(())
@@ -120,7 +120,7 @@ impl<'data> ModuleEnvironment<'data> {
             "Imported functions must be declared first"
         );
         self.declare_import(
-            ImportIndex::Function(FuncIndex::from_u32(
+            ImportIndex::Function(FunctionIndex::from_u32(
                 self.result.module.num_imported_funcs as _,
             )),
             module,
@@ -263,8 +263,13 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn declare_global(&mut self, global: GlobalType) -> WasmResult<()> {
+    pub(crate) fn declare_global(
+        &mut self,
+        global: GlobalType,
+        initializer: GlobalInit,
+    ) -> WasmResult<()> {
         self.result.module.globals.push(global);
+        self.result.module.global_initializers.push(initializer);
         Ok(())
     }
 
@@ -278,7 +283,7 @@ impl<'data> ModuleEnvironment<'data> {
 
     pub(crate) fn declare_func_export(
         &mut self,
-        func_index: FuncIndex,
+        func_index: FunctionIndex,
         name: &str,
     ) -> WasmResult<()> {
         self.declare_export(ExportIndex::Function(func_index), name)
@@ -308,7 +313,7 @@ impl<'data> ModuleEnvironment<'data> {
         self.declare_export(ExportIndex::Global(global_index), name)
     }
 
-    pub(crate) fn declare_start_func(&mut self, func_index: FuncIndex) -> WasmResult<()> {
+    pub(crate) fn declare_start_func(&mut self, func_index: FunctionIndex) -> WasmResult<()> {
         debug_assert!(self.result.module.start_func.is_none());
         self.result.module.start_func = Some(func_index);
         Ok(())
@@ -327,7 +332,7 @@ impl<'data> ModuleEnvironment<'data> {
         table_index: TableIndex,
         base: Option<GlobalIndex>,
         offset: usize,
-        elements: Box<[FuncIndex]>,
+        elements: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
         self.result.module.table_elements.push(TableElements {
             table_index,
@@ -341,7 +346,7 @@ impl<'data> ModuleEnvironment<'data> {
     pub(crate) fn declare_passive_element(
         &mut self,
         elem_index: ElemIndex,
-        segments: Box<[FuncIndex]>,
+        segments: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
         let old = self
             .result
@@ -423,7 +428,7 @@ impl<'data> ModuleEnvironment<'data> {
 
     pub(crate) fn declare_func_name(
         &mut self,
-        func_index: FuncIndex,
+        func_index: FunctionIndex,
         name: &'data str,
     ) -> WasmResult<()> {
         self.result
@@ -445,11 +450,23 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     /// Indicates that a custom section has been found in the wasm file
-    pub(crate) fn custom_section(
-        &mut self,
-        _name: &'data str,
-        _data: &'data [u8],
-    ) -> WasmResult<()> {
+    pub(crate) fn custom_section(&mut self, name: &'data str, data: &'data [u8]) -> WasmResult<()> {
+        let custom_section = CustomSectionIndex::from_u32(
+            self.result
+                .module
+                .custom_sections_data
+                .len()
+                .try_into()
+                .unwrap(),
+        );
+        self.result
+            .module
+            .custom_sections
+            .insert(String::from(name), custom_section);
+        self.result
+            .module
+            .custom_sections_data
+            .push(Arc::from(data));
         Ok(())
     }
 }

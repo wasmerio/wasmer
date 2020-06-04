@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 /// Index type of a function defined locally inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct LocalFuncIndex(u32);
-entity_impl!(LocalFuncIndex);
+pub struct LocalFunctionIndex(u32);
+entity_impl!(LocalFunctionIndex);
 
 /// Index type of a table defined locally inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -31,8 +31,8 @@ entity_impl!(LocalGlobalIndex);
 /// Index type of a function (imported or local) inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct FuncIndex(u32);
-entity_impl!(FuncIndex);
+pub struct FunctionIndex(u32);
+entity_impl!(FunctionIndex);
 
 /// Index type of a table (imported or local) inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -70,12 +70,18 @@ entity_impl!(DataIndex);
 pub struct ElemIndex(u32);
 entity_impl!(ElemIndex);
 
+/// Index type of a custom section inside a WebAssembly module.
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct CustomSectionIndex(u32);
+entity_impl!(CustomSectionIndex);
+
 /// An entity to export.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ExportIndex {
     /// Function export.
-    Function(FuncIndex),
+    Function(FunctionIndex),
     /// Table export.
     Table(TableIndex),
     /// Memory export.
@@ -89,7 +95,7 @@ pub enum ExportIndex {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ImportIndex {
     /// Function import.
-    Function(FuncIndex),
+    Function(FunctionIndex),
     /// Table import.
     Table(TableIndex),
     /// Memory import.

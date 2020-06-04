@@ -1001,7 +1001,7 @@ pub fn fd_readdir(
                     .map(|(name, inode)| {
                         let entry = &state.fs.inodes[*inode];
                         (
-                            format!("{}", entry.name),
+                            entry.name.to_string(),
                             entry.stat.st_filetype,
                             entry.stat.st_ino,
                         )
@@ -1456,7 +1456,7 @@ pub fn path_filestat_get(
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     ));
     let stat = if state.fs.inodes[file_inode].is_preopened {
-        state.fs.inodes[file_inode].stat.clone()
+        state.fs.inodes[file_inode].stat
     } else {
         wasi_try!(state
             .fs
@@ -1998,7 +1998,7 @@ pub fn path_remove_directory(
         ),
     }
 
-    if let Err(_) = std::fs::remove_dir(path_str) {
+    if std::fs::remove_dir(path_str).is_err() {
         // reinsert to prevent FS from being in bad state
         if let Kind::Dir {
             ref mut entries, ..

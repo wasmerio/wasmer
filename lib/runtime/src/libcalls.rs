@@ -34,29 +34,33 @@
 
 use crate::probestack::PROBESTACK;
 use crate::table::Table;
-use crate::trap::raise_lib_trap;
+use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasm_common::{DataIndex, ElemIndex, LocalMemoryIndex, MemoryIndex, TableIndex};
 
 /// Implementation of f32.ceil
+#[no_mangle]
 pub extern "C" fn wasmer_f32_ceil(x: f32) -> f32 {
     x.ceil()
 }
 
 /// Implementation of f32.floor
+#[no_mangle]
 pub extern "C" fn wasmer_f32_floor(x: f32) -> f32 {
     x.floor()
 }
 
 /// Implementation of f32.trunc
+#[no_mangle]
 pub extern "C" fn wasmer_f32_trunc(x: f32) -> f32 {
     x.trunc()
 }
 
 /// Implementation of f32.nearest
 #[allow(clippy::float_arithmetic, clippy::float_cmp)]
+#[no_mangle]
 pub extern "C" fn wasmer_f32_nearest(x: f32) -> f32 {
     // Rust doesn't have a nearest function, so do it manually.
     if x == 0.0 {
@@ -82,22 +86,26 @@ pub extern "C" fn wasmer_f32_nearest(x: f32) -> f32 {
 }
 
 /// Implementation of f64.ceil
+#[no_mangle]
 pub extern "C" fn wasmer_f64_ceil(x: f64) -> f64 {
     x.ceil()
 }
 
 /// Implementation of f64.floor
+#[no_mangle]
 pub extern "C" fn wasmer_f64_floor(x: f64) -> f64 {
     x.floor()
 }
 
 /// Implementation of f64.trunc
+#[no_mangle]
 pub extern "C" fn wasmer_f64_trunc(x: f64) -> f64 {
     x.trunc()
 }
 
 /// Implementation of f64.nearest
 #[allow(clippy::float_arithmetic, clippy::float_cmp)]
+#[no_mangle]
 pub extern "C" fn wasmer_f64_nearest(x: f64) -> f64 {
     // Rust doesn't have a nearest function, so do it manually.
     if x == 0.0 {
@@ -319,12 +327,20 @@ pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32
     instance.data_drop(data_index)
 }
 
+/// Implementation for raising a trap
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
+    let trap = Trap::wasm(trap_code);
+    raise_lib_trap(trap)
+}
+
+/// Probestack check
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_probestack() {
+    PROBESTACK();
+}
+
 /// The name of a runtime library routine.
-///
-/// Runtime library calls are generated for Cranelift IR instructions that don't have an equivalent
-/// ISA instruction or an easy macro expansion. A `LibCall` is used as a well-known name to refer to
-/// the runtime library routine. This way, Cranelift doesn't have to know about the naming
-/// convention in the embedding VM's runtime library.
 ///
 /// This list is likely to grow over time.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -348,6 +364,8 @@ pub enum LibCall {
     NearestF32,
     /// nearest.f64
     NearestF64,
+    /// A custom trap
+    RaiseTrap,
     // /// libc.memcpy
     // Memcpy,
     // /// libc.memset
@@ -371,6 +389,7 @@ impl LibCall {
             Self::FloorF64 => wasmer_f64_floor as usize,
             Self::TruncF64 => wasmer_f64_trunc as usize,
             Self::NearestF64 => wasmer_f64_nearest as usize,
+            Self::RaiseTrap => wasmer_raise_trap as usize,
             Self::Probestack => PROBESTACK as usize,
             // other => panic!("unexpected libcall: {}", other),
         }

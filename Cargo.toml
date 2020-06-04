@@ -19,62 +19,91 @@ default-run = "wasmer"
 publish = false
 autoexamples = false
 
+[[bin]]
+name = "wasmer"
+path = "src/bin/wasmer.rs"
+doc = false
+
 [dependencies]
-wasmer = { path = "lib/api" }
-wasmer-compiler = { path = "lib/compiler" }
-wasmer-compiler-cranelift = { path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { path = "lib/compiler-llvm", optional = true }
-wasmer-jit = { path = "lib/jit" }
-wasmer-wasi = { path = "lib/wasi", optional = true }
-wasmer-wasi-experimental-io-devices = { path = "lib/wasi-experimental-io-devices", optional = true }
-wasmer-wast = { path = "tests/lib/wast", optional = true }
-wasmer-cache = { path = "lib/cache", optional = true }
+wasmer = { version = "0.16.2", path = "lib/api", default-features = false }
+wasmer-compiler = { version = "0.16.2", path = "lib/compiler" }
+wasmer-compiler-cranelift = { version = "0.16.2", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "0.16.2", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "0.16.2", path = "lib/compiler-llvm", optional = true }
+#wasmer-emscripten = { version = "0.16.2", path = "lib/emscripten", optional = true }
+wasmer-engine = { version = "0.16.2", path = "lib/engine" }
+wasmer-engine-jit = { version = "0.16.2", path = "lib/engine-jit", optional = true }
+wasmer-engine-native = { version = "0.16.2", path = "lib/engine-native", optional = true }
+wasmer-wasi = { version = "0.16.2", path = "lib/wasi", optional = true }
+wasmer-wasi-experimental-io-devices = { version = "0.16.2", path = "lib/wasi-experimental-io-devices", optional = true }
+wasmer-wast = { version = "0.16.2", path = "tests/lib/wast", optional = true }
+wasmer-cache = { version = "0.16.2", path = "lib/cache", optional = true }
+wasm-common = { version = "0.16.2", path = "lib/wasm-common" }
 atty = "0.2"
-anyhow = "1.0.28"
+colored = "1.9"
+anyhow = "1.0"
 structopt = { version = "0.3", features = ["suggestions"] }
+# For the function names autosuggestion
+distance = "0.4"
+# For the inspect subcommand
+bytesize = "1.0"
+cfg-if = "0.1"
 
 [workspace]
 members = [
+    "lib/c-api",
 ]
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
-anyhow = "1.0.28"
+anyhow = "1.0"
 glob = "0.3"
 rustc_version = "0.2"
 
 [dev-dependencies]
-anyhow = "1.0.28"
+anyhow = "1.0"
+blake3 = "0.3"
 test-utils = { path = "tests/lib/test-utils" }
-wasmer = { path = "lib/api" }
-wasmer-compiler = { path = "lib/compiler" }
-wasmer-jit = { path = "lib/jit" }
-wasmer-wast = { path = "tests/lib/wast" }
+wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 
 [features]
-# Don't add the backend features in default, please add them on the Makefile
+# Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-# default = ["wasi"]
-default = ["wast", "wasi", "experimental-io-devices", "compiler-cranelift", "cache"]
+default = ["wat", "wast", "wasi", "cache", "jit", "native"]
+engine = []
+jit = [
+    "wasmer-engine-jit",
+    "engine",
+]
+native = [
+    "wasmer-engine-native",
+    "engine",
+]
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
+#emscripten = ["wasmer-emscripten"]
+wat = ["wasmer/wat"]
+compiler = ["wasmer-engine-jit/compiler", "wasmer-engine-native/compiler"]
 experimental-io-devices = [
-    "wasmer-wasi-experimental-io-devices"
+    "wasmer-wasi-experimental-io-devices",
+    "wasi"
 ]
-compiler-singlepass = [
-    "test-utils/compiler-singlepass",
-    "wasmer/compiler-singlepass",
+singlepass = [
     "wasmer-compiler-singlepass",
+    "test-utils/singlepass",
+    "compiler",
 ]
-compiler-cranelift = [
-    "test-utils/compiler-cranelift",
-    "wasmer/compiler-cranelift",
+cranelift = [
     "wasmer-compiler-cranelift",
+    "test-utils/cranelift",
+    "compiler",
 ]
-compiler-llvm = [
-    "test-utils/compiler-llvm",
-    "wasmer/compiler-llvm",
+llvm = [
     "wasmer-compiler-llvm",
+    "test-utils/llvm",
+    "compiler",
 ]
+
+# [profile.release]
+# lto  = "fat"

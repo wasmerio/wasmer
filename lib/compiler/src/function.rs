@@ -5,22 +5,26 @@
 //! * `jit`: to generate a JIT
 //! * `obj`: to generate a native object
 
+use crate::lib::std::vec::Vec;
 use crate::section::{CustomSection, SectionIndex};
-use crate::std::vec::Vec;
 use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
 use wasm_common::entity::PrimaryMap;
-use wasm_common::LocalFuncIndex;
+use wasm_common::LocalFunctionIndex;
 
 /// The frame info for a Compiled function.
 ///
 /// This structure is only used for reconstructing
 /// the frame information after a `Trap`.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CompiledFunctionFrameInfo {
-    /// The traps (in the function body)
+    /// The traps (in the function body).
+    ///
+    /// Code offsets of the traps MUST be in ascending order.
     pub traps: Vec<TrapInformation>,
 
     /// The address map.
@@ -28,14 +32,15 @@ pub struct CompiledFunctionFrameInfo {
 }
 
 /// The function body.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionBody {
     /// The function body bytes.
-    #[serde(with = "serde_bytes")]
+    #[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))]
     pub body: Vec<u8>,
 
     /// The function unwind info
-    pub unwind_info: CompiledFunctionUnwindInfo,
+    pub unwind_info: Option<CompiledFunctionUnwindInfo>,
 }
 
 /// The result of compiling a WebAssembly function.
@@ -43,7 +48,8 @@ pub struct FunctionBody {
 /// This structure only have the compiled information data
 /// (function bytecode body, relocations, traps, jump tables
 /// and unwind information).
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledFunction {
     /// The function body.
     pub body: FunctionBody,
@@ -59,13 +65,14 @@ pub struct CompiledFunction {
 }
 
 /// The compiled functions map (index in the Wasm -> function)
-pub type Functions = PrimaryMap<LocalFuncIndex, CompiledFunction>;
+pub type Functions = PrimaryMap<LocalFunctionIndex, CompiledFunction>;
 
 /// The custom sections for a Compilation.
 pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 
 /// The result of compiling a WebAssembly module's functions.
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Compilation {
     /// Compiled code for the function bodies.
     functions: Functions,
@@ -85,7 +92,7 @@ impl Compilation {
     }
 
     /// Gets the bytes of a single function
-    pub fn get(&self, func: LocalFuncIndex) -> &CompiledFunction {
+    pub fn get(&self, func: LocalFunctionIndex) -> &CompiledFunction {
         &self.functions[func]
     }
 
@@ -99,36 +106,49 @@ impl Compilation {
         self.functions.is_empty()
     }
 
-    /// Gets functions jump table offsets.
-    pub fn get_relocations(&self) -> PrimaryMap<LocalFuncIndex, Vec<Relocation>> {
+    /// Gets functions relocations.
+    pub fn get_relocations(&self) -> PrimaryMap<LocalFunctionIndex, Vec<Relocation>> {
         self.functions
             .iter()
             .map(|(_, func)| func.relocations.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
-    /// Gets functions jump table offsets.
-    pub fn get_function_bodies(&self) -> PrimaryMap<LocalFuncIndex, FunctionBody> {
+    /// Gets functions bodies.
+    pub fn get_function_bodies(&self) -> PrimaryMap<LocalFunctionIndex, FunctionBody> {
         self.functions
             .iter()
             .map(|(_, func)| func.body.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
     /// Gets functions jump table offsets.
-    pub fn get_jt_offsets(&self) -> PrimaryMap<LocalFuncIndex, JumpTableOffsets> {
+    pub fn get_jt_offsets(&self) -> PrimaryMap<LocalFunctionIndex, JumpTableOffsets> {
         self.functions
             .iter()
             .map(|(_, func)| func.jt_offsets.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
-    /// Gets functions jump table offsets.
-    pub fn get_frame_info(&self) -> PrimaryMap<LocalFuncIndex, CompiledFunctionFrameInfo> {
+    /// Gets functions frame info.
+    pub fn get_frame_info(&self) -> PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
         self.functions
             .iter()
             .map(|(_, func)| func.frame_info.clone())
-            .collect::<PrimaryMap<LocalFuncIndex, _>>()
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+    }
+
+    /// Gets custom section data.
+    pub fn get_custom_sections(&self) -> PrimaryMap<SectionIndex, CustomSection> {
+        self.custom_sections.clone()
+    }
+
+    /// Gets relocations that apply to custom sections.
+    pub fn get_custom_section_relocations(&self) -> PrimaryMap<SectionIndex, Vec<Relocation>> {
+        self.custom_sections
+            .iter()
+            .map(|(_, section)| section.relocations.clone())
+            .collect::<PrimaryMap<SectionIndex, _>>()
     }
 }
 

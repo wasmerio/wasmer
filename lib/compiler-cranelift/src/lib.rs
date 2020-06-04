@@ -50,16 +50,15 @@ mod compiler;
 mod config;
 mod debug;
 mod func_environ;
+mod sink;
 mod trampoline;
 mod translator;
-mod unwind;
 
-pub use crate::compiler::{transform_jump_table, CraneliftCompiler};
+pub use crate::compiler::CraneliftCompiler;
 pub use crate::config::CraneliftConfig;
 pub use crate::debug::{FrameLayout, FrameLayoutChange, FrameLayouts};
-pub use crate::debug::{ModuleMemoryOffset, ModuleVmctxInfo, ValueLabelsRanges};
-pub use crate::trampoline::make_wasm_trampoline;
-pub use crate::unwind::compiled_function_unwind_info;
+pub use crate::debug::{ModuleInfoMemoryOffset, ModuleInfoVmctxInfo, ValueLabelsRanges};
+pub use crate::trampoline::make_trampoline_function_call;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

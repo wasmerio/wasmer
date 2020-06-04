@@ -1,5 +1,4 @@
-use crate::std::string::String;
-use crate::translator::WasmError;
+use crate::lib::std::string::String;
 use thiserror::Error;
 
 // Compilation Errors
@@ -28,3 +27,39 @@ pub enum CompileError {
     #[error("Insufficient resources: {0}")]
     Resource(String),
 }
+
+/// A WebAssembly translation error.
+///
+/// When a WebAssembly function can't be translated, one of these error codes will be returned
+/// to describe the failure.
+#[derive(Error, Debug)]
+pub enum WasmError {
+    /// The input WebAssembly code is invalid.
+    ///
+    /// This error code is used by a WebAssembly translator when it encounters invalid WebAssembly
+    /// code. This should never happen for validated WebAssembly code.
+    #[error("Invalid input WebAssembly code at offset {offset}: {message}")]
+    InvalidWebAssembly {
+        /// A string describing the validation error.
+        message: String,
+        /// The bytecode offset where the error occurred.
+        offset: usize,
+    },
+
+    /// A feature used by the WebAssembly code is not supported by the embedding environment.
+    ///
+    /// Embedding environments may have their own limitations and feature restrictions.
+    #[error("Unsupported feature: {0}")]
+    Unsupported(String),
+
+    /// An implementation limit was exceeded.
+    #[error("Implementation limit exceeded")]
+    ImplLimitExceeded,
+
+    /// A generic error.
+    #[error("{0}")]
+    Generic(String),
+}
+
+/// A convenient alias for a `Result` that uses `WasmError` as the error type.
+pub type WasmResult<T> = Result<T, WasmError>;

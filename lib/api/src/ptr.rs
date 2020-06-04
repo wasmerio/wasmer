@@ -26,7 +26,7 @@ pub struct Item;
 /// # use wasmer::Memory;
 /// # use wasmer::WasmPtr;
 /// pub fn host_import(memory: Memory, ptr: WasmPtr<u32>) {
-///     let derefed_ptr = ptr.deref(memory).expect("pointer in bounds");
+///     let derefed_ptr = ptr.deref(&memory).expect("pointer in bounds");
 ///     let inner_val: u32 = derefed_ptr.get();
 ///     println!("Got {} from Wasm memory address 0x{:X}", inner_val, ptr.offset());
 ///     // update the value being pointed to
@@ -272,7 +272,7 @@ mod test {
         // create a memory
         let store = Store::default();
         let memory_descriptor = MemoryType::new(1, Some(1), false);
-        let memory = Memory::new(&store, memory_descriptor);
+        let memory = Memory::new(&store, memory_descriptor).unwrap();
 
         // test that basic access works and that len = 0 works, but oob does not
         let start_wasm_ptr: WasmPtr<u8> = WasmPtr::new(0);

@@ -1,0 +1,40 @@
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use wasm_common::entity::PrimaryMap;
+use wasm_common::{
+    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
+};
+use wasmer_compiler::{CustomSection, FunctionBody, JumpTableOffsets, Relocation, SectionIndex};
+use wasmer_engine::SerializableFunctionFrameInfo;
+use wasmer_runtime::ModuleInfo;
+use wasmer_runtime::{MemoryPlan, TablePlan};
+
+/// The compilation related data for a serialized modules
+#[derive(Serialize, Deserialize)]
+pub struct SerializableCompilation {
+    pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
+    pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
+    pub function_jt_offsets: PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
+    // This is `SerializableFunctionFrameInfo` instead of `CompiledFunctionFrameInfo`,
+    // to allow lazy frame_info deserialization, we convert it to it's lazy binary
+    // format upon serialization.
+    pub function_frame_info: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
+    pub function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
+    pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
+    pub custom_sections: PrimaryMap<SectionIndex, CustomSection>,
+    pub custom_section_relocations: PrimaryMap<SectionIndex, Vec<Relocation>>,
+}
+
+/// Serializable struct that is able to serialize from and to
+/// a `JITArtifactInfo`.
+#[derive(Serialize, Deserialize)]
+pub struct SerializableModule {
+    pub compilation: SerializableCompilation,
+    pub features: Features,
+    pub module: Arc<ModuleInfo>,
+    pub data_initializers: Box<[OwnedDataInitializer]>,
+    // Plans for that module
+    pub memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
+    pub table_plans: PrimaryMap<TableIndex, TablePlan>,
+}

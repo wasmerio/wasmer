@@ -9,13 +9,14 @@ use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
-use wasm_common::{FuncIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::wasmparser::Operator;
 use wasmer_compiler::WasmResult;
 
 /// The value of a WebAssembly global variable.
 #[derive(Clone, Copy)]
 pub enum GlobalVariable {
+    #[allow(dead_code)]
     /// This is a constant global with a value known at compile time.
     Const(ir::Value),
 
@@ -29,10 +30,12 @@ pub enum GlobalVariable {
         ty: ir::Type,
     },
 
+    #[allow(dead_code)]
     /// This is a global variable that needs to be handled by the environment.
     Custom,
 }
 
+#[allow(dead_code)]
 /// How to return from functions.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ReturnMode {
@@ -146,7 +149,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn make_direct_func(
         &mut self,
         func: &mut ir::Function,
-        index: FuncIndex,
+        index: FunctionIndex,
     ) -> WasmResult<ir::FuncRef>;
 
     /// Translate a `call_indirect` WebAssembly instruction at `pos`.
@@ -180,7 +183,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn translate_call(
         &mut self,
         mut pos: FuncCursor,
-        _callee_index: FuncIndex,
+        _callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {

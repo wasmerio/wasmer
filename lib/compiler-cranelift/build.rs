@@ -1,3 +1,8 @@
+//! Wasmer Cranelift compiler build script.
+//!
+//! Sets the git revsion? for $PURPOSE
+//! TODO(syrus): explain what's happening here
+
 use std::process::Command;
 use std::str;
 

@@ -76,6 +76,25 @@ cfg_if::cfg_if! {
             }
         }
 
+        #[cfg(target_os = "macos")]
+        unsafe fn thread_stack() -> (usize, usize) {
+            let this_thread = libc::pthread_self();
+            let stackaddr = libc::pthread_get_stackaddr_np(this_thread);
+            let stacksize = libc::pthread_get_stacksize_np(this_thread);
+            (stackaddr as usize - stacksize, stacksize)
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        unsafe fn thread_stack() -> (usize, usize) {
+            let this_thread = libc::pthread_self();
+            let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
+            libc::pthread_getattr_np(this_thread, &mut thread_attrs);
+            let mut stackaddr: *mut libc::c_void = ptr::null_mut();
+            let mut stacksize: libc::size_t = 0;
+            libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
+            (stackaddr as usize, stacksize)
+        }
+
         unsafe extern "C" fn trap_handler(
             signum: libc::c_int,
             siginfo: *mut libc::siginfo_t,
@@ -87,6 +106,22 @@ cfg_if::cfg_if! {
                 libc::SIGFPE => &PREV_SIGFPE,
                 libc::SIGILL => &PREV_SIGILL,
                 _ => panic!("unknown signal: {}", signum),
+            };
+            // We try to get the Code trap associated to this signal
+            let maybe_signal_trap = match signum {
+                libc::SIGSEGV | libc::SIGBUS => {
+                    let addr = (*siginfo).si_addr() as usize;
+                    let (stackaddr, stacksize) = thread_stack();
+                    // The stack and its guard page covers the
+                    // range [stackaddr - guard pages .. stackaddr + stacksize).
+                    // We assume the guard page is 1 page, and pages are 4KiB.
+                    if stackaddr - 4096 <= addr && addr < stackaddr + stacksize {
+                        Some(TrapCode::StackOverflow)
+                    } else {
+                        Some(TrapCode::HeapAccessOutOfBounds)
+                    }
+                }
+                _ => None,
             };
             let handled = tls::with(|info| {
                 // If no wasm code is executing, we don't handle this as a wasm
@@ -106,6 +141,7 @@ cfg_if::cfg_if! {
                 let jmp_buf = info.handle_trap(
                     get_pc(context),
                     false,
+                    maybe_signal_trap,
                     |handler| handler(signum, siginfo, context),
                 );
 
@@ -114,9 +150,9 @@ cfg_if::cfg_if! {
                 // exception was handled by a custom exception handler, so we
                 // keep executing.
                 if jmp_buf.is_null() {
-                    return false;
+                    false
                 } else if jmp_buf as usize == 1 {
-                    return true;
+                    true
                 } else {
                     Unwind(jmp_buf)
                 }
@@ -161,18 +197,11 @@ cfg_if::cfg_if! {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.gregs[libc::REG_EIP as usize] as *const u8
                 } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
-                    // libc doesn't seem to support Linux/aarch64 at the moment?
-                    extern "C" {
-                        fn GetPcFromUContext(cx: *mut libc::c_void) -> *const u8;
-                    }
-                    GetPcFromUContext(cx)
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.pc as *const u8
                 } else if #[cfg(target_os = "macos")] {
-                    // FIXME(rust-lang/libc#1702) - once that lands and is
-                    // released we should inline the definition here
-                    extern "C" {
-                        fn GetPcFromUContext(cx: *mut libc::c_void) -> *const u8;
-                    }
-                    GetPcFromUContext(cx)
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    (*cx.uc_mcontext).__ss.__rip as *const u8
                 } else {
                     compile_error!("unsupported platform");
                 }
@@ -231,6 +260,8 @@ cfg_if::cfg_if! {
                 let jmp_buf = info.handle_trap(
                     (*(*exception_info).ContextRecord).Rip as *const u8,
                     record.ExceptionCode == EXCEPTION_STACK_OVERFLOW,
+                    // TODO: fix the signal trap associated to memory access in Windows
+                    None,
                     |handler| handler(exception_info),
                 );
                 if jmp_buf.is_null() {
@@ -328,11 +359,13 @@ pub enum Trap {
     User(Box<dyn Error + Send + Sync>),
 
     /// A trap raised from jit code
-    Jit {
+    Runtime {
         /// The program counter in JIT code where this trap happened.
         pc: usize,
         /// Native stack backtrace at the time the trap occurred
         backtrace: Backtrace,
+        /// Optional trapcode associated to the signal that caused the trap
+        signal_trap: Option<TrapCode>,
     },
 
     /// A trap raised from a wasm libcall
@@ -356,7 +389,7 @@ impl Trap {
     /// Internally saves a backtrace when constructed.
     pub fn wasm(trap_code: TrapCode) -> Self {
         let backtrace = Backtrace::new_unresolved();
-        Trap::Wasm {
+        Self::Wasm {
             trap_code,
             backtrace,
         }
@@ -367,7 +400,7 @@ impl Trap {
     /// Internally saves a backtrace when constructed.
     pub fn oom() -> Self {
         let backtrace = Backtrace::new_unresolved();
-        Trap::OOM { backtrace }
+        Self::OOM { backtrace }
     }
 }
 
@@ -386,16 +419,14 @@ impl Trap {
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
     vmctx: *mut VMContext,
-    caller_vmctx: *mut VMContext,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(vmctx, || {
-        mem::transmute::<
-            _,
-            extern "C" fn(*mut VMContext, *mut VMContext, *const VMFunctionBody, *mut u8),
-        >(trampoline)(vmctx, caller_vmctx, callee, values_vec)
+        mem::transmute::<_, extern "C" fn(*mut VMContext, *const VMFunctionBody, *mut u8)>(
+            trampoline,
+        )(vmctx, callee, values_vec)
     })
 }
 
@@ -443,12 +474,16 @@ enum UnwindReason {
     Panic(Box<dyn Any + Send>),
     UserTrap(Box<dyn Error + Send + Sync>),
     LibTrap(Trap),
-    JitTrap { backtrace: Backtrace, pc: usize },
+    RuntimeTrap {
+        backtrace: Backtrace,
+        pc: usize,
+        signal_trap: Option<TrapCode>,
+    },
 }
 
 impl CallThreadState {
-    fn new(vmctx: *mut VMContext) -> CallThreadState {
-        CallThreadState {
+    fn new(vmctx: *mut VMContext) -> Self {
+        Self {
             unwind: Cell::new(UnwindReason::None),
             vmctx,
             jmp_buf: Cell::new(ptr::null()),
@@ -458,7 +493,7 @@ impl CallThreadState {
         }
     }
 
-    fn with(mut self, closure: impl FnOnce(&CallThreadState) -> i32) -> Result<(), Trap> {
+    fn with(mut self, closure: impl FnOnce(&Self) -> i32) -> Result<(), Trap> {
         tls::with(|prev| {
             self.prev = prev.map(|p| p as *const _);
             let ret = tls::set(&self, || closure(&self));
@@ -472,9 +507,17 @@ impl CallThreadState {
                     Err(Trap::User(data))
                 }
                 UnwindReason::LibTrap(trap) => Err(trap),
-                UnwindReason::JitTrap { backtrace, pc } => {
+                UnwindReason::RuntimeTrap {
+                    backtrace,
+                    pc,
+                    signal_trap,
+                } => {
                     debug_assert_eq!(ret, 0);
-                    Err(Trap::Jit { pc, backtrace })
+                    Err(Trap::Runtime {
+                        pc,
+                        backtrace,
+                        signal_trap,
+                    })
                 }
                 UnwindReason::Panic(panic) => {
                     debug_assert_eq!(ret, 0);
@@ -524,6 +567,7 @@ impl CallThreadState {
         &self,
         pc: *const u8,
         reset_guard_page: bool,
+        signal_trap: Option<TrapCode>,
         call_handler: impl Fn(&SignalHandler) -> bool,
     ) -> *const u8 {
         // If we hit a fault while handling a previous trap, that's quite bad,
@@ -545,7 +589,7 @@ impl CallThreadState {
             };
             let result = call_handler(&handler);
             i.instance().signal_handler.set(Some(handler));
-            return result;
+            result
         }) {
             self.handling_trap.set(false);
             return 1 as *const _;
@@ -564,8 +608,9 @@ impl CallThreadState {
         }
         let backtrace = Backtrace::new_unresolved();
         self.reset_guard_page.set(reset_guard_page);
-        self.unwind.replace(UnwindReason::JitTrap {
+        self.unwind.replace(UnwindReason::RuntimeTrap {
             backtrace,
+            signal_trap,
             pc: pc as usize,
         });
         self.handling_trap.set(false);
@@ -715,7 +760,7 @@ fn setup_unix_signalstack() -> Result<(), Trap> {
     impl Drop for Tls {
         fn drop(&mut self) {
             let (ptr, size) = match self {
-                Tls::Allocated {
+                Self::Allocated {
                     mmap_ptr,
                     mmap_size,
                 } => (*mmap_ptr, *mmap_size),
