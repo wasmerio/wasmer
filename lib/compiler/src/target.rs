@@ -1,6 +1,6 @@
 //! Target configuration
 use enumset::{EnumSet, EnumSetType};
-pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple};
+pub use target_lexicon::{Architecture, BinaryFormat, CallingConvention, OperatingSystem, Triple};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use raw_cpuid::CpuId;
@@ -95,6 +95,12 @@ impl CpuFeature {
     #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
     /// Retrieves the features for the current Host
     pub fn for_host() -> EnumSet<Self> {
+        // We default to an empty hash set
+        EnumSet::new()
+    }
+
+    /// Retrieves an empty set of `CpuFeature`s.
+    pub fn set() -> EnumSet<Self> {
         // We default to an empty hash set
         EnumSet::new()
     }

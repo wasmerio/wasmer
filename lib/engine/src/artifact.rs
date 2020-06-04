@@ -73,6 +73,11 @@ pub trait Artifact {
         Ok(())
     }
 
+    /// Do preinstantiation logic that is executed before instantiating
+    fn preinstantiate(&self) -> Result<(), InstantiationError> {
+        Ok(())
+    }
+
     /// Crate an `Instance` from this `Artifact`.
     ///
     /// # Unsafety
@@ -84,6 +89,7 @@ pub trait Artifact {
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
+        let _ = self.preinstantiate()?;
         let module = self.module();
         let imports = resolve_imports(
             &module,

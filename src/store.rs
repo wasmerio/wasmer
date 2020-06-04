@@ -131,17 +131,12 @@ impl StoreOptions {
         Ok(features)
     }
 
-    /// Get the Target architecture
-    pub fn get_target(&self) -> Result<Target> {
-        Ok(Target::default())
-    }
-
     /// Get the Compiler Config for the current options
     #[allow(unused_variables)]
-    fn get_config(&self, compiler: Compiler) -> Result<Box<dyn CompilerConfig>> {
+    fn get_compiler_config(&self, target: Target) -> Result<(Box<dyn CompilerConfig>, String)> {
+        let compiler = self.get_compiler()?;
         let features = self.get_features()?;
-        let target = self.get_target()?;
-        let config: Box<dyn CompilerConfig> = match compiler {
+        let compiler_config: Box<dyn CompilerConfig> = match compiler {
             #[cfg(feature = "singlepass")]
             Compiler::Singlepass => {
                 let config = wasmer_compiler_singlepass::SinglepassConfig::new(features, target);
@@ -248,14 +243,7 @@ impl StoreOptions {
                 compiler.to_string()
             ),
         };
-        Ok(config)
-    }
-
-    /// Gets the compiler config
-    fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, String)> {
-        let compiler = self.get_compiler()?;
         let compiler_name = compiler.to_string();
-        let compiler_config = self.get_config(compiler)?;
         Ok((compiler_config, compiler_name))
     }
 
@@ -264,9 +252,15 @@ impl StoreOptions {
         Tunables::for_target(compiler_config.target().triple())
     }
 
-    /// Gets the store, with the engine name and compiler name selected
+    /// Gets the store for the host target, with the engine name and compiler name selected
     pub fn get_store(&self) -> Result<(Store, String, String)> {
-        let (compiler_config, compiler_name) = self.get_compiler_config()?;
+        let target = Target::default();
+        self.get_store_for_target(target)
+    }
+
+    /// Gets the store for a given target, with the engine name and compiler name selected, as
+    pub fn get_store_for_target(&self, target: Target) -> Result<(Store, String, String)> {
+        let (compiler_config, compiler_name) = self.get_compiler_config(target)?;
         let tunables = self.get_tunables(&*compiler_config);
         let (engine, engine_name) = self.get_engine_with_compiler(tunables, compiler_config)?;
         let store = Store::new(engine);
@@ -357,11 +351,6 @@ impl StoreOptions {
         return Ok((engine, engine_type.to_string()));
     }
 
-    /// Get the Target architecture
-    pub fn get_target(&self) -> Result<Target> {
-        Ok(Target::default())
-    }
-
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, String, String)> {
         // Get the tunables for the current host
@@ -370,18 +359,23 @@ impl StoreOptions {
         let store = Store::new(engine);
         Ok((store, engine_name, "headless".to_string()))
     }
+
+    /// Gets the store for provided host target
+    pub fn get_store_for_target(&self, target: Target) -> Result<(Store, String, String)> {
+        bail!("You need compilers to run get a store in a specific target");
+    }
 }
 
 // If we don't have any engine enabled
 #[cfg(not(feature = "engine"))]
 impl StoreOptions {
-    /// Get the Target architecture
-    pub fn get_target(&self) -> Result<Target> {
+    /// Get the store (headless engine)
+    pub fn get_store(&self) -> Result<(Store, String, String)> {
         bail!("No engines are enabled");
     }
 
-    /// Get the store (headless engine)
-    pub fn get_store(&self) -> Result<(Store, String, String)> {
+    /// Gets the store for the host target
+    pub fn get_store_for_target(&self, target: Target) -> Result<(Store, String, String)> {
         bail!("No engines are enabled");
     }
 }

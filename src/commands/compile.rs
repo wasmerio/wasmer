@@ -2,8 +2,13 @@ use crate::store::StoreOptions;
 use crate::warning;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
+use std::str::FromStr;
 use structopt::StructOpt;
 use wasmer::*;
+
+fn parse_target_triple(src: &str) -> Result<Triple, TargetParseError> {
+    Triple::from_str(src)
+}
 
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer compile` subcommand
@@ -16,6 +21,10 @@ pub struct Compile {
     #[structopt(name = "OUTPUT", short = "o", parse(from_os_str))]
     output: PathBuf,
 
+    /// Compilation Target triple
+    #[structopt(long = "target", parse(try_from_str = parse_target_triple))]
+    target_triple: Option<Triple>,
+
     #[structopt(flatten)]
     compiler: StoreOptions,
 }
@@ -27,13 +36,22 @@ impl Compile {
             .context(format!("failed to compile `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let (store, engine_name, compiler_name) = self.compiler.get_store()?;
+        let target = if let Some(ref target_triple) = self.target_triple {
+            let mut features = CpuFeature::set();
+            // Cranelift requires SSE2, so we have this "hack" for now until
+            // we are able to pass custom features
+            features = features | CpuFeature::SSE2;
+            Target::new(target_triple.clone(), features)
+        } else {
+            Target::default()
+        };
+        let (store, engine_name, compiler_name) =
+            self.compiler.get_store_for_target(target.clone())?;
         let output_filename = self
             .output
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let target = self.compiler.get_target()?;
         let recommended_extension = match engine_name.as_ref() {
             "native" => {
                 // TODO: Match it depending on the `BinaryFormat` instead of the

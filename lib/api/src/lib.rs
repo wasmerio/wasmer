@@ -29,11 +29,13 @@ pub use crate::types::{
 };
 pub use crate::types::{Val as Value, ValType as Type};
 
-pub use target_lexicon::{Architecture, OperatingSystem, Triple, HOST};
+pub use target_lexicon::{
+    Architecture, CallingConvention, OperatingSystem, ParseError as TargetParseError, Triple, HOST,
+};
 pub use wasm_common::{Bytes, Pages, ValueType, WasmExternType, WasmTypeList};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;
-pub use wasmer_compiler::{Features, Target};
+pub use wasmer_compiler::{CpuFeature, Features, Target};
 pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, InstantiationError, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError,
