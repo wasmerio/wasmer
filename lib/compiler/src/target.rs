@@ -114,7 +114,7 @@ impl CpuFeature {
 #[derive(Error, Debug)]
 pub enum ParseCpuFeatureError {
     /// The provided string feature doesn't exist
-    #[error("CpuFeature for the {0} doesn't exist")]
+    #[error("CpuFeature {0} not recognized")]
     Missing(String),
 }
 
