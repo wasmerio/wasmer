@@ -19,6 +19,11 @@ default-run = "wasmer"
 publish = false
 autoexamples = false
 
+[[bin]]
+name = "wasmer"
+path = "src/bin/wasmer.rs"
+doc = false
+
 [dependencies]
 wasmer = { version = "0.16.2", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "0.16.2", path = "lib/compiler" }
@@ -32,6 +37,7 @@ wasmer-wasi = { version = "0.16.2", path = "lib/wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { version = "0.16.2", path = "lib/wasi-experimental-io-devices", optional = true }
 wasmer-wast = { version = "0.16.2", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "0.16.2", path = "lib/cache", optional = true }
+wasm-common = { version = "0.16.2", path = "lib/wasm-common" }
 atty = "0.2"
 colored = "1.9"
 anyhow = "1.0"
@@ -65,7 +71,7 @@ wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wat", "wast", "wasi", "cranelift", "cache", "jit", "native"]
+default = ["wat", "wast", "wasi", "cache", "jit", "native"]
 engine = []
 jit = [
     "wasmer-engine-jit",

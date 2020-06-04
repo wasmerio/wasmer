@@ -13,19 +13,17 @@ use std::cmp;
 use std::mem;
 
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-use wasm_common::SignatureIndex;
+use wasm_common::FunctionType;
 use wasmer_compiler::{CompileError, FunctionBody};
-use wasmer_runtime::{ModuleInfo, VMOffsets};
+use wasmer_runtime::VMOffsets;
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_trampoline_dynamic_function(
     isa: &dyn TargetIsa,
-    module: &ModuleInfo,
     offsets: &VMOffsets,
     fn_builder_ctx: &mut FunctionBuilderContext,
-    sig_index: &SignatureIndex,
+    func_type: &FunctionType,
 ) -> Result<FunctionBody, CompileError> {
-    let func_type = &module.signatures[*sig_index];
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
     let signature = signature_to_cranelift_ir(func_type, &frontend_config);
@@ -75,12 +73,6 @@ pub fn make_trampoline_dynamic_function(
 
         let block_params = builder.func.dfg.block_params(block0);
         let vmctx_ptr_val = block_params[0];
-
-        // Note: not used at the moment, but keeping in case is useful
-        // for the future
-        // Get the signature index
-        // let caller_sig_id = builder.ins().iconst(types::I32, sig_index.index() as i64);
-
         let callee_args = vec![vmctx_ptr_val, values_vec_ptr_val];
 
         let new_sig = builder.import_signature(stub_sig);

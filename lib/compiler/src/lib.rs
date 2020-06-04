@@ -84,8 +84,8 @@ pub use crate::target::{
 };
 #[cfg(feature = "translator")]
 pub use crate::translator::{
-    to_wasm_error, translate_module, FunctionBodyData, ModuleEnvironment, ModuleInfoTranslation,
-    ModuleTranslationState,
+    to_wasm_error, translate_module, wptype_to_type, FunctionBodyData, ModuleEnvironment,
+    ModuleInfoTranslation, ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;
 pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTableReloc};

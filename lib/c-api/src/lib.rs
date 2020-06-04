@@ -95,7 +95,14 @@
 )]
 
 #[macro_use]
+extern crate cfg_if;
+#[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate thiserror;
+
+/// cbindgen:ignore
+pub mod wasm_c_api;
 
 pub mod error;
 pub mod export;

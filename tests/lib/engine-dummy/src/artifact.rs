@@ -2,6 +2,7 @@
 //! done as separate steps.
 
 use crate::engine::DummyEngine;
+#[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
@@ -9,14 +10,16 @@ use wasm_common::{
     Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
-use wasmer_compiler::{CompileError, ModuleEnvironment};
+use wasmer_compiler::CompileError;
+#[cfg(feature = "compiler")]
+use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError};
 use wasmer_runtime::{
     MemoryPlan, ModuleInfo, TablePlan, VMContext, VMFunctionBody, VMSharedSignatureIndex,
 };
 
 /// Serializable struct for the artifact
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct DummyArtifactMetadata {
     pub module: Arc<ModuleInfo>,
     pub features: Features,
@@ -50,6 +53,7 @@ impl DummyArtifact {
         bytes.starts_with(Self::MAGIC_HEADER)
     }
 
+    #[cfg(feature = "compiler")]
     /// Compile a data buffer into a `DummyArtifact`, which may then be instantiated.
     pub fn new(engine: &DummyEngine, data: &[u8]) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
@@ -87,6 +91,12 @@ impl DummyArtifact {
         Self::from_parts(&engine, metadata)
     }
 
+    #[cfg(not(feature = "compiler"))]
+    pub fn new(engine: &DummyEngine, data: &[u8]) -> Result<Self, CompileError> {
+        CompileError::Generic("The compiler feature is not enabled in the DummyEngine")
+    }
+
+    #[cfg(feature = "serialize")]
     /// Deserialize a DummyArtifact
     pub fn deserialize(engine: &DummyEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         if !Self::is_deserializable(bytes) {
@@ -101,6 +111,13 @@ impl DummyArtifact {
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
         Self::from_parts(&engine, metadata).map_err(DeserializeError::Compiler)
+    }
+
+    #[cfg(not(feature = "serialize"))]
+    pub fn deserialize(engine: &DummyEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
+        Err(DeserializeError::Generic(
+            "The serializer feature is not enabled in the DummyEngine",
+        ))
     }
 
     /// Construct a `DummyArtifact` from component parts.
@@ -201,6 +218,7 @@ impl Artifact for DummyArtifact {
         &self.signatures
     }
 
+    #[cfg(feature = "serialize")]
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         let bytes = bincode::serialize(&self.metadata)
             .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
@@ -209,5 +227,12 @@ impl Artifact for DummyArtifact {
         let mut serialized = Self::MAGIC_HEADER.to_vec();
         serialized.extend(bytes);
         Ok(serialized)
+    }
+
+    #[cfg(not(feature = "serialize"))]
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        Err(SerializeError::Generic(
+            "The serializer feature is not enabled in the DummyEngine",
+        ))
     }
 }

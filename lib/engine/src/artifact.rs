@@ -2,6 +2,8 @@ use crate::{
     resolve_imports, InstantiationError, Resolver, RuntimeError, SerializeError, Tunables,
 };
 use std::any::Any;
+use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
@@ -63,6 +65,13 @@ pub trait Artifact {
 
     /// Serializes an artifact into bytes
     fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
+
+    /// Serializes an artifact into a file path
+    fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
+        let serialized = self.serialize()?;
+        fs::write(&path, serialized)?;
+        Ok(())
+    }
 
     /// Crate an `Instance` from this `Artifact`.
     ///

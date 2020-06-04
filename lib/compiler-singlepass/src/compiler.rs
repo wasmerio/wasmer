@@ -2,7 +2,10 @@
 // Allow unused imports while developing.
 #![allow(unused_imports, dead_code)]
 
-use crate::codegen_x64::{gen_import_call_trampoline, gen_std_trampoline, CodegenError, FuncGen};
+use crate::codegen_x64::{
+    gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
+    CodegenError, FuncGen,
+};
 use crate::config::SinglepassConfig;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
@@ -64,11 +67,7 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<_>>()
             .into_par_iter()
             .map(|i| {
-                gen_import_call_trampoline(
-                    &vmoffsets,
-                    i,
-                    module.signatures[module.functions[i]].clone(),
-                )
+                gen_import_call_trampoline(&vmoffsets, i, &module.signatures[module.functions[i]])
             })
             .collect::<Vec<_>>()
             .into_iter()
@@ -131,10 +130,15 @@ impl Compiler for SinglepassCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        _module: &ModuleInfo,
+        signatures: &[FunctionType],
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
-        Ok(PrimaryMap::new())
-        // unimplemented!("Dynamic funciton trampolines not yet implemented");
+        let vmoffsets = VMOffsets::new_for_trampolines(8);
+        Ok(signatures
+            .par_iter()
+            .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
     }
 }
 

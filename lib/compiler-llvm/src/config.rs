@@ -5,7 +5,9 @@ use inkwell::targets::{
 };
 use inkwell::OptimizationLevel;
 use itertools::Itertools;
+use std::sync::Arc;
 use target_lexicon::Architecture;
+use wasm_common::{FunctionType, LocalFunctionIndex};
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, Features, Target, Triple};
 
 /// The InkWell ModuleInfo type
@@ -14,11 +16,26 @@ pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
 /// The InkWell MemoryBuffer type
 pub type InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
 
-/// Callbacks to
-pub trait LLVMCallbacks: std::any::Any + 'static {
-    fn preopt_ir_callback(&mut self, module: &InkwellModule);
-    fn postopt_ir_callback(&mut self, module: &InkwellModule);
-    fn obj_memory_buffer_callback(&mut self, memory_buffer: &InkwellMemoryBuffer);
+/// The compiled function kind, used for debugging in the `LLVMCallbacks`.
+#[derive(Debug, Clone)]
+pub enum CompiledFunctionKind {
+    // A locally-defined function in the Wasm file
+    Local(LocalFunctionIndex),
+    // A function call trampoline for a given signature
+    FunctionCallTrampoline(FunctionType),
+    // A dynamic function trampoline for a given signature
+    DynamicFunctionTrampoline(FunctionType),
+}
+
+/// Callbacks to the different LLVM compilation phases.
+pub trait LLVMCallbacks: Send + Sync {
+    fn preopt_ir(&self, function: &CompiledFunctionKind, module: &InkwellModule);
+    fn postopt_ir(&self, function: &CompiledFunctionKind, module: &InkwellModule);
+    fn obj_memory_buffer(
+        &self,
+        function: &CompiledFunctionKind,
+        memory_buffer: &InkwellMemoryBuffer,
+    );
 }
 
 #[derive(Clone)]
@@ -40,6 +57,10 @@ pub struct LLVMConfig {
     /// Whether to emit PIC.
     pub is_pic: bool,
 
+    /// Callbacks that will triggered in the different compilation
+    /// phases in LLVM.
+    pub callbacks: Option<Arc<dyn LLVMCallbacks>>,
+
     features: Features,
     target: Target,
 }
@@ -47,10 +68,7 @@ pub struct LLVMConfig {
 impl LLVMConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(mut features: Features, target: Target) -> Self {
-        // Override the default multi-value switch
-        features.multi_value = false;
-
+    pub fn new(features: Features, target: Target) -> Self {
         let operating_system =
             if target.triple().operating_system == wasmer_compiler::OperatingSystem::Darwin {
                 // LLVM detects static relocation + darwin + 64-bit and
@@ -78,6 +96,7 @@ impl LLVMConfig {
             is_pic: false,
             features,
             target,
+            callbacks: None,
         }
     }
     fn reloc_mode(&self) -> RelocMode {

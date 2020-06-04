@@ -3,6 +3,7 @@
 
 use crate::common::WasmFeatures;
 use anyhow::{Error, Result};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::string::ToString;
 use std::sync::Arc;
@@ -24,6 +25,10 @@ pub struct StoreOptions {
     /// Use LLVM compiler
     #[structopt(long, conflicts_with_all = &["singlepass", "cranelift", "backend"])]
     llvm: bool,
+
+    /// LLVM debug directory, where IR and object files will be written to.
+    #[structopt(long, parse(from_os_str))]
+    llvm_debug_dir: Option<PathBuf>,
 
     /// Use JIT Engine
     #[structopt(long, conflicts_with_all = &["native"])]
@@ -107,7 +112,23 @@ impl StoreOptions {
 
     /// Get the Target architecture
     pub fn get_features(&self) -> Result<Features> {
-        Ok(Features::default())
+        let mut features = Features::default();
+        if self.features.threads || self.features.all {
+            features.threads(true);
+        }
+        if self.features.multi_value || self.features.all {
+            features.multi_value(true);
+        }
+        if self.features.simd || self.features.all {
+            features.simd(true);
+        }
+        if self.features.bulk_memory || self.features.all {
+            features.bulk_memory(true);
+        }
+        if self.features.reference_types || self.features.all {
+            features.reference_types(true);
+        }
+        Ok(features)
     }
 
     /// Get the Target architecture
@@ -133,7 +154,92 @@ impl StoreOptions {
             }
             #[cfg(feature = "llvm")]
             Compiler::LLVM => {
-                let config = wasmer_compiler_llvm::LLVMConfig::new(features, target);
+                use std::fs::File;
+                use std::io::Write;
+                use wasm_common::entity::EntityRef;
+                use wasmer_compiler_llvm::{
+                    CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks,
+                    LLVMConfig,
+                };
+                let mut config = LLVMConfig::new(features, target);
+                struct Callbacks {
+                    debug_dir: PathBuf,
+                }
+                impl Callbacks {
+                    fn new(debug_dir: PathBuf) -> Result<Self> {
+                        // Create the debug dir in case it doesn't exist
+                        std::fs::create_dir_all(&debug_dir)?;
+                        Ok(Self { debug_dir })
+                    }
+                }
+                // Converts a kind into a filename, that we will use to dump
+                // the contents of the IR object file to.
+                fn types_to_signature(types: &[Type]) -> String {
+                    types.iter().map(|ty| {
+                        match ty {
+                            Type::I32 => "i".to_string(),
+                            Type::I64 => "I".to_string(),
+                            Type::F32 => "f".to_string(),
+                            Type::F64 => "F".to_string(),
+                            _ => {
+                                unimplemented!("Function type not yet supported for generated signatures in debugging");
+                            }
+                        }
+                    }).collect::<Vec<_>>().join("")
+                }
+                // Converts a kind into a filename, that we will use to dump
+                // the contents of the IR object file to.
+                fn function_kind_to_filename(kind: &CompiledFunctionKind) -> String {
+                    match kind {
+                        CompiledFunctionKind::Local(local_index) => {
+                            format!("function_{}", local_index.index())
+                        }
+                        CompiledFunctionKind::FunctionCallTrampoline(func_type) => format!(
+                            "trampoline_call_{}_{}",
+                            types_to_signature(&func_type.params()),
+                            types_to_signature(&func_type.results())
+                        ),
+                        CompiledFunctionKind::DynamicFunctionTrampoline(func_type) => format!(
+                            "trampoline_dynamic_{}_{}",
+                            types_to_signature(&func_type.params()),
+                            types_to_signature(&func_type.results())
+                        ),
+                    }
+                }
+                impl LLVMCallbacks for Callbacks {
+                    fn preopt_ir(&self, kind: &CompiledFunctionKind, module: &InkwellModule) {
+                        let mut path = self.debug_dir.clone();
+                        path.push(format!("{}.preopt.ll", function_kind_to_filename(kind)));
+                        module
+                            .print_to_file(&path)
+                            .expect("Error while dumping pre optimized LLVM IR");
+                    }
+                    fn postopt_ir(&self, kind: &CompiledFunctionKind, module: &InkwellModule) {
+                        let mut path = self.debug_dir.clone();
+                        path.push(format!("{}.postopt.ll", function_kind_to_filename(kind)));
+                        module
+                            .print_to_file(&path)
+                            .expect("Error while dumping post optimized LLVM IR");
+                    }
+                    fn obj_memory_buffer(
+                        &self,
+                        kind: &CompiledFunctionKind,
+                        memory_buffer: &InkwellMemoryBuffer,
+                    ) {
+                        let mut path = self.debug_dir.clone();
+                        path.push(format!("{}.o", function_kind_to_filename(kind)));
+                        let mem_buf_slice = memory_buffer.as_slice();
+                        let mut file = File::create(path)
+                            .expect("Error while creating debug object file from LLVM IR");
+                        let mut pos = 0;
+                        while pos < mem_buf_slice.len() {
+                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
+                        }
+                    }
+                }
+                if let Some(ref llvm_debug_dir) = self.llvm_debug_dir {
+                    config.callbacks = Some(Arc::new(Callbacks::new(llvm_debug_dir.clone())?));
+                }
                 Box::new(config)
             }
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
@@ -230,9 +336,12 @@ impl StoreOptions {
 // If we don't have a compiler, but we have an engine
 #[cfg(all(not(feature = "compiler"), feature = "engine"))]
 impl StoreOptions {
-    fn get_engine_headless(&self, tunables: Tunables) -> Result<(Arc<dyn Engine>, String)> {
+    fn get_engine_headless(
+        &self,
+        tunables: Tunables,
+    ) -> Result<(Arc<dyn Engine + Send + Sync>, String)> {
         let engine_type = self.get_engine()?;
-        let engine: Arc<dyn Engine> = match engine_type {
+        let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
             EngineOptions::JIT => Arc::new(wasmer_engine_jit::JITEngine::headless(tunables)),
             #[cfg(feature = "native")]
@@ -248,6 +357,11 @@ impl StoreOptions {
         return Ok((engine, engine_type.to_string()));
     }
 
+    /// Get the Target architecture
+    pub fn get_target(&self) -> Result<Target> {
+        Ok(Target::default())
+    }
+
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, String, String)> {
         // Get the tunables for the current host
@@ -261,6 +375,11 @@ impl StoreOptions {
 // If we don't have any engine enabled
 #[cfg(not(feature = "engine"))]
 impl StoreOptions {
+    /// Get the Target architecture
+    pub fn get_target(&self) -> Result<Target> {
+        bail!("No engines are enabled");
+    }
+
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, String, String)> {
         bail!("No engines are enabled");

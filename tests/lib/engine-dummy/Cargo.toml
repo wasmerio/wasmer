@@ -8,17 +8,25 @@ publish = false
 
 [dependencies]
 wasm-common = { path = "../../../lib/wasm-common", version = "0.16.2" }
-wasmer-compiler = { path = "../../../lib/compiler", version = "0.16.2", features=["translator"] }
+wasmer-compiler = { path = "../../../lib/compiler", version = "0.16.2" }
 wasmer-runtime = { path = "../../../lib/runtime", version = "0.16.2" }
 wasmer-engine = { path = "../../../lib/engine", version = "0.16.2" }
-serde = { version = "1.0", features = ["derive", "rc"] }
-serde_bytes = { version = "0.11" }
-bincode = "1.2" 
+serde = { version = "1.0", features = ["derive", "rc"], optional = true }
+serde_bytes = { version = "0.11", optional = true }
+bincode = { version = "1.2", optional = true }
 
 [features]
 # Enable the `compiler` feature if you want the engine to compile
 # and not be only on headless mode.
-compiler = []
+default = ["serialize", "compiler"]
+compiler = [
+    "wasmer-compiler/translator"
+]
+serialize = [
+    "serde",
+    "serde_bytes",
+    "bincode"
+]
 
 [badges]
 maintenance = { status = "actively-developed" }

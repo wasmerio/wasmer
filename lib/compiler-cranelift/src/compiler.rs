@@ -172,20 +172,16 @@ impl Compiler for CraneliftCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        module: &ModuleInfo,
+        signatures: &[FunctionType],
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
         use wasmer_runtime::VMOffsets;
         let isa = self.isa();
         let frontend_config = isa.frontend_config();
-        let offsets = VMOffsets::new(frontend_config.pointer_bytes(), module);
-        Ok(module
-            .functions
-            .values()
-            .take(module.num_imported_funcs)
-            .collect::<Vec<_>>()
+        let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
+        Ok(signatures
             .par_iter()
-            .map_init(FunctionBuilderContext::new, |mut cx, sig_index| {
-                make_trampoline_dynamic_function(&*self.isa, &module, &offsets, &mut cx, &sig_index)
+            .map_init(FunctionBuilderContext::new, |mut cx, func_type| {
+                make_trampoline_dynamic_function(&*self.isa, &offsets, &mut cx, &func_type)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()

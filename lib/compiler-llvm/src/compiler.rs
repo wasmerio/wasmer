@@ -49,7 +49,7 @@ impl Compiler for LLVMCompiler {
     fn compile_module<'data, 'module>(
         &self,
         module: &'module ModuleInfo,
-        _module_translation: &ModuleTranslationState,
+        module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: PrimaryMap<TableIndex, TablePlan>,
@@ -76,6 +76,7 @@ impl Compiler for LLVMCompiler {
                 //let mut data = data.lock().unwrap();
                 func_translator.translate(
                     module,
+                    module_translation,
                     i,
                     input,
                     self.config(),
@@ -128,9 +129,15 @@ impl Compiler for LLVMCompiler {
 
     fn compile_dynamic_function_trampolines(
         &self,
-        _module: &ModuleInfo,
+        signatures: &[FunctionType],
     ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
-        Ok(PrimaryMap::new())
-        // unimplemented!("Dynamic function trampolines not yet implemented");
+        Ok(signatures
+            .par_iter()
+            .map_init(FuncTrampoline::new, |func_trampoline, func_type| {
+                func_trampoline.dynamic_trampoline(&func_type, self.config())
+            })
+            .collect::<Result<Vec<_>, CompileError>>()?
+            .into_iter()
+            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
     }
 }
