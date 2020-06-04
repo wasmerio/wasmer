@@ -1,5 +1,4 @@
 //! Wasmer API
-#![feature(trace_macros)]
 #![deny(intra_doc_link_resolution_failure)]
 
 mod exports;

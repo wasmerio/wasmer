@@ -4,7 +4,6 @@
 //! This crate provides common structures such as `Type` or `Value`, type indexes
 //! and native function wrappers with `Func`.
 
-#![feature(trace_macros)]
 #![deny(missing_docs, unused_extern_crates)]
 #![warn(unused_import_braces)]
 #![cfg_attr(feature = "clippy", plugin(clippy(conf_file = "../../clippy.toml")))]
