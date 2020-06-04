@@ -46,7 +46,7 @@ pub struct Run {
     cache_key: Option<String>,
 
     #[structopt(flatten)]
-    compiler: StoreOptions,
+    store: StoreOptions,
 
     #[cfg(feature = "wasi")]
     #[structopt(flatten)]
@@ -153,14 +153,15 @@ impl Run {
                 return Ok(module);
             }
         }
-        let (store, engine_name, compiler_name) = self.compiler.get_store()?;
+        let (store, engine_type, compiler_type) = self.store.get_store()?;
         // We try to get it from cache, in case caching is enabled
         // and the file length is greater than 4KB.
         // For files smaller than 4KB caching is not worth,
         // as it takes space and the speedup is minimal.
         let mut module =
             if cfg!(feature = "cache") && !self.disable_cache && contents.len() > 0x1000 {
-                let mut cache = self.get_cache(engine_name, compiler_name)?;
+                let mut cache =
+                    self.get_cache(engine_type.to_string(), compiler_type.to_string())?;
                 // Try to get the hash from the provided `--cache-key`, otherwise
                 // generate one from the provided file `.wasm` contents.
                 let hash = self
