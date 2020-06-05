@@ -10,27 +10,27 @@ with the Wasmer Runtime, so you can use WebAssembly anywhere.
 
 # Usage
 
-Upon installing Wasmer, the shared object files and the headers will
-be automatically available inside the Wasmer folder.
+The shared object files and the headers will
+be automatically available **inside the Wasmer installed path**.
+
+> Please check the following docs to see how to [install Wasmer in your system][https://github.com/wasmerio/wasmer#1-install-wasmer].
 
 The C ([`wasmer.h`][wasmer_h]) and C++ ([`wasmer.hh`][wasmer_hh]) header
-files can be found in the `include` directory where Wasmer is installed and also via:
+files can be found in the Wasmer `include` directory:
 
 ```bash
 wasmer config --includedir
 ```
 
-The runtime shared libraries (`.so`, `.dylib`, `.dll`) can be found in the
-`lib` directory where Wasmer is installed and also via:
+The runtime shared libraries (`.so`, `.dylib`, `.dll`) can be found in the Wasmer
+`lib` directory:
 
 ```bash
 wasmer config --libdir
 ```
 
-You can also download the libraries or header files directly from the Wasmer
-[release page].
-
-[release page]: https://github.com/wasmerio/wasmer/releases
+> Note: You can also download the libraries or header files directly
+from [Wasmer release page].
 
 The full C API documentation can be found here:
 https://wasmerio.github.io/wasmer/c-api/
@@ -115,5 +115,7 @@ license][mit-license] ([LICENSE][license]).
 
 
 [wasmer_h]: https://wasmerio.github.io/wasmer/c-api/wasmer_8h.html
+[wasmer_hh]: https://wasmerio.github.io/wasmer/c-api/wasmer_8hh.html
 [mit-license]: http://opensource.org/licenses/MIT
 [license]: https://github.com/wasmerio/wasmer/blob/master/LICENSE
+[release page]: https://github.com/wasmerio/wasmer/releases
