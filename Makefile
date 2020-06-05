@@ -118,7 +118,7 @@ package-wasmer:
 ifeq ($(OS), Windows_NT)
 	if not exist "package" mkdir "package"
 	if not exist "package/bin" mkdir "package/bin"
-	cp target/release/wasmer.exe package/bin/
+	copy "target\release\wasmer.exe" "package\bin"
 else
 	mkdir -p "package/bin"
 	cp target/release/wasmer package/bin/
@@ -134,11 +134,17 @@ ifeq ($(OS), Windows_NT)
 	if not exist "package" mkdir "package"
 	if not exist "package/include" mkdir "package/include"
 	if not exist "package/lib" mkdir "package/lib"
-	cp target/release/wasmer_c_api.dll package/lib/wasmer.dll
-	cp target/release/wasmer_c_api.lib package/lib/wasmer.lib
+	copy ".\target\release\wasmer_c_api.dll" ".\package\lib\wasmer.dll"
+	copy ".\target\release\wasmer_c_api.lib" ".\package\lib\wasmer.lib"
+	copy ".\lib\c-api\wasmer.h" ".\package\include"
+	copy ".\lib\c-api\wasmer.hh" ".\package\include"
+	copy ".\lib\c-api\doc\index.md" ".\package\include\README.md"
 else
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
+	cp lib/c-api/wasmer.h package/include
+	cp lib/c-api/wasmer.hh package/include
+	cp lib/c-api/doc/index.md package/include/README.md
 ifeq ($(UNAME_S), Darwin)
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
@@ -149,9 +155,6 @@ else
 	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 endif
 endif
-	cp lib/c-api/wasmer.h package/include
-	cp lib/c-api/wasmer.hh package/include
-	cp lib/c-api/doc/index.md package/include/README.md
 
 package-docs: build-docs build-docs-capi
 ifeq ($(OS), Windows_NT)
@@ -167,11 +170,13 @@ endif
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > package/docs/crates/index.html
 
 package: package-wasmer package-capi
+ifeq ($(OS), Windows_NT)
+	copy ".\LICENSE" ".\package\LICENSE"
+	copy ".\ATTRIBUTIONS.md" ".\package\ATTRIBUTIONS"
+	cd src\windows-installer && iscc wasmer.iss
+else
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
-ifeq ($(OS), Windows_NT)
-	iscc wasmer.iss
-else
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 endif
 
