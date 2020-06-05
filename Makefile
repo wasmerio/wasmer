@@ -128,7 +128,6 @@ endif
 	# cd ./package/bin/ && ln -sf wapm wax && chmod +x wax
 
 package-capi:
-	# This command doesn't build the C-API, just packages it
 	mkdir -p ./package/
 	mkdir -p ./package/include
 	mkdir -p ./package/lib
