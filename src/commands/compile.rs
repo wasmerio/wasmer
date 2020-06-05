@@ -34,19 +34,21 @@ impl Compile {
             .context(format!("failed to compile `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let target = if let Some(ref target_triple) = self.target_triple {
-            let mut features = self
-                .cpu_features
-                .clone()
-                .into_iter()
-                .fold(CpuFeature::set(), |a, b| a | b);
-            // Cranelift requires SSE2, so we have this "hack" for now to facilitate
-            // usage
-            features = features | CpuFeature::SSE2;
-            Target::new(target_triple.clone(), features)
-        } else {
-            Target::default()
-        };
+        let target = self
+            .target_triple
+            .as_ref()
+            .map(|target_triple| {
+                let mut features = self
+                    .cpu_features
+                    .clone()
+                    .into_iter()
+                    .fold(CpuFeature::set(), |a, b| a | b);
+                // Cranelift requires SSE2, so we have this "hack" for now to facilitate
+                // usage
+                features = features | CpuFeature::SSE2;
+                Target::new(target_triple.clone(), features)
+            })
+            .unwrap_or_default();
         let (store, engine_type, compiler_type) =
             self.store.get_store_for_target(target.clone())?;
         let output_filename = self
