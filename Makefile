@@ -160,9 +160,9 @@ package: package-wasmer package-capi
 	tar -C ./package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 
 
-################
-# Miscelaneous #
-################
+#################
+# Miscellaneous #
+#################
 
 # Updates the spectests from the repo
 update-testsuite:
