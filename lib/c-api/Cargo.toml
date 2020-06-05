@@ -1,8 +1,8 @@
 [package]
-name = "wasmer-runtime-c-api"
+name = "wasmer-c-api"
 version = "0.16.2"
 description = "Wasmer C API library"
-documentation = "https://wasmerio.github.io/wasmer/c/runtime-c-api/"
+documentation = "https://wasmerio.github.io/wasmer/c-api/"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -49,13 +49,17 @@ optional = true
 
 [features]
 default = ["cranelift-backend", "wasi"]
-singlepass-backend = ["wasmer/singlepass"]
-cranelift-backend = ["wasmer/cranelift"]
-llvm-backend = ["wasmer/llvm"]
+singlepass = ["wasmer/singlepass"]
+cranelift = ["wasmer/cranelift"]
+llvm = ["wasmer/llvm"]
 wasi = ["wasmer-wasi"]
 #emscripten = ["wasmer-emscripten"]
 # used to avoid generating standard Wasm C API types in our header files
 ignore-wasm-c-api = []
+# This is for compatibility for old usage
+singlepass-backend = ["singlepass"]
+cranelift-backend = ["cranelift"]
+llvm-backend = ["llvm"]
 
 [build-dependencies]
 cbindgen = { git = "https://github.com/eqrion/cbindgen", version = "0.14" }

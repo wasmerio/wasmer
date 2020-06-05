@@ -49,11 +49,11 @@ pub struct wasm_engine_t {
 
 fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
     cfg_if! {
-        if #[cfg(feature = "cranelift-backend")] {
+        if #[cfg(feature = "cranelift")] {
             Box::new(wasmer::CraneliftConfig::default())
-        } else if #[cfg(feature = "llvm-backend")] {
+        } else if #[cfg(feature = "llvm")] {
             Box::new(wasmer::LLVMConfig::default())
-        } else if #[cfg(feature = "singlepass-backend")] {
+        } else if #[cfg(feature = "singlepass")] {
             Box::new(wasmer::SinglepassConfig::default())
         } else {
             compile_error!("Please enable one of the compiler backends")
