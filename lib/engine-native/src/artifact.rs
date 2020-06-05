@@ -19,8 +19,10 @@ use wasm_common::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{CompileError, Features, RelocationTarget};
-use wasmer_engine::{Artifact, DeserializeError, Engine, SerializeError};
+use wasmer_compiler::{BinaryFormat, CompileError, Features, RelocationTarget, Triple};
+use wasmer_engine::{
+    Artifact, DeserializeError, Engine, InstantiationError, LinkError, RuntimeError, SerializeError,
+};
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
 
@@ -29,7 +31,7 @@ pub struct NativeArtifact {
     sharedobject_path: PathBuf,
     metadata: ModuleMetadata,
     #[allow(dead_code)]
-    library: Library,
+    library: Option<Library>,
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
@@ -139,8 +141,17 @@ impl NativeArtifact {
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let target = compiler.target().triple().clone();
-        let mut obj = ArtifactBuilder::new(target)
+        let target = compiler.target();
+        let target_triple = target.triple().clone();
+        if target_triple.binary_format != BinaryFormat::Elf
+            && target_triple.binary_format != BinaryFormat::Macho
+        {
+            return Err(CompileError::Codegen(format!(
+                "Binary format {} not supported",
+                target_triple.binary_format
+            )));
+        }
+        let mut obj = ArtifactBuilder::new(target_triple.clone())
             .name("module".to_string())
             .library(true)
             .finish();
@@ -190,7 +201,7 @@ impl NativeArtifact {
             "wasmer_raise_trap",
             "wasmer_probestack",
         ];
-        for libcall in libcalls.into_iter() {
+        for libcall in libcalls.iter() {
             obj.declare(libcall, Decl::function_import())
                 .map_err(to_compile_error)?;
             obj.declare(&format!("_{}", libcall), Decl::function_import())
@@ -279,11 +290,40 @@ impl NativeArtifact {
 
         let shared_file = NamedTempFile::new().map_err(to_compile_error)?;
         let (_file, shared_filepath) = shared_file.keep().map_err(to_compile_error)?;
+        let wasmer_symbols = libcalls
+            .iter()
+            .map(|libcall| {
+                match target_triple.binary_format {
+                    BinaryFormat::Macho => format!("-Wl,-U,_{}", libcall),
+                    BinaryFormat::Elf => format!("-Wl,--undefined={}", libcall),
+                    _ => {
+                        // We should already be filtering only valid binary formats before
+                        // so this should never happen.
+                        unreachable!("Incorrect binary format")
+                    }
+                }
+            })
+            .collect::<Vec<String>>();
+
+        let is_cross_compiling = target_triple != Triple::host();
+        let cross_compiling_args = if is_cross_compiling {
+            vec![
+                format!("--target={}", target_triple),
+                "-fuse-ld=lld".to_string(),
+            ]
+        } else {
+            vec![]
+        };
         let output = Command::new("gcc")
             .arg(&filepath)
+            .arg("-nostartfiles")
+            .arg("-nodefaultlibs")
+            .arg("-nostdlib")
             .arg("-o")
             .arg(&shared_filepath)
+            .args(&wasmer_symbols)
             .arg("-shared")
+            .args(&cross_compiling_args)
             .arg("-v")
             .output()
             .map_err(to_compile_error)?;
@@ -294,8 +334,13 @@ impl NativeArtifact {
                 std::str::from_utf8(&output.stderr).unwrap().trim_end()
             )));
         }
-        let lib = Library::new(&shared_filepath).map_err(to_compile_error)?;
-        Self::from_parts(&mut engine_inner, metadata, shared_filepath, lib)
+        trace!("gcc command result {:?}", output);
+        if is_cross_compiling {
+            Self::from_parts_crosscompiled(metadata, shared_filepath)
+        } else {
+            let lib = Library::new(&shared_filepath).map_err(to_compile_error)?;
+            Self::from_parts(&mut engine_inner, metadata, shared_filepath, lib)
+        }
     }
 
     fn get_function_name(metadata: &ModuleMetadata, index: LocalFunctionIndex) -> String {
@@ -325,6 +370,29 @@ impl NativeArtifact {
     }
 
     /// Construct a `NativeArtifact` from component parts.
+    pub fn from_parts_crosscompiled(
+        metadata: ModuleMetadata,
+        sharedobject_path: PathBuf,
+    ) -> Result<Self, CompileError> {
+        let finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
+            PrimaryMap::new();
+        let finished_dynamic_function_trampolines: PrimaryMap<
+            FunctionIndex,
+            *const VMFunctionBody,
+        > = PrimaryMap::new();
+        let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
+        Ok(Self {
+            sharedobject_path,
+            metadata,
+            library: None,
+            finished_functions: finished_functions.into_boxed_slice(),
+            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+                .into_boxed_slice(),
+            signatures: signatures.into_boxed_slice(),
+        })
+    }
+
+    /// Construct a `NativeArtifact` from component parts.
     pub fn from_parts(
         engine_inner: &mut NativeEngineInner,
         metadata: ModuleMetadata,
@@ -336,7 +404,7 @@ impl NativeArtifact {
         for (function_local_index, function_len) in metadata.function_body_lengths.iter() {
             let function_name = Self::get_function_name(&metadata, function_local_index);
             unsafe {
-                // We use a fake funciton signature `fn()` because we just
+                // We use a fake function signature `fn()` because we just
                 // want to get the function address.
                 let func: Symbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())
@@ -411,7 +479,7 @@ impl NativeArtifact {
         Ok(Self {
             sharedobject_path,
             metadata,
-            library: lib,
+            library: Some(lib),
             finished_functions: finished_functions.into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
@@ -546,6 +614,15 @@ impl Artifact for NativeArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
+    }
+
+    fn preinstantiate(&self) -> Result<(), InstantiationError> {
+        if self.library.is_none() {
+            return Err(InstantiationError::Link(LinkError::Trap(
+                RuntimeError::new("Cross compiled artifacts can't be instantiated."),
+            )));
+        }
+        Ok(())
     }
 
     /// Serialize a NativeArtifact

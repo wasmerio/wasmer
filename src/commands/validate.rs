@@ -12,7 +12,7 @@ pub struct Validate {
     path: PathBuf,
 
     #[structopt(flatten)]
-    compiler: StoreOptions,
+    store: StoreOptions,
 }
 
 impl Validate {
@@ -22,7 +22,7 @@ impl Validate {
             .context(format!("failed to validate `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let (store, _engine_name, _compiler_name) = self.compiler.get_store()?;
+        let (store, _engine_type, _compiler_type) = self.store.get_store()?;
         let module_contents = std::fs::read(&self.path)?;
         Module::validate(&store, &module_contents)?;
         eprintln!("Validation passed for `{}`.", self.path.display());

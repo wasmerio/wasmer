@@ -167,8 +167,8 @@ impl Module {
     }
 
     fn compile(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
-        let compiled = store.engine().compile(binary)?;
-        Ok(Self::from_compiled_module(store, compiled))
+        let artifact = store.engine().compile(binary)?;
+        Ok(Self::from_artifact(store, artifact))
     }
 
     /// Serializes a module into a binary representation that the `Engine`
@@ -231,8 +231,8 @@ impl Module {
     /// # }
     /// ```
     pub unsafe fn deserialize(store: &Store, bytes: &[u8]) -> Result<Self, DeserializeError> {
-        let compiled = store.engine().deserialize(bytes)?;
-        Ok(Self::from_compiled_module(store, compiled))
+        let artifact = store.engine().deserialize(bytes)?;
+        Ok(Self::from_artifact(store, artifact))
     }
 
     /// Deserializes a a serialized Module located in a `Path` into a `Module`.
@@ -257,10 +257,10 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let artifact = store.engine().deserialize_from_file(path.as_ref())?;
-        Ok(Self::from_compiled_module(store, artifact))
+        Ok(Self::from_artifact(store, artifact))
     }
 
-    fn from_compiled_module(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
+    fn from_artifact(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
         Module {
             store: store.clone(),
             artifact,

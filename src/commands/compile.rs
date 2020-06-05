@@ -1,4 +1,4 @@
-use crate::store::StoreOptions;
+use crate::store::{EngineType, StoreOptions};
 use crate::warning;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
@@ -16,8 +16,15 @@ pub struct Compile {
     #[structopt(name = "OUTPUT", short = "o", parse(from_os_str))]
     output: PathBuf,
 
+    /// Compilation Target triple
+    #[structopt(long = "target")]
+    target_triple: Option<Triple>,
+
     #[structopt(flatten)]
-    compiler: StoreOptions,
+    store: StoreOptions,
+
+    #[structopt(short = "m", multiple = true)]
+    cpu_features: Vec<CpuFeature>,
 }
 
 impl Compile {
@@ -27,15 +34,30 @@ impl Compile {
             .context(format!("failed to compile `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let (store, engine_name, compiler_name) = self.compiler.get_store()?;
+        let target = self
+            .target_triple
+            .as_ref()
+            .map(|target_triple| {
+                let mut features = self
+                    .cpu_features
+                    .clone()
+                    .into_iter()
+                    .fold(CpuFeature::set(), |a, b| a | b);
+                // Cranelift requires SSE2, so we have this "hack" for now to facilitate
+                // usage
+                features = features | CpuFeature::SSE2;
+                Target::new(target_triple.clone(), features)
+            })
+            .unwrap_or_default();
+        let (store, engine_type, compiler_type) =
+            self.store.get_store_for_target(target.clone())?;
         let output_filename = self
             .output
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let target = self.compiler.get_target()?;
-        let recommended_extension = match engine_name.as_ref() {
-            "native" => {
+        let recommended_extension = match engine_type {
+            EngineType::Native => {
                 // TODO: Match it depending on the `BinaryFormat` instead of the
                 // `OperatingSystem`.
                 match target.triple().operating_system {
@@ -45,8 +67,7 @@ impl Compile {
                     _ => "so",
                 }
             }
-            "jit" => "wjit",
-            _ => "?",
+            EngineType::JIT => "wjit",
         };
         match self.output.extension() {
             Some(ext) => {
@@ -58,8 +79,8 @@ impl Compile {
                 warning!("the output file has no extension. We recommend using `{}.{}` for the chosen target", &output_filename, &recommended_extension)
             }
         }
-        println!("Engine: {}", engine_name);
-        println!("Compiler: {}", compiler_name);
+        println!("Engine: {}", engine_type.to_string());
+        println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
         let module = Module::from_file(&store, &self.path)?;
         let _ = module.serialize_to_file(&self.output)?;

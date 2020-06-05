@@ -48,30 +48,38 @@ pub struct StoreOptions {
     // llvm_options: LLVMCLIOptions,
 }
 
+/// The compiler used for the store
 #[derive(Debug)]
-enum Compiler {
+pub enum CompilerType {
+    /// Singlepass compiler
     Singlepass,
+    /// Cranelift compiler
     Cranelift,
+    /// LLVM compiler
     LLVM,
+    /// Headless compiler
+    Headless,
 }
 
-impl ToString for Compiler {
+impl ToString for CompilerType {
     fn to_string(&self) -> String {
         match self {
             Self::Singlepass => "singlepass".to_string(),
             Self::Cranelift => "cranelift".to_string(),
             Self::LLVM => "llvm".to_string(),
+            Self::Headless => "headless".to_string(),
         }
     }
 }
 
-impl FromStr for Compiler {
+impl FromStr for CompilerType {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
         match s {
             "singlepass" => Ok(Self::Singlepass),
             "cranelift" => Ok(Self::Cranelift),
             "llvm" => Ok(Self::LLVM),
+            "headless" => Ok(Self::Headless),
             backend => bail!("The `{}` compiler does not exist.", backend),
         }
     }
@@ -79,30 +87,30 @@ impl FromStr for Compiler {
 
 #[cfg(all(feature = "compiler", feature = "engine"))]
 impl StoreOptions {
-    fn get_compiler(&self) -> Result<Compiler> {
+    fn get_compiler(&self) -> Result<CompilerType> {
         if self.cranelift {
-            Ok(Compiler::Cranelift)
+            Ok(CompilerType::Cranelift)
         } else if self.llvm {
-            Ok(Compiler::LLVM)
+            Ok(CompilerType::LLVM)
         } else if self.singlepass {
-            Ok(Compiler::Singlepass)
+            Ok(CompilerType::Singlepass)
         } else if let Some(backend) = self.backend.clone() {
             warning!(
                 "the `--backend={0}` flag is deprecated, please use `--{0}` instead",
                 backend
             );
-            Compiler::from_str(&backend)
+            CompilerType::from_str(&backend)
         } else {
             // Auto mode, we choose the best compiler for that platform
             cfg_if::cfg_if! {
                 if #[cfg(all(feature = "cranelift", target_arch = "x86_64"))] {
-                    return Ok(Compiler::Cranelift);
+                    return Ok(CompilerType::Cranelift);
                 }
                 else if #[cfg(all(feature = "singlepass", target_arch = "x86_64"))] {
-                    return Ok(Compiler::Singlepass);
+                    return Ok(CompilerType::Singlepass);
                 }
                 else if #[cfg(feature = "llvm")] {
-                    return Ok(Compiler::LLVM);
+                    return Ok(CompilerType::LLVM);
                 } else {
                     bail!("There are no available compilers for your architecture");
                 }
@@ -131,29 +139,28 @@ impl StoreOptions {
         Ok(features)
     }
 
-    /// Get the Target architecture
-    pub fn get_target(&self) -> Result<Target> {
-        Ok(Target::default())
-    }
-
     /// Get the Compiler Config for the current options
     #[allow(unused_variables)]
-    fn get_config(&self, compiler: Compiler) -> Result<Box<dyn CompilerConfig>> {
+    fn get_compiler_config(
+        &self,
+        target: Target,
+    ) -> Result<(Box<dyn CompilerConfig>, CompilerType)> {
+        let compiler = self.get_compiler()?;
         let features = self.get_features()?;
-        let target = self.get_target()?;
-        let config: Box<dyn CompilerConfig> = match compiler {
+        let compiler_config: Box<dyn CompilerConfig> = match compiler {
+            CompilerType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
-            Compiler::Singlepass => {
+            CompilerType::Singlepass => {
                 let config = wasmer_compiler_singlepass::SinglepassConfig::new(features, target);
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
-            Compiler::Cranelift => {
+            CompilerType::Cranelift => {
                 let config = wasmer_compiler_cranelift::CraneliftConfig::new(features, target);
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
-            Compiler::LLVM => {
+            CompilerType::LLVM => {
                 use std::fs::File;
                 use std::io::Write;
                 use wasm_common::entity::EntityRef;
@@ -248,15 +255,7 @@ impl StoreOptions {
                 compiler.to_string()
             ),
         };
-        Ok(config)
-    }
-
-    /// Gets the compiler config
-    fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, String)> {
-        let compiler = self.get_compiler()?;
-        let compiler_name = compiler.to_string();
-        let compiler_config = self.get_config(compiler)?;
-        Ok((compiler_config, compiler_name))
+        Ok((compiler_config, compiler))
     }
 
     /// Gets the tunables for the compiler target
@@ -264,28 +263,37 @@ impl StoreOptions {
         Tunables::for_target(compiler_config.target().triple())
     }
 
-    /// Gets the store, with the engine name and compiler name selected
-    pub fn get_store(&self) -> Result<(Store, String, String)> {
-        let (compiler_config, compiler_name) = self.get_compiler_config()?;
+    /// Gets the store for the host target, with the engine name and compiler name selected
+    pub fn get_store(&self) -> Result<(Store, EngineType, CompilerType)> {
+        let target = Target::default();
+        self.get_store_for_target(target)
+    }
+
+    /// Gets the store for a given target, with the engine name and compiler name selected, as
+    pub fn get_store_for_target(
+        &self,
+        target: Target,
+    ) -> Result<(Store, EngineType, CompilerType)> {
+        let (compiler_config, compiler_type) = self.get_compiler_config(target)?;
         let tunables = self.get_tunables(&*compiler_config);
-        let (engine, engine_name) = self.get_engine_with_compiler(tunables, compiler_config)?;
+        let (engine, engine_type) = self.get_engine_with_compiler(tunables, compiler_config)?;
         let store = Store::new(engine);
-        Ok((store, engine_name, compiler_name))
+        Ok((store, engine_type, compiler_type))
     }
 
     fn get_engine_with_compiler(
         &self,
         tunables: Tunables,
         compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<(Arc<dyn Engine + Send + Sync>, String)> {
+    ) -> Result<(Arc<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
         let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
-            EngineOptions::JIT => {
+            EngineType::JIT => {
                 Arc::new(wasmer_engine_jit::JITEngine::new(compiler_config, tunables))
             }
             #[cfg(feature = "native")]
-            EngineOptions::Native => Arc::new(wasmer_engine_native::NativeEngine::new(
+            EngineType::Native => Arc::new(wasmer_engine_native::NativeEngine::new(
                 compiler_config,
                 tunables,
             )),
@@ -295,16 +303,19 @@ impl StoreOptions {
                 engine.to_string()
             ),
         };
-        return Ok((engine, engine_type.to_string()));
+        return Ok((engine, engine_type));
     }
 }
 
-enum EngineOptions {
+/// The engine used for the store
+pub enum EngineType {
+    /// JIT Engine
     JIT,
+    /// Native Engine
     Native,
 }
 
-impl ToString for EngineOptions {
+impl ToString for EngineType {
     fn to_string(&self) -> String {
         match self {
             Self::JIT => "jit".to_string(),
@@ -315,17 +326,17 @@ impl ToString for EngineOptions {
 
 #[cfg(feature = "engine")]
 impl StoreOptions {
-    fn get_engine(&self) -> Result<EngineOptions> {
+    fn get_engine(&self) -> Result<EngineType> {
         if self.jit {
-            Ok(EngineOptions::JIT)
+            Ok(EngineType::JIT)
         } else if self.native {
-            Ok(EngineOptions::Native)
+            Ok(EngineType::Native)
         } else {
             // Auto mode, we choose the best engine for that platform
             if cfg!(feature = "jit") {
-                Ok(EngineOptions::JIT)
+                Ok(EngineType::JIT)
             } else if cfg!(feature = "native") {
-                Ok(EngineOptions::Native)
+                Ok(EngineType::Native)
             } else {
                 bail!("There are no available engines for your architecture")
             }
@@ -339,49 +350,53 @@ impl StoreOptions {
     fn get_engine_headless(
         &self,
         tunables: Tunables,
-    ) -> Result<(Arc<dyn Engine + Send + Sync>, String)> {
+    ) -> Result<(Arc<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
         let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
-            EngineOptions::JIT => Arc::new(wasmer_engine_jit::JITEngine::headless(tunables)),
+            EngineType::JIT => Arc::new(wasmer_engine_jit::JITEngine::headless(tunables)),
             #[cfg(feature = "native")]
-            EngineOptions::Native => {
-                Arc::new(wasmer_engine_native::NativeEngine::headless(tunables))
-            }
+            EngineType::Native => Arc::new(wasmer_engine_native::NativeEngine::headless(tunables)),
             #[cfg(not(all(feature = "jit", feature = "native",)))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
             ),
         };
-        return Ok((engine, engine_type.to_string()));
-    }
-
-    /// Get the Target architecture
-    pub fn get_target(&self) -> Result<Target> {
-        Ok(Target::default())
+        return Ok((engine, engine_type));
     }
 
     /// Get the store (headless engine)
-    pub fn get_store(&self) -> Result<(Store, String, String)> {
+    pub fn get_store(&self) -> Result<(Store, EngineType, CompilerType)> {
         // Get the tunables for the current host
         let tunables = Tunables::default();
-        let (engine, engine_name) = self.get_engine_headless(tunables)?;
+        let (engine, engine_type) = self.get_engine_headless(tunables)?;
         let store = Store::new(engine);
-        Ok((store, engine_name, "headless".to_string()))
+        Ok((store, engine_type, CompilerType::Headless))
+    }
+
+    /// Gets the store for provided host target
+    pub fn get_store_for_target(
+        &self,
+        _target: Target,
+    ) -> Result<(Store, EngineType, CompilerType)> {
+        bail!("You need compilers to retrieve a store for a specific target");
     }
 }
 
 // If we don't have any engine enabled
 #[cfg(not(feature = "engine"))]
 impl StoreOptions {
-    /// Get the Target architecture
-    pub fn get_target(&self) -> Result<Target> {
+    /// Get the store (headless engine)
+    pub fn get_store(&self) -> Result<(Store, EngineType, CompilerType)> {
         bail!("No engines are enabled");
     }
 
-    /// Get the store (headless engine)
-    pub fn get_store(&self) -> Result<(Store, String, String)> {
+    /// Gets the store for the host target
+    pub fn get_store_for_target(
+        &self,
+        _target: Target,
+    ) -> Result<(Store, EngineType, CompilerType)> {
         bail!("No engines are enabled");
     }
 }

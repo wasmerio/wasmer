@@ -1,6 +1,9 @@
 //! Target configuration
 use enumset::{EnumSet, EnumSetType};
-pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple};
+use std::str::FromStr;
+use std::string::ToString;
+pub use target_lexicon::{Architecture, BinaryFormat, CallingConvention, OperatingSystem, Triple};
+use thiserror::Error;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use raw_cpuid::CpuId;
@@ -97,6 +100,71 @@ impl CpuFeature {
     pub fn for_host() -> EnumSet<Self> {
         // We default to an empty hash set
         EnumSet::new()
+    }
+
+    /// Retrieves an empty set of `CpuFeature`s.
+    pub fn set() -> EnumSet<Self> {
+        // We default to an empty hash set
+        EnumSet::new()
+    }
+}
+
+/// The error that can happen while parsing a `str`
+/// to retrieve a [`CpuFeature`].
+#[derive(Error, Debug)]
+pub enum ParseCpuFeatureError {
+    /// The provided string feature doesn't exist
+    #[error("CpuFeature {0} not recognized")]
+    Missing(String),
+}
+
+// This options should map exactly the GCC options indicated
+// here by architectures:
+//
+// X86: https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
+// ARM: https://gcc.gnu.org/onlinedocs/gcc/gcc/ARM-Options.html
+// Aarch64: https://gcc.gnu.org/onlinedocs/gcc/gcc/AArch64-Options.html
+impl FromStr for CpuFeature {
+    type Err = ParseCpuFeatureError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "sse2" => Ok(CpuFeature::SSE2),
+            "sse3" => Ok(CpuFeature::SSE3),
+            "ssse3" => Ok(CpuFeature::SSSE3),
+            "sse4.1" => Ok(CpuFeature::SSE41),
+            "sse4.2" => Ok(CpuFeature::SSE42),
+            "popcnt" => Ok(CpuFeature::POPCNT),
+            "avx" => Ok(CpuFeature::AVX),
+            "bmi" => Ok(CpuFeature::BMI1),
+            "bmi2" => Ok(CpuFeature::BMI2),
+            "avx2" => Ok(CpuFeature::AVX2),
+            "avx512dq" => Ok(CpuFeature::AVX512DQ),
+            "avx512vl" => Ok(CpuFeature::AVX512VL),
+            "lzcnt" => Ok(CpuFeature::LZCNT),
+            _ => Err(ParseCpuFeatureError::Missing(s.to_string())),
+        }
+    }
+}
+
+impl ToString for CpuFeature {
+    fn to_string(&self) -> String {
+        match self {
+            CpuFeature::SSE2 => "sse2",
+            CpuFeature::SSE3 => "sse3",
+            CpuFeature::SSSE3 => "ssse3",
+            CpuFeature::SSE41 => "sse4.1",
+            CpuFeature::SSE42 => "sse4.2",
+            CpuFeature::POPCNT => "popcnt",
+            CpuFeature::AVX => "avx",
+            CpuFeature::BMI1 => "bmi",
+            CpuFeature::BMI2 => "bmi2",
+            CpuFeature::AVX2 => "avx2",
+            CpuFeature::AVX512DQ => "avx512dq",
+            CpuFeature::AVX512VL => "avx512vl",
+            CpuFeature::LZCNT => "lzcnt",
+        }
+        .to_string()
     }
 }
 
