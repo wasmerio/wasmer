@@ -115,10 +115,12 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 #############
 
 package-wasmer:
-	mkdir -p package/bin
 ifeq ($(OS), Windows_NT)
+	if not exist "package" mkdir "package"
+	if not exist "package/bin" mkdir "package/bin"
 	cp target/release/wasmer.exe package/bin/
 else
+	mkdir -p "package/bin"
 	cp target/release/wasmer package/bin/
 endif
 
@@ -128,13 +130,15 @@ endif
 # cd package/bin/ && ln -sf wapm wax && chmod +x wax
 
 package-capi:
-	mkdir -p "package/"
-	mkdir -p "package/include"
-	mkdir -p "package/lib"
 ifeq ($(OS), Windows_NT)
+	if not exist "package" mkdir "package"
+	if not exist "package/include" mkdir "package/include"
+	if not exist "package/lib" mkdir "package/lib"
 	cp target/release/wasmer_c_api.dll package/lib/wasmer.dll
 	cp target/release/wasmer_c_api.lib package/lib/wasmer.lib
 else
+	mkdir -p "package/include"
+	mkdir -p "package/lib"
 ifeq ($(UNAME_S), Darwin)
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
@@ -145,12 +149,18 @@ else
 	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 endif
 endif
-	find target/release/build -name 'wasmer.h*' -exec cp {} package/include ';'
+	cp lib/c-api/wasmer.h package/include
+	cp lib/c-api/wasmer.hh package/include
 	cp lib/c-api/doc/index.md package/include/README.md
 
 package-docs: build-docs build-docs-capi
+ifeq ($(OS), Windows_NT)
+	if not exist "package" mkdir "package"
+	if not exist "package/docs" mkdir "package/docs"
+else
 	mkdir -p "package/docs"
 	mkdir -p "package/docs/c"
+endif
 	cp -R target/doc package/docs/crates
 	cp -R lib/c-api/doc/html package/docs/c-api
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > package/docs/index.html
