@@ -117,8 +117,11 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 package-wasmer:
 	# This command doesn't build the binary, just packages it
 	mkdir -p ./package/bin
+ifeq ($(OS), Windows_NT)
+	cp ./target/release/wasmer.exe ./package/bin/
+else
 	cp ./target/release/wasmer ./package/bin/
-
+endif
   # Comment WAPM for now to speedup release process
 	# cp ./wapm-cli/target/release/wapm ./package/bin/
 	# # Create the wax binary as symlink to wapm
@@ -157,8 +160,11 @@ package-docs: build-docs build-docs-capi
 package: package-wasmer package-capi
 	cp LICENSE ./package/LICENSE
 	cp ATTRIBUTIONS.md ./package/ATTRIBUTIONS
+ifeq ($(OS), Windows_NT)
+  iscc wasmer.iss
+else
 	tar -C ./package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
-
+endif
 
 #################
 # Miscellaneous #
