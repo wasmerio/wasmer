@@ -10,18 +10,30 @@ with the Wasmer Runtime, so you can use WebAssembly anywhere.
 
 # Usage
 
-Since the Wasmer runtime is written in Rust, the C and C++ API are
-designed to work hand-in-hand with its shared library. The C and C++
-header files, namely [`wasmer.h`][wasmer_h] and `wasmer.hh` are documented
-in the docs.
+Upon installing Wasmer, the shared object files and the headers will
+be automatically available inside the Wasmer folder.
 
-Their source code can be found in the source tree of the [wasmer-runtime-c-api](https://github.com/wasmerio/wasmer/tree/master/lib/runtime-c-api)
-crate.
-The C and C++ header files along with the runtime shared
-libraries (`.so`, `.dylib`, `.dll`) can also be downloaded in the
-Wasmer [release page].
+The C ([`wasmer.h`][wasmer_h]) and C++ ([`wasmer.hh`][wasmer_hh]) header
+files can be found in the `include` directory where Wasmer is installed and also via:
+
+```bash
+wasmer config --includedir
+```
+
+The runtime shared libraries (`.so`, `.dylib`, `.dll`) can be found in the
+`lib` directory where Wasmer is installed and also via:
+
+```bash
+wasmer config --libdir
+```
+
+You can also download the libraries or header files directly from the Wasmer
+[release page].
 
 [release page]: https://github.com/wasmerio/wasmer/releases
+
+The full C API documentation can be found here:
+https://wasmerio.github.io/wasmer/c-api/
 
 Here is a simple example to use the C API:
 
@@ -102,6 +114,6 @@ Wasmer is primarily distributed under the terms of the [MIT
 license][mit-license] ([LICENSE][license]).
 
 
-[wasmer_h]: https://wasmerio.github.io/wasmer/c/runtime-c-api/wasmer_8h.html
+[wasmer_h]: https://wasmerio.github.io/wasmer/c-api/wasmer_8h.html
 [mit-license]: http://opensource.org/licenses/MIT
 [license]: https://github.com/wasmerio/wasmer/blob/master/LICENSE

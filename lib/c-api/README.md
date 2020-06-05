@@ -14,17 +14,17 @@
   <a href="https://spectrum.chat/wasmer">
     <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
   </a>
-  <a href="https://crates.io/crates/wasmer-runtime-c-api">
-    <img src="https://img.shields.io/crates/d/wasmer-runtime-c-api.svg?style=flat-square" alt="Number of downloads from crates.io">
+  <a href="https://crates.io/crates/wasmer-c-api">
+    <img src="https://img.shields.io/crates/d/wasmer-c-api.svg?style=flat-square" alt="Number of downloads from crates.io">
   </a>
-  <a href="https://wasmerio.github.io/wasmer/c/runtime-c-api/">
+  <a href="https://wasmerio.github.io/wasmer/c-api/">
     <img src="https://img.shields.io/badge/Docs-Wasmer%20C%20API-blue?style=flat-square" alt="Wasmer C API Documentation">
   </a>
 </p>
 
 # Wasmer Runtime C API
 
-Wasmer is a standalone JIT WebAssembly runtime, aiming to be fully
+Wasmer is a standalone WebAssembly runtime, aiming to be fully
 compatible with WASI, Emscripten, Rust and Go. [Learn
 more](https://github.com/wasmerio/wasmer).
 
@@ -32,14 +32,30 @@ This crate exposes a C and a C++ API for the Wasmer runtime.
 
 # Usage
 
-The C and C++ header files can be found in the source tree of this
-crate, respectively [`wasmer.h`][wasmer_h] and
-[`wasmer.hh`][wasmer_hh]. They are automatically generated, and always
-up-to-date in this repository.
-The runtime shared library (so, dll, dylib) can also be downloaded in Wasmer [release page](https://github.com/wasmerio/wasmer/releases).
+Upon installing Wasmer, the shared object files and the headers will
+be automatically available inside the Wasmer folder.
 
-You can find the full C API documentation here:
-https://wasmerio.github.io/wasmer/c/runtime-c-api/
+The C ([`wasmer.h`][wasmer_h]) and C++ ([`wasmer.hh`][wasmer_hh]) header
+files can be found in the `include` directory where Wasmer is installed and also via:
+
+```bash
+wasmer config --includedir
+```
+
+The runtime shared libraries (`.so`, `.dylib`, `.dll`) can be found in the
+`lib` directory where Wasmer is installed and also via:
+
+```bash
+wasmer config --libdir
+```
+
+You can also download the libraries or header files directly from the Wasmer
+[release page].
+
+[release page]: https://github.com/wasmerio/wasmer/releases
+
+The full C API documentation can be found here:
+https://wasmerio.github.io/wasmer/c-api/
 
 Here is a simple example to use the C API:
 
@@ -118,7 +134,7 @@ The tests can be run via `cargo test`, such as:
 $ cargo test --release -- --nocapture
 ```
 
-To run tests manually, enter the `lib/runtime-c-api/tests` directory
+To run tests manually, enter the `lib/c-api/tests` directory
 and run the following commands:
 
 ```sh
