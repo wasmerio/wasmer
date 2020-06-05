@@ -326,6 +326,7 @@ fn generate_dynamic_trampoline<'ctx>(
     );
 
     // Copy params to 'values'.
+    let first_user_param = if is_sret(func_sig)? { 2 } else { 1 };
     for i in 0..func_sig.params().len() {
         let ptr = unsafe {
             builder.build_in_bounds_gep(
@@ -343,7 +344,7 @@ fn generate_dynamic_trampoline<'ctx>(
         builder.build_store(
             ptr,
             trampoline_func
-                .get_nth_param(i as u32 + if is_sret(func_sig)? { 2 } else { 1 })
+                .get_nth_param(i as u32 + first_user_param)
                 .unwrap(),
         );
     }
