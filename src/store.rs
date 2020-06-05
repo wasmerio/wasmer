@@ -378,9 +378,9 @@ impl StoreOptions {
     /// Gets the store for provided host target
     pub fn get_store_for_target(
         &self,
-        target: Target,
+        _target: Target,
     ) -> Result<(Store, EngineType, CompilerType)> {
-        bail!("You need compilers to run get a store in a specific target");
+        bail!("You need compilers to retrieve a store for a specific target");
     }
 }
 
@@ -395,7 +395,7 @@ impl StoreOptions {
     /// Gets the store for the host target
     pub fn get_store_for_target(
         &self,
-        target: Target,
+        _target: Target,
     ) -> Result<(Store, EngineType, CompilerType)> {
         bail!("No engines are enabled");
     }
