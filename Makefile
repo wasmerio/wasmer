@@ -122,7 +122,7 @@ else
 	cp target/release/wasmer package/bin/
 endif
 
-# Comment WAPM for now to speedup release process
+# Comment out WAPM for now to speed up release process.
 # cp ./wapm-cli/target/release/wapm package/bin/
 # # Create the wax binary as symlink to wapm
 # cd package/bin/ && ln -sf wapm wax && chmod +x wax

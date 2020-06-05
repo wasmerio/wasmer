@@ -143,6 +143,16 @@ $ make
 $ make test
 ```
 
+## pkg-config
+
+The Wasmer binary ships with an utility tool that outputs config
+in the `pkg-config` format.
+
+You can use it like:
+
+```bash
+wasmer config --pkg-config > $PKG_CONFIG_PATH/wasmer.pc
+```
 
 # License
 

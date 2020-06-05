@@ -106,7 +106,16 @@ You can check more examples of how to use the Wasmer C API here:
 
 https://docs.wasmer.io/integrations/c/examples
 
+## pkg-config
 
+The Wasmer binary ships with an utility tool that outputs config
+in the `pkg-config` format.
+
+You can use it like:
+
+```bash
+wasmer config --pkg-config > $PKG_CONFIG_PATH/wasmer.pc
+```
 
 # License
 

@@ -44,12 +44,12 @@ wasmer_download_json() {
 
     # echo "Fetching $url.."
     if test -x "$(command -v curl)"; then
-        response=$(curl -s -L -w 'HTTPSTATUS:%{http_code}' -H 'Accept: application/json' "$url")
+        response=$(curl --proto '=https' --tlsv1.2 -S -s -L -w 'HTTPSTATUS:%{http_code}' -H 'Accept: application/json' "$url")
         body=$(echo "$response" | sed -e 's/HTTPSTATUS\:.*//g')
         code=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
     elif test -x "$(command -v wget)"; then
         temp=$(mktemp)
-        body=$(wget -q --header='Accept: application/json' -O - --server-response "$url" 2> "$temp")
+        body=$(wget --https-only -q --header='Accept: application/json' -O - --server-response "$url" 2> "$temp")
         code=$(awk '/^  HTTP/{print $2}' < "$temp" | tail -1)
         rm "$temp"
     else
@@ -210,8 +210,7 @@ initArch() {
     fi
     # If you modify this list, please also modify scripts/binary-name.sh
     case $ARCH in
-        amd64) ARCH="amd64";;
-        x86_64) ARCH="amd64";;
+        amd64|x86_64) ARCH="amd64";;
         aarch64) ARCH="arm64";;
         # i386) ARCH="386";;
         *) printf "$red> The system architecture (${ARCH}) is not supported by this installation script.$reset\n"; exit 1;;
