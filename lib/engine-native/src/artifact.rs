@@ -334,7 +334,7 @@ impl NativeArtifact {
                 std::str::from_utf8(&output.stderr).unwrap().trim_end()
             )));
         }
-        tracing::trace!("gcc command result {:?}", output);
+        trace!("gcc command result {:?}", output);
         if is_cross_compiling {
             Self::from_parts_crosscompiled(metadata, shared_filepath)
         } else {
