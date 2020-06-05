@@ -128,9 +128,9 @@ endif
 # cd package/bin/ && ln -sf wapm wax && chmod +x wax
 
 package-capi:
-	mkdir -p package/
-	mkdir -p package/include
-	mkdir -p package/lib
+	mkdir -p "package/"
+	mkdir -p "package/include"
+	mkdir -p "package/lib"
 ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer_c_api.dll package/lib/wasmer.dll
 	cp target/release/wasmer_c_api.lib package/lib/wasmer.lib
@@ -149,8 +149,8 @@ endif
 	cp lib/c-api/doc/index.md package/include/README.md
 
 package-docs: build-docs build-docs-capi
-	mkdir -p package/docs
-	mkdir -p package/docs/c
+	mkdir -p "package/docs"
+	mkdir -p "package/docs/c"
 	cp -R target/doc package/docs/crates
 	cp -R lib/c-api/doc/html package/docs/c-api
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > package/docs/index.html
