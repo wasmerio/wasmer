@@ -1,11 +1,11 @@
 # uname only works in *Unix like systems
 ifneq ($(OS), Windows_NT)
-  ARCH := $(shell uname -m)
-  UNAME_S := $(shell uname -s)
+	ARCH := $(shell uname -m)
+	UNAME_S := $(shell uname -s)
 else
-  # We can assume, if in windows it will likely be in x86_64
-  ARCH := x86_64
-  UNAME_S := 
+	# We can assume, if in windows it will likely be in x86_64
+	ARCH := x86_64
+	UNAME_S := 
 endif
 
 compilers :=
@@ -14,38 +14,38 @@ compilers :=
 RUST_VERSION := $(shell rustc -V)
 
 ifneq (, $(findstring nightly,$(RUST_VERSION)))
-  # Singlepass doesn't work yet on Windows
-  ifneq ($(OS), Windows_NT)
-    compilers += singlepass
-  endif
+	# Singlepass doesn't work yet on Windows
+	ifneq ($(OS), Windows_NT)
+		compilers += singlepass
+	endif
 endif
 
 ifeq ($(ARCH), x86_64)
-  # In X64, Cranelift is enabled
-  compilers += cranelift
-  # LLVM could be enabled if not in Windows
-  ifneq ($(OS), Windows_NT)
-    # Autodetect LLVM from llvm-config
-    ifneq (, $(shell which llvm-config))
-      LLVM_VERSION := $(shell llvm-config --version)
-      # If findstring is not empty, then it have found the value
-      ifneq (, $(findstring 10,$(LLVM_VERSION)))
-        compilers += llvm
-      endif
-    else
-      ifneq (, $(shell which llvm-config-10))
-        compilers += llvm
-      endif
-    endif
-  endif
+	# In X64, Cranelift is enabled
+	compilers += cranelift
+	# LLVM could be enabled if not in Windows
+	ifneq ($(OS), Windows_NT)
+		# Autodetect LLVM from llvm-config
+		ifneq (, $(shell which llvm-config))
+			LLVM_VERSION := $(shell llvm-config --version)
+			# If findstring is not empty, then it have found the value
+			ifneq (, $(findstring 10,$(LLVM_VERSION)))
+				compilers += llvm
+			endif
+		else
+			ifneq (, $(shell which llvm-config-10))
+				compilers += llvm
+			endif
+		endif
+	endif
 endif
 
 compilers := $(filter-out ,$(compilers))
 
 ifneq ($(OS), Windows_NT)
-  bold := $(shell tput bold)
-  green := $(shell tput setaf 2)
-  reset := $(shell tput sgr0)
+	bold := $(shell tput bold)
+	green := $(shell tput setaf 2)
+	reset := $(shell tput sgr0)
 endif
 
 
@@ -122,7 +122,7 @@ ifeq ($(OS), Windows_NT)
 else
 	cp ./target/release/wasmer ./package/bin/
 endif
-  # Comment WAPM for now to speedup release process
+	# Comment WAPM for now to speedup release process
 	# cp ./wapm-cli/target/release/wapm ./package/bin/
 	# # Create the wax binary as symlink to wapm
 	# cd ./package/bin/ && ln -sf wapm wax && chmod +x wax
@@ -161,7 +161,7 @@ package: package-wasmer package-capi
 	cp LICENSE ./package/LICENSE
 	cp ATTRIBUTIONS.md ./package/ATTRIBUTIONS
 ifeq ($(OS), Windows_NT)
-  iscc wasmer.iss
+	iscc wasmer.iss
 else
 	tar -C ./package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 endif
