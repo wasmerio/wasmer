@@ -13,7 +13,7 @@ with the Wasmer Runtime, so you can use WebAssembly anywhere.
 The shared object files and the headers will
 be automatically available **inside the Wasmer installed path**.
 
-> Please check the following docs to see how to [install Wasmer in your system][https://github.com/wasmerio/wasmer#1-install-wasmer].
+> Please check the following docs to see how to [install Wasmer in your system](https://github.com/wasmerio/wasmer#1-install-wasmer).
 
 The C ([`wasmer.h`][wasmer_h]) and C++ ([`wasmer.hh`][wasmer_hh]) header
 files can be found in the Wasmer `include` directory:
@@ -118,4 +118,4 @@ license][mit-license] ([LICENSE][license]).
 [wasmer_hh]: https://wasmerio.github.io/wasmer/c-api/wasmer_8hh.html
 [mit-license]: http://opensource.org/licenses/MIT
 [license]: https://github.com/wasmerio/wasmer/blob/master/LICENSE
-[release page]: https://github.com/wasmerio/wasmer/releases
+[Wasmer release page]: https://github.com/wasmerio/wasmer/releases
