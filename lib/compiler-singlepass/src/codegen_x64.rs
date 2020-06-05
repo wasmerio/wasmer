@@ -1344,8 +1344,7 @@ impl<'a> FuncGen<'a> {
             self.machine.release_temp_gpr(tmp_aligncheck);
         }
 
-        //self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| cb(this, tmp_addr))?;
-        cb(self, tmp_addr);
+        self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| cb(this, tmp_addr))?;
 
         self.machine.release_temp_gpr(tmp_addr);
         Ok(())
