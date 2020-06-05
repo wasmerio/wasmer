@@ -115,12 +115,10 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 #############
 
 package-wasmer:
-ifeq ($(OS), Windows_NT)
-	if not exist "package" mkdir "package"
-	if not exist "package/bin" mkdir "package/bin"
-	copy "target\release\wasmer.exe" "package\bin"
-else
 	mkdir -p "package/bin"
+ifeq ($(OS), Windows_NT)
+	cp target/release/wasmer.exe package/bin/
+else
 	cp target/release/wasmer package/bin/
 endif
 
@@ -130,21 +128,14 @@ endif
 # cd package/bin/ && ln -sf wapm wax && chmod +x wax
 
 package-capi:
-ifeq ($(OS), Windows_NT)
-	if not exist "package" mkdir "package"
-	if not exist "package/include" mkdir "package/include"
-	if not exist "package/lib" mkdir "package/lib"
-	copy ".\target\release\wasmer_c_api.dll" ".\package\lib\wasmer.dll"
-	copy ".\target\release\wasmer_c_api.lib" ".\package\lib\wasmer.lib"
-	copy ".\lib\c-api\wasmer.h" ".\package\include"
-	copy ".\lib\c-api\wasmer.hh" ".\package\include"
-	copy ".\lib\c-api\doc\index.md" ".\package\include\README.md"
-else
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
-	cp lib/c-api/wasmer.h package/include
-	cp lib/c-api/wasmer.hh package/include
+	cp lib/c-api/wasmer.h* package/include
 	cp lib/c-api/doc/index.md package/include/README.md
+ifeq ($(OS), Windows_NT)
+	cp target/release/wasmer_c_api.dll package/lib
+	cp target/release/wasmer_c_api.lib package/lib
+else
 ifeq ($(UNAME_S), Darwin)
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
@@ -157,31 +148,25 @@ endif
 endif
 
 package-docs: build-docs build-docs-capi
-ifeq ($(OS), Windows_NT)
-	if not exist "package" mkdir "package"
-	if not exist "package/docs" mkdir "package/docs"
-else
 	mkdir -p "package/docs"
 	mkdir -p "package/docs/c"
-endif
 	cp -R target/doc package/docs/crates
 	cp -R lib/c-api/doc/html package/docs/c-api
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > package/docs/index.html
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > package/docs/crates/index.html
 
 package: package-wasmer package-capi
+	cp LICENSE package/LICENSE
+	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
+	mkdir -p dist
 ifeq ($(OS), Windows_NT)
-	copy ".\LICENSE" ".\package\LICENSE"
-	copy ".\ATTRIBUTIONS.md" ".\package\ATTRIBUTIONS"
-	iscc src\windows-installer\wasmer.iss
-	if not exist "dist" mkdir "dist"
-	copy ".\src\windows-installer\WasmerInstaller.exe" ".\dist\wasmer-windows.exe"
+	iscc src/windows-installer/wasmer.iss
+	cp src/windows-installer/WasmerInstaller.exe dist/wasmer-windows.exe
 else
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
-	mkdir -p "dist"
-	cp ./wasmer.tar.gz ./dist/$(./scripts/capi-name.sh)
+	cp ./wasmer.tar.gz ./dist/$(shell ./scripts/binary-name.sh)
 endif
 
 #################
