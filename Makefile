@@ -173,11 +173,15 @@ package: package-wasmer package-capi
 ifeq ($(OS), Windows_NT)
 	copy ".\LICENSE" ".\package\LICENSE"
 	copy ".\ATTRIBUTIONS.md" ".\package\ATTRIBUTIONS"
-	cd src\windows-installer && iscc wasmer.iss
+	iscc src\windows-installer\wasmer.iss
+	if not exist "dist" mkdir "dist"
+	copy ".\src\windows-installer\WasmerInstaller.exe" ".\dist\wasmer-windows.exe"
 else
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
+	mkdir -p "dist"
+	cp ./wasmer.tar.gz ./dist/$(./scripts/capi-name.sh)
 endif
 
 #################
