@@ -115,38 +115,38 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 #############
 
 package-wasmer:
-	# This command doesn't build the binary, just packages it
-	mkdir -p ./package/bin
+	mkdir -p package/bin
 ifeq ($(OS), Windows_NT)
-	cp ./target/release/wasmer.exe ./package/bin/
+	cp target/release/wasmer.exe package/bin/
 else
-	cp ./target/release/wasmer ./package/bin/
+	cp target/release/wasmer package/bin/
 endif
-	# Comment WAPM for now to speedup release process
-	# cp ./wapm-cli/target/release/wapm ./package/bin/
-	# # Create the wax binary as symlink to wapm
-	# cd ./package/bin/ && ln -sf wapm wax && chmod +x wax
+
+# Comment WAPM for now to speedup release process
+# cp ./wapm-cli/target/release/wapm package/bin/
+# # Create the wax binary as symlink to wapm
+# cd package/bin/ && ln -sf wapm wax && chmod +x wax
 
 package-capi:
-	mkdir -p ./package/
-	mkdir -p ./package/include
-	mkdir -p ./package/lib
+	mkdir -p package/
+	mkdir -p package/include
+	mkdir -p package/lib
 ifeq ($(OS), Windows_NT)
-	cp target/release/wasmer_c_api.dll ./package/lib/wasmer.dll
-	cp target/release/wasmer_c_api.lib ./package/lib/wasmer.lib
+	cp target/release/wasmer_c_api.dll package/lib/wasmer.dll
+	cp target/release/wasmer_c_api.lib package/lib/wasmer.lib
 else
 ifeq ($(UNAME_S), Darwin)
-	cp target/release/libwasmer_c_api.dylib ./package/lib/libwasmer.dylib
-	cp target/release/libwasmer_c_api.a ./package/lib/libwasmer.a
+	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
+	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 	# Fix the rpath for the dylib
-	install_name_tool -id "@rpath/libwasmer.dylib" ./package/lib/libwasmer.dylib
+	install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib
 else
-	cp target/release/libwasmer_c_api.so ./package/lib/libwasmer.so
-	cp target/release/libwasmer_c_api.a ./package/lib/libwasmer.a
+	cp target/release/libwasmer_c_api.so package/lib/libwasmer.so
+	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 endif
 endif
-	find target/release/build -name 'wasmer.h*' -exec cp {} ./package/include ';'
-	cp lib/c-api/doc/index.md ./package/include/README.md
+	find target/release/build -name 'wasmer.h*' -exec cp {} package/include ';'
+	cp lib/c-api/doc/index.md package/include/README.md
 
 package-docs: build-docs build-docs-capi
 	mkdir -p package/docs
@@ -157,12 +157,12 @@ package-docs: build-docs build-docs-capi
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > package/docs/crates/index.html
 
 package: package-wasmer package-capi
-	cp LICENSE ./package/LICENSE
-	cp ATTRIBUTIONS.md ./package/ATTRIBUTIONS
+	cp LICENSE package/LICENSE
+	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 ifeq ($(OS), Windows_NT)
 	iscc wasmer.iss
 else
-	tar -C ./package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
+	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 endif
 
 #################
