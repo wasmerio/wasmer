@@ -48,7 +48,6 @@ distance = "0.4"
 # For the inspect subcommand
 bytesize = "1.0"
 cfg-if = "0.1"
-lazy_static = "1.4"
 
 [workspace]
 members = [
@@ -64,6 +63,7 @@ rustc_version = "0.2"
 [dev-dependencies]
 anyhow = "1.0"
 blake3 = "0.3"
+lazy_static = "1.4"
 test-utils = { path = "tests/lib/test-utils" }
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 
