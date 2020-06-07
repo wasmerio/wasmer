@@ -163,7 +163,7 @@ pub fn resolve_imports(
                 let address = match f.kind {
                     VMFunctionKind::Dynamic => {
                         // If this is a dynamic imported function,
-                        // the address of the funciton is the address of the
+                        // the address of the function is the address of the
                         // reverse trampoline.
                         let index = FunctionIndex::new(function_imports.len());
                         finished_dynamic_function_trampolines[index]
