@@ -54,7 +54,7 @@ pub trait Artifact {
     /// ready to be run.
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>;
 
-    /// Returns the dynamic funciton trampolines allocated in memory
+    /// Returns the dynamic function trampolines allocated in memory
     /// for this `Artifact`, ready to be run.
     fn finished_dynamic_function_trampolines(
         &self,

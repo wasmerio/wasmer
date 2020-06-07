@@ -414,7 +414,7 @@ impl Module {
     }
 
     /// The ABI of the ModuleInfo is very unstable, we refactor it very often.
-    /// This funciton is public because in some cases it can be useful to get some
+    /// This function is public because in some cases it can be useful to get some
     /// extra information from the module.
     ///
     /// However, the usage is highly discouraged.
