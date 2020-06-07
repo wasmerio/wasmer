@@ -8,6 +8,7 @@ use std::collections::HashSet;
 lazy_static! {
     static ref SKIP_TESTS: HashSet<&'static str> = [
         // https://github.com/bytecodealliance/wasmtime/issues/1178
+        (concat!(module_path!(), "::cranelift::test_mvr_f32_f32::native")),
         (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_f32::native")),
         (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_f32_f32::native")),
         (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_f32_i32::native")),
@@ -32,6 +33,7 @@ lazy_static! {
         (concat!(module_path!(), "::cranelift::test_mvr_f64_f32_i32::native")),
         (concat!(module_path!(), "::cranelift::test_mvr_f64_i32_f32::native")),
         (concat!(module_path!(), "::cranelift::test_mvr_f64_i32_i32::native")),
+        (concat!(module_path!(), "::cranelift::test_mvr_i32_f32::native")),
         (concat!(module_path!(), "::cranelift::test_mvr_i32_f32_f32_f32::native")),
         (concat!(module_path!(), "::cranelift::test_mvr_i32_f32_f32_i32::native")),
         (concat!(module_path!(), "::cranelift::test_mvr_i32_f32_f64::native")),
