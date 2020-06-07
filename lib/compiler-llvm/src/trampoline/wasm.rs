@@ -50,7 +50,7 @@ impl FuncTrampoline {
         let (callee_ty, callee_attrs) = func_type_to_llvm(&self.ctx, &intrinsics, ty)?;
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
-                intrinsics.ctx_ptr_ty.as_basic_type_enum(), // callee_vmctx ptr
+                intrinsics.ctx_ptr_ty.as_basic_type_enum(), // vmctx ptr
                 callee_ty
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(), // callee function address
@@ -308,14 +308,6 @@ fn generate_dynamic_trampoline<'ctx>(
     let builder = context.create_builder();
     builder.position_at_end(entry_block);
 
-    /*
-    // TODO: remove debugging
-    builder.build_call(
-        intrinsics.debug_trap,
-        &[],
-        "");
-    */
-
     // Allocate stack space for the params and results.
     let values = builder.build_alloca(
         intrinsics.i128_ty.array_type(cmp::max(
@@ -353,19 +345,17 @@ fn generate_dynamic_trampoline<'ctx>(
         .void_ty
         .fn_type(
             &[
-                intrinsics.ctx_ptr_ty.as_basic_type_enum(),
-                intrinsics.i128_ptr_ty.as_basic_type_enum(),
+                intrinsics.ctx_ptr_ty.as_basic_type_enum(),  // vmctx ptr
+                intrinsics.i128_ptr_ty.as_basic_type_enum(), // in/out values ptr
             ],
             false,
         )
-        .ptr_type(AddressSpace::Generic)
         .ptr_type(AddressSpace::Generic);
-
     let vmctx = get_vmctx_ptr_param(&trampoline_func);
     let callee = builder
         .build_load(
             builder
-                .build_bitcast(vmctx, callee_ty, "")
+                .build_bitcast(vmctx, callee_ty.ptr_type(AddressSpace::Generic), "")
                 .into_pointer_value(),
             "",
         )
@@ -392,7 +382,10 @@ fn generate_dynamic_trampoline<'ctx>(
                 let ptr = unsafe {
                     builder.build_gep(
                         values,
-                        &[intrinsics.i32_ty.const_int(idx.try_into().unwrap(), false)],
+                        &[
+                            intrinsics.i32_ty.const_zero(),
+                            intrinsics.i32_ty.const_int(idx.try_into().unwrap(), false),
+                        ],
                         "",
                     )
                 };
