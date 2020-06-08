@@ -42,3 +42,10 @@ pub fn validate(bytes: &[u8]) -> bool {
 
     new::wasmer::Module::validate(&store, bytes).is_ok()
 }
+
+#[macro_export]
+macro_rules! func {
+    ($function:expr) => {
+        $crate::typed_func::Func::new($function)
+    };
+}
