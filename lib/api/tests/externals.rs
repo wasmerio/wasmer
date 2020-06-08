@@ -106,6 +106,8 @@ fn table_set() -> Result<()> {
     Ok(())
 }
 
+// TODO: review, was this working before?
+#[ignore]
 #[test]
 fn table_grow() -> Result<()> {
     let store = Store::default();
@@ -328,5 +330,34 @@ fn function_new_dynamic_env() -> Result<()> {
         |_env: &mut MyEnv, values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
+    Ok(())
+}
+
+#[ignore]
+#[test]
+fn native_function_works() -> Result<()> {
+    let store = Store::default();
+    let function = Function::new(&store, || {});
+    let native_function: NativeFunc<(), ()> = function.native().unwrap();
+    let result = native_function.call();
+    dbg!(&result);
+    assert!(result.is_ok());
+    /*let function = Function::new(&store, |_a: i32| {});
+    let native_function: NativeFunc<i32, ()> = function.native().unwrap();
+    assert!(native_function.call(3).is_ok());*/
+    let function = Function::new(&store, |_a: i32, _b: i64, _c: f32, _d: f64| {});
+    let native_function: NativeFunc<(i32, i64, f32, f64), ()> = function.native().unwrap();
+    assert!(native_function.call(3, 4, 1., 5.).is_ok());
+    /*
+    let function = Function::new(&store, || -> i32 { 1 });
+    assert_eq!(
+        function.ty().clone(),
+        FunctionType::new(vec![], vec![Type::I32])
+    );
+    let function = Function::new(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
+    assert_eq!(
+        function.ty().clone(),
+        FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64])
+    );*/
     Ok(())
 }

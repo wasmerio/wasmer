@@ -116,6 +116,14 @@ impl Exports {
         self.get(name)
     }
 
+    /*
+    /// Get an export as a `Func`.
+    pub fn get_native_function::<Args, Rets>(&self, name: &str) -> Result<&NativeFunction, ExportError> {
+        // TODO:
+        //self.get(name)
+    }
+    */
+
     /// Get an export as an `Extern`.
     pub fn get_extern(&self, name: &str) -> Option<&Extern> {
         self.map.get(name)

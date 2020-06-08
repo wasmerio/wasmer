@@ -30,31 +30,102 @@ pub trait NativeWasmType {
 
     #[doc(hidden)]
     fn into_abi(self) -> Self::Abi;
+
+    /// Convert self to i128 binary representation.
+    fn to_binary(self) -> i128;
+
+    /// Convert to self from i128 binary representation.
+    fn from_binary(binary: i128) -> Self;
 }
 
-macro_rules! wasm_native_type {
-    ($type:ty => $native_type:expr) => {
-        impl NativeWasmType for $type {
-            const WASM_TYPE: Type = $native_type;
-            type Abi = Self;
+impl NativeWasmType for i32 {
+    const WASM_TYPE: Type = Type::I32;
+    type Abi = Self;
 
-            #[inline]
-            fn from_abi(abi: Self::Abi) -> Self {
-                abi
-            }
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
 
-            #[inline]
-            fn into_abi(self) -> Self::Abi {
-                self
-            }
-        }
-    };
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    fn to_binary(self) -> i128 {
+        self as _
+    }
+
+    fn from_binary(bits: i128) -> Self {
+        bits as _
+    }
 }
+impl NativeWasmType for i64 {
+    const WASM_TYPE: Type = Type::I64;
+    type Abi = Self;
 
-wasm_native_type!(i32 => Type::I32);
-wasm_native_type!(i64 => Type::I64);
-wasm_native_type!(f32 => Type::F32);
-wasm_native_type!(f64 => Type::F64);
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    fn to_binary(self) -> i128 {
+        self as _
+    }
+
+    fn from_binary(bits: i128) -> Self {
+        bits as _
+    }
+}
+impl NativeWasmType for f32 {
+    const WASM_TYPE: Type = Type::F32;
+    type Abi = Self;
+
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    fn to_binary(self) -> i128 {
+        self.to_bits() as _
+    }
+
+    fn from_binary(bits: i128) -> Self {
+        Self::from_bits(bits as _)
+    }
+}
+impl NativeWasmType for f64 {
+    const WASM_TYPE: Type = Type::F64;
+    type Abi = Self;
+
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    fn to_binary(self) -> i128 {
+        self.to_bits() as _
+    }
+
+    fn from_binary(bits: i128) -> Self {
+        Self::from_bits(bits as _)
+    }
+}
 
 #[cfg(test)]
 mod test_native_type {
@@ -166,7 +237,7 @@ pub trait WasmTypeList {
     type CStruct;
 
     /// Array of return values.
-    type Array: AsMut<[u64]>;
+    type Array: AsMut<[i128]>;
 
     /// Construct `Self` based on an array of returned values.
     fn from_array(array: Self::Array) -> Self;
@@ -299,7 +370,7 @@ where
 
 impl WasmTypeList for Infallible {
     type CStruct = Self;
-    type Array = [u64; 0];
+    type Array = [i128; 0];
 
     fn from_array(_: Self::Array) -> Self {
         unreachable!()
@@ -351,20 +422,19 @@ macro_rules! impl_traits {
         {
             type CStruct = $struct_name<$( $x ),*>;
 
-            type Array = [u64; count_idents!( $( $x ),* )];
+            type Array = [i128; count_idents!( $( $x ),* )];
 
-            fn from_array(_array: Self::Array) -> Self {
-                unimplemented!("from array");
-                // #[allow(non_snake_case)]
-                // let [ $( $x ),* ] = array;
+            fn from_array(array: Self::Array) -> Self {
+                #[allow(non_snake_case)]
+                let [ $( $x ),* ] = array;
 
-                // ( $( WasmExternType::from_native(NativeWasmType::from_binary($x)) ),* )
+                ( $( WasmExternType::from_native(NativeWasmType::from_binary($x)) ),* )
             }
 
             fn into_array(self) -> Self::Array {
-                unimplemented!("into array");
-                // let ( $( $x ),* ) = self;
-                // [ $( WasmExternType::to_native($x).to_binary() ),* ]
+                #[allow(non_snake_case)]
+                let ( $( $x ),* ) = self;
+                [ $( WasmExternType::to_native($x).to_binary() ),* ]
             }
 
             fn empty_array() -> Self::Array {
