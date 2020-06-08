@@ -1,18 +1,32 @@
 //! The middleware parses the function binary bytecodes and transform them
 //! with the chosen functions.
+
+use smallvec::SmallVec;
 use wasmparser::{BinaryReader, Operator, Result, Type};
+
+pub trait FunctionMiddleware {
+    /// Processes the given event, module info and sink.
+    fn feed<'a, 'b>(&self, operator: &'a Operator<'b>, reader: &'b mut MiddlewareBinaryReader<'b>) {
+        reader.push_operator(operator.clone());
+    }
+}
 
 /// A Middleware binary reader of the WebAssembly structures and types.
 #[derive(Clone, Debug)]
 pub struct MiddlewareBinaryReader<'a> {
     inner: BinaryReader<'a>,
+    // The pending operations added by the middleware
+    pending_operations: SmallVec<[Operator<'a>; 2]>,
 }
 
 impl<'a> MiddlewareBinaryReader<'a> {
     /// Constructs a `MiddlewareBinaryReader` with an explicit starting offset.
     pub fn new_with_offset(data: &'a [u8], original_offset: usize) -> Self {
         let inner = BinaryReader::new_with_offset(data, original_offset);
-        Self { inner }
+        Self {
+            inner,
+            pending_operations: SmallVec::new(),
+        }
     }
 
     /// Read a `count` indicating the number of times to call `read_local_decl`.
@@ -27,7 +41,16 @@ impl<'a> MiddlewareBinaryReader<'a> {
 
     /// Reads the next available `Operator`.
     pub fn read_operator(&mut self) -> Result<Operator<'a>> {
-        self.inner.read_operator()
+        if self.pending_operations.is_empty() {
+            self.inner.read_operator()
+        } else {
+            Ok(self.pending_operations.pop().unwrap())
+        }
+    }
+
+    /// Push the operator
+    pub fn push_operator(&mut self, operator: Operator<'a>) {
+        self.pending_operations.push(operator);
     }
 
     /// Returns the inner `BinaryReader`'s current position.

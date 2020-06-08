@@ -1963,6 +1963,7 @@ dependencies = [
  "raw-cpuid",
  "serde",
  "serde_bytes",
+ "smallvec",
  "target-lexicon",
  "thiserror",
  "wasm-common",
