@@ -18,22 +18,12 @@ extern "C" fn dummy_trampoline(
 }
 
 /// A WebAssembly `Dummy` Engine.
+#[derive(Clone)]
 pub struct DummyEngine {
     signatures: Arc<SignatureRegistry>,
     features: Arc<Features>,
     tunables: Arc<dyn Tunables + Send + Sync>,
     engine_id: EngineId,
-}
-
-impl Clone for DummyEngine {
-    fn clone(&self) -> Self {
-        Self {
-            signatures: self.signatures.clone(),
-            features: self.features.clone(),
-            tunables: self.tunables.clone(),
-            engine_id: EngineId::default(),
-        }
-    }
 }
 
 impl DummyEngine {

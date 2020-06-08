@@ -13,20 +13,11 @@ use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 
 /// A WebAssembly `Native` Engine.
+#[derive(Clone)]
 pub struct NativeEngine {
     inner: Arc<Mutex<NativeEngineInner>>,
     tunables: Arc<dyn Tunables + Send + Sync>,
     engine_id: EngineId,
-}
-
-impl Clone for NativeEngine {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-            tunables: self.tunables.clone(),
-            engine_id: EngineId::default(),
-        }
-    }
 }
 
 impl NativeEngine {

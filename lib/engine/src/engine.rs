@@ -67,6 +67,12 @@ impl EngineId {
     }
 }
 
+impl Clone for EngineId {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
 impl Default for EngineId {
     fn default() -> Self {
         static NEXT_ID: AtomicUsize = AtomicUsize::new(0);

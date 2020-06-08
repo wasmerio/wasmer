@@ -16,20 +16,11 @@ use wasmer_runtime::{
 };
 
 /// A WebAssembly `JIT` Engine.
+#[derive(Clone)]
 pub struct JITEngine {
     inner: Arc<Mutex<JITEngineInner>>,
     tunables: Arc<dyn Tunables + Send + Sync>,
     engine_id: EngineId,
-}
-
-impl Clone for JITEngine {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-            tunables: self.tunables.clone(),
-            engine_id: EngineId::default(),
-        }
-    }
 }
 
 impl JITEngine {
