@@ -29,10 +29,10 @@ use wasm_common::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type,
 };
-use wasmer_compiler::wasmparser::{BinaryReader, MemoryImmediate, Operator};
+use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, CompiledFunction, CustomSections,
-    FunctionBodyData, ModuleTranslationState, RelocationTarget,
+    FunctionBodyData, MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget,
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
@@ -127,8 +127,10 @@ impl FuncTranslator {
         state.push_block(return_, phis);
         builder.position_at_end(start_of_code);
 
-        let mut reader =
-            BinaryReader::new_with_offset(function_body.data, function_body.module_offset);
+        let mut reader = MiddlewareBinaryReader::new_with_offset(
+            function_body.data,
+            function_body.module_offset,
+        );
 
         let mut params = vec![];
         let first_param =
