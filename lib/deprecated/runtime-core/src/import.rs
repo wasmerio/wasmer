@@ -1,6 +1,6 @@
 use crate::new;
 
-pub use new::wasmer::{imports, ImportObject, ImportObjectIterator, LikeNamespace};
+pub use new::wasmer::{imports, namespace, ImportObject, ImportObjectIterator, LikeNamespace};
 
 pub struct Namespace {
     exports: new::wasmer::Exports,

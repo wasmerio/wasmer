@@ -33,7 +33,7 @@ pub use crate::units::{Bytes, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_S
 pub use functional_api::{compile, compile_with, compile_with_config, load_cache_with, validate};
 
 pub mod prelude {
-    pub use crate::import::{imports, ImportObject, Namespace};
+    pub use crate::import::{imports, namespace, ImportObject, Namespace};
     pub use crate::typed_func::Func;
     pub use crate::types::{FuncIndex, GlobalIndex, MemoryIndex, TableIndex, Type, Value};
 }
