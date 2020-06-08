@@ -111,10 +111,10 @@ impl Wasi {
 
         let instance = Instance::new(&module, &import_object)?;
 
-        let memory: &Memory = instance.exports.get("memory")?;
-        wasi_env.set_memory(memory);
+        let memory: Memory = instance.exports.get("memory")?;
+        wasi_env.set_memory(&memory);
 
-        let start: &Function = instance.exports.get("_start")?;
+        let start: Function = instance.exports.get("_start")?;
 
         start
             .call(&[])

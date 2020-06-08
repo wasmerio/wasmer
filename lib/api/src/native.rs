@@ -4,39 +4,16 @@ use std::marker::PhantomData;
 
 use crate::exports::{ExportError, Exportable};
 use crate::externals::function::{FunctionDefinition, WasmFunctionDefinition};
-use crate::{Extern, Function, FunctionType, RuntimeError, Store};
+use crate::{Extern, Function, FunctionType, Store};
 use wasm_common::{NativeWasmType, WasmExternType, WasmTypeList};
 use wasmer_runtime::{
-    wasmer_call_trampoline, ExportFunction, VMContext, VMFunctionBody, VMFunctionKind, VMTrampoline,
+    wasmer_call_trampoline, Export, ExportFunction, VMContext, VMFunctionBody, VMFunctionKind,
 };
 
 #[derive(Clone)]
 pub struct UnprovidedArgs;
 #[derive(Clone)]
 pub struct UnprovidedRets;
-
-/// This is just an empty trait to constrict that types that
-/// can be put into the third/fourth (depending if you include lifetimes)
-/// of the `NativeFunc` struct.
-pub trait Kind {}
-
-/// TODO(lachlan): Naming TBD.
-/// This contains the trampoline and invoke functions for a specific signature,
-/// as well as the environment that the invoke function may or may not require.
-#[derive(Copy, Clone)]
-pub struct Wasm {
-    pub(crate) trampoline: VMTrampoline,
-    //pub(crate) invoke: Invoke,
-    //pub(crate) invoke_env: Option<NonNull<c_void>>,
-}
-
-impl Kind for Wasm {}
-
-/// This type, as part of the `NativeFunc` type signature, represents a function that is created
-/// by the host.
-pub struct Host(());
-
-impl Kind for Host {}
 
 pub struct NativeFunc<'a, Args = UnprovidedArgs, Rets = UnprovidedRets> {
     definition: FunctionDefinition,
@@ -69,35 +46,53 @@ impl<'a, Args, Rets> NativeFunc<'a, Args, Rets> {
     }
 }
 
-/*
-impl<'a, Args, Rets> Exportable for NativeFunc<'a, Args, Rets>
+impl<'a, Args, Rets> Exportable<'a> for NativeFunc<'a, Args, Rets>
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
     fn to_export(&self) -> Export {
-        todo!("implement this")
+        let ef: ExportFunction = self.into();
+        ef.into()
     }
 
     // Cannot be implemented because of the return type `&Self` TODO:
-    fn get_self_from_extern(extern_: &'a Extern) -> Result<&'a Self, ExportError> {
+    fn get_self_from_extern(extern_: &'a Extern) -> Result<Self, ExportError> {
         match extern_ {
             // TODO: review error return type in failure of `f.native()`
-            Extern::Function(f) => f.native().ok_or_else(|| ExportError::IncompatibleType),
+            Extern::Function(f) => f
+                .clone()
+                .native()
+                .ok_or_else(|| ExportError::IncompatibleType),
             _ => Err(ExportError::IncompatibleType),
         }
     }
 }
-*/
+
+impl<'a, Args, Rets> From<&NativeFunc<'a, Args, Rets>> for ExportFunction
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
+    fn from(other: &NativeFunc<'a, Args, Rets>) -> Self {
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        Self {
+            address: other.address,
+            vmctx: other.vmctx,
+            signature,
+            kind: other.arg_kind,
+        }
+    }
+}
 
 impl<'a, Args, Rets> From<NativeFunc<'a, Args, Rets>> for Function
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn from(other: NativeFunc<'a, Args, Rets>) -> Function {
+    fn from(other: NativeFunc<'a, Args, Rets>) -> Self {
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
-        Function {
+        Self {
             store: other.store,
             definition: other.definition,
             owned_by_store: true, // todo

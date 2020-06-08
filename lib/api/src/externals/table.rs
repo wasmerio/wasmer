@@ -158,9 +158,9 @@ impl<'a> Exportable<'a> for Table {
     fn to_export(&self) -> Export {
         self.exported.clone().into()
     }
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
+    fn get_self_from_extern(_extern: &'a Extern) -> Result<Self, ExportError> {
         match _extern {
-            Extern::Table(table) => Ok(table),
+            Extern::Table(table) => Ok(table.clone()),
             _ => Err(ExportError::IncompatibleType),
         }
     }
