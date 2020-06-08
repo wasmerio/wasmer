@@ -21,10 +21,6 @@ impl Instance {
         Err(())
     }
 
-    pub fn func<Args, Rets>(&self, _name: &str) -> Result<Infallible, ()> {
-        Err(())
-    }
-
     pub fn resolve_func(&self, name: &str) -> Result<usize, ()> {
         self.new_instance
             .module()
