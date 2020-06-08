@@ -181,20 +181,20 @@ fn native_function_works_for_wasm() -> Result<()> {
 
     // TODO:
     //let f: NativeFunc<(i32, i32), i32> = instance.exports.get("add").unwrap();
-    let dyn_f: &Function = instance.exports.get("add").unwrap();
+    let dyn_f: Function = instance.exports.get("add").unwrap();
     let dyn_result = dyn_f.call(&[Val::I32(4), Val::I32(6)]).unwrap();
     assert_eq!(dyn_result[0], Val::I32(10));
 
-    let f: NativeFunc<(i32, i32), i32> = dyn_f.clone().native().unwrap();
+    let f: NativeFunc<(i32, i32), i32> = dyn_f.native().unwrap();
 
     let result = f.call(4, 6).unwrap();
     assert_eq!(result, 10);
 
-    let dyn_f: &Function = instance.exports.get("double_then_add").unwrap();
+    let dyn_f: Function = instance.exports.get("double_then_add").unwrap();
     let dyn_result = dyn_f.call(&[Val::I32(4), Val::I32(6)]).unwrap();
     assert_eq!(dyn_result[0], Val::I32(20));
 
-    let f: NativeFunc<(i32, i32), i32> = dyn_f.clone().native().unwrap();
+    let f: NativeFunc<(i32, i32), i32> = dyn_f.native().unwrap();
 
     let result = f.call(4, 6).unwrap();
     assert_eq!(result, 20);

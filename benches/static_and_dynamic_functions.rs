@@ -26,8 +26,8 @@ wasmer_compilers! {
             },
         };
         let instance = Instance::new(&module, &import_object).unwrap();
-        let dyn_f: &Function = instance.exports.get("add").unwrap();
-        let f: NativeFunc<(i32, i32), i32> = dyn_f.clone().native().unwrap();
+        let dyn_f: Function = instance.exports.get("add").unwrap();
+        let f: NativeFunc<(i32, i32), i32> = dyn_f.native().unwrap();
 
         c.bench_function(&format!("basic static func {}", COMPILER_NAME), |b| {
             b.iter(|| {
@@ -47,7 +47,7 @@ wasmer_compilers! {
         };
         let instance = Instance::new(&module, &import_object).unwrap();
 
-        let dyn_f: &Function = instance.exports.get("add").unwrap();
+        let dyn_f: Function = instance.exports.get("add").unwrap();
         c.bench_function(&format!("basic dynfunc {}", COMPILER_NAME), |b| {
             b.iter(|| {
                 let dyn_result = black_box(dyn_f.call(&[Val::I32(4), Val::I32(6)]).unwrap());
