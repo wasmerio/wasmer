@@ -21,7 +21,7 @@ impl Store {
     }
 
     pub fn same(a: &Store, b: &Store) -> bool {
-        Arc::ptr_eq(&a.engine, &b.engine)
+        a.engine.uuid() == b.engine.uuid()
     }
 }
 

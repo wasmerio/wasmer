@@ -4,6 +4,7 @@ use crate::tunables::Tunables;
 use crate::{Artifact, DeserializeError};
 use std::path::Path;
 use std::sync::Arc;
+use uuid::Uuid;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
 use wasmer_runtime::{VMSharedSignatureIndex, VMTrampoline};
@@ -44,4 +45,10 @@ pub trait Engine {
         let bytes = std::fs::read(file_ref)?;
         self.deserialize(&bytes)
     }
+
+    /// A unique identifier for this object.
+    ///
+    /// This exists because we can't compare two traits for equality without
+    /// unsafely relying on the details of trait representation.
+    fn uuid(&self) -> &Uuid;
 }

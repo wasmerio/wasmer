@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
+use uuid::Uuid;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
@@ -17,6 +18,7 @@ use wasmer_runtime::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 pub struct NativeEngine {
     inner: Arc<Mutex<NativeEngineInner>>,
     tunables: Arc<dyn Tunables + Send + Sync>,
+    id: Uuid,
 }
 
 impl NativeEngine {
@@ -36,6 +38,7 @@ impl NativeEngine {
                 prefixer: None,
             })),
             tunables: Arc::new(tunables),
+            id: Uuid::new_v4(),
         }
     }
 
@@ -62,6 +65,7 @@ impl NativeEngine {
                 prefixer: None,
             })),
             tunables: Arc::new(tunables),
+            id: Uuid::new_v4(),
         }
     }
 
@@ -140,6 +144,10 @@ impl Engine for NativeEngine {
             &self, &file_ref,
         )?))
     }
+
+    fn uuid(&self) -> &Uuid {
+        &self.id
+    }
 }
 
 /// The inner contents of `NativeEngine`
@@ -159,7 +167,7 @@ pub struct NativeEngineInner {
 }
 
 impl NativeEngineInner {
-    /// Gets the compiler associated to this JIT
+    /// Gets the compiler associated to this engine.
     #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {

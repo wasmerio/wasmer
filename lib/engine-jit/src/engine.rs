@@ -3,6 +3,7 @@
 use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
@@ -20,6 +21,7 @@ use wasmer_runtime::{
 pub struct JITEngine {
     inner: Arc<Mutex<JITEngineInner>>,
     tunables: Arc<dyn Tunables + Send + Sync>,
+    id: Uuid,
 }
 
 impl JITEngine {
@@ -38,6 +40,7 @@ impl JITEngine {
                 signatures: SignatureRegistry::new(),
             })),
             tunables: Arc::new(tunables),
+            id: Uuid::new_v4(),
         }
     }
 
@@ -64,6 +67,7 @@ impl JITEngine {
                 signatures: SignatureRegistry::new(),
             })),
             tunables: Arc::new(tunables),
+            id: Uuid::new_v4(),
         }
     }
 
@@ -113,6 +117,10 @@ impl Engine for JITEngine {
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
         Ok(Arc::new(JITArtifact::deserialize(&self, &bytes)?))
     }
+
+    fn uuid(&self) -> &Uuid {
+        &self.id
+    }
 }
 
 /// The inner contents of `JITEngine`
@@ -131,7 +139,7 @@ pub struct JITEngineInner {
 }
 
 impl JITEngineInner {
-    /// Gets the compiler associated to this JIT
+    /// Gets the compiler associated to this engine.
     #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
