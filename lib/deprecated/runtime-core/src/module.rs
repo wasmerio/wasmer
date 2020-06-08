@@ -2,6 +2,7 @@ use crate::{cache::Artifact, error::InstantiationError, instance::Instance, new}
 use std::convert::{AsRef, Infallible};
 
 pub use new::wasm_common::{DataInitializer, ExportIndex};
+pub use new::wasmer_runtime::ModuleInfo;
 
 #[derive(Clone)]
 pub struct Module {
@@ -27,7 +28,7 @@ impl Module {
         Ok(Artifact::new(self.new_module.clone()))
     }
 
-    pub fn info(&self) -> &new::wasmer_runtime::ModuleInfo {
+    pub fn info(&self) -> &ModuleInfo {
         &self.new_module.info()
     }
 
