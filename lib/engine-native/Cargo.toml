@@ -24,7 +24,6 @@ bincode = "1.2"
 leb128 = "0.2"
 libloading = "0.6"
 tempfile = "3.1"
-uuid = { version = "0.8", features = ["v4"] }
 
 [features]
 # Enable the `compiler` feature if you want the engine to compile

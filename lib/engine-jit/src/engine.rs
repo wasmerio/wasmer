@@ -3,7 +3,6 @@
 use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use uuid::Uuid;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
@@ -11,17 +10,26 @@ use wasmer_compiler::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
-use wasmer_engine::{Artifact, DeserializeError, Engine, Tunables};
+use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{
     ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
-#[derive(Clone)]
 pub struct JITEngine {
     inner: Arc<Mutex<JITEngineInner>>,
     tunables: Arc<dyn Tunables + Send + Sync>,
-    id: Uuid,
+    engine_id: EngineId,
+}
+
+impl Clone for JITEngine {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            tunables: self.tunables.clone(),
+            engine_id: EngineId::default(),
+        }
+    }
 }
 
 impl JITEngine {
@@ -40,7 +48,7 @@ impl JITEngine {
                 signatures: SignatureRegistry::new(),
             })),
             tunables: Arc::new(tunables),
-            id: Uuid::new_v4(),
+            engine_id: EngineId::default(),
         }
     }
 
@@ -67,7 +75,7 @@ impl JITEngine {
                 signatures: SignatureRegistry::new(),
             })),
             tunables: Arc::new(tunables),
-            id: Uuid::new_v4(),
+            engine_id: EngineId::default(),
         }
     }
 
@@ -118,8 +126,8 @@ impl Engine for JITEngine {
         Ok(Arc::new(JITArtifact::deserialize(&self, &bytes)?))
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.id
+    fn id(&self) -> &EngineId {
+        &self.engine_id
     }
 }
 

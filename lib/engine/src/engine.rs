@@ -3,8 +3,8 @@
 use crate::tunables::Tunables;
 use crate::{Artifact, DeserializeError};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
-use uuid::Uuid;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
 use wasmer_runtime::{VMSharedSignatureIndex, VMTrampoline};
@@ -48,7 +48,30 @@ pub trait Engine {
 
     /// A unique identifier for this object.
     ///
-    /// This exists because we can't compare two traits for equality without
-    /// unsafely relying on the details of trait representation.
-    fn uuid(&self) -> &Uuid;
+    /// This exists to allow us to compare two Engines for equality. Otherwise,
+    /// comparing two trait objects unsafely relies on implementation details
+    /// of trait representation.
+    fn id(&self) -> &EngineId;
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+/// A unique identifier for an Engine.
+pub struct EngineId {
+    id: usize,
+}
+
+impl EngineId {
+    /// Format this identifier as a string.
+    pub fn id(&self) -> String {
+        format!("{}", &self.id)
+    }
+}
+
+impl Default for EngineId {
+    fn default() -> Self {
+        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+        Self {
+            id: NEXT_ID.fetch_add(1, SeqCst),
+        }
+    }
 }

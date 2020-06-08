@@ -21,7 +21,7 @@ impl Store {
     }
 
     pub fn same(a: &Store, b: &Store) -> bool {
-        a.engine.uuid() == b.engine.uuid()
+        a.engine.id() == b.engine.id()
     }
 }
 

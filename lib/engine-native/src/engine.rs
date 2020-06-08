@@ -5,20 +5,28 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
-use uuid::Uuid;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
-use wasmer_engine::{Artifact, DeserializeError, Engine, Tunables};
+use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 
 /// A WebAssembly `Native` Engine.
-#[derive(Clone)]
 pub struct NativeEngine {
     inner: Arc<Mutex<NativeEngineInner>>,
     tunables: Arc<dyn Tunables + Send + Sync>,
-    id: Uuid,
+    engine_id: EngineId,
+}
+
+impl Clone for NativeEngine {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            tunables: self.tunables.clone(),
+            engine_id: EngineId::default(),
+        }
+    }
 }
 
 impl NativeEngine {
@@ -38,7 +46,7 @@ impl NativeEngine {
                 prefixer: None,
             })),
             tunables: Arc::new(tunables),
-            id: Uuid::new_v4(),
+            engine_id: EngineId::default(),
         }
     }
 
@@ -65,7 +73,7 @@ impl NativeEngine {
                 prefixer: None,
             })),
             tunables: Arc::new(tunables),
-            id: Uuid::new_v4(),
+            engine_id: EngineId::default(),
         }
     }
 
@@ -145,8 +153,8 @@ impl Engine for NativeEngine {
         )?))
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.id
+    fn id(&self) -> &EngineId {
+        &self.engine_id
     }
 }
 
