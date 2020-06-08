@@ -12,12 +12,14 @@ edition = "2018"
 [dependencies]
 wasm-common = { path = "../../wasm-common", version = "0.16.2" }
 wasmer = { path = "../../api", version = "0.16.2" }
+wasmer-cache = { path = "../../cache", version = "0.16.2" }
 wasmer-compiler = { path = "../../compiler", version = "0.16.2", features = ["translator"] }
 wasmer-engine = { path = "../../engine", version = "0.16.2" }
 wasmer-runtime = { path = "../../runtime", version = "0.16.2" }
+blake3 = "0.3.4"
 
 [build-dependencies]
-blake3 = "0.3.1"
+blake3 = "0.3.4"
 
 [features]
 default = ["wasmer/default"]

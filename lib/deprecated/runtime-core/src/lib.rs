@@ -3,6 +3,7 @@
 pub(crate) mod new {
     pub use wasm_common;
     pub use wasmer;
+    pub use wasmer_cache;
     pub use wasmer_compiler;
     pub use wasmer_engine;
     pub use wasmer_runtime;
@@ -24,7 +25,7 @@ pub mod typed_func;
 pub mod types;
 pub mod units;
 
-pub use crate::cache::Artifact;
+pub use crate::cache::{Artifact, WasmHash};
 pub use crate::import::IsExport;
 pub use crate::instance::Instance;
 pub use crate::module::Module;
