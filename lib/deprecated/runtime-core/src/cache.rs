@@ -1,4 +1,7 @@
-use crate::{module::Module, new};
+use crate::{
+    module::{Module, ModuleInfo},
+    new,
+};
 use blake3;
 use std::str::FromStr;
 
@@ -33,7 +36,7 @@ impl Artifact {
         Module::new(self.new_module)
     }
 
-    pub fn info(&self) -> &new::wasmer_runtime::ModuleInfo {
+    pub fn info(&self) -> &ModuleInfo {
         self.new_module.info()
     }
 }
