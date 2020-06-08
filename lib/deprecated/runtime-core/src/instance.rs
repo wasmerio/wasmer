@@ -1,14 +1,20 @@
 use crate::{module::Module, new, structures::TypedIndex, types::Value};
 use std::{convert::Infallible, error::Error};
 
+pub use new::wasmer::Exports;
+
 #[derive(Clone)]
 pub struct Instance {
+    pub exports: Exports,
     pub(crate) new_instance: new::wasmer::Instance,
 }
 
 impl Instance {
     pub(crate) fn new(new_instance: new::wasmer::Instance) -> Self {
-        Self { new_instance }
+        Self {
+            exports: new_instance.exports.clone(),
+            new_instance,
+        }
     }
 
     pub fn load<T>(&self, _loader: T) -> Result<Self, ()> {
@@ -45,8 +51,8 @@ impl Instance {
             .into_vec())
     }
 
-    pub fn exports(&self) -> &new::wasmer::Exports {
-        &self.new_instance.exports
+    pub fn exports(&self) -> Exports {
+        self.exports.clone()
     }
 
     pub fn module(&self) -> Module {
