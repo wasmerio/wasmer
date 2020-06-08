@@ -121,8 +121,6 @@ macro_rules! impl_native_traits {
         {
             /// Call the typed func and return results.
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, ()> {
-                let mut rets = Rets::empty_array();
-
                 let params = [ $( $x.to_native().to_binary() ),* ];
                 let mut values_vec: Vec<i128> = vec![0; std::cmp::max(params.len(), Rets::wasm_types().len())];
 

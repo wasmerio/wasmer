@@ -63,6 +63,7 @@ rustc_version = "0.2"
 [dev-dependencies]
 anyhow = "1.0"
 blake3 = "0.3"
+criterion = "0.3"
 test-utils = { path = "tests/lib/test-utils" }
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 
@@ -107,3 +108,7 @@ llvm = [
 
 # [profile.release]
 # lto  = "fat"
+
+[[bench]]
+name = "static_and_dynamic_functions"
+harness = false

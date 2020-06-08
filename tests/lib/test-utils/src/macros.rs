@@ -4,6 +4,7 @@ macro_rules! wasmer_compilers {
         #[cfg(feature = "singlepass")]
         #[cfg(test)]
         mod singlepass {
+            static COMPILER_NAME: &str = "singlepass";
             use std::sync::Arc;
             use wasmer::{Features, Store, Tunables};
             use wasmer_engine_jit::JITEngine;
@@ -14,7 +15,7 @@ macro_rules! wasmer_compilers {
                 let features = Features::default();
                 let try_nan_canonicalization = false;
                 let compiler_config =
-                    get_compiler_config_from_str("singlepass", try_nan_canonicalization, features);
+                    get_compiler_config_from_str(COMPILER_NAME, try_nan_canonicalization, features);
                 let tunables = Tunables::for_target(compiler_config.target().triple());
                 let store = Store::new(Arc::new(JITEngine::new(compiler_config, tunables)));
                 store
@@ -25,6 +26,7 @@ macro_rules! wasmer_compilers {
         #[cfg(feature = "cranelift")]
         #[cfg(test)]
         mod cranelift {
+            static COMPILER_NAME: &str = "cranelift";
             use std::sync::Arc;
             use wasmer::{Features, Store, Tunables};
             use wasmer_engine_jit::JITEngine;
@@ -35,7 +37,7 @@ macro_rules! wasmer_compilers {
                 let features = Features::default();
                 let try_nan_canonicalization = false;
                 let compiler_config =
-                    get_compiler_config_from_str("cranelift", try_nan_canonicalization, features);
+                    get_compiler_config_from_str(COMPILER_NAME, try_nan_canonicalization, features);
                 let tunables = Tunables::for_target(compiler_config.target().triple());
                 let store = Store::new(Arc::new(JITEngine::new(compiler_config, tunables)));
                 store
@@ -45,6 +47,7 @@ macro_rules! wasmer_compilers {
         #[cfg(feature = "llvm")]
         #[cfg(test)]
         mod llvm {
+            static COMPILER_NAME: &str = "llvm";
             use std::sync::Arc;
             use wasmer::{Features, Store, Tunables};
             use wasmer_engine_jit::JITEngine;
@@ -55,7 +58,7 @@ macro_rules! wasmer_compilers {
                 let features = Features::default();
                 let try_nan_canonicalization = false;
                 let compiler_config =
-                    get_compiler_config_from_str("llvm", try_nan_canonicalization, features);
+                    get_compiler_config_from_str(COMPILER_NAME, try_nan_canonicalization, features);
                 let tunables = Tunables::for_target(compiler_config.target().triple());
                 let store = Store::new(Arc::new(JITEngine::new(compiler_config, tunables)));
                 store

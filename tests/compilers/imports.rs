@@ -2,6 +2,8 @@
 //! This tests checks that the provided functions (both native and
 //! dynamic ones) work properly.
 
+use test_utils::wasmer_compilers;
+
 wasmer_compilers! {
     use wasmer::*;
     use anyhow::Result;

@@ -1,3 +1,5 @@
+.PHONY: bench
+
 # uname only works in *Unix like systems
 ifneq ($(OS), Windows_NT)
   ARCH := $(shell uname -m)
@@ -60,6 +62,12 @@ tests-spec-update-testsuite:
 
 test:
 	cargo test --release $(compiler_features)
+
+bench:
+	cargo bench --features "cranelift,singlepass,llvm,jit" $(compiler_features)
+
+check-bench:
+	cargo check --benches --features "cranelift,singlepass,llvm,jit" $(compiler_features)
 
 release:
 	cargo build --release $(compiler_features)

@@ -1,5 +1,9 @@
 #![cfg(feature = "compiler")]
 
+#[macro_use]
+pub mod macros;
+pub use macros::*;
+
 use std::sync::Arc;
 use wasmer::{Store, Tunables};
 use wasmer_compiler::{CompilerConfig, Features, Target};
