@@ -55,6 +55,7 @@ pub trait Engine {
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
 /// A unique identifier for an Engine.
 pub struct EngineId {
     id: usize,
