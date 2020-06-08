@@ -2,5 +2,6 @@
 //! implementation, such as: singlepass, cranelift or llvm depending
 //! on what's available on the target.
 
+mod functions;
 mod imports;
 mod wast;
