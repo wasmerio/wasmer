@@ -13,7 +13,7 @@ pub struct Wast {
     path: PathBuf,
 
     #[structopt(flatten)]
-    compiler: StoreOptions,
+    store: StoreOptions,
 
     #[structopt(short, long)]
     /// A flag to indicate wast stop at the first error or continue.
@@ -27,7 +27,7 @@ impl Wast {
             .context(format!("failed to test the wast `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let (store, _engine_name, _compiler_name) = self.compiler.get_store()?;
+        let (store, _engine_name, _compiler_name) = self.store.get_store()?;
         let mut wast = WastSpectest::new_with_spectest(store);
         wast.fail_fast = self.fail_fast;
         wast.run_file(&self.path).with_context(|| "tests failed")?;

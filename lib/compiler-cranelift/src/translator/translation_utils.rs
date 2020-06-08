@@ -15,7 +15,7 @@ use wasmer_compiler::{JumpTable, RelocationKind};
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_runtime::libcalls::LibCall;
 
-/// Helper function translate a Funciton signature into Cranelift Ir
+/// Helper function translate a Function signature into Cranelift Ir
 pub fn signature_to_cranelift_ir(
     signature: &FunctionType,
     target_config: &TargetFrontendConfig,

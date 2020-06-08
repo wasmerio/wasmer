@@ -1928,6 +1928,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-c-api"
+version = "0.16.2"
+dependencies = [
+ "cbindgen",
+ "cfg-if",
+ "lazy_static",
+ "libc",
+ "libffi",
+ "paste",
+ "thiserror",
+ "wasm-common",
+ "wasmer",
+ "wasmer-wasi",
+]
+
+[[package]]
 name = "wasmer-cache"
 version = "0.16.2"
 dependencies = [
@@ -2072,6 +2088,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "tempfile",
+ "tracing",
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
@@ -2094,22 +2111,6 @@ dependencies = [
  "thiserror",
  "wasm-common",
  "winapi",
-]
-
-[[package]]
-name = "wasmer-runtime-c-api"
-version = "0.16.2"
-dependencies = [
- "cbindgen",
- "cfg-if",
- "lazy_static",
- "libc",
- "libffi",
- "paste",
- "thiserror",
- "wasm-common",
- "wasmer",
- "wasmer-wasi",
 ]
 
 [[package]]
