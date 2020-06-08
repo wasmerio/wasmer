@@ -3,20 +3,12 @@ use std::{convert::Infallible, error::Error};
 
 #[derive(Clone)]
 pub struct Instance {
-    #[deprecated(
-        since = "__NEXT_VERSION__",
-        note = "This field is no longer available. Take a look at `wasmer_runtime::InstanceHandle` instead."
-    )]
-    pub module: (),
     pub(crate) new_instance: new::wasmer::Instance,
 }
 
 impl Instance {
     pub(crate) fn new(new_instance: new::wasmer::Instance) -> Self {
-        Self {
-            module: (),
-            new_instance,
-        }
+        Self { new_instance }
     }
 
     pub fn load<T>(&self, _loader: T) -> Result<Self, ()> {
