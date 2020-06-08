@@ -51,10 +51,6 @@ impl Instance {
             .into_vec())
     }
 
-    pub fn exports(&self) -> Exports {
-        self.exports.clone()
-    }
-
     pub fn module(&self) -> Module {
         Module::new(self.new_instance.module().clone())
     }
