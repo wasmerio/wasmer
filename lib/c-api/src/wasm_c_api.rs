@@ -158,7 +158,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
         .iter()
         .map(|(name, r#extern)| {
             let function = if let Extern::Function { .. } = r#extern {
-                instance.exports.get_function(&name).ok().cloned()
+                instance.exports.get_function(&name).ok()
             } else {
                 None
             };
