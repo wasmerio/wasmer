@@ -325,6 +325,18 @@ impl<'a> Exportable<'a> for Function {
     }
 }
 
+impl<'a> Exportable<'a> for &'a Function {
+    fn to_export(&self) -> Export {
+        self.exported.clone().into()
+    }
+    fn get_self_from_extern(_extern: &'a Extern) -> Result<Self, ExportError> {
+        match _extern {
+            Extern::Function(func) => Ok(func),
+            _ => Err(ExportError::IncompatibleType),
+        }
+    }
+}
+
 impl std::fmt::Debug for Function {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Ok(())

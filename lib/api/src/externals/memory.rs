@@ -145,6 +145,18 @@ impl<'a> Exportable<'a> for Memory {
     }
 }
 
+impl<'a> Exportable<'a> for &'a Memory {
+    fn to_export(&self) -> Export {
+        self.exported.clone().into()
+    }
+    fn get_self_from_extern(_extern: &'a Extern) -> Result<Self, ExportError> {
+        match _extern {
+            Extern::Memory(memory) => Ok(memory),
+            _ => Err(ExportError::IncompatibleType),
+        }
+    }
+}
+
 impl Drop for Memory {
     fn drop(&mut self) {
         if self.owned_by_store {
