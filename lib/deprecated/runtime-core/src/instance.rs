@@ -1,5 +1,5 @@
 use crate::{module::Module, new, structures::TypedIndex, types::Value};
-use std::{convert::Infallible, error::Error};
+use std::error::Error;
 
 pub use new::wasmer::Exports;
 
