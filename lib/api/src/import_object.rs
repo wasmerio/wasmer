@@ -186,8 +186,8 @@ impl IntoIterator for ImportObject {
 ///
 /// [`ImportObject`]: struct.ImportObject.html
 ///
+/// # Usage
 ///
-/// # Usage:
 /// ```
 /// # use wasmer::{Function, Store};
 /// # let store = Store::default();
@@ -196,29 +196,60 @@ impl IntoIterator for ImportObject {
 /// let import_object = imports! {
 ///     "env" => {
 ///         "foo" => Function::new(&store, foo)
-///     }
+///     },
 /// };
 ///
 /// fn foo(n: i32) -> i32 {
 ///     n
 /// }
 /// ```
+///
+/// or by passing a state creator for the import object:
+///
+/// ```
+/// # use wasmer::{Function, Store, imports};
+/// # let store = Store::default();
+///
+/// let import_object = imports! {
+///     || (0 as _, |_a| {}),
+///     "env" => {
+///         "foo" => Function::new(&store, foo)
+///     },
+/// };
+///
+/// # fn foo(n: i32) -> i32 {
+/// #     n
+/// # }
+/// ```
 #[macro_export]
-// TOOD: port of lost fixes of imports macro from wasmer master/imports macro tests
 macro_rules! imports {
-    ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {{
-        use $crate::ImportObject;
+    ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {
+        {
+            let mut import_object = $crate::ImportObject::new();
 
-        let mut import_object = ImportObject::new();
+            $({
+                let namespace = $crate::import_namespace!($ns);
 
-        $({
-            let ns = $crate::import_namespace!($ns);
+                import_object.register($ns_name, namespace);
+            })*
 
-            import_object.register($ns_name, ns);
-        })*
+            import_object
+        }
+    };
 
-        import_object
-    }};
+    ($state_creator:expr, $( $ns_name:expr => $ns:tt ),* $(,)? ) => {
+        {
+            let mut import_object = $crate::ImportObject::new_with_data($state_creator);
+
+            $({
+                let namespace = $crate::import_namespace!($ns);
+
+                import_object.register($ns_name, namespace);
+            })*
+
+            import_object
+        }
+    };
 }
 
 #[macro_export]
