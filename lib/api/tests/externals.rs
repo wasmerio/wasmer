@@ -117,13 +117,12 @@ fn table_grow() -> Result<()> {
     let f = Function::new(&store, |num: i32| num + 1);
     let table = Table::new(&store, table_type, Value::FuncRef(f.clone()))?;
     // Growing to a bigger maximum should return None
-    let new_len = table.grow(12, Value::FuncRef(f.clone()));
-    assert!(new_len.is_err());
+    let old_len = table.grow(12, Value::FuncRef(f.clone()));
+    assert!(old_len.is_err());
 
     // Growing to a bigger maximum should return None
-    let new_len = table.grow(5, Value::FuncRef(f.clone()))?;
-    // TODO: new len should be instead previous length, similarly to memory
-    assert_eq!(new_len, 5);
+    let old_len = table.grow(5, Value::FuncRef(f.clone()))?;
+    assert_eq!(old_len, 0);
 
     Ok(())
 }
