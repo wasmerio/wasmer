@@ -97,6 +97,7 @@ impl ImportObject {
     }
 
     /// Calls the state creator
+    #[allow(clippy::type_complexity)]
     pub fn call_state_creator(&self) -> Option<(*mut c_void, fn(*mut c_void))> {
         self.state_creator.as_ref().map(|state_gen| state_gen())
     }
