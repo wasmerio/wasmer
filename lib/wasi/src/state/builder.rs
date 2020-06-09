@@ -36,6 +36,7 @@ pub struct WasiStateBuilder {
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
     preopens: Vec<PreopenedDir>,
+    #[allow(clippy::type_complexity)]
     setup_fs_fn: Option<Box<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>>,
     stdout_override: Option<Box<dyn WasiFile>>,
     stderr_override: Option<Box<dyn WasiFile>>,
