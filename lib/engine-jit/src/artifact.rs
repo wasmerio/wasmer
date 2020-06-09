@@ -132,7 +132,7 @@ impl JITArtifact {
 
     /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
-    pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(_jit: &JITEngine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))
