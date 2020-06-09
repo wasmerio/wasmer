@@ -73,7 +73,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     }
 
     #[inline(always)]
-    pub fn get_utf8_string<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
+    pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<&str> {
         self.0.get_utf8_string(memory, str_len)
     }
 }
