@@ -550,7 +550,7 @@ impl<T> ExportType<T> {
     /// Creates a new export which is exported with the given `name` and has the
     /// given `ty`.
     pub fn new(name: &str, ty: T) -> Self {
-        ExportType {
+        Self {
             name: name.to_string(),
             ty,
         }
