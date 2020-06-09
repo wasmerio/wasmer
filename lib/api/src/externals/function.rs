@@ -313,6 +313,7 @@ trait VMDynamicFunction {
 }
 
 struct VMDynamicFunctionWithoutEnv {
+    #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     function_type: FunctionType,
 }
@@ -330,6 +331,7 @@ struct VMDynamicFunctionWithEnv<Env>
 where
     Env: Sized,
 {
+    #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     env: *mut Env,
     function_type: FunctionType,

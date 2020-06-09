@@ -45,6 +45,7 @@ pub trait LikeNamespace {
 #[derive(Clone, Default)]
 pub struct ImportObject {
     map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace>>>>,
+    #[allow(clippy::type_complexity)]
     pub(crate) state_creator: Option<Arc<dyn Fn() -> (*mut c_void, fn(*mut c_void)) + 'static>>,
     /// Allow missing functions to be generated and instantiation to continue when required
     /// functions are not provided.
