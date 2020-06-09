@@ -88,9 +88,7 @@ impl NativeArtifact {
         let mut engine_inner = engine.inner_mut();
         let tunables = engine.tunables();
 
-        let translation = environ
-            .translate(data)
-            .map_err(|error| CompileError::Wasm(error))?;
+        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
         let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
             .module
