@@ -582,7 +582,7 @@ impl CallThreadState {
         // First up see if any instance registered has a custom trap handler,
         // in which case run them all. If anything handles the trap then we
         // return that the trap was handled.
-        if self.any_instance(|i| {
+        let any_instance = self.any_instance(|i| {
             let handler = match i.instance().signal_handler.replace(None) {
                 Some(handler) => handler,
                 None => return false,
@@ -590,7 +590,9 @@ impl CallThreadState {
             let result = call_handler(&handler);
             i.instance().signal_handler.set(Some(handler));
             result
-        }) {
+        });
+
+        if any_instance {
             self.handling_trap.set(false);
             return 1 as *const _;
         }
