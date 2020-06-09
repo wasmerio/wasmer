@@ -13,6 +13,7 @@ impl<T: Copy, Ty> Copy for WasmPtr<T, Ty> {}
 
 impl<T: Copy, Ty> Clone for WasmPtr<T, Ty> {
     fn clone(&self) -> Self {
+        #[allow(clippy::clone_on_copy)]
         Self(self.0.clone())
     }
 }
