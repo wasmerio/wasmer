@@ -171,14 +171,6 @@ impl NativeEngineInner {
             .expect("Can't get compiler reference"))
     }
 
-    pub(crate) fn get_prefix(&self, bytes: &[u8]) -> String {
-        if let Some(prefixer) = &self.prefixer {
-            prefixer(&bytes)
-        } else {
-            "".to_string()
-        }
-    }
-
     /// Validate the module
     #[cfg(feature = "compiler")]
     pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
