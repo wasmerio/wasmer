@@ -5,8 +5,6 @@ use wasmer::{Store, Tunables};
 use wasmer_compiler::{CompilerConfig, Features, Target};
 use wasmer_engine_jit::JITEngine;
 
-compiler_error!("WHY IS THIS BROKEN");
-
 pub fn get_compiler_config_from_str(
     compiler_name: &str,
     try_nan_canonicalization: bool,
