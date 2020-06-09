@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 
 use crate::exports::{ExportError, Exportable};
 use crate::externals::function::{FunctionDefinition, WasmFunctionDefinition};
-use crate::{Extern, Function, FunctionType, Store};
+use crate::{Extern, Function, FunctionType, RuntimeError, Store};
 use wasm_common::{NativeWasmType, WasmExternType, WasmTypeList};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, VMContext, VMFunctionBody, VMFunctionKind,
@@ -27,7 +27,11 @@ pub struct NativeFunc<'a, Args = UnprovidedArgs, Rets = UnprovidedRets> {
 
 unsafe impl<'a, Args, Rets> Send for NativeFunc<'a, Args, Rets> {}
 
-impl<'a, Args, Rets> NativeFunc<'a, Args, Rets> {
+impl<'a, Args, Rets> NativeFunc<'a, Args, Rets>
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
     pub(crate) fn new(
         store: Store,
         address: *const VMFunctionBody,
@@ -115,56 +119,70 @@ macro_rules! impl_native_traits {
             Rets: WasmTypeList,
         {
             /// Call the typed func and return results.
-            pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, ()> {
-                let params = [ $( $x.to_native().to_binary() ),* ];
-                let mut values_vec: Vec<i128> = vec![0; std::cmp::max(params.len(), Rets::wasm_types().len())];
-
-                for (i, &arg) in params.iter().enumerate() {
-                    values_vec[i] = arg;
-                }
+            pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+                // TODO: when `const fn` related features mature more, we can declare a single array
+                // of the correct size here.
+                let mut params_list = [ $( $x.to_native().to_binary() ),* ];
+                let mut rets_list_array = Rets::empty_array();
+                let rets_list = rets_list_array.as_mut();
+                let using_rets_array;
+                let args_rets: &mut [i128] = if params_list.len() > rets_list.len() {
+                    using_rets_array = false;
+                    params_list.as_mut()
+                } else {
+                    using_rets_array = true;
+                    for (i, &arg) in params_list.iter().enumerate() {
+                        rets_list[i] = arg;
+                    }
+                    rets_list.as_mut()
+                };
 
                 match self.definition {
                     FunctionDefinition::Wasm(WasmFunctionDefinition {
                         trampoline
                     }) => {
-                        if let Err(error) = unsafe {
+                        unsafe {
                             wasmer_call_trampoline(
                                 self.vmctx,
                                 trampoline,
                                 self.address,
-                                values_vec.as_mut_ptr() as *mut u8,
+                                args_rets.as_mut_ptr() as *mut u8,
                             )
-                        } {
-                            dbg!(error);
-                            return Err(());
-                        } else {
-                            let mut results = Rets::empty_array();
-                            let num_results = Rets::wasm_types().len();
-                            if num_results > 0 {
-                                unsafe {
-                                    std::ptr::copy_nonoverlapping(values_vec.as_ptr(),
-                                                                  &mut results.as_mut()[0] as *mut i128,
-                                                                  num_results);
-                                }
+                        }?;
+                        let num_rets = rets_list.len();
+                        if !using_rets_array && num_rets > 0 {
+                            let src_pointer = params_list.as_ptr();
+                            let rets_list = &mut rets_list_array.as_mut()[0] as *mut i128;
+                            unsafe {
+                                // TODO: we can probably remove this copy by doing some clever `transmute`s.
+                                // we know it's not overlapping because `using_rets_array` is false
+                                std::ptr::copy_nonoverlapping(src_pointer,
+                                                              rets_list,
+                                                              num_rets);
                             }
-                            return Ok(Rets::from_array(results));
                         }
+                        return Ok(Rets::from_array(rets_list_array));
                     }
                     FunctionDefinition::Host => {
-                        /*unsafe {
-                            let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Result<Rets, RuntimeError>>(self.address);
-                            match f( self.vmctx, $( $x, )* ) {
-                                Err(error) => {
-                                    dbg!(error);
-                                    return Err(());
-                                }
-                                Ok(results) => {
-                                    return Ok(results);
-                                }
+                        if self.arg_kind == VMFunctionKind::Static {
+                            unsafe {
+                                let f = std::mem::transmute::<_, unsafe fn( $( $x, )*) -> Rets>(self.address);
+
+                                let results =  f( $( $x, )* );
+                                return Ok(results);
+                               /* match f( $( $x, )* ) {
+                                    Err(error) => {
+                                        dbg!(error);
+                                        return Err(());
+                                    }
+                                    Ok(results) => {
+                                        return Ok(results);
+                                    }
+                                }*/
                             }
+                        } else {
+                            todo!("dynamic host functions not yet implemented")
                         }
-                        */
-                        todo!("host functions not yet implemented")
                     },
                 }
 

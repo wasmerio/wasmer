@@ -331,7 +331,6 @@ fn function_new_dynamic_env() -> Result<()> {
 }
 
 // TODO: unignore this when calling host functions has been implemented
-#[ignore]
 #[test]
 fn native_function_works() -> Result<()> {
     let store = Store::default();

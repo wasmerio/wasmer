@@ -1,5 +1,4 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use std::sync::Arc;
 use test_utils::{get_compiler_config_from_str, wasmer_compilers};
 use wasmer::*;
 use wasmer_engine_jit::JITEngine;
