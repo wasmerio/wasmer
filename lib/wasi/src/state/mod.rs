@@ -1359,7 +1359,7 @@ impl WasiFs {
                     _ => unreachable!("Symlink pointing to something that's not a directory as its base preopened directory"),
                 }
             }
-            __ => return None,
+            _ => return None,
         };
         Some(__wasi_filestat_t {
             st_filetype: host_file_type_to_wasi_file_type(md.file_type()),
