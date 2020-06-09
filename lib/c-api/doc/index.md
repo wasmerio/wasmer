@@ -10,18 +10,30 @@ with the Wasmer Runtime, so you can use WebAssembly anywhere.
 
 # Usage
 
-Since the Wasmer runtime is written in Rust, the C and C++ API are
-designed to work hand-in-hand with its shared library. The C and C++
-header files, namely [`wasmer.h`][wasmer_h] and `wasmer.hh` are documented
-in the docs.
+The shared object files and the headers will
+be automatically available **inside the Wasmer installed path**.
 
-Their source code can be found in the source tree of the [wasmer-runtime-c-api](https://github.com/wasmerio/wasmer/tree/master/lib/runtime-c-api)
-crate.
-The C and C++ header files along with the runtime shared
-libraries (`.so`, `.dylib`, `.dll`) can also be downloaded in the
-Wasmer [release page].
+> Please check the following docs to see how to [install Wasmer in your system](https://github.com/wasmerio/wasmer#1-install-wasmer).
 
-[release page]: https://github.com/wasmerio/wasmer/releases
+The C ([`wasmer.h`][wasmer_h]) and C++ ([`wasmer.hh`][wasmer_hh]) header
+files can be found in the Wasmer `include` directory:
+
+```bash
+wasmer config --includedir
+```
+
+The runtime shared libraries (`.so`, `.dylib`, `.dll`) can be found in the Wasmer
+`lib` directory:
+
+```bash
+wasmer config --libdir
+```
+
+> Note: You can also download the libraries or header files directly
+from [Wasmer release page].
+
+The full C API documentation can be found here:
+https://wasmerio.github.io/wasmer/c-api/
 
 Here is a simple example to use the C API:
 
@@ -94,7 +106,16 @@ You can check more examples of how to use the Wasmer C API here:
 
 https://docs.wasmer.io/integrations/c/examples
 
+## pkg-config
 
+The Wasmer binary ships with an utility tool that outputs config
+in the `pkg-config` format.
+
+You can use it like:
+
+```bash
+wasmer config --pkg-config > $PKG_CONFIG_PATH/wasmer.pc
+```
 
 # License
 
@@ -102,6 +123,8 @@ Wasmer is primarily distributed under the terms of the [MIT
 license][mit-license] ([LICENSE][license]).
 
 
-[wasmer_h]: https://wasmerio.github.io/wasmer/c/runtime-c-api/wasmer_8h.html
+[wasmer_h]: https://wasmerio.github.io/wasmer/c-api/wasmer_8h.html
+[wasmer_hh]: https://wasmerio.github.io/wasmer/c-api/wasmer_8hh.html
 [mit-license]: http://opensource.org/licenses/MIT
 [license]: https://github.com/wasmerio/wasmer/blob/master/LICENSE
+[Wasmer release page]: https://github.com/wasmerio/wasmer/releases

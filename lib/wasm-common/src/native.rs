@@ -218,18 +218,15 @@ where
 {
 }
 
-macro_rules! convert_value_impl {
-    ($t:ty) => {
-        unsafe impl ValueType for $t {}
-    };
-    ( $($t:ty),* ) => {
+macro_rules! impl_value_type_for {
+    ( $($type:ty),* ) => {
         $(
-            convert_value_impl!($t);
+            unsafe impl ValueType for $type {}
         )*
     };
 }
 
-convert_value_impl!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+impl_value_type_for!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
 
 /// Represents a list of WebAssembly values.
 pub trait WasmTypeList {

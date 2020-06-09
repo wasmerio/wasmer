@@ -2,12 +2,42 @@
 //!
 //! `Table` is to WebAssembly tables what `LinearMemory` is to WebAssembly linear memories.
 
-use crate::module::{TablePlan, TableStyle};
 use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{VMCallerCheckedAnyfunc, VMTableDefinition};
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::convert::{TryFrom, TryInto};
-use wasm_common::Type;
+use wasm_common::{FunctionIndex, GlobalIndex, TableIndex, TableType, Type};
+
+/// A WebAssembly table initializer.
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+pub struct TableElements {
+    /// The index of a table to initialize.
+    pub table_index: TableIndex,
+    /// Optionally, a global variable giving a base index.
+    pub base: Option<GlobalIndex>,
+    /// The offset to add to the base.
+    pub offset: usize,
+    /// The values to write into the table elements.
+    pub elements: Box<[FunctionIndex]>,
+}
+
+/// Implementation styles for WebAssembly tables.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub enum TableStyle {
+    /// Signatures are stored in the table and checked in the caller.
+    CallerChecksSignature,
+}
+
+/// A WebAssembly table description along with our chosen style for
+/// implementing it.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct TablePlan {
+    /// The WebAssembly table description.
+    pub table: TableType,
+    /// Our chosen implementation style.
+    pub style: TableStyle,
+}
 
 /// A table instance.
 #[derive(Debug)]

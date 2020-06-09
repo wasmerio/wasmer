@@ -331,7 +331,7 @@ impl std::fmt::Debug for Function {
     }
 }
 
-/// This trait is one that all dynamic funcitons must fulfill.
+/// This trait is one that all dynamic functions must fulfill.
 trait VMDynamicFunction {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError>;
     fn function_type(&self) -> &FunctionType;
