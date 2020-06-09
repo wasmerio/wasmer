@@ -198,7 +198,7 @@ impl Function {
         // Store the argument values into `values_vec`.
         let param_tys = signature.params().iter();
         for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
-            if arg.ty() != ty.clone() {
+            if arg.ty() != *ty {
                 let param_types = format_types_for_error_message(params);
                 return Err(RuntimeError::new(format!(
                     "Parameters of type [{}] did not match signature {}",
