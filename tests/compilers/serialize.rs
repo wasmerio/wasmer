@@ -23,8 +23,8 @@ fn test_deserialize() -> Result<()> {
     let store = get_store();
     let wat = r#"
         (module $name
-            (import "host" "sum_part" (func (param i32 i64 i32 f32 f64) (result i64 f64)))
-            (func (export "test_call") (result i64 f64)
+            (import "host" "sum_part" (func (param i32 i64 i32 f32 f64) (result f64)))
+            (func (export "test_call") (result f64)
                 i32.const 100
                 i64.const 200
                 i32.const 300
@@ -52,19 +52,19 @@ fn test_deserialize() -> Result<()> {
 
     let func_type = FunctionType::new(
         vec![Type::I32, Type::I64, Type::I32, Type::F32, Type::F64],
-        vec![Type::I64, Type::F64],
+        vec![Type::F64],
     );
     let instance = Instance::new(
         &module,
         &imports! {
             "host" => {
                 "sum_part" => Function::new_dynamic(&store, &func_type, |params| {
-                    let param_0 = params[0].unwrap_i32() as i64;
-                    let param_1 = params[1].unwrap_i64();
-                    let param_2 = params[2].unwrap_i32() as i64;
+                    let param_0 = params[0].unwrap_i32() as f64;
+                    let param_1 = params[1].unwrap_i64() as f64;
+                    let param_2 = params[2].unwrap_i32() as f64;
                     let param_3 = params[3].unwrap_f32() as f64;
                     let param_4 = params[4].unwrap_f64();
-                    Ok(vec![Value::I64(param_0 + param_1 + param_2), Value::F64(param_3 + param_4)])
+                    Ok(vec![Value::F64(param_0 + param_1 + param_2 + param_3 + param_4)])
                 })
             }
         },
@@ -72,6 +72,6 @@ fn test_deserialize() -> Result<()> {
 
     let test_call = instance.exports.get_function("test_call")?;
     let result = test_call.call(&[])?;
-    assert_eq!(result.to_vec(), vec![Value::I64(600), Value::F64(900.0)]);
+    assert_eq!(result.to_vec(), vec![Value::F64(1500.0)]);
     Ok(())
 }
