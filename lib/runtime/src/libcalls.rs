@@ -202,6 +202,10 @@ pub unsafe extern "C" fn wasmer_table_copy(
 }
 
 /// Implementation of `table.init`.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_table_init(
     vmctx: *mut VMContext,
     table_index: u32,
@@ -222,6 +226,10 @@ pub unsafe extern "C" fn wasmer_table_init(
 }
 
 /// Implementation of `elem.drop`.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_elem_drop(vmctx: *mut VMContext, elem_index: u32) {
     let elem_index = ElemIndex::from_u32(elem_index);
     let instance = (&mut *vmctx).instance();
@@ -229,6 +237,10 @@ pub unsafe extern "C" fn wasmer_elem_drop(vmctx: *mut VMContext, elem_index: u32
 }
 
 /// Implementation of `memory.copy` for locally defined memories.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_local_memory_copy(
     vmctx: *mut VMContext,
     memory_index: u32,
@@ -247,6 +259,10 @@ pub unsafe extern "C" fn wasmer_local_memory_copy(
 }
 
 /// Implementation of `memory.copy` for imported memories.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_imported_memory_copy(
     vmctx: *mut VMContext,
     memory_index: u32,
@@ -265,6 +281,10 @@ pub unsafe extern "C" fn wasmer_imported_memory_copy(
 }
 
 /// Implementation of `memory.fill` for locally defined memories.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_memory_fill(
     vmctx: *mut VMContext,
     memory_index: u32,
@@ -283,6 +303,10 @@ pub unsafe extern "C" fn wasmer_memory_fill(
 }
 
 /// Implementation of `memory.fill` for imported memories.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_imported_memory_fill(
     vmctx: *mut VMContext,
     memory_index: u32,
@@ -301,6 +325,10 @@ pub unsafe extern "C" fn wasmer_imported_memory_fill(
 }
 
 /// Implementation of `memory.init`.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_memory_init(
     vmctx: *mut VMContext,
     memory_index: u32,
@@ -321,6 +349,10 @@ pub unsafe extern "C" fn wasmer_memory_init(
 }
 
 /// Implementation of `data.drop`.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32) {
     let data_index = DataIndex::from_u32(data_index);
     let instance = (&mut *vmctx).instance();
@@ -328,6 +360,10 @@ pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32
 }
 
 /// Implementation for raising a trap
+///
+/// # Safety
+///
+/// To be defined (TODO)
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
     let trap = Trap::wasm(trap_code);
@@ -335,6 +371,10 @@ pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
 }
 
 /// Probestack check
+///
+/// # Safety
+///
+/// To be defined (TODO)
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_probestack() {
     PROBESTACK();
