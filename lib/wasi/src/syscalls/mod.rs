@@ -1,4 +1,5 @@
-#![allow(unused, clippy::too_many_arguments)]
+#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
+
 pub mod types;
 #[cfg(any(
     target_os = "freebsd",
