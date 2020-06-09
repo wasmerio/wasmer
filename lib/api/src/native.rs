@@ -2,12 +2,11 @@
 // use wasmer_runtime::ExportFunction;
 use std::marker::PhantomData;
 
-use crate::exports::{ExportError, Exportable};
 use crate::externals::function::{FunctionDefinition, WasmFunctionDefinition};
-use crate::{Extern, Function, FunctionType, RuntimeError, Store};
+use crate::{Function, FunctionType, RuntimeError, Store};
 use wasm_common::{NativeWasmType, WasmExternType, WasmTypeList};
 use wasmer_runtime::{
-    wasmer_call_trampoline, Export, ExportFunction, VMContext, VMFunctionBody, VMFunctionKind,
+    wasmer_call_trampoline, ExportFunction, VMContext, VMFunctionBody, VMFunctionKind,
 };
 
 #[derive(Clone)]
