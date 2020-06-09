@@ -765,7 +765,7 @@ pub struct InstanceHandle {
 impl InstanceHandle {
     /// Create a new `InstanceHandle` pointing at a new `Instance`.
     ///
-    /// # Unsafety
+    /// # Safety
     ///
     /// This method is not necessarily inherently unsafe to call, but in general
     /// the APIs of an `Instance` are quite unsafe and have not been really
@@ -889,6 +889,8 @@ impl InstanceHandle {
     }
 
     /// Finishes the instantiation process started by `Instance::new`.
+    ///
+    /// # Safety
     ///
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
@@ -1040,9 +1042,11 @@ impl InstanceHandle {
 
     /// Deallocates memory associated with this instance.
     ///
-    /// Note that this is unsafe because there might be other handles to this
-    /// `InstanceHandle` elsewhere, and there's nothing preventing usage of
-    /// this handle after this function is called.
+    /// # Safety
+    ///
+    /// This is unsafe because there might be other handles to this
+    /// `InstanceHandle` elsewhere, and there's nothing preventing
+    /// usage of this handle after this function is called.
     pub unsafe fn dealloc(&self) {
         let instance = self.instance();
         let layout = instance.alloc_layout();
