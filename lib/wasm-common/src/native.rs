@@ -409,7 +409,7 @@ macro_rules! impl_traits {
                     // println!("WRAP");
                     // println!("Struct {:?}", (($( $x ),*) as WasmTypeList).into_c_struct());
                     // $( println!("X: {:?}", $x); )*
-                    let f: &FN = unsafe { std::mem::transmute(&()) };
+                    let f: &FN = unsafe { &*(&() as *const () as *const FN) };
                     f( $( WasmExternType::from_native($x) ),* ).into_c_struct()
                 }
                 wrap::<$( $x, )* Rets, Self> as *const FunctionBody
@@ -486,7 +486,7 @@ macro_rules! impl_traits {
                     T: Sized,
                     FN: Fn(&mut T, $( $x ),* ) -> Rets + 'static
                 {
-                    let f: &FN = unsafe { std::mem::transmute(&()) };
+                    let f: &FN = unsafe { &*(&() as *const () as *const FN) };
                     f(ctx, $( WasmExternType::from_native($x) ),* ).into_c_struct()
                 }
                 wrap::<$( $x, )* Rets, Self, T> as *const FunctionBody
