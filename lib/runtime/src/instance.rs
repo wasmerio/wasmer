@@ -587,8 +587,7 @@ impl Instance {
         let passive_elements = self.passive_elements.borrow();
         let elem = passive_elements
             .get(&elem_index)
-            .map(|e| &**e)
-            .unwrap_or_else(|| &[]);
+            .map_or_else(|| -> &[VMCallerCheckedAnyfunc] { &[] }, |e| &**e);
 
         if src
             .checked_add(len)
