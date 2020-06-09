@@ -45,7 +45,7 @@ pub struct Exports {
 impl Exports {
     /// Creates a new `Exports`.
     pub fn new() -> Self {
-        Exports {
+        Self {
             map: Arc::new(IndexMap::new()),
         }
     }
