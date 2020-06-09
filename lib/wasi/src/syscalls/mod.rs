@@ -683,8 +683,7 @@ pub fn fd_pread(
                             h.seek(std::io::SeekFrom::Start(offset as u64)).ok(),
                             __WASI_EIO
                         );
-                        let bytes_read = wasi_try!(read_bytes(h, memory, iov_cells));
-                        bytes_read
+                        wasi_try!(read_bytes(h, memory, iov_cells))
                     } else {
                         return __WASI_EINVAL;
                     }
@@ -831,7 +830,7 @@ pub fn fd_pwrite(
 
             let inode = &mut state.fs.inodes[fd_entry.inode];
 
-            let bytes_written = match &mut inode.kind {
+            match &mut inode.kind {
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
                         handle.seek(std::io::SeekFrom::Start(offset as u64));
@@ -850,9 +849,7 @@ pub fn fd_pwrite(
                     memory,
                     iovs_arr_cell
                 )),
-            };
-
-            bytes_written
+            }
         }
     };
 
@@ -1723,10 +1720,8 @@ pub fn path_open(
                 if o_flags & __WASI_O_DIRECTORY != 0 {
                     return __WASI_ENOTDIR;
                 }
-                if o_flags & __WASI_O_EXCL != 0 {
-                    if path.exists() {
-                        return __WASI_EEXIST;
-                    }
+                if o_flags & __WASI_O_EXCL != 0 && path.exists() {
+                    return __WASI_EEXIST;
                 }
                 let mut open_options = std::fs::OpenOptions::new();
                 let write_permission = adjusted_rights & __WASI_RIGHT_FD_WRITE != 0;
@@ -1769,10 +1764,8 @@ pub fn path_open(
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
             Kind::Dir { .. } | Kind::Root { .. } => {
                 // TODO: adjust these to be correct
-                if o_flags & __WASI_O_EXCL != 0 {
-                    if path_arg.exists() {
-                        return __WASI_EEXIST;
-                    }
+                if o_flags & __WASI_O_EXCL != 0 && path_arg.exists() {
+                    return __WASI_EEXIST;
                 }
             }
             Kind::Symlink {
@@ -1960,12 +1953,10 @@ pub fn path_remove_directory(
 
     let host_path_to_remove = match &state.fs.inodes[inode].kind {
         Kind::Dir { entries, path, .. } => {
-            if !entries.is_empty() {
+            if !entries.is_empty()
+                || wasi_try!(std::fs::read_dir(path).ok(), __WASI_EIO).count() != 0
+            {
                 return __WASI_ENOTEMPTY;
-            } else {
-                if wasi_try!(std::fs::read_dir(path).ok(), __WASI_EIO).count() != 0 {
-                    return __WASI_ENOTEMPTY;
-                }
             }
             path.clone()
         }
