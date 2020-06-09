@@ -1273,8 +1273,13 @@ impl<'a> FuncGen<'a> {
                 .emit_mov(Size::S32, bound_loc, Location::GPR(tmp_bound));
 
             // Wasm -> Effective.
-            // Assuming we never underflow - should always be true on Linux/macOS,
+            // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
             // since the first page from 0x0 to 0x1000 is not accepted by mmap.
+
+            // This `lea` calculates the upper bound allowed for the beginning of the word.
+            // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
+            // the maximum allowed beginning of word is (inclusively)
+            // `tmp_bound + tmp_base - value_size`.
             self.assembler.emit_lea(
                 Size::S64,
                 Location::MemoryAddTriple(tmp_bound, tmp_base, -(value_size as i32)),
@@ -1309,6 +1314,8 @@ impl<'a> FuncGen<'a> {
             // Trap if the end address of the requested area is above that of the linear memory.
             self.assembler
                 .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+
+            // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
             self.assembler
                 .emit_jmp(Condition::Above, self.special_labels.heap_access_oob);
         }
