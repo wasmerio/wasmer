@@ -80,7 +80,7 @@ pub trait Artifact {
 
     /// Crate an `Instance` from this `Artifact`.
     ///
-    /// # Unsafety
+    /// # Safety
     ///
     /// See [`InstanceHandle::new`].
     unsafe fn instantiate(
@@ -129,7 +129,7 @@ pub trait Artifact {
 
     /// Finishes the instantiation of a just created `InstanceHandle`.
     ///
-    /// # Unsafety
+    /// # Safety
     ///
     /// See [`InstanceHandle::finish_instantiation`].
     unsafe fn finish_instantiation(
