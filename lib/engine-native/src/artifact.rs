@@ -24,6 +24,8 @@ use wasm_common::{
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{BinaryFormat, ModuleEnvironment, RelocationTarget, Triple};
 use wasmer_compiler::{CompileError, Features};
+#[cfg(feature = "compiler")]
+use wasmer_engine::Engine;
 use wasmer_engine::{
     Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
 };

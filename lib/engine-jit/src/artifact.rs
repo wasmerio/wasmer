@@ -18,9 +18,9 @@ use wasmer_compiler::{CompileError, Features};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
 };
-use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex};
-
-use wasmer_runtime::{MemoryPlan, TablePlan};
+#[cfg(feature = "compiler")]
+use wasmer_engine::{Engine, SerializableFunctionFrameInfo};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMSharedSignatureIndex};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
