@@ -1,6 +1,9 @@
 use crate::config::{CompiledFunctionKind, LLVMConfig};
 use crate::object_file::load_object_file;
-use crate::translator::abi::{func_type_to_llvm, is_sret, rets_from_call};
+use crate::translator::abi::{
+    func_type_to_llvm, get_vmctx_ptr_param, is_sret, pack_values_for_register_return,
+    rets_from_call,
+};
 use crate::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -14,7 +17,6 @@ use inkwell::{
 };
 use std::cmp;
 use std::convert::TryInto;
-use std::iter;
 use wasm_common::{FunctionType, Type};
 use wasmer_compiler::{CompileError, FunctionBody};
 
@@ -48,7 +50,7 @@ impl FuncTrampoline {
         let (callee_ty, callee_attrs) = func_type_to_llvm(&self.ctx, &intrinsics, ty)?;
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
-                intrinsics.ctx_ptr_ty.as_basic_type_enum(), // callee_vmctx ptr
+                intrinsics.ctx_ptr_ty.as_basic_type_enum(), // vmctx ptr
                 callee_ty
                     .ptr_type(AddressSpace::Generic)
                     .as_basic_type_enum(), // callee function address
@@ -134,16 +136,11 @@ impl FuncTrampoline {
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
 
-        let params = iter::once(Ok(intrinsics.ctx_ptr_ty.as_basic_type_enum()))
-            .chain(
-                ty.params()
-                    .iter()
-                    .map(|param_ty| type_to_llvm(&intrinsics, *param_ty)),
-            )
-            .collect::<Result<Vec<_>, _>>()?;
-        let trampoline_ty = intrinsics.void_ty.fn_type(params.as_slice(), false);
-
+        let (trampoline_ty, trampoline_attrs) = func_type_to_llvm(&self.ctx, &intrinsics, ty)?;
         let trampoline_func = module.add_function("", trampoline_ty, Some(Linkage::External));
+        for (attr, attr_loc) in trampoline_attrs {
+            trampoline_func.add_attribute(attr_loc, attr);
+        }
         trampoline_func
             .as_global_value()
             .set_section(FUNCTION_SECTION);
@@ -311,14 +308,6 @@ fn generate_dynamic_trampoline<'ctx>(
     let builder = context.create_builder();
     builder.position_at_end(entry_block);
 
-    /*
-    // TODO: remove debugging
-    builder.build_call(
-        intrinsics.debug_trap,
-        &[],
-        "");
-    */
-
     // Allocate stack space for the params and results.
     let values = builder.build_alloca(
         intrinsics.i128_ty.array_type(cmp::max(
@@ -329,6 +318,7 @@ fn generate_dynamic_trampoline<'ctx>(
     );
 
     // Copy params to 'values'.
+    let first_user_param = if is_sret(func_sig)? { 2 } else { 1 };
     for i in 0..func_sig.params().len() {
         let ptr = unsafe {
             builder.build_in_bounds_gep(
@@ -343,57 +333,99 @@ fn generate_dynamic_trampoline<'ctx>(
         let ptr = builder
             .build_bitcast(ptr, type_to_llvm_ptr(intrinsics, func_sig.params()[i])?, "")
             .into_pointer_value();
-        builder.build_store(ptr, trampoline_func.get_nth_param(i as u32 + 1).unwrap());
+        builder.build_store(
+            ptr,
+            trampoline_func
+                .get_nth_param(i as u32 + first_user_param)
+                .unwrap(),
+        );
     }
 
     let callee_ty = intrinsics
         .void_ty
         .fn_type(
             &[
-                intrinsics.ctx_ptr_ty.as_basic_type_enum(),
-                intrinsics.i128_ptr_ty.as_basic_type_enum(),
+                intrinsics.ctx_ptr_ty.as_basic_type_enum(),  // vmctx ptr
+                intrinsics.i128_ptr_ty.as_basic_type_enum(), // in/out values ptr
             ],
             false,
         )
-        .ptr_type(AddressSpace::Generic)
         .ptr_type(AddressSpace::Generic);
-
-    let vmctx = trampoline_func.get_nth_param(0).unwrap();
+    let vmctx = get_vmctx_ptr_param(&trampoline_func);
     let callee = builder
         .build_load(
             builder
-                .build_bitcast(vmctx, callee_ty, "")
+                .build_bitcast(vmctx, callee_ty.ptr_type(AddressSpace::Generic), "")
                 .into_pointer_value(),
             "",
         )
         .into_pointer_value();
 
+    let values_ptr = builder.build_pointer_cast(values, intrinsics.i128_ptr_ty, "");
     builder.build_call(
         callee,
-        &[vmctx.as_basic_value_enum(), values.as_basic_value_enum()],
+        &[
+            vmctx.as_basic_value_enum(),
+            values_ptr.as_basic_value_enum(),
+        ],
         "",
     );
 
-    match func_sig.results() {
-        [] => {
-            builder.build_return(None);
-        }
-        [ty] => {
-            let ptr = unsafe {
-                builder.build_in_bounds_gep(
-                    values,
-                    &[intrinsics.i32_zero, intrinsics.i32_ty.const_int(0, false)],
-                    "",
-                )
-            };
-            let ptr = builder
-                .build_bitcast(ptr, type_to_llvm_ptr(intrinsics, *ty)?, "")
+    if func_sig.results().is_empty() {
+        builder.build_return(None);
+    } else {
+        let results = func_sig
+            .results()
+            .iter()
+            .enumerate()
+            .map(|(idx, ty)| {
+                let ptr = unsafe {
+                    builder.build_gep(
+                        values,
+                        &[
+                            intrinsics.i32_ty.const_zero(),
+                            intrinsics.i32_ty.const_int(idx.try_into().unwrap(), false),
+                        ],
+                        "",
+                    )
+                };
+                let ptr = builder.build_pointer_cast(ptr, type_to_llvm_ptr(intrinsics, *ty)?, "");
+                Ok(builder.build_load(ptr, ""))
+            })
+            .collect::<Result<Vec<_>, CompileError>>()?;
+
+        if is_sret(func_sig)? {
+            let sret = trampoline_func
+                .get_first_param()
+                .unwrap()
                 .into_pointer_value();
-            let ret = builder.build_load(ptr, "");
-            builder.build_return(Some(&ret));
+            let mut struct_value = sret
+                .get_type()
+                .get_element_type()
+                .into_struct_type()
+                .get_undef();
+            for (idx, value) in results.iter().enumerate() {
+                let value = builder.build_bitcast(
+                    *value,
+                    type_to_llvm(&intrinsics, func_sig.results()[idx])?,
+                    "",
+                );
+                struct_value = builder
+                    .build_insert_value(struct_value, value, idx as u32, "")
+                    .unwrap()
+                    .into_struct_value();
+            }
+            builder.build_store(sret, struct_value);
+            builder.build_return(None);
+        } else {
+            builder.build_return(Some(&pack_values_for_register_return(
+                &intrinsics,
+                &builder,
+                &results.as_slice(),
+                &trampoline_func.get_type(),
+            )?));
         }
-        _ => unimplemented!("multi-value return is not yet implemented"),
-    };
+    }
 
     Ok(())
 }
