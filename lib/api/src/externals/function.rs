@@ -176,18 +176,14 @@ impl Function {
         let signature = self.ty();
         if signature.params().len() != params.len() {
             return Err(RuntimeError::new(format!(
-                "expected {} arguments, got {}: Parameters of type [{}] did not match signature {}",
-                signature.params().len(),
-                params.len(),
+                "Parameters of type [{}] did not match signature {}",
                 format_types_for_error_message(params),
                 &signature
             )));
         }
         if signature.results().len() != results.len() {
             return Err(RuntimeError::new(format!(
-                "expected {} results, got {}: Results of type [{}] did not match signature {}",
-                signature.results().len(),
-                results.len(),
+                "Results of type [{}] did not match signature {}",
                 format_types_for_error_message(results),
                 &signature,
             )));

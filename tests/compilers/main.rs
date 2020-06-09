@@ -6,6 +6,7 @@
 mod macros;
 mod imports;
 mod multi_value_imports;
+mod traps;
 mod wast;
 #[macro_use]
 extern crate lazy_static;

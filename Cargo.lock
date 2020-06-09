@@ -1907,6 +1907,7 @@ dependencies = [
  "colored",
  "distance",
  "glob",
+ "lazy_static",
  "rustc_version",
  "structopt",
  "test-generator",
