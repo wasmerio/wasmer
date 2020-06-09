@@ -721,7 +721,7 @@ impl VMBuiltinFunctionIndex {
     }
 
     /// Return the index as an u32 number.
-    pub const fn index(&self) -> u32 {
+    pub const fn index(self) -> u32 {
         self.0
     }
 }
