@@ -26,6 +26,7 @@ pub use new::wasm_common::{
     TableType as TableDescriptor,
     Type,
     ValueType,
+    WasmExternType,
 };
 pub use new::wasmer::Val as Value;
 
