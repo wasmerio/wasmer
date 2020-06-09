@@ -3,6 +3,8 @@
 
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
+#[cfg(feature = "compiler")]
+use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
