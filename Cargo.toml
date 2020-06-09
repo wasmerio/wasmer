@@ -106,5 +106,16 @@ llvm = [
     "compiler",
 ]
 
+# Testing features
+test-singlepass = [
+    "singlepass",
+]
+test-cranelift = [
+    "cranelift",
+]
+test-llvm = [
+    "llvm",
+]
+
 # [profile.release]
 # lto  = "fat"

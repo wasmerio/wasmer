@@ -590,6 +590,7 @@ mod test_wasm_type_list {
 mod test_func {
     use super::*;
     use crate::types::Type;
+    use std::ptr;
     // WasmTypeList
 
     fn func() {}
@@ -612,64 +613,44 @@ mod test_func {
 
     #[test]
     fn test_function_types() {
-        assert_eq!(Function::new(func).ty(), FunctionType::new(vec![], vec![]));
+        assert_eq!(Func::new(func).ty(), FunctionType::new(vec![], vec![]));
         assert_eq!(
-            Function::new(func__i32).ty(),
+            Func::new(func__i32).ty(),
             FunctionType::new(vec![], vec![Type::I32])
         );
         assert_eq!(
-            Function::new(func_i32).ty(),
+            Func::new(func_i32).ty(),
             FunctionType::new(vec![Type::I32], vec![])
         );
         assert_eq!(
-            Function::new(func_i32__i32).ty(),
+            Func::new(func_i32__i32).ty(),
             FunctionType::new(vec![Type::I32], vec![Type::I32])
         );
         assert_eq!(
-            Function::new(func_i32_i32__i32).ty(),
+            Func::new(func_i32_i32__i32).ty(),
             FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
         );
         assert_eq!(
-            Function::new(func_i32_i32__i32_i32).ty(),
+            Func::new(func_i32_i32__i32_i32).ty(),
             FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
         );
         assert_eq!(
-            Function::new(func_f32_i32__i32_f32).ty(),
+            Func::new(func_f32_i32__i32_f32).ty(),
             FunctionType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
         );
     }
 
     #[test]
     fn test_function_pointer() {
-        let f = Function::new(func_i32__i32);
-        let function = unsafe {
-            std::mem::transmute::<*const FunctionBody, fn(i32, i32, i32) -> i32>(f.address)
-        };
-        assert_eq!(function(1, 2, 3), 6);
-    }
-
-    #[test]
-    fn test_function_env_pointer() {
-        fn func_i32__i32_env(env: &mut Env, a: i32) -> i32 {
-            let result = env.num * a;
-            env.num = 10;
-            return result;
-        }
-        struct Env {
-            pub num: i32,
-        };
-        let mut my_env = Env { num: 2 };
-        let f = Function::new_env(&mut my_env, func_i32__i32_env);
-        let function = unsafe {
-            std::mem::transmute::<*const FunctionBody, fn(&mut Env, i32) -> i32>(f.address)
-        };
-        assert_eq!(function(&mut my_env, 3), 6);
-        assert_eq!(my_env.num, 10);
+        let f = Func::new(func_i32__i32);
+        let function =
+            unsafe { std::mem::transmute::<*const FunctionBody, fn(usize, i32) -> i32>(f.address) };
+        assert_eq!(function(0, 3), 6);
     }
 
     #[test]
     fn test_function_call() {
-        let f = Function::new(func_i32__i32);
+        let f = Func::new(func_i32__i32);
         let x = |args: <(i32, i32) as WasmTypeList>::Array,
                  rets: &mut <(i32, i32) as WasmTypeList>::Array| {
             let result = func_i32_i32__i32_i32(args[0] as _, args[1] as _);

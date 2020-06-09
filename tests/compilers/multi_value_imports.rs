@@ -2,185 +2,8 @@
 //! This tests checks that the provided functions (both native and
 //! dynamic ones) work properly.
 
-use std::collections::HashSet;
-
-// These tests are skipped because they are known failing.
-lazy_static! {
-    static ref SKIP_TESTS: HashSet<&'static str> = [
-        // https://github.com/bytecodealliance/wasmtime/issues/1178
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_f32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_f32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_f64::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_i32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_i32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_f32_i64::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_f64_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i32_f32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i32_f32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i32_f64::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i32_i32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i32_i32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i32_i64::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i64_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f32_i64_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f64_f32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f64_f32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f64_i32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_f64_i32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_f32_f32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_f32_f32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_f32_f64::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_f64_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_f64_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i32_f32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i32_f32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i32_f64::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i32_i32_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i32_i32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i32_i64::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i64_f32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i32_i64_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i64_f32_i32::native")),
-        (concat!(module_path!(), "::cranelift::test_mvr_i64_i32_i32::native")),
-
-        // Multi-value is not implemented in singlepass yet.
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_f32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_f32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_f32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_f32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_f64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_f64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_i32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_i32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_i32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_i32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_i64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f32_i64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f64_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f64_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f64_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_f64_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_f32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_f32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_f32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_f32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_f64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_f64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_i32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_i32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_i32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_i32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_i64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i32_i64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i64_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i64_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i64_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f32_i64_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_f32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_f32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_f32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_f32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_i32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_i32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_i32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_f64_i32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_f32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_f32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_f32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_f32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_f64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_f64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_i32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_i32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_i32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_i32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_i64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f32_i64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f64_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f64_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f64_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_f64_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_f32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_f32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_f32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_f32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_f64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_f64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_i32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_i32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_i32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_i32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_i32_i32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_i32_i32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_i64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i32_i64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i64::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i64::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i64_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i64_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i64_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i32_i64_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_f32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_f32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_f32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_f32_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_i32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_i32_f32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_i32_f32::native")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_i32_i32::dynamic")),
-        (concat!(module_path!(), "::singlepass::test_mvr_i64_i32_i32::native")),
-    ]
-    .iter()
-    .copied()
-    .collect();
-}
+use crate::utils::get_store;
+use wasmer::*;
 
 macro_rules! mvr_test {
     ($test_name:ident, $( $result_type:ty ),* ) => {
@@ -214,13 +37,8 @@ macro_rules! mvr_test {
             }
 
             #[test]
+            #[cfg_attr(any(feature = "test-cranelift", feature="test-singlepass"), ignore)]
             fn native() -> anyhow::Result<()> {
-                dbg!(concat!(module_path!(), "::native"));
-                if crate::multi_value_imports::SKIP_TESTS.contains(concat!(module_path!(), "::native")) {
-                    println!("skipped");
-                    return Ok(());
-                }
-
                 let store = get_store();
                 let module = get_module(&store)?;
                 let instance = wasmer::Instance::new(
@@ -245,12 +63,8 @@ macro_rules! mvr_test {
             }
 
             #[test]
+            #[cfg_attr(feature="test-singlepass", ignore)]
             fn dynamic() -> anyhow::Result<()> {
-                if crate::multi_value_imports::SKIP_TESTS.contains(concat!(module_path!(), "::dynamic")) {
-                    println!("skipped");
-                    return Ok(());
-                }
-
                 let store = get_store();
                 let module = get_module(&store)?;
                 let instance = wasmer::Instance::new(
@@ -272,124 +86,122 @@ macro_rules! mvr_test {
     }
 }
 
-wasmer_compilers! {
-    trait ExpectedExpr {
-        fn expected_value(n: i32) -> Self;
-        fn expected_val(n: i32) -> wasmer::Val;
-        fn expected_valtype() -> wasmer::ValType;
-    }
-    impl ExpectedExpr for i32 {
-        fn expected_value(n: i32) -> i32 {
-            n + 1
-        }
-        fn expected_val(n: i32) -> wasmer::Val {
-            wasmer::Val::I32(Self::expected_value(n))
-        }
-        fn expected_valtype() -> wasmer::ValType {
-            wasmer::ValType::I32
-        }
-    }
-    impl ExpectedExpr for i64 {
-        fn expected_value(n: i32) -> i64 {
-            n as i64 + 2i64
-        }
-        fn expected_val(n: i32) -> wasmer::Val {
-            wasmer::Val::I64(Self::expected_value(n))
-        }
-        fn expected_valtype() -> wasmer::ValType {
-            wasmer::ValType::I64
-        }
-    }
-    impl ExpectedExpr for f32 {
-        fn expected_value(n: i32) -> f32 {
-            n as f32 * 0.1
-        }
-        fn expected_val(n: i32) -> wasmer::Val {
-            wasmer::Val::F32(Self::expected_value(n))
-        }
-        fn expected_valtype() -> wasmer::ValType {
-            wasmer::ValType::F32
-        }
-    }
-    impl ExpectedExpr for f64 {
-        fn expected_value(n: i32) -> f64 {
-            n as f64 * 0.12
-        }
-        fn expected_val(n: i32) -> wasmer::Val {
-            wasmer::Val::F64(Self::expected_value(n))
-        }
-        fn expected_valtype() -> wasmer::ValType {
-            wasmer::ValType::F64
-        }
-    }
-
-    mvr_test!(test_mvr_i32_i32, i32, i32);
-    mvr_test!(test_mvr_i32_f32, i32, f32);
-    mvr_test!(test_mvr_f32_i32, f32, i32);
-    mvr_test!(test_mvr_f32_f32, f32, f32);
-
-    mvr_test!(test_mvr_i64_i32, i64, i32);
-    mvr_test!(test_mvr_i64_f32, i64, f32);
-    mvr_test!(test_mvr_f64_i32, f64, i32);
-    mvr_test!(test_mvr_f64_f32, f64, f32);
-
-    mvr_test!(test_mvr_i32_i64, i32, i64);
-    mvr_test!(test_mvr_f32_i64, f32, i64);
-    mvr_test!(test_mvr_i32_f64, i32, f64);
-    mvr_test!(test_mvr_f32_f64, f32, f64);
-
-    mvr_test!(test_mvr_i32_i32_i32, i32, i32, i32);
-    mvr_test!(test_mvr_i32_i32_f32, i32, i32, f32);
-    mvr_test!(test_mvr_i32_f32_i32, i32, f32, i32);
-    mvr_test!(test_mvr_i32_f32_f32, i32, f32, f32);
-    mvr_test!(test_mvr_f32_i32_i32, f32, i32, i32);
-    mvr_test!(test_mvr_f32_i32_f32, f32, i32, f32);
-    mvr_test!(test_mvr_f32_f32_i32, f32, f32, i32);
-    mvr_test!(test_mvr_f32_f32_f32, f32, f32, f32);
-
-    mvr_test!(test_mvr_i32_i32_i64, i32, i32, i64);
-    mvr_test!(test_mvr_i32_f32_i64, i32, f32, i64);
-    mvr_test!(test_mvr_f32_i32_i64, f32, i32, i64);
-    mvr_test!(test_mvr_f32_f32_i64, f32, f32, i64);
-    mvr_test!(test_mvr_i32_i32_f64, i32, i32, f64);
-    mvr_test!(test_mvr_i32_f32_f64, i32, f32, f64);
-    mvr_test!(test_mvr_f32_i32_f64, f32, i32, f64);
-    mvr_test!(test_mvr_f32_f32_f64, f32, f32, f64);
-
-    mvr_test!(test_mvr_i32_i64_i32, i32, i64, i32);
-    mvr_test!(test_mvr_i32_i64_f32, i32, i64, f32);
-    mvr_test!(test_mvr_f32_i64_i32, f32, i64, i32);
-    mvr_test!(test_mvr_f32_i64_f32, f32, i64, f32);
-    mvr_test!(test_mvr_i32_f64_i32, i32, f64, i32);
-    mvr_test!(test_mvr_i32_f64_f32, i32, f64, f32);
-    mvr_test!(test_mvr_f32_f64_i32, f32, f64, i32);
-    mvr_test!(test_mvr_f32_f64_f32, f32, f64, f32);
-
-    mvr_test!(test_mvr_i64_i32_i32, i64, i32, i32);
-    mvr_test!(test_mvr_i64_i32_f32, i64, i32, f32);
-    mvr_test!(test_mvr_i64_f32_i32, i64, f32, i32);
-    mvr_test!(test_mvr_i64_f32_f32, i64, f32, f32);
-    mvr_test!(test_mvr_f64_i32_i32, f64, i32, i32);
-    mvr_test!(test_mvr_f64_i32_f32, f64, i32, f32);
-    mvr_test!(test_mvr_f64_f32_i32, f64, f32, i32);
-    mvr_test!(test_mvr_f64_f32_f32, f64, f32, f32);
-
-    mvr_test!(test_mvr_i32_i32_i32_i32, i32, i32, i32, i32);
-    mvr_test!(test_mvr_i32_i32_i32_f32, i32, i32, i32, f32);
-    mvr_test!(test_mvr_i32_i32_f32_i32, i32, i32, f32, i32);
-    mvr_test!(test_mvr_i32_i32_f32_f32, i32, i32, f32, f32);
-    mvr_test!(test_mvr_i32_f32_i32_i32, i32, f32, i32, i32);
-    mvr_test!(test_mvr_i32_f32_i32_f32, i32, f32, i32, f32);
-    mvr_test!(test_mvr_i32_f32_f32_i32, i32, f32, f32, i32);
-    mvr_test!(test_mvr_i32_f32_f32_f32, i32, f32, f32, f32);
-    mvr_test!(test_mvr_f32_i32_i32_i32, f32, i32, i32, i32);
-    mvr_test!(test_mvr_f32_i32_i32_f32, f32, i32, i32, f32);
-    mvr_test!(test_mvr_f32_i32_f32_i32, f32, i32, f32, i32);
-    mvr_test!(test_mvr_f32_i32_f32_f32, f32, i32, f32, f32);
-    mvr_test!(test_mvr_f32_f32_i32_i32, f32, f32, i32, i32);
-    mvr_test!(test_mvr_f32_f32_i32_f32, f32, f32, i32, f32);
-    mvr_test!(test_mvr_f32_f32_f32_i32, f32, f32, f32, i32);
-    mvr_test!(test_mvr_f32_f32_f32_f32, f32, f32, f32, f32);
-
-    mvr_test!(test_mvr_i32_i32_i32_i32_i32, i32, i32, i32, i32, i32);
+trait ExpectedExpr {
+    fn expected_value(n: i32) -> Self;
+    fn expected_val(n: i32) -> wasmer::Val;
+    fn expected_valtype() -> wasmer::ValType;
 }
+impl ExpectedExpr for i32 {
+    fn expected_value(n: i32) -> i32 {
+        n + 1
+    }
+    fn expected_val(n: i32) -> wasmer::Val {
+        wasmer::Val::I32(Self::expected_value(n))
+    }
+    fn expected_valtype() -> wasmer::ValType {
+        wasmer::ValType::I32
+    }
+}
+impl ExpectedExpr for i64 {
+    fn expected_value(n: i32) -> i64 {
+        n as i64 + 2i64
+    }
+    fn expected_val(n: i32) -> wasmer::Val {
+        wasmer::Val::I64(Self::expected_value(n))
+    }
+    fn expected_valtype() -> wasmer::ValType {
+        wasmer::ValType::I64
+    }
+}
+impl ExpectedExpr for f32 {
+    fn expected_value(n: i32) -> f32 {
+        n as f32 * 0.1
+    }
+    fn expected_val(n: i32) -> wasmer::Val {
+        wasmer::Val::F32(Self::expected_value(n))
+    }
+    fn expected_valtype() -> wasmer::ValType {
+        wasmer::ValType::F32
+    }
+}
+impl ExpectedExpr for f64 {
+    fn expected_value(n: i32) -> f64 {
+        n as f64 * 0.12
+    }
+    fn expected_val(n: i32) -> wasmer::Val {
+        wasmer::Val::F64(Self::expected_value(n))
+    }
+    fn expected_valtype() -> wasmer::ValType {
+        wasmer::ValType::F64
+    }
+}
+
+mvr_test!(test_mvr_i32_i32, i32, i32);
+mvr_test!(test_mvr_i32_f32, i32, f32);
+mvr_test!(test_mvr_f32_i32, f32, i32);
+mvr_test!(test_mvr_f32_f32, f32, f32);
+
+mvr_test!(test_mvr_i64_i32, i64, i32);
+mvr_test!(test_mvr_i64_f32, i64, f32);
+mvr_test!(test_mvr_f64_i32, f64, i32);
+mvr_test!(test_mvr_f64_f32, f64, f32);
+
+mvr_test!(test_mvr_i32_i64, i32, i64);
+mvr_test!(test_mvr_f32_i64, f32, i64);
+mvr_test!(test_mvr_i32_f64, i32, f64);
+mvr_test!(test_mvr_f32_f64, f32, f64);
+
+mvr_test!(test_mvr_i32_i32_i32, i32, i32, i32);
+mvr_test!(test_mvr_i32_i32_f32, i32, i32, f32);
+mvr_test!(test_mvr_i32_f32_i32, i32, f32, i32);
+mvr_test!(test_mvr_i32_f32_f32, i32, f32, f32);
+mvr_test!(test_mvr_f32_i32_i32, f32, i32, i32);
+mvr_test!(test_mvr_f32_i32_f32, f32, i32, f32);
+mvr_test!(test_mvr_f32_f32_i32, f32, f32, i32);
+mvr_test!(test_mvr_f32_f32_f32, f32, f32, f32);
+
+mvr_test!(test_mvr_i32_i32_i64, i32, i32, i64);
+mvr_test!(test_mvr_i32_f32_i64, i32, f32, i64);
+mvr_test!(test_mvr_f32_i32_i64, f32, i32, i64);
+mvr_test!(test_mvr_f32_f32_i64, f32, f32, i64);
+mvr_test!(test_mvr_i32_i32_f64, i32, i32, f64);
+mvr_test!(test_mvr_i32_f32_f64, i32, f32, f64);
+mvr_test!(test_mvr_f32_i32_f64, f32, i32, f64);
+mvr_test!(test_mvr_f32_f32_f64, f32, f32, f64);
+
+mvr_test!(test_mvr_i32_i64_i32, i32, i64, i32);
+mvr_test!(test_mvr_i32_i64_f32, i32, i64, f32);
+mvr_test!(test_mvr_f32_i64_i32, f32, i64, i32);
+mvr_test!(test_mvr_f32_i64_f32, f32, i64, f32);
+mvr_test!(test_mvr_i32_f64_i32, i32, f64, i32);
+mvr_test!(test_mvr_i32_f64_f32, i32, f64, f32);
+mvr_test!(test_mvr_f32_f64_i32, f32, f64, i32);
+mvr_test!(test_mvr_f32_f64_f32, f32, f64, f32);
+
+mvr_test!(test_mvr_i64_i32_i32, i64, i32, i32);
+mvr_test!(test_mvr_i64_i32_f32, i64, i32, f32);
+mvr_test!(test_mvr_i64_f32_i32, i64, f32, i32);
+mvr_test!(test_mvr_i64_f32_f32, i64, f32, f32);
+mvr_test!(test_mvr_f64_i32_i32, f64, i32, i32);
+mvr_test!(test_mvr_f64_i32_f32, f64, i32, f32);
+mvr_test!(test_mvr_f64_f32_i32, f64, f32, i32);
+mvr_test!(test_mvr_f64_f32_f32, f64, f32, f32);
+
+mvr_test!(test_mvr_i32_i32_i32_i32, i32, i32, i32, i32);
+mvr_test!(test_mvr_i32_i32_i32_f32, i32, i32, i32, f32);
+mvr_test!(test_mvr_i32_i32_f32_i32, i32, i32, f32, i32);
+mvr_test!(test_mvr_i32_i32_f32_f32, i32, i32, f32, f32);
+mvr_test!(test_mvr_i32_f32_i32_i32, i32, f32, i32, i32);
+mvr_test!(test_mvr_i32_f32_i32_f32, i32, f32, i32, f32);
+mvr_test!(test_mvr_i32_f32_f32_i32, i32, f32, f32, i32);
+mvr_test!(test_mvr_i32_f32_f32_f32, i32, f32, f32, f32);
+mvr_test!(test_mvr_f32_i32_i32_i32, f32, i32, i32, i32);
+mvr_test!(test_mvr_f32_i32_i32_f32, f32, i32, i32, f32);
+mvr_test!(test_mvr_f32_i32_f32_i32, f32, i32, f32, i32);
+mvr_test!(test_mvr_f32_i32_f32_f32, f32, i32, f32, f32);
+mvr_test!(test_mvr_f32_f32_i32_i32, f32, f32, i32, i32);
+mvr_test!(test_mvr_f32_f32_i32_f32, f32, f32, i32, f32);
+mvr_test!(test_mvr_f32_f32_f32_i32, f32, f32, f32, i32);
+mvr_test!(test_mvr_f32_f32_f32_f32, f32, f32, f32, f32);
+
+mvr_test!(test_mvr_i32_i32_i32_i32_i32, i32, i32, i32, i32, i32);

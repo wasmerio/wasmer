@@ -20,11 +20,7 @@ pub fn wast_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     let compiler = out.path.get(0).unwrap();
 
     // The implementation of `run_wast` lives in /tests/spectest.rs
-    let body = format!(
-        "crate::wast::run_wast(r#\"{}\"#, \"{}\")",
-        p.display(),
-        compiler
-    );
+    let body = format!("crate::run_wast(r#\"{}\"#, \"{}\")", p.display(), compiler);
 
     Some(Test {
         name: testname,
