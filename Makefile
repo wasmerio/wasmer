@@ -64,10 +64,10 @@ test:
 	cargo test --release $(compiler_features)
 
 bench:
-	cargo bench --features "cranelift,singlepass,llvm,jit" $(compiler_features)
+	cargo bench --features "jit" $(compiler_features)
 
 check-bench:
-	cargo check --benches --features "cranelift,singlepass,llvm,jit" $(compiler_features)
+	cargo check --benches --features "jit" $(compiler_features)
 
 release:
 	cargo build --release $(compiler_features)
