@@ -13,6 +13,8 @@
 //! You can implement `WasiFile` for your own types to get custom behavior and extend WASI, see the
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs).
 
+#![allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
+
 mod builder;
 mod types;
 
