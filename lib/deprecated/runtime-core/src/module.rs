@@ -2,7 +2,7 @@ use crate::{cache::Artifact, error::InstantiationError, instance::Instance, new}
 use std::convert::{AsRef, Infallible};
 
 pub use new::wasm_common::{DataInitializer, ExportIndex};
-pub use new::wasmer_runtime::ModuleInfo;
+pub use new::wasmer_runtime::{ModuleInfo, TableElements as TableInitializer};
 
 #[derive(Clone)]
 pub struct Module {
