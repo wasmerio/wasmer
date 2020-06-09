@@ -18,10 +18,10 @@ use wasm_common::{
     TableIndex,
 };
 #[cfg(feature = "compiler")]
-use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{BinaryFormat, CompileError, Features, RelocationTarget, Triple};
+use wasmer_compiler::{BinaryFormat, ModuleEnvironment, RelocationTarget, Triple};
+use wasmer_compiler::{CompileError, Features};
 use wasmer_engine::{
-    Artifact, DeserializeError, Engine, InstantiationError, LinkError, RuntimeError, SerializeError,
+    Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
