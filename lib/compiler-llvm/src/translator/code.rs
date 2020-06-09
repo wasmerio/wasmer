@@ -606,7 +606,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let divisor_is_zero = self.builder.build_int_compare(
             IntPredicate::EQ,
             right,
-            int_type.const_int(0, false),
+            int_type.const_zero(),
             "divisor_is_zero",
         );
         let should_trap = self.builder.build_or(
@@ -631,10 +631,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.intrinsics.expect_i1,
                 &[
                     should_trap.as_basic_value_enum(),
-                    self.intrinsics
-                        .i1_ty
-                        .const_int(0, false)
-                        .as_basic_value_enum(),
+                    self.intrinsics.i1_ty.const_zero().as_basic_value_enum(),
                 ],
                 "should_trap_expect",
             )
@@ -669,7 +666,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let should_trap = self.builder.build_int_compare(
             IntPredicate::EQ,
             value,
-            int_type.const_int(0, false),
+            int_type.const_zero(),
             "divisor_is_zero",
         );
 
@@ -679,10 +676,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.intrinsics.expect_i1,
                 &[
                     should_trap.as_basic_value_enum(),
-                    self.intrinsics
-                        .i1_ty
-                        .const_int(0, false)
-                        .as_basic_value_enum(),
+                    self.intrinsics.i1_ty.const_zero().as_basic_value_enum(),
                 ],
                 "should_trap_expect",
             )
@@ -1177,7 +1171,7 @@ fn emit_stack_map<'ctx>(
             .const_int(stackmap_id as u64, false)
             .as_basic_value_enum(),
     );
-    params.push(intrinsics.i32_ty.const_int(0, false).as_basic_value_enum());
+    params.push(intrinsics.i32_ty.const_zero().as_basic_value_enum());
 
     let locals: Vec<_> = locals.iter().map(|x| x.as_basic_value_enum()).collect();
     let mut value_semantics: Vec<ValueSemantic> =
@@ -1224,7 +1218,7 @@ fn finalize_opcode_stack_map<'ctx>(
                 .i64_ty
                 .const_int(stackmap_id as u64, false)
                 .as_basic_value_enum(),
-            intrinsics.i32_ty.const_int(0, false).as_basic_value_enum(),
+            intrinsics.i32_ty.const_zero().as_basic_value_enum(),
         ],
         "opcode_stack_map_end",
     );
@@ -1388,7 +1382,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         );
                         let signal_mem = ctx.signal_mem();
                         let iv = self.builder
-                            .build_store(signal_mem, self.context.i8_type().const_int(0 as u64, false));
+                            .build_store(signal_mem, self.context.i8_type().const_zero());
                         // Any 'store' can be made volatile.
                         iv.set_volatile(true).unwrap();
                         finalize_opcode_stack_map(
@@ -1615,14 +1609,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     let current_block = self.builder.get_insert_block().ok_or_else(|| {
                         CompileError::Codegen("not currently in a block".to_string())
                     })?;
+                    self.builder.build_unconditional_branch(*frame.code_after());
 
                     for phi in frame.phis().to_vec().iter().rev() {
                         let (value, info) = self.state.pop1_extra()?;
                         let value = self.apply_pending_canonicalization(value, info);
                         phi.add_incoming(&[(&value, current_block)])
                     }
-                    let frame = self.state.frame_at_depth(0)?;
-                    self.builder.build_unconditional_branch(*frame.code_after());
                 }
 
                 let (if_else_block, if_else_state) = if let ControlFrame::IfElse {
@@ -1694,19 +1687,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         self.state.push1(phi.as_basic_value());
                     } else {
                         let basic_ty = phi.as_basic_value().get_type();
-                        let placeholder_value = match basic_ty {
-                            BasicTypeEnum::IntType(int_ty) => {
-                                int_ty.const_int(0, false).as_basic_value_enum()
-                            }
-                            BasicTypeEnum::FloatType(float_ty) => {
-                                float_ty.const_float(0.0).as_basic_value_enum()
-                            }
-                            _ => {
-                                return Err(CompileError::Codegen(
-                                    "Operator::End phi type unimplemented".to_string(),
-                                ));
-                            }
-                        };
+                        let placeholder_value = const_zero(basic_ty);
                         self.state.push1(placeholder_value);
                         phi.as_instruction().erase_from_basic_block();
                     }
@@ -1719,14 +1700,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let frame = self.state.outermost_frame()?;
+                self.builder.build_unconditional_branch(*frame.br_dest());
                 for phi in frame.phis().to_vec().iter().rev() {
                     let (arg, info) = self.state.pop1_extra()?;
                     let arg = self.apply_pending_canonicalization(arg, info);
                     phi.add_incoming(&[(&arg, current_block)]);
                 }
-
-                let frame = self.state.outermost_frame()?;
-                self.builder.build_unconditional_branch(*frame.br_dest());
 
                 self.state.reachable = false;
             }
