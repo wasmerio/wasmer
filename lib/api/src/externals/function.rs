@@ -252,12 +252,14 @@ impl Function {
     ///    call the trampoline.
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
         let mut results = vec![Val::null(); self.result_arity()];
+
         match &self.definition {
             FunctionDefinition::Wasm(wasm) => {
                 self.call_wasm(&wasm, params, &mut results)?;
             }
-            _ => {} // _ => unimplemented!("The host is unimplemented"),
+            _ => unimplemented!("The function definition isn't supported for the moment"),
         }
+
         Ok(results.into_boxed_slice())
     }
 
