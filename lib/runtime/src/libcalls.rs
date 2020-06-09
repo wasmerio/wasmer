@@ -379,8 +379,8 @@ pub enum LibCall {
 
 impl LibCall {
     /// The function pointer to a libcall
-    pub fn function_pointer(&self) -> usize {
-        match &self {
+    pub fn function_pointer(self) -> usize {
+        match self {
             Self::CeilF32 => wasmer_f32_ceil as usize,
             Self::FloorF32 => wasmer_f32_floor as usize,
             Self::TruncF32 => wasmer_f32_trunc as usize,
