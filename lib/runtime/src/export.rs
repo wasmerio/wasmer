@@ -107,7 +107,7 @@ pub struct ExportGlobal {
 
 impl ExportGlobal {
     /// Returns whether or not the two `ExportGlobal`s refer to the same Global.
-    pub fn same(&self, other: &ExportGlobal) -> bool {
+    pub fn same(&self, other: &Self) -> bool {
         self.definition == other.definition && self.global == other.global
     }
 }
