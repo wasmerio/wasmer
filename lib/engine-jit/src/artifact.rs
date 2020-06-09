@@ -3,7 +3,7 @@
 
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
-use crate::serialize::{SerializableCompilation, SerializableModule};
+use crate::serialize::SerializableModule;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
@@ -14,8 +14,7 @@ use wasm_common::{
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{CompileError, Features};
 use wasmer_engine::{
-    register_frame_info, Artifact, DeserializeError, Engine, GlobalFrameInfoRegistration,
-    SerializableFunctionFrameInfo, SerializeError,
+    register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
 };
 use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex};
 
