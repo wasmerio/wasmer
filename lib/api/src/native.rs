@@ -166,19 +166,10 @@ macro_rules! impl_native_traits {
                     FunctionDefinition::Host => {
                         if self.arg_kind == VMFunctionKind::Static {
                             unsafe {
-                                let f = std::mem::transmute::<_, unsafe fn( $( $x, )*) -> Rets>(self.address);
+                                let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets>(self.address);
 
-                                let results =  f( $( $x, )* );
+                                let results =  f( self.vmctx, $( $x, )* );
                                 return Ok(results);
-                               /* match f( $( $x, )* ) {
-                                    Err(error) => {
-                                        dbg!(error);
-                                        return Err(());
-                                    }
-                                    Ok(results) => {
-                                        return Ok(results);
-                                    }
-                                }*/
                             }
                         } else {
                             todo!("dynamic host functions not yet implemented")
@@ -188,8 +179,6 @@ macro_rules! impl_native_traits {
 
             }
         }
-
-
     };
 }
 

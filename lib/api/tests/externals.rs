@@ -330,31 +330,40 @@ fn function_new_dynamic_env() -> Result<()> {
     Ok(())
 }
 
-// TODO: unignore this when calling host functions has been implemented
 #[test]
 fn native_function_works() -> Result<()> {
     let store = Store::default();
     let function = Function::new(&store, || {});
     let native_function: NativeFunc<(), ()> = function.native().unwrap();
     let result = native_function.call();
-    dbg!(&result);
     assert!(result.is_ok());
+
+    // TODO:
+    /*let function = Function::new(&store, |a: i32| -> i32 { a + 1 });
+    let native_function: NativeFunc<i32, i32> = function.native().unwrap();
+    assert!(native_function.call(3).unwrap(), 4);
+    */
+
+    fn rust_abi(a: i32, b: i64, c: f32, d: f64) -> u64 {
+        (a as u64 * 1000) + (b as u64 * 100) + (c as u64 * 10) + (d as u64)
+    }
+    let function = Function::new(&store, rust_abi);
+    let native_function: NativeFunc<(i32, i64, f32, f64), u64> = function.native().unwrap();
+    assert_eq!(native_function.call(8, 4, 1.5, 5.).unwrap(), 8415);
+
+    let function = Function::new(&store, || -> i32 { 1 });
+    let native_function: NativeFunc<(), i32> = function.native().unwrap();
+    assert_eq!(native_function.call().unwrap(), 1);
+
+    // TODO:
     /*let function = Function::new(&store, |_a: i32| {});
     let native_function: NativeFunc<i32, ()> = function.native().unwrap();
-    assert!(native_function.call(3).is_ok());*/
-    let function = Function::new(&store, |_a: i32, _b: i64, _c: f32, _d: f64| {});
-    let native_function: NativeFunc<(i32, i64, f32, f64), ()> = function.native().unwrap();
-    assert!(native_function.call(3, 4, 1., 5.).is_ok());
-    /*
-    let function = Function::new(&store, || -> i32 { 1 });
-    assert_eq!(
-        function.ty().clone(),
-        FunctionType::new(vec![], vec![Type::I32])
-    );
-    let function = Function::new(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
-    assert_eq!(
-        function.ty().clone(),
-        FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64])
-    );*/
+    assert!(native_function.call(4).is_ok());*/
+
+    // TODO:
+    /*let function = Function::new(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
+    let native_function: NativeFunc<(), (i32, i64, f32, f64)> = function.native().unwrap();
+    assert_eq!(native_function.call().unwrap(), (1, 2, 3.0, 4.0));
+    */
     Ok(())
 }
