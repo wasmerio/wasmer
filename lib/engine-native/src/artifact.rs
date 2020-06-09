@@ -496,6 +496,10 @@ impl NativeArtifact {
     }
 
     /// Deserialize a `NativeArtifact` from bytes.
+    ///
+    /// # Safety
+    ///
+    /// The bytes must represent a serialized WebAssembly module.
     pub unsafe fn deserialize(
         engine: &NativeEngine,
         bytes: &[u8],
@@ -515,6 +519,10 @@ impl NativeArtifact {
     }
 
     /// Deserialize a `NativeArtifact` from a file path.
+    ///
+    /// # Safety
+    ///
+    /// The file's content must represent a serialized WebAssembly module.
     pub unsafe fn deserialize_from_file(
         engine: &NativeEngine,
         path: &Path,
@@ -532,6 +540,10 @@ impl NativeArtifact {
     }
 
     /// Deserialize a `NativeArtifact` from a file path (unchecked).
+    ///
+    /// # Safety
+    ///
+    /// The file's content must represent a serialized WebAssembly module.
     pub unsafe fn deserialize_from_file_unchecked(
         engine: &NativeEngine,
         path: &Path,
