@@ -125,7 +125,7 @@ macro_rules! import_namespace {
         }
     };
 
-    ($ns:ident) => {
-        $ns
+    ( $namespace:ident ) => {
+        $namespace
     };
 }
