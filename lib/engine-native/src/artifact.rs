@@ -503,7 +503,7 @@ impl NativeArtifact {
     pub unsafe fn deserialize(
         engine: &NativeEngine,
         bytes: &[u8],
-    ) -> Result<NativeArtifact, DeserializeError> {
+    ) -> Result<Self, DeserializeError> {
         if !Self::is_deserializable(&bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
@@ -526,7 +526,7 @@ impl NativeArtifact {
     pub unsafe fn deserialize_from_file(
         engine: &NativeEngine,
         path: &Path,
-    ) -> Result<NativeArtifact, DeserializeError> {
+    ) -> Result<Self, DeserializeError> {
         let mut file = File::open(&path)?;
         let mut buffer = [0; 5];
         // read up to 5 bytes
@@ -547,7 +547,7 @@ impl NativeArtifact {
     pub unsafe fn deserialize_from_file_unchecked(
         engine: &NativeEngine,
         path: &Path,
-    ) -> Result<NativeArtifact, DeserializeError> {
+    ) -> Result<Self, DeserializeError> {
         let lib = Library::new(&path).map_err(|e| {
             DeserializeError::CorruptedBinary(format!("Library loading failed: {}", e))
         })?;
