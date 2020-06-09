@@ -5,6 +5,5 @@
 mod functions;
 mod imports;
 mod multi_value_imports;
-mod wast;
-#[macro_use]
-extern crate lazy_static;
+mod traps;
+mod utils;

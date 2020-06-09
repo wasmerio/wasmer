@@ -61,14 +61,16 @@ compiler_features := --features "$(compiler_features_spaced)"
 # Building #
 ############
 
-test:
-	cargo test --release $(compiler_features)
+bench: $(foreach compiler,$(compilers),test-$(compiler)) test-packages
 
-bench:
-	cargo bench --features "jit" $(compiler_features)
+bench-singlepass:
+	cargo test --release $(compiler_features) --features "jit,test-singlepass"
 
-check-bench:
-	cargo check --benches --features "jit" $(compiler_features)
+bench-cranelift:
+	cargo test --release $(compiler_features) --features "jit,test-cranelift"
+
+bench-llvm:
+	cargo test --release $(compiler_features) --features "jit,test-llvm"
 
 release:
 build-wasmer:
@@ -105,8 +107,21 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test:
-	cargo test --release $(compiler_features)
+test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages
+
+test-singlepass:
+	cargo test --release $(compiler_features) --features "test-singlepass"
+
+test-cranelift:
+	cargo test --release $(compiler_features) --features "test-cranelift"
+
+test-llvm:
+	cargo test --release $(compiler_features) --features "test-llvm"
+
+test-packages:
+	cargo test -p wasmer --release
+	cargo test -p wasmer-runtime --release
+	cargo test -p wasm-common --release
 
 test-capi-singlepass: build-capi-singlepass
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \

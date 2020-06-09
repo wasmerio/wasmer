@@ -1,13 +1,11 @@
 #![cfg(feature = "compiler")]
 
-#[macro_use]
-pub mod macros;
-pub use macros::*;
-
 use std::sync::Arc;
 use wasmer::{Store, Tunables};
 use wasmer_compiler::{CompilerConfig, Features, Target};
 use wasmer_engine_jit::JITEngine;
+
+compiler_error!("WHY IS THIS BROKEN");
 
 pub fn get_compiler_config_from_str(
     compiler_name: &str,
@@ -45,6 +43,27 @@ pub fn get_compiler_config_from_str(
 /// for when you need a store but you don't care about the details
 pub fn get_default_store() -> Store {
     let compiler_config = get_compiler_config_from_str("cranelift", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
+}
+
+#[cfg(feature = "llvm")]
+pub fn get_default_llvm_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("llvm", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
+}
+
+#[cfg(feature = "cranelift")]
+pub fn get_default_cranelift_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("cranelift", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
+}
+
+#[cfg(feature = "singlepass")]
+pub fn get_default_singlepass_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("singlepass", false, Features::default());
     let tunables = Tunables::for_target(compiler_config.target().triple());
     Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
 }
