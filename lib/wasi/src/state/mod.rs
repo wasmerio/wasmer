@@ -1478,6 +1478,7 @@ pub struct WasiState {
 impl WasiState {
     /// Create a [`WasiStateBuilder`] to construct a validated instance of
     /// [`WasiState`].
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(program_name: &str) -> WasiStateBuilder {
         create_wasi_state(program_name)
     }
