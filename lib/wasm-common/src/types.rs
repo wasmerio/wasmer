@@ -295,10 +295,11 @@ impl Mutability {
 }
 
 impl From<bool> for Mutability {
-    fn from(val: bool) -> Self {
-        match val {
-            false => Self::Const,
-            true => Self::Var,
+    fn from(value: bool) -> Self {
+        if value {
+            Self::Var
+        } else {
+            Self::Const
         }
     }
 }
