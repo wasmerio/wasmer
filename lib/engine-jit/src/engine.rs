@@ -178,6 +178,7 @@ impl JITEngineInner {
     }
 
     /// Compile the given function bodies.
+    #[allow(clippy::type_complexity)]
     pub(crate) fn allocate(
         &mut self,
         module: &ModuleInfo,
