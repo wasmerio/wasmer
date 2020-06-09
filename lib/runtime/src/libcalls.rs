@@ -136,7 +136,7 @@ pub unsafe extern "C" fn wasmer_memory32_grow(
     delta: u32,
     memory_index: u32,
 ) -> u32 {
-    let instance = (&mut *vmctx).instance();
+    let instance = (&*vmctx).instance();
     let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
     instance
@@ -151,7 +151,7 @@ pub unsafe extern "C" fn wasmer_imported_memory32_grow(
     delta: u32,
     memory_index: u32,
 ) -> u32 {
-    let instance = (&mut *vmctx).instance();
+    let instance = (&*vmctx).instance();
     let memory_index = MemoryIndex::from_u32(memory_index);
 
     instance
@@ -162,7 +162,7 @@ pub unsafe extern "C" fn wasmer_imported_memory32_grow(
 
 /// Implementation of memory.size for locally-defined 32-bit memories.
 pub unsafe extern "C" fn wasmer_memory32_size(vmctx: *mut VMContext, memory_index: u32) -> u32 {
-    let instance = (&mut *vmctx).instance();
+    let instance = (&*vmctx).instance();
     let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
     instance.memory_size(memory_index).0
@@ -173,7 +173,7 @@ pub unsafe extern "C" fn wasmer_imported_memory32_size(
     vmctx: *mut VMContext,
     memory_index: u32,
 ) -> u32 {
-    let instance = (&mut *vmctx).instance();
+    let instance = (&*vmctx).instance();
     let memory_index = MemoryIndex::from_u32(memory_index);
 
     instance.imported_memory_size(memory_index).0
@@ -191,7 +191,7 @@ pub unsafe extern "C" fn wasmer_table_copy(
     let result = {
         let dst_table_index = TableIndex::from_u32(dst_table_index);
         let src_table_index = TableIndex::from_u32(src_table_index);
-        let instance = (&mut *vmctx).instance();
+        let instance = (&*vmctx).instance();
         let dst_table = instance.get_table(dst_table_index);
         let src_table = instance.get_table(src_table_index);
         Table::copy(dst_table, src_table, dst, src, len)
@@ -217,7 +217,7 @@ pub unsafe extern "C" fn wasmer_table_init(
     let result = {
         let table_index = TableIndex::from_u32(table_index);
         let elem_index = ElemIndex::from_u32(elem_index);
-        let instance = (&mut *vmctx).instance();
+        let instance = (&*vmctx).instance();
         instance.table_init(table_index, elem_index, dst, src, len)
     };
     if let Err(trap) = result {
@@ -232,7 +232,7 @@ pub unsafe extern "C" fn wasmer_table_init(
 /// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_elem_drop(vmctx: *mut VMContext, elem_index: u32) {
     let elem_index = ElemIndex::from_u32(elem_index);
-    let instance = (&mut *vmctx).instance();
+    let instance = (&*vmctx).instance();
     instance.elem_drop(elem_index);
 }
 
@@ -250,7 +250,7 @@ pub unsafe extern "C" fn wasmer_local_memory_copy(
 ) {
     let result = {
         let memory_index = LocalMemoryIndex::from_u32(memory_index);
-        let instance = (&mut *vmctx).instance();
+        let instance = (&*vmctx).instance();
         instance.local_memory_copy(memory_index, dst, src, len)
     };
     if let Err(trap) = result {
@@ -272,7 +272,7 @@ pub unsafe extern "C" fn wasmer_imported_memory_copy(
 ) {
     let result = {
         let memory_index = MemoryIndex::from_u32(memory_index);
-        let instance = (&mut *vmctx).instance();
+        let instance = (&*vmctx).instance();
         instance.imported_memory_copy(memory_index, dst, src, len)
     };
     if let Err(trap) = result {
@@ -294,7 +294,7 @@ pub unsafe extern "C" fn wasmer_memory_fill(
 ) {
     let result = {
         let memory_index = LocalMemoryIndex::from_u32(memory_index);
-        let instance = (&mut *vmctx).instance();
+        let instance = (&*vmctx).instance();
         instance.local_memory_fill(memory_index, dst, val, len)
     };
     if let Err(trap) = result {
@@ -316,7 +316,7 @@ pub unsafe extern "C" fn wasmer_imported_memory_fill(
 ) {
     let result = {
         let memory_index = MemoryIndex::from_u32(memory_index);
-        let instance = (&mut *vmctx).instance();
+        let instance = (&*vmctx).instance();
         instance.imported_memory_fill(memory_index, dst, val, len)
     };
     if let Err(trap) = result {
@@ -340,7 +340,7 @@ pub unsafe extern "C" fn wasmer_memory_init(
     let result = {
         let memory_index = MemoryIndex::from_u32(memory_index);
         let data_index = DataIndex::from_u32(data_index);
-        let instance = (&mut *vmctx).instance();
+        let instance = (&*vmctx).instance();
         instance.memory_init(memory_index, data_index, dst, src, len)
     };
     if let Err(trap) = result {
@@ -355,7 +355,7 @@ pub unsafe extern "C" fn wasmer_memory_init(
 /// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32) {
     let data_index = DataIndex::from_u32(data_index);
-    let instance = (&mut *vmctx).instance();
+    let instance = (&*vmctx).instance();
     instance.data_drop(data_index)
 }
 
