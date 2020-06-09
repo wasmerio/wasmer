@@ -415,7 +415,7 @@ impl NativeArtifact {
                 // implemented in this engine.
                 let func_pointer =
                     std::slice::from_raw_parts(raw as *const (), *function_len as usize);
-                let func_pointer = std::mem::transmute::<_, *mut [VMFunctionBody]>(func_pointer);
+                let func_pointer = func_pointer as *const [()] as *mut [VMFunctionBody];
                 finished_functions.push(func_pointer);
             }
         }
