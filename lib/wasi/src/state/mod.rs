@@ -1401,7 +1401,7 @@ impl WasiFs {
                     .ok_or(__WASI_EINVAL)?
                     .to_string_lossy()
                     .to_string();
-                if let Some(p) = parent.clone() {
+                if let Some(p) = *parent {
                     match &mut self.inodes[p].kind {
                         Kind::Dir { entries, .. } | Kind::Root { entries } => {
                             self.fd_map.remove(&fd).unwrap();
