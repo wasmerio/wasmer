@@ -131,6 +131,10 @@ pub extern "C" fn wasmer_f64_nearest(x: f64) -> f64 {
 }
 
 /// Implementation of memory.grow for locally-defined 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_memory32_grow(
     vmctx: *mut VMContext,
     delta: u32,
@@ -146,6 +150,10 @@ pub unsafe extern "C" fn wasmer_memory32_grow(
 }
 
 /// Implementation of memory.grow for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_imported_memory32_grow(
     vmctx: *mut VMContext,
     delta: u32,
@@ -161,6 +169,10 @@ pub unsafe extern "C" fn wasmer_imported_memory32_grow(
 }
 
 /// Implementation of memory.size for locally-defined 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_memory32_size(vmctx: *mut VMContext, memory_index: u32) -> u32 {
     let instance = (&*vmctx).instance();
     let memory_index = LocalMemoryIndex::from_u32(memory_index);
@@ -169,6 +181,10 @@ pub unsafe extern "C" fn wasmer_memory32_size(vmctx: *mut VMContext, memory_inde
 }
 
 /// Implementation of memory.size for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_imported_memory32_size(
     vmctx: *mut VMContext,
     memory_index: u32,
@@ -180,6 +196,10 @@ pub unsafe extern "C" fn wasmer_imported_memory32_size(
 }
 
 /// Implementation of `table.copy`.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_table_copy(
     vmctx: *mut VMContext,
     dst_table_index: u32,
