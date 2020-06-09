@@ -415,6 +415,8 @@ impl Trap {
 /// * `values_vec` - points to a buffer which holds the incoming arguments, and to
 ///   which the outgoing return values will be written.
 ///
+/// # Safety
+///
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
@@ -433,7 +435,9 @@ pub unsafe fn wasmer_call_trampoline(
 /// Catches any wasm traps that happen within the execution of `closure`,
 /// returning them as a `Result`.
 ///
-/// Highly unsafe since `closure` won't have any dtors run.
+/// # Safety
+///
+/// Highly unsafe since `closure` won't have any destructors run.
 pub unsafe fn catch_traps<F>(vmctx: *mut VMContext, mut closure: F) -> Result<(), Trap>
 where
     F: FnMut(),
