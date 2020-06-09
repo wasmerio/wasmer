@@ -778,6 +778,7 @@ impl InstanceHandle {
     /// internally if you'd like to do so. If possible it's recommended to use
     /// the `wasmer` crate API rather than this type since that is vetted for
     /// safety.
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
