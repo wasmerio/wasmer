@@ -300,7 +300,7 @@ fn rust_panic_import() -> Result<()> {
     assert_eq!(err.downcast_ref::<&'static str>(), Some(&"this is a panic"));
 
     // TODO: Reenable this (disabled as it was not working with llvm/singlepass)
-    // It doesnt' work either with cranelift and `--test-threads=1`.
+    // It doesn't work either with cranelift and `--test-threads=1`.
     // let func = instance.exports.get_function("bar")?.clone();
     // let err = panic::catch_unwind(AssertUnwindSafe(|| {
     //     drop(func.call(&[]));

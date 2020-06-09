@@ -5,14 +5,18 @@ use wasmer_engine_jit::JITEngine;
 
 fn get_compiler_str() -> &'static str {
     cfg_if::cfg_if! {
-        if #[cfg(feature = "test-cranelift")] {
+        if #[cfg(any(
+            all(feature = "test-llvm", any(feature = "test-cranelift", feature = "test-singlepass")),
+            all(feature = "test-cranelift", feature = "test-singlepass")
+        ))] {
+            compile_error!("Only one compiler can be selected")
+        } else if #[cfg(feature = "test-cranelift")] {
             "cranelift"
         } else if #[cfg(feature = "test-llvm")] {
             "llvm"
         } else if #[cfg(feature = "test-singlepass")] {
             "singlepass"
-        }
-        else {
+        } else {
             compile_error!("No compiler chosen for the tests")
         }
     }
