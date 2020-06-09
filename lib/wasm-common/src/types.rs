@@ -32,7 +32,7 @@ pub enum Type {
 impl Type {
     /// Returns true if `Type` matches any of the numeric types. (e.g. `I32`,
     /// `I64`, `F32`, `F64`, `V128`).
-    pub fn is_num(&self) -> bool {
+    pub fn is_num(self) -> bool {
         match self {
             Self::I32 | Self::I64 | Self::F32 | Self::F64 | Self::V128 => true,
             _ => false,
@@ -40,7 +40,7 @@ impl Type {
     }
 
     /// Returns true if `Type` matches either of the reference types.
-    pub fn is_ref(&self) -> bool {
+    pub fn is_ref(self) -> bool {
         match self {
             Self::AnyRef | Self::FuncRef => true,
             _ => false,
@@ -202,7 +202,7 @@ impl ExternType {
     pub fn is_compatible_with(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Function(a), Self::Function(b)) => a == b,
-            (Self::Global(a), Self::Global(b)) => is_global_compatible(a, b),
+            (Self::Global(a), Self::Global(b)) => is_global_compatible(*a, *b),
             (Self::Table(a), Self::Table(b)) => is_table_compatible(a, b),
             (Self::Memory(a), Self::Memory(b)) => is_memory_compatible(a, b),
             // The rest of possibilities, are not compatible
