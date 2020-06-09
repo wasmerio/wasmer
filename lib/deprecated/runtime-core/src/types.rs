@@ -19,6 +19,7 @@ pub use new::wasm_common::{
     MemoryIndex as ImportedMemoryIndex,
     MemoryIndex,
     MemoryType as MemoryDescriptor,
+    NativeWasmType,
     SignatureIndex as SigIndex,
     TableIndex as ImportedTableIndex,
     TableIndex,
