@@ -289,8 +289,8 @@ pub enum Mutability {
 
 impl Mutability {
     /// Returns a boolean indicating if the enum is set to mutable.
-    pub fn is_mutable(&self) -> bool {
-        (*self).into()
+    pub fn is_mutable(self) -> bool {
+        self.into()
     }
 }
 
