@@ -66,7 +66,7 @@ impl BaseTunables for Tunables {
         // tunables make it static.
         //
         // If the module doesn't declare an explicit maximum treat it as 4GiB.
-        let maximum = memory.maximum.unwrap_or(Pages::max_value());
+        let maximum = memory.maximum.unwrap_or_else(Pages::max_value);
         if maximum <= self.static_memory_bound {
             assert_ge!(self.static_memory_bound, memory.minimum);
             MemoryPlan {
