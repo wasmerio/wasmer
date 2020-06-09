@@ -3,15 +3,19 @@
 
 use crate::engine::{NativeEngine, NativeEngineInner};
 use crate::serialize::ModuleMetadata;
+#[cfg(feature = "compiler")]
 use faerie::{ArtifactBuilder, Decl, Link};
 use libloading::{Library, Symbol};
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+#[cfg(feature = "compiler")]
 use std::process::Command;
 use std::sync::Arc;
 use tempfile::NamedTempFile;
+#[cfg(feature = "compiler")]
+use tracing::trace;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
