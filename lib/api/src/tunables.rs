@@ -41,14 +41,11 @@ impl Tunables {
         // wasting too much memory.
         let dynamic_memory_offset_guard_size: u64 = 0x1_0000;
 
-        match triple.operating_system {
-            OperatingSystem::Windows => {
-                // For now, use a smaller footprint on Windows so that we don't
-                // don't outstrip the paging file.
-                static_memory_bound = min(static_memory_bound, 0x100.into());
-                static_memory_offset_guard_size = min(static_memory_offset_guard_size, 0x10000);
-            }
-            _ => {}
+        if let OperatingSystem::Windows = triple.operating_system {
+            // For now, use a smaller footprint on Windows so that we don't
+            // outstrip the paging file.
+            static_memory_bound = min(static_memory_bound, 0x100.into());
+            static_memory_offset_guard_size = min(static_memory_offset_guard_size, 0x10000);
         }
 
         Self {
