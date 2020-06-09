@@ -1,5 +1,5 @@
 [package]
-name = "wasmer-runtime-old"
+name = "wasmer-runtime-deprecated"
 version = "0.16.2"
 description = "Wasmer runtime library"
 license = "MIT"
@@ -12,6 +12,9 @@ readme = "README.md"
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core/", version = "0.16.2" }
+
+[dev-dependencies]
+wabt = "0.9"
 
 [features]
 default = ["cranelift", "wasmer-runtime-core/default"]
