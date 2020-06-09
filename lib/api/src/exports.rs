@@ -91,7 +91,7 @@ impl Exports {
     ///
     /// If you want to get an export dynamically handling manually
     /// type checking manually, please use `get_extern`.
-    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Result<T, ExportError> {
+    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Result<&'a T, ExportError> {
         match self.map.get(name) {
             None => Err(ExportError::Missing(name.to_string())),
             Some(extern_) => T::get_self_from_extern(extern_),
@@ -99,22 +99,22 @@ impl Exports {
     }
 
     /// Get an export as a `Global`.
-    pub fn get_global(&self, name: &str) -> Result<Global, ExportError> {
+    pub fn get_global(&self, name: &str) -> Result<&Global, ExportError> {
         self.get(name)
     }
 
     /// Get an export as a `Memory`.
-    pub fn get_memory(&self, name: &str) -> Result<Memory, ExportError> {
+    pub fn get_memory(&self, name: &str) -> Result<&Memory, ExportError> {
         self.get(name)
     }
 
     /// Get an export as a `Table`.
-    pub fn get_table(&self, name: &str) -> Result<Table, ExportError> {
+    pub fn get_table(&self, name: &str) -> Result<&Table, ExportError> {
         self.get(name)
     }
 
     /// Get an export as a `Func`.
-    pub fn get_function(&self, name: &str) -> Result<Function, ExportError> {
+    pub fn get_function(&self, name: &str) -> Result<&Function, ExportError> {
         self.get(name)
     }
 
@@ -127,7 +127,9 @@ impl Exports {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        self.get(name)
+        self.get_function(name)?
+            .native()
+            .ok_or(ExportError::IncompatibleType)
     }
 
     /// Get an export as an `Extern`.
@@ -256,5 +258,5 @@ pub trait Exportable<'a>: Sized {
     /// from an [`Instance`] by name.
     ///
     /// [`Instance`]: crate::Instance
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<Self, ExportError>;
+    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
 }

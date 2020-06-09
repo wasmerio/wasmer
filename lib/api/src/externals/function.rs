@@ -288,7 +288,7 @@ impl Function {
         }
     }
 
-    pub fn native<'a, Args, Rets>(self) -> Option<NativeFunc<'a, Args, Rets>>
+    pub fn native<'a, Args, Rets>(&self) -> Option<NativeFunc<'a, Args, Rets>>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -304,11 +304,11 @@ impl Function {
         }
 
         Some(NativeFunc::new(
-            self.store,
+            self.store.clone(),
             self.exported.address,
             self.exported.vmctx,
             self.exported.kind,
-            self.definition,
+            self.definition.clone(),
         ))
     }
 }
@@ -317,19 +317,7 @@ impl<'a> Exportable<'a> for Function {
     fn to_export(&self) -> Export {
         self.exported.clone().into()
     }
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<Self, ExportError> {
-        match _extern {
-            Extern::Function(func) => Ok(func.clone()),
-            _ => Err(ExportError::IncompatibleType),
-        }
-    }
-}
-
-impl<'a> Exportable<'a> for &'a Function {
-    fn to_export(&self) -> Export {
-        self.exported.clone().into()
-    }
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<Self, ExportError> {
+    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Function(func) => Ok(func),
             _ => Err(ExportError::IncompatibleType),

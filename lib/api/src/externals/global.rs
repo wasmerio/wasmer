@@ -130,20 +130,7 @@ impl<'a> Exportable<'a> for Global {
         self.exported.clone().into()
     }
 
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<Self, ExportError> {
-        match _extern {
-            Extern::Global(global) => Ok(global.clone()),
-            _ => Err(ExportError::IncompatibleType),
-        }
-    }
-}
-
-impl<'a> Exportable<'a> for &'a Global {
-    fn to_export(&self) -> Export {
-        self.exported.clone().into()
-    }
-
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<Self, ExportError> {
+    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Global(global) => Ok(global),
             _ => Err(ExportError::IncompatibleType),

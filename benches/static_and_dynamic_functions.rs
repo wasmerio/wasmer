@@ -44,7 +44,7 @@ wasmer_compilers! {
             },
         };
         let instance = Instance::new(&module, &import_object).unwrap();
-        let dyn_f: Function = instance.exports.get("add").unwrap();
+        let dyn_f: &Function = instance.exports.get("add").unwrap();
         let f: NativeFunc<(i32, i32), i32> = dyn_f.native().unwrap();
 
         c.bench_function(&format!("basic static func {}", COMPILER_NAME), |b| {
@@ -54,7 +54,7 @@ wasmer_compilers! {
             })
         });
 
-        let dyn_f_many: Function = instance.exports.get("add20").unwrap();
+        let dyn_f_many: &Function = instance.exports.get("add20").unwrap();
         let f_many: NativeFunc<(i32, i32, i32, i32, i32,
                                 i32, i32, i32, i32, i32,
                                 i32, i32, i32, i32, i32,
@@ -77,7 +77,7 @@ wasmer_compilers! {
         };
         let instance = Instance::new(&module, &import_object).unwrap();
 
-        let dyn_f: Function = instance.exports.get("add").unwrap();
+        let dyn_f: &Function = instance.exports.get("add").unwrap();
         c.bench_function(&format!("basic dynfunc {}", COMPILER_NAME), |b| {
             b.iter(|| {
                 let dyn_result = black_box(dyn_f.call(&[Val::I32(4), Val::I32(6)]).unwrap());
@@ -85,7 +85,7 @@ wasmer_compilers! {
             })
         });
 
-        let dyn_f_many: Function = instance.exports.get("add20").unwrap();
+        let dyn_f_many: &Function = instance.exports.get("add20").unwrap();
         c.bench_function(&format!("basic dynfunc with many args {}", COMPILER_NAME), |b| {
             b.iter(|| {
                 let dyn_result = black_box(dyn_f_many.call(

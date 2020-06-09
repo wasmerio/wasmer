@@ -50,29 +50,6 @@ where
     }
 }
 
-impl<'a, Args, Rets> Exportable<'a> for NativeFunc<'a, Args, Rets>
-where
-    Args: WasmTypeList,
-    Rets: WasmTypeList,
-{
-    fn to_export(&self) -> Export {
-        let ef: ExportFunction = self.into();
-        ef.into()
-    }
-
-    // Cannot be implemented because of the return type `&Self` TODO:
-    fn get_self_from_extern(extern_: &'a Extern) -> Result<Self, ExportError> {
-        match extern_ {
-            // TODO: review error return type in failure of `f.native()`
-            Extern::Function(f) => f
-                .clone()
-                .native()
-                .ok_or_else(|| ExportError::IncompatibleType),
-            _ => Err(ExportError::IncompatibleType),
-        }
-    }
-}
-
 impl<'a, Args, Rets> From<&NativeFunc<'a, Args, Rets>> for ExportFunction
 where
     Args: WasmTypeList,

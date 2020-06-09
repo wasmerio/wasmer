@@ -51,22 +51,7 @@ impl<'a> Exportable<'a> for Extern {
         }
     }
 
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<Self, ExportError> {
-        Ok(_extern.clone())
-    }
-}
-
-impl<'a> Exportable<'a> for &'a Extern {
-    fn to_export(&self) -> Export {
-        match self {
-            Extern::Function(f) => f.to_export(),
-            Extern::Global(g) => g.to_export(),
-            Extern::Memory(m) => m.to_export(),
-            Extern::Table(t) => t.to_export(),
-        }
-    }
-
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<Self, ExportError> {
+    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         // Since this is already an extern, we can just return it.
         Ok(_extern)
     }
