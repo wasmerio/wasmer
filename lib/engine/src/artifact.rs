@@ -89,7 +89,8 @@ pub trait Artifact {
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
-        let _ = self.preinstantiate()?;
+        self.preinstantiate()?;
+
         let module = self.module();
         let imports = resolve_imports(
             &module,
