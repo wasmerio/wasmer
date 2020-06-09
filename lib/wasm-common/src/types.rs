@@ -109,7 +109,7 @@ pub enum ExternType {
     Memory(MemoryType),
 }
 
-fn is_global_compatible(exported: &GlobalType, imported: &GlobalType) -> bool {
+fn is_global_compatible(exported: GlobalType, imported: GlobalType) -> bool {
     let GlobalType {
         ty: exported_ty,
         mutability: exported_mutability,
@@ -118,6 +118,7 @@ fn is_global_compatible(exported: &GlobalType, imported: &GlobalType) -> bool {
         ty: imported_ty,
         mutability: imported_mutability,
     } = imported;
+
     exported_ty == imported_ty && imported_mutability == exported_mutability
 }
 
