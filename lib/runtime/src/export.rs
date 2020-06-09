@@ -1,5 +1,4 @@
-use crate::memory::LinearMemory;
-use crate::module::MemoryPlan;
+use crate::memory::{LinearMemory, MemoryPlan};
 use crate::table::{Table, TablePlan};
 use crate::vmcontext::{
     VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
