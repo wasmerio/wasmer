@@ -65,6 +65,7 @@ anyhow = "1.0"
 blake3 = "0.3"
 lazy_static = "1.4"
 test-utils = { path = "tests/lib/test-utils" }
+# test-macros = { path = "tests/lib/test-macros" }
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 
 [features]
@@ -104,6 +105,17 @@ llvm = [
     "wasmer-compiler-llvm",
     "test-utils/llvm",
     "compiler",
+]
+
+# Testing features
+test-singlepass = [
+    "singlepass",
+]
+test-cranelift = [
+    "cranelift",
+]
+test-llvm = [
+    "llvm",
 ]
 
 # [profile.release]

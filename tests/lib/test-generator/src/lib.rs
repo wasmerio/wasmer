@@ -169,7 +169,7 @@ pub fn with_features(
     f: impl Fn(&mut Testsuite) -> anyhow::Result<()> + Copy,
 ) -> anyhow::Result<()> {
     for compiler in features.iter() {
-        writeln!(out.buffer, "#[cfg(feature=\"{}\")]", compiler)?;
+        writeln!(out.buffer, "#[cfg(feature=\"test-{}\")]", compiler)?;
         writeln!(out.buffer, "#[cfg(test)]")?;
         writeln!(out.buffer, "#[allow(non_snake_case)]")?;
         with_test_module(&mut out, &compiler, f)?;
