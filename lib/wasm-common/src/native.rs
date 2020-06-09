@@ -87,6 +87,7 @@ where
 
 macro_rules! wasm_extern_type {
     ($type:ty => $native_type:ty) => {
+        #[allow(clippy::use_self)]
         unsafe impl WasmExternType for $type {
             type Native = $native_type;
 
@@ -195,6 +196,7 @@ where
 {
     /// The error type for this trait.
     type Error: Send + 'static;
+
     /// Get returns or error result.
     fn report(self) -> Result<Rets, Self::Error>;
 }
@@ -204,7 +206,8 @@ where
     Rets: WasmTypeList,
 {
     type Error = Infallible;
-    fn report(self) -> Result<Rets, Infallible> {
+
+    fn report(self) -> Result<Self, Infallible> {
         Ok(self)
     }
 }
@@ -215,7 +218,8 @@ where
     E: Send + 'static,
 {
     type Error = E;
-    fn report(self) -> Result<Rets, E> {
+
+    fn report(self) -> Self {
         self
     }
 }
