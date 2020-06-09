@@ -85,7 +85,7 @@ impl ExportMemory {
     }
 
     /// Returns whether or not the two `ExportMemory`s refer to the same Memory.
-    pub fn same(&self, other: &ExportMemory) -> bool {
+    pub fn same(&self, other: &Self) -> bool {
         self.definition == other.definition && self.from == other.from
     }
 }
