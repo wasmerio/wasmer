@@ -3,12 +3,12 @@
 //! `LinearMemory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
 use crate::mmap::Mmap;
-use crate::module::{MemoryPlan, MemoryStyle};
 use crate::vmcontext::VMMemoryDefinition;
 use more_asserts::{assert_ge, assert_le};
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use thiserror::Error;
-use wasm_common::{Bytes, Pages};
+use wasm_common::{Bytes, MemoryType, Pages};
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
 #[derive(Error, Debug, Clone, PartialEq, Hash)]
@@ -34,6 +34,30 @@ pub enum MemoryError {
     /// A user defined error value, used for error cases not listed above.
     #[error("A user-defined error occurred: {0}")]
     Generic(String),
+}
+
+/// Implementation styles for WebAssembly linear memory.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum MemoryStyle {
+    /// The actual memory can be resized and moved.
+    Dynamic,
+    /// Address space is allocated up front.
+    Static {
+        /// The number of mapped and unmapped pages.
+        bound: Pages,
+    },
+}
+
+/// A WebAssembly linear memory description along with our chosen style for
+/// implementing it.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct MemoryPlan {
+    /// The WebAssembly linear memory description.
+    pub memory: MemoryType,
+    /// Our chosen implementation style.
+    pub style: MemoryStyle,
+    /// Our chosen offset-guard size.
+    pub offset_guard_size: u64,
 }
 
 /// A linear memory instance.

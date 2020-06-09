@@ -4,7 +4,7 @@
 # Project related configuration options
 #---------------------------------------------------------------------------
 DOXYFILE_ENCODING      = UTF-8
-PROJECT_NAME           = "wasmer-runtime-c-api"
+PROJECT_NAME           = "wasmer-c-api"
 PROJECT_NUMBER         =
 PROJECT_BRIEF          = 
 PROJECT_LOGO           = ../../assets/logo.png
