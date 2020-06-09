@@ -110,10 +110,12 @@ impl FuncTranslator {
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
         let return_ = self.ctx.append_basic_block(func, "return");
+        let alloca_builder = self.ctx.create_builder();
         let cache_builder = self.ctx.create_builder();
         let builder = self.ctx.create_builder();
         cache_builder.position_at_end(entry);
         let br = cache_builder.build_unconditional_branch(start_of_code);
+        alloca_builder.position_before(&br);
         cache_builder.position_before(&br);
         builder.position_at_end(start_of_code);
 
@@ -137,14 +139,23 @@ impl FuncTranslator {
             } else {
                 1
             };
+        let mut is_first_alloca = true;
+        let mut insert_alloca = |ty, name| {
+            let alloca = alloca_builder.build_alloca(ty, name);
+            if is_first_alloca {
+                alloca_builder.position_at(entry, &alloca.as_instruction_value().unwrap());
+                is_first_alloca = false;
+            }
+            alloca
+        };
+
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty)?;
             let value = func
                 .get_nth_param((idx as u32).checked_add(first_param).unwrap())
                 .unwrap();
-            // TODO: don't interleave allocas and stores.
-            let alloca = cache_builder.build_alloca(ty, "param");
+            let alloca = insert_alloca(ty, "param");
             cache_builder.build_store(alloca, value);
             params.push(alloca);
         }
@@ -158,9 +169,8 @@ impl FuncTranslator {
                 .map_err(to_wasm_error)?;
             let ty = wptype_to_type(ty).map_err(to_compile_error)?;
             let ty = type_to_llvm(&intrinsics, ty)?;
-            // TODO: don't interleave allocas and stores.
             for _ in 0..count {
-                let alloca = cache_builder.build_alloca(ty, "local");
+                let alloca = insert_alloca(ty, "local");
                 cache_builder.build_store(alloca, const_zero(ty));
                 locals.push(alloca);
             }
@@ -172,6 +182,7 @@ impl FuncTranslator {
         let mut fcg = LLVMFunctionCodeGenerator {
             context: &self.ctx,
             builder,
+            alloca_builder,
             intrinsics: &intrinsics,
             state,
             function: func,
@@ -1237,6 +1248,7 @@ fn finalize_opcode_stack_map<'ctx>(
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
+    alloca_builder: Builder<'ctx>,
     intrinsics: &'a Intrinsics<'ctx>,
     state: State<'ctx>,
     function: FunctionValue<'ctx>,
@@ -2067,8 +2079,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         });
 
                 let params = abi::args_to_call(
-                    // TODO: should be an alloca_builder.
-                    &self.builder,
+                    &self.alloca_builder,
                     func_type,
                     callee_vmctx.into_pointer_value(),
                     &func.get_type().get_element_type().into_function_type(),
@@ -2311,8 +2322,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         });
 
                 let params = abi::args_to_call(
-                    // TODO: should be an alloca_builder.
-                    &self.builder,
+                    &self.alloca_builder,
                     func_type,
                     ctx_ptr.into_pointer_value(),
                     &llvm_func_type,
