@@ -565,7 +565,7 @@ impl NativeArtifact {
         let mut engine_inner = engine.inner_mut();
 
         Self::from_parts(&mut engine_inner, metadata, shared_path, lib)
-            .map_err(|e| DeserializeError::Compiler(e))
+            .map_err(DeserializeError::Compiler)
     }
 }
 
