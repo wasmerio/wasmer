@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use test_utils::get_compiler_config_from_str;
-use wasmer::{Features, Store, Tunables};
+use wasmer::{Features, Store, Triple, Tunables};
 use wasmer_engine_jit::JITEngine;
 
 fn get_compiler_str() -> &'static str {
@@ -29,5 +29,11 @@ pub fn get_store() -> Store {
         get_compiler_config_from_str(get_compiler_str(), try_nan_canonicalization, features);
     let tunables = Tunables::for_target(compiler_config.target().triple());
     let store = Store::new(Arc::new(JITEngine::new(compiler_config, tunables)));
+    store
+}
+
+pub fn get_headless_store() -> Store {
+    let tunables = Tunables::for_target(&Triple::host());
+    let store = Store::new(Arc::new(JITEngine::headless(tunables)));
     store
 }
