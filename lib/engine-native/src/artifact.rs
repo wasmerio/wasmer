@@ -61,13 +61,13 @@ impl NativeArtifact {
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         cfg_if::cfg_if! {
             if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
-                return bytes.starts_with(Self::MAGIC_HEADER_MH_CIGAM_64);
+                bytes.starts_with(Self::MAGIC_HEADER_MH_CIGAM_64)
             }
             else if #[cfg(all(target_pointer_width = "64", target_os="linux"))] {
-                return bytes.starts_with(Self::MAGIC_HEADER_ELF_64);
+                bytes.starts_with(Self::MAGIC_HEADER_ELF_64)
             }
             else if #[cfg(all(target_pointer_width = "32", target_os="linux"))] {
-                return bytes.starts_with(Self::MAGIC_HEADER_ELF_32);
+                bytes.starts_with(Self::MAGIC_HEADER_ELF_32)
             }
             else {
                 false
