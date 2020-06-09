@@ -597,13 +597,10 @@ pub fn fd_filestat_set_times(
         };
         inode.stat.st_atim = time_to_set;
         // TODO: set it for more than just files
-        match &mut inode.kind {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    handle.set_last_accessed(time_to_set);
-                }
+        if let Kind::File { handle, .. } = &mut inode.kind {
+            if let Some(handle) = handle {
+                handle.set_last_accessed(time_to_set);
             }
-            _ => {}
         }
     }
 
@@ -615,13 +612,10 @@ pub fn fd_filestat_set_times(
         };
         inode.stat.st_mtim = time_to_set;
         // TODO: set it for more than just files
-        match &mut inode.kind {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    handle.set_last_modified(time_to_set);
-                }
+        if let Kind::File { handle, .. } = &mut inode.kind {
+            if let Some(handle) = handle {
+                handle.set_last_modified(time_to_set);
             }
-            _ => {}
         }
     }
 
@@ -1535,13 +1529,10 @@ pub fn path_filestat_set_times(
         };
         inode.stat.st_atim = time_to_set;
         // TODO: set it for more than just files
-        match &mut inode.kind {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    handle.set_last_accessed(time_to_set);
-                }
+        if let Kind::File { handle, .. } = &mut inode.kind {
+            if let Some(handle) = handle {
+                handle.set_last_accessed(time_to_set);
             }
-            _ => {}
         }
     }
     if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 || fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0 {
@@ -1552,13 +1543,10 @@ pub fn path_filestat_set_times(
         };
         inode.stat.st_mtim = time_to_set;
         // TODO: set it for more than just files
-        match &mut inode.kind {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    handle.set_last_modified(time_to_set);
-                }
+        if let Kind::File { handle, .. } = &mut inode.kind {
+            if let Some(handle) = handle {
+                handle.set_last_modified(time_to_set);
             }
-            _ => {}
         }
     }
 
