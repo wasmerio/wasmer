@@ -305,10 +305,10 @@ impl From<bool> for Mutability {
 }
 
 impl From<Mutability> for bool {
-    fn from(val: Mutability) -> Self {
-        match val {
-            Mutability::Const => false,
+    fn from(value: Mutability) -> Self {
+        match value {
             Mutability::Var => true,
+            Mutability::Const => false,
         }
     }
 }
