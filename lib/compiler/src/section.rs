@@ -5,36 +5,42 @@
 //! to emit a custom relocation: `RelocationTarget::CustomSection`, so
 //! it can be patched later by the engine (native or JIT).
 
-use crate::std::vec::Vec;
+use crate::lib::std::vec::Vec;
+use crate::Relocation;
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasm_common::entity::entity_impl;
 
 /// Index type of a Section defined inside a WebAssembly `Compilation`.
-#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct SectionIndex(u32);
+
 entity_impl!(SectionIndex);
 
 /// Custom section Protection.
 ///
 /// Determines how a custom section may be used.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CustomSectionProtection {
-    /// A custom section with read permissions,
+    /// A custom section with read permission.
     Read,
-    // We don't include `ReadWrite` here because it would complicate freeze
-    // and resumption of executing Modules.
-    // We also currently don't include `ReadExecute` as we don't have a way
-    // to represent relocations for this kind of section.
+
+    /// A custom section with read and execute permissions.
+    ReadExecute,
 }
 
 /// A Section for a `Compilation`.
 ///
 /// This is used so compilers can store arbitrary information
 /// in the emitted module.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CustomSection {
-    /// The protection
+    /// Memory protection that applies to this section.
     pub protection: CustomSectionProtection,
+
     /// The bytes corresponding to this section.
     ///
     /// > Note: These bytes have to be at-least 8-byte aligned
@@ -42,21 +48,20 @@ pub struct CustomSection {
     /// > We might need to create another field for alignment in case it's
     /// > needed in the future.
     pub bytes: SectionBody,
+
+    /// Relocations that apply to this custom section.
+    pub relocations: Vec<Relocation>,
 }
 
 /// The bytes in the section.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
-pub struct SectionBody(#[serde(with = "serde_bytes")] Vec<u8>);
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SectionBody(#[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))] Vec<u8>);
 
 impl SectionBody {
-    /// Extend the section with the bytes given.
-    pub fn extend(&mut self, contents: &[u8]) {
-        self.0.extend(contents);
-    }
-
-    /// Extends the section by appending bytes from another section.
-    pub fn append(&mut self, body: &SectionBody) {
-        self.0.extend(&body.0);
+    /// Create a new section body with the given contents.
+    pub fn new_with_vec(contents: Vec<u8>) -> Self {
+        Self(contents)
     }
 
     /// Returns a raw pointer to the section's buffer.
@@ -67,5 +72,15 @@ impl SectionBody {
     /// Returns the length of this section in bytes.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Dereferences into the section's buffer.
+    pub fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+
+    /// Returns whether or not the section body is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }

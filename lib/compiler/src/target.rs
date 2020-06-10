@@ -1,24 +1,26 @@
 //! Target configuration
 use enumset::{EnumSet, EnumSetType};
-pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple};
+use std::str::FromStr;
+use std::string::ToString;
+pub use target_lexicon::{Architecture, BinaryFormat, CallingConvention, OperatingSystem, Triple};
+use thiserror::Error;
 
-use crate::std::boxed::Box;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use raw_cpuid::CpuId;
 
-/// The nomenclature is inspired by the [raw-cpuid crate].
+/// The nomenclature is inspired by the [`cpuid` crate].
 /// The list of supported features was initially retrieved from
-/// [cranelift-native].
+/// [`cranelift-native`].
 ///
-/// The `CpuFeature` enum vaues are likely to grow closer to the
-/// original cpuid. However, we prefer to start small and grow from there.
+/// The `CpuFeature` enum values are likely to grow closer to the
+/// original `cpuid`. However, we prefer to start small and grow from there.
 ///
 /// If you would like to use a flag that doesn't exist yet here, please
 /// open a PR.
 ///
-/// [cpuid crate]: https://docs.rs/cpuid/0.1.1/cpuid/enum.CpuFeature.html
-/// [cranelift-native]: https://github.com/bytecodealliance/cranelift/blob/6988545fd20249b084c53f4761b8c861266f5d31/cranelift-native/src/lib.rs#L51-L92
-#[allow(missing_docs)]
+/// [`cpuid` crate]: https://docs.rs/cpuid/0.1.1/cpuid/enum.CpuFeature.html
+/// [`cranelift-native`]: https://github.com/bytecodealliance/cranelift/blob/6988545fd20249b084c53f4761b8c861266f5d31/cranelift-native/src/lib.rs#L51-L92
+#[allow(missing_docs, clippy::derive_hash_xor_eq)]
 #[derive(EnumSetType, Debug, Hash)]
 pub enum CpuFeature {
     // X86 features
@@ -48,47 +50,47 @@ impl CpuFeature {
 
         if let Some(info) = cpuid.get_feature_info() {
             if info.has_sse2() {
-                features.insert(CpuFeature::SSE2);
+                features.insert(Self::SSE2);
             }
             if info.has_sse3() {
-                features.insert(CpuFeature::SSE3);
+                features.insert(Self::SSE3);
             }
             if info.has_ssse3() {
-                features.insert(CpuFeature::SSSE3);
+                features.insert(Self::SSSE3);
             }
             if info.has_sse41() {
-                features.insert(CpuFeature::SSE41);
+                features.insert(Self::SSE41);
             }
             if info.has_sse42() {
-                features.insert(CpuFeature::SSE42);
+                features.insert(Self::SSE42);
             }
             if info.has_popcnt() {
-                features.insert(CpuFeature::POPCNT);
+                features.insert(Self::POPCNT);
             }
             if info.has_avx() {
-                features.insert(CpuFeature::AVX);
+                features.insert(Self::AVX);
             }
         }
         if let Some(info) = cpuid.get_extended_feature_info() {
             if info.has_bmi1() {
-                features.insert(CpuFeature::BMI1);
+                features.insert(Self::BMI1);
             }
             if info.has_bmi2() {
-                features.insert(CpuFeature::BMI2);
+                features.insert(Self::BMI2);
             }
             if info.has_avx2() {
-                features.insert(CpuFeature::AVX2);
+                features.insert(Self::AVX2);
             }
             if info.has_avx512dq() {
-                features.insert(CpuFeature::AVX512DQ);
+                features.insert(Self::AVX512DQ);
             }
             if info.has_avx512vl() {
-                features.insert(CpuFeature::AVX512VL);
+                features.insert(Self::AVX512VL);
             }
         }
         if let Some(info) = cpuid.get_extended_function_info() {
             if info.has_lzcnt() {
-                features.insert(CpuFeature::LZCNT);
+                features.insert(Self::LZCNT);
             }
         }
         features
@@ -99,10 +101,75 @@ impl CpuFeature {
         // We default to an empty hash set
         EnumSet::new()
     }
+
+    /// Retrieves an empty set of `CpuFeature`s.
+    pub fn set() -> EnumSet<Self> {
+        // We default to an empty hash set
+        EnumSet::new()
+    }
+}
+
+/// The error that can happen while parsing a `str`
+/// to retrieve a [`CpuFeature`].
+#[derive(Error, Debug)]
+pub enum ParseCpuFeatureError {
+    /// The provided string feature doesn't exist
+    #[error("CpuFeature {0} not recognized")]
+    Missing(String),
+}
+
+// This options should map exactly the GCC options indicated
+// here by architectures:
+//
+// X86: https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
+// ARM: https://gcc.gnu.org/onlinedocs/gcc/gcc/ARM-Options.html
+// Aarch64: https://gcc.gnu.org/onlinedocs/gcc/gcc/AArch64-Options.html
+impl FromStr for CpuFeature {
+    type Err = ParseCpuFeatureError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "sse2" => Ok(CpuFeature::SSE2),
+            "sse3" => Ok(CpuFeature::SSE3),
+            "ssse3" => Ok(CpuFeature::SSSE3),
+            "sse4.1" => Ok(CpuFeature::SSE41),
+            "sse4.2" => Ok(CpuFeature::SSE42),
+            "popcnt" => Ok(CpuFeature::POPCNT),
+            "avx" => Ok(CpuFeature::AVX),
+            "bmi" => Ok(CpuFeature::BMI1),
+            "bmi2" => Ok(CpuFeature::BMI2),
+            "avx2" => Ok(CpuFeature::AVX2),
+            "avx512dq" => Ok(CpuFeature::AVX512DQ),
+            "avx512vl" => Ok(CpuFeature::AVX512VL),
+            "lzcnt" => Ok(CpuFeature::LZCNT),
+            _ => Err(ParseCpuFeatureError::Missing(s.to_string())),
+        }
+    }
+}
+
+impl ToString for CpuFeature {
+    fn to_string(&self) -> String {
+        match self {
+            CpuFeature::SSE2 => "sse2",
+            CpuFeature::SSE3 => "sse3",
+            CpuFeature::SSSE3 => "ssse3",
+            CpuFeature::SSE41 => "sse4.1",
+            CpuFeature::SSE42 => "sse4.2",
+            CpuFeature::POPCNT => "popcnt",
+            CpuFeature::AVX => "avx",
+            CpuFeature::BMI1 => "bmi",
+            CpuFeature::BMI2 => "bmi2",
+            CpuFeature::AVX2 => "avx2",
+            CpuFeature::AVX512DQ => "avx512dq",
+            CpuFeature::AVX512VL => "avx512vl",
+            CpuFeature::LZCNT => "lzcnt",
+        }
+        .to_string()
+    }
 }
 
 /// This is the target that we will use for compiling
-/// the WebAssembly Module, and then run it.
+/// the WebAssembly ModuleInfo, and then run it.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Target {
     triple: Triple,
@@ -111,8 +178,8 @@ pub struct Target {
 
 impl Target {
     /// Creates a new target given a triple
-    pub fn new(triple: Triple, cpu_features: EnumSet<CpuFeature>) -> Target {
-        Target {
+    pub fn new(triple: Triple, cpu_features: EnumSet<CpuFeature>) -> Self {
+        Self {
             triple,
             cpu_features,
         }
@@ -131,8 +198,8 @@ impl Target {
 
 /// The default for the Target will use the HOST as the triple
 impl Default for Target {
-    fn default() -> Target {
-        Target {
+    fn default() -> Self {
+        Self {
             triple: Triple::host(),
             cpu_features: CpuFeature::for_host(),
         }

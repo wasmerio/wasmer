@@ -1,33 +1,9 @@
 use crate::cache::Cache;
 use crate::hash::WasmHash;
-use memmap::Mmap;
 use std::fs::{create_dir_all, File};
 use std::io::{self, Write};
 use std::path::PathBuf;
-use thiserror::Error;
 use wasmer::{DeserializeError, Module, SerializeError, Store};
-
-#[derive(Error, Debug)]
-/// The Io Serialization error
-pub enum IoSerializeError {
-    /// An IO error
-    #[error(transparent)]
-    Io(#[from] io::Error),
-    /// A serialization error
-    #[error(transparent)]
-    Serialize(#[from] SerializeError),
-}
-
-#[derive(Error, Debug)]
-/// The Io Deserialization error
-pub enum IoDeserializeError {
-    /// An IO error
-    #[error(transparent)]
-    Io(#[from] io::Error),
-    /// A serialization error
-    #[error(transparent)]
-    Deserialize(#[from] DeserializeError),
-}
 
 /// Representation of a directory that contains compiled wasm artifacts.
 ///
@@ -39,10 +15,11 @@ pub enum IoDeserializeError {
 ///
 /// ## Store
 /// ```
-/// use wasmer_cache::{Cache, IoSerializeError, FileSystemCache, WasmHash};
+/// use wasmer::{DeserializeError, SerializeError};
+/// use wasmer_cache::{Cache, FileSystemCache, WasmHash};
 ///
 /// # use wasmer::{Module};
-/// fn store_module(module: Module) -> Result<Module, IoSerializeError> {
+/// fn store_module(module: Module) -> Result<Module, SerializeError> {
 ///     // Create a new file system cache.
 ///     let mut fs_cache = FileSystemCache::new("some/directory/goes/here")?;
 ///     // Compute a key for a given WebAssembly binary
@@ -91,20 +68,14 @@ impl FileSystemCache {
 }
 
 impl Cache for FileSystemCache {
-    type DeserializeError = IoDeserializeError;
-    type SerializeError = IoSerializeError;
+    type DeserializeError = DeserializeError;
+    type SerializeError = SerializeError;
 
     unsafe fn load(&self, store: &Store, key: WasmHash) -> Result<Module, Self::DeserializeError> {
         let filename = key.to_string();
         let mut new_path_buf = self.path.clone();
         new_path_buf.push(filename);
-
-        let file = File::open(new_path_buf)?;
-        // Note: this is unsafe, but as the `load` function is unsafe
-        // we don't need to wrap it again with the `unsafe { .. }`
-        let mmap = Mmap::map(&file)?;
-
-        Ok(Module::deserialize(&store, &mmap[..])?)
+        Module::deserialize_from_file(&store, new_path_buf)
     }
 
     fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::SerializeError> {

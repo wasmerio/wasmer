@@ -30,31 +30,102 @@ pub trait NativeWasmType {
 
     #[doc(hidden)]
     fn into_abi(self) -> Self::Abi;
+
+    /// Convert self to i128 binary representation.
+    fn to_binary(self) -> i128;
+
+    /// Convert to self from i128 binary representation.
+    fn from_binary(binary: i128) -> Self;
 }
 
-macro_rules! wasm_native_type {
-    ($type:ty => $native_type:expr) => {
-        impl NativeWasmType for $type {
-            const WASM_TYPE: Type = $native_type;
-            type Abi = Self;
+impl NativeWasmType for i32 {
+    const WASM_TYPE: Type = Type::I32;
+    type Abi = Self;
 
-            #[inline]
-            fn from_abi(abi: Self::Abi) -> Self {
-                abi
-            }
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
 
-            #[inline]
-            fn into_abi(self) -> Self::Abi {
-                self
-            }
-        }
-    };
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    fn to_binary(self) -> i128 {
+        self as _
+    }
+
+    fn from_binary(bits: i128) -> Self {
+        bits as _
+    }
 }
+impl NativeWasmType for i64 {
+    const WASM_TYPE: Type = Type::I64;
+    type Abi = Self;
 
-wasm_native_type!(i32 => Type::I32);
-wasm_native_type!(i64 => Type::I64);
-wasm_native_type!(f32 => Type::F32);
-wasm_native_type!(f64 => Type::F64);
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    fn to_binary(self) -> i128 {
+        self as _
+    }
+
+    fn from_binary(bits: i128) -> Self {
+        bits as _
+    }
+}
+impl NativeWasmType for f32 {
+    const WASM_TYPE: Type = Type::F32;
+    type Abi = Self;
+
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    fn to_binary(self) -> i128 {
+        self.to_bits() as _
+    }
+
+    fn from_binary(bits: i128) -> Self {
+        Self::from_bits(bits as _)
+    }
+}
+impl NativeWasmType for f64 {
+    const WASM_TYPE: Type = Type::F64;
+    type Abi = Self;
+
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    fn to_binary(self) -> i128 {
+        self.to_bits() as _
+    }
+
+    fn from_binary(bits: i128) -> Self {
+        Self::from_bits(bits as _)
+    }
+}
 
 #[cfg(test)]
 mod test_native_type {
@@ -147,18 +218,15 @@ where
 {
 }
 
-macro_rules! convert_value_impl {
-    ($t:ty) => {
-        unsafe impl ValueType for $t {}
-    };
-    ( $($t:ty),* ) => {
+macro_rules! impl_value_type_for {
+    ( $($type:ty),* ) => {
         $(
-            convert_value_impl!($t);
+            unsafe impl ValueType for $type {}
         )*
     };
 }
 
-convert_value_impl!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+impl_value_type_for!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
 
 /// Represents a list of WebAssembly values.
 pub trait WasmTypeList {
@@ -166,7 +234,7 @@ pub trait WasmTypeList {
     type CStruct;
 
     /// Array of return values.
-    type Array: AsMut<[u64]>;
+    type Array: AsMut<[i128]>;
 
     /// Construct `Self` based on an array of returned values.
     fn from_array(array: Self::Array) -> Self;
@@ -261,39 +329,26 @@ pub struct FunctionBody(*mut u8);
 
 /// Represents a function that can be used by WebAssembly.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Func<Args = (), Rets = (), Env = ()> {
+pub struct Func<Args = (), Rets = ()> {
     address: *const FunctionBody,
-    env: Option<*mut Env>,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
 unsafe impl<Args, Rets> Send for Func<Args, Rets> {}
 
-impl<Args, Rets, Env> Func<Args, Rets, Env>
+impl<Args, Rets> Func<Args, Rets>
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
-    Env: Sized,
 {
     /// Creates a new `Func`.
-    pub fn new<F>(func: F) -> Self
+    pub fn new<F, T, E>(func: F) -> Self
     where
-        F: HostFunction<Args, Rets, WithoutEnv, Env>,
+        F: HostFunction<Args, Rets, T, E>,
+        T: HostFunctionKind,
+        E: Sized,
     {
         Self {
-            env: None,
-            address: func.to_raw(),
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Creates a new `Func` with a given `env`.
-    pub fn new_env<F>(env: &mut Env, func: F) -> Self
-    where
-        F: HostFunction<Args, Rets, WithEnv, Env>,
-    {
-        Self {
-            env: Some(env),
             address: func.to_raw(),
             _phantom: PhantomData,
         }
@@ -304,11 +359,6 @@ where
         FunctionType::new(Args::wasm_types(), Rets::wasm_types())
     }
 
-    /// Get the type of the Func
-    pub fn env(&self) -> Option<*mut Env> {
-        self.env
-    }
-
     /// Get the address of the Func
     pub fn address(&self) -> *const FunctionBody {
         self.address
@@ -317,7 +367,7 @@ where
 
 impl WasmTypeList for Infallible {
     type CStruct = Self;
-    type Array = [u64; 0];
+    type Array = [i128; 0];
 
     fn from_array(_: Self::Array) -> Self {
         unreachable!()
@@ -369,20 +419,19 @@ macro_rules! impl_traits {
         {
             type CStruct = $struct_name<$( $x ),*>;
 
-            type Array = [u64; count_idents!( $( $x ),* )];
+            type Array = [i128; count_idents!( $( $x ),* )];
 
-            fn from_array(_array: Self::Array) -> Self {
-                unimplemented!("from array");
-                // #[allow(non_snake_case)]
-                // let [ $( $x ),* ] = array;
+            fn from_array(array: Self::Array) -> Self {
+                #[allow(non_snake_case)]
+                let [ $( $x ),* ] = array;
 
-                // ( $( WasmExternType::from_native(NativeWasmType::from_binary($x)) ),* )
+                ( $( WasmExternType::from_native(NativeWasmType::from_binary($x)) ),* )
             }
 
             fn into_array(self) -> Self::Array {
-                unimplemented!("into array");
-                // let ( $( $x ),* ) = self;
-                // [ $( WasmExternType::to_native($x).to_binary() ),* ]
+                #[allow(non_snake_case)]
+                let ( $( $x ),* ) = self;
+                [ $( WasmExternType::to_native($x).to_binary() ),* ]
             }
 
             fn empty_array() -> Self::Array {
@@ -418,7 +467,7 @@ macro_rules! impl_traits {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
                 // unimplemented!("");
-                extern fn wrap<$( $x, )* Rets, FN>( _: usize, _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                extern fn wrap<$( $x, )* Rets, FN>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
                 where
                     Rets: WasmTypeList,
                     $($x: WasmExternType,)*
@@ -497,7 +546,7 @@ macro_rules! impl_traits {
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
-                extern fn wrap<$( $x, )* Rets, FN, T>( ctx: &mut T, _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                extern fn wrap<$( $x, )* Rets, FN, T>( ctx: &mut T, $($x: $x::Native, )* ) -> Rets::CStruct
                 where
                     Rets: WasmTypeList,
                     $($x: WasmExternType,)*
@@ -538,11 +587,11 @@ impl_traits!([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
 impl_traits!([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
 impl_traits!([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
 impl_traits!([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
-// impl_traits!([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
-// impl_traits!([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
-// impl_traits!([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
-// impl_traits!([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
-// impl_traits!([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
+impl_traits!([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+impl_traits!([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+impl_traits!([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+impl_traits!([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+impl_traits!([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
 // impl_traits!([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
 // impl_traits!([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
 // impl_traits!([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
@@ -611,6 +660,7 @@ mod test_wasm_type_list {
 mod test_func {
     use super::*;
     use crate::types::Type;
+    use std::ptr;
     // WasmTypeList
 
     fn func() {}
@@ -633,64 +683,44 @@ mod test_func {
 
     #[test]
     fn test_function_types() {
-        assert_eq!(Function::new(func).ty(), FunctionType::new(vec![], vec![]));
+        assert_eq!(Func::new(func).ty(), FunctionType::new(vec![], vec![]));
         assert_eq!(
-            Function::new(func__i32).ty(),
+            Func::new(func__i32).ty(),
             FunctionType::new(vec![], vec![Type::I32])
         );
         assert_eq!(
-            Function::new(func_i32).ty(),
+            Func::new(func_i32).ty(),
             FunctionType::new(vec![Type::I32], vec![])
         );
         assert_eq!(
-            Function::new(func_i32__i32).ty(),
+            Func::new(func_i32__i32).ty(),
             FunctionType::new(vec![Type::I32], vec![Type::I32])
         );
         assert_eq!(
-            Function::new(func_i32_i32__i32).ty(),
+            Func::new(func_i32_i32__i32).ty(),
             FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
         );
         assert_eq!(
-            Function::new(func_i32_i32__i32_i32).ty(),
+            Func::new(func_i32_i32__i32_i32).ty(),
             FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
         );
         assert_eq!(
-            Function::new(func_f32_i32__i32_f32).ty(),
+            Func::new(func_f32_i32__i32_f32).ty(),
             FunctionType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
         );
     }
 
     #[test]
     fn test_function_pointer() {
-        let f = Function::new(func_i32__i32);
-        let function = unsafe {
-            std::mem::transmute::<*const FunctionBody, fn(i32, i32, i32) -> i32>(f.address)
-        };
-        assert_eq!(function(1, 2, 3), 6);
-    }
-
-    #[test]
-    fn test_function_env_pointer() {
-        fn func_i32__i32_env(env: &mut Env, a: i32) -> i32 {
-            let result = env.num * a;
-            env.num = 10;
-            return result;
-        }
-        struct Env {
-            pub num: i32,
-        };
-        let mut my_env = Env { num: 2 };
-        let f = Function::new_env(&mut my_env, func_i32__i32_env);
-        let function = unsafe {
-            std::mem::transmute::<*const FunctionBody, fn(&mut Env, i32, i32) -> i32>(f.address)
-        };
-        assert_eq!(function(&mut my_env, 2, 3), 6);
-        assert_eq!(my_env.num, 10);
+        let f = Func::new(func_i32__i32);
+        let function =
+            unsafe { std::mem::transmute::<*const FunctionBody, fn(usize, i32) -> i32>(f.address) };
+        assert_eq!(function(0, 3), 6);
     }
 
     #[test]
     fn test_function_call() {
-        let f = Function::new(func_i32__i32);
+        let f = Func::new(func_i32__i32);
         let x = |args: <(i32, i32) as WasmTypeList>::Array,
                  rets: &mut <(i32, i32) as WasmTypeList>::Array| {
             let result = func_i32_i32__i32_i32(args[0] as _, args[1] as _);

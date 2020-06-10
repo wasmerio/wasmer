@@ -1,7 +1,8 @@
 use anyhow::Result;
 #[cfg(feature = "wast")]
 use wasmer_bin::commands::Wast;
-use wasmer_bin::commands::{Cache, Compile, Inspect, Run, SelfUpdate, Validate};
+use wasmer_bin::commands::{Cache, Compile, Config, Inspect, Run, SelfUpdate, Validate};
+use wasmer_bin::error::PrettyError;
 
 use structopt::{clap::ErrorKind, StructOpt};
 
@@ -25,6 +26,11 @@ enum WasmerCLIOptions {
     #[structopt(name = "compile")]
     Compile(Compile),
 
+    /// Get various configuration information needed
+    /// to compile programs which use Wasmer
+    #[structopt(name = "config")]
+    Config(Config),
+
     /// Update wasmer to the latest version
     #[structopt(name = "self-update")]
     SelfUpdate(SelfUpdate),
@@ -47,6 +53,7 @@ impl WasmerCLIOptions {
             Self::Cache(cache) => cache.execute(),
             Self::Validate(validate) => validate.execute(),
             Self::Compile(compile) => compile.execute(),
+            Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
             #[cfg(feature = "wast")]
             Self::Wast(wast) => wast.execute(),
@@ -54,7 +61,11 @@ impl WasmerCLIOptions {
     }
 }
 
-fn main() -> Result<()> {
+fn main() {
+    // We allow windows to print properly colors
+    #[cfg(windows)]
+    colored::control::set_virtual_terminal(true).unwrap();
+
     // We try to run wasmer with the normal arguments.
     // Eg. `wasmer <SUBCOMMAND>`
     // In case that fails, we fallback trying the Run subcommand directly.
@@ -62,7 +73,7 @@ fn main() -> Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
     let command = args.get(1);
     let options = match command.unwrap_or(&"".to_string()).as_ref() {
-        "run" | "cache" | "validate" | "compile" | "self-update" | "inspect" => {
+        "run" | "cache" | "validate" | "compile" | "config" | "self-update" | "inspect" => {
             WasmerCLIOptions::from_args()
         }
         _ => {
@@ -77,5 +88,6 @@ fn main() -> Result<()> {
             })
         }
     };
-    options.execute()
+
+    PrettyError::report(options.execute());
 }

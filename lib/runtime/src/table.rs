@@ -2,12 +2,42 @@
 //!
 //! `Table` is to WebAssembly tables what `LinearMemory` is to WebAssembly linear memories.
 
-use crate::module::{TablePlan, TableStyle};
 use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{VMCallerCheckedAnyfunc, VMTableDefinition};
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::convert::{TryFrom, TryInto};
-use wasm_common::Type;
+use wasm_common::{FunctionIndex, GlobalIndex, TableIndex, TableType, Type};
+
+/// A WebAssembly table initializer.
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+pub struct TableElements {
+    /// The index of a table to initialize.
+    pub table_index: TableIndex,
+    /// Optionally, a global variable giving a base index.
+    pub base: Option<GlobalIndex>,
+    /// The offset to add to the base.
+    pub offset: usize,
+    /// The values to write into the table elements.
+    pub elements: Box<[FunctionIndex]>,
+}
+
+/// Implementation styles for WebAssembly tables.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub enum TableStyle {
+    /// Signatures are stored in the table and checked in the caller.
+    CallerChecksSignature,
+}
+
+/// A WebAssembly table description along with our chosen style for
+/// implementing it.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub struct TablePlan {
+    /// The WebAssembly table description.
+    pub table: TableType,
+    /// Our chosen implementation style.
+    pub style: TableStyle,
+}
 
 /// A table instance.
 #[derive(Debug)]
@@ -24,6 +54,14 @@ impl Table {
             Type::FuncRef => (),
             ty => return Err(format!("tables of types other than anyfunc ({})", ty)),
         };
+        if let Some(max) = plan.table.maximum {
+            if max < plan.table.minimum {
+                return Err(format!(
+                    "Table minimum ({}) is larger than maximum ({})!",
+                    plan.table.minimum, max
+                ));
+            }
+        }
         match plan.style {
             TableStyle::CallerChecksSignature => Ok(Self {
                 vec: RefCell::new(vec![
@@ -51,9 +89,10 @@ impl Table {
     /// Grow table by the specified amount of elements.
     ///
     /// Returns `None` if table can't be grown by the specified amount
-    /// of elements.
+    /// of elements, otherwise returns the previous size of the table.
     pub fn grow(&self, delta: u32) -> Option<u32> {
-        let new_len = self.size().checked_add(delta)?;
+        let size = self.size();
+        let new_len = size.checked_add(delta)?;
         if self.maximum.map_or(false, |max| new_len > max) {
             return None;
         }
@@ -61,7 +100,7 @@ impl Table {
             usize::try_from(new_len).unwrap(),
             VMCallerCheckedAnyfunc::default(),
         );
-        Some(new_len)
+        Some(size)
     }
 
     /// Get reference to the specified element.
@@ -148,7 +187,7 @@ impl Table {
     ///
     /// This function is used in the `wasmer_runtime::Instance` to retrieve
     /// the host table pointer and interact with the host table directly.
-    pub fn as_mut_ptr(&self) -> *mut Table {
-        self as *const Table as *mut Table
+    pub fn as_mut_ptr(&self) -> *mut Self {
+        self as *const Self as *mut Self
     }
 }

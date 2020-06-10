@@ -1,7 +1,9 @@
+use crate::{MemoryType, Pages, TableType};
 use more_asserts::assert_ge;
 use std::cmp::min;
 use target_lexicon::{OperatingSystem, PointerWidth, Triple, HOST};
-use wasm_common::{MemoryType, Pages, TableType};
+use wasmer_engine::Tunables as BaseTunables;
+use wasmer_runtime::MemoryError;
 use wasmer_runtime::{LinearMemory, Table};
 use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, TableStyle};
 
@@ -57,7 +59,7 @@ impl Tunables {
     }
 }
 
-impl wasmer_jit::Tunables for Tunables {
+impl BaseTunables for Tunables {
     /// Get a `MemoryPlan` for the provided `MemoryType`
     fn memory_plan(&self, memory: MemoryType) -> MemoryPlan {
         // A heap with a maximum that doesn't exceed the static memory bound specified by the
@@ -92,7 +94,7 @@ impl wasmer_jit::Tunables for Tunables {
     }
 
     /// Create a memory given a memory type
-    fn create_memory(&self, plan: MemoryPlan) -> Result<LinearMemory, String> {
+    fn create_memory(&self, plan: MemoryPlan) -> Result<LinearMemory, MemoryError> {
         LinearMemory::new(&plan)
     }
 

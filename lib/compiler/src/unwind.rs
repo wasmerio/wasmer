@@ -5,9 +5,9 @@
 //! function called that one, and so forth.
 //!
 //! More info: https://en.wikipedia.org/wiki/Call_stack
-
-use crate::std::vec::Vec;
+use crate::lib::std::vec::Vec;
 use crate::{Addend, CodeOffset};
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
 /// Compiled function unwind information.
@@ -17,7 +17,8 @@ use serde::{Deserialize, Serialize};
 /// > fields.
 ///
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CompiledFunctionUnwindInfo {
     /// Windows UNWIND_INFO.
     WindowsX64(Vec<u8>),

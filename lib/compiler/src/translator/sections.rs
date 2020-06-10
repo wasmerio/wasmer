@@ -10,10 +10,11 @@
 use super::environ::ModuleEnvironment;
 use super::error::to_wasm_error;
 use super::state::ModuleTranslationState;
-use crate::{wasm_unsupported, HashMap};
+use crate::wasm_unsupported;
 use crate::{WasmError, WasmResult};
 use core::convert::TryFrom;
 use std::boxed::Box;
+use std::collections::HashMap;
 use std::vec::Vec;
 use wasm_common::entity::packed_option::ReservedValue;
 use wasm_common::entity::EntityRef;
@@ -41,7 +42,7 @@ pub fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
         wasmparser::Type::AnyRef => Ok(Type::AnyRef),
         wasmparser::Type::AnyFunc => Ok(Type::FuncRef),
         ty => Err(wasm_unsupported!(
-            "wptype_to_irtype: parser wasm type {:?}",
+            "wptype_to_type: wasmparser type {:?}",
             ty
         )),
     }

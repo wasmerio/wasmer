@@ -3,22 +3,22 @@
 //! `InstanceHandle` is a reference-counting handle for an `Instance`.
 use crate::export::Export;
 use crate::imports::Imports;
-use crate::memory::LinearMemory;
+use crate::memory::{LinearMemory, MemoryError};
 use crate::table::Table;
 use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
-    VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex,
-    VMTableDefinition, VMTableImport,
+    VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport,
+    VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
-use crate::{Module, TableElements, VMOffsets};
+use crate::{ModuleInfo, TableElements, VMOffsets};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::{self, Layout};
 use std::any::Any;
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::{mem, ptr, slice};
@@ -62,8 +62,8 @@ cfg_if::cfg_if! {
 /// This is repr(C) to ensure that the vmctx field is last.
 #[repr(C)]
 pub(crate) struct Instance {
-    /// The `Module` this `Instance` was instantiated from.
-    module: Arc<Module>,
+    /// The `ModuleInfo` this `Instance` was instantiated from.
+    module: Arc<ModuleInfo>,
 
     /// Offsets in the `vmctx` region.
     offsets: VMOffsets,
@@ -114,11 +114,11 @@ impl Instance {
         unsafe { *self.signature_ids_ptr().add(index) }
     }
 
-    pub(crate) fn module(&self) -> &Arc<Module> {
+    pub(crate) fn module(&self) -> &Arc<ModuleInfo> {
         &self.module
     }
 
-    pub(crate) fn module_ref(&self) -> &Module {
+    pub(crate) fn module_ref(&self) -> &ModuleInfo {
         &*self.module
     }
 
@@ -281,7 +281,7 @@ impl Instance {
     pub fn lookup_by_declaration(&self, export: &ExportIndex) -> Export {
         match export {
             ExportIndex::Function(index) => {
-                let signature = self.signature_id(self.module.functions[*index]);
+                let sig_index = &self.module.functions[*index];
                 let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
                 {
                     (
@@ -292,8 +292,14 @@ impl Instance {
                     let import = self.imported_function(*index);
                     (import.body, import.vmctx)
                 };
+                let signature = self.module.signatures[*sig_index].clone();
                 ExportFunction {
                     address,
+                    // Any function received is already static at this point as:
+                    // 1. All locally defined functions in the Wasm have a static signature.
+                    // 2. All the imported functions are already static (because
+                    //    they point to the trampolines rather than the dynamic addresses).
+                    kind: VMFunctionKind::Static,
                     signature,
                     vmctx,
                 }
@@ -377,10 +383,9 @@ impl Instance {
         // Make the call.
         unsafe {
             catch_traps(callee_vmctx, || {
-                mem::transmute::<
-                    *const VMFunctionBody,
-                    unsafe extern "C" fn(*mut VMContext, *mut VMContext),
-                >(callee_address)(callee_vmctx, self.vmctx_ptr())
+                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(*mut VMContext)>(
+                    callee_address,
+                )(callee_vmctx)
             })
         }
     }
@@ -431,7 +436,7 @@ impl Instance {
         &self,
         memory_index: LocalMemoryIndex,
         delta: IntoPages,
-    ) -> Option<Pages>
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
@@ -459,7 +464,7 @@ impl Instance {
         &self,
         memory_index: MemoryIndex,
         delta: IntoPages,
-    ) -> Option<Pages>
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
@@ -774,7 +779,7 @@ impl InstanceHandle {
     /// the `wasmer` crate API rather than this type since that is vetted for
     /// safety.
     pub unsafe fn new(
-        module: Arc<Module>,
+        module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
         finished_memories: BoxedSlice<LocalMemoryIndex, LinearMemory>,
         finished_tables: BoxedSlice<LocalTableIndex, Table>,
@@ -815,6 +820,7 @@ impl InstanceHandle {
                 vmctx: VMContext {},
             };
             let layout = instance.alloc_layout();
+            #[allow(clippy::cast_ptr_alignment)]
             let instance_ptr = alloc::alloc(layout) as *mut Instance;
             if instance_ptr.is_null() {
                 alloc::handle_alloc_error(layout);
@@ -933,12 +939,12 @@ impl InstanceHandle {
     }
 
     /// Return a reference-counting pointer to a module.
-    pub fn module(&self) -> &Arc<Module> {
+    pub fn module(&self) -> &Arc<ModuleInfo> {
         self.instance().module()
     }
 
     /// Return a reference to a module.
-    pub fn module_ref(&self) -> &Module {
+    pub fn module_ref(&self) -> &ModuleInfo {
         self.instance().module_ref()
     }
 
@@ -979,7 +985,7 @@ impl InstanceHandle {
         &self,
         memory_index: LocalMemoryIndex,
         delta: IntoPages,
-    ) -> Option<Pages>
+    ) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
@@ -1070,7 +1076,7 @@ fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
 
         let size = usize::try_from(table.size()).unwrap();
         if size < start + init.elements.len() {
-            return Err(Trap::wasm(TrapCode::TableSetterOutOfBounds).into());
+            return Err(Trap::wasm(TrapCode::TableSetterOutOfBounds));
         }
     }
 
@@ -1095,6 +1101,7 @@ fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usi
     start
 }
 
+#[allow(clippy::mut_from_ref)]
 /// Return a byte-slice view of a memory's data.
 unsafe fn get_memory_slice<'instance>(
     init: &DataInitializer<'_>,
@@ -1121,7 +1128,7 @@ fn check_memory_init_bounds(
         unsafe {
             let mem_slice = get_memory_slice(init, instance);
             if mem_slice.get_mut(start..start + init.data.len()).is_none() {
-                return Err(Trap::wasm(TrapCode::HeapSetterOutOfBounds).into());
+                return Err(Trap::wasm(TrapCode::HeapSetterOutOfBounds));
             }
         }
     }
@@ -1158,7 +1165,7 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
             .checked_add(init.elements.len())
             .map_or(true, |end| end > table.size() as usize)
         {
-            return Err(Trap::wasm(TrapCode::TableAccessOutOfBounds).into());
+            return Err(Trap::wasm(TrapCode::TableAccessOutOfBounds));
         }
 
         for (i, func_idx) in init.elements.iter().enumerate() {
@@ -1173,7 +1180,7 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
 }
 
 /// Initialize the `Instance::passive_elements` map by resolving the
-/// `Module::passive_elements`'s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
+/// `ModuleInfo::passive_elements`'s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
 /// this instance.
 fn initialize_passive_elements(instance: &Instance) {
     let mut passive_elements = instance.passive_elements.borrow_mut();
@@ -1213,7 +1220,7 @@ fn initialize_memories(
             .checked_add(init.data.len())
             .map_or(true, |end| end > memory.current_length)
         {
-            return Err(Trap::wasm(TrapCode::HeapAccessOutOfBounds).into());
+            return Err(Trap::wasm(TrapCode::HeapAccessOutOfBounds));
         }
 
         unsafe {

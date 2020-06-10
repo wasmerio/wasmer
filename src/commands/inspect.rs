@@ -13,7 +13,7 @@ pub struct Inspect {
     path: PathBuf,
 
     #[structopt(flatten)]
-    compiler: StoreOptions,
+    store: StoreOptions,
 }
 
 impl Inspect {
@@ -23,7 +23,7 @@ impl Inspect {
             .context(format!("failed to inspect `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
-        let (store, _compiler_name) = self.compiler.get_store()?;
+        let (store, _engine_type, _compiler_type) = self.store.get_store()?;
         let module_contents = std::fs::read(&self.path)?;
         let module = Module::new(&store, &module_contents)?;
         println!("Type: {}", if module.from_wat { "wat" } else { "wasm" });

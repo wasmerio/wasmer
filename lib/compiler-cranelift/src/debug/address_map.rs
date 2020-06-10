@@ -13,7 +13,7 @@ pub type StackSlots = PrimaryMap<LocalFunctionIndex, ir::StackSlots>;
 
 /// Memory definition offset in the VMContext structure.
 #[derive(Debug, Clone)]
-pub enum ModuleMemoryOffset {
+pub enum ModuleInfoMemoryOffset {
     /// Not available.
     None,
     /// Offset to the defined memory.
@@ -22,11 +22,11 @@ pub enum ModuleMemoryOffset {
     Imported(u32),
 }
 
-/// Module `vmctx` related info.
+/// ModuleInfo `vmctx` related info.
 #[derive(Debug, Clone)]
-pub struct ModuleVmctxInfo {
+pub struct ModuleInfoVmctxInfo {
     /// The memory definition offset in the VMContext structure.
-    pub memory_offset: ModuleMemoryOffset,
+    pub memory_offset: ModuleInfoMemoryOffset,
 
     /// The functions stack slots.
     pub stack_slots: StackSlots,

@@ -1,31 +1,34 @@
 #![cfg(feature = "compiler")]
 
+use std::sync::Arc;
+use wasmer::{Store, Tunables};
 use wasmer_compiler::{CompilerConfig, Features, Target};
+use wasmer_engine_jit::JITEngine;
 
 pub fn get_compiler_config_from_str(
     compiler_name: &str,
     try_nan_canonicalization: bool,
     features: Features,
 ) -> Box<dyn CompilerConfig> {
-    /// We use the current host target for testing locally
+    // We use the current host target for testing locally
     let target = Target::default();
 
     match compiler_name {
-        #[cfg(feature = "compiler-singlepass")]
+        #[cfg(feature = "singlepass")]
         "singlepass" => {
             let mut singlepass_config =
                 wasmer_compiler_singlepass::SinglepassConfig::new(features, target);
             singlepass_config.enable_nan_canonicalization = try_nan_canonicalization;
             Box::new(singlepass_config)
         }
-        #[cfg(feature = "compiler-cranelift")]
+        #[cfg(feature = "cranelift")]
         "cranelift" => {
             let mut cranelift_config =
                 wasmer_compiler_cranelift::CraneliftConfig::new(features, target);
             cranelift_config.enable_nan_canonicalization = try_nan_canonicalization;
             Box::new(cranelift_config)
         }
-        #[cfg(feature = "compiler-llvm")]
+        #[cfg(feature = "llvm")]
         "llvm" => {
             let mut llvm_config = wasmer_compiler_llvm::LLVMConfig::new(features, target);
             llvm_config.enable_nan_canonicalization = try_nan_canonicalization;
@@ -33,4 +36,32 @@ pub fn get_compiler_config_from_str(
         }
         _ => panic!("Compiler {} not supported", compiler_name),
     }
+}
+
+/// for when you need a store but you don't care about the details
+pub fn get_default_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("cranelift", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
+}
+
+#[cfg(feature = "llvm")]
+pub fn get_default_llvm_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("llvm", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
+}
+
+#[cfg(feature = "cranelift")]
+pub fn get_default_cranelift_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("cranelift", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
+}
+
+#[cfg(feature = "singlepass")]
+pub fn get_default_singlepass_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("singlepass", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
 }

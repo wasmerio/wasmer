@@ -1,19 +1,16 @@
 //! Support for compiling with Cranelift.
 
-use crate::translator::{
-    irlibcall_to_libcall, irreloc_to_relocationkind, signature_to_cranelift_ir,
-    transform_jump_table, FuncTranslator,
-};
+use crate::translator::{irlibcall_to_libcall, irreloc_to_relocationkind};
 use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName};
 use wasm_common::entity::EntityRef;
 use wasm_common::{FunctionIndex, LocalFunctionIndex};
 use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, SourceLoc, TrapInformation};
-use wasmer_runtime::{Module, TrapCode};
+use wasmer_runtime::{ModuleInfo, TrapCode};
 
 /// Implementation of a relocation sink that just saves all the information for later
 pub(crate) struct RelocSink<'a> {
-    module: &'a Module,
+    module: &'a ModuleInfo,
 
     /// Current function index.
     local_func_index: LocalFunctionIndex,
@@ -85,7 +82,7 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
 
 impl<'a> RelocSink<'a> {
     /// Return a new `RelocSink` instance.
-    pub fn new(module: &'a Module, func_index: FunctionIndex) -> Self {
+    pub fn new(module: &'a ModuleInfo, func_index: FunctionIndex) -> Self {
         let local_func_index = module
             .local_func_index(func_index)
             .expect("The provided function should be local");
@@ -137,6 +134,7 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
         ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
         ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
         ir::TrapCode::Interrupt => TrapCode::Interrupt,
-        ir::TrapCode::User(user_code) => TrapCode::User(user_code),
+        ir::TrapCode::User(_user_code) => unimplemented!("User trap code not supported"),
+        // ir::TrapCode::User(user_code) => TrapCode::User(user_code),
     }
 }

@@ -3,14 +3,16 @@
 
 use crate::error::CompileError;
 use crate::function::{Compilation, FunctionBody};
-use crate::std::boxed::Box;
-use crate::std::vec::Vec;
+use crate::lib::std::boxed::Box;
+use crate::lib::std::vec::Vec;
 use crate::target::Target;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{Features, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
-use wasmer_runtime::Module;
+use wasm_common::{
+    Features, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex,
+};
+use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
 
@@ -22,12 +24,19 @@ pub trait CompilerConfig {
     /// Gets the WebAssembly features
     fn features(&self) -> &Features;
 
+    /// Should Position Independent Code (PIC) be enabled.
+    ///
+    /// This is required for shared object generation (Native Engine),
+    /// but will make the JIT Engine to fail, since PIC is not yet
+    /// supported in the JIT linking phase.
+    fn enable_pic(&mut self);
+
     /// Gets the target that we will use for compiling
     /// the WebAssembly module
     fn target(&self) -> &Target;
 
     /// Gets the custom compiler config
-    fn compiler(&self) -> Box<dyn Compiler>;
+    fn compiler(&self) -> Box<dyn Compiler + Send>;
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
@@ -61,7 +70,7 @@ pub trait Compiler {
     /// or a `CompileError`.
     fn compile_module<'data, 'module>(
         &self,
-        module: &'module Module,
+        module: &'module ModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -77,11 +86,33 @@ pub trait Compiler {
     /// This allows us to call easily Wasm functions, such as:
     ///
     /// ```ignore
-    /// let func = instance.exports.func("my_func");
+    /// let func = instance.exports.get_function("my_func");
     /// func.call(&[Value::I32(1)]);
     /// ```
-    fn compile_wasm_trampolines(
+    fn compile_function_call_trampolines(
         &self,
         signatures: &[FunctionType],
     ) -> Result<Vec<FunctionBody>, CompileError>;
+
+    /// Compile the trampolines to call a dynamic function defined in
+    /// a host, from a Wasm module.
+    ///
+    /// This allows us to create dynamic Wasm functions, such as:
+    ///
+    /// ```ignore
+    /// fn my_func(values: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+    ///     // do something
+    /// }
+    ///
+    /// let my_func_type = FunctionType::new(vec![Type::I32], vec![Type::I32]);
+    /// let imports = imports!{
+    ///     "namespace" => {
+    ///         "my_func" => Function::new_dynamic(my_func_type, my_func),
+    ///     }
+    /// }
+    /// ```
+    fn compile_dynamic_function_trampolines(
+        &self,
+        signatures: &[FunctionType],
+    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError>;
 }

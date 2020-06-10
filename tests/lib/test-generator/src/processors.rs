@@ -52,7 +52,7 @@ pub fn emscripten_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 
     // The implementation of `run_emscripten` lives in /tests/emtest.rs
     let body = format!(
-        "crate::run_emscripten(r#\"{}\"#, r#\"{}\"#, \"{}\")",
+        "crate::emscripten::run_emscripten(r#\"{}\"#, r#\"{}\"#, \"{}\")",
         p.display(),
         outfile.display(),
         compiler
@@ -88,7 +88,7 @@ pub fn wasi_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 
     // The implementation of `run_wasi` lives in /tests/wasitest.rs
     let body = format!(
-        "crate::run_wasi(r#\"{}\"#, r#\"{}\"#, \"{}\")",
+        "crate::wasi::run_wasi(r#\"{}\"#, r#\"{}\"#, \"{}\")",
         p.display(),
         outfile.display(),
         compiler

@@ -1,5 +1,5 @@
 //! When wasmer self-update is executed, this is what gets executed
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 #[cfg(not(target_os = "windows"))]
 use std::process::{Command, Stdio};
 use structopt::StructOpt;
@@ -11,8 +11,7 @@ pub struct SelfUpdate {}
 impl SelfUpdate {
     /// Runs logic for the `self-update` subcommand
     pub fn execute(&self) -> Result<()> {
-        self.inner_execute()
-            .context(format!("failed to self-update wasmer"))
+        self.inner_execute().context("failed to self-update wasmer")
     }
 
     #[cfg(not(target_os = "windows"))]

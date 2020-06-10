@@ -13,8 +13,8 @@ edition = "2018"
 [dependencies]
 # The cranelift-entity is just useful structures, not anything about the
 # compiler itself, that's why we depend on it :)
-cranelift-entity = "0.63.0"
-serde = { version = "1.0.106", features = ["derive"], optional = true }
+cranelift-entity = "0.63"
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 [features]
 default = ["std", "enable-serde"]

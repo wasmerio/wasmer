@@ -1,0 +1,194 @@
+:root {
+    --primary-color: hsl(261.9, 61.9%, 16.5%);
+    --primary-negative-color: hsl(0, 0%, 100%);
+    --primary-dark-color: hsl(261.9, 61.9%, 16.5%);
+    --primary-light-color: hsl(0, 0%, 96.1%);
+    --secondary-color: hsl(241.2, 68.9%, 57.1%);
+    --secondary-light-color: hsl(241.2, 68.9%, 60%);
+    --white-color: hsl(0, 0%, 100%);
+}
+
+body {
+    overflow-y: hidden;
+}
+
+[role="header"] {
+    display: grid;
+    grid-template-areas: "a b";
+    margin-bottom: 1rem;
+    padding: .5rem 2vw;
+}
+
+[role="header"] > * {
+    margin: 0;
+    padding: 0;
+}
+
+[role="header"] > img {
+    grid-area: a;
+    max-width: 30vw;
+    max-height: 15vh;
+}
+
+[role="header"] > div {
+    grid-area: b;
+    text-align: right;
+}
+
+[role="footer"] {
+    position: fixed;
+    bottom: 0;
+    text-align: end;
+    background: var(--white-color);
+}
+
+#MSearchBox {
+    display: none;
+}
+
+#side-nav {
+    margin: 0;
+    padding-bottom: 3rem;
+}
+
+#side-nav .ui-resizable-e {
+    background: radial-gradient(var(--secondary-light-color), var(--white-color) 60%);
+}
+
+#nav-tree {
+    background: none;
+}
+
+#nav-tree .selected {
+    text-shadow: none;
+    color: var(--primary-negative-color);
+    background: var(--secondary-color);
+}
+
+#nav-sync {
+    display: none;
+}
+
+#doc-content > .header {
+    border: 0;
+    background: none;
+}
+
+#doc-content > .header > .summary {
+    font-size: small;
+}
+
+body, div, p, ul, li {
+    color: var(--primary-color);
+}
+
+#doc-content .contents p,
+#doc-content .contents ul,
+#doc-content .contents div:not(.line),
+#doc-content .contents table.memberdecls {
+    font-family: serif;
+    font-size: 1.1rem;
+}
+
+a, .contents a, .contents a:visited {
+    color: var(--secondary-color);
+}
+
+h1, .headertitle > .title {
+    color: var(--primary-color);
+    font-size: 2.5rem;
+    line-height: 2.7rem;
+}
+
+h2, .memberdecls h2, h2.groupheader {
+    color: var(--primary-color);
+    font-size: 2rem;
+    line-height: 2.5rem;
+}
+
+h2.groupheader {
+    border-color: var(--secondary-color);
+    border-bottom-style: dotted;
+    margin-bottom: 1rem !important;
+}
+
+h3, h2.memtitle {
+    font-size: 1.5rem;
+    line-height: 2rem;
+}
+
+.memberdecls [class^="separator"] {
+    display: none;
+}
+
+.memberdecls [class^="memitem"] > td,
+.memberdecls [class^="memdesc"] > td {
+    background: none;
+}
+
+.memtitle {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+}
+
+.memitem {
+    margin-left: 1rem;
+    width: calc(100% - 1rem);
+}
+
+.memtitle {
+    font-weight: bold;
+    font-family: monospace;
+}
+
+.memtitle ~ .memtitle {
+    margin-top: 1.5rem;
+}
+
+.memitem .memproto,
+.memitem .memproto .memname,
+.memitem .memdoc,
+.memitem .memdoc .definition {
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    border: none;
+    background: none;
+}
+
+.memitem .memproto {
+    padding-left: 1rem;
+    margin: .5rem 0;
+    background: var(--primary-light-color) !important;
+}
+
+.memproto table.memname {
+    font-family: monospace;
+    font-size: .85rem;
+}
+
+table.fieldtable {
+    border-radius: 0;
+    box-shadow: none;
+}
+
+table.fieldtable th {
+    color: var(--primary-negative-color);
+    border-radius: 0;
+    background: var(--secondary-color);
+}
+
+table.fieldtable,
+table.fieldtable td {
+    border-color: var(--secondary-color) !important;
+}
+
+div.fragment {
+    padding: 1rem;
+}
+
+div.fragment div.line {
+    line-height: 1.15rem;
+}

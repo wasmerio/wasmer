@@ -1,0 +1,33 @@
+[package]
+name = "wasmer-engine-jit"
+version = "0.16.2"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+description = "Wasmer JIT Engine"
+license = "(Apache-2.0 WITH LLVM-exception) or MIT"
+categories = ["wasm"]
+keywords = ["webassembly", "wasm"]
+repository = "https://github.com/wasmerio/wasmer"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasm-common = { path = "../wasm-common", version = "0.16.2" }
+wasmer-compiler = { path = "../compiler", version = "0.16.2", default-features = false }
+wasmer-runtime = { path = "../runtime", version = "0.16.2" }
+wasmer-engine = { path = "../engine", version = "0.16.2" }
+# flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
+region = "2.1"
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_bytes = { version = "0.11" }
+bincode = "1.2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3", features = ["winnt", "impl-default"] }
+
+[features]
+# Enable the `compiler` feature if you want the engine to compile
+# and not be only on headless mode.
+compiler = []
+
+[badges]
+maintenance = { status = "actively-developed" }

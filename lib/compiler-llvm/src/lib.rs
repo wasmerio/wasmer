@@ -1,16 +1,14 @@
 #![deny(
     nonstandard_style,
-    /*
     unused_imports,
     unused_mut,
     unused_variables,
     unused_unsafe,
-    */
     unreachable_patterns
 )]
 #![cfg_attr(
     all(not(target_os = "windows"), not(target_arch = "aarch64")),
-    //deny(dead_code)
+    deny(dead_code)
 )]
 #![cfg_attr(nightly, feature(unwind_attributes))]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
@@ -18,8 +16,11 @@
 
 mod compiler;
 mod config;
+mod object_file;
 mod trampoline;
 mod translator;
 
 pub use crate::compiler::LLVMCompiler;
-pub use crate::config::{InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVMConfig};
+pub use crate::config::{
+    CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVMConfig,
+};

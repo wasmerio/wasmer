@@ -26,7 +26,7 @@ pub fn spectest_importobject(store: &Store) -> ImportObject {
     let table = Table::new(store, ty, Val::AnyRef(AnyRef::Null)).unwrap();
 
     let ty = MemoryType::new(1, Some(2), false);
-    let memory = Memory::new(store, ty);
+    let memory = Memory::new(store, ty).unwrap();
 
     imports! {
         "spectest" => {

@@ -1,6 +1,7 @@
 //! Data structure for representing WebAssembly modules
 //! in a [`Module`].
 
+use crate::table::TableElements;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -10,65 +11,11 @@ use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex, FunctionType,
-    GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, Pages,
-    SignatureIndex, TableIndex, TableType,
+    CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
+    FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
+    TableIndex, TableType,
 };
-
-/// A WebAssembly table initializer.
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
-pub struct TableElements {
-    /// The index of a table to initialize.
-    pub table_index: TableIndex,
-    /// Optionally, a global variable giving a base index.
-    pub base: Option<GlobalIndex>,
-    /// The offset to add to the base.
-    pub offset: usize,
-    /// The values to write into the table elements.
-    pub elements: Box<[FunctionIndex]>,
-}
-
-/// Implemenation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub enum MemoryStyle {
-    /// The actual memory can be resized and moved.
-    Dynamic,
-    /// Address space is allocated up front.
-    Static {
-        /// The number of mapped and unmapped pages.
-        bound: Pages,
-    },
-}
-
-/// A WebAssembly linear memory description along with our chosen style for
-/// implementing it.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct MemoryPlan {
-    /// The WebAssembly linear memory description.
-    pub memory: MemoryType,
-    /// Our chosen implementation style.
-    pub style: MemoryStyle,
-    /// Our chosen offset-guard size.
-    pub offset_guard_size: u64,
-}
-
-/// Implemenation styles for WebAssembly tables.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub enum TableStyle {
-    /// Signatures are stored in the table and checked in the caller.
-    CallerChecksSignature,
-}
-
-/// A WebAssembly table description along with our chosen style for
-/// implementing it.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct TablePlan {
-    /// The WebAssembly table description.
-    pub table: TableType,
-    /// Our chosen implementation style.
-    pub style: TableStyle,
-}
 
 #[derive(Debug)]
 pub struct ModuleId {
@@ -93,7 +40,7 @@ impl Default for ModuleId {
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Module {
+pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///
     /// We skip serialization/deserialization of this field, as it
@@ -158,9 +105,15 @@ pub struct Module {
 
     /// Number of imported globals in the module.
     pub num_imported_globals: usize,
+
+    /// Custom sections in the module.
+    pub custom_sections: IndexMap<String, CustomSectionIndex>,
+
+    /// The data for each CustomSection in the module.
+    pub custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
 }
 
-impl Module {
+impl ModuleInfo {
     /// Allocates the module data structures.
     pub fn new() -> Self {
         Self {
@@ -183,6 +136,8 @@ impl Module {
             num_imported_tables: 0,
             num_imported_memories: 0,
             num_imported_globals: 0,
+            custom_sections: IndexMap::new(),
+            custom_sections_data: PrimaryMap::new(),
         }
     }
 
@@ -258,7 +213,7 @@ impl Module {
                     }
                     ImportIndex::Global(i) => {
                         let global_type = self.globals.get(i.clone()).unwrap();
-                        ExternType::Global(global_type.clone())
+                        ExternType::Global(*global_type)
                     }
                 };
                 ImportType::new(module, field, extern_type)
@@ -267,6 +222,18 @@ impl Module {
             iter,
             size: self.imports.len(),
         }
+    }
+
+    /// Get the custom sections of the module given a `name`.
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
+        self.custom_sections
+            .iter()
+            .filter_map(move |(section_name, section_index)| {
+                if name != section_name {
+                    return None;
+                }
+                Some(self.custom_sections_data[*section_index].clone())
+            })
     }
 
     /// Convert a `LocalFunctionIndex` into a `FunctionIndex`.
@@ -347,13 +314,13 @@ impl Module {
     /// Get the Module name
     pub fn name(&self) -> String {
         match self.name {
-            Some(ref name) => format!("{}", name),
+            Some(ref name) => name.to_string(),
             None => "<module>".to_string(),
         }
     }
 }
 
-impl fmt::Display for Module {
+impl fmt::Display for ModuleInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name())
     }
@@ -387,21 +354,21 @@ impl<I: Iterator<Item = ExportType> + Sized> ExportsIterator<I> {
     /// Get only the memories
     pub fn memories(self) -> impl Iterator<Item = ExportType<MemoryType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Memory(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            ExternType::Memory(ty) => Some(ExportType::new(extern_.name(), *ty)),
             _ => None,
         })
     }
     /// Get only the tables
     pub fn tables(self) -> impl Iterator<Item = ExportType<TableType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Table(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            ExternType::Table(ty) => Some(ExportType::new(extern_.name(), *ty)),
             _ => None,
         })
     }
     /// Get only the globals
     pub fn globals(self) -> impl Iterator<Item = ExportType<GlobalType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Global(ty) => Some(ExportType::new(extern_.name(), ty.clone())),
+            ExternType::Global(ty) => Some(ExportType::new(extern_.name(), *ty)),
             _ => None,
         })
     }
@@ -443,33 +410,21 @@ impl<I: Iterator<Item = ImportType> + Sized> ImportsIterator<I> {
     /// Get only the memories
     pub fn memories(self) -> impl Iterator<Item = ImportType<MemoryType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Memory(ty) => Some(ImportType::new(
-                extern_.module(),
-                extern_.name(),
-                ty.clone(),
-            )),
+            ExternType::Memory(ty) => Some(ImportType::new(extern_.module(), extern_.name(), *ty)),
             _ => None,
         })
     }
     /// Get only the tables
     pub fn tables(self) -> impl Iterator<Item = ImportType<TableType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Table(ty) => Some(ImportType::new(
-                extern_.module(),
-                extern_.name(),
-                ty.clone(),
-            )),
+            ExternType::Table(ty) => Some(ImportType::new(extern_.module(), extern_.name(), *ty)),
             _ => None,
         })
     }
     /// Get only the globals
     pub fn globals(self) -> impl Iterator<Item = ImportType<GlobalType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Global(ty) => Some(ImportType::new(
-                extern_.module(),
-                extern_.name(),
-                ty.clone(),
-            )),
+            ExternType::Global(ty) => Some(ImportType::new(extern_.module(), extern_.name(), *ty)),
             _ => None,
         })
     }

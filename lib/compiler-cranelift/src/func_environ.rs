@@ -15,7 +15,7 @@ use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, Table
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_runtime::VMBuiltinFunctionIndex;
 use wasmer_runtime::VMOffsets;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, Module, TablePlan, TableStyle};
+use wasmer_runtime::{MemoryPlan, MemoryStyle, ModuleInfo, TablePlan, TableStyle};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_func_name(func_index: FunctionIndex) -> ir::ExternalName {
@@ -38,7 +38,7 @@ pub struct FuncEnvironment<'module_environment> {
     target_config: TargetFrontendConfig,
 
     /// The module-level environment which this function-level environment belongs to.
-    module: &'module_environment Module,
+    module: &'module_environment ModuleInfo,
 
     /// The module function signatures
     signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
@@ -91,7 +91,7 @@ pub struct FuncEnvironment<'module_environment> {
 impl<'module_environment> FuncEnvironment<'module_environment> {
     pub fn new(
         target_config: TargetFrontendConfig,
-        module: &'module_environment Module,
+        module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
         memory_plans: &'module_environment PrimaryMap<MemoryIndex, MemoryPlan>,
         table_plans: &'module_environment PrimaryMap<TableIndex, TablePlan>,
@@ -472,9 +472,8 @@ impl<'module_environment> TargetEnvironment for FuncEnvironment<'module_environm
 
 impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_environment> {
     fn is_wasm_parameter(&self, _signature: &ir::Signature, index: usize) -> bool {
-        // The first two parameters are the vmctx and caller vmctx. The rest are
-        // the wasm parameters.
-        index >= 2
+        // The first parameter is the vmctx. The rest are the wasm parameters.
+        index >= 1
     }
 
     fn make_table(&mut self, func: &mut ir::Function, index: TableIndex) -> WasmResult<ir::Table> {
@@ -802,7 +801,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         }
 
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
-        let caller_vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
         // First append the callee vmctx address.
         let vmctx = pos.ins().load(
@@ -812,7 +810,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             i32::from(self.offsets.vmcaller_checked_anyfunc_vmctx()),
         );
         real_call_args.push(vmctx);
-        real_call_args.push(caller_vmctx);
 
         // Then append the regular call arguments.
         real_call_args.extend_from_slice(call_args);
@@ -828,15 +825,13 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         call_args: &[ir::Value],
     ) -> WasmResult<ir::Inst> {
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
-        let caller_vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
 
         // Handle direct calls to locally-defined functions.
         if !self.module.is_imported_function(callee_index) {
+            // Let's get the caller vmctx
+            let caller_vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
             // First append the callee vmctx address, which is the same as the caller vmctx in
             // this case.
-            real_call_args.push(caller_vmctx);
-
-            // Then append the caller vmctx address.
             real_call_args.push(caller_vmctx);
 
             // Then append the regular call arguments.
@@ -864,7 +859,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             i32::try_from(self.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
         let vmctx = pos.ins().load(pointer_type, mem_flags, base, vmctx_offset);
         real_call_args.push(vmctx);
-        real_call_args.push(caller_vmctx);
 
         // Then append the regular call arguments.
         real_call_args.extend_from_slice(call_args);

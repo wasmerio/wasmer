@@ -5,10 +5,11 @@
 //! * `jit`: to generate a JIT
 //! * `obj`: to generate a native object
 
-use crate::section::{CustomSection, SectionBody, SectionIndex};
-use crate::std::vec::Vec;
+use crate::lib::std::vec::Vec;
+use crate::section::{CustomSection, SectionIndex};
 use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
 use wasm_common::entity::PrimaryMap;
@@ -18,9 +19,12 @@ use wasm_common::LocalFunctionIndex;
 ///
 /// This structure is only used for reconstructing
 /// the frame information after a `Trap`.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CompiledFunctionFrameInfo {
-    /// The traps (in the function body)
+    /// The traps (in the function body).
+    ///
+    /// Code offsets of the traps MUST be in ascending order.
     pub traps: Vec<TrapInformation>,
 
     /// The address map.
@@ -28,10 +32,11 @@ pub struct CompiledFunctionFrameInfo {
 }
 
 /// The function body.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionBody {
     /// The function body bytes.
-    #[serde(with = "serde_bytes")]
+    #[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))]
     pub body: Vec<u8>,
 
     /// The function unwind info
@@ -43,7 +48,8 @@ pub struct FunctionBody {
 /// This structure only have the compiled information data
 /// (function bytecode body, relocations, traps, jump tables
 /// and unwind information).
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledFunction {
     /// The function body.
     pub body: FunctionBody,
@@ -65,7 +71,8 @@ pub type Functions = PrimaryMap<LocalFunctionIndex, CompiledFunction>;
 pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 
 /// The result of compiling a WebAssembly module's functions.
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Compilation {
     /// Compiled code for the function bodies.
     functions: Functions,
@@ -99,7 +106,7 @@ impl Compilation {
         self.functions.is_empty()
     }
 
-    /// Gets functions jump table offsets.
+    /// Gets functions relocations.
     pub fn get_relocations(&self) -> PrimaryMap<LocalFunctionIndex, Vec<Relocation>> {
         self.functions
             .iter()
@@ -107,7 +114,7 @@ impl Compilation {
             .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
-    /// Gets functions jump table offsets.
+    /// Gets functions bodies.
     pub fn get_function_bodies(&self) -> PrimaryMap<LocalFunctionIndex, FunctionBody> {
         self.functions
             .iter()
@@ -123,7 +130,7 @@ impl Compilation {
             .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
-    /// Gets functions jump table offsets.
+    /// Gets functions frame info.
     pub fn get_frame_info(&self) -> PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
         self.functions
             .iter()
@@ -132,10 +139,15 @@ impl Compilation {
     }
 
     /// Gets custom section data.
-    pub fn get_custom_sections(&self) -> PrimaryMap<SectionIndex, SectionBody> {
+    pub fn get_custom_sections(&self) -> PrimaryMap<SectionIndex, CustomSection> {
+        self.custom_sections.clone()
+    }
+
+    /// Gets relocations that apply to custom sections.
+    pub fn get_custom_section_relocations(&self) -> PrimaryMap<SectionIndex, Vec<Relocation>> {
         self.custom_sections
             .iter()
-            .map(|(_, section)| section.bytes.clone())
+            .map(|(_, section)| section.relocations.clone())
             .collect::<PrimaryMap<SectionIndex, _>>()
     }
 }

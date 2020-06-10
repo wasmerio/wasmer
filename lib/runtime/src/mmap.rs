@@ -182,7 +182,7 @@ impl Mmap {
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
-        unsafe { region::protect(ptr.add(start), len, region::Protection::ReadWrite) }
+        unsafe { region::protect(ptr.add(start), len, region::Protection::READ_WRITE) }
             .map_err(|e| e.to_string())
     }
 

@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Context, Result};
 use std::path::PathBuf;
 
 use wasmer::{Function, Instance, Memory, Module};
@@ -116,7 +116,9 @@ impl Wasi {
 
         let start: &Function = instance.exports.get("_start")?;
 
-        start.call(&[])?;
+        start
+            .call(&[])
+            .with_context(|| "failed to run WASI `_start` function")?;
 
         Ok(())
     }

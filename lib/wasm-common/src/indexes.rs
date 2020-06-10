@@ -70,6 +70,12 @@ entity_impl!(DataIndex);
 pub struct ElemIndex(u32);
 entity_impl!(ElemIndex);
 
+/// Index type of a custom section inside a WebAssembly module.
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct CustomSectionIndex(u32);
+entity_impl!(CustomSectionIndex);
+
 /// An entity to export.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]

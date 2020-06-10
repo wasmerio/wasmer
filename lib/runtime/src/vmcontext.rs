@@ -23,13 +23,13 @@ pub struct VMFunctionImport {
 #[cfg(test)]
 mod test_vmfunction_import {
     use super::VMFunctionImport;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmfunction_import_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMFunctionImport>(),
@@ -42,6 +42,52 @@ mod test_vmfunction_import {
         assert_eq!(
             offset_of!(VMFunctionImport, vmctx),
             usize::from(offsets.vmfunction_import_vmctx())
+        );
+    }
+}
+
+/// The `VMDynamicFunctionImportContext` is the context that dynamic
+/// functions will receive when called (rather than `vmctx`).
+/// A dynamic function is a function for which we don't know the signature
+/// until runtime.
+///
+/// As such, we need to expose the dynamic function `context`
+/// containing the relevant context for running the function indicated
+/// in `address`.
+#[repr(C)]
+pub struct VMDynamicFunctionImportContext<T: Sized> {
+    /// The address of the inner dynamic function.
+    ///
+    /// Note: The function must be on the form of
+    /// `(*mut T, SignatureIndex, *mut i128)`.
+    pub address: *const VMFunctionBody,
+
+    /// The context that the inner dynamic function will receive.
+    pub ctx: T,
+}
+
+#[cfg(test)]
+mod test_vmdynamicfunction_import_context {
+    use super::VMDynamicFunctionImportContext;
+    use crate::{ModuleInfo, VMOffsets};
+    use memoffset::offset_of;
+    use std::mem::size_of;
+
+    #[test]
+    fn check_vmdynamicfunction_import_context_offsets() {
+        let module = ModuleInfo::new();
+        let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
+        assert_eq!(
+            size_of::<VMDynamicFunctionImportContext<usize>>(),
+            usize::from(offsets.size_of_vmdynamicfunction_import_context())
+        );
+        assert_eq!(
+            offset_of!(VMDynamicFunctionImportContext<usize>, address),
+            usize::from(offsets.vmdynamicfunction_import_context_address())
+        );
+        assert_eq!(
+            offset_of!(VMDynamicFunctionImportContext<usize>, ctx),
+            usize::from(offsets.vmdynamicfunction_import_context_ctx())
         );
     }
 }
@@ -64,6 +110,26 @@ mod test_vmfunction_body {
     }
 }
 
+/// A function kind.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(C)]
+pub enum VMFunctionKind {
+    /// A function is static when it's address matches the signature:
+    /// (vmctx, vmctx, arg1, arg2...) -> (result1, result2, ...)
+    ///
+    /// This is the default for functions that are defined:
+    /// 1. In the Host, natively
+    /// 2. In the WebAssembly file
+    Static,
+
+    /// A function is dynamic when it's address matches the signature:
+    /// (ctx, &[Type]) -> Vec<Type>
+    ///
+    /// This is the default for functions that are defined:
+    /// 1. In the Host, dynamically
+    Dynamic,
+}
+
 /// The fields compiled code needs to access to utilize a WebAssembly table
 /// imported from another instance.
 #[derive(Debug, Copy, Clone)]
@@ -79,13 +145,13 @@ pub struct VMTableImport {
 #[cfg(test)]
 mod test_vmtable_import {
     use super::VMTableImport;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmtable_import_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMTableImport>(),
@@ -117,13 +183,13 @@ pub struct VMMemoryImport {
 #[cfg(test)]
 mod test_vmmemory_import {
     use super::VMMemoryImport;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmmemory_import_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMMemoryImport>(),
@@ -152,13 +218,13 @@ pub struct VMGlobalImport {
 #[cfg(test)]
 mod test_vmglobal_import {
     use super::VMGlobalImport;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmglobal_import_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMGlobalImport>(),
@@ -247,13 +313,13 @@ impl VMMemoryDefinition {
 #[cfg(test)]
 mod test_vmmemory_definition {
     use super::VMMemoryDefinition;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmmemory_definition_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMMemoryDefinition>(),
@@ -291,13 +357,13 @@ pub struct VMTableDefinition {
 #[cfg(test)]
 mod test_vmtable_definition {
     use super::VMTableDefinition;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmtable_definition_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMTableDefinition>(),
@@ -321,6 +387,7 @@ mod test_vmtable_definition {
 #[derive(Debug, Copy, Clone)]
 #[repr(C, align(16))]
 pub struct VMGlobalDefinition {
+    // TODO: use `UnsafeCell` here, make this not Copy; there's probably a ton of UB in this code right now
     storage: [u8; 16],
     // If more elements are added here, remember to add offset_of tests below!
 }
@@ -328,7 +395,7 @@ pub struct VMGlobalDefinition {
 #[cfg(test)]
 mod test_vmglobal_definition {
     use super::VMGlobalDefinition;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use more_asserts::assert_ge;
     use std::mem::{align_of, size_of};
 
@@ -343,7 +410,7 @@ mod test_vmglobal_definition {
 
     #[test]
     fn check_vmglobal_definition_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMGlobalDefinition>(),
@@ -353,7 +420,7 @@ mod test_vmglobal_definition {
 
     #[test]
     fn check_vmglobal_begins_aligned() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(offsets.vmctx_globals_begin() % 16, 0);
     }
@@ -495,13 +562,13 @@ pub struct VMSharedSignatureIndex(u32);
 #[cfg(test)]
 mod test_vmshared_signature_index {
     use super::VMSharedSignatureIndex;
-    use crate::module::Module;
+    use crate::module::ModuleInfo;
     use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
     use std::mem::size_of;
 
     #[test]
     fn check_vmshared_signature_index() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMSharedSignatureIndex>(),
@@ -549,13 +616,13 @@ pub struct VMCallerCheckedAnyfunc {
 #[cfg(test)]
 mod test_vmcaller_checked_anyfunc {
     use super::VMCallerCheckedAnyfunc;
-    use crate::{Module, VMOffsets};
+    use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
 
     #[test]
     fn check_vmcaller_checked_anyfunc_offsets() {
-        let module = Module::new();
+        let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
             size_of::<VMCallerCheckedAnyfunc>(),
@@ -644,9 +711,13 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_data_drop_index() -> Self {
         Self(12)
     }
+    /// Returns an index for wasm's `raise_trap` instruction.
+    pub const fn get_raise_trap_index() -> Self {
+        Self(13)
+    }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        13
+        14
     }
 
     /// Return the index as an u32 number.
@@ -702,6 +773,8 @@ impl VMBuiltinFunctionsArray {
             wasmer_memory_init as usize;
         ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() as usize] =
             wasmer_data_drop as usize;
+        ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as usize] =
+            wasmer_raise_trap as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 
@@ -709,7 +782,7 @@ impl VMBuiltinFunctionsArray {
     }
 }
 
-/// The VM "context", which is pointed to by the `vmctx` arg in Cranelift.
+/// The VM "context", which is pointed to by the `vmctx` arg in the compiler.
 /// This has information about globals, memories, tables, and other runtime
 /// state associated with the current instance.
 ///
@@ -748,7 +821,6 @@ impl VMContext {
 ///
 pub type VMTrampoline = unsafe extern "C" fn(
     *mut VMContext,        // callee vmctx
-    *mut VMContext,        // caller vmctx
     *const VMFunctionBody, // function we're actually calling
     *mut u128,             // space for arguments and return values
 );

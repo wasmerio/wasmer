@@ -15,19 +15,19 @@ use wasmer_compiler::{JumpTable, RelocationKind};
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_runtime::libcalls::LibCall;
 
-/// Helper function translate a Funciton signature into Cranelift Ir
+/// Helper function translate a Function signature into Cranelift Ir
 pub fn signature_to_cranelift_ir(
     signature: &FunctionType,
     target_config: &TargetFrontendConfig,
 ) -> ir::Signature {
     let mut sig = ir::Signature::new(target_config.default_call_conv);
-    sig.params.extend(signature.params().iter().map(|ty| {
-        let cret_arg: ir::Type = type_to_irtype(ty.clone(), target_config)
+    sig.params.extend(signature.params().iter().map(|&ty| {
+        let cret_arg: ir::Type = type_to_irtype(ty, target_config)
             .expect("only numeric types are supported in function signatures");
         AbiParam::new(cret_arg)
     }));
-    sig.returns.extend(signature.results().iter().map(|ty| {
-        let cret_arg: ir::Type = type_to_irtype(ty.clone(), target_config)
+    sig.returns.extend(signature.results().iter().map(|&ty| {
+        let cret_arg: ir::Type = type_to_irtype(ty, target_config)
             .expect("only numeric types are supported in function signatures");
         AbiParam::new(cret_arg)
     }));
@@ -36,10 +36,6 @@ pub fn signature_to_cranelift_ir(
         0,
         AbiParam::special(target_config.pointer_type(), ir::ArgumentPurpose::VMContext),
     );
-    // Prepend the caller vmctx argument.
-    sig.params
-        .insert(1, AbiParam::new(target_config.pointer_type()));
-
     sig
 }
 
@@ -91,6 +87,7 @@ pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
         Reloc::X86PCRel4 => RelocationKind::X86PCRel4,
         Reloc::X86PCRelRodata4 => RelocationKind::X86PCRelRodata4,
         Reloc::X86CallPCRel4 => RelocationKind::X86CallPCRel4,
+        Reloc::X86CallPLTRel4 => RelocationKind::X86CallPLTRel4,
         _ => panic!("The relocation {} is not yet supported.", reloc),
     }
 }

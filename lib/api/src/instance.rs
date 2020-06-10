@@ -3,7 +3,7 @@ use crate::externals::Extern;
 use crate::module::Module;
 use crate::store::Store;
 use crate::InstantiationError;
-use wasmer_jit::Resolver;
+use wasmer_engine::Resolver;
 use wasmer_runtime::InstanceHandle;
 
 /// A WebAssembly Instance is a stateful, executable
@@ -33,15 +33,18 @@ impl Instance {
     /// [`ImportObject`]: crate::ImportObject
     ///
     /// ```
-    /// # use wasmer::{imports, Store, Module, Global, Instance};
+    /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
+    /// # fn main() -> anyhow::Result<()> {
     /// let store = Store::default();
-    /// let module = Module::new(store, "(module)");
+    /// let module = Module::new(&store, "(module)")?;
     /// let imports = imports!{
     ///   "host" => {
-    ///     "var" => Global::new(Value::I32(2))
+    ///     "var" => Global::new(&store, Value::I32(2))
     ///   }
     /// };
-    /// let instance = Instance::new(&module, &imports);
+    /// let instance = Instance::new(&module, &imports)?;
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// ## Errors
@@ -61,8 +64,8 @@ impl Instance {
             .map(|export| {
                 let name = export.name().to_string();
                 let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_export(store, export.clone());
-                (name.to_string(), extern_)
+                let extern_ = Extern::from_export(store, export);
+                (name, extern_)
             })
             .collect::<Exports>();
 
