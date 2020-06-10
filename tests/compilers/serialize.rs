@@ -14,7 +14,7 @@ fn test_serialize() -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let serialized_bytes = module.serialize()?;
-    assert!(serialized_bytes.len() > 0);
+    assert!(!serialized_bytes.is_empty()); 
     Ok(())
 }
 
