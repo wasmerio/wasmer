@@ -3,6 +3,7 @@ use crate::externals::Extern;
 use crate::store::Store;
 use crate::types::Val;
 use crate::FunctionType;
+use crate::NativeFunc;
 use crate::RuntimeError;
 use std::cmp::max;
 use wasm_common::{HostFunction, WasmTypeList, WithEnv, WithoutEnv};
@@ -15,7 +16,7 @@ use wasmer_runtime::{
 #[derive(Clone, PartialEq)]
 pub struct WasmFunctionDefinition {
     // The trampoline to do the call
-    trampoline: VMTrampoline,
+    pub(crate) trampoline: VMTrampoline,
 }
 
 /// The inner helper
@@ -30,11 +31,11 @@ pub enum FunctionDefinition {
 /// A WebAssembly `function`.
 #[derive(Clone, PartialEq)]
 pub struct Function {
-    store: Store,
-    definition: FunctionDefinition,
+    pub(crate) store: Store,
+    pub(crate) definition: FunctionDefinition,
     // If the Function is owned by the Store, not the instance
-    owned_by_store: bool,
-    exported: ExportFunction,
+    pub(crate) owned_by_store: bool,
+    pub(crate) exported: ExportFunction,
 }
 
 impl Function {
@@ -281,6 +282,30 @@ impl Function {
             type_index: vmsignature,
             vmctx: self.exported.vmctx,
         }
+    }
+
+    pub fn native<'a, Args, Rets>(&self) -> Option<NativeFunc<'a, Args, Rets>>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        // type check
+        if self.exported.signature.params() != Args::wasm_types() {
+            // todo: error param types don't match
+            return None;
+        }
+        if self.exported.signature.results() != Rets::wasm_types() {
+            // todo: error result types don't match
+            return None;
+        }
+
+        Some(NativeFunc::new(
+            self.store.clone(),
+            self.exported.address,
+            self.exported.vmctx,
+            self.exported.kind,
+            self.definition.clone(),
+        ))
     }
 }
 

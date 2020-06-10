@@ -59,6 +59,9 @@ compiler_features := --features "$(compiler_features_spaced)"
 # Building #
 ############
 
+bench:
+	cargo bench $(compiler_features)
+
 build-wasmer:
 	cargo build --release $(compiler_features)
 

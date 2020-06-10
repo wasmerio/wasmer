@@ -1,11 +1,13 @@
 use crate::externals::{Extern, Function, Global, Memory, Table};
 use crate::import_object::LikeNamespace;
+use crate::native::NativeFunc;
 use indexmap::IndexMap;
 use std::{
     iter::{ExactSizeIterator, FromIterator},
     sync::Arc,
 };
 use thiserror::Error;
+use wasm_common::WasmTypeList;
 use wasmer_runtime::Export;
 
 /// The `ExportError` can happen when trying to get a specific
@@ -89,7 +91,7 @@ impl Exports {
     ///
     /// If you want to get an export dynamically handling manually
     /// type checking manually, please use `get_extern`.
-    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Result<&T, ExportError> {
+    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Result<&'a T, ExportError> {
         match self.map.get(name) {
             None => Err(ExportError::Missing(name.to_string())),
             Some(extern_) => T::get_self_from_extern(extern_),
@@ -114,6 +116,20 @@ impl Exports {
     /// Get an export as a `Func`.
     pub fn get_function(&self, name: &str) -> Result<&Function, ExportError> {
         self.get(name)
+    }
+
+    /// Get an export as a `NativeFunc`.
+    pub fn get_native_function<Args, Rets>(
+        &self,
+        name: &str,
+    ) -> Result<NativeFunc<Args, Rets>, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        self.get_function(name)?
+            .native()
+            .ok_or(ExportError::IncompatibleType)
     }
 
     /// Get an export as an `Extern`.
