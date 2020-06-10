@@ -20,18 +20,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{f64, ffi::c_void};
 use wasmer::{
-    imports, Exportable, Function, FunctionType, Global, ImportObject, Instance, Memory,
-    MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType, Val, ValType,
+    imports, AnyRef, Exportable, Function, FunctionType, Global, ImportObject, ImportType,
+    Instance, Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType,
+    Val, ValType,
 };
-/*use wasmer_runtime_core::{
-    error::{CallError, CallResult, ResolveError},
-    export::Export,
-    func,
-    module::ImportName,
-    types::ElementType,
-    vm::Ctx,
-    DynFunc, IsExport,
-};*/
 
 #[cfg(unix)]
 use ::libc::DIR as LibcDir;
@@ -84,7 +76,7 @@ pub struct EmEnv<'a> {
 }
 
 impl<'a> EmEnv<'a> {
-    pub fn new(memory: Memory, data: &'a mut EmscriptenData) -> Self {
+    pub fn new(memory: Memory, data: &'a mut EmscriptenData<'a>) -> Self {
         Self { memory, data }
     }
 
@@ -200,87 +192,120 @@ impl<'a> EmscriptenData<'a> {
     ) -> EmscriptenData<'a> {
         let malloc = instance
             .exports
-            .get("_malloc")
-            .or(instance.exports.get("malloc"))
+            .get_native_function("_malloc")
+            .or_else(|_| instance.exports.get_native_function("malloc"))
             .ok();
         let free = instance
             .exports
-            .get("_free")
-            .or(instance.exports.get("free"))
+            .get_native_function("_free")
+            .or_else(|_| instance.exports.get_native_function("free"))
             .ok();
         let memalign = instance
             .exports
-            .get("_memalign")
-            .or(instance.exports.get("memalign"))
+            .get_native_function("_memalign")
+            .or_else(|_| instance.exports.get_native_function("memalign"))
             .ok();
         let memset = instance
             .exports
-            .get("_memset")
-            .or(instance.exports.get("memset"))
+            .get_native_function("_memset")
+            .or_else(|_| instance.exports.get_native_function("memset"))
             .ok();
-        let stack_alloc = instance.exports.get("stackAlloc").ok();
+        let stack_alloc = instance.exports.get_native_function("stackAlloc").ok();
 
-        let dyn_call_i = instance.exports.get("dynCall_i").ok();
-        let dyn_call_ii = instance.exports.get("dynCall_ii").ok();
-        let dyn_call_iii = instance.exports.get("dynCall_iii").ok();
-        let dyn_call_iiii = instance.exports.get("dynCall_iiii").ok();
-        let dyn_call_iifi = instance.exports.get("dynCall_iifi").ok();
-        let dyn_call_v = instance.exports.get("dynCall_v").ok();
-        let dyn_call_vi = instance.exports.get("dynCall_vi").ok();
-        let dyn_call_vii = instance.exports.get("dynCall_vii").ok();
-        let dyn_call_viii = instance.exports.get("dynCall_viii").ok();
-        let dyn_call_viiii = instance.exports.get("dynCall_viiii").ok();
+        let dyn_call_i = instance.exports.get_native_function("dynCall_i").ok();
+        let dyn_call_ii = instance.exports.get_native_function("dynCall_ii").ok();
+        let dyn_call_iii = instance.exports.get_native_function("dynCall_iii").ok();
+        let dyn_call_iiii = instance.exports.get_native_function("dynCall_iiii").ok();
+        let dyn_call_iifi = instance.exports.get_native_function("dynCall_iifi").ok();
+        let dyn_call_v = instance.exports.get_native_function("dynCall_v").ok();
+        let dyn_call_vi = instance.exports.get_native_function("dynCall_vi").ok();
+        let dyn_call_vii = instance.exports.get_native_function("dynCall_vii").ok();
+        let dyn_call_viii = instance.exports.get_native_function("dynCall_viii").ok();
+        let dyn_call_viiii = instance.exports.get_native_function("dynCall_viiii").ok();
 
         // round 2
-        let dyn_call_dii = instance.exports.get("dynCall_dii").ok();
-        let dyn_call_diiii = instance.exports.get("dynCall_diiii").ok();
-        let dyn_call_iiiii = instance.exports.get("dynCall_iiiii").ok();
-        let dyn_call_iiiiii = instance.exports.get("dynCall_iiiiii").ok();
-        let dyn_call_iiiiiii = instance.exports.get("dynCall_iiiiiii").ok();
-        let dyn_call_iiiiiiii = instance.exports.get("dynCall_iiiiiiii").ok();
-        let dyn_call_iiiiiiiii = instance.exports.get("dynCall_iiiiiiiii").ok();
-        let dyn_call_iiiiiiiiii = instance.exports.get("dynCall_iiiiiiiiii").ok();
-        let dyn_call_iiiiiiiiiii = instance.exports.get("dynCall_iiiiiiiiiii").ok();
-        let dyn_call_vd = instance.exports.get("dynCall_vd").ok();
-        let dyn_call_viiiii = instance.exports.get("dynCall_viiiii").ok();
-        let dyn_call_viiiiii = instance.exports.get("dynCall_viiiiii").ok();
-        let dyn_call_viiiiiii = instance.exports.get("dynCall_viiiiiii").ok();
-        let dyn_call_viiiiiiii = instance.exports.get("dynCall_viiiiiiii").ok();
-        let dyn_call_viiiiiiiii = instance.exports.get("dynCall_viiiiiiiii").ok();
-        let dyn_call_viiiiiiiiii = instance.exports.get("dynCall_viiiiiiiiii").ok();
-        let dyn_call_iij = instance.exports.get("dynCall_iij").ok();
-        let dyn_call_iji = instance.exports.get("dynCall_iji").ok();
-        let dyn_call_iiji = instance.exports.get("dynCall_iiji").ok();
-        let dyn_call_iiijj = instance.exports.get("dynCall_iiijj").ok();
-        let dyn_call_j = instance.exports.get("dynCall_j").ok();
-        let dyn_call_ji = instance.exports.get("dynCall_ji").ok();
-        let dyn_call_jii = instance.exports.get("dynCall_jii").ok();
-        let dyn_call_jij = instance.exports.get("dynCall_jij").ok();
-        let dyn_call_jjj = instance.exports.get("dynCall_jjj").ok();
-        let dyn_call_viiij = instance.exports.get("dynCall_viiij").ok();
-        let dyn_call_viiijiiii = instance.exports.get("dynCall_viiijiiii").ok();
-        let dyn_call_viiijiiiiii = instance.exports.get("dynCall_viiijiiiiii").ok();
-        let dyn_call_viij = instance.exports.get("dynCall_viij").ok();
-        let dyn_call_viiji = instance.exports.get("dynCall_viiji").ok();
-        let dyn_call_viijiii = instance.exports.get("dynCall_viijiii").ok();
-        let dyn_call_viijj = instance.exports.get("dynCall_viijj").ok();
-        let dyn_call_vj = instance.exports.get("dynCall_vj").ok();
-        let dyn_call_vjji = instance.exports.get("dynCall_vjji").ok();
-        let dyn_call_vij = instance.exports.get("dynCall_vij").ok();
-        let dyn_call_viji = instance.exports.get("dynCall_viji").ok();
-        let dyn_call_vijiii = instance.exports.get("dynCall_vijiii").ok();
-        let dyn_call_vijj = instance.exports.get("dynCall_vijj").ok();
-        let dyn_call_viid = instance.exports.get("dynCall_viid").ok();
-        let dyn_call_vidd = instance.exports.get("dynCall_vidd").ok();
-        let dyn_call_viidii = instance.exports.get("dynCall_viidii").ok();
-        let dyn_call_viidddddddd = instance.exports.get("dynCall_viidddddddd").ok();
+        let dyn_call_dii = instance.exports.get_native_function("dynCall_dii").ok();
+        let dyn_call_diiii = instance.exports.get_native_function("dynCall_diiii").ok();
+        let dyn_call_iiiii = instance.exports.get_native_function("dynCall_iiiii").ok();
+        let dyn_call_iiiiii = instance.exports.get_native_function("dynCall_iiiiii").ok();
+        let dyn_call_iiiiiii = instance.exports.get_native_function("dynCall_iiiiiii").ok();
+        let dyn_call_iiiiiiii = instance
+            .exports
+            .get_native_function("dynCall_iiiiiiii")
+            .ok();
+        let dyn_call_iiiiiiiii = instance
+            .exports
+            .get_native_function("dynCall_iiiiiiiii")
+            .ok();
+        let dyn_call_iiiiiiiiii = instance
+            .exports
+            .get_native_function("dynCall_iiiiiiiiii")
+            .ok();
+        let dyn_call_iiiiiiiiiii = instance
+            .exports
+            .get_native_function("dynCall_iiiiiiiiiii")
+            .ok();
+        let dyn_call_vd = instance.exports.get_native_function("dynCall_vd").ok();
+        let dyn_call_viiiii = instance.exports.get_native_function("dynCall_viiiii").ok();
+        let dyn_call_viiiiii = instance.exports.get_native_function("dynCall_viiiiii").ok();
+        let dyn_call_viiiiiii = instance
+            .exports
+            .get_native_function("dynCall_viiiiiii")
+            .ok();
+        let dyn_call_viiiiiiii = instance
+            .exports
+            .get_native_function("dynCall_viiiiiiii")
+            .ok();
+        let dyn_call_viiiiiiiii = instance
+            .exports
+            .get_native_function("dynCall_viiiiiiiii")
+            .ok();
+        let dyn_call_viiiiiiiiii = instance
+            .exports
+            .get_native_function("dynCall_viiiiiiiiii")
+            .ok();
+        let dyn_call_iij = instance.exports.get_native_function("dynCall_iij").ok();
+        let dyn_call_iji = instance.exports.get_native_function("dynCall_iji").ok();
+        let dyn_call_iiji = instance.exports.get_native_function("dynCall_iiji").ok();
+        let dyn_call_iiijj = instance.exports.get_native_function("dynCall_iiijj").ok();
+        let dyn_call_j = instance.exports.get_native_function("dynCall_j").ok();
+        let dyn_call_ji = instance.exports.get_native_function("dynCall_ji").ok();
+        let dyn_call_jii = instance.exports.get_native_function("dynCall_jii").ok();
+        let dyn_call_jij = instance.exports.get_native_function("dynCall_jij").ok();
+        let dyn_call_jjj = instance.exports.get_native_function("dynCall_jjj").ok();
+        let dyn_call_viiij = instance.exports.get_native_function("dynCall_viiij").ok();
+        let dyn_call_viiijiiii = instance
+            .exports
+            .get_native_function("dynCall_viiijiiii")
+            .ok();
+        let dyn_call_viiijiiiiii = instance
+            .exports
+            .get_native_function("dynCall_viiijiiiiii")
+            .ok();
+        let dyn_call_viij = instance.exports.get_native_function("dynCall_viij").ok();
+        let dyn_call_viiji = instance.exports.get_native_function("dynCall_viiji").ok();
+        let dyn_call_viijiii = instance.exports.get_native_function("dynCall_viijiii").ok();
+        let dyn_call_viijj = instance.exports.get_native_function("dynCall_viijj").ok();
+        let dyn_call_vj = instance.exports.get_native_function("dynCall_vj").ok();
+        let dyn_call_vjji = instance.exports.get_native_function("dynCall_vjji").ok();
+        let dyn_call_vij = instance.exports.get_native_function("dynCall_vij").ok();
+        let dyn_call_viji = instance.exports.get_native_function("dynCall_viji").ok();
+        let dyn_call_vijiii = instance.exports.get_native_function("dynCall_vijiii").ok();
+        let dyn_call_vijj = instance.exports.get_native_function("dynCall_vijj").ok();
+        let dyn_call_viid = instance.exports.get_native_function("dynCall_viid").ok();
+        let dyn_call_vidd = instance.exports.get_native_function("dynCall_vidd").ok();
+        let dyn_call_viidii = instance.exports.get_native_function("dynCall_viidii").ok();
+        let dyn_call_viidddddddd = instance
+            .exports
+            .get_native_function("dynCall_viidddddddd")
+            .ok();
 
-        let stack_save = instance.exports.get("stackSave").ok();
-        let stack_restore = instance.exports.get("stackRestore").ok();
+        let stack_save = instance.exports.get_native_function("stackSave").ok();
+        let stack_restore = instance.exports.get_native_function("stackRestore").ok();
         let set_threw = instance
             .exports
-            .get("_setThrew")
-            .or(instance.exports.get("setThrew"))
+            .get_native_function("_setThrew")
+            .or_else(|_| instance.exports.get_native_function("setThrew"))
             .ok();
 
         EmscriptenData {
@@ -385,6 +410,7 @@ pub fn set_up_emscripten(instance: &mut Instance) -> Result<(), RuntimeError> {
 /// If you don't want to set it up yourself, consider using [`run_emscripten_instance`].
 pub fn emscripten_call_main(
     instance: &mut Instance,
+    env: &mut EmEnv,
     path: &str,
     args: &[&str],
 ) -> Result<(), RuntimeError> {
@@ -395,17 +421,17 @@ pub fn emscripten_call_main(
             Err(e) => Err(e),
         },
     }?;
-    let num_params = main_func.signature().params().len();
+    let num_params = main_func.ty().params().len();
     let _result = match num_params {
         2 => {
             let mut new_args = vec![path];
             new_args.extend(args);
-            let (argc, argv) = store_module_arguments(instance.context_mut(), new_args);
-            let func: Function = instance.exports.get(func_name)?;
+            let (argc, argv) = store_module_arguments(env, new_args);
+            let func: &Function = instance.exports.get(func_name)?;
             func.call(&[Val::I32(argc as i32), Val::I32(argv as i32)])?;
         }
         0 => {
-            let func: Function = instance.exports.get(func_name)?;
+            let func: &Function = instance.exports.get(func_name)?;
             func.call(&[])?;
         }
         _ => {
@@ -430,7 +456,7 @@ pub fn run_emscripten_instance(
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> Result<(), RuntimeError> {
     let mut data = EmscriptenData::new(instance, &globals.data, mapped_dirs.into_iter().collect());
-    let env = EmEnv::new(globals.memory, &mut data);
+    let mut env = EmEnv::new(globals.memory, &mut data);
 
     set_up_emscripten(instance)?;
 
@@ -438,12 +464,12 @@ pub fn run_emscripten_instance(
 
     if let Some(ep) = entrypoint {
         debug!("Running entry point: {}", &ep);
-        let arg = unsafe { allocate_cstr_on_stack(instance.context_mut(), args[0]).0 };
+        let arg = unsafe { allocate_cstr_on_stack(&mut env, args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
-        let func: Function = instance.exports.get(&ep)?;
+        let func: &Function = instance.exports.get(&ep)?;
         func.call(&[Val::I32(arg as i32)])?;
     } else {
-        emscripten_call_main(instance, path, &args)?;
+        emscripten_call_main(instance, &mut env, path, &args)?;
     }
 
     // TODO atexit for emscripten
@@ -514,20 +540,9 @@ impl EmscriptenGlobals {
         module: &Module, /*, static_bump: u32 */
     ) -> Result<Self, String> {
         let mut use_old_abort_on_cannot_grow_memory = false;
-        for (
-            index,
-            ImportName {
-                namespace_index,
-                name_index,
-            },
-        ) in &module.info().imported_functions
-        {
-            let namespace = module.info().namespace_table.get(*namespace_index);
-            let name = module.info().name_table.get(*name_index);
-            if name == "abortOnCannotGrowMemory" && namespace == "env" {
-                let sig_index = module.info().func_assoc[index.convert_up(module.info())];
-                let expected_sig = &module.info().signatures[sig_index];
-                if *expected_sig == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
+        for ImportType { module, name, ty } in module.imports().functions() {
+            if name == "abortOnCannotGrowMemory" && module == "env" {
+                if ty == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
                     use_old_abort_on_cannot_grow_memory = true;
                 }
                 break;
@@ -542,11 +557,12 @@ impl EmscriptenGlobals {
         let memory = Memory::new(store, memory_type).unwrap();
 
         let table_type = TableType {
-            element: ElementType::Anyfunc,
+            ty: ValType::FuncRef,
             minimum: table_min,
             maximum: table_max,
         };
-        let table = Table::new(table_type).unwrap();
+        // TODO: review init value
+        let table = Table::new(store, table_type, Val::AnyRef(AnyRef::null())).unwrap();
 
         let data = {
             let static_bump = STATIC_BUMP;
@@ -587,17 +603,8 @@ impl EmscriptenGlobals {
         emscripten_set_up_memory(&memory, &data)?;
 
         let mut null_func_names = vec![];
-        for (
-            _,
-            ImportName {
-                namespace_index,
-                name_index,
-            },
-        ) in &module.info().imported_functions
-        {
-            let namespace = module.info().namespace_table.get(*namespace_index);
-            let name = module.info().name_table.get(*name_index);
-            if namespace == "env" && name.starts_with("nullFunction_") {
+        for ImportType { module, name, .. } in module.imports().functions() {
+            if module == "env" && name.starts_with("nullFunction_") {
                 null_func_names.push(name.to_string())
             }
         }
@@ -1066,7 +1073,6 @@ pub fn generate_emscripten_env(
     };
 
     // Compatibility with newer versions of Emscripten
-    use crate::wasmer_runtime_core::import::LikeNamespace;
     for (k, v) in env_ns.get_exports() {
         if k.starts_with("_") {
             let k = &k[1..];
@@ -1077,23 +1083,26 @@ pub fn generate_emscripten_env(
     }
 
     for null_func_name in globals.null_func_names.iter() {
-        env_ns.insert(null_func_name.as_str(), Function::new(nullfunc).to_export());
+        env_ns.insert(
+            null_func_name.as_str(),
+            Function::new_env(store, env, nullfunc).to_export(),
+        );
     }
 
     let import_object: ImportObject = imports! {
         "env" => env_ns,
         "global" => {
-          "NaN" => Global::new(Val::F64(f64::NAN)),
-          "Infinity" => Global::new(Val::F64(f64::INFINITY)),
+          "NaN" => Global::new(store, Val::F64(f64::NAN)),
+          "Infinity" => Global::new(store, Val::F64(f64::INFINITY)),
         },
         "global.Math" => {
             "pow" => Function::new(store, crate::math::pow),
             "exp" => Function::new(store, crate::math::exp),
-            "log" => Function::new(store, env, crate::math::log),
+            "log" => Function::new(store, crate::math::log),
         },
         "asm2wasm" => {
-            "f64-rem" => Function::new_env(store, env, crate::math::f64_rem),
-            "f64-to-int" => Function::new_env(store, env, crate::math::f64_to_int),
+            "f64-rem" => Function::new(store, crate::math::f64_rem),
+            "f64-to-int" => Function::new(store, crate::math::f64_to_int),
         },
     };
 

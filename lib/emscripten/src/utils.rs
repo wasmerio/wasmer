@@ -8,24 +8,15 @@ use std::mem::size_of;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::slice;
-use wasmer::{Memory, Module, Pages};
-use wasmer_runtime_core::{
-    structures::TypedIndex,
-    types::{ImportedMemoryIndex, ImportedTableIndex},
-};
+use wasmer::{GlobalInit, ImportType, Memory, Module, Pages};
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
-    for (_, import_name) in &module.info().imported_functions {
-        let namespace = module
-            .info()
-            .namespace_table
-            .get(import_name.namespace_index);
-        let field = module.info().name_table.get(import_name.name_index);
-        if (field == "_emscripten_memcpy_big"
-            || field == "emscripten_memcpy_big"
-            || field == "__map_file")
-            && namespace == "env"
+    for ImportType { module, name, .. } in module.imports().functions() {
+        if (name == "_emscripten_memcpy_big"
+            || name == "emscripten_memcpy_big"
+            || name == "__map_file")
+            && module == "env"
         {
             return true;
         }
@@ -34,19 +25,19 @@ pub fn is_emscripten_module(module: &Module) -> bool {
 }
 
 pub fn get_emscripten_table_size(module: &Module) -> Result<(u32, Option<u32>), String> {
-    if module.info().imported_tables.len() == 0 {
+    if let Some(ImportType { ty, .. }) = module.imports().tables().next() {
+        Ok((ty.minimum, ty.maximum))
+    } else {
         return Err("Emscripten requires at least one imported table".to_string());
     }
-    let (_, table) = &module.info().imported_tables[ImportedTableIndex::new(0)];
-    Ok((table.minimum, table.maximum))
 }
 
 pub fn get_emscripten_memory_size(module: &Module) -> Result<(Pages, Option<Pages>, bool), String> {
-    if module.info().imported_memories.len() == 0 {
+    if let Some(ImportType { ty, .. }) = module.imports().memories().next() {
+        Ok((ty.minimum, ty.maximum, ty.shared))
+    } else {
         return Err("Emscripten requires at least one imported memory".to_string());
     }
-    let (_, memory) = &module.info().imported_memories[ImportedMemoryIndex::new(0)];
-    Ok((memory.minimum, memory.maximum, memory.shared))
 }
 
 /// Reads values written by `-s EMIT_EMSCRIPTEN_METADATA=1`
@@ -54,14 +45,20 @@ pub fn get_emscripten_memory_size(module: &Module) -> Result<(Pages, Option<Page
 /// Last export: Dynamic Base
 /// Second-to-Last export: Dynamic top pointer
 pub fn get_emscripten_metadata(module: &Module) -> Result<Option<(u32, u32)>, String> {
-    let max_idx = match module.info().globals.iter().map(|(k, _)| k).max() {
+    let max_idx = match module
+        .info()
+        .global_initializers
+        .iter()
+        .map(|(k, _)| k)
+        .max()
+    {
         Some(x) => x,
         None => return Ok(None),
     };
 
     let snd_max_idx = match module
         .info()
-        .globals
+        .global_initializers
         .iter()
         .map(|(k, _)| k)
         .filter(|k| *k != max_idx)
@@ -71,19 +68,9 @@ pub fn get_emscripten_metadata(module: &Module) -> Result<Option<(u32, u32)>, St
         None => return Ok(None),
     };
 
-    use wasmer_runtime_core::types::{GlobalInit, Initializer::Const, Value::I32};
-    if let (
-        GlobalInit {
-            init: Const(I32(dynamic_base)),
-            ..
-        },
-        GlobalInit {
-            init: Const(I32(dynamictop_ptr)),
-            ..
-        },
-    ) = (
-        &module.info().globals[max_idx],
-        &module.info().globals[snd_max_idx],
+    if let (GlobalInit::I32Const(dynamic_base), GlobalInit::I32Const(dynamictop_ptr)) = (
+        &module.info().global_initializers[max_idx],
+        &module.info().global_initializers[snd_max_idx],
     ) {
         let dynamic_base = (*dynamic_base as u32).checked_sub(32).ok_or(format!(
             "emscripten unexpected dynamic_base {}",

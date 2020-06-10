@@ -15,7 +15,6 @@ lazy_static = "1.4"
 libc = "0.2.60"
 log = "0.4"
 time = "0.1"
-#wasmer-runtime-core = { path = "../runtime-core", version = "0.16.2" }
 wasmer = { path = "../api", version = "0.16.2" }
 
 [target.'cfg(windows)'.dependencies]

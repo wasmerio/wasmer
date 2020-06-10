@@ -32,7 +32,7 @@ pub use crate::types::{
 pub use crate::types::{Val as Value, ValType as Type};
 
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
-pub use wasm_common::{Bytes, Pages, ValueType, WasmExternType, WasmTypeList};
+pub use wasm_common::{Bytes, GlobalInit, Pages, ValueType, WasmExternType, WasmTypeList};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;
 pub use wasmer_compiler::{CpuFeature, Features, Target};
