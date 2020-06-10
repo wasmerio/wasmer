@@ -4,5 +4,6 @@
 
 mod imports;
 mod multi_value_imports;
+mod serialize;
 mod traps;
 mod utils;
