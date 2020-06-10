@@ -80,7 +80,7 @@ pub trait Artifact {
 
     /// Crate an `Instance` from this `Artifact`.
     ///
-    /// # Unsafety
+    /// # Safety
     ///
     /// See [`InstanceHandle::new`].
     unsafe fn instantiate(
@@ -89,7 +89,8 @@ pub trait Artifact {
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
-        let _ = self.preinstantiate()?;
+        self.preinstantiate()?;
+
         let module = self.module();
         let imports = resolve_imports(
             &module,
@@ -129,7 +130,7 @@ pub trait Artifact {
 
     /// Finishes the instantiation of a just created `InstanceHandle`.
     ///
-    /// # Unsafety
+    /// # Safety
     ///
     /// See [`InstanceHandle::finish_instantiation`].
     unsafe fn finish_instantiation(

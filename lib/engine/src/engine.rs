@@ -34,9 +34,17 @@ pub trait Engine {
     fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError>;
 
     /// Deserializes a WebAssembly module
+    ///
+    /// # Safety
+    ///
+    /// The serialized content must represent a serialized WebAssembly module.
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError>;
 
     /// Deserializes a WebAssembly module from a path
+    ///
+    /// # Safety
+    ///
+    /// The file's content must represent a serialized WebAssembly module.
     unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,

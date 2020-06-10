@@ -100,9 +100,9 @@ impl AnyRef {
 
     /// Returns true if the two `AnyRef<T>`'s point to the same value (not just
     /// values that compare as equal).
-    pub fn ptr_eq(&self, other: &AnyRef) -> bool {
+    pub fn ptr_eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Null, AnyRef::Null) => true,
+            (Self::Null, Self::Null) => true,
             (Self::Ref(InternalRef(ref a)), Self::Ref(InternalRef(ref b))) => a.ptr_eq(b.as_ref()),
             (Self::Other(OtherRef(ref a)), Self::Other(OtherRef(ref b))) => Rc::ptr_eq(a, b),
             _ => false,

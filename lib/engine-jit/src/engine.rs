@@ -148,7 +148,7 @@ impl JITEngineInner {
 
     /// Validate the module
     #[cfg(not(feature = "compiler"))]
-    pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
+    pub fn validate<'data>(&self, _data: &'data [u8]) -> Result<(), CompileError> {
         Err(CompileError::Validate(
             "Validation is only enabled with the compiler feature".to_string(),
         ))
@@ -178,6 +178,7 @@ impl JITEngineInner {
     }
 
     /// Compile the given function bodies.
+    #[allow(clippy::type_complexity)]
     pub(crate) fn allocate(
         &mut self,
         module: &ModuleInfo,

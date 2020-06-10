@@ -195,7 +195,7 @@ impl Function {
         // Store the argument values into `values_vec`.
         let param_tys = signature.params().iter();
         for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
-            if arg.ty() != ty.clone() {
+            if arg.ty() != *ty {
                 let param_types = format_types_for_error_message(params);
                 return Err(RuntimeError::new(format!(
                     "Parameters of type [{}] did not match signature {}",
@@ -249,12 +249,14 @@ impl Function {
     ///    call the trampoline.
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
         let mut results = vec![Val::null(); self.result_arity()];
+
         match &self.definition {
             FunctionDefinition::Wasm(wasm) => {
                 self.call_wasm(&wasm, params, &mut results)?;
             }
-            _ => {} // _ => unimplemented!("The host is unimplemented"),
+            _ => unimplemented!("The function definition isn't supported for the moment"),
         }
+
         Ok(results.into_boxed_slice())
     }
 
@@ -334,6 +336,7 @@ trait VMDynamicFunction {
 }
 
 struct VMDynamicFunctionWithoutEnv {
+    #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     function_type: FunctionType,
 }
@@ -351,6 +354,7 @@ struct VMDynamicFunctionWithEnv<Env>
 where
     Env: Sized,
 {
+    #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     env: *mut Env,
     function_type: FunctionType,
