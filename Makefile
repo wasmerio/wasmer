@@ -1,5 +1,3 @@
-.PHONY: bench
-
 # uname only works in *Unix like systems
 ifneq ($(OS), Windows_NT)
 	ARCH := $(shell uname -m)
@@ -72,7 +70,6 @@ bench-cranelift:
 bench-llvm:
 	cargo test --release $(compiler_features) --features "jit,test-llvm"
 
-release:
 build-wasmer:
 	cargo build --release $(compiler_features)
 
