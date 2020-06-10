@@ -9,12 +9,7 @@ use wasmer_runtime::{
     wasmer_call_trampoline, ExportFunction, VMContext, VMFunctionBody, VMFunctionKind,
 };
 
-#[derive(Clone)]
-pub struct UnprovidedArgs;
-#[derive(Clone)]
-pub struct UnprovidedRets;
-
-pub struct NativeFunc<'a, Args = UnprovidedArgs, Rets = UnprovidedRets> {
+pub struct NativeFunc<'a, Args = (), Rets = ()> {
     definition: FunctionDefinition,
     store: Store,
     address: *const VMFunctionBody,

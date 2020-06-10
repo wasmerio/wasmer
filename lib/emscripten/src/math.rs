@@ -1,4 +1,4 @@
-use wasmer_runtime_core::vm::Ctx;
+use crate::EmEnv;
 
 pub fn _llvm_copysign_f32(x: f64, y: f64) -> f64 {
     x.copysign(y)
@@ -62,7 +62,7 @@ pub fn _llvm_fma_f64(value: f64, a: f64, b: f64) -> f64 {
     value.mul_add(a, b)
 }
 
-pub fn _emscripten_random(_ctx: &mut Ctx) -> f64 {
+pub fn _emscripten_random(_ctx: &mut EmEnv) -> f64 {
     debug!("emscripten::_emscripten_random");
     -1.0
 }

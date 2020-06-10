@@ -112,10 +112,10 @@ fn translate_ioctl(wasm_ioctl: u32) -> c_ulong {
 
 #[allow(unused_imports)]
 use std::ffi::CStr;
-use wasmer_runtime_core::vm::Ctx;
 
 use crate::env::EmSockAddr;
 use crate::utils::{self, get_cstr_path};
+use crate::EmEnv;
 #[allow(unused_imports)]
 use std::io::Error;
 use std::mem;
@@ -156,7 +156,7 @@ use libc::SO_NOSIGPIPE;
 const SO_NOSIGPIPE: c_int = 0;
 
 /// open
-pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall5(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall5 (open) {}", _which);
     let pathname_addr = varargs.get_str(ctx);
     let flags: i32 = varargs.get(ctx);
@@ -180,7 +180,7 @@ pub fn ___syscall5(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
 }
 
 /// link
-pub fn ___syscall9(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall9(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall9 (link) {}", _which);
 
     let oldname_ptr = varargs.get_str(ctx);
@@ -196,7 +196,7 @@ pub fn ___syscall9(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int 
 }
 
 /// getrusage
-pub fn ___syscall77(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall77(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall77 (getrusage) {}", _which);
 
     let resource: c_int = varargs.get(ctx);
@@ -208,7 +208,7 @@ pub fn ___syscall77(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 }
 
 /// symlink
-pub fn ___syscall83(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall83(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall83 (symlink) {}", _which);
 
     let path1 = varargs.get_str(ctx);
@@ -236,7 +236,7 @@ pub fn ___syscall83(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 }
 
 /// readlink
-pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
+pub fn ___syscall85(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall85 (readlink)");
     let pathname_addr = varargs.get_str(ctx);
     let buf = varargs.get_str(ctx);
@@ -265,7 +265,7 @@ pub fn ___syscall85(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> i32 {
 }
 
 /// ftruncate64
-pub fn ___syscall194(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall194(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall194 (ftruncate64) {}", _which);
     let _fd: c_int = varargs.get(ctx);
     let _length: i64 = varargs.get(ctx);
@@ -282,7 +282,7 @@ pub fn ___syscall194(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// lchown
-pub fn ___syscall198(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall198(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall198 (lchown) {}", _which);
     let path_ptr = varargs.get_str(ctx);
     let real_path_owned = utils::get_cstr_path(ctx, path_ptr as *const _);
@@ -305,7 +305,7 @@ pub fn ___syscall198(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// getgroups
-pub fn ___syscall205(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall205(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall205 (getgroups) {}", _which);
     let ngroups_max: c_int = varargs.get(ctx);
     let groups: c_int = varargs.get(ctx);
@@ -322,7 +322,7 @@ pub fn ___syscall205(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 // chown
-pub fn ___syscall212(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall212(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall212 (chown) {}", _which);
 
     let pathname_addr = varargs.get_str(ctx);
@@ -339,7 +339,7 @@ pub fn ___syscall212(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// madvise
-pub fn ___syscall219(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall219(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall212 (chown) {}", _which);
 
     let addr_ptr: c_int = varargs.get(ctx);
@@ -352,7 +352,7 @@ pub fn ___syscall219(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// access
-pub fn ___syscall33(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall33(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall33 (access) {}", _which);
     let path = varargs.get_str(ctx);
     let real_path_owned = utils::get_cstr_path(ctx, path as *const _);
@@ -373,14 +373,14 @@ pub fn ___syscall33(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 }
 
 /// nice
-pub fn ___syscall34(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall34(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall34 (nice) {}", _which);
     let inc_r: c_int = varargs.get(ctx);
     unsafe { nice(inc_r) }
 }
 
 // mkdir
-pub fn ___syscall39(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall39(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", _which);
     let pathname_addr = varargs.get_str(ctx);
     let real_path_owned = utils::get_cstr_path(ctx, pathname_addr as *const _);
@@ -394,20 +394,20 @@ pub fn ___syscall39(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 }
 
 /// dup
-pub fn ___syscall41(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall41(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall41 (dup) {}", _which);
     let fd: c_int = varargs.get(ctx);
     unsafe { dup(fd) }
 }
 
 /// getgid32
-pub fn ___syscall200(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+pub fn ___syscall200(_ctx: &mut EmEnv, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall200 (getgid32)");
     unsafe { getgid() as i32 }
 }
 
 // geteuid32
-pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+pub fn ___syscall201(_ctx: &mut EmEnv, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall201 (geteuid32)");
     unsafe {
         // Maybe fix: Emscripten returns 0 always
@@ -416,7 +416,7 @@ pub fn ___syscall201(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 }
 
 // getegid32
-pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+pub fn ___syscall202(_ctx: &mut EmEnv, _one: i32, _two: i32) -> i32 {
     // gid_t
     debug!("emscripten::___syscall202 (getegid32)");
     unsafe {
@@ -426,7 +426,7 @@ pub fn ___syscall202(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 }
 
 /// fchown
-pub fn ___syscall207(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall207(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall207 (fchown) {}", _which);
     let fd: c_int = varargs.get(ctx);
     let owner: uid_t = varargs.get(ctx);
@@ -435,7 +435,7 @@ pub fn ___syscall207(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// dup3
-pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
+pub fn ___syscall330(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> pid_t {
     // Implementation based on description at https://linux.die.net/man/2/dup3
     debug!("emscripten::___syscall330 (dup3)");
     let oldfd: c_int = varargs.get(ctx);
@@ -469,7 +469,7 @@ pub fn ___syscall330(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
 }
 
 /// ioctl
-pub fn ___syscall54(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall54(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall54 (ioctl) {}", _which);
 
     let fd: i32 = varargs.get(ctx);
@@ -511,7 +511,7 @@ const SOCK_CLOEXC: i32 = 0x80000;
 
 // socketcall
 #[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall102(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall102(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall102 (socketcall) {}", _which);
     let call: u32 = varargs.get(ctx);
     let mut socket_varargs: VarArgs = varargs.get(ctx);
@@ -829,7 +829,7 @@ fn translate_socket_name_flag(name: i32) -> i32 {
 }
 
 /// getpgid
-pub fn ___syscall132(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall132(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall132 (getpgid)");
 
     let pid: pid_t = varargs.get(ctx);
@@ -850,10 +850,10 @@ pub struct EmPollFd {
     pub revents: i16,
 }
 
-unsafe impl wasmer_runtime_core::types::ValueType for EmPollFd {}
+unsafe impl wasmer::ValueType for EmPollFd {}
 
 /// poll
-pub fn ___syscall168(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+pub fn ___syscall168(ctx: &mut EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall168(poll)");
     let fds: WasmPtr<EmPollFd> = varargs.get(ctx);
     let nfds: u32 = varargs.get(ctx);
@@ -873,7 +873,7 @@ pub fn ___syscall168(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
 }
 
 // pread
-pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall180(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall180 (pread) {}", _which);
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
@@ -890,7 +890,7 @@ pub fn ___syscall180(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 // pwrite
-pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall181(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall181 (pwrite) {}", _which);
     let fd: i32 = varargs.get(ctx);
     let buf: u32 = varargs.get(ctx);
@@ -911,7 +911,7 @@ pub fn ___syscall181(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// fchmod
-pub fn ___syscall94(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall94(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall118 (fchmod) {}", _which);
     let fd: c_int = varargs.get(ctx);
     let mode: mode_t = varargs.get(ctx);
@@ -920,7 +920,7 @@ pub fn ___syscall94(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 
 /// wait4
 #[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall114(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_t {
+pub fn ___syscall114(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> pid_t {
     debug!("emscripten::___syscall114 (wait4)");
     let pid: pid_t = varargs.get(ctx);
     let status: u32 = varargs.get(ctx);
@@ -938,7 +938,7 @@ pub fn ___syscall114(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> pid_
 }
 
 /// fsync
-pub fn ___syscall118(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall118(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall118 (fsync) {}", _which);
     let fd: c_int = varargs.get(ctx);
     unsafe { fsync(fd) }
@@ -946,7 +946,7 @@ pub fn ___syscall118(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 
 // select
 #[allow(clippy::cast_ptr_alignment)]
-pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall142(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall142 (newselect) {}", _which);
 
     let nfds: i32 = varargs.get(ctx);
@@ -968,7 +968,7 @@ pub fn ___syscall142(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// fdatasync
-pub fn ___syscall148(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall148(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall148 (fdatasync) {}", _which);
 
     let fd: i32 = varargs.get(ctx);
@@ -977,7 +977,7 @@ pub fn ___syscall148(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 // setpgid
-pub fn ___syscall57(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall57(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall57 (setpgid) {}", _which);
 
     let pid: i32 = varargs.get(ctx);
@@ -993,7 +993,7 @@ pub fn ___syscall57(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int
 
 /// uname
 // NOTE: Wondering if we should return custom utsname, like Emscripten.
-pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall122(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall122 (uname) {}", _which);
     let buf: u32 = varargs.get(ctx);
     debug!("=> buf: {}", buf);
@@ -1002,7 +1002,7 @@ pub fn ___syscall122(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// lstat64
-pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+pub fn ___syscall196(ctx: &mut EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall196 (lstat64) {}", _which);
     let path = varargs.get_str(ctx);
     let real_path_owned = utils::get_cstr_path(ctx, path as *const _);
@@ -1035,7 +1035,7 @@ pub fn ___syscall196(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
 }
 
 // getuid
-pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
+pub fn ___syscall199(_ctx: &mut EmEnv, _one: i32, _two: i32) -> i32 {
     debug!("emscripten::___syscall199 (getuid)");
     let uid = unsafe { getuid() as _ };
     debug!("  => {}", uid);
@@ -1045,7 +1045,7 @@ pub fn ___syscall199(_ctx: &mut Ctx, _one: i32, _two: i32) -> i32 {
 // getdents
 // dirent structure is
 // i64, i64, u16 (280), i8, [i8; 256]
-pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
+pub fn ___syscall220(ctx: &mut EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     use super::super::env::get_emscripten_data;
 
     let fd: i32 = varargs.get(ctx);
@@ -1109,7 +1109,7 @@ pub fn ___syscall220(ctx: &mut Ctx, _which: i32, mut varargs: VarArgs) -> i32 {
 }
 
 // fcntl64
-pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall221(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall221 (fcntl64) {}", _which);
     let fd: i32 = varargs.get(ctx);
     let cmd: i32 = varargs.get(ctx);
@@ -1127,7 +1127,7 @@ pub fn ___syscall221(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_in
 }
 
 /// fallocate
-pub fn ___syscall324(ctx: &mut Ctx, _which: c_int, mut varargs: VarArgs) -> c_int {
+pub fn ___syscall324(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall324 (fallocate) {}", _which);
     let _fd: c_int = varargs.get(ctx);
     let _mode: c_int = varargs.get(ctx);
