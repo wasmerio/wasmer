@@ -59,16 +59,8 @@ compiler_features := --features "$(compiler_features_spaced)"
 # Building #
 ############
 
-bench: $(foreach compiler,$(compilers),test-$(compiler)) test-packages
-
-bench-singlepass:
-	cargo test --release $(compiler_features) --features "jit,test-singlepass"
-
-bench-cranelift:
-	cargo test --release $(compiler_features) --features "jit,test-cranelift"
-
-bench-llvm:
-	cargo test --release $(compiler_features) --features "jit,test-llvm"
+bench:
+	cargo bench $(compiler_features)
 
 build-wasmer:
 	cargo build --release $(compiler_features)
