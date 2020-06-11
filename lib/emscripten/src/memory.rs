@@ -44,14 +44,17 @@ pub fn _emscripten_resize_heap(ctx: &mut EmEnv, requested_size: u32) -> u32 {
     let current_memory = current_memory_pages.bytes().0 as u32;
 
     // implementation from emscripten
-    let mut new_size = usize::max(current_memory as usize, WASM_MIN_PAGES * WASM_PAGE_SIZE);
+    let mut new_size = usize::max(
+        current_memory as usize,
+        WASM_MIN_PAGES as usize * WASM_PAGE_SIZE,
+    );
     while new_size < requested_size as usize {
         if new_size <= 0x2000_0000 {
             new_size = align_up(new_size * 2, WASM_PAGE_SIZE);
         } else {
             new_size = usize::min(
                 align_up((3 * new_size + 0x8000_0000) / 4, WASM_PAGE_SIZE),
-                WASM_PAGE_SIZE * WASM_MAX_PAGES,
+                WASM_PAGE_SIZE * WASM_MAX_PAGES as usize,
             );
         }
     }

@@ -8,11 +8,13 @@ use std::mem::size_of;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::slice;
-use wasmer::{GlobalInit, ImportType, Memory, Module, Pages};
+use wasmer::{GlobalInit, Memory, Module, Pages};
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
-    for ImportType { module, name, .. } in module.imports().functions() {
+    for import in module.imports().functions() {
+        let name = import.name();
+        let module = import.module();
         if (name == "_emscripten_memcpy_big"
             || name == "emscripten_memcpy_big"
             || name == "__map_file")
@@ -25,7 +27,8 @@ pub fn is_emscripten_module(module: &Module) -> bool {
 }
 
 pub fn get_emscripten_table_size(module: &Module) -> Result<(u32, Option<u32>), String> {
-    if let Some(ImportType { ty, .. }) = module.imports().tables().next() {
+    if let Some(import) = module.imports().tables().next() {
+        let ty = import.ty();
         Ok((ty.minimum, ty.maximum))
     } else {
         return Err("Emscripten requires at least one imported table".to_string());
@@ -33,7 +36,8 @@ pub fn get_emscripten_table_size(module: &Module) -> Result<(u32, Option<u32>), 
 }
 
 pub fn get_emscripten_memory_size(module: &Module) -> Result<(Pages, Option<Pages>, bool), String> {
-    if let Some(ImportType { ty, .. }) = module.imports().memories().next() {
+    if let Some(import) = module.imports().memories().next() {
+        let ty = import.ty();
         Ok((ty.minimum, ty.maximum, ty.shared))
     } else {
         return Err("Emscripten requires at least one imported memory".to_string());

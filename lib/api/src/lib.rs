@@ -26,13 +26,16 @@ pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
 pub use crate::tunables::Tunables;
 pub use crate::types::{
-    AnyRef, ExportType, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
+    xternType, AnyRef, ExportType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Val, ValType,
 };
 pub use crate::types::{Val as Value, ValType as Type};
 
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
-pub use wasm_common::{Bytes, GlobalInit, Pages, ValueType, WasmExternType, WasmTypeList};
+pub use wasm_common::{
+    Bytes, GlobalInit, Pages, ValueType, WasmExternType, WasmTypeList, WASM_MAX_PAGES,
+    WASM_MIN_PAGES, WASM_PAGE_SIZE,
+};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;
 pub use wasmer_compiler::{CpuFeature, Features, Target};

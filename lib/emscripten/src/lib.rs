@@ -1,4 +1,4 @@
-/*#![deny(
+#![deny(
     dead_code,
     nonstandard_style,
     unused_imports,
@@ -7,7 +7,6 @@
     unused_unsafe,
     unreachable_patterns
 )]
-*/
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
 #![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
 
@@ -20,9 +19,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{f64, ffi::c_void};
 use wasmer::{
-    imports, AnyRef, Exportable, Function, FunctionType, Global, ImportObject, ImportType,
-    Instance, Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType,
-    Val, ValType,
+    imports, namespace, AnyRef, Exports, Function, FunctionType, Global, ImportObject, Instance,
+    Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType, Val,
+    ValType,
 };
 
 #[cfg(unix)]
@@ -70,14 +69,17 @@ pub use self::utils::{
 };
 
 /// The environment provided to the Emscripten imports.
-pub struct EmEnv<'a> {
+pub struct EmEnv {
     memory: Memory,
-    data: &'a mut EmscriptenData<'a>,
+    data: *mut EmscriptenData<'static>,
 }
 
-impl<'a> EmEnv<'a> {
-    pub fn new(memory: Memory, data: &'a mut EmscriptenData<'a>) -> Self {
-        Self { memory, data }
+impl EmEnv {
+    pub fn new(memory: Memory, data: *mut c_void) -> Self {
+        Self {
+            memory,
+            data: data as *mut _,
+        }
     }
 
     /// Get a reference to the memory
@@ -193,22 +195,22 @@ impl<'a> EmscriptenData<'a> {
         let malloc = instance
             .exports
             .get_native_function("_malloc")
-            .or_else(|_| instance.exports.get_native_function("malloc"))
+            .or(instance.exports.get_native_function("malloc"))
             .ok();
         let free = instance
             .exports
             .get_native_function("_free")
-            .or_else(|_| instance.exports.get_native_function("free"))
+            .or(instance.exports.get_native_function("free"))
             .ok();
         let memalign = instance
             .exports
             .get_native_function("_memalign")
-            .or_else(|_| instance.exports.get_native_function("memalign"))
+            .or(instance.exports.get_native_function("memalign"))
             .ok();
         let memset = instance
             .exports
             .get_native_function("_memset")
-            .or_else(|_| instance.exports.get_native_function("memset"))
+            .or(instance.exports.get_native_function("memset"))
             .ok();
         let stack_alloc = instance.exports.get_native_function("stackAlloc").ok();
 
@@ -305,7 +307,7 @@ impl<'a> EmscriptenData<'a> {
         let set_threw = instance
             .exports
             .get_native_function("_setThrew")
-            .or_else(|_| instance.exports.get_native_function("setThrew"))
+            .or(instance.exports.get_native_function("setThrew"))
             .ok();
 
         EmscriptenData {
@@ -420,18 +422,25 @@ pub fn emscripten_call_main(
             Ok(func) => Ok(("main", func)),
             Err(e) => Err(e),
         },
-    }?;
+    }
+    .map_err(|e| RuntimeError::new(e.to_string()))?;
     let num_params = main_func.ty().params().len();
     let _result = match num_params {
         2 => {
             let mut new_args = vec![path];
             new_args.extend(args);
             let (argc, argv) = store_module_arguments(env, new_args);
-            let func: &Function = instance.exports.get(func_name)?;
+            let func: &Function = instance
+                .exports
+                .get(func_name)
+                .map_err(|e| RuntimeError::new(e.to_string()))?;
             func.call(&[Val::I32(argc as i32), Val::I32(argv as i32)])?;
         }
         0 => {
-            let func: &Function = instance.exports.get(func_name)?;
+            let func: &Function = instance
+                .exports
+                .get(func_name)
+                .map_err(|e| RuntimeError::new(e.to_string()))?;
             func.call(&[])?;
         }
         _ => {
@@ -456,8 +465,7 @@ pub fn run_emscripten_instance(
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> Result<(), RuntimeError> {
     let mut data = EmscriptenData::new(instance, &globals.data, mapped_dirs.into_iter().collect());
-    let mut env = EmEnv::new(globals.memory, &mut data);
-
+    let mut env = EmEnv::new(globals.memory.clone(), &mut data as *mut _ as *mut c_void);
     set_up_emscripten(instance)?;
 
     // println!("running emscripten instance");
@@ -466,7 +474,10 @@ pub fn run_emscripten_instance(
         debug!("Running entry point: {}", &ep);
         let arg = unsafe { allocate_cstr_on_stack(&mut env, args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
-        let func: &Function = instance.exports.get(&ep)?;
+        let func: &Function = instance
+            .exports
+            .get(&ep)
+            .map_err(|e| RuntimeError::new(e.to_string()))?;
         func.call(&[Val::I32(arg as i32)])?;
     } else {
         emscripten_call_main(instance, &mut env, path, &args)?;
@@ -540,9 +551,9 @@ impl EmscriptenGlobals {
         module: &Module, /*, static_bump: u32 */
     ) -> Result<Self, String> {
         let mut use_old_abort_on_cannot_grow_memory = false;
-        for ImportType { module, name, ty } in module.imports().functions() {
-            if name == "abortOnCannotGrowMemory" && module == "env" {
-                if ty == *OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
+        for import in module.imports().functions() {
+            if import.name() == "abortOnCannotGrowMemory" && import.module() == "env" {
+                if import.ty() == &*OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG {
                     use_old_abort_on_cannot_grow_memory = true;
                 }
                 break;
@@ -603,9 +614,9 @@ impl EmscriptenGlobals {
         emscripten_set_up_memory(&memory, &data)?;
 
         let mut null_func_names = vec![];
-        for ImportType { module, name, .. } in module.imports().functions() {
-            if module == "env" && name.starts_with("nullFunction_") {
-                null_func_names.push(name.to_string())
+        for import in module.imports().functions() {
+            if import.module() == "env" && import.name().starts_with("nullFunction_") {
+                null_func_names.push(import.name().to_string())
             }
         }
 
@@ -626,27 +637,27 @@ pub fn generate_emscripten_env(
     env: &mut EmEnv,
 ) -> ImportObject {
     let abort_on_cannot_grow_memory_export = if globals.data.use_old_abort_on_cannot_grow_memory {
-        Function::new_env(store, env, crate::memory::abort_on_cannot_grow_memory_old).to_export()
+        Function::new_env(store, env, crate::memory::abort_on_cannot_grow_memory_old)
     } else {
-        Function::new_env(store, env, crate::memory::abort_on_cannot_grow_memory).to_export()
+        Function::new_env(store, env, crate::memory::abort_on_cannot_grow_memory)
     };
 
-    let mut env_ns = namespace! {
-        "memory" => Export::Memory(globals.memory.clone()),
-        "table" => Export::Table(globals.table.clone()),
+    let mut env_ns: Exports = namespace! {
+        //"memory" => globals.memory.clone(),
+        //"table" => globals.table.clone(),
 
         // Globals
-        "STACKTOP" => Global::new(Value::I32(globals.data.stacktop as i32)),
-        "STACK_MAX" => Global::new(Value::I32(globals.data.stack_max as i32)),
-        "DYNAMICTOP_PTR" => Global::new(Value::I32(globals.data.dynamictop_ptr as i32)),
-        "fb" => Global::new(Value::I32(globals.data.table_base as i32)),
-        "tableBase" => Global::new(Value::I32(globals.data.table_base as i32)),
-        "__table_base" => Global::new(Value::I32(globals.data.table_base as i32)),
-        "ABORT" => Global::new(Value::I32(globals.data.abort as i32)),
-        "gb" => Global::new(Value::I32(globals.data.memory_base as i32)),
-        "memoryBase" => Global::new(Value::I32(globals.data.memory_base as i32)),
-        "__memory_base" => Global::new(Value::I32(globals.data.memory_base as i32)),
-        "tempDoublePtr" => Global::new(Value::I32(globals.data.temp_double_ptr as i32)),
+        "STACKTOP" => Global::new(store, Val::I32(globals.data.stacktop as i32)),
+        "STACK_MAX" => Global::new(store, Val::I32(globals.data.stack_max as i32)),
+        "DYNAMICTOP_PTR" => Global::new(store, Val::I32(globals.data.dynamictop_ptr as i32)),
+        "fb" => Global::new(store, Val::I32(globals.data.table_base as i32)),
+        "tableBase" => Global::new(store, Val::I32(globals.data.table_base as i32)),
+        "__table_base" => Global::new(store, Val::I32(globals.data.table_base as i32)),
+        "ABORT" => Global::new(store, Val::I32(globals.data.abort as i32)),
+        "gb" => Global::new(store, Val::I32(globals.data.memory_base as i32)),
+        "memoryBase" => Global::new(store, Val::I32(globals.data.memory_base as i32)),
+        "__memory_base" => Global::new(store, Val::I32(globals.data.memory_base as i32)),
+        "tempDoublePtr" => Global::new(store, Val::I32(globals.data.temp_double_ptr as i32)),
 
         // inet
         "_inet_addr" => Function::new_env(store, env, crate::inet::addr),
@@ -901,48 +912,50 @@ pub fn generate_emscripten_env(
         "_gmtime" => Function::new_env(store, env, crate::time::_gmtime),
 
         // Math
-        "sqrt" => Function::new_env(store, env, crate::math::sqrt),
-        "floor" => Function::new_env(store, env, crate::math::floor),
-        "fabs" => Function::new_env(store, env, crate::math::fabs),
-        "f64-rem" => Function::new_env(store, env, crate::math::f64_rem),
-        "_llvm_copysign_f32" => Function::new_env(store, env, crate::math::_llvm_copysign_f32),
-        "_llvm_copysign_f64" => Function::new_env(store, env, crate::math::_llvm_copysign_f64),
-        "_llvm_log10_f64" => Function::new_env(store, env, crate::math::_llvm_log10_f64),
-        "_llvm_log2_f64" => Function::new_env(store, env, crate::math::_llvm_log2_f64),
-        "_llvm_log10_f32" => Function::new_env(store, env, crate::math::_llvm_log10_f32),
-        "_llvm_log2_f32" => Function::new_env(store, env, crate::math::_llvm_log2_f64),
-        "_llvm_sin_f64" => Function::new_env(store, env, crate::math::_llvm_sin_f64),
-        "_llvm_cos_f64" => Function::new_env(store, env, crate::math::_llvm_cos_f64),
-        "_llvm_exp2_f32" => Function::new_env(store, env, crate::math::_llvm_exp2_f32),
-        "_llvm_exp2_f64" => Function::new_env(store, env, crate::math::_llvm_exp2_f64),
-        "_llvm_trunc_f64" => Function::new_env(store, env, crate::math::_llvm_trunc_f64),
-        "_llvm_fma_f64" => Function::new_env(store, env, crate::math::_llvm_fma_f64),
+        "sqrt" => Function::new(store, crate::math::sqrt),
+        "floor" => Function::new(store, crate::math::floor),
+        "fabs" => Function::new(store, crate::math::fabs),
+        "f64-rem" => Function::new(store, crate::math::f64_rem),
+        "_llvm_copysign_f32" => Function::new(store, crate::math::_llvm_copysign_f32),
+        "_llvm_copysign_f64" => Function::new(store, crate::math::_llvm_copysign_f64),
+        "_llvm_log10_f64" => Function::new(store, crate::math::_llvm_log10_f64),
+        "_llvm_log2_f64" => Function::new(store, crate::math::_llvm_log2_f64),
+        "_llvm_log10_f32" => Function::new(store, crate::math::_llvm_log10_f32),
+        "_llvm_log2_f32" => Function::new(store, crate::math::_llvm_log2_f64),
+        "_llvm_sin_f64" => Function::new(store, crate::math::_llvm_sin_f64),
+        "_llvm_cos_f64" => Function::new(store, crate::math::_llvm_cos_f64),
+        "_llvm_exp2_f32" => Function::new(store, crate::math::_llvm_exp2_f32),
+        "_llvm_exp2_f64" => Function::new(store, crate::math::_llvm_exp2_f64),
+        "_llvm_trunc_f64" => Function::new(store, crate::math::_llvm_trunc_f64),
+        "_llvm_fma_f64" => Function::new(store, crate::math::_llvm_fma_f64),
         "_emscripten_random" => Function::new_env(store, env, crate::math::_emscripten_random),
 
         // Jump
         "__setjmp" => Function::new_env(store, env, crate::jmp::__setjmp),
-        "__longjmp" => Function::new_env(store, env, crate::jmp::__longjmp),
-        "_longjmp" => Function::new_env(store, env, crate::jmp::_longjmp),
-        "_emscripten_longjmp" => Function::new_env(store, env, crate::jmp::_longjmp),
+        // TODO: reenable these. they're using `()` as trap return value, probably need
+        // to use soemthing else that impls Error
+        //"__longjmp" => Function::new_env(store, env, crate::jmp::__longjmp),
+        //"_longjmp" => Function::new_env(store, env, crate::jmp::_longjmp),
+        //"_emscripten_longjmp" => Function::new_env(store, env, crate::jmp::_longjmp),
 
         // Bitwise
         "_llvm_bswap_i64" => Function::new_env(store, env, crate::bitwise::_llvm_bswap_i64),
 
         // libc
-        "_execv" => Function::new_env(store, env, crate::libc::execv),
-        "_endpwent" => Function::new_env(store, env, crate::libc::endpwent),
-        "_fexecve" => Function::new_env(store, env, crate::libc::fexecve),
-        "_fpathconf" => Function::new_env(store, env, crate::libc::fpathconf),
-        "_getitimer" => Function::new_env(store, env, crate::libc::getitimer),
-        "_getpwent" => Function::new_env(store, env, crate::libc::getpwent),
-        "_killpg" => Function::new_env(store, env, crate::libc::killpg),
+        "_execv" => Function::new(store, crate::libc::execv),
+        "_endpwent" => Function::new(store, crate::libc::endpwent),
+        "_fexecve" => Function::new(store, crate::libc::fexecve),
+        "_fpathconf" => Function::new(store, crate::libc::fpathconf),
+        "_getitimer" => Function::new(store, crate::libc::getitimer),
+        "_getpwent" => Function::new(store, crate::libc::getpwent),
+        "_killpg" => Function::new(store, crate::libc::killpg),
         "_pathconf" => Function::new_env(store, env, crate::libc::pathconf),
         "_siginterrupt" => Function::new_env(store, env, crate::signal::_siginterrupt),
-        "_setpwent" => Function::new_env(store, env, crate::libc::setpwent),
-        "_sigismember" => Function::new_env(store, env, crate::libc::sigismember),
-        "_sigpending" => Function::new_env(store, env, crate::libc::sigpending),
-        "___libc_current_sigrtmax" => Function::new_env(store, env, crate::libc::current_sigrtmax),
-        "___libc_current_sigrtmin" => Function::new_env(store, env, crate::libc::current_sigrtmin),
+        "_setpwent" => Function::new(store, crate::libc::setpwent),
+        "_sigismember" => Function::new(store, crate::libc::sigismember),
+        "_sigpending" => Function::new(store, crate::libc::sigpending),
+        "___libc_current_sigrtmax" => Function::new(store, crate::libc::current_sigrtmax),
+        "___libc_current_sigrtmin" => Function::new(store, crate::libc::current_sigrtmin),
 
         // Linking
         "_dlclose" => Function::new_env(store, env, crate::linking::_dlclose),
@@ -1073,19 +1086,24 @@ pub fn generate_emscripten_env(
     };
 
     // Compatibility with newer versions of Emscripten
-    for (k, v) in env_ns.get_exports() {
+    let mut to_insert: Vec<(String, _)> = vec![];
+    for (k, v) in env_ns.iter() {
         if k.starts_with("_") {
             let k = &k[1..];
-            if !env_ns.contains_key(k) {
-                env_ns.insert(k, v.to_export());
+            if !env_ns.contains(k) {
+                to_insert.push((k.to_string(), v.clone()));
             }
         }
+    }
+
+    for (k, v) in to_insert {
+        env_ns.insert(k, v);
     }
 
     for null_func_name in globals.null_func_names.iter() {
         env_ns.insert(
             null_func_name.as_str(),
-            Function::new_env(store, env, nullfunc).to_export(),
+            Function::new_env(store, env, nullfunc),
         );
     }
 
