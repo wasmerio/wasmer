@@ -48,6 +48,7 @@ use std::collections::{
 mod address_map;
 mod compiler;
 mod config;
+#[cfg(feature = "unwind")]
 mod dwarf;
 // mod debug;
 mod func_environ;
