@@ -309,20 +309,27 @@ impl NativeArtifact {
             })
             .collect::<Vec<String>>();
 
-        let is_cross_compiling = target_triple != Triple::host();
+        let host_target = Triple::host();
+        let is_cross_compiling = target_triple != host_target;
         let cross_compiling_args = if is_cross_compiling {
             vec![
                 format!("--target={}", target_triple),
                 "-fuse-ld=lld".to_string(),
+                "-nodefaultlibs".to_string(),
+                "-nostdlib".to_string(),
             ]
         } else {
             vec![]
         };
+        trace!(
+            "Compiling for target {} from host {}",
+            target_triple.to_string(),
+            host_target.to_string()
+        );
+
         let output = Command::new("gcc")
             .arg(&filepath)
             .arg("-nostartfiles")
-            .arg("-nodefaultlibs")
-            .arg("-nostdlib")
             .arg("-o")
             .arg(&shared_filepath)
             .args(&wasmer_symbols)
