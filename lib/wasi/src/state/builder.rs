@@ -36,6 +36,7 @@ pub struct WasiStateBuilder {
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
     preopens: Vec<PreopenedDir>,
+    #[allow(clippy::type_complexity)]
     setup_fs_fn: Option<Box<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>>,
     stdout_override: Option<Box<dyn WasiFile>>,
     stderr_override: Option<Box<dyn WasiFile>>,
@@ -78,15 +79,10 @@ pub enum WasiStateCreationError {
 }
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
-    for byte in alias.bytes() {
-        match byte {
-            b'\0' => {
-                return Err(WasiStateCreationError::MappedDirAliasFormattingError(
-                    format!("Alias \"{}\" contains a nul byte", alias),
-                ));
-            }
-            _ => (),
-        }
+    if !alias.bytes().all(|b| b != b'\0') {
+        return Err(WasiStateCreationError::MappedDirAliasFormattingError(
+            format!("Alias \"{}\" contains a nul byte", alias),
+        ));
     }
 
     Ok(())

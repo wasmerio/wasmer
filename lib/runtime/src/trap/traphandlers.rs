@@ -415,6 +415,8 @@ impl Trap {
 /// * `values_vec` - points to a buffer which holds the incoming arguments, and to
 ///   which the outgoing return values will be written.
 ///
+/// # Safety
+///
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
@@ -433,7 +435,9 @@ pub unsafe fn wasmer_call_trampoline(
 /// Catches any wasm traps that happen within the execution of `closure`,
 /// returning them as a `Result`.
 ///
-/// Highly unsafe since `closure` won't have any dtors run.
+/// # Safety
+///
+/// Highly unsafe since `closure` won't have any destructors run.
 pub unsafe fn catch_traps<F>(vmctx: *mut VMContext, mut closure: F) -> Result<(), Trap>
 where
     F: FnMut(),
@@ -582,7 +586,7 @@ impl CallThreadState {
         // First up see if any instance registered has a custom trap handler,
         // in which case run them all. If anything handles the trap then we
         // return that the trap was handled.
-        if self.any_instance(|i| {
+        let any_instance = self.any_instance(|i| {
             let handler = match i.instance().signal_handler.replace(None) {
                 Some(handler) => handler,
                 None => return false,
@@ -590,7 +594,9 @@ impl CallThreadState {
             let result = call_handler(&handler);
             i.instance().signal_handler.set(Some(handler));
             result
-        }) {
+        });
+
+        if any_instance {
             self.handling_trap.set(false);
             return 1 as *const _;
         }

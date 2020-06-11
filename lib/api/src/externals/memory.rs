@@ -45,12 +45,21 @@ impl Memory {
         &self.store
     }
 
+    /// TODO: document this function.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     pub unsafe fn data_unchecked(&self) -> &[u8] {
         self.data_unchecked_mut()
     }
 
     /// TODO: document this function, it's trivial to cause UB/break soundness with this
     /// method.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
         let definition = self.definition();

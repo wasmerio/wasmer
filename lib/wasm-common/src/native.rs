@@ -158,6 +158,7 @@ where
 
 macro_rules! wasm_extern_type {
     ($type:ty => $native_type:ty) => {
+        #[allow(clippy::use_self)]
         unsafe impl WasmExternType for $type {
             type Native = $native_type;
 
@@ -263,6 +264,7 @@ where
 {
     /// The error type for this trait.
     type Error: Send + 'static;
+
     /// Get returns or error result.
     fn report(self) -> Result<Rets, Self::Error>;
 }
@@ -272,7 +274,8 @@ where
     Rets: WasmTypeList,
 {
     type Error = Infallible;
-    fn report(self) -> Result<Rets, Infallible> {
+
+    fn report(self) -> Result<Self, Infallible> {
         Ok(self)
     }
 }
@@ -283,7 +286,8 @@ where
     E: Send + 'static,
 {
     type Error = E;
-    fn report(self) -> Result<Rets, E> {
+
+    fn report(self) -> Self {
         self
     }
 }
@@ -476,7 +480,7 @@ macro_rules! impl_traits {
                     // println!("WRAP");
                     // println!("Struct {:?}", (($( $x ),*) as WasmTypeList).into_c_struct());
                     // $( println!("X: {:?}", $x); )*
-                    let f: &FN = unsafe { std::mem::transmute(&()) };
+                    let f: &FN = unsafe { &*(&() as *const () as *const FN) };
                     f( $( WasmExternType::from_native($x) ),* ).into_c_struct()
                 }
                 wrap::<$( $x, )* Rets, Self> as *const FunctionBody
@@ -553,7 +557,7 @@ macro_rules! impl_traits {
                     T: Sized,
                     FN: Fn(&mut T, $( $x ),* ) -> Rets + 'static
                 {
-                    let f: &FN = unsafe { std::mem::transmute(&()) };
+                    let f: &FN = unsafe { &*(&() as *const () as *const FN) };
                     f(ctx, $( WasmExternType::from_native($x) ),* ).into_c_struct()
                 }
                 wrap::<$( $x, )* Rets, Self, T> as *const FunctionBody

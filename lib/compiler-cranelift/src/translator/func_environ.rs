@@ -66,7 +66,7 @@ pub trait TargetEnvironment {
     ///
     /// This returns `R64` for 64-bit architectures and `R32` for 32-bit architectures.
     fn reference_type(&self) -> ir::Type {
-        reference_type(&self.target_config()).expect("expected reference type")
+        reference_type(self.target_config()).expect("expected reference type")
     }
 }
 

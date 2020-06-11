@@ -86,7 +86,7 @@ impl Compiler for CraneliftCompiler {
         let signatures = module
             .signatures
             .iter()
-            .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, &frontend_config))
+            .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
 
         // Generate the frametable

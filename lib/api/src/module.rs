@@ -145,6 +145,8 @@ impl Module {
 
     /// Creates a new WebAssembly module skipping any kind of validation.
     ///
+    /// # Safety
+    ///
     /// This can speed up compilation time a bit, but it should be only used
     /// in environments where the WebAssembly modules are trusted and validated
     /// beforehand.

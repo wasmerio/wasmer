@@ -22,6 +22,7 @@ pub fn fd_filestat_get(
     let new_buf: WasmPtr<types::__wasi_filestat_t> = unsafe { std::mem::transmute(buf) };
 
     // Copy the data including the extra data
+    #[allow(clippy::clone_on_copy)]
     let new_filestat_setup: types::__wasi_filestat_t =
         wasi_try!(new_buf.deref(memory)).get().clone();
 
@@ -71,6 +72,7 @@ pub fn path_filestat_get(
     let memory = env.memory();
 
     let new_buf: WasmPtr<types::__wasi_filestat_t> = unsafe { std::mem::transmute(buf) };
+    #[allow(clippy::clone_on_copy)]
     let new_filestat_setup: types::__wasi_filestat_t =
         wasi_try!(new_buf.deref(memory)).get().clone();
 
