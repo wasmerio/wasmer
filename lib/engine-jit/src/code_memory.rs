@@ -37,7 +37,8 @@ impl CodeMemoryEntry {
 impl Drop for CodeMemoryEntry {
     fn drop(&mut self) {
         unsafe {
-            // Table needs to be freed before mmap.
+            // The registry needs to be dropped before the mmap
+            ManuallyDrop::drop(&mut self.registry);
             ManuallyDrop::drop(&mut self.mmap);
         }
     }
