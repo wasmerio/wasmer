@@ -200,7 +200,9 @@ impl Compiler for CraneliftCompiler {
         let (custom_sections, dwarf) = {
             let mut custom_sections = PrimaryMap::new();
             let dwarf = if let Some((dwarf_frametable, _cie_id)) = dwarf_frametable {
-                let mut eh_frame = EhFrame(WriterRelocate::default());
+                let mut eh_frame = EhFrame(WriterRelocate::new(
+                    self.target().triple().endianness().ok(),
+                ));
                 dwarf_frametable
                     .lock()
                     .unwrap()
