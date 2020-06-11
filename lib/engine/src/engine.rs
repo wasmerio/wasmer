@@ -3,6 +3,7 @@
 use crate::tunables::Tunables;
 use crate::{Artifact, DeserializeError};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
@@ -34,14 +35,58 @@ pub trait Engine {
     fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError>;
 
     /// Deserializes a WebAssembly module
+    ///
+    /// # Safety
+    ///
+    /// The serialized content must represent a serialized WebAssembly module.
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError>;
 
     /// Deserializes a WebAssembly module from a path
+    ///
+    /// # Safety
+    ///
+    /// The file's content must represent a serialized WebAssembly module.
     unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
     ) -> Result<Arc<dyn Artifact>, DeserializeError> {
         let bytes = std::fs::read(file_ref)?;
         self.deserialize(&bytes)
+    }
+
+    /// A unique identifier for this object.
+    ///
+    /// This exists to allow us to compare two Engines for equality. Otherwise,
+    /// comparing two trait objects unsafely relies on implementation details
+    /// of trait representation.
+    fn id(&self) -> &EngineId;
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
+/// A unique identifier for an Engine.
+pub struct EngineId {
+    id: usize,
+}
+
+impl EngineId {
+    /// Format this identifier as a string.
+    pub fn id(&self) -> String {
+        format!("{}", &self.id)
+    }
+}
+
+impl Clone for EngineId {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl Default for EngineId {
+    fn default() -> Self {
+        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+        Self {
+            id: NEXT_ID.fetch_add(1, SeqCst),
+        }
     }
 }

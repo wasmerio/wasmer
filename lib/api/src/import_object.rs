@@ -42,9 +42,10 @@ pub trait LikeNamespace {
 ///     n
 /// }
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ImportObject {
     map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace>>>>,
+    #[allow(clippy::type_complexity)]
     pub(crate) state_creator: Option<Arc<dyn Fn() -> (*mut c_void, fn(*mut c_void)) + 'static>>,
     /// Allow missing functions to be generated and instantiation to continue when required
     /// functions are not provided.
@@ -54,11 +55,7 @@ pub struct ImportObject {
 impl ImportObject {
     /// Create a new `ImportObject`.
     pub fn new() -> Self {
-        Self {
-            map: Arc::new(Mutex::new(HashMap::new())),
-            state_creator: None,
-            allow_missing_functions: false,
-        }
+        Default::default()
     }
 
     /// Gets an export given a module and a name
@@ -97,6 +94,7 @@ impl ImportObject {
     }
 
     /// Calls the state creator
+    #[allow(clippy::type_complexity)]
     pub fn call_state_creator(&self) -> Option<(*mut c_void, fn(*mut c_void))> {
         self.state_creator.as_ref().map(|state_gen| state_gen())
     }

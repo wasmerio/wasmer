@@ -9,7 +9,7 @@ use wasm_common::FunctionType;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
-use wasmer_engine::{Artifact, DeserializeError, Engine, Tunables};
+use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 
 /// A WebAssembly `Native` Engine.
@@ -17,6 +17,7 @@ use wasmer_runtime::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 pub struct NativeEngine {
     inner: Arc<Mutex<NativeEngineInner>>,
     tunables: Arc<dyn Tunables + Send + Sync>,
+    engine_id: EngineId,
 }
 
 impl NativeEngine {
@@ -36,6 +37,7 @@ impl NativeEngine {
                 prefixer: None,
             })),
             tunables: Arc::new(tunables),
+            engine_id: EngineId::default(),
         }
     }
 
@@ -62,6 +64,7 @@ impl NativeEngine {
                 prefixer: None,
             })),
             tunables: Arc::new(tunables),
+            engine_id: EngineId::default(),
         }
     }
 
@@ -140,6 +143,10 @@ impl Engine for NativeEngine {
             &self, &file_ref,
         )?))
     }
+
+    fn id(&self) -> &EngineId {
+        &self.engine_id
+    }
 }
 
 /// The inner contents of `NativeEngine`
@@ -159,7 +166,7 @@ pub struct NativeEngineInner {
 }
 
 impl NativeEngineInner {
-    /// Gets the compiler associated to this JIT
+    /// Gets the compiler associated to this engine.
     #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
@@ -187,7 +194,7 @@ impl NativeEngineInner {
 
     /// Validate the module
     #[cfg(not(feature = "compiler"))]
-    pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
+    pub fn validate<'data>(&self, _data: &'data [u8]) -> Result<(), CompileError> {
         Err(CompileError::Validate(
             "Validation is only enabled with the compiler feature".to_string(),
         ))

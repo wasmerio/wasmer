@@ -39,7 +39,7 @@ pub enum ExportError {
 
 /// Exports is a special kind of map that allows easily unwrapping
 /// the types of instances.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Exports {
     map: Arc<IndexMap<String, Extern>>,
 }
@@ -47,9 +47,7 @@ pub struct Exports {
 impl Exports {
     /// Creates a new `Exports`.
     pub fn new() -> Self {
-        Exports {
-            map: Arc::new(IndexMap::new()),
-        }
+        Default::default()
     }
 
     /// Creates a new `Exports` with capacity `n`.
@@ -146,9 +144,7 @@ impl Exports {
     }
 
     /// Get an iterator over the exports.
-    pub fn iter<'a>(
-        &'a self,
-    ) -> ExportsIterator<'a, impl Iterator<Item = (&'a String, &'a Extern)>> {
+    pub fn iter(&self) -> ExportsIterator<impl Iterator<Item = (&String, &Extern)>> {
         ExportsIterator {
             iter: self.map.iter(),
         }

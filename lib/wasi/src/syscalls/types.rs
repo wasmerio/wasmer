@@ -290,6 +290,7 @@ impl PrestatEnum {
 }
 
 impl __wasi_prestat_t {
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn tagged(&self) -> Option<PrestatEnum> {
         match self.pr_type {
             __WASI_PREOPENTYPE_DIR => Some(PrestatEnum::Dir {

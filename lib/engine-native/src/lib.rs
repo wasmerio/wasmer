@@ -25,9 +25,6 @@
     )
 )]
 
-#[macro_use]
-extern crate tracing;
-
 mod artifact;
 mod engine;
 mod serialize;

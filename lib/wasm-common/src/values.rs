@@ -98,7 +98,7 @@ impl<T> Value<T> {
     /// `p` must be:
     /// - Properly aligned to the specified `ty`'s Rust equivalent
     /// - Non-null and pointing to valid memory
-    pub unsafe fn read_value_from(p: *const i128, ty: Type) -> Value<T> {
+    pub unsafe fn read_value_from(p: *const i128, ty: Type) -> Self {
         match ty {
             Type::I32 => Self::I32(ptr::read(p as *const i32)),
             Type::I64 => Self::I64(ptr::read(p as *const i64)),

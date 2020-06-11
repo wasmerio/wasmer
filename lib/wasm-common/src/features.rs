@@ -138,8 +138,8 @@ impl Features {
 }
 
 impl Default for Features {
-    fn default() -> Features {
-        Features::new()
+    fn default() -> Self {
+        Self::new()
     }
 }
 

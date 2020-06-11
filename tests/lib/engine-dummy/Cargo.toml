@@ -1,16 +1,16 @@
 [package]
 name = "wasmer-engine-dummy"
-version = "0.16.2"
+version = "1.0.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wasmer testing utils"
 edition = "2018"
 publish = false
 
 [dependencies]
-wasm-common = { path = "../../../lib/wasm-common", version = "0.16.2" }
-wasmer-compiler = { path = "../../../lib/compiler", version = "0.16.2" }
-wasmer-runtime = { path = "../../../lib/runtime", version = "0.16.2" }
-wasmer-engine = { path = "../../../lib/engine", version = "0.16.2" }
+wasm-common = { path = "../../../lib/wasm-common", version = "1.0.0" }
+wasmer-compiler = { path = "../../../lib/compiler", version = "1.0.0" }
+wasmer-runtime = { path = "../../../lib/runtime", version = "1.0.0" }
+wasmer-engine = { path = "../../../lib/engine", version = "1.0.0" }
 serde = { version = "1.0", features = ["derive", "rc"], optional = true }
 serde_bytes = { version = "0.11", optional = true }
 bincode = { version = "1.2", optional = true }

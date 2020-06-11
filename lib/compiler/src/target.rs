@@ -129,19 +129,19 @@ impl FromStr for CpuFeature {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "sse2" => Ok(CpuFeature::SSE2),
-            "sse3" => Ok(CpuFeature::SSE3),
-            "ssse3" => Ok(CpuFeature::SSSE3),
-            "sse4.1" => Ok(CpuFeature::SSE41),
-            "sse4.2" => Ok(CpuFeature::SSE42),
-            "popcnt" => Ok(CpuFeature::POPCNT),
-            "avx" => Ok(CpuFeature::AVX),
-            "bmi" => Ok(CpuFeature::BMI1),
-            "bmi2" => Ok(CpuFeature::BMI2),
-            "avx2" => Ok(CpuFeature::AVX2),
-            "avx512dq" => Ok(CpuFeature::AVX512DQ),
-            "avx512vl" => Ok(CpuFeature::AVX512VL),
-            "lzcnt" => Ok(CpuFeature::LZCNT),
+            "sse2" => Ok(Self::SSE2),
+            "sse3" => Ok(Self::SSE3),
+            "ssse3" => Ok(Self::SSSE3),
+            "sse4.1" => Ok(Self::SSE41),
+            "sse4.2" => Ok(Self::SSE42),
+            "popcnt" => Ok(Self::POPCNT),
+            "avx" => Ok(Self::AVX),
+            "bmi" => Ok(Self::BMI1),
+            "bmi2" => Ok(Self::BMI2),
+            "avx2" => Ok(Self::AVX2),
+            "avx512dq" => Ok(Self::AVX512DQ),
+            "avx512vl" => Ok(Self::AVX512VL),
+            "lzcnt" => Ok(Self::LZCNT),
             _ => Err(ParseCpuFeatureError::Missing(s.to_string())),
         }
     }
@@ -150,19 +150,19 @@ impl FromStr for CpuFeature {
 impl ToString for CpuFeature {
     fn to_string(&self) -> String {
         match self {
-            CpuFeature::SSE2 => "sse2",
-            CpuFeature::SSE3 => "sse3",
-            CpuFeature::SSSE3 => "ssse3",
-            CpuFeature::SSE41 => "sse4.1",
-            CpuFeature::SSE42 => "sse4.2",
-            CpuFeature::POPCNT => "popcnt",
-            CpuFeature::AVX => "avx",
-            CpuFeature::BMI1 => "bmi",
-            CpuFeature::BMI2 => "bmi2",
-            CpuFeature::AVX2 => "avx2",
-            CpuFeature::AVX512DQ => "avx512dq",
-            CpuFeature::AVX512VL => "avx512vl",
-            CpuFeature::LZCNT => "lzcnt",
+            Self::SSE2 => "sse2",
+            Self::SSE3 => "sse3",
+            Self::SSSE3 => "ssse3",
+            Self::SSE41 => "sse4.1",
+            Self::SSE42 => "sse4.2",
+            Self::POPCNT => "popcnt",
+            Self::AVX => "avx",
+            Self::BMI1 => "bmi",
+            Self::BMI2 => "bmi2",
+            Self::AVX2 => "avx2",
+            Self::AVX512DQ => "avx512dq",
+            Self::AVX512VL => "avx512vl",
+            Self::LZCNT => "lzcnt",
         }
         .to_string()
     }

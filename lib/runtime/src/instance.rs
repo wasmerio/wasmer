@@ -587,8 +587,7 @@ impl Instance {
         let passive_elements = self.passive_elements.borrow();
         let elem = passive_elements
             .get(&elem_index)
-            .map(|e| &**e)
-            .unwrap_or_else(|| &[]);
+            .map_or_else(|| -> &[VMCallerCheckedAnyfunc] { &[] }, |e| &**e);
 
         if src
             .checked_add(len)
@@ -765,7 +764,7 @@ pub struct InstanceHandle {
 impl InstanceHandle {
     /// Create a new `InstanceHandle` pointing at a new `Instance`.
     ///
-    /// # Unsafety
+    /// # Safety
     ///
     /// This method is not necessarily inherently unsafe to call, but in general
     /// the APIs of an `Instance` are quite unsafe and have not been really
@@ -778,6 +777,7 @@ impl InstanceHandle {
     /// internally if you'd like to do so. If possible it's recommended to use
     /// the `wasmer` crate API rather than this type since that is vetted for
     /// safety.
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
@@ -890,6 +890,8 @@ impl InstanceHandle {
 
     /// Finishes the instantiation process started by `Instance::new`.
     ///
+    /// # Safety
+    ///
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
         &self,
@@ -922,7 +924,8 @@ impl InstanceHandle {
     /// This is unsafe because it doesn't work on just any `VMContext`, it must
     /// be a `VMContext` allocated as part of an `Instance`.
     pub unsafe fn from_vmctx(vmctx: *mut VMContext) -> Self {
-        let instance = (&mut *vmctx).instance();
+        let instance = (&*vmctx).instance();
+
         Self {
             instance: instance as *const Instance as *mut Instance,
         }
@@ -1040,9 +1043,11 @@ impl InstanceHandle {
 
     /// Deallocates memory associated with this instance.
     ///
-    /// Note that this is unsafe because there might be other handles to this
-    /// `InstanceHandle` elsewhere, and there's nothing preventing usage of
-    /// this handle after this function is called.
+    /// # Safety
+    ///
+    /// This is unsafe because there might be other handles to this
+    /// `InstanceHandle` elsewhere, and there's nothing preventing
+    /// usage of this handle after this function is called.
     pub unsafe fn dealloc(&self) {
         let instance = self.instance();
         let layout = instance.alloc_layout();

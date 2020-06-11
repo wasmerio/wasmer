@@ -180,7 +180,7 @@ impl ModuleInfo {
                 }
                 ExportIndex::Global(i) => {
                     let global_type = self.globals.get(i.clone()).unwrap();
-                    ExternType::Global(global_type.clone())
+                    ExternType::Global(*global_type)
                 }
             };
             ExportType::new(name, extern_type)
