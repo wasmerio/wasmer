@@ -2,13 +2,14 @@
 //! commands.
 
 use crate::common::WasmFeatures;
-use anyhow::{Context, Error, Result};
+use anyhow::{Error, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::string::ToString;
 use std::sync::Arc;
 use structopt::StructOpt;
 use wasmer::*;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 
 #[derive(Debug, Clone, StructOpt)]
@@ -104,13 +105,13 @@ impl StoreOptions {
             // Auto mode, we choose the best compiler for that platform
             cfg_if::cfg_if! {
                 if #[cfg(all(feature = "cranelift", target_arch = "x86_64"))] {
-                    return Ok(CompilerType::Cranelift);
+                    Ok(CompilerType::Cranelift)
                 }
                 else if #[cfg(all(feature = "singlepass", target_arch = "x86_64"))] {
-                    return Ok(CompilerType::Singlepass);
+                    Ok(CompilerType::Singlepass)
                 }
                 else if #[cfg(feature = "llvm")] {
-                    return Ok(CompilerType::LLVM);
+                    Ok(CompilerType::LLVM)
                 } else {
                     bail!("There are no available compilers for your architecture");
                 }
@@ -303,7 +304,7 @@ impl StoreOptions {
                 engine.to_string()
             ),
         };
-        return Ok((engine, engine_type));
+        Ok((engine, engine_type))
     }
 }
 
@@ -363,16 +364,14 @@ impl StoreOptions {
                 engine.to_string()
             ),
         };
-        return Ok((engine, engine_type));
+        Ok((engine, engine_type))
     }
 
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, EngineType, CompilerType)> {
         // Get the tunables for the current host
         let tunables = Tunables::default();
-        let (engine, engine_type) = self
-            .get_engine_headless(tunables)
-            .with_context(|| "No compilers enabled. Operating in headless mode")?;
+        let (engine, engine_type) = self.get_engine_headless(tunables)?;
         let store = Store::new(engine);
         Ok((store, engine_type, CompilerType::Headless))
     }
