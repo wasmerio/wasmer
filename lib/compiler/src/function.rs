@@ -85,6 +85,13 @@ pub struct Dwarf {
     eh_frame: SectionIndex,
 }
 
+impl Dwarf {
+    /// Creates a `Dwarf` struct with the corresponding indices for its sections
+    pub fn new(eh_frame: SectionIndex) -> Self {
+        Self { eh_frame }
+    }
+}
+
 /// The result of compiling a WebAssembly module's functions.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
@@ -101,11 +108,15 @@ pub struct Compilation {
 
 impl Compilation {
     /// Creates a compilation artifact from a contiguous function buffer and a set of ranges
-    pub fn new(functions: Functions, custom_sections: CustomSections) -> Self {
+    pub fn new(
+        functions: Functions,
+        custom_sections: CustomSections,
+        dwarf: Option<Dwarf>,
+    ) -> Self {
         Self {
             functions,
             custom_sections,
-            dwarf: None,
+            dwarf,
         }
     }
 

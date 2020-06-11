@@ -112,7 +112,7 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        Ok(Compilation::new(functions, module_custom_sections))
+        Ok(Compilation::new(functions, module_custom_sections, None))
     }
 
     fn compile_function_call_trampolines(

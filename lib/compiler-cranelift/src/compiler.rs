@@ -17,7 +17,7 @@ use cranelift_codegen::ir;
 use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{binemit, isa, Context};
 #[cfg(feature = "unwind")]
-use gimli::write::{Address, Dwarf, EhFrame, EndianVec, FrameTable, Sections, Writer};
+use gimli::write::{Address, EhFrame, EndianVec, FrameTable, Sections, Writer};
 #[cfg(feature = "unwind")]
 use gimli::{RunTimeEndian, SectionId};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -29,7 +29,7 @@ use wasm_common::{
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, Compiler,
-    FunctionBody, FunctionBodyData,
+    Dwarf, FunctionBody, FunctionBodyData, SectionIndex,
 };
 use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
@@ -202,7 +202,8 @@ impl Compiler for CraneliftCompiler {
         let mut custom_sections = PrimaryMap::new();
         custom_sections.push(eh_frame_section);
 
-        Ok(Compilation::new(functions, custom_sections))
+        let dwarf = Dwarf::new(SectionIndex::new(0));
+        Ok(Compilation::new(functions, custom_sections, Some(dwarf)))
     }
 
     fn compile_function_call_trampolines(

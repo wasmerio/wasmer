@@ -154,6 +154,7 @@ impl JITEngineInner {
         ))
     }
 
+    /// Allocate custom sections into memory
     pub(crate) fn allocate_custom_sections(
         &mut self,
         custom_sections: &PrimaryMap<SectionIndex, CustomSection>,
@@ -167,7 +168,7 @@ impl JITEngineInner {
                     .allocate_for_executable_custom_section(&section.bytes)
                     .map_err(|message| {
                         CompileError::Resource(format!(
-                            "failed to allocate memory for custom section: {}",
+                            "failed to allocate executable memory for custom section: {}",
                             message
                         ))
                     })?,
@@ -177,7 +178,7 @@ impl JITEngineInner {
         Ok(result)
     }
 
-    /// Compile the given function bodies.
+    /// Allocate compiled functions into memory
     pub(crate) fn allocate(
         &mut self,
         module: &ModuleInfo,
