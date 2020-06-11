@@ -154,6 +154,13 @@
 (module (func (f64.const 0123456789.0123456789e019) drop))
 (module (func (f64.const 0123456789.0123456789e+019) drop))
 (module (func (f64.const 0123456789.0123456789e-019) drop))
+(module (func (f64.const 0_1_2_3_4_5_6_7_8_9) drop))
+(module (func (f64.const 0_1_2_3_4_5_6_7_8_9.) drop))
+(module (func (f64.const 0_1_2_3_4_5_6_7_8_9.0_1_2_3_4_5_6_7_8_9) drop))
+(module (func (f64.const 0_1_2_3_4_5_6_7_8_9e+0_1_9) drop))
+(module (func (f64.const 0_1_2_3_4_5_6_7_8_9.e+0_1_9) drop))
+(module (func (f64.const 0_1_2_3_4_5_6_7_8_9.0_1_2_3_4_5_6_7_8_9e0_1_9) drop))
+
 (module (func (f64.const 0x0123456789ABCDEFabcdef) drop))
 (module (func (f64.const 0x0123456789ABCDEFabcdefp019) drop))
 (module (func (f64.const 0x0123456789ABCDEFabcdefp+019) drop))
@@ -166,6 +173,14 @@
 (module (func (f64.const 0x0123456789ABCDEFabcdef.0123456789ABCDEFabcdefp019) drop))
 (module (func (f64.const 0x0123456789ABCDEFabcdef.0123456789ABCDEFabcdefp+019) drop))
 (module (func (f64.const 0x0123456789ABCDEFabcdef.0123456789ABCDEFabcdefp-019) drop))
+(module (func (f64.const 0x0_1_2_3_4_5_6_7_8_9_A_B_C_D_E_F_a_b_c_d_e_f) drop))
+(module (func (f64.const 0x0_1_2_3_4_5_6_7_8_9_A_B_C_D_E_F_a_b_c_d_e_f.) drop))
+(module (func (f64.const 0x0_1_2_3_4_5_6_7_8_9_A_B_C_D_E_F_a_b_c_d_e_f.0_1_2_3_4_5_6_7_8_9_A_B_C_D_E_F_a_b_c_d_e_f) drop))
+(module (func (f64.const 0x0_1_2_3_4_5_6_7_8_9_A_B_C_D_E_F_a_b_c_d_e_fp0_1_9) drop))
+(module (func (f64.const 0x0_1_2_3_4_5_6_7_8_9_A_B_C_D_E_F_a_b_c_d_e_f.p0_1_9) drop))
+(module (func (f64.const 0x0_1_2_3_4_5_6_7_8_9_A_B_C_D_E_F_a_b_c_d_e_f.0_1_2_3_4_5_6_7_8_9_A_B_C_D_E_F_a_b_c_d_e_fp0_1_9) drop))
+
+
 (assert_malformed
   (module quote "(func (f64.const) drop)")
   "unexpected token"

@@ -138,6 +138,11 @@
 (assert_trap (invoke "v64x2.offset2_align4" (i32.const 65528)) "out of bounds memory access")
 (assert_trap (invoke "v64x2.offset15_align8" (i32.const 65528)) "out of bounds memory access")
 
+(assert_trap (invoke "v8x16.offset1_align1" (i32.const -1)) "out of bounds memory access")
+(assert_trap (invoke "v16x8.offset1_align1" (i32.const -1)) "out of bounds memory access")
+(assert_trap (invoke "v32x4.offset1_align1" (i32.const -1)) "out of bounds memory access")
+(assert_trap (invoke "v64x2.offset1_align2" (i32.const -1)) "out of bounds memory access")
+
 (assert_trap (invoke "v8x16.offset65536" (i32.const 0)) "out of bounds memory access")
 (assert_trap (invoke "v16x8.offset65535" (i32.const 0)) "out of bounds memory access")
 (assert_trap (invoke "v32x4.offset65533" (i32.const 0)) "out of bounds memory access")

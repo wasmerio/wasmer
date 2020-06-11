@@ -809,10 +809,10 @@
 
   "\05\03\01\00\00"          ;; Memory section
 
-  "\09\06\01"                ;; Element section with one segment
+  "\09\07\01"                ;; Element section with one segment
   "\05\70"                   ;; Passive, funcref
   "\01"                      ;; 1 element
-  "\d0\0b"                   ;; ref.null, end
+  "\d0\70\0b"                ;; ref.null, end
 
   "\0a\04\01"                ;; Code section
 
@@ -1184,7 +1184,7 @@
     "\02"                                   ;; break depth for default
     "\0b\0b\0b"                             ;; end
   )
-  "malformed value type"
+  "unexpected end"
 )
 
 ;; Start section

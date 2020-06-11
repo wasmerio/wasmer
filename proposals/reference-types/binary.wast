@@ -308,6 +308,48 @@
 )
 
 
+(assert_malformed
+  (module binary
+    "\00asm" "\01\00\00\00"
+    "\06\0f\01"                          ;; Global section with 1 entry
+    "\7e\00"                             ;; i64, immutable
+    "\42\80\80\80\80\80\80\80\80\80\7e"  ;; i64.const 0 with unused bits set
+    "\0b"                                ;; end
+  )
+  "integer too large"
+)
+(assert_malformed
+  (module binary
+    "\00asm" "\01\00\00\00"
+    "\06\0f\01"                          ;; Global section with 1 entry
+    "\7e\00"                             ;; i64, immutable
+    "\42\ff\ff\ff\ff\ff\ff\ff\ff\ff\01"  ;; i64.const -1 with unused bits unset
+    "\0b"                                ;; end
+  )
+  "integer too large"
+)
+(assert_malformed
+  (module binary
+    "\00asm" "\01\00\00\00"
+    "\06\0f\01"                          ;; Global section with 1 entry
+    "\7e\00"                             ;; i64, immutable
+    "\42\80\80\80\80\80\80\80\80\80\02"  ;; i64.const 0 with some unused bits set
+    "\0b"                                ;; end
+  )
+  "integer too large"
+)
+(assert_malformed
+  (module binary
+    "\00asm" "\01\00\00\00"
+    "\06\0f\01"                          ;; Global section with 1 entry
+    "\7e\00"                             ;; i64, immutable
+    "\42\ff\ff\ff\ff\ff\ff\ff\ff\ff\41"  ;; i64.const -1 with some unused bits unset
+    "\0b"                                ;; end
+  )
+  "integer too large"
+)
+
+
 ;; Unsigned LEB128 must not be overlong
 (assert_malformed
   (module binary
@@ -1077,7 +1119,7 @@
     ;; function 0
     "\02\00"
     "\0b")                     ;; end
-  "invalid reference type")
+  "malformed reference type")
 
 ;; passive element segment containing opcode ref.func
 (module binary
@@ -1116,10 +1158,10 @@
 
   "\05\03\01\00\00"          ;; Memory section
 
-  "\09\06\01"                ;; Element section with one segment
+  "\09\07\01"                ;; Element section with one segment
   "\05\70"                   ;; Passive, funcref
   "\01"                      ;; 1 element
-  "\d0\0b"                   ;; ref.null, end
+  "\d0\70\0b"                ;; ref.null, end
 
   "\0a\04\01"                ;; Code section
 
@@ -1350,7 +1392,7 @@
     "\0a\04\01"                             ;; code section
     "\02\00\0b"                             ;; function body
   )
-  "invalid elements segment kind"
+  "malformed elements segment kind"
 )
 
 ;; 1 elem segment declared, 2 given
@@ -1491,7 +1533,7 @@
     "\02"                                   ;; break depth for default
     "\0b\0b\0b"                             ;; end
   )
-  "invalid reference type"
+  "unexpected end"
 )
 
 ;; Start section

@@ -9,8 +9,6 @@
     (i32.add (local.get $x) (i32.const 1))
   )
 
-  (global anyref (ref.func $f))
-  (global anyref (ref.func $g))
   (global funcref (ref.func $f))
   (global funcref (ref.func $g))
   (global $v (mut funcref) (ref.func $f))
@@ -26,13 +24,13 @@
   (func $ff2)
 
   (func (export "is_null-f") (result i32)
-    (ref.is_null (ref.func $f))
+    (ref.is_null func (ref.func $f))
   )
   (func (export "is_null-g") (result i32)
-    (ref.is_null (ref.func $g))
+    (ref.is_null func (ref.func $g))
   )
   (func (export "is_null-v") (result i32)
-    (ref.is_null (global.get $v))
+    (ref.is_null func (global.get $v))
   )
 
   (func (export "set-f") (global.set $v (ref.func $f)))
@@ -76,11 +74,42 @@
   "unknown function 7"
 )
 
+
+;; Reference declaration
+
+(module
+  (func $f1)
+  (func $f2)
+  (func $f3)
+  (func $f4)
+  (func $f5)
+  (func $f6)
+
+  (table $t 1 funcref)
+
+  (global funcref (ref.func $f1))
+  (export "f" (func $f2))
+  (elem (table $t) (i32.const 0) func $f3)
+  (elem (table $t) (i32.const 0) funcref (ref.func $f4))
+  (elem func $f5)
+  (elem funcref (ref.func $f6))
+
+  (func
+    (ref.func $f1)
+    (ref.func $f2)
+    (ref.func $f3)
+    (ref.func $f4)
+    (ref.func $f5)
+    (ref.func $f6)
+    (return)
+  )
+)
+
 (assert_invalid
-  (module (func $f) (global funcref (ref.func $f)))
+  (module (func $f (drop (ref.func $f))))
   "undeclared function reference"
 )
 (assert_invalid
-  (module (func $f (drop (ref.func $f))))
+  (module (start $f) (func $f (drop (ref.func $f))))
   "undeclared function reference"
 )
