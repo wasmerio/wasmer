@@ -143,7 +143,15 @@ impl CodeMemory {
         self.push_current(0)
             .expect("failed to push current memory map");
 
-        for CodeMemoryEntry { mmap: m, .. } in &mut self.entries[self.published..] {
+        for CodeMemoryEntry {
+            mmap: m,
+            registry: r,
+        } in &mut self.entries[self.published..]
+        {
+            // Remove write access to the pages due to the relocation fixups.
+            r.publish()
+                .expect("failed to publish function unwind registry");
+
             if !m.is_empty() {
                 unsafe {
                     region::protect(m.as_mut_ptr(), m.len(), region::Protection::READ_EXECUTE)
@@ -219,6 +227,8 @@ impl CodeMemory {
         buf: &'a mut [u8],
         registry: &mut UnwindRegistry,
     ) -> (u32, &'a mut [u8], &'a mut [VMFunctionBody]) {
+        assert!((func_start as usize) % ARCH_FUNCTION_ALIGNMENT == 0);
+
         let func_len = func.body.len();
         let mut func_end = func_start + (func_len as u32);
 
@@ -232,10 +242,10 @@ impl CodeMemory {
             let unwind_start = (func_end + 3) & !3;
             let unwind_size = info.len();
             let padding = (unwind_start - func_end) as usize;
-
+            assert_eq!((func_start as usize + func_len + padding) % 4, 0);
             let (slice, r) = remainder.split_at_mut(padding + unwind_size);
             slice[padding..].copy_from_slice(&info);
-
+            // println!("Info {:?} (func_len: {}, padded: {})", info, func_len, padding);
             func_end = unwind_start + (unwind_size as u32);
             remainder = r;
         }
