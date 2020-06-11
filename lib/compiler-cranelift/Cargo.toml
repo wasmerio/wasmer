@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler-cranelift"
-version = "0.16.2"
+version = "1.0.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "Standalone environment support for WebAsssembly code in Cranelift"
 license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
@@ -12,9 +12,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "0.16.2", features = ["translator"], default-features = false }
-wasmer-runtime = { path = "../runtime", version = "0.16.2" }
-wasm-common = { path = "../wasm-common", version = "0.16.2", default-features = false }
+wasmer-compiler = { path = "../compiler", version = "1.0.0", features = ["translator"], default-features = false }
+wasmer-runtime = { path = "../runtime", version = "1.0.0" }
+wasm-common = { path = "../wasm-common", version = "1.0.0", default-features = false }
 cranelift-codegen = { version = "0.63", default-features = false }
 cranelift-frontend = { version = "0.63", default-features = false }
 tracing = "0.1"
