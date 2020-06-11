@@ -70,21 +70,29 @@ pub use self::utils::{
 
 /// The environment provided to the Emscripten imports.
 pub struct EmEnv {
-    memory: Memory,
+    memory: Option<Memory>,
     data: *mut EmscriptenData<'static>,
 }
 
 impl EmEnv {
-    pub fn new(memory: Memory, data: *mut c_void) -> Self {
+    pub fn new() -> Self {
         Self {
-            memory,
-            data: data as *mut _,
+            memory: None,
+            data: std::ptr::null_mut(),
         }
+    }
+
+    pub fn set_memory(&mut self, memory: Memory) {
+        self.memory = Some(memory)
+    }
+
+    pub fn set_data(&mut self, data: *mut c_void) {
+        self.data = data as _;
     }
 
     /// Get a reference to the memory
     pub fn memory(&self, _mem_idx: u32) -> &Memory {
-        &self.memory
+        self.memory.as_ref().unwrap()
     }
 }
 
@@ -456,8 +464,8 @@ pub fn emscripten_call_main(
 
 /// Top level function to execute emscripten
 pub fn run_emscripten_instance(
-    _module: &Module,
     instance: &mut Instance,
+    env: &mut EmEnv,
     globals: &mut EmscriptenGlobals,
     path: &str,
     args: Vec<&str>,
@@ -465,14 +473,15 @@ pub fn run_emscripten_instance(
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> Result<(), RuntimeError> {
     let mut data = EmscriptenData::new(instance, &globals.data, mapped_dirs.into_iter().collect());
-    let mut env = EmEnv::new(globals.memory.clone(), &mut data as *mut _ as *mut c_void);
+    env.set_memory(globals.memory.clone());
+    env.set_data(&mut data as *mut _ as *mut c_void);
     set_up_emscripten(instance)?;
 
     // println!("running emscripten instance");
 
     if let Some(ep) = entrypoint {
         debug!("Running entry point: {}", &ep);
-        let arg = unsafe { allocate_cstr_on_stack(&mut env, args[0]).0 };
+        let arg = unsafe { allocate_cstr_on_stack(env, args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
         let func: &Function = instance
             .exports
@@ -480,7 +489,7 @@ pub fn run_emscripten_instance(
             .map_err(|e| RuntimeError::new(e.to_string()))?;
         func.call(&[Val::I32(arg as i32)])?;
     } else {
-        emscripten_call_main(instance, &mut env, path, &args)?;
+        emscripten_call_main(instance, env, path, &args)?;
     }
 
     // TODO atexit for emscripten
@@ -632,8 +641,8 @@ impl EmscriptenGlobals {
 }
 
 pub fn generate_emscripten_env(
-    globals: &mut EmscriptenGlobals,
     store: &Store,
+    globals: &mut EmscriptenGlobals,
     env: &mut EmEnv,
 ) -> ImportObject {
     let abort_on_cannot_grow_memory_export = if globals.data.use_old_abort_on_cannot_grow_memory {
@@ -643,8 +652,8 @@ pub fn generate_emscripten_env(
     };
 
     let mut env_ns: Exports = namespace! {
-        //"memory" => globals.memory.clone(),
-        //"table" => globals.table.clone(),
+        "memory" => globals.memory.clone(),
+        "table" => globals.table.clone(),
 
         // Globals
         "STACKTOP" => Global::new(store, Val::I32(globals.data.stacktop as i32)),
@@ -932,11 +941,9 @@ pub fn generate_emscripten_env(
 
         // Jump
         "__setjmp" => Function::new_env(store, env, crate::jmp::__setjmp),
-        // TODO: reenable these. they're using `()` as trap return value, probably need
-        // to use soemthing else that impls Error
-        //"__longjmp" => Function::new_env(store, env, crate::jmp::__longjmp),
-        //"_longjmp" => Function::new_env(store, env, crate::jmp::_longjmp),
-        //"_emscripten_longjmp" => Function::new_env(store, env, crate::jmp::_longjmp),
+        "__longjmp" => Function::new_env(store, env, crate::jmp::__longjmp),
+        "_longjmp" => Function::new_env(store, env, crate::jmp::_longjmp),
+        "_emscripten_longjmp" => Function::new_env(store, env, crate::jmp::_longjmp),
 
         // Bitwise
         "_llvm_bswap_i64" => Function::new_env(store, env, crate::bitwise::_llvm_bswap_i64),
