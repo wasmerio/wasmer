@@ -14,4 +14,4 @@ pub use self::translation_utils::{
     get_vmctx_value_label, irlibcall_to_libcall, irreloc_to_relocationkind,
     signature_to_cranelift_ir, transform_jump_table, type_to_irtype,
 };
-pub use self::unwind::compiled_function_unwind_info;
+pub(crate) use self::unwind::{compiled_function_unwind_info, CraneliftUnwindInfo};

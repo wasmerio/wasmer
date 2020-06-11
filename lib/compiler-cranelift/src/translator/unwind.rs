@@ -1,16 +1,42 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module.
 
+use cranelift_codegen::isa::unwind::systemv::UnwindInfo as DwarfFDE;
 use cranelift_codegen::isa::unwind::UnwindInfo;
 use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{isa, Context};
 use wasmer_compiler::{CompileError, CompiledFunctionUnwindInfo};
 
+/// Cranelift specific unwind info
+pub(crate) enum CraneliftUnwindInfo {
+    /// Windows Unwind info
+    WindowsX64(Vec<u8>),
+    /// Dwarf FDE
+    FDE(DwarfFDE),
+    /// No Unwind info attached
+    None,
+}
+
+impl CraneliftUnwindInfo {
+    /// Transform the `CraneliftUnwindInfo` to the Windows format.
+    ///
+    /// We skip the DWARF as is not needed for trampolines (which are the
+    /// main users of this function)
+    pub fn maybe_into_to_windows_unwind(self) -> Option<CompiledFunctionUnwindInfo> {
+        match self {
+            CraneliftUnwindInfo::WindowsX64(unwind_info) => {
+                Some(CompiledFunctionUnwindInfo::WindowsX64(unwind_info))
+            }
+            _ => None,
+        }
+    }
+}
+
 /// Constructs unwind info object from Cranelift IR
-pub fn compiled_function_unwind_info(
+pub(crate) fn compiled_function_unwind_info(
     isa: &dyn isa::TargetIsa,
     context: &Context,
-) -> Result<Option<CompiledFunctionUnwindInfo>, CompileError> {
+) -> Result<CraneliftUnwindInfo, CompileError> {
     let unwind_info = context
         .create_unwind_info(isa)
         .map_err(|error| CompileError::Codegen(pretty_error(&context.func, Some(isa), error)))?;
@@ -20,12 +46,9 @@ pub fn compiled_function_unwind_info(
             let size = unwind.emit_size();
             let mut data: Vec<u8> = vec![0; size];
             unwind.emit(&mut data[..]);
-            Ok(Some(CompiledFunctionUnwindInfo::WindowsX64(data)))
+            Ok(CraneliftUnwindInfo::WindowsX64(data))
         }
-        Some(UnwindInfo::SystemV(unwind)) => {
-            Ok(None)
-            // Ok(Some(CompiledFunctionUnwindInfo::SystemV(data)))
-        }
-        None => Ok(None),
+        Some(UnwindInfo::SystemV(unwind)) => Ok(CraneliftUnwindInfo::FDE(unwind)),
+        None => Ok(CraneliftUnwindInfo::None),
     }
 }

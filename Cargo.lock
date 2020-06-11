@@ -625,6 +625,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fallible-iterator"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -683,8 +689,12 @@ version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81dd6190aad0f05ddbbf3245c54ed14ca4aa6dd32f22312b70d8f168c3e3e633"
 dependencies = [
+ "arrayvec",
  "byteorder",
+ "fallible-iterator",
  "indexmap",
+ "smallvec",
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -2185,6 +2195,7 @@ version = "0.16.2"
 dependencies = [
  "cranelift-codegen",
  "cranelift-frontend",
+ "gimli 0.20.0",
  "hashbrown",
  "lazy_static",
  "more-asserts",

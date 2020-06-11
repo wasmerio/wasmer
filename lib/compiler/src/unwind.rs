@@ -6,7 +6,6 @@
 //!
 //! More info: https://en.wikipedia.org/wiki/Call_stack
 use crate::lib::std::vec::Vec;
-use crate::{Addend, CodeOffset};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -23,24 +22,6 @@ pub enum CompiledFunctionUnwindInfo {
     /// Windows UNWIND_INFO.
     WindowsX64(Vec<u8>),
 
-    /// SystemV frame layout info.
-    SystemV(Vec<u8>),
-}
-
-impl CompiledFunctionUnwindInfo {
-    /// Retuns true is no unwind info data.
-    pub fn is_empty(&self) -> bool {
-        match self {
-            CompiledFunctionUnwindInfo::WindowsX64(d) => d.is_empty(),
-            CompiledFunctionUnwindInfo::SystemV(c) => c.is_empty(),
-        }
-    }
-
-    /// Returns size of serilized unwind info.
-    pub fn len(&self) -> usize {
-        match self {
-            CompiledFunctionUnwindInfo::WindowsX64(d) => d.len(),
-            CompiledFunctionUnwindInfo::SystemV(c) => c.len(),
-        }
-    }
+    /// The unwind info is added to the Dwarf section in `Compilation`.
+    Dwarf,
 }

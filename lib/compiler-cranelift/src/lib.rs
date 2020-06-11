@@ -48,6 +48,7 @@ use std::collections::{
 mod address_map;
 mod compiler;
 mod config;
+mod dwarf;
 // mod debug;
 mod func_environ;
 mod sink;

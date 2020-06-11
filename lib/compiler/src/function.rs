@@ -70,6 +70,21 @@ pub type Functions = PrimaryMap<LocalFunctionIndex, CompiledFunction>;
 /// The custom sections for a Compilation.
 pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 
+/// The DWARF information this Compilation.
+///
+/// It is used for retrieving the unwind information once an exception
+/// happens.
+/// In the future this structure may also hold other information useful
+/// for debugging.
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq)]
+pub struct Dwarf {
+    /// The section index in the [`Compilation`] that corresponds to the exception frames.
+    /// More info:
+    /// https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html
+    eh_frame: SectionIndex,
+}
+
 /// The result of compiling a WebAssembly module's functions.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
@@ -80,6 +95,8 @@ pub struct Compilation {
     /// It will hold the data, for example, for constants used in a
     /// function, global variables, rodata_64, hot/cold function partitioning, ...
     custom_sections: CustomSections,
+    /// Dwarf information
+    dwarf: Option<Dwarf>,
 }
 
 impl Compilation {
@@ -88,6 +105,7 @@ impl Compilation {
         Self {
             functions,
             custom_sections,
+            dwarf: None,
         }
     }
 
