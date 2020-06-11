@@ -2275,6 +2275,7 @@ name = "wasmer-engine-jit"
 version = "0.16.2"
 dependencies = [
  "bincode",
+ "cfg-if",
  "region",
  "serde",
  "serde_bytes",

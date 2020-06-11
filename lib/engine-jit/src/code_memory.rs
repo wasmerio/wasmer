@@ -1,10 +1,12 @@
 //! Memory management for executable code.
+use crate::unwind::UnwindRegistry;
 use region;
 use std::mem::ManuallyDrop;
+use std::ptr;
 use std::{cmp, mem};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::LocalFunctionIndex;
-use wasmer_compiler::{FunctionBody, SectionBody};
+use wasmer_compiler::{CompiledFunctionUnwindInfo, FunctionBody, SectionBody};
 use wasmer_runtime::{Mmap, VMFunctionBody};
 
 /// The optimal alignment for functions.
@@ -16,18 +18,19 @@ const ARCH_FUNCTION_ALIGNMENT: usize = 16;
 
 struct CodeMemoryEntry {
     mmap: ManuallyDrop<Mmap>,
+    registry: ManuallyDrop<UnwindRegistry>,
 }
 
 impl CodeMemoryEntry {
     fn new() -> Self {
-        Self {
-            mmap: ManuallyDrop::new(Mmap::new()),
-        }
+        let mmap = ManuallyDrop::new(Mmap::new());
+        let registry = ManuallyDrop::new(UnwindRegistry::new(mmap.as_ptr() as usize));
+        Self { mmap, registry }
     }
     fn with_capacity(cap: usize) -> Result<Self, String> {
-        Ok(Self {
-            mmap: ManuallyDrop::new(Mmap::with_at_least(cap)?),
-        })
+        let mmap = ManuallyDrop::new(Mmap::with_at_least(cap)?);
+        let registry = ManuallyDrop::new(UnwindRegistry::new(mmap.as_ptr() as usize));
+        Ok(Self { mmap, registry })
     }
 }
 
@@ -84,9 +87,9 @@ impl CodeMemory {
     ) -> Result<&mut [VMFunctionBody], String> {
         let size = Self::function_allocation_size(func);
 
-        let (buf, start) = self.allocate(size, ARCH_FUNCTION_ALIGNMENT)?;
+        let (buf, registry, start) = self.allocate(size, ARCH_FUNCTION_ALIGNMENT)?;
 
-        let (_, _, vmfunc) = Self::copy_function(func, start as u32, buf);
+        let (_, _, vmfunc) = Self::copy_function(func, start as u32, buf, registry);
         assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
 
         Ok(vmfunc)
@@ -98,7 +101,7 @@ impl CodeMemory {
         section: &SectionBody,
     ) -> Result<&mut [u8], String> {
         let section = section.as_slice();
-        let (buf, _) = self.allocate(section.len(), ARCH_FUNCTION_ALIGNMENT)?;
+        let (buf, _, _) = self.allocate(section.len(), ARCH_FUNCTION_ALIGNMENT)?;
         buf.copy_from_slice(section);
         Ok(buf)
     }
@@ -115,14 +118,14 @@ impl CodeMemory {
                 + Self::function_allocation_size(func)
         });
 
-        let (mut buf, start) = self.allocate(total_len, ARCH_FUNCTION_ALIGNMENT)?;
+        let (mut buf, registry, start) = self.allocate(total_len, ARCH_FUNCTION_ALIGNMENT)?;
         let mut result = Vec::with_capacity(compilation.len());
         let mut start = start as u32;
         let mut padding = 0usize;
 
         for func in compilation.values() {
             let (next_start, next_buf, vmfunc) =
-                Self::copy_function(func, start + padding as u32, &mut buf[padding..]);
+                Self::copy_function(func, start + padding as u32, &mut buf[padding..], registry);
             assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
 
             result.push(vmfunc);
@@ -140,7 +143,7 @@ impl CodeMemory {
         self.push_current(0)
             .expect("failed to push current memory map");
 
-        for CodeMemoryEntry { mmap: m } in &mut self.entries[self.published..] {
+        for CodeMemoryEntry { mmap: m, .. } in &mut self.entries[self.published..] {
             if !m.is_empty() {
                 unsafe {
                     region::protect(m.as_mut_ptr(), m.len(), region::Protection::READ_EXECUTE)
@@ -166,7 +169,7 @@ impl CodeMemory {
         &mut self,
         size: usize,
         alignment: usize,
-    ) -> Result<(&mut [u8], usize), String> {
+    ) -> Result<(&mut [u8], &mut UnwindRegistry, usize), String> {
         assert!(alignment > 0);
 
         let align_padding = get_align_padding_size(self.position, alignment);
@@ -189,17 +192,21 @@ impl CodeMemory {
 
         Ok((
             &mut self.current.mmap.as_mut_slice()[old_position..self.position],
+            &mut self.current.registry,
             old_position,
         ))
     }
 
     /// Calculates the allocation size of the given compiled function.
     fn function_allocation_size(func: &FunctionBody) -> usize {
-        if let Some(unwind_info) = &func.unwind_info {
-            // Account for necessary unwind information alignment padding (32-bit)
-            ((func.body.len() + 3) & !3) + unwind_info.len()
-        } else {
-            func.body.len()
+        match &func.unwind_info {
+            Some(CompiledFunctionUnwindInfo::WindowsX64(info)) => {
+                // Windows unwind information is required to be emitted into code memory
+                // This is because it must be a positive relative offset from the start of the memory
+                // Account for necessary unwind information alignment padding (32-bit alignment)
+                ((func.body.len() + 3) & !3) + info.len()
+            }
+            _ => func.body.len(),
         }
     }
 
@@ -210,19 +217,36 @@ impl CodeMemory {
         func: &FunctionBody,
         func_start: u32,
         buf: &'a mut [u8],
+        registry: &mut UnwindRegistry,
     ) -> (u32, &'a mut [u8], &'a mut [VMFunctionBody]) {
-        let func_end = func_start + (func.body.len() as u32);
+        let func_len = func.body.len();
+        let mut func_end = func_start + (func_len as u32);
 
-        let (body, remainder) = buf.split_at_mut(func.body.len());
+        let (body, mut remainder) = buf.split_at_mut(func_len);
         body.copy_from_slice(&func.body);
         let vmfunc = Self::view_as_mut_vmfunc_slice(body);
 
-        if func.unwind_info.is_none() {
-            return (func_end, remainder, vmfunc);
-        }
-        let unwind_info = func.unwind_info.as_ref().unwrap();
+        if let Some(CompiledFunctionUnwindInfo::WindowsX64(info)) = &func.unwind_info {
+            // Windows unwind information is written following the function body
+            // Keep unwind information 32-bit aligned (round up to the nearest 4 byte boundary)
+            let unwind_start = (func_end + 3) & !3;
+            let unwind_size = info.len();
+            let padding = (unwind_start - func_end) as usize;
 
-        return (func_end, remainder, vmfunc);
+            let (slice, r) = remainder.split_at_mut(padding + unwind_size);
+            slice[padding..].copy_from_slice(&info);
+
+            func_end = unwind_start + (unwind_size as u32);
+            remainder = r;
+        }
+
+        if let Some(info) = &func.unwind_info {
+            registry
+                .register(func_start, func_len as u32, info)
+                .expect("failed to register unwind information");
+        }
+
+        (func_end, remainder, vmfunc)
     }
 
     /// Convert mut a slice from u8 to VMFunctionBody.

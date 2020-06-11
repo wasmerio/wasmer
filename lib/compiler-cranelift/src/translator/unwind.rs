@@ -18,8 +18,8 @@ pub fn compiled_function_unwind_info(
     match unwind_info {
         Some(UnwindInfo::WindowsX64(unwind)) => {
             let size = unwind.emit_size();
-            let mut data = Vec::with_capacity(size);
-            unwind.emit(&mut data);
+            let mut data: Vec<u8> = vec![0; size];
+            unwind.emit(&mut data[..]);
             Ok(Some(CompiledFunctionUnwindInfo::WindowsX64(data)))
         }
         Some(UnwindInfo::SystemV(unwind)) => {
