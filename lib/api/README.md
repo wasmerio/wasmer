@@ -58,11 +58,15 @@ Wasmer has the following configuration flags:
   *This feature is normally used only in development environments*
 * Compilers (mutually exclusive):
   - `singlepass`: it will use `wasmer-compiler-singlepass` as the default
-     compiler.
+     compiler (ideal for **blockchains**).
   - `cranelift`: it will use `wasmer-compiler-cranelift` as the default
-     compiler.
+     compiler (ideal for **development**).
   - `llvm`: it will use `wasmer-compiler-llvm` as the default
-     compiler.
+     compiler (ideal for **production**).
+
+Wasmer ships by default with the `cranelift` compiler as its great for development proposes.
+However, we strongly encourage to use the `llvm` backend in production as it performs
+about 50% faster, achieving near-native speeds.
 
 > Note: if you want to use multiple compilers at the same time, it's also possible!
 > You will need to import them directly via each of the compiler crates.
