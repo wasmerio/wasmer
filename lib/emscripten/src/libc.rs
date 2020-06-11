@@ -56,7 +56,7 @@ pub fn pathconf(ctx: &mut EmEnv, path_ptr: i32, name: i32) -> i32 {
 }
 
 #[cfg(not(unix))]
-pub fn pathconf(_path_ptr: i32, _name: i32) -> i32 {
+pub fn pathconf(_ctx: &mut EmEnv, _path_ptr: i32, _name: i32) -> i32 {
     debug!("emscripten::pathconf");
     0
 }
