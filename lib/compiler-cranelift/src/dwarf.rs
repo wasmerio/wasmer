@@ -87,15 +87,6 @@ impl Writer for WriterRelocate {
 
     fn write_offset(&mut self, _val: usize, _section: SectionId, _size: u8) -> Result<()> {
         unimplemented!("write_offset not yet implemented");
-        // let offset = self.len() as u32;
-        // let target = section.name().to_string();
-        // self.relocs.push(DwarfSectionReloc {
-        //     target,
-        //     offset,
-        //     size,
-        //     addend: val as i32,
-        // });
-        // self.write_udata(val as u64, size)
     }
 
     fn write_offset_at(
@@ -106,13 +97,5 @@ impl Writer for WriterRelocate {
         _size: u8,
     ) -> Result<()> {
         unimplemented!("write_offset_at not yet implemented");
-        // let target = section.name().to_string();
-        // self.relocs.push(DwarfSectionReloc {
-        //     target,
-        //     offset: offset as u32,
-        //     size,
-        //     addend: val as i32,
-        // });
-        // self.write_udata_at(offset, val as u64, size)
     }
 }

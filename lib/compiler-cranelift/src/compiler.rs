@@ -25,11 +25,11 @@ use wasm_common::{
     TableIndex,
 };
 use wasmer_compiler::CompileError;
+use wasmer_compiler::{CallingConvention, CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, Compiler,
     Dwarf, FunctionBody, FunctionBodyData, SectionIndex,
 };
-use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
@@ -93,13 +93,19 @@ impl Compiler for CraneliftCompiler {
         #[cfg(feature = "unwind")]
         let dwarf_frametable = {
             use std::sync::{Arc, Mutex};
-            match isa.create_systemv_cie() {
-                Some(cie) => {
-                    let mut dwarf_frametable = FrameTable::default();
-                    let cie_id = dwarf_frametable.add_cie(cie);
-                    Some((Arc::new(Mutex::new(dwarf_frametable)), cie_id))
+            match self.target().triple().default_calling_convention() {
+                Ok(CallingConvention::SystemV) => {
+                    match isa.create_systemv_cie() {
+                        Some(cie) => {
+                            let mut dwarf_frametable = FrameTable::default();
+                            let cie_id = dwarf_frametable.add_cie(cie);
+                            Some((Arc::new(Mutex::new(dwarf_frametable)), cie_id))
+                        }
+                        // Even though we are in a SystemV system, Cranelift doesn't support it
+                        None => None,
+                    }
                 }
-                None => None,
+                _ => None,
             }
         };
 
