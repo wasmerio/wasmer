@@ -2,7 +2,7 @@
 //! commands.
 
 use crate::common::WasmFeatures;
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::string::ToString;
@@ -370,7 +370,9 @@ impl StoreOptions {
     pub fn get_store(&self) -> Result<(Store, EngineType, CompilerType)> {
         // Get the tunables for the current host
         let tunables = Tunables::default();
-        let (engine, engine_type) = self.get_engine_headless(tunables)?;
+        let (engine, engine_type) = self
+            .get_engine_headless(tunables)
+            .with_context(|| "No compilers enabled. Operating in headless mode")?;
         let store = Store::new(engine);
         Ok((store, engine_type, CompilerType::Headless))
     }

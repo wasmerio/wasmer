@@ -196,7 +196,7 @@ impl NativeEngineInner {
     #[cfg(not(feature = "compiler"))]
     pub fn validate<'data>(&self, _data: &'data [u8]) -> Result<(), CompileError> {
         Err(CompileError::Validate(
-            "Validation is only enabled with the compiler feature".to_string(),
+            "The NativeEngine is not compiled with compiler support, which is required for validating".to_string(),
         ))
     }
 
