@@ -12,11 +12,11 @@ Add to your `Cargo.toml`
 
 ```
 [dependencies]
-wasmer = "0.16.2"
+wasmer = "1.0"
 ```
 
 ```rust
-use wasmer::{Instance, Function, Value, imports, DefaultStore as _};
+use wasmer::{Store, Module, Instance, Value, imports};
 
 fn main() -> anyhow::Result<()> {
     let module_wat = r#"
@@ -28,10 +28,11 @@ fn main() -> anyhow::Result<()> {
         i32.add))
     "#;
 
-    let module = Module::new(&module_wat);
+    let store = Store::default();
+    let module = Module::new(&store, &module_wat);
     // The module doesn't import anything, so we create an empty import object.
     let import_object = imports! {};
-    let instance = Instance::new(module, &import_object)?;
+    let instance = Instance::new(&module, &import_object)?;
 
     let add_one = instance.exports.get_function("add_one")?;
     let result = add_one.call([Value::I32(42)])?;

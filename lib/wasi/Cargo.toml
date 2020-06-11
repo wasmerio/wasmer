@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasi"
-version = "0.16.2"
+version = "1.0.0"
 description = "Wasmer runtime WASI implementation library"
 license = "MIT"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -20,7 +20,7 @@ getrandom = "0.1"
 time = "0.1"
 typetag = "0.1"
 serde = { version = "1.0", features = ["derive"] }
-wasmer = { path = "../api", version = "0.16.2", default-features = false }
+wasmer = { path = "../api", version = "1.0.0", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
