@@ -62,6 +62,20 @@ pub enum CompilerType {
     Headless,
 }
 
+impl CompilerType {
+    /// Return all enabled compilers
+    pub fn enabled() -> Vec<CompilerType> {
+        vec![
+            #[cfg(feature = "singlepass")]
+            Self::Singlepass,
+            #[cfg(feature = "cranelift")]
+            Self::Cranelift,
+            #[cfg(feature = "llvm")]
+            Self::LLVM,
+        ]
+    }
+}
+
 impl ToString for CompilerType {
     fn to_string(&self) -> String {
         match self {

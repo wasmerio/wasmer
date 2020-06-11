@@ -70,14 +70,25 @@ pub struct Run {
 impl Run {
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
-        self.inner_execute()
-            .context(format!("failed to run `{}`", self.path.display()))
+        self.inner_execute().with_context(|| {
+            let compilers = CompilerType::enabled()
+                .iter()
+                .map(|c| c.to_string())
+                .collect::<Vec<String>>();
+            format!(
+                "failed to run `{}`{}",
+                self.path.display(),
+                if compilers.len() > 0 {
+                    ""
+                } else {
+                    " (no compilers enabled)"
+                }
+            )
+        })
     }
 
     fn inner_execute(&self) -> Result<()> {
-        let module = self
-            .get_module()
-            .with_context(|| "module instantiation failed")?;
+        let module = self.get_module()?;
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
@@ -148,14 +159,21 @@ impl Run {
         }
         let (store, engine_type, compiler_type) = self.store.get_store()?;
         #[cfg(feature = "cache")]
-        let mut module = if !self.disable_cache && contents.len() > 0x1000 {
-            self.get_module_from_cache(&store, &contents, engine_type, compiler_type)?
+        let module_result: Result<Module> = if !self.disable_cache && contents.len() > 0x1000 {
+            self.get_module_from_cache(&store, &contents, &engine_type, &compiler_type)
         } else {
-            Module::new(&store, &contents)?
+            Module::new(&store, &contents).map_err(|e| e.into())
         };
         #[cfg(not(feature = "cache"))]
-        let mut module = Module::new(&store, &contents)?;
+        let module_result = Module::new(&store, &contents);
 
+        let mut module = module_result.with_context(|| {
+            format!(
+                "module instantiation failed (engine: {}, compiler: {})",
+                engine_type.to_string(),
+                compiler_type.to_string()
+            )
+        })?;
         // We set the name outside the cache, to make sure we dont cache the name
         module.set_name(&self.path.file_name().unwrap_or_default().to_string_lossy());
 
@@ -167,8 +185,8 @@ impl Run {
         &self,
         store: &Store,
         contents: &[u8],
-        engine_type: EngineType,
-        compiler_type: CompilerType,
+        engine_type: &EngineType,
+        compiler_type: &CompilerType,
     ) -> Result<Module> {
         // We try to get it from cache, in case caching is enabled
         // and the file length is greater than 4KB.
