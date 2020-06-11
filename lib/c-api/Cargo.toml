@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-c-api"
-version = "1.0.0"
+version = "1.0.0-alpha.1"
 description = "Wasmer C API library"
 documentation = "https://wasmerio.github.io/wasmer/c-api/"
 license = "MIT"
@@ -23,28 +23,28 @@ thiserror = "1"
 paste = "0.1"
 # for generating code in the same way thot the wasm-c-api does
 # Commented out for now until we can find a solution to the exported function problem
-# wasmer-wasm-c-api = { version = "1.0.0", path = "crates/wasm-c-api" }
+# wasmer-wasm-c-api = { version = "1.0.0-alpha.1", path = "crates/wasm-c-api" }
 
 [dependencies.wasmer]
 default-features = false
 features = ["compiler", "engine", "jit"]
 path = "../api"
-version = "1.0.0"
+version = "1.0.0-alpha.1"
 
 [dependencies.wasm-common]
 default-features = false
 path = "../wasm-common"
-version = "1.0.0"
+version = "1.0.0-alpha.1"
 
 [dependencies.wasmer-wasi]
 default-features = false
 path = "../wasi"
-version = "1.0.0"
+version = "1.0.0-alpha.1"
 optional = true
 
 #[dependencies.wasmer-emscripten]
 #path = "../emscripten"
-#version = "1.0.0"
+#version = "1.0.0-alpha.1"
 #optional = true
 
 [features]

@@ -4,7 +4,7 @@ use crate::DummyArtifact;
 use std::sync::Arc;
 use wasm_common::FunctionType;
 use wasmer_compiler::{CompileError, Features};
-use wasmer_engine::{Artifact, DeserializeError, Engine, Tunables};
+use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{
     SignatureRegistry, VMContext, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
@@ -23,6 +23,7 @@ pub struct DummyEngine {
     signatures: Arc<SignatureRegistry>,
     features: Arc<Features>,
     tunables: Arc<dyn Tunables + Send + Sync>,
+    engine_id: EngineId,
 }
 
 impl DummyEngine {
@@ -32,6 +33,7 @@ impl DummyEngine {
             signatures: Arc::new(SignatureRegistry::new()),
             tunables: Arc::new(tunables),
             features: Arc::new(Default::default()),
+            engine_id: EngineId::default(),
         }
     }
 
@@ -96,5 +98,9 @@ impl Engine for DummyEngine {
     /// Deserializes a WebAssembly module (binary content of a Shared Object file)
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
         Ok(Arc::new(DummyArtifact::deserialize(&self, &bytes)?))
+    }
+
+    fn id(&self) -> &EngineId {
+        &self.engine_id
     }
 }

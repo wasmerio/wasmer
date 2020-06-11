@@ -10,7 +10,7 @@ use wasmer_compiler::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
-use wasmer_engine::{Artifact, DeserializeError, Engine, Tunables};
+use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{
     ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
@@ -20,6 +20,7 @@ use wasmer_runtime::{
 pub struct JITEngine {
     inner: Arc<Mutex<JITEngineInner>>,
     tunables: Arc<dyn Tunables + Send + Sync>,
+    engine_id: EngineId,
 }
 
 impl JITEngine {
@@ -38,6 +39,7 @@ impl JITEngine {
                 signatures: SignatureRegistry::new(),
             })),
             tunables: Arc::new(tunables),
+            engine_id: EngineId::default(),
         }
     }
 
@@ -64,6 +66,7 @@ impl JITEngine {
                 signatures: SignatureRegistry::new(),
             })),
             tunables: Arc::new(tunables),
+            engine_id: EngineId::default(),
         }
     }
 
@@ -113,6 +116,10 @@ impl Engine for JITEngine {
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
         Ok(Arc::new(JITArtifact::deserialize(&self, &bytes)?))
     }
+
+    fn id(&self) -> &EngineId {
+        &self.engine_id
+    }
 }
 
 /// The inner contents of `JITEngine`
@@ -131,7 +138,7 @@ pub struct JITEngineInner {
 }
 
 impl JITEngineInner {
-    /// Gets the compiler associated to this JIT
+    /// Gets the compiler associated to this engine.
     #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
@@ -150,7 +157,8 @@ impl JITEngineInner {
     #[cfg(not(feature = "compiler"))]
     pub fn validate<'data>(&self, _data: &'data [u8]) -> Result<(), CompileError> {
         Err(CompileError::Validate(
-            "Validation is only enabled with the compiler feature".to_string(),
+            "The JITEngine is not compiled with compiler support, which is required for validating"
+                .to_string(),
         ))
     }
 

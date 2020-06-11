@@ -9,6 +9,7 @@ use std::string::ToString;
 use std::sync::Arc;
 use structopt::StructOpt;
 use wasmer::*;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 
 #[derive(Debug, Clone, StructOpt)]
@@ -61,6 +62,20 @@ pub enum CompilerType {
     Headless,
 }
 
+impl CompilerType {
+    /// Return all enabled compilers
+    pub fn enabled() -> Vec<CompilerType> {
+        vec![
+            #[cfg(feature = "singlepass")]
+            Self::Singlepass,
+            #[cfg(feature = "cranelift")]
+            Self::Cranelift,
+            #[cfg(feature = "llvm")]
+            Self::LLVM,
+        ]
+    }
+}
+
 impl ToString for CompilerType {
     fn to_string(&self) -> String {
         match self {
@@ -104,13 +119,13 @@ impl StoreOptions {
             // Auto mode, we choose the best compiler for that platform
             cfg_if::cfg_if! {
                 if #[cfg(all(feature = "cranelift", target_arch = "x86_64"))] {
-                    return Ok(CompilerType::Cranelift);
+                    Ok(CompilerType::Cranelift)
                 }
                 else if #[cfg(all(feature = "singlepass", target_arch = "x86_64"))] {
-                    return Ok(CompilerType::Singlepass);
+                    Ok(CompilerType::Singlepass)
                 }
                 else if #[cfg(feature = "llvm")] {
-                    return Ok(CompilerType::LLVM);
+                    Ok(CompilerType::LLVM)
                 } else {
                     bail!("There are no available compilers for your architecture");
                 }
@@ -303,7 +318,7 @@ impl StoreOptions {
                 engine.to_string()
             ),
         };
-        return Ok((engine, engine_type));
+        Ok((engine, engine_type))
     }
 }
 
@@ -363,7 +378,7 @@ impl StoreOptions {
                 engine.to_string()
             ),
         };
-        return Ok((engine, engine_type));
+        Ok((engine, engine_type))
     }
 
     /// Get the store (headless engine)
