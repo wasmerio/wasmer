@@ -11,8 +11,12 @@
   (global (;6;) (mut f64) (f64.const -14))
   (global $y (mut i64) (i64.const -15))
 
+  (global $r externref (ref.null extern))
+  (global funcref (ref.null func))
+
   (func (export "get-a") (result i32) (global.get $a))
   (func (export "get-b") (result i64) (global.get $b))
+  (func (export "get-r") (result externref) (global.get $r))
   (func (export "get-x") (result i32) (global.get $x))
   (func (export "get-y") (result i64) (global.get $y))
   (func (export "set-x") (param i32) (global.set $x (local.get 0)))
@@ -180,6 +184,7 @@
 
 (assert_return (invoke "get-a") (i32.const -2))
 (assert_return (invoke "get-b") (i64.const -5))
+(assert_return (invoke "get-r") (ref.null extern))
 (assert_return (invoke "get-x") (i32.const -12))
 (assert_return (invoke "get-y") (i64.const -15))
 
@@ -289,6 +294,11 @@
 )
 
 (assert_invalid
+  (module (global (import "" "") externref) (global funcref (global.get 0)))
+  "type mismatch"
+)
+
+(assert_invalid
   (module (global i32 (global.get 0)))
   "unknown global"
 )
@@ -310,9 +320,9 @@
       "\0a\67\6c\6f\62\61\6c\5f\69\33\32" ;; "global_i32"
       "\03"                          ;; GlobalImport
       "\7f"                          ;; i32
-      "\02"                          ;; invalid mutability
+      "\02"                          ;; malformed mutability
   )
-  "invalid mutability"
+  "malformed mutability"
 )
 (assert_malformed
   (module binary
@@ -323,9 +333,9 @@
       "\0a\67\6c\6f\62\61\6c\5f\69\33\32" ;; "global_i32"
       "\03"                          ;; GlobalImport
       "\7f"                          ;; i32
-      "\ff"                          ;; invalid mutability
+      "\ff"                          ;; malformed mutability
   )
-  "invalid mutability"
+  "malformed mutability"
 )
 
 (module
@@ -337,11 +347,11 @@
     "\06\86\80\80\80\00"  ;; global section
       "\01"               ;; length 1
       "\7f"               ;; i32
-      "\02"               ;; invalid mutability
+      "\02"               ;; malformed mutability
       "\41\00"            ;; i32.const 0
       "\0b"               ;; end
   )
-  "invalid mutability"
+  "malformed mutability"
 )
 (assert_malformed
   (module binary
@@ -349,11 +359,11 @@
     "\06\86\80\80\80\00"  ;; global section
       "\01"               ;; length 1
       "\7f"               ;; i32
-      "\ff"               ;; invalid mutability
+      "\ff"               ;; malformed mutability
       "\41\00"            ;; i32.const 0
       "\0b"               ;; end
   )
-  "invalid mutability"
+  "malformed mutability"
 )
 
 
@@ -480,3 +490,18 @@
   )
   "type mismatch"
 )
+
+;; Duplicate identifier errors
+
+(assert_malformed (module quote
+  "(global $foo i32 (i32.const 0))"
+  "(global $foo i32 (i32.const 0))")
+  "duplicate global")
+(assert_malformed (module quote
+  "(import \"\" \"\" (global $foo i32))"
+  "(global $foo i32 (i32.const 0))")
+  "duplicate global")
+(assert_malformed (module quote
+  "(import \"\" \"\" (global $foo i32))"
+  "(import \"\" \"\" (global $foo i32))")
+  "duplicate global")

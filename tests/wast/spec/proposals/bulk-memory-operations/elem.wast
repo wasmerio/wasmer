@@ -8,18 +8,18 @@
 
   ;; Passive
   (elem funcref)
-  (elem funcref (ref.func $f) (ref.func $f) (ref.null) (ref.func $g))
+  (elem funcref (ref.func $f) (ref.func $f) (ref.null func) (ref.func $g))
   (elem func)
   (elem func $f $f $g $g)
 
   (elem $p1 funcref)
-  (elem $p2 funcref (ref.func $f) (ref.func $f) (ref.null) (ref.func $g))
+  (elem $p2 funcref (ref.func $f) (ref.func $f) (ref.null func) (ref.func $g))
   (elem $p3 func)
   (elem $p4 func $f $f $g $g)
 
   ;; Active
   (elem (table $t) (i32.const 0) funcref)
-  (elem (table $t) (i32.const 0) funcref (ref.func $f) (ref.null))
+  (elem (table $t) (i32.const 0) funcref (ref.func $f) (ref.null func))
   (elem (table $t) (i32.const 0) func)
   (elem (table $t) (i32.const 0) func $f $g)
   (elem (table $t) (offset (i32.const 0)) funcref)
@@ -33,16 +33,16 @@
   (elem (table $t) (offset (i32.const 0)) func)
   (elem (table $t) (offset (i32.const 0)) func $f $f)
   (elem (offset (i32.const 0)))
-  (elem (offset (i32.const 0)) funcref (ref.func $f) (ref.null))
+  (elem (offset (i32.const 0)) funcref (ref.func $f) (ref.null func))
   (elem (offset (i32.const 0)) func $f $f)
   (elem (offset (i32.const 0)) $f $f)
   (elem (i32.const 0))
-  (elem (i32.const 0) funcref (ref.func $f) (ref.null))
+  (elem (i32.const 0) funcref (ref.func $f) (ref.null func))
   (elem (i32.const 0) func $f $f)
   (elem (i32.const 0) $f $f)
 
   (elem $a1 (table $t) (i32.const 0) funcref)
-  (elem $a2 (table $t) (i32.const 0) funcref (ref.func $f) (ref.null))
+  (elem $a2 (table $t) (i32.const 0) funcref (ref.func $f) (ref.null func))
   (elem $a3 (table $t) (i32.const 0) func)
   (elem $a4 (table $t) (i32.const 0) func $f $g)
   (elem $a9 (table $t) (offset (i32.const 0)) funcref)
@@ -56,11 +56,11 @@
   (elem $a17 (table $t) (offset (i32.const 0)) func)
   (elem $a18 (table $t) (offset (i32.const 0)) func $f $f)
   (elem $a19 (offset (i32.const 0)))
-  (elem $a20 (offset (i32.const 0)) funcref (ref.func $f) (ref.null))
+  (elem $a20 (offset (i32.const 0)) funcref (ref.func $f) (ref.null func))
   (elem $a21 (offset (i32.const 0)) func $f $f)
   (elem $a22 (offset (i32.const 0)) $f $f)
   (elem $a23 (i32.const 0))
-  (elem $a24 (i32.const 0) funcref (ref.func $f) (ref.null))
+  (elem $a24 (i32.const 0) funcref (ref.func $f) (ref.null func))
   (elem $a25 (i32.const 0) func $f $f)
   (elem $a26 (i32.const 0) $f $f)
 )
@@ -69,7 +69,7 @@
   (func $f)
   (func $g)
 
-  (table $t funcref (elem (ref.func $f) (ref.null) (ref.func $g)))
+  (table $t funcref (elem (ref.func $f) (ref.null func) (ref.func $g)))
 )
 ;; Basic use
 

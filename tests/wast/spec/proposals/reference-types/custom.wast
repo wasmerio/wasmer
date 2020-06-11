@@ -95,14 +95,14 @@
     "\00\25\10" "a custom section" "this is the payload"
     "\00\24\10" "a custom section" "this is the payload"
   )
-  "invalid section id"
+  "malformed section id"
 )
 
 (assert_malformed
   (module binary
     "\00asm" "\01\00\00\00"
     "\01\07\01\60\02\7f\7f\01\7f"                         ;; type section
-    "\00\25\10" "a custom section" "this is the payload"  ;; invalid length!
+    "\00\25\10" "a custom section" "this is the payload"  ;; wrong length!
     "\03\02\01\00"                                        ;; function section
     "\0a\09\01\07\00\20\00\20\01\6a\0b"                   ;; code section
     "\00\1b\07" "custom2" "this is the payload"           ;; custom section

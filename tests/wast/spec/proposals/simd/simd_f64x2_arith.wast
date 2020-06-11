@@ -5296,7 +5296,7 @@
 (assert_return (invoke "f64x2_mul_mixed") (v128.const f64x2 nan:arithmetic nan:canonical))
 (assert_return (invoke "f64x2_neg_canon") (v128.const f64x2 nan:canonical -1.0))
 (assert_return (invoke "f64x2_sqrt_canon") (v128.const f64x2 2.0 nan:canonical))
-(assert_return (invoke "f64x2_sub_arith") (v128.const f64x2 nan -2.0))
+(assert_return (invoke "f64x2_sub_arith") (v128.const f64x2 nan:canonical -2.0))
 
 ;; type check
 (assert_invalid (module (func (result v128) (f64x2.neg (i64.const 0)))) "type mismatch")
