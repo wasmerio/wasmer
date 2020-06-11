@@ -24,7 +24,7 @@ impl DummyUnwindRegistry {
     }
 
     /// Publishes all registered functions.
-    pub fn publish(&mut self) -> Result<(), String> {
+    pub fn publish(&mut self, eh_frame: Option<&[u8]>) -> Result<(), String> {
         // Do nothing
         Ok(())
     }

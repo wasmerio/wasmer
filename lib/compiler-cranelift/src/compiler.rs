@@ -17,9 +17,7 @@ use cranelift_codegen::ir;
 use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{binemit, isa, Context};
 #[cfg(feature = "unwind")]
-use gimli::write::{Address, EhFrame, EndianVec, FrameTable, Sections, Writer};
-#[cfg(feature = "unwind")]
-use gimli::{RunTimeEndian, SectionId};
+use gimli::write::{Address, EhFrame, FrameTable};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
@@ -189,6 +187,7 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
+        let mut custom_sections = PrimaryMap::new();
         let mut eh_frame = EhFrame(WriterRelocate::default());
         dwarf_frametable
             .lock()
@@ -197,9 +196,6 @@ impl Compiler for CraneliftCompiler {
             .unwrap();
 
         let eh_frame_section = eh_frame.0.into_section();
-        println!("section: {:?}", eh_frame_section);
-
-        let mut custom_sections = PrimaryMap::new();
         custom_sections.push(eh_frame_section);
 
         let dwarf = Dwarf::new(SectionIndex::new(0));

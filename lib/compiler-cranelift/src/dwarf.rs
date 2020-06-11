@@ -1,4 +1,4 @@
-use gimli::write::{Address, Dwarf, EndianVec, FrameTable, Result, Sections, Writer};
+use gimli::write::{Address, EndianVec, Result, Writer};
 use gimli::{RunTimeEndian, SectionId};
 use wasm_common::entity::EntityRef;
 use wasm_common::LocalFunctionIndex;
@@ -84,7 +84,7 @@ impl Writer for WriterRelocate {
         }
     }
 
-    fn write_offset(&mut self, val: usize, section: SectionId, size: u8) -> Result<()> {
+    fn write_offset(&mut self, _val: usize, _section: SectionId, _size: u8) -> Result<()> {
         unimplemented!("write_offset not yet implemented");
         // let offset = self.len() as u32;
         // let target = section.name().to_string();
@@ -99,10 +99,10 @@ impl Writer for WriterRelocate {
 
     fn write_offset_at(
         &mut self,
-        offset: usize,
-        val: usize,
-        section: SectionId,
-        size: u8,
+        _offset: usize,
+        _val: usize,
+        _section: SectionId,
+        _size: u8,
     ) -> Result<()> {
         unimplemented!("write_offset_at not yet implemented");
         // let target = section.name().to_string();

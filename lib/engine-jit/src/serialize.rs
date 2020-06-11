@@ -5,7 +5,9 @@ use wasm_common::{
     Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
-use wasmer_compiler::{CustomSection, FunctionBody, JumpTableOffsets, Relocation, SectionIndex};
+use wasmer_compiler::{
+    CustomSection, Dwarf, FunctionBody, JumpTableOffsets, Relocation, SectionIndex,
+};
 use wasmer_engine::SerializableFunctionFrameInfo;
 use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -24,6 +26,8 @@ pub struct SerializableCompilation {
     pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
     pub custom_sections: PrimaryMap<SectionIndex, CustomSection>,
     pub custom_section_relocations: PrimaryMap<SectionIndex, Vec<Relocation>>,
+    // The section corresponding to the Dwarf debug infos
+    pub dwarf: Option<Dwarf>,
 }
 
 /// Serializable struct that is able to serialize from and to

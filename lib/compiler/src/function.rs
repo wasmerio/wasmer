@@ -77,12 +77,12 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 /// In the future this structure may also hold other information useful
 /// for debugging.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dwarf {
     /// The section index in the [`Compilation`] that corresponds to the exception frames.
     /// More info:
     /// https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html
-    eh_frame: SectionIndex,
+    pub eh_frame: SectionIndex,
 }
 
 impl Dwarf {
@@ -178,6 +178,11 @@ impl Compilation {
             .iter()
             .map(|(_, section)| section.relocations.clone())
             .collect::<PrimaryMap<SectionIndex, _>>()
+    }
+
+    /// Returns the Dwarf info.
+    pub fn get_dwarf(&self) -> Option<Dwarf> {
+        self.dwarf.clone()
     }
 }
 

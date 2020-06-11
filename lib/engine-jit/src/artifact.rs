@@ -118,6 +118,7 @@ impl JITArtifact {
             dynamic_function_trampolines,
             custom_sections: compilation.get_custom_sections(),
             custom_section_relocations: compilation.get_custom_section_relocations(),
+            dwarf: compilation.get_dwarf(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -191,8 +192,21 @@ impl JITArtifact {
                 .collect::<PrimaryMap<_, _>>()
         };
 
+        let eh_frame = match &serializable.compilation.dwarf {
+            Some(dwarf) => {
+                let eh_frame_section_size = serializable.compilation.custom_sections
+                    [dwarf.eh_frame]
+                    .bytes
+                    .len();
+                let eh_frame_section_pointer = custom_sections[dwarf.eh_frame];
+                Some(unsafe {
+                    std::slice::from_raw_parts(eh_frame_section_pointer, eh_frame_section_size)
+                })
+            }
+            None => None,
+        };
         // Make all code compiled thus far executable.
-        inner_jit.publish_compiled_code();
+        inner_jit.publish_compiled_code(eh_frame);
 
         let finished_functions = finished_functions.into_boxed_slice();
         let finished_dynamic_function_trampolines =

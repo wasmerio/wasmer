@@ -248,8 +248,8 @@ impl JITEngineInner {
     }
 
     /// Make memory containing compiled code executable.
-    pub(crate) fn publish_compiled_code(&mut self) {
-        self.code_memory.publish();
+    pub(crate) fn publish_compiled_code(&mut self, eh_frame: Option<&[u8]>) {
+        self.code_memory.publish(eh_frame);
     }
 
     /// Shared signature registry.

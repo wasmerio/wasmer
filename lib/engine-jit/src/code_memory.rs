@@ -2,7 +2,6 @@
 use crate::unwind::UnwindRegistry;
 use region;
 use std::mem::ManuallyDrop;
-use std::ptr;
 use std::{cmp, mem};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::LocalFunctionIndex;
@@ -140,7 +139,7 @@ impl CodeMemory {
     }
 
     /// Make all allocated memory executable.
-    pub fn publish(&mut self) {
+    pub fn publish(&mut self, eh_frame: Option<&[u8]>) {
         self.push_current(0)
             .expect("failed to push current memory map");
 
@@ -150,7 +149,7 @@ impl CodeMemory {
         } in &mut self.entries[self.published..]
         {
             // Remove write access to the pages due to the relocation fixups.
-            r.publish()
+            r.publish(eh_frame)
                 .expect("failed to publish function unwind registry");
 
             if !m.is_empty() {

@@ -32,28 +32,28 @@ impl UnwindRegistry {
         }
 
         match info {
-            CompiledFunctionUnwindInfo::WindowsX64(_) => {
-                let mut entry = winnt::RUNTIME_FUNCTION::default();
+            CompiledFunctionUnwindInfo::WindowsX64(_) => {}
+            _ => return Err("unsupported unwind information".to_string()),
+        };
 
-                entry.BeginAddress = func_start;
-                entry.EndAddress = func_start + func_len;
+        let mut entry = winnt::RUNTIME_FUNCTION::default();
 
-                // The unwind information should be immediately following the function
-                // with padding for 4 byte alignment
-                unsafe {
-                    *entry.u.UnwindInfoAddress_mut() = (entry.EndAddress + 3) & !3;
-                }
+        entry.BeginAddress = func_start;
+        entry.EndAddress = func_start + func_len;
 
-                self.functions.push(entry);
-
-                Ok(())
-            }
-            _ => Err("unsupported unwind information".to_string()),
+        // The unwind information should be immediately following the function
+        // with padding for 4 byte alignment
+        unsafe {
+            *entry.u.UnwindInfoAddress_mut() = (entry.EndAddress + 3) & !3;
         }
+
+        self.functions.push(entry);
+
+        Ok(())
     }
 
     /// Publishes all registered functions.
-    pub fn publish(&mut self) -> Result<(), String> {
+    pub fn publish(&mut self, _eh_frame: Option<&[u8]>) -> Result<(), String> {
         if self.published {
             return Err("unwind registry has already been published".to_string());
         }
