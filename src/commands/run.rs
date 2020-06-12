@@ -109,7 +109,7 @@ impl Run {
         #[cfg(feature = "wasi")]
         {
             let wasi_version = Wasi::get_version(&module);
-            if let Some(version) = wasi_version {
+            if wasi_version.is_some() {
                 let program_name = self
                     .command_name
                     .clone()
@@ -121,7 +121,7 @@ impl Run {
                     .unwrap_or_default();
                 return self
                     .wasi
-                    .execute(module, version, program_name, self.args.clone())
+                    .execute(module, program_name, self.args.clone())
                     .with_context(|| "WASI execution failed");
             }
         }
