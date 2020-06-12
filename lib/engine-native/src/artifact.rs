@@ -294,38 +294,38 @@ impl NativeArtifact {
 
         let shared_file = NamedTempFile::new().map_err(to_compile_error)?;
         let (_file, shared_filepath) = shared_file.keep().map_err(to_compile_error)?;
-        let wasmer_symbols = libcalls
-            .iter()
-            .map(|libcall| {
-                match target_triple.binary_format {
-                    BinaryFormat::Macho => format!("-Wl,-U,_{}", libcall),
-                    BinaryFormat::Elf => format!("-Wl,--undefined={}", libcall),
-                    _ => {
-                        // We should already be filtering only valid binary formats before
-                        // so this should never happen.
-                        unreachable!("Incorrect binary format")
-                    }
-                }
-            })
-            .collect::<Vec<String>>();
 
-        let is_cross_compiling = target_triple != Triple::host();
+        let host_target = Triple::host();
+        let is_cross_compiling = target_triple != host_target;
         let cross_compiling_args = if is_cross_compiling {
             vec![
                 format!("--target={}", target_triple),
                 "-fuse-ld=lld".to_string(),
+                "-nodefaultlibs".to_string(),
+                "-nostdlib".to_string(),
             ]
         } else {
             vec![]
         };
-        let output = Command::new("gcc")
+        trace!(
+            "Compiling for target {} from host {}",
+            target_triple.to_string(),
+            host_target.to_string()
+        );
+
+        let linker = if is_cross_compiling {
+            "clang-10"
+        } else {
+            "gcc"
+        };
+
+        let output = Command::new(linker)
             .arg(&filepath)
             .arg("-nostartfiles")
-            .arg("-nodefaultlibs")
-            .arg("-nostdlib")
             .arg("-o")
             .arg(&shared_filepath)
-            .args(&wasmer_symbols)
+            .arg("-Wl,-undefined,dynamic_lookup")
+            // .args(&wasmer_symbols)
             .arg("-shared")
             .args(&cross_compiling_args)
             .arg("-v")
