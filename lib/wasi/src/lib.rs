@@ -26,7 +26,7 @@ pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 
 use thiserror::Error;
-use wasmer::{imports, Function, ImportObject, Memory, Store};
+use wasmer::{imports, Function, ImportObject, Memory, Module, Store};
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
@@ -34,6 +34,8 @@ use wasmer::{imports, Function, ImportObject, Memory, Store};
 pub enum WasiError {
     #[error("WASI exited with code: {0}")]
     Exit(syscalls::types::__wasi_exitcode_t),
+    #[error("The WASI version could not be determined")]
+    UnknownWasiVersion,
 }
 
 /// The environment provided to the WASI imports.
@@ -49,6 +51,15 @@ impl<'a> WasiEnv<'a> {
             state,
             memory: None,
         }
+    }
+
+    pub fn import_object(&mut self, module: &Module) -> Result<ImportObject, WasiError> {
+        let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
+        Ok(generate_import_object_from_env(
+            module.store(),
+            self,
+            wasi_version,
+        ))
     }
 
     /// Set the memory

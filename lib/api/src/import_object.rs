@@ -184,8 +184,8 @@ impl IntoIterator for ImportObject {
 ///
 /// [`ImportObject`]: struct.ImportObject.html
 ///
+/// # Usage
 ///
-/// # Usage:
 /// ```
 /// # use wasmer::{Function, Store};
 /// # let store = Store::default();
@@ -194,7 +194,7 @@ impl IntoIterator for ImportObject {
 /// let import_object = imports! {
 ///     "env" => {
 ///         "foo" => Function::new(&store, foo)
-///     }
+///     },
 /// };
 ///
 /// fn foo(n: i32) -> i32 {
@@ -202,43 +202,45 @@ impl IntoIterator for ImportObject {
 /// }
 /// ```
 #[macro_export]
-// TOOD: port of lost fixes of imports macro from wasmer master/imports macro tests
 macro_rules! imports {
-    ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {{
-        use $crate::ImportObject;
+    ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {
+        {
+            let mut import_object = $crate::ImportObject::new();
 
-        let mut import_object = ImportObject::new();
+            $({
+                let namespace = $crate::import_namespace!($ns);
 
-        $({
-            let ns = $crate::import_namespace!($ns);
+                import_object.register($ns_name, namespace);
+            })*
 
-            import_object.register($ns_name, ns);
-        })*
-
-        import_object
-    }};
+            import_object
+        }
+    };
 }
 
 #[macro_export]
 #[doc(hidden)]
 macro_rules! namespace {
-    ($( $imp_name:expr => $import_item:expr ),* $(,)? ) => {
-        $crate::import_namespace!({ $( $imp_name => $import_item, )* })
+    ($( $import_name:expr => $import_item:expr ),* $(,)? ) => {
+        $crate::import_namespace!( { $( $import_name => $import_item, )* } )
     };
 }
 
 #[macro_export]
 #[doc(hidden)]
 macro_rules! import_namespace {
-    ( { $( $imp_name:expr => $import_item:expr ),* $(,)? } ) => {{
-        let mut ns = $crate::Exports::new();
+    ( { $( $import_name:expr => $import_item:expr ),* $(,)? } ) => {{
+        let mut namespace = $crate::Exports::new();
+
         $(
-            ns.insert($imp_name, $import_item);
+            namespace.insert($import_name, $import_item);
         )*
-        ns
+
+        namespace
     }};
-    ($ns:ident) => {
-        $ns
+
+    ( $namespace:ident ) => {
+        $namespace
     };
 }
 
@@ -353,5 +355,57 @@ mod test {
         } else {
             false
         });
+    }
+
+    #[test]
+    fn imports_macro_allows_trailing_comma_and_none() {
+        use crate::Function;
+
+        let store = Default::default();
+
+        fn func(arg: i32) -> i32 {
+            arg + 1
+        }
+
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new(&store, func),
+            },
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new(&store, func),
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new(&store, func),
+            },
+            "abc" => {
+                "def" => Function::new(&store, func),
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new(&store, func)
+            },
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new(&store, func)
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func1" => Function::new(&store, func),
+                "func2" => Function::new(&store, func)
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func1" => Function::new(&store, func),
+                "func2" => Function::new(&store, func),
+            }
+        };
     }
 }

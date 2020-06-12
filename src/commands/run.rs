@@ -1,5 +1,5 @@
 use crate::common::get_cache_dir;
-use crate::store::StoreOptions;
+use crate::store::{CompilerType, EngineType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
@@ -69,23 +69,27 @@ pub struct Run {
 }
 
 impl Run {
-    #[cfg(feature = "cache")]
-    /// Get the Compiler Filesystem cache
-    fn get_cache(&self, engine_name: String, compiler_name: String) -> Result<FileSystemCache> {
-        let mut cache_dir_root = get_cache_dir();
-        cache_dir_root.push(engine_name);
-        cache_dir_root.push(compiler_name);
-        Ok(FileSystemCache::new(cache_dir_root)?)
-    }
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
-        self.inner_execute()
-            .context(format!("failed to run `{}`", self.path.display()))
+        self.inner_execute().with_context(|| {
+            let compilers = CompilerType::enabled()
+                .iter()
+                .map(|c| c.to_string())
+                .collect::<Vec<String>>();
+            format!(
+                "failed to run `{}`{}",
+                self.path.display(),
+                if compilers.len() > 0 {
+                    ""
+                } else {
+                    " (no compilers enabled)"
+                }
+            )
+        })
     }
+
     fn inner_execute(&self) -> Result<()> {
-        let module = self
-            .get_module()
-            .with_context(|| "module instantiation failed")?;
+        let module = self.get_module()?;
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
             let imports = imports! {};
@@ -138,7 +142,7 @@ impl Run {
         #[cfg(feature = "wasi")]
         {
             let wasi_version = Wasi::get_version(&module);
-            if let Some(version) = wasi_version {
+            if wasi_version.is_some() {
                 let program_name = self
                     .command_name
                     .clone()
@@ -150,7 +154,7 @@ impl Run {
                     .unwrap_or_default();
                 return self
                     .wasi
-                    .execute(module, version, program_name, self.args.clone())
+                    .execute(module, program_name, self.args.clone())
                     .with_context(|| "WASI execution failed");
             }
         }
@@ -187,45 +191,74 @@ impl Run {
             }
         }
         let (store, engine_type, compiler_type) = self.store.get_store()?;
-        // We try to get it from cache, in case caching is enabled
-        // and the file length is greater than 4KB.
-        // For files smaller than 4KB caching is not worth,
-        // as it takes space and the speedup is minimal.
-        let mut module =
-            if cfg!(feature = "cache") && !self.disable_cache && contents.len() > 0x1000 {
-                let mut cache =
-                    self.get_cache(engine_type.to_string(), compiler_type.to_string())?;
-                // Try to get the hash from the provided `--cache-key`, otherwise
-                // generate one from the provided file `.wasm` contents.
-                let hash = self
-                    .cache_key
-                    .as_ref()
-                    .and_then(|key| WasmHash::from_str(&key).ok())
-                    .unwrap_or_else(|| WasmHash::generate(&contents));
-                match unsafe { cache.load(&store, hash) } {
-                    Ok(module) => module,
-                    Err(e) => {
-                        match e {
-                            DeserializeError::Io(_) => {
-                                // Do not notify on IO errors
-                            }
-                            err => {
-                                warning!("cached module is corrupted: {}", err);
-                            }
-                        }
-                        let module = Module::new(&store, &contents)?;
-                        // Store the compiled Module in cache
-                        cache.store(hash, module.clone())?;
-                        module
-                    }
-                }
-            } else {
-                Module::new(&store, &contents)?
-            };
+        #[cfg(feature = "cache")]
+        let module_result: Result<Module> = if !self.disable_cache && contents.len() > 0x1000 {
+            self.get_module_from_cache(&store, &contents, &engine_type, &compiler_type)
+        } else {
+            Module::new(&store, &contents).map_err(|e| e.into())
+        };
+        #[cfg(not(feature = "cache"))]
+        let module_result = Module::new(&store, &contents);
+
+        let mut module = module_result.with_context(|| {
+            format!(
+                "module instantiation failed (engine: {}, compiler: {})",
+                engine_type.to_string(),
+                compiler_type.to_string()
+            )
+        })?;
         // We set the name outside the cache, to make sure we dont cache the name
         module.set_name(&self.path.file_name().unwrap_or_default().to_string_lossy());
 
         Ok(module)
+    }
+
+    #[cfg(feature = "cache")]
+    fn get_module_from_cache(
+        &self,
+        store: &Store,
+        contents: &[u8],
+        engine_type: &EngineType,
+        compiler_type: &CompilerType,
+    ) -> Result<Module> {
+        // We try to get it from cache, in case caching is enabled
+        // and the file length is greater than 4KB.
+        // For files smaller than 4KB caching is not worth,
+        // as it takes space and the speedup is minimal.
+        let mut cache = self.get_cache(engine_type.to_string(), compiler_type.to_string())?;
+        // Try to get the hash from the provided `--cache-key`, otherwise
+        // generate one from the provided file `.wasm` contents.
+        let hash = self
+            .cache_key
+            .as_ref()
+            .and_then(|key| WasmHash::from_str(&key).ok())
+            .unwrap_or_else(|| WasmHash::generate(&contents));
+        match unsafe { cache.load(&store, hash) } {
+            Ok(module) => Ok(module),
+            Err(e) => {
+                match e {
+                    DeserializeError::Io(_) => {
+                        // Do not notify on IO errors
+                    }
+                    err => {
+                        warning!("cached module is corrupted: {}", err);
+                    }
+                }
+                let module = Module::new(&store, &contents)?;
+                // Store the compiled Module in cache
+                cache.store(hash, &module)?;
+                Ok(module)
+            }
+        }
+    }
+
+    #[cfg(feature = "cache")]
+    /// Get the Compiler Filesystem cache
+    fn get_cache(&self, engine_name: String, compiler_name: String) -> Result<FileSystemCache> {
+        let mut cache_dir_root = get_cache_dir();
+        cache_dir_root.push(engine_name);
+        cache_dir_root.push(compiler_name);
+        Ok(FileSystemCache::new(cache_dir_root)?)
     }
 
     fn try_find_function(

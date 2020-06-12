@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wast"
-version = "1.0.0"
+version = "1.0.0-alpha.1"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wast testing support for wasmer"
 license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
@@ -12,7 +12,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
-wasmer = { path = "../../../lib/api", version = "1.0.0", default-features = false }
+wasmer = { path = "../../../lib/api", version = "1.0.0-alpha.1", default-features = false }
 wast = "17.0"
 thiserror = "1.0"
 

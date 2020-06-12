@@ -69,26 +69,6 @@ impl LLVMConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
     pub fn new(features: Features, target: Target) -> Self {
-        let operating_system =
-            if target.triple().operating_system == wasmer_compiler::OperatingSystem::Darwin {
-                // LLVM detects static relocation + darwin + 64-bit and
-                // force-enables PIC because MachO doesn't support that
-                // combination. They don't check whether they're targeting
-                // MachO, they check whether the OS is set to Darwin.
-                //
-                // Since both linux and darwin use SysV ABI, this should work.
-                wasmer_compiler::OperatingSystem::Linux
-            } else {
-                target.triple().operating_system
-            };
-        let triple = Triple {
-            architecture: target.triple().architecture,
-            vendor: target.triple().vendor.clone(),
-            operating_system,
-            environment: target.triple().environment,
-            binary_format: target_lexicon::BinaryFormat::Elf,
-        };
-        let target = Target::new(triple, *target.cpu_features());
         Self {
             enable_nan_canonicalization: true,
             enable_verifier: false,
@@ -112,7 +92,27 @@ impl LLVMConfig {
     }
 
     pub fn target_triple(&self) -> TargetTriple {
-        TargetTriple::create(&self.target().triple().to_string())
+        let target = self.target();
+        let operating_system =
+            if target.triple().operating_system == wasmer_compiler::OperatingSystem::Darwin {
+                // LLVM detects static relocation + darwin + 64-bit and
+                // force-enables PIC because MachO doesn't support that
+                // combination. They don't check whether they're targeting
+                // MachO, they check whether the OS is set to Darwin.
+                //
+                // Since both linux and darwin use SysV ABI, this should work.
+                wasmer_compiler::OperatingSystem::Linux
+            } else {
+                target.triple().operating_system
+            };
+        let triple = Triple {
+            architecture: target.triple().architecture,
+            vendor: target.triple().vendor.clone(),
+            operating_system,
+            environment: target.triple().environment,
+            binary_format: target_lexicon::BinaryFormat::Elf,
+        };
+        TargetTriple::create(&triple.to_string())
     }
 
     /// Generates the target machine for the current target
@@ -149,10 +149,11 @@ impl LLVMConfig {
             .map(|feature| format!("+{}", feature.to_string()))
             .join(",");
 
-        let llvm_target = InkwellTarget::from_triple(&self.target_triple()).unwrap();
+        let target_triple = self.target_triple();
+        let llvm_target = InkwellTarget::from_triple(&target_triple).unwrap();
         llvm_target
             .create_target_machine(
-                &self.target_triple(),
+                &target_triple,
                 "generic",
                 &llvm_cpu_features,
                 self.opt_level,
