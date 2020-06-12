@@ -31,6 +31,7 @@ use wasmer::{DeserializeError, Module, SerializeError, Store};
 /// ```
 pub struct FileSystemCache {
     path: PathBuf,
+    ext: Option<String>,
 }
 
 impl FileSystemCache {
@@ -41,7 +42,7 @@ impl FileSystemCache {
             let metadata = path.metadata()?;
             if metadata.is_dir() {
                 if !metadata.permissions().readonly() {
-                    Ok(Self { path })
+                    Ok(Self { path, ext: None })
                 } else {
                     // This directory is readonly.
                     Err(io::Error::new(
@@ -62,8 +63,16 @@ impl FileSystemCache {
         } else {
             // Create the directory and any parent directories if they don't yet exist.
             create_dir_all(&path)?;
-            Ok(Self { path })
+            Ok(Self { path, ext: None })
         }
+    }
+
+    /// Set's the extension for this cached file.
+    ///
+    /// This is needed for loading Native files from Windows, as otherwise
+    /// loadding the library will fail (it requires to have a `.dll` extension)
+    pub fn set_cache_extension(&mut self, ext: Option<impl AsRef<str>>) {
+        self.ext = ext.map(|ext| ext.as_ref().to_string());
     }
 }
 
@@ -72,20 +81,25 @@ impl Cache for FileSystemCache {
     type SerializeError = SerializeError;
 
     unsafe fn load(&self, store: &Store, key: WasmHash) -> Result<Module, Self::DeserializeError> {
-        let filename = key.to_string();
-        let mut new_path_buf = self.path.clone();
-        new_path_buf.push(filename);
-        Module::deserialize_from_file(&store, new_path_buf)
+        let filename = if let Some(ref ext) = self.ext {
+            format!("{}.{}", key.to_string(), ext)
+        } else {
+            key.to_string()
+        };
+        let path = self.path.join(filename);
+        Module::deserialize_from_file(&store, path)
     }
 
     fn store(&mut self, key: WasmHash, module: &Module) -> Result<(), Self::SerializeError> {
-        let filename = key.to_string();
-        let mut new_path_buf = self.path.clone();
+        let filename = if let Some(ref ext) = self.ext {
+            format!("{}.{}", key.to_string(), ext)
+        } else {
+            key.to_string()
+        };
+        let path = self.path.join(filename);
+        let mut file = File::create(path)?;
 
         let buffer = module.serialize()?;
-
-        new_path_buf.push(filename);
-        let mut file = File::create(new_path_buf)?;
         file.write_all(&buffer)?;
 
         Ok(())

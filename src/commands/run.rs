@@ -192,7 +192,7 @@ impl Run {
         // and the file length is greater than 4KB.
         // For files smaller than 4KB caching is not worth,
         // as it takes space and the speedup is minimal.
-        let mut cache = self.get_cache(engine_type.to_string(), compiler_type.to_string())?;
+        let mut cache = self.get_cache(engine_type, compiler_type)?;
         // Try to get the hash from the provided `--cache-key`, otherwise
         // generate one from the provided file `.wasm` contents.
         let hash = self
@@ -221,11 +221,21 @@ impl Run {
 
     #[cfg(feature = "cache")]
     /// Get the Compiler Filesystem cache
-    fn get_cache(&self, engine_name: String, compiler_name: String) -> Result<FileSystemCache> {
+    fn get_cache(
+        &self,
+        engine_type: &EngineType,
+        compiler_type: &CompilerType,
+    ) -> Result<FileSystemCache> {
         let mut cache_dir_root = get_cache_dir();
-        cache_dir_root.push(engine_name);
-        cache_dir_root.push(compiler_name);
-        Ok(FileSystemCache::new(cache_dir_root)?)
+        cache_dir_root.push(engine_type.to_string());
+        cache_dir_root.push(compiler_type.to_string());
+        let mut cache = FileSystemCache::new(cache_dir_root)?;
+        // Native files need to have a dll extension in Windows, otherwise
+        // they will not load.
+        if *engine_type == EngineType::Native && cfg!(windows) {
+            cache.set_cache_extension(Some(".dll"));
+        }
+        Ok(cache)
     }
 
     fn try_find_function(
