@@ -115,7 +115,7 @@ impl Run {
                 let import_object =
                     generate_emscripten_env(module.store(), &mut emscripten_globals, &mut em_env);
                 let mut instance = Instance::new(&module, &import_object)
-                    .map_err(|e| anyhow!("Can't instantiate emscripten module: {}", e))?;
+                    .with_context(|| "Can't instantiate emscripten module")?;
 
                 run_emscripten_instance(
                     &mut instance,
