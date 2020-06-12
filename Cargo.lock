@@ -2093,6 +2093,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
+ "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dummy",
  "wasmer-engine-jit",
@@ -2201,6 +2202,19 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-runtime",
+]
+
+[[package]]
+name = "wasmer-emscripten"
+version = "1.0.0-alpha.1"
+dependencies = [
+ "byteorder",
+ "getrandom",
+ "lazy_static",
+ "libc",
+ "log",
+ "time",
+ "wasmer",
 ]
 
 [[package]]

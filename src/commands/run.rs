@@ -48,6 +48,7 @@ pub struct Run {
     #[structopt(flatten)]
     store: StoreOptions,
 
+    // TODO: refactor WASI structure to allow shared options with Emscripten
     #[cfg(feature = "wasi")]
     #[structopt(flatten)]
     wasi: Wasi,
@@ -103,6 +104,38 @@ impl Run {
                     .join(" ")
             );
             return Ok(());
+        }
+        #[cfg(feature = "emscripten")]
+        {
+            use wasmer_emscripten::{
+                generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
+                EmscriptenGlobals,
+            };
+            // TODO: refactor this
+            if is_emscripten_module(&module) {
+                let mut emscripten_globals = EmscriptenGlobals::new(module.store(), &module)
+                    .map_err(|e| anyhow!("{}", e))?;
+                let mut em_env = EmEnv::new();
+                let import_object =
+                    generate_emscripten_env(module.store(), &mut emscripten_globals, &mut em_env);
+                let mut instance = Instance::new(&module, &import_object)
+                    .with_context(|| "Can't instantiate emscripten module")?;
+
+                run_emscripten_instance(
+                    &mut instance,
+                    &mut em_env,
+                    &mut emscripten_globals,
+                    if let Some(cn) = &self.command_name {
+                        cn
+                    } else {
+                        self.path.to_str().unwrap()
+                    },
+                    self.args.iter().map(|arg| arg.as_str()).collect(),
+                    None,   //run.em_entrypoint.clone(),
+                    vec![], //mapped_dirs,
+                )?;
+                return Ok(());
+            }
         }
 
         // If WASI is enabled, try to execute it with it

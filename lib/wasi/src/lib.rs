@@ -62,7 +62,7 @@ impl<'a> WasiEnv<'a> {
         ))
     }
 
-    /// Set the state
+    /// Set the memory
     pub fn set_memory(&mut self, memory: &'a Memory) {
         self.memory = Some(memory);
     }
