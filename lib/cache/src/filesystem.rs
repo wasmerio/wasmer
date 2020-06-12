@@ -67,12 +67,12 @@ impl FileSystemCache {
         }
     }
 
-    /// Set's the extension for this cached file.
+    /// Set the extension for this cached file.
     ///
-    /// This is needed for loading Native files from Windows, as otherwise
+    /// This is needed for loading native files from Windows, as otherwise
     /// loadding the library will fail (it requires to have a `.dll` extension)
-    pub fn set_cache_extension(&mut self, ext: Option<impl AsRef<str>>) {
-        self.ext = ext.map(|ext| ext.as_ref().to_string());
+    pub fn set_cache_extension(&mut self, ext: Option<impl ToString>) {
+        self.ext = ext.map(|ext| ext.to_string());
     }
 }
 
