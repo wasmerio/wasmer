@@ -2,9 +2,7 @@ use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use wasmer::{Function, Instance, Memory, Module};
-use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiState, WasiVersion,
-};
+use wasmer_wasi::{get_wasi_version, WasiEnv, WasiState, WasiVersion};
 
 use structopt::StructOpt;
 
@@ -38,17 +36,10 @@ impl Wasi {
     }
 
     /// Helper function for executing Wasi from the `Run` command.
-    pub fn execute(
-        &self,
-        module: Module,
-        wasi_version: WasiVersion,
-        program_name: String,
-        args: Vec<String>,
-    ) -> Result<()> {
-        let mut wasi_state_builder = WasiState::new(&program_name);
-
+    pub fn execute(&self, module: Module, program_name: String, args: Vec<String>) -> Result<()> {
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
 
+        let mut wasi_state_builder = WasiState::new(program_name);
         wasi_state_builder
             .args(args)
             .envs(self.env_vars.clone())
@@ -65,8 +56,7 @@ impl Wasi {
 
         let wasi_state = wasi_state_builder.build()?;
         let mut wasi_env = WasiEnv::new(wasi_state);
-        let import_object =
-            generate_import_object_from_env(module.store(), &mut wasi_env, wasi_version);
+        let import_object = wasi_env.import_object(&module)?;
 
         let instance = Instance::new(&module, &import_object)?;
 
