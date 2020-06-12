@@ -3,7 +3,7 @@ use crate::unwind::UnwindRegistry;
 use region;
 use std::mem::ManuallyDrop;
 use std::{cmp, mem};
-use wasm_common::entity::PrimaryMap;
+use wasm_common::entity::{PrimaryMap, EntityRef};
 use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{CompiledFunctionUnwindInfo, FunctionBody, SectionBody};
 use wasmer_runtime::{Mmap, VMFunctionBody};
@@ -62,19 +62,35 @@ impl CodeMemory {
         }
     }
 
-    /// Allocate a continuous memory blocks for a single compiled function.
-    pub fn allocate_functions(
+    /// Allocate a continuous memory block for a compilation.
+    ///
+    /// Allocates memory for both the function bodies as well as function unwind data.
+    pub fn allocate_functions<K>(
         &mut self,
-        functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
-    ) -> Result<PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>, String> {
-        let fat_ptrs = self.allocate_for_compilation(functions)?;
+        compilation: &PrimaryMap<K, FunctionBody>,
+    ) -> Result<PrimaryMap<K, *mut [VMFunctionBody]>, String> where K: EntityRef {
+        let total_len = compilation.values().fold(0, |acc, func| {
+            acc + get_align_padding_size(acc, ARCH_FUNCTION_ALIGNMENT)
+                + Self::function_allocation_size(func)
+        });
 
-        // Second, create a PrimaryMap from result vector of pointers.
-        let mut result = PrimaryMap::with_capacity(functions.len());
-        for i in 0..fat_ptrs.len() {
-            let fat_ptr: *mut [VMFunctionBody] = fat_ptrs[i];
-            result.push(fat_ptr);
+        let (mut buf, registry, start) = self.allocate(total_len, ARCH_FUNCTION_ALIGNMENT)?;
+        let mut result = PrimaryMap::with_capacity(compilation.len());
+        let mut start = start as u32;
+        let mut padding = 0usize;
+
+        for func in compilation.values() {
+            let (next_start, next_buf, vmfunc) =
+                Self::copy_function(func, start + padding as u32, &mut buf[padding..], registry);
+            assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
+
+            result.push(vmfunc as *mut [VMFunctionBody]);
+
+            padding = get_align_padding_size(next_start as usize, ARCH_FUNCTION_ALIGNMENT);
+            start = next_start;
+            buf = next_buf;
         }
+
         Ok(result)
     }
 
@@ -104,38 +120,6 @@ impl CodeMemory {
         let (buf, _, _) = self.allocate(section.len(), ARCH_FUNCTION_ALIGNMENT)?;
         buf.copy_from_slice(section);
         Ok(buf)
-    }
-
-    /// Allocate a continuous memory block for a compilation.
-    ///
-    /// Allocates memory for both the function bodies as well as function unwind data.
-    pub fn allocate_for_compilation(
-        &mut self,
-        compilation: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
-    ) -> Result<Box<[&mut [VMFunctionBody]]>, String> {
-        let total_len = compilation.values().fold(0, |acc, func| {
-            acc + get_align_padding_size(acc, ARCH_FUNCTION_ALIGNMENT)
-                + Self::function_allocation_size(func)
-        });
-
-        let (mut buf, registry, start) = self.allocate(total_len, ARCH_FUNCTION_ALIGNMENT)?;
-        let mut result = Vec::with_capacity(compilation.len());
-        let mut start = start as u32;
-        let mut padding = 0usize;
-
-        for func in compilation.values() {
-            let (next_start, next_buf, vmfunc) =
-                Self::copy_function(func, start + padding as u32, &mut buf[padding..], registry);
-            assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
-
-            result.push(vmfunc);
-
-            padding = get_align_padding_size(next_start as usize, ARCH_FUNCTION_ALIGNMENT);
-            start = next_start;
-            buf = next_buf;
-        }
-
-        Ok(result.into_boxed_slice())
     }
 
     /// Make all allocated memory executable.
