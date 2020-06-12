@@ -8,12 +8,12 @@
     <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
       <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
     </a>
-    <a href="https://slack.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel">
-    </a> 
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
     </a>
+    <a href="https://slack.wasmer.io">
+      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel">
+    </a> 
   </p>
 
   <h3>
@@ -21,11 +21,7 @@
     <span> • </span>
     <a href="https://docs.wasmer.io">Docs</a>
     <span> • </span>
-    <a href="https://medium.com/wasmer/">Blog</a>
-    <span> • </span>
-    <a href="https://slack.wasmer.io/">Slack</a>
-    <span> • </span>
-    <a href="https://twitter.com/wasmerio">Twitter</a>
+    <a href="https://slack.wasmer.io/">Chat</a>
   </h3>
 
 </div>
