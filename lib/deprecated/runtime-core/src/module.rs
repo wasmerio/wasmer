@@ -1,4 +1,10 @@
-use crate::{cache::Artifact, error::InstantiationError, instance::Instance, new};
+use crate::{
+    cache::Artifact,
+    error::InstantiationError,
+    instance::{Instance, PreInstance},
+    new, vm,
+};
+use new::wasmer_runtime::Export;
 use std::convert::{AsRef, Infallible};
 
 pub use new::wasm_common::{DataInitializer, ExportIndex};
@@ -23,10 +29,40 @@ impl Module {
         &self,
         import_object: &crate::import::ImportObject,
     ) -> Result<Instance, InstantiationError> {
-        Ok(Instance::new(new::wasmer::Instance::new(
-            &self.new_module,
-            import_object,
-        )?))
+        let pre_instance = PreInstance::new();
+        dbg!(pre_instance.vmctx_ptr());
+        dbg!({
+            let vmctx: &vm::Ctx = unsafe { &*pre_instance.vmctx_ptr() };
+            vmctx
+        });
+
+        // Replace the fake `vm::Ctx` of host functions.
+        {
+            let import_object = import_object.clone_ref();
+
+            import_object
+                .into_iter()
+                .filter_map(|(_, export)| match export {
+                    Export::Function(function) => Some(function),
+                    _ => None,
+                })
+                .for_each(|mut exported_function| {
+                    // Cast `vm::Ctx` (from this crate) to `VMContext`
+                    // (from `wasmer_runtime`).
+                    dbg!(exported_function.vmctx);
+
+                    if exported_function.vmctx.is_null() {
+                        exported_function.vmctx = pre_instance.vmctx_ptr() as _;
+                    }
+
+                    dbg!(exported_function.vmctx);
+                });
+        }
+
+        Ok(Instance::new(
+            pre_instance,
+            new::wasmer::Instance::new(&self.new_module, import_object)?,
+        ))
     }
 
     pub fn cache(&self) -> Result<Artifact, Infallible> {

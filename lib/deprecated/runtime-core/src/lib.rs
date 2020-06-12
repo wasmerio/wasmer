@@ -24,6 +24,7 @@ pub mod table;
 pub mod typed_func;
 pub mod types;
 pub mod units;
+pub mod vm;
 
 pub use crate::cache::{Artifact, WasmHash};
 pub use crate::import::IsExport;

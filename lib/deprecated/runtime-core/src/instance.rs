@@ -1,19 +1,40 @@
-use crate::{import::LikeNamespace, module::Module, new, structures::TypedIndex, types::Value};
+use crate::{import::LikeNamespace, module::Module, new, structures::TypedIndex, types::Value, vm};
 use std::error::Error;
 
 pub use new::wasmer::Exports;
+
+pub(crate) struct PreInstance {
+    pub(crate) vmctx: vm::Ctx,
+}
+
+impl PreInstance {
+    pub(crate) fn new() -> Self {
+        Self {
+            vmctx: vm::Ctx::new(),
+        }
+    }
+
+    pub(crate) fn vmctx_ptr(&self) -> *mut vm::Ctx {
+        &self.vmctx as *const _ as *mut _
+    }
+}
 
 #[derive(Clone)]
 pub struct Instance {
     pub exports: Exports,
     pub(crate) new_instance: new::wasmer::Instance,
+    vmctx: vm::Ctx,
 }
 
 impl Instance {
-    pub(crate) fn new(new_instance: new::wasmer::Instance) -> Self {
+    pub(crate) fn new(pre_instance: PreInstance, new_instance: new::wasmer::Instance) -> Self {
+        let mut vmctx = pre_instance.vmctx;
+        vmctx.x = 42;
+
         Self {
             exports: new_instance.exports.clone(),
             new_instance,
+            vmctx,
         }
     }
 
@@ -49,6 +70,14 @@ impl Instance {
 
     pub fn module(&self) -> Module {
         Module::new(self.new_instance.module().clone())
+    }
+
+    pub fn context(&self) -> &vm::Ctx {
+        &self.vmctx
+    }
+
+    pub fn context_mut(&mut self) -> &mut vm::Ctx {
+        &mut self.vmctx
     }
 }
 
