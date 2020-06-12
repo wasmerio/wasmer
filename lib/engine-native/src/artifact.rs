@@ -327,12 +327,19 @@ impl NativeArtifact {
             host_target.to_string()
         );
 
-        let output = Command::new("gcc")
+        let linker = if is_cross_compiling {
+            "clang-10"
+        } else {
+            "gcc"
+        };
+
+        let output = Command::new(linker)
             .arg(&filepath)
             .arg("-nostartfiles")
             .arg("-o")
             .arg(&shared_filepath)
-            .args(&wasmer_symbols)
+            .arg("-Wl,-undefined,dynamic_lookup")
+            // .args(&wasmer_symbols)
             .arg("-shared")
             .args(&cross_compiling_args)
             .arg("-v")
