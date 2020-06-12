@@ -235,16 +235,18 @@ impl Run {
         #[allow(unreachable_patterns)]
         let extension = match *engine_type {
             #[cfg(feature = "native")]
-            EngineType::Native => Some(
-                wasmer_engine_native::NativeArtifact::get_default_extension(&Triple::host()),
-            ),
+            EngineType::Native => {
+                wasmer_engine_native::NativeArtifact::get_default_extension(&Triple::host())
+                    .to_string()
+            }
             #[cfg(feature = "jit")]
-            EngineType::JIT => Some(wasmer_engine_jit::JITArtifact::get_default_extension(
-                &Triple::host(),
-            )),
-            _ => None,
+            EngineType::JIT => {
+                wasmer_engine_jit::JITArtifact::get_default_extension(&Triple::host()).to_string()
+            }
+            // We use the compiler type as the default extension
+            _ => compiler_type.to_string(),
         };
-        cache.set_cache_extension(extension);
+        cache.set_cache_extension(Some(extension));
         Ok(cache)
     }
 
