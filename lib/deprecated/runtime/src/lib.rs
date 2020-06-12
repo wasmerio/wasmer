@@ -10,9 +10,8 @@ pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::table::Table;
 pub use wasmer_runtime_core::types;
 
-pub use wasmer_runtime_core::import::imports;
 pub use wasmer_runtime_core::typed_func::Func;
-pub use wasmer_runtime_core::{compile, compile_with, load_cache_with, validate};
+pub use wasmer_runtime_core::{compile, compile_with, func, imports, load_cache_with, validate};
 
 pub mod memory {
     pub use wasmer_runtime_core::memory::{Atomically, Memory, MemoryView};
