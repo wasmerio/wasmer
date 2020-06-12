@@ -375,16 +375,31 @@ impl NativeArtifact {
             }
         }
 
-        let file = NamedTempFile::new().map_err(to_compile_error)?;
+        let file = tempfile::Builder::new()
+            .prefix("wasmer_native")
+            .suffix(".o")
+            .tempfile()
+            .map_err(to_compile_error)?;
 
         // Re-open it.
         let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
         let obj_bytes = obj.write().map_err(to_compile_error)?;
 
         file.write(&obj_bytes).map_err(to_compile_error)?;
+        // We drop the file, as otherwise it will remain open and it will fail
+        // to open in Windows in the linking step;
+        drop(file);
 
-        let shared_file = NamedTempFile::new().map_err(to_compile_error)?;
-        let (_file, shared_filepath) = shared_file.keep().map_err(to_compile_error)?;
+        let suffix = format!(".{}", Self::get_suffix_for_triple(&target_triple));
+        let shared_file = tempfile::Builder::new()
+            .prefix("wasmer_native")
+            .suffix(&suffix)
+            .tempfile()
+            .map_err(to_compile_error)?;
+        let shared_filepath = shared_file
+            .into_temp_path()
+            .keep()
+            .map_err(to_compile_error)?;
         // let wasmer_symbols = libcalls
         //     .iter()
         //     .map(|libcall| {
@@ -402,7 +417,7 @@ impl NativeArtifact {
 
         let host_target = Triple::host();
         let is_cross_compiling = target_triple != host_target;
-        let cross_compiling_args = if is_cross_compiling {
+        let cross_compiling_args: Vec<String> = if is_cross_compiling {
             vec![
                 format!("--target={}", target_triple),
                 "-fuse-ld=lld".to_string(),
@@ -412,9 +427,10 @@ impl NativeArtifact {
         } else {
             vec![]
         };
-        let target_args = match target_triple.operating_system {
-            OperatingSystem::Windows => vec!["-Wl,/force:unresolved"],
-            _ => vec!["-Wl,-undefined,dynamic_lookup"],
+        let target_args = match (target_triple.operating_system, is_cross_compiling) {
+            (OperatingSystem::Windows, true) => vec!["-Wl,/force:unresolved"],
+            (OperatingSystem::Windows, false) => vec!["-Wl,-undefined,dynamic_lookup"],
+            _ => vec!["-nostartfiles", "-Wl,-undefined,dynamic_lookup"],
         };
         trace!(
             "Compiling for target {} from host {}",
@@ -430,7 +446,6 @@ impl NativeArtifact {
 
         let output = Command::new(linker)
             .arg(&filepath)
-            .arg("-nostartfiles")
             .arg("-o")
             .arg(&shared_filepath)
             .args(&target_args)
@@ -443,8 +458,9 @@ impl NativeArtifact {
 
         if !output.status.success() {
             return Err(CompileError::Codegen(format!(
-                "Shared object file generator failed with:\n{}",
-                std::str::from_utf8(&output.stderr).unwrap().trim_end()
+                "Shared object file generator failed with:\nstderr:{}\nstdout:{}",
+                std::str::from_utf8(&output.stderr).unwrap().trim_end(),
+                std::str::from_utf8(&output.stdout).unwrap().trim_end()
             )));
         }
         trace!("gcc command result {:?}", output);
@@ -453,6 +469,16 @@ impl NativeArtifact {
         } else {
             let lib = Library::new(&shared_filepath).map_err(to_compile_error)?;
             Self::from_parts(&mut engine_inner, metadata, shared_filepath, lib)
+        }
+    }
+
+    fn get_suffix_for_triple(triple: &Triple) -> &str {
+        match triple.operating_system {
+            OperatingSystem::Windows => "dll",
+            OperatingSystem::Darwin | OperatingSystem::Ios | OperatingSystem::MacOSX { .. } => {
+                "dylib"
+            }
+            _ => "so",
         }
     }
 
