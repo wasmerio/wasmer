@@ -1,6 +1,5 @@
 //! Memory management for executable code.
 use crate::function_table::FunctionTable;
-use region;
 use std::mem::ManuallyDrop;
 use std::{cmp, mem};
 use wasm_common::entity::PrimaryMap;

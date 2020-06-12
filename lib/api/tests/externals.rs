@@ -117,13 +117,12 @@ fn table_grow() -> Result<()> {
     let f = Function::new(&store, |num: i32| num + 1);
     let table = Table::new(&store, table_type, Value::FuncRef(f.clone()))?;
     // Growing to a bigger maximum should return None
-    let new_len = table.grow(12, Value::FuncRef(f.clone()));
-    assert!(new_len.is_err());
+    let old_len = table.grow(12, Value::FuncRef(f.clone()));
+    assert!(old_len.is_err());
 
     // Growing to a bigger maximum should return None
-    let new_len = table.grow(5, Value::FuncRef(f.clone()))?;
-    // TODO: new len should be instead previous length, similarly to memory
-    assert_eq!(new_len, 5);
+    let old_len = table.grow(5, Value::FuncRef(f.clone()))?;
+    assert_eq!(old_len, 0);
 
     Ok(())
 }
@@ -328,5 +327,43 @@ fn function_new_dynamic_env() -> Result<()> {
         |_env: &mut MyEnv, values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
+    Ok(())
+}
+
+#[test]
+fn native_function_works() -> Result<()> {
+    let store = Store::default();
+    let function = Function::new(&store, || {});
+    let native_function: NativeFunc<(), ()> = function.native().unwrap();
+    let result = native_function.call();
+    assert!(result.is_ok());
+
+    // TODO:
+    /*let function = Function::new(&store, |a: i32| -> i32 { a + 1 });
+    let native_function: NativeFunc<i32, i32> = function.native().unwrap();
+    assert!(native_function.call(3).unwrap(), 4);
+    */
+
+    fn rust_abi(a: i32, b: i64, c: f32, d: f64) -> u64 {
+        (a as u64 * 1000) + (b as u64 * 100) + (c as u64 * 10) + (d as u64)
+    }
+    let function = Function::new(&store, rust_abi);
+    let native_function: NativeFunc<(i32, i64, f32, f64), u64> = function.native().unwrap();
+    assert_eq!(native_function.call(8, 4, 1.5, 5.).unwrap(), 8415);
+
+    let function = Function::new(&store, || -> i32 { 1 });
+    let native_function: NativeFunc<(), i32> = function.native().unwrap();
+    assert_eq!(native_function.call().unwrap(), 1);
+
+    // TODO:
+    /*let function = Function::new(&store, |_a: i32| {});
+    let native_function: NativeFunc<i32, ()> = function.native().unwrap();
+    assert!(native_function.call(4).is_ok());*/
+
+    // TODO:
+    /*let function = Function::new(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
+    let native_function: NativeFunc<(), (i32, i64, f32, f64)> = function.native().unwrap();
+    assert_eq!(native_function.call().unwrap(), (1, 2, 3.0, 4.0));
+    */
     Ok(())
 }

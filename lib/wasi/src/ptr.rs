@@ -13,6 +13,7 @@ impl<T: Copy, Ty> Copy for WasmPtr<T, Ty> {}
 
 impl<T: Copy, Ty> Clone for WasmPtr<T, Ty> {
     fn clone(&self) -> Self {
+        #[allow(clippy::clone_on_copy)]
         Self(self.0.clone())
     }
 }
@@ -73,7 +74,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     }
 
     #[inline(always)]
-    pub fn get_utf8_string<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
+    pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<&str> {
         self.0.get_utf8_string(memory, str_len)
     }
 }

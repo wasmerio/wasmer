@@ -8,12 +8,12 @@
     <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
       <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
     </a>
-    <a href="https://slack.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel">
-    </a> 
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
     </a>
+    <a href="https://slack.wasmer.io">
+      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel">
+    </a> 
   </p>
 
   <h3>
@@ -21,18 +21,14 @@
     <span> • </span>
     <a href="https://docs.wasmer.io">Docs</a>
     <span> • </span>
-    <a href="https://medium.com/wasmer/">Blog</a>
-    <span> • </span>
-    <a href="https://slack.wasmer.io/">Slack</a>
-    <span> • </span>
-    <a href="https://twitter.com/wasmerio">Twitter</a>
+    <a href="https://slack.wasmer.io/">Chat</a>
   </h3>
 
 </div>
 
 <br />
 
-[Wasmer](https://wasmer.io/) is a standalone [WebAssembly](https://webassembly.org/) runtime:
+[Wasmer](https://wasmer.io/) is the fastest and most popular [WebAssembly](https://webassembly.org/) runtime:
 * **Universal**: Wasmer is available in *Linux, macOS and Windows* (for both Desktop and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c))
 * **Fast**: Wasmer aims to run WebAssembly at near-native speed
 * **Pluggable**: Wasmer can be used from almost **any programming language**

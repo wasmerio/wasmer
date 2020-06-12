@@ -20,5 +20,5 @@ pub trait Cache {
     unsafe fn load(&self, store: &Store, key: WasmHash) -> Result<Module, Self::DeserializeError>;
 
     /// Store a [`Module`] into the cache with the given [`WasmHash`].
-    fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::SerializeError>;
+    fn store(&mut self, key: WasmHash, module: &Module) -> Result<(), Self::SerializeError>;
 }

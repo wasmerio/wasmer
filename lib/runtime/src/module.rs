@@ -1,6 +1,7 @@
 //! Data structure for representing WebAssembly modules
 //! in a [`Module`].
 
+use crate::table::TableElements;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -12,63 +13,9 @@ use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, Pages,
-    SignatureIndex, TableIndex, TableType,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
+    TableIndex, TableType,
 };
-
-/// A WebAssembly table initializer.
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
-pub struct TableElements {
-    /// The index of a table to initialize.
-    pub table_index: TableIndex,
-    /// Optionally, a global variable giving a base index.
-    pub base: Option<GlobalIndex>,
-    /// The offset to add to the base.
-    pub offset: usize,
-    /// The values to write into the table elements.
-    pub elements: Box<[FunctionIndex]>,
-}
-
-/// Implementation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum MemoryStyle {
-    /// The actual memory can be resized and moved.
-    Dynamic,
-    /// Address space is allocated up front.
-    Static {
-        /// The number of mapped and unmapped pages.
-        bound: Pages,
-    },
-}
-
-/// A WebAssembly linear memory description along with our chosen style for
-/// implementing it.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct MemoryPlan {
-    /// The WebAssembly linear memory description.
-    pub memory: MemoryType,
-    /// Our chosen implementation style.
-    pub style: MemoryStyle,
-    /// Our chosen offset-guard size.
-    pub offset_guard_size: u64,
-}
-
-/// Implementation styles for WebAssembly tables.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub enum TableStyle {
-    /// Signatures are stored in the table and checked in the caller.
-    CallerChecksSignature,
-}
-
-/// A WebAssembly table description along with our chosen style for
-/// implementing it.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct TablePlan {
-    /// The WebAssembly table description.
-    pub table: TableType,
-    /// Our chosen implementation style.
-    pub style: TableStyle,
-}
 
 #[derive(Debug)]
 pub struct ModuleId {
@@ -233,7 +180,7 @@ impl ModuleInfo {
                 }
                 ExportIndex::Global(i) => {
                     let global_type = self.globals.get(i.clone()).unwrap();
-                    ExternType::Global(global_type.clone())
+                    ExternType::Global(*global_type)
                 }
             };
             ExportType::new(name, extern_type)

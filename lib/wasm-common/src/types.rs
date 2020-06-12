@@ -32,7 +32,7 @@ pub enum Type {
 impl Type {
     /// Returns true if `Type` matches any of the numeric types. (e.g. `I32`,
     /// `I64`, `F32`, `F64`, `V128`).
-    pub fn is_num(&self) -> bool {
+    pub fn is_num(self) -> bool {
         match self {
             Self::I32 | Self::I64 | Self::F32 | Self::F64 | Self::V128 => true,
             _ => false,
@@ -40,7 +40,7 @@ impl Type {
     }
 
     /// Returns true if `Type` matches either of the reference types.
-    pub fn is_ref(&self) -> bool {
+    pub fn is_ref(self) -> bool {
         match self {
             Self::AnyRef | Self::FuncRef => true,
             _ => false,
@@ -109,7 +109,7 @@ pub enum ExternType {
     Memory(MemoryType),
 }
 
-fn is_global_compatible(exported: &GlobalType, imported: &GlobalType) -> bool {
+fn is_global_compatible(exported: GlobalType, imported: GlobalType) -> bool {
     let GlobalType {
         ty: exported_ty,
         mutability: exported_mutability,
@@ -118,6 +118,7 @@ fn is_global_compatible(exported: &GlobalType, imported: &GlobalType) -> bool {
         ty: imported_ty,
         mutability: imported_mutability,
     } = imported;
+
     exported_ty == imported_ty && imported_mutability == exported_mutability
 }
 
@@ -201,7 +202,7 @@ impl ExternType {
     pub fn is_compatible_with(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Function(a), Self::Function(b)) => a == b,
-            (Self::Global(a), Self::Global(b)) => is_global_compatible(a, b),
+            (Self::Global(a), Self::Global(b)) => is_global_compatible(*a, *b),
             (Self::Table(a), Self::Table(b)) => is_table_compatible(a, b),
             (Self::Memory(a), Self::Memory(b)) => is_memory_compatible(a, b),
             // The rest of possibilities, are not compatible
@@ -289,25 +290,26 @@ pub enum Mutability {
 
 impl Mutability {
     /// Returns a boolean indicating if the enum is set to mutable.
-    pub fn is_mutable(&self) -> bool {
-        (*self).into()
+    pub fn is_mutable(self) -> bool {
+        self.into()
     }
 }
 
 impl From<bool> for Mutability {
-    fn from(val: bool) -> Self {
-        match val {
-            false => Self::Const,
-            true => Self::Var,
+    fn from(value: bool) -> Self {
+        if value {
+            Self::Var
+        } else {
+            Self::Const
         }
     }
 }
 
 impl From<Mutability> for bool {
-    fn from(val: Mutability) -> Self {
-        match val {
-            Mutability::Const => false,
+    fn from(value: Mutability) -> Self {
+        match value {
             Mutability::Var => true,
+            Mutability::Const => false,
         }
     }
 }
@@ -550,7 +552,7 @@ impl<T> ExportType<T> {
     /// Creates a new export which is exported with the given `name` and has the
     /// given `ty`.
     pub fn new(name: &str, ty: T) -> Self {
-        ExportType {
+        Self {
             name: name.to_string(),
             ty,
         }

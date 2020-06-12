@@ -78,7 +78,7 @@ impl Cache for FileSystemCache {
         Module::deserialize_from_file(&store, new_path_buf)
     }
 
-    fn store(&mut self, key: WasmHash, module: Module) -> Result<(), Self::SerializeError> {
+    fn store(&mut self, key: WasmHash, module: &Module) -> Result<(), Self::SerializeError> {
         let filename = key.to_string();
         let mut new_path_buf = self.path.clone();
 

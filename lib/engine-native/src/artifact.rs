@@ -3,25 +3,31 @@
 
 use crate::engine::{NativeEngine, NativeEngineInner};
 use crate::serialize::ModuleMetadata;
+#[cfg(feature = "compiler")]
 use faerie::{ArtifactBuilder, Decl, Link};
 use libloading::{Library, Symbol};
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+#[cfg(feature = "compiler")]
 use std::process::Command;
 use std::sync::Arc;
 use tempfile::NamedTempFile;
+#[cfg(feature = "compiler")]
+use tracing::trace;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
 #[cfg(feature = "compiler")]
-use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{BinaryFormat, CompileError, Features, RelocationTarget, Triple};
+use wasmer_compiler::{BinaryFormat, ModuleEnvironment, RelocationTarget, Triple};
+use wasmer_compiler::{CompileError, Features};
+#[cfg(feature = "compiler")]
+use wasmer_engine::Engine;
 use wasmer_engine::{
-    Artifact, DeserializeError, Engine, InstantiationError, LinkError, RuntimeError, SerializeError,
+    Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
@@ -61,13 +67,13 @@ impl NativeArtifact {
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         cfg_if::cfg_if! {
             if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
-                return bytes.starts_with(Self::MAGIC_HEADER_MH_CIGAM_64);
+                bytes.starts_with(Self::MAGIC_HEADER_MH_CIGAM_64)
             }
             else if #[cfg(all(target_pointer_width = "64", target_os="linux"))] {
-                return bytes.starts_with(Self::MAGIC_HEADER_ELF_64);
+                bytes.starts_with(Self::MAGIC_HEADER_ELF_64)
             }
             else if #[cfg(all(target_pointer_width = "32", target_os="linux"))] {
-                return bytes.starts_with(Self::MAGIC_HEADER_ELF_32);
+                bytes.starts_with(Self::MAGIC_HEADER_ELF_32)
             }
             else {
                 false
@@ -82,9 +88,7 @@ impl NativeArtifact {
         let mut engine_inner = engine.inner_mut();
         let tunables = engine.tunables();
 
-        let translation = environ
-            .translate(data)
-            .map_err(|error| CompileError::Wasm(error))?;
+        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
         let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
             .module
@@ -290,38 +294,38 @@ impl NativeArtifact {
 
         let shared_file = NamedTempFile::new().map_err(to_compile_error)?;
         let (_file, shared_filepath) = shared_file.keep().map_err(to_compile_error)?;
-        let wasmer_symbols = libcalls
-            .iter()
-            .map(|libcall| {
-                match target_triple.binary_format {
-                    BinaryFormat::Macho => format!("-Wl,-U,_{}", libcall),
-                    BinaryFormat::Elf => format!("-Wl,--undefined={}", libcall),
-                    _ => {
-                        // We should already be filtering only valid binary formats before
-                        // so this should never happen.
-                        unreachable!("Incorrect binary format")
-                    }
-                }
-            })
-            .collect::<Vec<String>>();
 
-        let is_cross_compiling = target_triple != Triple::host();
+        let host_target = Triple::host();
+        let is_cross_compiling = target_triple != host_target;
         let cross_compiling_args = if is_cross_compiling {
             vec![
                 format!("--target={}", target_triple),
                 "-fuse-ld=lld".to_string(),
+                "-nodefaultlibs".to_string(),
+                "-nostdlib".to_string(),
             ]
         } else {
             vec![]
         };
-        let output = Command::new("gcc")
+        trace!(
+            "Compiling for target {} from host {}",
+            target_triple.to_string(),
+            host_target.to_string()
+        );
+
+        let linker = if is_cross_compiling {
+            "clang-10"
+        } else {
+            "gcc"
+        };
+
+        let output = Command::new(linker)
             .arg(&filepath)
             .arg("-nostartfiles")
-            .arg("-nodefaultlibs")
-            .arg("-nostdlib")
             .arg("-o")
             .arg(&shared_filepath)
-            .args(&wasmer_symbols)
+            .arg("-Wl,-undefined,dynamic_lookup")
+            // .args(&wasmer_symbols)
             .arg("-shared")
             .args(&cross_compiling_args)
             .arg("-v")
@@ -415,7 +419,7 @@ impl NativeArtifact {
                 // implemented in this engine.
                 let func_pointer =
                     std::slice::from_raw_parts(raw as *const (), *function_len as usize);
-                let func_pointer = std::mem::transmute::<_, *mut [VMFunctionBody]>(func_pointer);
+                let func_pointer = func_pointer as *const [()] as *mut [VMFunctionBody];
                 finished_functions.push(func_pointer);
             }
         }
@@ -489,17 +493,21 @@ impl NativeArtifact {
 
     /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
-    pub fn new(engine: &NativeEngine, data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(_engine: &NativeEngine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))
     }
 
     /// Deserialize a `NativeArtifact` from bytes.
+    ///
+    /// # Safety
+    ///
+    /// The bytes must represent a serialized WebAssembly module.
     pub unsafe fn deserialize(
         engine: &NativeEngine,
         bytes: &[u8],
-    ) -> Result<NativeArtifact, DeserializeError> {
+    ) -> Result<Self, DeserializeError> {
         if !Self::is_deserializable(&bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
@@ -515,10 +523,14 @@ impl NativeArtifact {
     }
 
     /// Deserialize a `NativeArtifact` from a file path.
+    ///
+    /// # Safety
+    ///
+    /// The file's content must represent a serialized WebAssembly module.
     pub unsafe fn deserialize_from_file(
         engine: &NativeEngine,
         path: &Path,
-    ) -> Result<NativeArtifact, DeserializeError> {
+    ) -> Result<Self, DeserializeError> {
         let mut file = File::open(&path)?;
         let mut buffer = [0; 5];
         // read up to 5 bytes
@@ -532,10 +544,14 @@ impl NativeArtifact {
     }
 
     /// Deserialize a `NativeArtifact` from a file path (unchecked).
+    ///
+    /// # Safety
+    ///
+    /// The file's content must represent a serialized WebAssembly module.
     pub unsafe fn deserialize_from_file_unchecked(
         engine: &NativeEngine,
         path: &Path,
-    ) -> Result<NativeArtifact, DeserializeError> {
+    ) -> Result<Self, DeserializeError> {
         let lib = Library::new(&path).map_err(|e| {
             DeserializeError::CorruptedBinary(format!("Library loading failed: {}", e))
         })?;
@@ -565,7 +581,7 @@ impl NativeArtifact {
         let mut engine_inner = engine.inner_mut();
 
         Self::from_parts(&mut engine_inner, metadata, shared_path, lib)
-            .map_err(|e| DeserializeError::Compiler(e))
+            .map_err(DeserializeError::Compiler)
     }
 }
 

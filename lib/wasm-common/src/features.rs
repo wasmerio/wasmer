@@ -138,8 +138,8 @@ impl Features {
 }
 
 impl Default for Features {
-    fn default() -> Features {
-        Features::new()
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -156,7 +156,7 @@ mod test_features {
                 reference_types: false,
                 simd: false,
                 bulk_memory: false,
-                multi_value: false,
+                multi_value: true,
             }
         );
     }

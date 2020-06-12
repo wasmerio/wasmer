@@ -44,3 +44,24 @@ pub fn get_default_store() -> Store {
     let tunables = Tunables::for_target(compiler_config.target().triple());
     Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
 }
+
+#[cfg(feature = "llvm")]
+pub fn get_default_llvm_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("llvm", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
+}
+
+#[cfg(feature = "cranelift")]
+pub fn get_default_cranelift_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("cranelift", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
+}
+
+#[cfg(feature = "singlepass")]
+pub fn get_default_singlepass_store() -> Store {
+    let compiler_config = get_compiler_config_from_str("singlepass", false, Features::default());
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    Store::new(Arc::new(JITEngine::new(compiler_config, tunables)))
+}

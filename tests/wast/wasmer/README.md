@@ -23,3 +23,8 @@ This is a test assuring functions that trap can be called multiple times.
 ## Fac: `fac.wast`
 
 This is a simple factorial program.
+
+## Check that struct-return on the stack doesn't overflow: `stack-overflow-sret.wast`
+
+Stack space for a structure returning function call should be allocated once up
+front, not once in each call.

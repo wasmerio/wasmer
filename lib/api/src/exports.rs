@@ -1,11 +1,13 @@
 use crate::externals::{Extern, Function, Global, Memory, Table};
 use crate::import_object::LikeNamespace;
+use crate::native::NativeFunc;
 use indexmap::IndexMap;
 use std::{
     iter::{ExactSizeIterator, FromIterator},
     sync::Arc,
 };
 use thiserror::Error;
+use wasm_common::WasmTypeList;
 use wasmer_runtime::Export;
 
 /// The `ExportError` can happen when trying to get a specific
@@ -37,7 +39,7 @@ pub enum ExportError {
 
 /// Exports is a special kind of map that allows easily unwrapping
 /// the types of instances.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Exports {
     map: Arc<IndexMap<String, Extern>>,
 }
@@ -45,9 +47,7 @@ pub struct Exports {
 impl Exports {
     /// Creates a new `Exports`.
     pub fn new() -> Self {
-        Exports {
-            map: Arc::new(IndexMap::new()),
-        }
+        Default::default()
     }
 
     /// Creates a new `Exports` with capacity `n`.
@@ -89,7 +89,7 @@ impl Exports {
     ///
     /// If you want to get an export dynamically handling manually
     /// type checking manually, please use `get_extern`.
-    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Result<&T, ExportError> {
+    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Result<&'a T, ExportError> {
         match self.map.get(name) {
             None => Err(ExportError::Missing(name.to_string())),
             Some(extern_) => T::get_self_from_extern(extern_),
@@ -116,6 +116,20 @@ impl Exports {
         self.get(name)
     }
 
+    /// Get an export as a `NativeFunc`.
+    pub fn get_native_function<Args, Rets>(
+        &self,
+        name: &str,
+    ) -> Result<NativeFunc<Args, Rets>, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        self.get_function(name)?
+            .native()
+            .ok_or(ExportError::IncompatibleType)
+    }
+
     /// Get an export as an `Extern`.
     pub fn get_extern(&self, name: &str) -> Option<&Extern> {
         self.map.get(name)
@@ -130,9 +144,7 @@ impl Exports {
     }
 
     /// Get an iterator over the exports.
-    pub fn iter<'a>(
-        &'a self,
-    ) -> ExportsIterator<'a, impl Iterator<Item = (&'a String, &'a Extern)>> {
+    pub fn iter(&self) -> ExportsIterator<impl Iterator<Item = (&String, &Extern)>> {
         ExportsIterator {
             iter: self.map.iter(),
         }

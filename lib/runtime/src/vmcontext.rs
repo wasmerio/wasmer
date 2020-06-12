@@ -433,120 +433,200 @@ impl VMGlobalDefinition {
     }
 
     /// Return a reference to the value as an i32.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_i32(&self) -> &i32 {
         &*(self.storage.as_ref().as_ptr() as *const i32)
     }
 
     /// Return a mutable reference to the value as an i32.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_i32_mut(&mut self) -> &mut i32 {
         &mut *(self.storage.as_mut().as_mut_ptr() as *mut i32)
     }
 
     /// Return a reference to the value as a u32.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_u32(&self) -> &u32 {
         &*(self.storage.as_ref().as_ptr() as *const u32)
     }
 
     /// Return a mutable reference to the value as an u32.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_u32_mut(&mut self) -> &mut u32 {
         &mut *(self.storage.as_mut().as_mut_ptr() as *mut u32)
     }
 
     /// Return a reference to the value as an i64.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_i64(&self) -> &i64 {
         &*(self.storage.as_ref().as_ptr() as *const i64)
     }
 
     /// Return a mutable reference to the value as an i64.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_i64_mut(&mut self) -> &mut i64 {
         &mut *(self.storage.as_mut().as_mut_ptr() as *mut i64)
     }
 
     /// Return a reference to the value as an u64.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_u64(&self) -> &u64 {
         &*(self.storage.as_ref().as_ptr() as *const u64)
     }
 
     /// Return a mutable reference to the value as an u64.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_u64_mut(&mut self) -> &mut u64 {
         &mut *(self.storage.as_mut().as_mut_ptr() as *mut u64)
     }
 
     /// Return a reference to the value as an f32.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_f32(&self) -> &f32 {
         &*(self.storage.as_ref().as_ptr() as *const f32)
     }
 
     /// Return a mutable reference to the value as an f32.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_f32_mut(&mut self) -> &mut f32 {
         &mut *(self.storage.as_mut().as_mut_ptr() as *mut f32)
     }
 
     /// Return a reference to the value as f32 bits.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_f32_bits(&self) -> &u32 {
         &*(self.storage.as_ref().as_ptr() as *const u32)
     }
 
     /// Return a mutable reference to the value as f32 bits.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_f32_bits_mut(&mut self) -> &mut u32 {
         &mut *(self.storage.as_mut().as_mut_ptr() as *mut u32)
     }
 
     /// Return a reference to the value as an f64.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_f64(&self) -> &f64 {
         &*(self.storage.as_ref().as_ptr() as *const f64)
     }
 
     /// Return a mutable reference to the value as an f64.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_f64_mut(&mut self) -> &mut f64 {
         &mut *(self.storage.as_mut().as_mut_ptr() as *mut f64)
     }
 
     /// Return a reference to the value as f64 bits.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_f64_bits(&self) -> &u64 {
         &*(self.storage.as_ref().as_ptr() as *const u64)
     }
 
     /// Return a mutable reference to the value as f64 bits.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_f64_bits_mut(&mut self) -> &mut u64 {
         &mut *(self.storage.as_mut().as_mut_ptr() as *mut u64)
     }
 
     /// Return a reference to the value as an u128.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_u128(&self) -> &u128 {
         &*(self.storage.as_ref().as_ptr() as *const u128)
     }
 
     /// Return a mutable reference to the value as an u128.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_u128_mut(&mut self) -> &mut u128 {
         &mut *(self.storage.as_mut().as_mut_ptr() as *mut u128)
     }
 
     /// Return a reference to the value as u128 bits.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_u128_bits(&self) -> &[u8; 16] {
         &*(self.storage.as_ref().as_ptr() as *const [u8; 16])
     }
 
     /// Return a mutable reference to the value as u128 bits.
+    ///
+    /// # Safety
+    ///
+    /// To be defined (TODO).
     #[allow(clippy::cast_ptr_alignment)]
     pub unsafe fn as_u128_bits_mut(&mut self) -> &mut [u8; 16] {
         &mut *(self.storage.as_mut().as_mut_ptr() as *mut [u8; 16])
@@ -721,7 +801,7 @@ impl VMBuiltinFunctionIndex {
     }
 
     /// Return the index as an u32 number.
-    pub const fn index(&self) -> u32 {
+    pub const fn index(self) -> u32 {
         self.0
     }
 }

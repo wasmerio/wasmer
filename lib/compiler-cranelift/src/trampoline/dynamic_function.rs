@@ -26,7 +26,7 @@ pub fn make_trampoline_dynamic_function(
 ) -> Result<FunctionBody, CompileError> {
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
-    let signature = signature_to_cranelift_ir(func_type, &frontend_config);
+    let signature = signature_to_cranelift_ir(func_type, frontend_config);
     let mut stub_sig = ir::Signature::new(frontend_config.default_call_conv);
     // Add the caller `vmctx` parameter.
     stub_sig.params.push(ir::AbiParam::special(
