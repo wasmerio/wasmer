@@ -15,4 +15,4 @@ systems where fast and consistent compilation times are very critical.
 ## Requirements
 
 At the moment, this crate depends on Rust nightly to be compiled, as it uses
-`dynasm-rs` which can only be compiled in Nigthly.
+`dynasm-rs` which can only be compiled in Nightly.

@@ -65,9 +65,9 @@ impl NativeArtifact {
     #[allow(dead_code)]
     const MAGIC_HEADER_ELF_64: &'static [u8] = &[0x7f, b'E', b'L', b'F', 2];
 
-    // Coff Magic heaer for Windows (64 bit)
+    // COFF Magic header for Windows (64 bit)
     #[allow(dead_code)]
-    const MAGIC_HEADER_COFF_64: &'static [u8] = &[0x4d, 0x5a];
+    const MAGIC_HEADER_COFF_64: &'static [u8] = &[b'M', b'Z'];
 
     /// Check if the provided bytes look like `NativeArtifact`.
     ///
@@ -186,7 +186,7 @@ impl NativeArtifact {
             Ok(Endianness::Big) => object::Endianness::Big,
             Err(e) => {
                 return Err(CompileError::Codegen(format!(
-                    "Can't detect the endianess for the target: {:?}",
+                    "Can't detect the endianness for the target: {:?}",
                     e
                 )))
             }

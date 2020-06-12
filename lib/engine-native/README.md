@@ -6,7 +6,7 @@ Code (PIC).
 
 After the compiler generates the machine code for the functions, the
 Native Engine generates a shared object file and links it via `dlsym`
-so it can be usable by the `wasmer` api.
+so it can be usable by the `wasmer` API.
 
 This allows Wasmer to achieve *blazing fast* native startup times.
 
@@ -15,7 +15,7 @@ This allows Wasmer to achieve *blazing fast* native startup times.
 The `wasmer-engine-native` crate requires a linker available on your
 system to generate the shared object file.
 
-We recommend having installed `gcc` or `clang`.
+We recommend having `gcc` or `clang` installed.
 
 > Note: when cross-compiling to other targets, `clang` will be the
 > default command used for compiling.
