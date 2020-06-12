@@ -3,9 +3,11 @@
 
 use crate::engine::{NativeEngine, NativeEngineInner};
 use crate::serialize::ModuleMetadata;
+use libloading::{Library, Symbol as LibrarySymbol};
 #[cfg(feature = "compiler")]
-use faerie::{ArtifactBuilder, Decl, Link};
-use libloading::{Library, Symbol};
+use object::write::{Object, Relocation, StandardSection, Symbol, SymbolSection};
+#[cfg(feature = "compiler")]
+use object::{RelocationEncoding, RelocationKind, SymbolFlags, SymbolKind, SymbolScope};
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -22,7 +24,9 @@ use wasm_common::{
     TableIndex,
 };
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{BinaryFormat, ModuleEnvironment, RelocationTarget, Triple};
+use wasmer_compiler::{
+    Architecture, BinaryFormat, Endianness, ModuleEnvironment, RelocationTarget, Triple,
+};
 use wasmer_compiler::{CompileError, Features};
 #[cfg(feature = "compiler")]
 use wasmer_engine::Engine;
@@ -147,18 +151,40 @@ impl NativeArtifact {
 
         let target = compiler.target();
         let target_triple = target.triple().clone();
-        if target_triple.binary_format != BinaryFormat::Elf
-            && target_triple.binary_format != BinaryFormat::Macho
-        {
-            return Err(CompileError::Codegen(format!(
-                "Binary format {} not supported",
-                target_triple.binary_format
-            )));
-        }
-        let mut obj = ArtifactBuilder::new(target_triple.clone())
-            .name("module".to_string())
-            .library(true)
-            .finish();
+
+        let obj_binary_format = match target_triple.binary_format {
+            BinaryFormat::Elf => object::BinaryFormat::Elf,
+            BinaryFormat::Macho => object::BinaryFormat::MachO,
+            BinaryFormat::Coff => object::BinaryFormat::Coff,
+            // BinaryFormat::Pe => object::BinaryFormat::Pe,
+            format => {
+                return Err(CompileError::Codegen(format!(
+                    "Binary format {} not supported",
+                    format
+                )))
+            }
+        };
+        let obj_architecture = match target_triple.architecture {
+            Architecture::X86_64 => object::Architecture::X86_64,
+            Architecture::Aarch64(_) => object::Architecture::Aarch64,
+            architecture => {
+                return Err(CompileError::Codegen(format!(
+                    "Architecture {} not supported",
+                    architecture
+                )))
+            }
+        };
+        let obj_endianness = match target_triple.endianness() {
+            Ok(Endianness::Little) => object::Endianness::Little,
+            Ok(Endianness::Big) => object::Endianness::Big,
+            Err(e) => {
+                return Err(CompileError::Codegen(format!(
+                    "Can't detect the endianess for the target: {:?}",
+                    e
+                )))
+            }
+        };
+        let mut obj = Object::new(obj_binary_format, obj_architecture, obj_endianness);
         let function_bodies = compilation.get_function_bodies();
 
         // We construct the function body lengths
@@ -179,16 +205,24 @@ impl NativeArtifact {
 
         let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
 
-        obj.declare("WASMER_METADATA", Decl::data().global().read_only())
-            .map_err(to_compile_error)?;
-
         let mut metadata_length = vec![0; 10];
         let mut writable = &mut metadata_length[..];
         leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
             .expect("Should write number");
         metadata_length.extend(serialized_data);
-        obj.define("WASMER_METADATA", metadata_length)
-            .map_err(to_compile_error)?;
+
+        let symbol_id = obj.add_symbol(Symbol {
+            name: b"WASMER_METADATA".to_vec(),
+            value: 0,
+            size: 0,
+            kind: SymbolKind::Data,
+            scope: SymbolScope::Linkage,
+            weak: false,
+            section: SymbolSection::Undefined,
+            flags: SymbolFlags::None,
+        });
+        let section_id = obj.section_id(StandardSection::Data);
+        obj.add_symbol_data(symbol_id, section_id, &metadata_length, 1);
 
         let function_relocations = compilation.get_relocations();
 
@@ -206,53 +240,103 @@ impl NativeArtifact {
             "wasmer_probestack",
         ];
         for libcall in libcalls.iter() {
-            obj.declare(libcall, Decl::function_import())
-                .map_err(to_compile_error)?;
-            obj.declare(&format!("_{}", libcall), Decl::function_import())
-                .map_err(to_compile_error)?;
+            let _symbol_id = obj.add_symbol(Symbol {
+                name: libcall.as_bytes().to_vec(),
+                value: 0,
+                size: 0,
+                kind: SymbolKind::Text,
+                scope: SymbolScope::Unknown, // SymbolScope::Dynamic?
+                weak: false,
+                section: SymbolSection::Undefined,
+                flags: SymbolFlags::None,
+            });
+            let _symbol_id = obj.add_symbol(Symbol {
+                name: format!("_{}", libcall).as_bytes().to_vec(),
+                value: 0,
+                size: 0,
+                kind: SymbolKind::Text,
+                scope: SymbolScope::Unknown, // SymbolScope::Dynamic?
+                weak: false,
+                section: SymbolSection::Undefined,
+                flags: SymbolFlags::None,
+            });
         }
 
         // Add functions
         for (function_local_index, function) in function_bodies.into_iter() {
             let function_name = Self::get_function_name(&metadata, function_local_index);
-            obj.declare(&function_name, Decl::function().global())
-                .map_err(to_compile_error)?;
-            obj.define(&function_name, function.body.clone())
-                .map_err(to_compile_error)?;
+            let symbol_id = obj.add_symbol(Symbol {
+                name: function_name.as_bytes().to_vec(),
+                value: 0,
+                size: 0,
+                kind: SymbolKind::Text,
+                scope: SymbolScope::Linkage,
+                weak: false,
+                section: SymbolSection::Undefined,
+                flags: SymbolFlags::None,
+            });
+
+            let section_id = obj.section_id(StandardSection::Text);
+            obj.add_symbol_data(symbol_id, section_id, &function.body, 1);
         }
 
         // Add function call trampolines
         for (signature_index, function) in function_call_trampolines.into_iter() {
             let function_name = Self::get_function_call_trampoline_name(&metadata, signature_index);
-            obj.declare(&function_name, Decl::function().global())
-                .map_err(to_compile_error)?;
-            obj.define(&function_name, function.body.clone())
-                .map_err(to_compile_error)?;
+            let symbol_id = obj.add_symbol(Symbol {
+                name: function_name.as_bytes().to_vec(),
+                value: 0,
+                size: 0,
+                kind: SymbolKind::Text,
+                scope: SymbolScope::Linkage,
+                weak: false,
+                section: SymbolSection::Undefined,
+                flags: SymbolFlags::None,
+            });
+            let section_id = obj.section_id(StandardSection::Text);
+            obj.add_symbol_data(symbol_id, section_id, &function.body, 1);
         }
 
         // Add dynamic function trampolines
         for (func_index, function) in dynamic_function_trampolines.into_iter() {
             let function_name = Self::get_dynamic_function_trampoline_name(&metadata, func_index);
-            obj.declare(&function_name, Decl::function().global())
-                .map_err(to_compile_error)?;
-            obj.define(&function_name, function.body.clone())
-                .map_err(to_compile_error)?;
+            let symbol_id = obj.add_symbol(Symbol {
+                name: function_name.as_bytes().to_vec(),
+                value: 0,
+                size: 0,
+                kind: SymbolKind::Text,
+                scope: SymbolScope::Linkage,
+                weak: false,
+                section: SymbolSection::Undefined,
+                flags: SymbolFlags::None,
+            });
+            let section_id = obj.section_id(StandardSection::Text);
+            obj.add_symbol_data(symbol_id, section_id, &function.body, 1);
         }
 
         // Add function relocations
         for (function_local_index, function_relocs) in function_relocations.into_iter() {
             let function_name = Self::get_function_name(&metadata, function_local_index);
+            let symbol_id = obj.symbol_id(function_name.as_bytes()).unwrap();
+            let (_, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
+            let section_id = obj.section_id(StandardSection::Text);
             for r in function_relocs {
                 // assert_eq!(r.addend, 0);
                 match r.reloc_target {
                     RelocationTarget::LocalFunc(index) => {
                         let target_name = Self::get_function_name(&metadata, index);
-                        // println!("DOING RELOCATION offset: {} addend: {}", r.offset, r.addend);
-                        obj.link(Link {
-                            from: &function_name,
-                            to: &target_name,
-                            at: r.offset as u64,
-                        })
+                        let target_symbol = obj.symbol_id(target_name.as_bytes()).unwrap();
+                        obj.add_relocation(
+                            section_id,
+                            Relocation {
+                                offset: section_offset + r.offset as u64,
+                                size: 64, // FIXME for all targets
+                                kind: RelocationKind::Absolute,
+                                encoding: RelocationEncoding::Generic,
+                                symbol: target_symbol,
+                                addend: 0,
+                            },
+                        )
                         .map_err(to_compile_error)?;
                     }
                     RelocationTarget::LibCall(libcall) => {
@@ -269,11 +353,21 @@ impl NativeArtifact {
                             LibCall::RaiseTrap => "wasmer_raise_trap",
                             LibCall::Probestack => "wasmer_probestack",
                         };
-                        obj.link(Link {
-                            from: &function_name,
-                            to: &libcall_fn_name,
-                            at: r.offset as u64,
-                        })
+                        let target_symbol = obj.symbol_id(libcall_fn_name.as_bytes()).unwrap();
+                        obj.add_relocation(
+                            section_id,
+                            Relocation {
+                                offset: section_offset + r.offset as u64,
+                                size: target_triple
+                                    .pointer_width()
+                                    .expect("Cant get pointer width for target")
+                                    .bits(),
+                                kind: RelocationKind::Absolute,
+                                encoding: RelocationEncoding::Generic,
+                                symbol: target_symbol,
+                                addend: 0,
+                            },
+                        )
                         .map_err(to_compile_error)?;
                     }
                     RelocationTarget::CustomSection(_custom_section) => {
@@ -289,25 +383,27 @@ impl NativeArtifact {
         let file = NamedTempFile::new().map_err(to_compile_error)?;
 
         // Re-open it.
-        let (file, filepath) = file.keep().map_err(to_compile_error)?;
-        obj.write(file).map_err(to_compile_error)?;
+        let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
+        let obj_bytes = obj.write().unwrap();
+
+        file.write(&obj_bytes).map_err(to_compile_error)?;
 
         let shared_file = NamedTempFile::new().map_err(to_compile_error)?;
         let (_file, shared_filepath) = shared_file.keep().map_err(to_compile_error)?;
-        let wasmer_symbols = libcalls
-            .iter()
-            .map(|libcall| {
-                match target_triple.binary_format {
-                    BinaryFormat::Macho => format!("-Wl,-U,_{}", libcall),
-                    BinaryFormat::Elf => format!("-Wl,--undefined={}", libcall),
-                    _ => {
-                        // We should already be filtering only valid binary formats before
-                        // so this should never happen.
-                        unreachable!("Incorrect binary format")
-                    }
-                }
-            })
-            .collect::<Vec<String>>();
+        // let wasmer_symbols = libcalls
+        //     .iter()
+        //     .map(|libcall| {
+        //         match target_triple.binary_format {
+        //             BinaryFormat::Macho => format!("-Wl,-U,_{}", libcall),
+        //             BinaryFormat::Elf => format!("-Wl,--undefined={}", libcall),
+        //             _ => {
+        //                 // We should already be filtering only valid binary formats before
+        //                 // so this should never happen.
+        //                 unreachable!("Incorrect binary format")
+        //             }
+        //         }
+        //     })
+        //     .collect::<Vec<String>>();
 
         let host_target = Triple::host();
         let is_cross_compiling = target_triple != host_target;
@@ -424,7 +520,7 @@ impl NativeArtifact {
             unsafe {
                 // We use a fake function signature `fn()` because we just
                 // want to get the function address.
-                let func: Symbol<unsafe extern "C" fn()> = lib
+                let func: LibrarySymbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
                 let raw = *func.into_raw();
@@ -442,7 +538,7 @@ impl NativeArtifact {
         for (sig_index, func_type) in metadata.module.signatures.iter() {
             let function_name = Self::get_function_call_trampoline_name(&metadata, sig_index);
             unsafe {
-                let trampoline: Symbol<VMTrampoline> = lib
+                let trampoline: LibrarySymbol<VMTrampoline> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
                 engine_inner.add_trampoline(&func_type, *trampoline);
@@ -462,7 +558,7 @@ impl NativeArtifact {
         {
             let function_name = Self::get_dynamic_function_trampoline_name(&metadata, func_index);
             unsafe {
-                let trampoline: Symbol<*const VMFunctionBody> = lib
+                let trampoline: LibrarySymbol<*const VMFunctionBody> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
                 finished_dynamic_function_trampolines.push(*trampoline);
@@ -574,12 +670,13 @@ impl NativeArtifact {
         // (we construct it like that in `metadata_length`) and we also want
         // to take the first element of the data to construct the slice from
         // it.
-        let symbol: Symbol<*mut [u8; 10 + 1]> = lib.get(b"WASMER_METADATA").map_err(|e| {
-            DeserializeError::CorruptedBinary(format!(
-                "The provided object file doesn't seem to be generated by Wasmer: {}",
-                e
-            ))
-        })?;
+        let symbol: LibrarySymbol<*mut [u8; 10 + 1]> =
+            lib.get(b"WASMER_METADATA").map_err(|e| {
+                DeserializeError::CorruptedBinary(format!(
+                    "The provided object file doesn't seem to be generated by Wasmer: {}",
+                    e
+                ))
+            })?;
         use std::ops::Deref;
         use std::slice;
 
