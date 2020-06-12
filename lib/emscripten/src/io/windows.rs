@@ -1,4 +1,4 @@
-use wasmer_runtime_core::vm::Ctx;
+use crate::EmEnv;
 
 // This may be problematic for msvc which uses inline functions for the printf family
 // this cfg_attr will try to link with the legacy lib that does not inline printf
@@ -14,12 +14,12 @@ use wasmer_runtime_core::vm::Ctx;
 //}
 
 /// putchar
-pub fn putchar(_ctx: &mut Ctx, chr: i32) {
+pub fn putchar(_ctx: &mut EmEnv, chr: i32) {
     unsafe { libc::putchar(chr) };
 }
 
 /// printf
-pub fn printf(_ctx: &mut Ctx, memory_offset: i32, extra: i32) -> i32 {
+pub fn printf(_ctx: &mut EmEnv, memory_offset: i32, extra: i32) -> i32 {
     debug!("emscripten::printf {}, {}", memory_offset, extra);
     #[cfg(not(feature = "debug"))]
     {
@@ -34,13 +34,13 @@ pub fn printf(_ctx: &mut Ctx, memory_offset: i32, extra: i32) -> i32 {
 }
 
 /// chroot
-pub fn chroot(_ctx: &mut Ctx, _name_ptr: i32) -> i32 {
+pub fn chroot(_ctx: &mut EmEnv, _name_ptr: i32) -> i32 {
     debug!("emscripten::chroot");
     unimplemented!("emscripten::chroot")
 }
 
 /// getpwuid
-pub fn getpwuid(_ctx: &mut Ctx, _uid: i32) -> i32 {
+pub fn getpwuid(_ctx: &mut EmEnv, _uid: i32) -> i32 {
     debug!("emscripten::getpwuid");
     unimplemented!("emscripten::getpwuid")
 }

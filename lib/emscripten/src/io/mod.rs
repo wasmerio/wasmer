@@ -10,22 +10,22 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
-use wasmer_runtime_core::vm::Ctx;
+use crate::EmEnv;
 
 /// getprotobyname
-pub fn getprotobyname(_ctx: &mut Ctx, _name_ptr: i32) -> i32 {
+pub fn getprotobyname(_ctx: &mut EmEnv, _name_ptr: i32) -> i32 {
     debug!("emscripten::getprotobyname");
     unimplemented!("emscripten::getprotobyname")
 }
 
 /// getprotobynumber
-pub fn getprotobynumber(_ctx: &mut Ctx, _one: i32) -> i32 {
+pub fn getprotobynumber(_ctx: &mut EmEnv, _one: i32) -> i32 {
     debug!("emscripten::getprotobynumber");
     unimplemented!("emscripten::getprotobynumber")
 }
 
 /// sigdelset
-pub fn sigdelset(ctx: &mut Ctx, set: i32, signum: i32) -> i32 {
+pub fn sigdelset(ctx: &mut EmEnv, set: i32, signum: i32) -> i32 {
     debug!("emscripten::sigdelset");
     let memory = ctx.memory(0);
     #[allow(clippy::cast_ptr_alignment)]
@@ -37,7 +37,7 @@ pub fn sigdelset(ctx: &mut Ctx, set: i32, signum: i32) -> i32 {
 }
 
 /// sigfillset
-pub fn sigfillset(ctx: &mut Ctx, set: i32) -> i32 {
+pub fn sigfillset(ctx: &mut EmEnv, set: i32) -> i32 {
     debug!("emscripten::sigfillset");
     let memory = ctx.memory(0);
     #[allow(clippy::cast_ptr_alignment)]
@@ -51,13 +51,13 @@ pub fn sigfillset(ctx: &mut Ctx, set: i32) -> i32 {
 }
 
 /// tzset
-pub fn tzset(_ctx: &mut Ctx) {
+pub fn tzset(_ctx: &mut EmEnv) {
     debug!("emscripten::tzset - stub");
     //unimplemented!("emscripten::tzset - stub")
 }
 
 /// strptime
-pub fn strptime(_ctx: &mut Ctx, _one: i32, _two: i32, _three: i32) -> i32 {
+pub fn strptime(_ctx: &mut EmEnv, _one: i32, _two: i32, _three: i32) -> i32 {
     debug!("emscripten::strptime");
     unimplemented!("emscripten::strptime")
 }

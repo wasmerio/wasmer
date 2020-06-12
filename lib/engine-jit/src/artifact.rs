@@ -14,7 +14,7 @@ use wasm_common::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{CompileError, Features};
+use wasmer_compiler::{CompileError, Features, Triple};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
 };
@@ -221,6 +221,12 @@ impl JITArtifact {
             signatures,
             frame_info_registration: Mutex::new(None),
         })
+    }
+
+    /// Get the default extension when serializing this artifact
+    pub fn get_default_extension(_triple: &Triple) -> &'static str {
+        // `.wjit` is the default extension for all the triples
+        "wjit"
     }
 }
 

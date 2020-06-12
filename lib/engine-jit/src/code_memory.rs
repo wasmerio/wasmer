@@ -3,7 +3,7 @@ use crate::unwind::UnwindRegistry;
 use region;
 use std::mem::ManuallyDrop;
 use std::{cmp, mem};
-use wasm_common::entity::{PrimaryMap, EntityRef};
+use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{CompiledFunctionUnwindInfo, FunctionBody, SectionBody};
 use wasmer_runtime::{Mmap, VMFunctionBody};
@@ -68,7 +68,10 @@ impl CodeMemory {
     pub fn allocate_functions<K>(
         &mut self,
         compilation: &PrimaryMap<K, FunctionBody>,
-    ) -> Result<PrimaryMap<K, *mut [VMFunctionBody]>, String> where K: EntityRef {
+    ) -> Result<PrimaryMap<K, *mut [VMFunctionBody]>, String>
+    where
+        K: EntityRef,
+    {
         let total_len = compilation.values().fold(0, |acc, func| {
             acc + get_align_padding_size(acc, ARCH_FUNCTION_ALIGNMENT)
                 + Self::function_allocation_size(func)
