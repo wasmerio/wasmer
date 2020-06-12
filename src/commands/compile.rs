@@ -61,6 +61,7 @@ impl Compile {
                 // TODO: Match it depending on the `BinaryFormat` instead of the
                 // `OperatingSystem`.
                 match target.triple().operating_system {
+                    OperatingSystem::Windows => "dll",
                     OperatingSystem::Darwin
                     | OperatingSystem::Ios
                     | OperatingSystem::MacOSX { .. } => "dylib",

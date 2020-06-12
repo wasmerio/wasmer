@@ -25,7 +25,8 @@ use wasm_common::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    Architecture, BinaryFormat, Endianness, ModuleEnvironment, RelocationTarget, Triple,
+    Architecture, BinaryFormat, Endianness, ModuleEnvironment, OperatingSystem, RelocationTarget,
+    Triple,
 };
 use wasmer_compiler::{CompileError, Features};
 #[cfg(feature = "compiler")]
@@ -223,7 +224,7 @@ impl NativeArtifact {
             value: 0,
             size: 0,
             kind: SymbolKind::Data,
-            scope: SymbolScope::Linkage,
+            scope: SymbolScope::Dynamic,
             weak: false,
             section: SymbolSection::Undefined,
             flags: SymbolFlags::None,
@@ -252,17 +253,7 @@ impl NativeArtifact {
                 value: 0,
                 size: 0,
                 kind: SymbolKind::Text,
-                scope: SymbolScope::Unknown, // SymbolScope::Dynamic?
-                weak: false,
-                section: SymbolSection::Undefined,
-                flags: SymbolFlags::None,
-            });
-            let _symbol_id = obj.add_symbol(Symbol {
-                name: format!("_{}", libcall).as_bytes().to_vec(),
-                value: 0,
-                size: 0,
-                kind: SymbolKind::Text,
-                scope: SymbolScope::Unknown, // SymbolScope::Dynamic?
+                scope: SymbolScope::Dynamic, // SymbolScope::Dynamic?
                 weak: false,
                 section: SymbolSection::Undefined,
                 flags: SymbolFlags::None,
@@ -277,7 +268,7 @@ impl NativeArtifact {
                 value: 0,
                 size: 0,
                 kind: SymbolKind::Text,
-                scope: SymbolScope::Linkage,
+                scope: SymbolScope::Dynamic,
                 weak: false,
                 section: SymbolSection::Undefined,
                 flags: SymbolFlags::None,
@@ -295,7 +286,7 @@ impl NativeArtifact {
                 value: 0,
                 size: 0,
                 kind: SymbolKind::Text,
-                scope: SymbolScope::Linkage,
+                scope: SymbolScope::Dynamic,
                 weak: false,
                 section: SymbolSection::Undefined,
                 flags: SymbolFlags::None,
@@ -312,7 +303,7 @@ impl NativeArtifact {
                 value: 0,
                 size: 0,
                 kind: SymbolKind::Text,
-                scope: SymbolScope::Linkage,
+                scope: SymbolScope::Dynamic,
                 weak: false,
                 section: SymbolSection::Undefined,
                 flags: SymbolFlags::None,
@@ -337,11 +328,11 @@ impl NativeArtifact {
                             section_id,
                             Relocation {
                                 offset: section_offset + r.offset as u64,
-                                size: 64, // FIXME for all targets
-                                kind: RelocationKind::Absolute,
-                                encoding: RelocationEncoding::Generic,
+                                size: 32, // FIXME for all targets
+                                kind: RelocationKind::PltRelative,
+                                encoding: RelocationEncoding::X86Branch,
                                 symbol: target_symbol,
-                                addend: 0,
+                                addend: r.addend,
                             },
                         )
                         .map_err(to_compile_error)?;
@@ -365,14 +356,11 @@ impl NativeArtifact {
                             section_id,
                             Relocation {
                                 offset: section_offset + r.offset as u64,
-                                size: target_triple
-                                    .pointer_width()
-                                    .expect("Cant get pointer width for target")
-                                    .bits(),
-                                kind: RelocationKind::Absolute,
-                                encoding: RelocationEncoding::Generic,
+                                size: 32, // FIXME for all targets
+                                kind: RelocationKind::PltRelative,
+                                encoding: RelocationEncoding::X86Branch,
                                 symbol: target_symbol,
-                                addend: 0,
+                                addend: r.addend,
                             },
                         )
                         .map_err(to_compile_error)?;
@@ -391,7 +379,7 @@ impl NativeArtifact {
 
         // Re-open it.
         let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
-        let obj_bytes = obj.write().unwrap();
+        let obj_bytes = obj.write().map_err(to_compile_error)?;
 
         file.write(&obj_bytes).map_err(to_compile_error)?;
 
@@ -424,6 +412,10 @@ impl NativeArtifact {
         } else {
             vec![]
         };
+        let target_args = match target_triple.operating_system {
+            OperatingSystem::Windows => vec!["-Wl,/force:unresolved"],
+            _ => vec!["-Wl,-undefined,dynamic_lookup"],
+        };
         trace!(
             "Compiling for target {} from host {}",
             target_triple.to_string(),
@@ -441,7 +433,7 @@ impl NativeArtifact {
             .arg("-nostartfiles")
             .arg("-o")
             .arg(&shared_filepath)
-            .arg("-Wl,-undefined,dynamic_lookup")
+            .args(&target_args)
             // .args(&wasmer_symbols)
             .arg("-shared")
             .args(&cross_compiling_args)
