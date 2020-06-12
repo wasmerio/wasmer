@@ -164,7 +164,6 @@ impl NativeArtifact {
             BinaryFormat::Elf => object::BinaryFormat::Elf,
             BinaryFormat::Macho => object::BinaryFormat::MachO,
             BinaryFormat::Coff => object::BinaryFormat::Coff,
-            // BinaryFormat::Pe => object::BinaryFormat::Pe,
             format => {
                 return Err(CompileError::Codegen(format!(
                     "Binary format {} not supported",
