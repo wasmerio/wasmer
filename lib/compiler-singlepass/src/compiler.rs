@@ -8,13 +8,17 @@ use crate::codegen_x64::{
 };
 use crate::config::SinglepassConfig;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::wasmparser::BinaryReaderError;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
-use wasmer_compiler::{CompilerConfig, MiddlewareBinaryReader, ModuleTranslationState, Target};
+use wasmer_compiler::{
+    CompilerConfig, FunctionMiddleware, FunctionMiddlewareBuilder, MiddlewareBinaryReader,
+    MiddlewareBuilderGenerator, MiddlewareRegistry, ModuleTranslationState, Target,
+};
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::TrapCode;
@@ -24,6 +28,7 @@ use wasmer_runtime::{MemoryPlan, TablePlan, VMOffsets};
 /// It does the compilation in one pass
 pub struct SinglepassCompiler {
     config: SinglepassConfig,
+    middleware_registry: Option<Arc<MiddlewareRegistry>>,
 }
 
 impl SinglepassCompiler {
@@ -31,7 +36,12 @@ impl SinglepassCompiler {
     pub fn new(config: &SinglepassConfig) -> Self {
         Self {
             config: config.clone(),
+            middleware_registry: None,
         }
+    }
+
+    pub fn set_middleware_registry(&mut self, registry: Arc<MiddlewareRegistry>) {
+        self.middleware_registry = Some(registry);
     }
 
     /// Gets the WebAssembly features for this Compiler
@@ -72,6 +82,18 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<_>>()
             .into_iter()
             .collect();
+        let mut middleware_builder_chain: Vec<Box<dyn FunctionMiddlewareBuilder>> = Vec::new();
+        for (name, &(version, ref conf)) in &module.middleware_conf {
+            let middleware = if let Some(ref registry) = self.middleware_registry {
+                registry.instantiate_builder(name, version, &**conf)?
+            } else {
+                return Err(CompileError::Codegen(format!(
+                    "trying to load middleware `{}` but no registry is provided",
+                    name
+                )));
+            };
+            middleware_builder_chain.push(middleware);
+        }
         let functions = function_body_inputs
             .into_iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
