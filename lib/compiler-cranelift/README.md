@@ -5,7 +5,7 @@ compiler implementation based on Cranelift.
 
 We recommend using this compiler only for development proposes.
 For production we recommend using `wasmer-compiler-llvm` as it offers
-a much better runtime speed (50% faster in average).
+a much better runtime speed (50% faster on average).
 
 ### Acknowledgments
 

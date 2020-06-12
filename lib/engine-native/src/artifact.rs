@@ -312,19 +312,7 @@ impl NativeArtifact {
                     }
                     RelocationTarget::LibCall(libcall) => {
                         use wasmer_runtime::libcalls::LibCall;
-                        let libcall_fn_name = match libcall {
-                            LibCall::CeilF32 => "wasmer_f32_ceil",
-                            LibCall::FloorF32 => "wasmer_f32_floor",
-                            LibCall::TruncF32 => "wasmer_f32_trunc",
-                            LibCall::NearestF32 => "wasmer_f32_nearest",
-                            LibCall::CeilF64 => "wasmer_f64_ceil",
-                            LibCall::FloorF64 => "wasmer_f64_floor",
-                            LibCall::TruncF64 => "wasmer_f64_trunc",
-                            LibCall::NearestF64 => "wasmer_f64_nearest",
-                            LibCall::RaiseTrap => "wasmer_raise_trap",
-                            LibCall::Probestack => "wasmer_probestack",
-                        }
-                        .as_bytes();
+                        let libcall_fn_name = libcall.to_function_name().as_bytes();
                         // We add the symols lazily as we see them
                         let target_symbol = obj.symbol_id(libcall_fn_name).unwrap_or_else(|| {
                             obj.add_symbol(Symbol {
@@ -361,31 +349,33 @@ impl NativeArtifact {
             }
         }
 
-        let file = tempfile::Builder::new()
-            .prefix("wasmer_native")
-            .suffix(".o")
-            .tempfile()
-            .map_err(to_compile_error)?;
+        let filepath = {
+            let file = tempfile::Builder::new()
+                .prefix("wasmer_native")
+                .suffix(".o")
+                .tempfile()
+                .map_err(to_compile_error)?;
 
-        // Re-open it.
-        let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
-        let obj_bytes = obj.write().map_err(to_compile_error)?;
+            // Re-open it.
+            let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
+            let obj_bytes = obj.write().map_err(to_compile_error)?;
 
-        file.write(&obj_bytes).map_err(to_compile_error)?;
-        // We drop the file, as otherwise it will remain open and it will fail
-        // to open in Windows in the linking step;
-        drop(file);
+            file.write(&obj_bytes).map_err(to_compile_error)?;
+            filepath
+        };
 
-        let suffix = format!(".{}", Self::get_default_extension(&target_triple));
-        let shared_file = tempfile::Builder::new()
-            .prefix("wasmer_native")
-            .suffix(&suffix)
-            .tempfile()
-            .map_err(to_compile_error)?;
-        let shared_filepath = shared_file
-            .into_temp_path()
-            .keep()
-            .map_err(to_compile_error)?;
+        let shared_filepath = {
+            let suffix = format!(".{}", Self::get_default_extension(&target_triple));
+            let shared_file = tempfile::Builder::new()
+                .prefix("wasmer_native")
+                .suffix(&suffix)
+                .tempfile()
+                .map_err(to_compile_error)?;
+            shared_file
+                .into_temp_path()
+                .keep()
+                .map_err(to_compile_error)?
+        };
 
         let host_target = Triple::host();
         let is_cross_compiling = target_triple != host_target;
@@ -431,8 +421,8 @@ impl NativeArtifact {
         if !output.status.success() {
             return Err(CompileError::Codegen(format!(
                 "Shared object file generator failed with:\nstderr:{}\nstdout:{}",
-                std::str::from_utf8(&output.stderr).unwrap().trim_end(),
-                std::str::from_utf8(&output.stdout).unwrap().trim_end()
+                std::str::from_utf8_lossy(&output.stderr).trim_end(),
+                std::str::from_utf8_lossy(&output.stdout).trim_end()
             )));
         }
         trace!("gcc command result {:?}", output);
