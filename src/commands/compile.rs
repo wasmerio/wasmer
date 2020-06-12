@@ -57,17 +57,14 @@ impl Compile {
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
         let recommended_extension = match engine_type {
+            #[cfg(feature = "native")]
             EngineType::Native => {
-                // TODO: Match it depending on the `BinaryFormat` instead of the
-                // `OperatingSystem`.
-                match target.triple().operating_system {
-                    OperatingSystem::Darwin
-                    | OperatingSystem::Ios
-                    | OperatingSystem::MacOSX { .. } => "dylib",
-                    _ => "so",
-                }
+                wasmer_engine_native::NativeArtifact::get_default_extension(target.triple())
             }
-            EngineType::JIT => "wjit",
+            #[cfg(feature = "jit")]
+            EngineType::JIT => {
+                wasmer_engine_jit::JITArtifact::get_default_extension(target.triple())
+            }
         };
         match self.output.extension() {
             Some(ext) => {
