@@ -1,6 +1,6 @@
+use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::{Context, Result};
 use std::path::PathBuf;
-
 use wasmer::{Function, Instance, Memory, Module};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, WasiEnv, WasiState, WasiVersion,
@@ -12,16 +12,16 @@ use structopt::StructOpt;
 /// WASI Options
 pub struct Wasi {
     /// WASI pre-opened directory
-    #[structopt(long = "dir", multiple = true, group = "wasi")]
+    #[structopt(long = "dir", name = "DIR", multiple = true, group = "wasi")]
     pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the wasm module
-    #[structopt(long = "mapdir", multiple = true)]
-    mapped_dirs: Vec<String>,
+    #[structopt(long = "mapdir", name = "GUEST_DIR:HOST_DIR", multiple = true, parse(try_from_str = parse_mapdir))]
+    mapped_dirs: Vec<(String, PathBuf)>,
 
     /// Pass custom environment variables
-    #[structopt(long = "env", multiple = true)]
-    env_vars: Vec<String>,
+    #[structopt(long = "env", name = "KEY=VALUE", multiple = true, parse(try_from_str = parse_envvar))]
+    env_vars: Vec<(String, String)>,
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
@@ -30,44 +30,6 @@ pub struct Wasi {
 }
 
 impl Wasi {
-    fn get_mapped_dirs(&self) -> Result<Vec<(String, PathBuf)>> {
-        let mut md = vec![];
-        for entry in self.mapped_dirs.iter() {
-            if let [alias, real_dir] = entry.split(':').collect::<Vec<&str>>()[..] {
-                let pb = PathBuf::from(&real_dir);
-                if let Ok(pb_metadata) = pb.metadata() {
-                    if !pb_metadata.is_dir() {
-                        bail!("\"{}\" exists, but it is not a directory", &real_dir);
-                    }
-                } else {
-                    bail!("Directory \"{}\" does not exist", &real_dir);
-                }
-                md.push((alias.to_string(), pb));
-                continue;
-            }
-            bail!(
-                "Directory mappings must consist of two paths separate by a colon. Found {}",
-                &entry
-            );
-        }
-        Ok(md)
-    }
-
-    fn get_env_vars(&self) -> Result<Vec<(&str, &str)>> {
-        let mut env = vec![];
-        for entry in self.env_vars.iter() {
-            if let [env_var, value] = entry.split('=').collect::<Vec<&str>>()[..] {
-                env.push((env_var, value));
-            } else {
-                bail!(
-                    "Env vars must be of the form <var_name>=<value>. Found {}",
-                    &entry
-                );
-            }
-        }
-        Ok(env)
-    }
-
     /// Gets the WASI version (if any) for the provided module
     pub fn get_version(module: &Module) -> Option<WasiVersion> {
         // Get the wasi version on strict mode, so no other imports are
@@ -86,15 +48,12 @@ impl Wasi {
         let mut wasi_state_builder = WasiState::new(&program_name);
 
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
-        let env_vars = self.get_env_vars()?;
-        let preopened_files = self.pre_opened_directories.clone();
-        let mapped_dirs = self.get_mapped_dirs()?;
 
         wasi_state_builder
             .args(args)
-            .envs(env_vars)
-            .preopen_dirs(preopened_files)?
-            .map_dirs(mapped_dirs)?;
+            .envs(self.env_vars.clone())
+            .preopen_dirs(self.pre_opened_directories.clone())?
+            .map_dirs(self.mapped_dirs.clone())?;
 
         #[cfg(feature = "experimental-io-devices")]
         {
