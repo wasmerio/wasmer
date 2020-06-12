@@ -234,32 +234,6 @@ impl NativeArtifact {
 
         let function_relocations = compilation.get_relocations();
 
-        // Libcall declarations
-        let libcalls = vec![
-            "wasmer_f32_ceil",
-            "wasmer_f32_floor",
-            "wasmer_f32_trunc",
-            "wasmer_f32_nearest",
-            "wasmer_f64_ceil",
-            "wasmer_f64_floor",
-            "wasmer_f64_trunc",
-            "wasmer_f64_nearest",
-            "wasmer_raise_trap",
-            "wasmer_probestack",
-        ];
-        for libcall in libcalls.iter() {
-            let _symbol_id = obj.add_symbol(Symbol {
-                name: libcall.as_bytes().to_vec(),
-                value: 0,
-                size: 0,
-                kind: SymbolKind::Text,
-                scope: SymbolScope::Dynamic, // SymbolScope::Dynamic?
-                weak: false,
-                section: SymbolSection::Undefined,
-                flags: SymbolFlags::None,
-            });
-        }
-
         // Add functions
         for (function_local_index, function) in function_bodies.into_iter() {
             let function_name = Self::get_function_name(&metadata, function_local_index);
@@ -350,8 +324,21 @@ impl NativeArtifact {
                             LibCall::NearestF64 => "wasmer_f64_nearest",
                             LibCall::RaiseTrap => "wasmer_raise_trap",
                             LibCall::Probestack => "wasmer_probestack",
-                        };
-                        let target_symbol = obj.symbol_id(libcall_fn_name.as_bytes()).unwrap();
+                        }
+                        .as_bytes();
+                        // We add the symols lazily as we see them
+                        let target_symbol = obj.symbol_id(libcall_fn_name).unwrap_or_else(|| {
+                            obj.add_symbol(Symbol {
+                                name: libcall_fn_name.to_vec(),
+                                value: 0,
+                                size: 0,
+                                kind: SymbolKind::Text,
+                                scope: SymbolScope::Dynamic,
+                                weak: false,
+                                section: SymbolSection::Undefined,
+                                flags: SymbolFlags::None,
+                            })
+                        });
                         obj.add_relocation(
                             section_id,
                             Relocation {
@@ -400,20 +387,6 @@ impl NativeArtifact {
             .into_temp_path()
             .keep()
             .map_err(to_compile_error)?;
-        // let wasmer_symbols = libcalls
-        //     .iter()
-        //     .map(|libcall| {
-        //         match target_triple.binary_format {
-        //             BinaryFormat::Macho => format!("-Wl,-U,_{}", libcall),
-        //             BinaryFormat::Elf => format!("-Wl,--undefined={}", libcall),
-        //             _ => {
-        //                 // We should already be filtering only valid binary formats before
-        //                 // so this should never happen.
-        //                 unreachable!("Incorrect binary format")
-        //             }
-        //         }
-        //     })
-        //     .collect::<Vec<String>>();
 
         let host_target = Triple::host();
         let is_cross_compiling = target_triple != host_target;
