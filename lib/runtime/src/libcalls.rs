@@ -405,36 +405,36 @@ pub unsafe extern "C" fn wasmer_probestack() {
 /// This list is likely to grow over time.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LibCall {
+    /// ceil.f32
+    CeilF32,
+
+    /// ceil.f64
+    CeilF64,
+
+    /// floor.f32
+    FloorF32,
+
+    /// floor.f64
+    FloorF64,
+
+    /// nearest.f32
+    NearestF32,
+
+    /// nearest.f64
+    NearestF64,
+
     /// probe for stack overflow. These are emitted for functions which need
     /// when the `enable_probestack` setting is true.
     Probestack,
-    /// ceil.f32
-    CeilF32,
-    /// ceil.f64
-    CeilF64,
-    /// floor.f32
-    FloorF32,
-    /// floor.f64
-    FloorF64,
-    /// trunc.f32
-    TruncF32,
-    /// frunc.f64
-    TruncF64,
-    /// nearest.f32
-    NearestF32,
-    /// nearest.f64
-    NearestF64,
+
     /// A custom trap
     RaiseTrap,
-    // /// libc.memcpy
-    // Memcpy,
-    // /// libc.memset
-    // Memset,
-    // /// libc.memmove
-    // Memmove,
 
-    // /// Elf __tls_get_addr
-    // ElfTlsGetAddr,
+    /// trunc.f32
+    TruncF32,
+
+    /// frunc.f64
+    TruncF64,
 }
 
 impl LibCall {
@@ -442,16 +442,15 @@ impl LibCall {
     pub fn function_pointer(self) -> usize {
         match self {
             Self::CeilF32 => wasmer_f32_ceil as usize,
-            Self::FloorF32 => wasmer_f32_floor as usize,
-            Self::TruncF32 => wasmer_f32_trunc as usize,
-            Self::NearestF32 => wasmer_f32_nearest as usize,
             Self::CeilF64 => wasmer_f64_ceil as usize,
+            Self::FloorF32 => wasmer_f32_floor as usize,
             Self::FloorF64 => wasmer_f64_floor as usize,
-            Self::TruncF64 => wasmer_f64_trunc as usize,
+            Self::NearestF32 => wasmer_f32_nearest as usize,
             Self::NearestF64 => wasmer_f64_nearest as usize,
-            Self::RaiseTrap => wasmer_raise_trap as usize,
             Self::Probestack => PROBESTACK as usize,
-            // other => panic!("unexpected libcall: {}", other),
+            Self::RaiseTrap => wasmer_raise_trap as usize,
+            Self::TruncF32 => wasmer_f32_trunc as usize,
+            Self::TruncF64 => wasmer_f64_trunc as usize,
         }
     }
 }
