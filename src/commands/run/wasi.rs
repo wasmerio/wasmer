@@ -2,7 +2,7 @@ use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use wasmer::{Function, Instance, Memory, Module};
-use wasmer_wasi::{get_wasi_version, WasiEnv, WasiState, WasiVersion};
+use wasmer_wasi::{get_wasi_version, WasiState, WasiVersion};
 
 use structopt::StructOpt;
 
@@ -54,8 +54,7 @@ impl Wasi {
             }
         }
 
-        let wasi_state = wasi_state_builder.build()?;
-        let mut wasi_env = WasiEnv::new(wasi_state);
+        let mut wasi_env = wasi_state_builder.finalize()?;
         let import_object = wasi_env.import_object(&module)?;
 
         let instance = Instance::new(&module, &import_object)?;

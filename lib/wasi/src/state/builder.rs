@@ -2,6 +2,7 @@
 
 use crate::state::{WasiFile, WasiFs, WasiFsError, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
+use crate::WasiEnv;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -387,6 +388,14 @@ impl WasiStateBuilder {
             args: self.args.clone(),
             envs: self.envs.clone(),
         })
+    }
+
+    /// Consumes the [`WasiStateBuilder`] and produces a [`WasiEnv`]
+    ///
+    /// Returns the error from `WasiFs::new` if there's an error
+    pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
+        let state = self.build()?;
+        Ok(WasiEnv::new(state))
     }
 }
 
