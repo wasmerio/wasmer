@@ -130,6 +130,15 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 # Packaging #
 #############
 
+package-wapm:
+	mkdir -p "package/bin"
+ifeq ($(OS), Windows_NT)
+	echo ""
+else
+	echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax
+	chmod +x package/bin/wax
+endif
+
 package-wasmer:
 	mkdir -p "package/bin"
 ifeq ($(OS), Windows_NT)
@@ -171,7 +180,7 @@ package-docs: build-docs build-docs-capi
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > package/docs/index.html
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > package/docs/crates/index.html
 
-package: package-wasmer package-capi
+package: package-wapm package-wasmer package-capi
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
