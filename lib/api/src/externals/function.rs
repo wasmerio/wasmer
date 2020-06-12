@@ -5,6 +5,7 @@ use crate::types::Val;
 use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
+use std::cell::Cell;
 use std::cmp::max;
 use wasm_common::{HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
@@ -93,13 +94,13 @@ impl Function {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: &mut Env, func: F) -> Self
+    pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
         F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
         Env: Sized,
     {
         let dynamic_ctx = VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithEnv {
-            env,
+            env: Cell::new(env),
             func: Box::new(func),
             function_type: ty.clone(),
         });
@@ -123,7 +124,7 @@ impl Function {
     /// * `store` - a global cache to store information in.
     /// * `env` - the function environment.
     /// * `func` - the function.
-    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: &mut Env, func: F) -> Self
+    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: Env, func: F) -> Self
     where
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
@@ -137,7 +138,8 @@ impl Function {
         // Wasm-defined functions have a `VMContext`.
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
-        let vmctx = env as *mut _ as *mut VMContext;
+        let box_env = Box::new(env);
+        let vmctx = Box::into_raw(box_env) as *mut _ as *mut VMContext;
         let signature = func.ty();
         Self {
             store: store.clone(),
@@ -356,7 +358,7 @@ where
 {
     #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
-    env: *mut Env,
+    env: Cell<Env>,
     function_type: FunctionType,
 }
 
@@ -365,7 +367,7 @@ where
     Env: Sized,
 {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
-        unsafe { (*self.func)(&mut *self.env, &args) }
+        unsafe { (*self.func)(&mut *self.env.as_ptr(), &args) }
     }
     fn function_type(&self) -> &FunctionType {
         &self.function_type
