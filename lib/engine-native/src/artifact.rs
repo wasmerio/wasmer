@@ -64,6 +64,10 @@ impl NativeArtifact {
     #[allow(dead_code)]
     const MAGIC_HEADER_ELF_64: &'static [u8] = &[0x7f, b'E', b'L', b'F', 2];
 
+    // Coff Magic heaer for Windows (64 bit)
+    #[allow(dead_code)]
+    const MAGIC_HEADER_COFF_64: &'static [u8] = &[0x4d, 0x5a];
+
     /// Check if the provided bytes look like `NativeArtifact`.
     ///
     /// This means, if the bytes look like a shared object file in the target
@@ -78,6 +82,9 @@ impl NativeArtifact {
             }
             else if #[cfg(all(target_pointer_width = "32", target_os="linux"))] {
                 bytes.starts_with(Self::MAGIC_HEADER_ELF_32)
+            }
+            else if #[cfg(all(target_pointer_width = "64", target_os="windows"))] {
+                bytes.starts_with(Self::MAGIC_HEADER_COFF_64)
             }
             else {
                 false
