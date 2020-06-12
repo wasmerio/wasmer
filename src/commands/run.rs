@@ -227,14 +227,24 @@ impl Run {
         compiler_type: &CompilerType,
     ) -> Result<FileSystemCache> {
         let mut cache_dir_root = get_cache_dir();
-        cache_dir_root.push(engine_type.to_string());
         cache_dir_root.push(compiler_type.to_string());
         let mut cache = FileSystemCache::new(cache_dir_root)?;
-        // Native files need to have a dll extension in Windows, otherwise
-        // they will not load.
-        if *engine_type == EngineType::Native && cfg!(windows) {
-            cache.set_cache_extension(Some(".dll"));
-        }
+        // Important: Native files need to have a `.dll` extension on Windows, otherwise
+        // they will not load, so we just add an extension always to make it easier
+        // to recognize as well.
+        #[allow(unreachable_patterns)]
+        let extension = match *engine_type {
+            #[cfg(feature = "native")]
+            EngineType::Native => Some(
+                wasmer_engine_native::NativeArtifact::get_default_extension(&Triple::host()),
+            ),
+            #[cfg(feature = "jit")]
+            EngineType::JIT => Some(wasmer_engine_jit::JITArtifact::get_default_extension(
+                &Triple::host(),
+            )),
+            _ => None,
+        };
+        cache.set_cache_extension(extension);
         Ok(cache)
     }
 

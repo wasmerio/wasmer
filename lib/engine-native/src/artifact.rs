@@ -377,7 +377,7 @@ impl NativeArtifact {
         // to open in Windows in the linking step;
         drop(file);
 
-        let suffix = format!(".{}", Self::get_suffix_for_triple(&target_triple));
+        let suffix = format!(".{}", Self::get_default_extension(&target_triple));
         let shared_file = tempfile::Builder::new()
             .prefix("wasmer_native")
             .suffix(&suffix)
@@ -445,7 +445,8 @@ impl NativeArtifact {
         }
     }
 
-    fn get_suffix_for_triple(triple: &Triple) -> &str {
+    /// Get the default extension when serializing this artifact
+    pub fn get_default_extension(triple: &Triple) -> &'static str {
         match triple.operating_system {
             OperatingSystem::Windows => "dll",
             OperatingSystem::Darwin | OperatingSystem::Ios | OperatingSystem::MacOSX { .. } => {
