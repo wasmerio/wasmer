@@ -715,7 +715,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         Ok(GlobalVariable::Memory {
             gv: ptr,
             offset: offset.into(),
-            ty: type_to_irtype(self.module.globals[index].ty, &self.target_config())?,
+            ty: type_to_irtype(self.module.globals[index].ty, self.target_config())?,
         })
     }
 

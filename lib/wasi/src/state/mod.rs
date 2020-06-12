@@ -13,6 +13,8 @@
 //! You can implement `WasiFile` for your own types to get custom behavior and extend WASI, see the
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs).
 
+#![allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
+
 mod builder;
 mod types;
 
@@ -1357,7 +1359,7 @@ impl WasiFs {
                     _ => unreachable!("Symlink pointing to something that's not a directory as its base preopened directory"),
                 }
             }
-            __ => return None,
+            _ => return None,
         };
         Some(__wasi_filestat_t {
             st_filetype: host_file_type_to_wasi_file_type(md.file_type()),
@@ -1401,7 +1403,7 @@ impl WasiFs {
                     .ok_or(__WASI_EINVAL)?
                     .to_string_lossy()
                     .to_string();
-                if let Some(p) = parent.clone() {
+                if let Some(p) = *parent {
                     match &mut self.inodes[p].kind {
                         Kind::Dir { entries, .. } | Kind::Root { entries } => {
                             self.fd_map.remove(&fd).unwrap();
@@ -1478,8 +1480,9 @@ pub struct WasiState {
 impl WasiState {
     /// Create a [`WasiStateBuilder`] to construct a validated instance of
     /// [`WasiState`].
-    pub fn new(program_name: &str) -> WasiStateBuilder {
-        create_wasi_state(program_name)
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new(program_name: impl AsRef<str>) -> WasiStateBuilder {
+        create_wasi_state(program_name.as_ref())
     }
 
     /// Turn the WasiState into bytes

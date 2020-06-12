@@ -59,6 +59,9 @@ compiler_features := --features "$(compiler_features_spaced)"
 # Building #
 ############
 
+bench:
+	cargo bench $(compiler_features)
+
 build-wasmer:
 	cargo build --release $(compiler_features)
 
@@ -93,8 +96,21 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test:
-	cargo test --release $(compiler_features)
+test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages
+
+test-singlepass:
+	cargo test --release $(compiler_features) --features "test-singlepass"
+
+test-cranelift:
+	cargo test --release $(compiler_features) --features "test-cranelift"
+
+test-llvm:
+	cargo test --release $(compiler_features) --features "test-llvm"
+
+test-packages:
+	cargo test -p wasmer --release
+	cargo test -p wasmer-runtime --release
+	cargo test -p wasm-common --release
 
 test-capi-singlepass: build-capi-singlepass
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
@@ -113,6 +129,15 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-ems
 #############
 # Packaging #
 #############
+
+package-wapm:
+	mkdir -p "package/bin"
+ifeq ($(OS), Windows_NT)
+	echo ""
+else
+	echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax
+	chmod +x package/bin/wax
+endif
 
 package-wasmer:
 	mkdir -p "package/bin"
@@ -155,7 +180,7 @@ package-docs: build-docs build-docs-capi
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > package/docs/index.html
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > package/docs/crates/index.html
 
-package: package-wasmer package-capi
+package: package-wapm package-wasmer package-capi
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler-llvm"
-version = "0.16.2"
+version = "1.0.0-alpha.1"
 license = "MIT"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -10,9 +10,9 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "0.16.2", features = ["translator"] }
-wasmer-runtime = { path = "../runtime", version = "0.16.2" }
-wasm-common = { path = "../wasm-common", version = "0.16.2" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha.1", features = ["translator"] }
+wasmer-runtime = { path = "../runtime", version = "1.0.0-alpha.1" }
+wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1" }
 target-lexicon = { version = "0.10", default-features = false }
 smallvec = "1"
 goblin = "0.2"

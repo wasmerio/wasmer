@@ -20,6 +20,7 @@ pub enum Location {
     GPR(GPR),
     XMM(XMM),
     Memory(GPR, i32),
+    MemoryAddTriple(GPR, GPR, i32),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -795,6 +796,12 @@ impl Emitter for Assembler {
             }
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
                 dynasm!(self ; lea Rq(dst as u8), [Rq(src as u8) + disp]);
+            }
+            (Size::S32, Location::MemoryAddTriple(src1, src2, disp), Location::GPR(dst)) => {
+                dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]);
+            }
+            (Size::S64, Location::MemoryAddTriple(src1, src2, disp), Location::GPR(dst)) => {
+                dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]);
             }
             _ => panic!("singlepass can't emit LEA {:?} {:?} {:?}", sz, src, dst),
         }

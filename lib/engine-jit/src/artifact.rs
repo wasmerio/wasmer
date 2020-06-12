@@ -3,7 +3,9 @@
 
 use crate::engine::{JITEngine, JITEngineInner};
 use crate::link::link_module;
-use crate::serialize::{SerializableCompilation, SerializableModule};
+#[cfg(feature = "compiler")]
+use crate::serialize::SerializableCompilation;
+use crate::serialize::SerializableModule;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
@@ -14,12 +16,11 @@ use wasm_common::{
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{CompileError, Features};
 use wasmer_engine::{
-    register_frame_info, Artifact, DeserializeError, Engine, GlobalFrameInfoRegistration,
-    SerializableFunctionFrameInfo, SerializeError,
+    register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
 };
-use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex};
-
-use wasmer_runtime::{MemoryPlan, TablePlan};
+#[cfg(feature = "compiler")]
+use wasmer_engine::{Engine, SerializableFunctionFrameInfo};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMSharedSignatureIndex};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
@@ -28,7 +29,7 @@ pub struct JITArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    frame_info_registration: Mutex<Option<Option<GlobalFrameInfoRegistration>>>,
+    frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
 }
 
 impl JITArtifact {
@@ -132,7 +133,7 @@ impl JITArtifact {
 
     /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
-    pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(_jit: &JITEngine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))
@@ -224,16 +225,18 @@ impl Artifact for JITArtifact {
 
     fn register_frame_info(&self) {
         let mut info = self.frame_info_registration.lock().unwrap();
+
         if info.is_some() {
             return;
         }
+
         let frame_infos = &self.serializable.compilation.function_frame_info;
         let finished_functions = &self.finished_functions;
-        *info = Some(register_frame_info(
+        *info = register_frame_info(
             self.serializable.module.clone(),
             finished_functions,
             frame_infos.clone(),
-        ));
+        );
     }
 
     fn features(&self) -> &Features {

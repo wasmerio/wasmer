@@ -3,6 +3,7 @@ use crate::externals::Extern;
 use crate::store::Store;
 use crate::types::Val;
 use crate::FunctionType;
+use crate::NativeFunc;
 use crate::RuntimeError;
 use std::cmp::max;
 use wasm_common::{HostFunction, WasmTypeList, WithEnv, WithoutEnv};
@@ -15,7 +16,7 @@ use wasmer_runtime::{
 #[derive(Clone, PartialEq)]
 pub struct WasmFunctionDefinition {
     // The trampoline to do the call
-    trampoline: VMTrampoline,
+    pub(crate) trampoline: VMTrampoline,
 }
 
 /// The inner helper
@@ -30,11 +31,11 @@ pub enum FunctionDefinition {
 /// A WebAssembly `function`.
 #[derive(Clone, PartialEq)]
 pub struct Function {
-    store: Store,
-    definition: FunctionDefinition,
+    pub(crate) store: Store,
+    pub(crate) definition: FunctionDefinition,
     // If the Function is owned by the Store, not the instance
-    owned_by_store: bool,
-    exported: ExportFunction,
+    pub(crate) owned_by_store: bool,
+    pub(crate) exported: ExportFunction,
 }
 
 impl Function {
@@ -176,18 +177,14 @@ impl Function {
         let signature = self.ty();
         if signature.params().len() != params.len() {
             return Err(RuntimeError::new(format!(
-                "expected {} arguments, got {}: Parameters of type [{}] did not match signature {}",
-                signature.params().len(),
-                params.len(),
+                "Parameters of type [{}] did not match signature {}",
                 format_types_for_error_message(params),
                 &signature
             )));
         }
         if signature.results().len() != results.len() {
             return Err(RuntimeError::new(format!(
-                "expected {} results, got {}: Results of type [{}] did not match signature {}",
-                signature.results().len(),
-                results.len(),
+                "Results of type [{}] did not match signature {}",
                 format_types_for_error_message(results),
                 &signature,
             )));
@@ -198,7 +195,7 @@ impl Function {
         // Store the argument values into `values_vec`.
         let param_tys = signature.params().iter();
         for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
-            if arg.ty() != ty.clone() {
+            if arg.ty() != *ty {
                 let param_types = format_types_for_error_message(params);
                 return Err(RuntimeError::new(format!(
                     "Parameters of type [{}] did not match signature {}",
@@ -252,12 +249,14 @@ impl Function {
     ///    call the trampoline.
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
         let mut results = vec![Val::null(); self.result_arity()];
+
         match &self.definition {
             FunctionDefinition::Wasm(wasm) => {
                 self.call_wasm(&wasm, params, &mut results)?;
             }
-            _ => {} // _ => unimplemented!("The host is unimplemented"),
+            _ => unimplemented!("The function definition isn't supported for the moment"),
         }
+
         Ok(results.into_boxed_slice())
     }
 
@@ -286,6 +285,30 @@ impl Function {
             vmctx: self.exported.vmctx,
         }
     }
+
+    pub fn native<'a, Args, Rets>(&self) -> Option<NativeFunc<'a, Args, Rets>>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        // type check
+        if self.exported.signature.params() != Args::wasm_types() {
+            // todo: error param types don't match
+            return None;
+        }
+        if self.exported.signature.results() != Rets::wasm_types() {
+            // todo: error result types don't match
+            return None;
+        }
+
+        Some(NativeFunc::new(
+            self.store.clone(),
+            self.exported.address,
+            self.exported.vmctx,
+            self.exported.kind,
+            self.definition.clone(),
+        ))
+    }
 }
 
 impl<'a> Exportable<'a> for Function {
@@ -313,6 +336,7 @@ trait VMDynamicFunction {
 }
 
 struct VMDynamicFunctionWithoutEnv {
+    #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     function_type: FunctionType,
 }
@@ -330,6 +354,7 @@ struct VMDynamicFunctionWithEnv<Env>
 where
     Env: Sized,
 {
+    #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     env: *mut Env,
     function_type: FunctionType,

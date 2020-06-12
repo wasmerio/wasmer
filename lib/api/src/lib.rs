@@ -7,11 +7,13 @@ mod import_object;
 mod instance;
 mod memory_view;
 mod module;
+mod native;
 mod ordered_resolver;
 mod ptr;
 mod store;
 mod tunables;
 mod types;
+mod utils;
 
 pub use crate::exports::{ExportError, Exportable, Exports};
 pub use crate::externals::{Extern, Function, Global, Memory, Table};
@@ -19,6 +21,7 @@ pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace
 pub use crate::instance::Instance;
 pub use crate::memory_view::{Atomically, MemoryView};
 pub use crate::module::Module;
+pub use crate::native::NativeFunc;
 pub use crate::ordered_resolver::OrderedResolver;
 pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
@@ -28,6 +31,7 @@ pub use crate::types::{
     MemoryType, Mutability, TableType, Val, ValType,
 };
 pub use crate::types::{Val as Value, ValType as Type};
+pub use crate::utils::is_wasm;
 
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 pub use wasm_common::{Bytes, Pages, ValueType, WasmExternType, WasmTypeList};
@@ -39,6 +43,8 @@ pub use wasmer_engine::{
     NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
 pub use wasmer_runtime::{raise_user_trap, MemoryError};
+#[cfg(feature = "wat")]
+pub use wat::parse_bytes as wat2wasm;
 
 // The compilers are mutually exclusive
 #[cfg(any(

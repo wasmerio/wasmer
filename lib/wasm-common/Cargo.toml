@@ -1,6 +1,6 @@
 [package]
 name = "wasm-common"
-version = "0.16.2"
+version = "1.0.0-alpha.1"
 description = "WebAssembly Common Types"
 license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]

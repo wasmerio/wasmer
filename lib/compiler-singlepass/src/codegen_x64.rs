@@ -1236,7 +1236,6 @@ impl<'a> FuncGen<'a> {
             MemoryStyle::Dynamic => true,
         };
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
-        let tmp_base = self.machine.acquire_temp_gpr().unwrap();
 
         // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
         let (base_loc, bound_loc) = if self.module.num_imported_memories != 0 {
@@ -1261,61 +1260,44 @@ impl<'a> FuncGen<'a> {
             )
         };
 
+        let tmp_base = self.machine.acquire_temp_gpr().unwrap();
+        let tmp_bound = self.machine.acquire_temp_gpr().unwrap();
+
         // Load base into temporary register.
         self.assembler
             .emit_mov(Size::S64, base_loc, Location::GPR(tmp_base));
 
+        // Load bound into temporary register, if needed.
         if need_check {
-            let tmp_bound = self.machine.acquire_temp_gpr().unwrap();
-
             self.assembler
                 .emit_mov(Size::S32, bound_loc, Location::GPR(tmp_bound));
-            self.assembler
-                .emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
 
-            // Add offset to memory address.
-            if memarg.offset != 0 {
-                self.assembler.emit_add(
-                    Size::S32,
-                    Location::Imm32(memarg.offset),
-                    Location::GPR(tmp_addr),
-                );
-                // Overflow is checked outside the `need_check` block, so we don't need to check it here.
-            }
+            // Wasm -> Effective.
+            // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
+            // since the first page from 0x0 to 0x1000 is not accepted by mmap.
 
-            // Trap if the start address of the requested area is equal to or above that of the linear memory.
-            self.assembler
-                .emit_cmp(Size::S32, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
-            self.assembler
-                .emit_jmp(Condition::AboveEqual, self.special_labels.heap_access_oob);
-
-            // Calculate end of word.
-            if value_size != 0 {
-                self.assembler.emit_add(
-                    Size::S32,
-                    Location::Imm32(value_size as u32),
-                    Location::GPR(tmp_addr),
-                );
-                self.assembler
-                    .emit_jmp(Condition::Carry, self.special_labels.heap_access_oob);
-            }
-
-            // Trap if the end address of the requested area is above that of the linear memory.
-            self.assembler
-                .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
-            self.assembler
-                .emit_jmp(Condition::Above, self.special_labels.heap_access_oob);
-
-            self.machine.release_temp_gpr(tmp_bound);
+            // This `lea` calculates the upper bound allowed for the beginning of the word.
+            // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
+            // the maximum allowed beginning of word is (inclusively)
+            // `tmp_bound + tmp_base - value_size`.
+            self.assembler.emit_lea(
+                Size::S64,
+                Location::MemoryAddTriple(tmp_bound, tmp_base, -(value_size as i32)),
+                Location::GPR(tmp_bound),
+            );
         }
 
-        // Calculates the real address, and loads from it.
+        // Load effective address.
+        // `base_loc` and `bound_loc` becomes INVALID after this line, because `tmp_addr`
+        // might be reused.
         self.assembler
             .emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
+
+        // Add offset to memory address.
         if memarg.offset != 0 {
             self.assembler.emit_add(
-                Size::S64,
-                Location::Imm32(memarg.offset as u32),
+                Size::S32,
+                Location::Imm32(memarg.offset),
                 Location::GPR(tmp_addr),
             );
 
@@ -1323,8 +1305,22 @@ impl<'a> FuncGen<'a> {
             self.assembler
                 .emit_jmp(Condition::Carry, self.special_labels.heap_access_oob);
         }
+
+        // Wasm linear memory -> real memory
         self.assembler
             .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
+
+        if need_check {
+            // Trap if the end address of the requested area is above that of the linear memory.
+            self.assembler
+                .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+
+            // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
+            self.assembler
+                .emit_jmp(Condition::Above, self.special_labels.heap_access_oob);
+        }
+
+        self.machine.release_temp_gpr(tmp_bound);
         self.machine.release_temp_gpr(tmp_base);
 
         let align = match memarg.flags & 3 {
