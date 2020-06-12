@@ -453,6 +453,22 @@ impl LibCall {
             Self::TruncF64 => wasmer_f64_trunc as usize,
         }
     }
+
+    /// Return the function name associated to the libcall.
+    pub fn to_function_name(&self) -> &str {
+        match self {
+            Self::CeilF32 => "wasmer_f32_ceil",
+            Self::CeilF64 => "wasmer_f64_ceil",
+            Self::FloorF32 => "wasmer_f32_floor",
+            Self::FloorF64 => "wasmer_f64_floor",
+            Self::NearestF32 => "wasmer_f32_nearest",
+            Self::NearestF64 => "wasmer_f64_nearest",
+            Self::Probestack => "PROBESTACK",
+            Self::RaiseTrap => "wasmer_raise_trap",
+            Self::TruncF32 => "wasmer_f32_trunc",
+            Self::TruncF64 => "wasmer_f64_trunc",
+        }
+    }
 }
 
 impl fmt::Display for LibCall {
