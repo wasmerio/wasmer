@@ -4,7 +4,6 @@ use region;
 use std::mem::ManuallyDrop;
 use std::{cmp, mem};
 use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{CompiledFunctionUnwindInfo, FunctionBody, SectionBody};
 use wasmer_runtime::{Mmap, VMFunctionBody};
 
@@ -17,27 +16,22 @@ const ARCH_FUNCTION_ALIGNMENT: usize = 16;
 
 struct CodeMemoryEntry {
     mmap: ManuallyDrop<Mmap>,
-    registry: ManuallyDrop<UnwindRegistry>,
 }
 
 impl CodeMemoryEntry {
     fn new() -> Self {
         let mmap = ManuallyDrop::new(Mmap::new());
-        let registry = ManuallyDrop::new(UnwindRegistry::new(mmap.as_ptr() as usize));
-        Self { mmap, registry }
+        Self { mmap }
     }
     fn with_capacity(cap: usize) -> Result<Self, String> {
         let mmap = ManuallyDrop::new(Mmap::with_at_least(cap)?);
-        let registry = ManuallyDrop::new(UnwindRegistry::new(mmap.as_ptr() as usize));
-        Ok(Self { mmap, registry })
+        Ok(Self { mmap })
     }
 }
 
 impl Drop for CodeMemoryEntry {
     fn drop(&mut self) {
         unsafe {
-            // The registry needs to be dropped before the mmap
-            ManuallyDrop::drop(&mut self.registry);
             ManuallyDrop::drop(&mut self.mmap);
         }
     }
@@ -67,6 +61,7 @@ impl CodeMemory {
     /// Allocates memory for both the function bodies as well as function unwind data.
     pub fn allocate_functions<K>(
         &mut self,
+        registry: &mut UnwindRegistry,
         compilation: &PrimaryMap<K, FunctionBody>,
     ) -> Result<PrimaryMap<K, *mut [VMFunctionBody]>, String>
     where
@@ -76,15 +71,20 @@ impl CodeMemory {
             acc + get_align_padding_size(acc, ARCH_FUNCTION_ALIGNMENT)
                 + Self::function_allocation_size(func)
         });
+        let base_address = self.current.mmap.as_ptr() as usize;
 
-        let (mut buf, registry, start) = self.allocate(total_len, ARCH_FUNCTION_ALIGNMENT)?;
+        let (mut buf, start) = self.allocate(total_len, ARCH_FUNCTION_ALIGNMENT)?;
         let mut result = PrimaryMap::with_capacity(compilation.len());
         let mut start = start as u32;
         let mut padding = 0usize;
-
         for func in compilation.values() {
-            let (next_start, next_buf, vmfunc) =
-                Self::copy_function(func, start + padding as u32, &mut buf[padding..], registry);
+            let (next_start, next_buf, vmfunc) = Self::copy_function(
+                registry,
+                base_address,
+                func,
+                start + padding as u32,
+                &mut buf[padding..],
+            );
             assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
 
             result.push(vmfunc as *mut [VMFunctionBody]);
@@ -102,13 +102,15 @@ impl CodeMemory {
     /// mmap region rather than into a Vec that we need to copy in.
     pub fn allocate_for_function(
         &mut self,
+        registry: &mut UnwindRegistry,
         func: &FunctionBody,
     ) -> Result<&mut [VMFunctionBody], String> {
+        let base_address = self.current.mmap.as_ptr() as usize;
         let size = Self::function_allocation_size(func);
 
-        let (buf, registry, start) = self.allocate(size, ARCH_FUNCTION_ALIGNMENT)?;
+        let (buf, start) = self.allocate(size, ARCH_FUNCTION_ALIGNMENT)?;
 
-        let (_, _, vmfunc) = Self::copy_function(func, start as u32, buf, registry);
+        let (_, _, vmfunc) = Self::copy_function(registry, base_address, func, start as u32, buf);
         assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
 
         Ok(vmfunc)
@@ -120,25 +122,17 @@ impl CodeMemory {
         section: &SectionBody,
     ) -> Result<&mut [u8], String> {
         let section = section.as_slice();
-        let (buf, _, _) = self.allocate(section.len(), ARCH_FUNCTION_ALIGNMENT)?;
+        let (buf, _) = self.allocate(section.len(), ARCH_FUNCTION_ALIGNMENT)?;
         buf.copy_from_slice(section);
         Ok(buf)
     }
 
     /// Make all allocated memory executable.
-    pub fn publish(&mut self, eh_frame: Option<&[u8]>) {
+    pub fn publish(&mut self) {
         self.push_current(0)
             .expect("failed to push current memory map");
 
-        for CodeMemoryEntry {
-            mmap: m,
-            registry: r,
-        } in &mut self.entries[self.published..]
-        {
-            // Remove write access to the pages due to the relocation fixups.
-            r.publish(eh_frame)
-                .expect("failed to publish function unwind registry");
-
+        for CodeMemoryEntry { mmap: m } in &mut self.entries[self.published..] {
             if !m.is_empty() {
                 unsafe {
                     region::protect(m.as_mut_ptr(), m.len(), region::Protection::READ_EXECUTE)
@@ -160,11 +154,7 @@ impl CodeMemory {
     /// * A mutable slice which references the allocated memory
     /// * A function table instance where unwind information is registered
     /// * The offset within the current mmap that the slice starts at
-    fn allocate(
-        &mut self,
-        size: usize,
-        alignment: usize,
-    ) -> Result<(&mut [u8], &mut UnwindRegistry, usize), String> {
+    fn allocate(&mut self, size: usize, alignment: usize) -> Result<(&mut [u8], usize), String> {
         assert!(alignment > 0);
 
         let align_padding = get_align_padding_size(self.position, alignment);
@@ -187,7 +177,6 @@ impl CodeMemory {
 
         Ok((
             &mut self.current.mmap.as_mut_slice()[old_position..self.position],
-            &mut self.current.registry,
             old_position,
         ))
     }
@@ -209,10 +198,11 @@ impl CodeMemory {
     ///
     /// This will also add the function to the current function table.
     fn copy_function<'a>(
+        registry: &mut UnwindRegistry,
+        base_address: usize,
         func: &FunctionBody,
         func_start: u32,
         buf: &'a mut [u8],
-        registry: &mut UnwindRegistry,
     ) -> (u32, &'a mut [u8], &'a mut [VMFunctionBody]) {
         assert!((func_start as usize) % ARCH_FUNCTION_ALIGNMENT == 0);
 
@@ -239,7 +229,7 @@ impl CodeMemory {
 
         if let Some(info) = &func.unwind_info {
             registry
-                .register(func_start, func_len as u32, info)
+                .register(base_address, func_start, func_len as u32, info)
                 .expect("failed to register unwind information");
         }
 

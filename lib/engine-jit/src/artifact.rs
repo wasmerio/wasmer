@@ -6,6 +6,7 @@ use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
+use crate::unwind::UnwindRegistry;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
@@ -24,8 +25,8 @@ use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMShared
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
+    _unwind_registry: UnwindRegistry,
     serializable: SerializableModule,
-
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
@@ -164,7 +165,9 @@ impl JITArtifact {
         inner_jit: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
+        let mut unwind_registry = UnwindRegistry::new();
         let (finished_functions, finished_dynamic_function_trampolines) = inner_jit.allocate(
+            &mut unwind_registry,
             &serializable.module,
             &serializable.compilation.function_bodies,
             &serializable.compilation.function_call_trampolines,
@@ -207,7 +210,11 @@ impl JITArtifact {
             None => None,
         };
         // Make all code compiled thus far executable.
-        inner_jit.publish_compiled_code(eh_frame);
+        inner_jit.publish_compiled_code();
+
+        unwind_registry.publish(eh_frame).map_err(|e| {
+            CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
+        })?;
 
         let finished_functions = finished_functions.into_boxed_slice();
         let finished_dynamic_function_trampolines =
@@ -215,6 +222,7 @@ impl JITArtifact {
         let signatures = signatures.into_boxed_slice();
 
         Ok(Self {
+            _unwind_registry: unwind_registry,
             serializable,
             finished_functions,
             finished_dynamic_function_trampolines,

@@ -5,16 +5,15 @@ use winapi::um::winnt;
 
 /// Represents a registry of function unwind information for Windows x64 ABI.
 pub struct UnwindRegistry {
-    base_address: usize,
-    functions: Vec<winnt::RUNTIME_FUNCTION>,
+    // A hashmap mapping the baseaddress with the registered runtime functions
+    functions: HashMap<usize, Vec<winnt::RUNTIME_FUNCTION>>,
     published: bool,
 }
 
 impl UnwindRegistry {
     /// Creates a new unwind registry with the given base address.
-    pub fn new(base_address: usize) -> Self {
+    pub fn new() -> Self {
         Self {
-            base_address,
             functions: Vec::new(),
             published: false,
         }
@@ -23,6 +22,7 @@ impl UnwindRegistry {
     /// Registers a function given the start offset, length, and unwind information.
     pub fn register(
         &mut self,
+        base_address: usize,
         func_start: u32,
         func_len: u32,
         info: &CompiledFunctionUnwindInfo,
@@ -46,8 +46,12 @@ impl UnwindRegistry {
         unsafe {
             *entry.u.UnwindInfoAddress_mut() = (entry.EndAddress + 3) & !3;
         }
+        let entries = self
+            .functions
+            .entry(base_address)
+            .or_insert_with(|| Vec::new());
 
-        self.functions.push(entry);
+        entries.push(entry);
 
         Ok(())
     }
@@ -61,21 +65,22 @@ impl UnwindRegistry {
         self.published = true;
 
         if !self.functions.is_empty() {
-            // Windows heap allocations are 32-bit aligned, but assert just in case
-            assert_eq!(
-                (self.functions.as_mut_ptr() as u64) % 4,
-                0,
-                "function table allocation was not aligned"
-            );
-
-            unsafe {
-                if winnt::RtlAddFunctionTable(
-                    self.functions.as_mut_ptr(),
-                    self.functions.len() as u32,
-                    self.base_address as u64,
-                ) == 0
-                {
-                    return Err("failed to register function table".to_string());
+            for (base_address, functions) in self.functions {
+                // Windows heap allocations are 32-bit aligned, but assert just in case
+                assert_eq!(
+                    (functions.as_mut_ptr() as u64) % 4,
+                    0,
+                    "function table allocation was not aligned"
+                );
+                unsafe {
+                    if winnt::RtlAddFunctionTable(
+                        functions.as_mut_ptr(),
+                        functions.len() as u32,
+                        base_address as u64,
+                    ) == 0
+                    {
+                        return Err("failed to register function tables".to_string());
+                    }
                 }
             }
         }
@@ -88,7 +93,9 @@ impl Drop for UnwindRegistry {
     fn drop(&mut self) {
         if self.published {
             unsafe {
-                winnt::RtlDeleteFunctionTable(self.functions.as_mut_ptr());
+                for (_, functions) in self.functions {
+                    winnt::RtlDeleteFunctionTable(functions.as_mut_ptr());
+                }
             }
         }
     }

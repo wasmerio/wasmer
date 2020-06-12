@@ -15,7 +15,7 @@ extern "C" {
 
 impl UnwindRegistry {
     /// Creates a new unwind registry with the given base address.
-    pub fn new(_base_address: usize) -> Self {
+    pub fn new() -> Self {
         Self {
             registrations: Vec::new(),
             published: false,
@@ -25,6 +25,7 @@ impl UnwindRegistry {
     /// Registers a function given the start offset, length, and unwind information.
     pub fn register(
         &mut self,
+        _base_address: usize,
         _func_start: u32,
         _func_len: u32,
         info: &CompiledFunctionUnwindInfo,

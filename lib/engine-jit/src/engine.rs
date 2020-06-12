@@ -1,5 +1,6 @@
 //! JIT compilation.
 
+use crate::unwind::UnwindRegistry;
 use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -190,6 +191,7 @@ impl JITEngineInner {
     #[allow(clippy::type_complexity)]
     pub(crate) fn allocate(
         &mut self,
+        registry: &mut UnwindRegistry,
         module: &ModuleInfo,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
@@ -203,16 +205,23 @@ impl JITEngineInner {
     > {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
-        let allocated_functions =
-            self.code_memory
-                .allocate_functions(&functions)
-                .map_err(|message| {
-                    CompileError::Resource(format!(
-                        "failed to allocate memory for functions: {}",
-                        message
-                    ))
-                })?;
+        let allocated_functions = self
+            .code_memory
+            .allocate_functions(registry, &functions)
+            .map_err(|message| {
+                CompileError::Resource(format!(
+                    "failed to allocate memory for functions: {}",
+                    message
+                ))
+            })?;
 
+        // let (indices, compiled_functions): (Vec<VMSharedSignatureIndex>, PrimaryMap<FunctionIndex, FunctionBody>) = function_call_trampolines.iter().map(|(sig_index, compiled_function)| {
+        //     let func_type = module.signatures.get(sig_index).unwrap();
+        //     let index = self.signatures.register(&func_type);
+        //     (index, compiled_function)
+        // }).filter(|(index, _)| {
+        //     !self.function_call_trampolines.contains_key(index)
+        // }).unzip();
         for (sig_index, compiled_function) in function_call_trampolines.iter() {
             let func_type = module.signatures.get(sig_index).unwrap();
             let index = self.signatures.register(&func_type);
@@ -223,7 +232,7 @@ impl JITEngineInner {
             }
             let ptr = self
                 .code_memory
-                .allocate_for_function(&compiled_function)
+                .allocate_for_function(registry, &compiled_function)
                 .map_err(|message| {
                     CompileError::Resource(format!(
                         "failed to allocate memory for function call trampolines: {}",
@@ -241,7 +250,7 @@ impl JITEngineInner {
             .map(|compiled_function| {
                 let ptr = self
                     .code_memory
-                    .allocate_for_function(&compiled_function)
+                    .allocate_for_function(registry, &compiled_function)
                     .map_err(|message| {
                         CompileError::Resource(format!(
                             "failed to allocate memory for dynamic function trampolines: {}",
@@ -257,8 +266,8 @@ impl JITEngineInner {
     }
 
     /// Make memory containing compiled code executable.
-    pub(crate) fn publish_compiled_code(&mut self, eh_frame: Option<&[u8]>) {
-        self.code_memory.publish(eh_frame);
+    pub(crate) fn publish_compiled_code(&mut self) {
+        self.code_memory.publish();
     }
 
     /// Shared signature registry.

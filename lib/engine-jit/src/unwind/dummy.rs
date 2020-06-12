@@ -8,13 +8,14 @@ pub struct DummyUnwindRegistry {}
 
 impl DummyUnwindRegistry {
     /// Creates a new unwind registry with the given base address.
-    pub fn new(_base_address: usize) -> Self {
+    pub fn new() -> Self {
         DummyUnwindRegistry {}
     }
 
     /// Registers a function given the start offset, length, and unwind information.
     pub fn register(
         &mut self,
+        _base_address: usize,
         _func_start: u32,
         _func_len: u32,
         _info: &CompiledFunctionUnwindInfo,
