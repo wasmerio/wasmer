@@ -311,7 +311,6 @@ impl NativeArtifact {
                         .map_err(to_compile_error)?;
                     }
                     RelocationTarget::LibCall(libcall) => {
-                        use wasmer_runtime::libcalls::LibCall;
                         let libcall_fn_name = libcall.to_function_name().as_bytes();
                         // We add the symols lazily as we see them
                         let target_symbol = obj.symbol_id(libcall_fn_name).unwrap_or_else(|| {
@@ -421,8 +420,8 @@ impl NativeArtifact {
         if !output.status.success() {
             return Err(CompileError::Codegen(format!(
                 "Shared object file generator failed with:\nstderr:{}\nstdout:{}",
-                std::str::from_utf8_lossy(&output.stderr).trim_end(),
-                std::str::from_utf8_lossy(&output.stdout).trim_end()
+                String::from_utf8_lossy(&output.stderr).trim_end(),
+                String::from_utf8_lossy(&output.stdout).trim_end()
             )));
         }
         trace!("gcc command result {:?}", output);
