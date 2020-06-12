@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-deprecated"
-version = "0.16.2"
+version = "1.0.0-alpha.1"
 description = "Wasmer runtime library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -11,7 +11,7 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core/", version = "0.16.2" }
+wasmer-runtime-core = { path = "../runtime-core/", version = "1.0.0-alpha.1" }
 
 [dev-dependencies]
 wabt = "0.9"

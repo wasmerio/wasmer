@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime-core"
-version = "0.16.2"
+version = "1.0.0-alpha.1"
 description = "Wasmer runtime core library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -10,12 +10,12 @@ categories = ["wasm"]
 edition = "2018"
 
 [dependencies]
-wasm-common = { path = "../../wasm-common", version = "0.16.2" }
-wasmer = { path = "../../api", version = "0.16.2" }
-wasmer-cache = { path = "../../cache", version = "0.16.2" }
-wasmer-compiler = { path = "../../compiler", version = "0.16.2", features = ["translator"] }
-wasmer-engine = { path = "../../engine", version = "0.16.2" }
-wasmer-runtime = { path = "../../runtime", version = "0.16.2" }
+wasm-common = { path = "../../wasm-common", version = "1.0.0-alpha.1" }
+wasmer = { path = "../../api", version = "1.0.0-alpha.1" }
+wasmer-cache = { path = "../../cache", version = "1.0.0-alpha.1" }
+wasmer-compiler = { path = "../../compiler", version = "1.0.0-alpha.1", features = ["translator"] }
+wasmer-engine = { path = "../../engine", version = "1.0.0-alpha.1" }
+wasmer-runtime = { path = "../../runtime", version = "1.0.0-alpha.1" }
 blake3 = "0.3.4"
 
 [build-dependencies]
