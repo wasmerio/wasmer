@@ -164,6 +164,9 @@ pub struct ModuleInfo {
 
     /// The data for each CustomSection in the module.
     pub custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
+
+    /// Middleware configurations. name -> (version, configuration)
+    pub middleware_conf: IndexMap<String, (u32, Arc<[u8]>)>,
 }
 
 impl ModuleInfo {
@@ -191,6 +194,7 @@ impl ModuleInfo {
             num_imported_globals: 0,
             custom_sections: IndexMap::new(),
             custom_sections_data: PrimaryMap::new(),
+            middleware_conf: IndexMap::new(),
         }
     }
 
