@@ -294,20 +294,6 @@ impl NativeArtifact {
 
         let shared_file = NamedTempFile::new().map_err(to_compile_error)?;
         let (_file, shared_filepath) = shared_file.keep().map_err(to_compile_error)?;
-        let wasmer_symbols = libcalls
-            .iter()
-            .map(|libcall| {
-                match target_triple.binary_format {
-                    BinaryFormat::Macho => format!("-Wl,-U,_{}", libcall),
-                    BinaryFormat::Elf => format!("-Wl,--undefined={}", libcall),
-                    _ => {
-                        // We should already be filtering only valid binary formats before
-                        // so this should never happen.
-                        unreachable!("Incorrect binary format")
-                    }
-                }
-            })
-            .collect::<Vec<String>>();
 
         let host_target = Triple::host();
         let is_cross_compiling = target_triple != host_target;
