@@ -171,7 +171,15 @@ impl JITEngineInner {
         let mut result = PrimaryMap::with_capacity(custom_sections.len());
         for (_, section) in custom_sections.iter() {
             let buffer: &[u8] = match section.protection {
-                CustomSectionProtection::Read => section.bytes.as_slice(),
+                CustomSectionProtection::Read => self
+                    .code_memory
+                    .allocate_for_custom_section(&section.bytes)
+                    .map_err(|message| {
+                        CompileError::Resource(format!(
+                            "failed to allocate readable memory for custom section: {}",
+                            message
+                        ))
+                    })?,
                 CustomSectionProtection::ReadExecute => self
                     .code_memory
                     .allocate_for_executable_custom_section(&section.bytes)

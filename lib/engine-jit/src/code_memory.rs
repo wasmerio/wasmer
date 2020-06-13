@@ -41,6 +41,7 @@ impl Drop for CodeMemoryEntry {
 pub struct CodeMemory {
     current: CodeMemoryEntry,
     entries: Vec<CodeMemoryEntry>,
+    read_sections: Vec<Vec<u8>>,
     position: usize,
     published: usize,
 }
@@ -51,6 +52,7 @@ impl CodeMemory {
         Self {
             current: CodeMemoryEntry::new(),
             entries: Vec::new(),
+            read_sections: Vec::new(),
             position: 0,
             published: 0,
         }
@@ -125,6 +127,19 @@ impl CodeMemory {
         let (buf, _) = self.allocate(section.len(), ARCH_FUNCTION_ALIGNMENT)?;
         buf.copy_from_slice(section);
         Ok(buf)
+    }
+
+    /// Allocate a continuous memory block for a readable custom section.
+    pub fn allocate_for_custom_section(
+        &mut self,
+        section: &SectionBody,
+    ) -> Result<&mut [u8], String> {
+        let section = section.as_slice().to_vec();
+        self.read_sections.push(section);
+        Ok(self
+            .read_sections
+            .last_mut()
+            .ok_or("Can't get last section".to_string())?)
     }
 
     /// Make all allocated memory executable.
