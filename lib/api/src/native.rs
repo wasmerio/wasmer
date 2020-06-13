@@ -10,7 +10,8 @@
 use std::marker::PhantomData;
 
 use crate::externals::function::{
-    FunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithoutEnv, WasmFunctionDefinition,
+    FunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithEnv, VMDynamicFunctionWithoutEnv,
+    WasmFunctionDefinition,
 };
 use crate::{Function, FunctionType, RuntimeError, Store};
 use wasm_common::{NativeWasmType, WasmExternType, WasmTypeList};
@@ -177,20 +178,23 @@ macro_rules! impl_native_traits {
                             }
                         } else {
                             // Is a dynamic function
-                            if !self.has_env {
+                            let params_list = [ $( $x.to_native().to_value() ),* ];
+                            let results = if !self.has_env {
                                 let ctx = self.vmctx as *mut VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>;
-                                let params_list = [ $( $x.to_native().to_value() ),* ];
-                                let results = unsafe { (*ctx).ctx.call(&params_list)? };
-                                let mut rets_list_array = Rets::empty_array();
-                                let mut_rets = rets_list_array.as_mut() as *mut [i128] as *mut i128;
-                                for (i, ret) in results.iter().enumerate() {
-                                    unsafe {
-                                        ret.write_value_to(mut_rets.add(i));
-                                    }
-                                }
-                                return Ok(Rets::from_array(rets_list_array));
+                                unsafe { (*ctx).ctx.call(&params_list)? }
                             }
-                            unimplemented!("native calls to dynamic function with env not yet implemented");
+                            else {
+                                let ctx = self.vmctx as *mut VMDynamicFunctionContext<VMDynamicFunctionWithEnv<std::ffi::c_void>>;
+                                unsafe { (*ctx).ctx.call(&params_list)? }
+                            };
+                            let mut rets_list_array = Rets::empty_array();
+                            let mut_rets = rets_list_array.as_mut() as *mut [i128] as *mut i128;
+                            for (i, ret) in results.iter().enumerate() {
+                                unsafe {
+                                    ret.write_value_to(mut_rets.add(i));
+                                }
+                            }
+                            return Ok(Rets::from_array(rets_list_array));
                         }
                     },
                 }
