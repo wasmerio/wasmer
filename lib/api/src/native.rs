@@ -1,5 +1,12 @@
-// Native Funcs
-// use wasmer_runtime::ExportFunction;
+//! Native Functions.
+//! 
+//! This module creates the helper `NativeFunc` that let us call WebAssembly
+//! functions with the native ABI, that is:
+//! 
+//! ```ignore
+//! let add_one = instance.exports.get_function("func_name")?;
+//! let add_one_native: NativeFunc<i32, i32> = add_one.native().unwrap();
+//! ```
 use std::marker::PhantomData;
 
 use crate::externals::function::{FunctionDefinition, WasmFunctionDefinition};
@@ -111,27 +118,26 @@ macro_rules! impl_native_traits {
         {
             /// Call the typed func and return results.
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
-                // TODO: when `const fn` related features mature more, we can declare a single array
-                // of the correct size here.
-                let mut params_list = [ $( $x.to_native().to_binary() ),* ];
-                let mut rets_list_array = Rets::empty_array();
-                let rets_list = rets_list_array.as_mut();
-                let using_rets_array;
-                let args_rets: &mut [i128] = if params_list.len() > rets_list.len() {
-                    using_rets_array = false;
-                    params_list.as_mut()
-                } else {
-                    using_rets_array = true;
-                    for (i, &arg) in params_list.iter().enumerate() {
-                        rets_list[i] = arg;
-                    }
-                    rets_list.as_mut()
-                };
-
                 match self.definition {
                     FunctionDefinition::Wasm(WasmFunctionDefinition {
                         trampoline
                     }) => {
+                        // TODO: when `const fn` related features mature more, we can declare a single array
+                        // of the correct size here.
+                        let mut params_list = [ $( $x.to_native().to_binary() ),* ];
+                        let mut rets_list_array = Rets::empty_array();
+                        let rets_list = rets_list_array.as_mut();
+                        let using_rets_array;
+                        let args_rets: &mut [i128] = if params_list.len() > rets_list.len() {
+                            using_rets_array = false;
+                            params_list.as_mut()
+                        } else {
+                            using_rets_array = true;
+                            for (i, &arg) in params_list.iter().enumerate() {
+                                rets_list[i] = arg;
+                            }
+                            rets_list.as_mut()
+                        };
                         unsafe {
                             wasmer_call_trampoline(
                                 self.vmctx,
@@ -173,7 +179,6 @@ macro_rules! impl_native_traits {
     };
 }
 
-// impl_native_traits!();
 impl_native_traits!();
 impl_native_traits!(A1);
 impl_native_traits!(A1, A2);
@@ -201,5 +206,3 @@ impl_native_traits!(
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
 );
-
-// impl_native_traits!(A1, A2, A3);

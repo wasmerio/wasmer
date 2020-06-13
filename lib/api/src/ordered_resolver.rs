@@ -1,3 +1,9 @@
+//! Ordered Resolvers are a custom kind of [`Resolver`] that retrieves
+//! `Export`s based on the index of the import, and not the module or name.
+//! 
+//! This resolver is used in the Wasm-C-API as the imports are provided
+//! by index and not by module and name.
+
 use std::iter::FromIterator;
 use wasmer_engine::Resolver;
 
@@ -5,8 +11,11 @@ use crate::exports::Exportable;
 use crate::Extern;
 use wasmer_runtime::Export;
 
+/// An `OrderedResolver` stores all the `externs` provided to an Instance
+/// in a Vec, so we can retrieve them later based on index.
 #[derive(Clone)]
 pub struct OrderedResolver {
+    /// The externs to be resolved by inddex
     externs: Vec<Extern>,
 }
 impl Resolver for OrderedResolver {
