@@ -128,16 +128,8 @@ for repo in ${repos}; do
         popdir
     fi
 
-    # Check whether any files were removed.
-    for old in $(find ${wast_dir} -maxdepth 1 -name \*.wast); do
-      new=$(find repos/${repo}/test/core -name ${old##*/})
-      if [[ ! -f ${new} ]]; then
-          log_and_run git rm ${old}
-      fi
-    done
-
     # Check whether any files were updated.
-    if [ $(git status -s ${wast_dir} | wc -l) -ne 0 ]; then
+    if [ $(git status -s ${wast_dir}/*.wast | wc -l) -ne 0 ]; then
         log_and_run git add ${wast_dir}/*.wast
 
         repo_sha=$(git -C repos/${repo} log --max-count=1 --oneline origin/master| sed -e 's/ .*//')
