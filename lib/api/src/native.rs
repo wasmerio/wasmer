@@ -176,7 +176,7 @@ macro_rules! impl_native_traits {
                                 return Ok(results);
                             }
                         } else {
-                            /// Is a dynamic function
+                            // Is a dynamic function
                             if !self.has_env {
                                 let ctx = self.vmctx as *mut VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>;
                                 let params_list = [ $( $x.to_native().to_value() ),* ];

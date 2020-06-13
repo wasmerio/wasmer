@@ -36,6 +36,7 @@ pub trait NativeWasmType {
     fn to_binary(self) -> i128;
 
     /// Convert self to a `Value`
+    #[inline]
     fn to_value<T>(self) -> Value<T>
     where
         Self: std::marker::Sized,
@@ -62,10 +63,12 @@ impl NativeWasmType for i32 {
         self
     }
 
+    #[inline]
     fn to_binary(self) -> i128 {
         self as _
     }
 
+    #[inline]
     fn from_binary(bits: i128) -> Self {
         bits as _
     }
@@ -84,10 +87,12 @@ impl NativeWasmType for i64 {
         self
     }
 
+    #[inline]
     fn to_binary(self) -> i128 {
         self as _
     }
 
+    #[inline]
     fn from_binary(bits: i128) -> Self {
         bits as _
     }
@@ -106,10 +111,12 @@ impl NativeWasmType for f32 {
         self
     }
 
+    #[inline]
     fn to_binary(self) -> i128 {
         self.to_bits() as _
     }
 
+    #[inline]
     fn from_binary(bits: i128) -> Self {
         Self::from_bits(bits as _)
     }
@@ -128,10 +135,12 @@ impl NativeWasmType for f64 {
         self
     }
 
+    #[inline]
     fn to_binary(self) -> i128 {
         self.to_bits() as _
     }
 
+    #[inline]
     fn from_binary(bits: i128) -> Self {
         Self::from_bits(bits as _)
     }
