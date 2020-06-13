@@ -1,19 +1,22 @@
 //! Native Functions.
-//! 
+//!
 //! This module creates the helper `NativeFunc` that let us call WebAssembly
 //! functions with the native ABI, that is:
-//! 
+//!
 //! ```ignore
 //! let add_one = instance.exports.get_function("func_name")?;
 //! let add_one_native: NativeFunc<i32, i32> = add_one.native().unwrap();
 //! ```
 use std::marker::PhantomData;
 
-use crate::externals::function::{FunctionDefinition, WasmFunctionDefinition};
+use crate::externals::function::{
+    FunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithoutEnv, WasmFunctionDefinition,
+};
 use crate::{Function, FunctionType, RuntimeError, Store};
 use wasm_common::{NativeWasmType, WasmExternType, WasmTypeList};
 use wasmer_runtime::{
-    wasmer_call_trampoline, ExportFunction, VMContext, VMFunctionBody, VMFunctionKind,
+    wasmer_call_trampoline, ExportFunction, VMContext, VMDynamicFunctionContext, VMFunctionBody,
+    VMFunctionKind,
 };
 
 pub struct NativeFunc<'a, Args = (), Rets = ()> {
@@ -22,6 +25,7 @@ pub struct NativeFunc<'a, Args = (), Rets = ()> {
     address: *const VMFunctionBody,
     vmctx: *mut VMContext,
     arg_kind: VMFunctionKind,
+    has_env: bool,
     // exported: ExportFunction,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
@@ -39,6 +43,7 @@ where
         vmctx: *mut VMContext,
         arg_kind: VMFunctionKind,
         definition: FunctionDefinition,
+        has_env: bool,
     ) -> Self {
         Self {
             definition,
@@ -46,6 +51,7 @@ where
             address,
             vmctx,
             arg_kind,
+            has_env,
             _phantom: PhantomData,
         }
     }
@@ -78,6 +84,7 @@ where
             store: other.store,
             definition: other.definition,
             owned_by_store: true, // todo
+            has_env: other.has_env,
             exported: ExportFunction {
                 address: other.address,
                 vmctx: other.vmctx,
@@ -169,7 +176,21 @@ macro_rules! impl_native_traits {
                                 return Ok(results);
                             }
                         } else {
-                            todo!("dynamic host functions not yet implemented")
+                            /// Is a dynamic function
+                            if !self.has_env {
+                                let ctx = self.vmctx as *mut VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>;
+                                let params_list = [ $( $x.to_native().to_value() ),* ];
+                                let results = unsafe { (*ctx).ctx.call(&params_list)? };
+                                let mut rets_list_array = Rets::empty_array();
+                                let mut_rets = rets_list_array.as_mut() as *mut [i128] as *mut i128;
+                                for (i, ret) in results.iter().enumerate() {
+                                    unsafe {
+                                        ret.write_value_to(mut_rets.add(i));
+                                    }
+                                }
+                                return Ok(Rets::from_array(rets_list_array));
+                            }
+                            unimplemented!("native calls to dynamic function with env not yet implemented");
                         }
                     },
                 }

@@ -2,6 +2,7 @@
 //! easily in Rust, thanks to it's advanced typing system.
 
 use crate::types::{FunctionType, Type};
+use crate::values::Value;
 use std::convert::Infallible;
 use std::marker::PhantomData;
 
@@ -33,6 +34,15 @@ pub trait NativeWasmType {
 
     /// Convert self to i128 binary representation.
     fn to_binary(self) -> i128;
+
+    /// Convert self to a `Value`
+    fn to_value<T>(self) -> Value<T>
+    where
+        Self: std::marker::Sized,
+    {
+        let binary = self.to_binary();
+        unsafe { Value::read_value_from(&binary, Self::WASM_TYPE) }
+    }
 
     /// Convert to self from i128 binary representation.
     fn from_binary(binary: i128) -> Self;
