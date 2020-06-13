@@ -71,9 +71,9 @@ impl CodeMemory {
             acc + get_align_padding_size(acc, ARCH_FUNCTION_ALIGNMENT)
                 + Self::function_allocation_size(func)
         });
-        let base_address = self.current.mmap.as_ptr() as usize;
 
         let (mut buf, start) = self.allocate(total_len, ARCH_FUNCTION_ALIGNMENT)?;
+        let base_address = buf.as_ptr() as usize - start;
         let mut result = PrimaryMap::with_capacity(compilation.len());
         let mut start = start as u32;
         let mut padding = 0usize;
@@ -105,10 +105,10 @@ impl CodeMemory {
         registry: &mut UnwindRegistry,
         func: &FunctionBody,
     ) -> Result<&mut [VMFunctionBody], String> {
-        let base_address = self.current.mmap.as_ptr() as usize;
         let size = Self::function_allocation_size(func);
 
         let (buf, start) = self.allocate(size, ARCH_FUNCTION_ALIGNMENT)?;
+        let base_address = buf.as_ptr() as usize - start;
 
         let (_, _, vmfunc) = Self::copy_function(registry, base_address, func, start as u32, buf);
         assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);

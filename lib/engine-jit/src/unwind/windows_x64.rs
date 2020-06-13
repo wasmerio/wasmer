@@ -1,5 +1,5 @@
 //! Module for Windows x64 ABI unwind registry.
-
+use std::collections::HashMap;
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 use winapi::um::winnt;
 
@@ -14,7 +14,7 @@ impl UnwindRegistry {
     /// Creates a new unwind registry with the given base address.
     pub fn new() -> Self {
         Self {
-            functions: Vec::new(),
+            functions: HashMap::new(),
             published: false,
         }
     }
@@ -65,7 +65,7 @@ impl UnwindRegistry {
         self.published = true;
 
         if !self.functions.is_empty() {
-            for (base_address, functions) in self.functions {
+            for (base_address, mut functions) in self.functions.iter_mut() {
                 // Windows heap allocations are 32-bit aligned, but assert just in case
                 assert_eq!(
                     (functions.as_mut_ptr() as u64) % 4,
@@ -76,7 +76,7 @@ impl UnwindRegistry {
                     if winnt::RtlAddFunctionTable(
                         functions.as_mut_ptr(),
                         functions.len() as u32,
-                        base_address as u64,
+                        *base_address as u64,
                     ) == 0
                     {
                         return Err("failed to register function tables".to_string());
@@ -93,7 +93,7 @@ impl Drop for UnwindRegistry {
     fn drop(&mut self) {
         if self.published {
             unsafe {
-                for (_, functions) in self.functions {
+                for mut functions in self.functions.values_mut() {
                     winnt::RtlDeleteFunctionTable(functions.as_mut_ptr());
                 }
             }
