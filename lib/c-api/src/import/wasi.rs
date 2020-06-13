@@ -217,7 +217,7 @@ pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wa
     wasi_env.set_memory(&memory);
     // TODO(mark): review lifetime of `Memory` here
     let import_object_inner: Box<dyn NamedResolver> = Box::new(
-        wasi::generate_import_object_from_env(store, &mut wasi_env, wasi::WasiVersion::Latest),
+        wasi::generate_import_object_from_env(store, wasi_env, wasi::WasiVersion::Latest),
     );
     let import_object: Box<CAPIImportObject> = Box::new(CAPIImportObject {
         import_object: import_object_inner,
