@@ -70,7 +70,7 @@ pub type Functions = PrimaryMap<LocalFunctionIndex, CompiledFunction>;
 /// The custom sections for a Compilation.
 pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 
-/// The DWARF information this Compilation.
+/// The DWARF information for this Compilation.
 ///
 /// It is used for retrieving the unwind information once an exception
 /// happens.
@@ -102,8 +102,8 @@ pub struct Compilation {
     /// It will hold the data, for example, for constants used in a
     /// function, global variables, rodata_64, hot/cold function partitioning, ...
     custom_sections: CustomSections,
-    /// Dwarf information
-    dwarf: Option<Dwarf>,
+    /// Section ids corresponding to the Dwarf debug info
+    debug: Option<Dwarf>,
 }
 
 impl Compilation {
@@ -111,12 +111,12 @@ impl Compilation {
     pub fn new(
         functions: Functions,
         custom_sections: CustomSections,
-        dwarf: Option<Dwarf>,
+        debug: Option<Dwarf>,
     ) -> Self {
         Self {
             functions,
             custom_sections,
-            dwarf,
+            debug,
         }
     }
 
@@ -181,8 +181,8 @@ impl Compilation {
     }
 
     /// Returns the Dwarf info.
-    pub fn get_dwarf(&self) -> Option<Dwarf> {
-        self.dwarf.clone()
+    pub fn get_debug(&self) -> Option<Dwarf> {
+        self.debug.clone()
     }
 }
 

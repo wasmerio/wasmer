@@ -159,13 +159,13 @@ impl Compiler for CraneliftCompiler {
                         if let Some((dwarf_frametable, cie_id)) = &dwarf_frametable {
                             dwarf_frametable
                                 .lock()
-                                .expect("Cant write into Dwarf frametable")
+                                .expect("Can't write into DWARF frametable")
                                 .add_fde(
                                     *cie_id,
                                     fde.to_fde(Address::Symbol {
                                         // The symbol is the kind of relocation.
                                         // "0" is used for functions
-                                        symbol: 0,
+                                        symbol: WriterRelocate::FUNCTION_SYMBOL,
                                         // We use the addend as a way to specify the
                                         // function index
                                         addend: i.index() as _,

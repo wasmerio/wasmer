@@ -2,8 +2,8 @@
 
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 
-/// Represents a registry of function unwind information when no specific
-/// system is available
+/// Represents a registry of function unwind information when the host system
+/// support any one in specific.
 pub struct DummyUnwindRegistry {}
 
 impl DummyUnwindRegistry {

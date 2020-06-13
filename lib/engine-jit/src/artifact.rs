@@ -120,7 +120,7 @@ impl JITArtifact {
             dynamic_function_trampolines,
             custom_sections: compilation.get_custom_sections(),
             custom_section_relocations: compilation.get_custom_section_relocations(),
-            dwarf: compilation.get_dwarf(),
+            debug: compilation.get_debug(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -200,13 +200,13 @@ impl JITArtifact {
                 .collect::<PrimaryMap<_, _>>()
         };
 
-        let eh_frame = match &serializable.compilation.dwarf {
-            Some(dwarf) => {
+        let eh_frame = match &serializable.compilation.debug {
+            Some(debug) => {
                 let eh_frame_section_size = serializable.compilation.custom_sections
-                    [dwarf.eh_frame]
+                    [debug.eh_frame]
                     .bytes
                     .len();
-                let eh_frame_section_pointer = custom_sections[dwarf.eh_frame];
+                let eh_frame_section_pointer = custom_sections[debug.eh_frame];
                 Some(unsafe {
                     std::slice::from_raw_parts(eh_frame_section_pointer, eh_frame_section_size)
                 })

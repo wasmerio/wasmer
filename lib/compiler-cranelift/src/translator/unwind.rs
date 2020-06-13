@@ -20,7 +20,7 @@ pub(crate) enum CraneliftUnwindInfo {
 impl CraneliftUnwindInfo {
     /// Transform the `CraneliftUnwindInfo` to the Windows format.
     ///
-    /// We skip the DWARF as is not needed for trampolines (which are the
+    /// We skip the DWARF as it is not needed for trampolines (which are the
     /// main users of this function)
     pub fn maybe_into_to_windows_unwind(self) -> Option<CompiledFunctionUnwindInfo> {
         match self {

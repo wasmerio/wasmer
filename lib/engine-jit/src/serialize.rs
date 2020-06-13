@@ -36,8 +36,8 @@ pub struct SerializableCompilation {
     pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
     pub custom_sections: PrimaryMap<SectionIndex, CustomSection>,
     pub custom_section_relocations: PrimaryMap<SectionIndex, Vec<Relocation>>,
-    // The section corresponding to the Dwarf debug infos
-    pub dwarf: Option<Dwarf>,
+    // The section indices corresponding to the Dwarf debug info
+    pub debug: Option<Dwarf>,
 }
 
 /// Serializable struct that is able to serialize from and to

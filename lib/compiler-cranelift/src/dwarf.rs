@@ -12,6 +12,7 @@ pub struct WriterRelocate {
 }
 
 impl WriterRelocate {
+    pub const FUNCTION_SYMBOL: usize = 0;
     pub fn new(endianness: Option<Endianness>) -> Self {
         let endianness = match endianness {
             Some(Endianness::Little) => RunTimeEndian::Little,
@@ -61,7 +62,7 @@ impl Writer for WriterRelocate {
             Address::Constant(val) => self.write_udata(val, size),
             Address::Symbol { symbol, addend } => {
                 // Is a function relocation
-                if symbol == 0 {
+                if symbol == Self::FUNCTION_SYMBOL {
                     // We use the addend to detect the function index
                     let function_index = LocalFunctionIndex::new(addend as _);
                     let reloc_target = RelocationTarget::LocalFunc(function_index);
@@ -79,7 +80,7 @@ impl Writer for WriterRelocate {
                     });
                     self.write_udata(addend as u64, size)
                 } else {
-                    unreachable!("Symbol {} in Dwarf not recongnized", symbol);
+                    unreachable!("Symbol {} in DWARF not recognized", symbol);
                 }
             }
         }
