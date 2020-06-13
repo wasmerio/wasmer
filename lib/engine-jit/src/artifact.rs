@@ -25,7 +25,7 @@ use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMShared
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
-    _unwind_registry: UnwindRegistry,
+    _unwind_registry: Arc<UnwindRegistry>,
     serializable: SerializableModule,
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
@@ -219,6 +219,11 @@ impl JITArtifact {
         unwind_registry.publish(eh_frame).map_err(|e| {
             CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
         })?;
+
+        let unwind_registry = Arc::new(unwind_registry);
+        // Save the unwind registry into CodeMemory, so it can survive longer than
+        // the Module.
+        inner_jit.publish_unwind_registry(unwind_registry.clone());
 
         let finished_functions = finished_functions.into_boxed_slice();
         let finished_dynamic_function_trampolines =

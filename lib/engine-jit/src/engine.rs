@@ -286,6 +286,11 @@ impl JITEngineInner {
         self.code_memory.publish();
     }
 
+    /// Publish the unwind registry into code memory.
+    pub(crate) fn publish_unwind_registry(&mut self, unwind_registry: Arc<UnwindRegistry>) {
+        self.code_memory.publish_unwind_registry(unwind_registry);
+    }
+
     /// Shared signature registry.
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures

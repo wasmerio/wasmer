@@ -2,6 +2,7 @@
 use crate::unwind::UnwindRegistry;
 use region;
 use std::mem::ManuallyDrop;
+use std::sync::Arc;
 use std::{cmp, mem};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasmer_compiler::{CompiledFunctionUnwindInfo, FunctionBody, SectionBody};
@@ -41,6 +42,7 @@ impl Drop for CodeMemoryEntry {
 pub struct CodeMemory {
     current: CodeMemoryEntry,
     entries: Vec<CodeMemoryEntry>,
+    unwind_registries: Vec<Arc<UnwindRegistry>>,
     read_sections: Vec<Vec<u8>>,
     position: usize,
     published: usize,
@@ -53,9 +55,15 @@ impl CodeMemory {
             current: CodeMemoryEntry::new(),
             entries: Vec::new(),
             read_sections: Vec::new(),
+            unwind_registries: Vec::new(),
             position: 0,
             published: 0,
         }
+    }
+
+    /// Publish the unwind registry into code memory.
+    pub(crate) fn publish_unwind_registry(&mut self, unwind_registry: Arc<UnwindRegistry>) {
+        self.unwind_registries.push(unwind_registry);
     }
 
     /// Allocate a continuous memory block for a compilation.
