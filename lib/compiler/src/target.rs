@@ -3,7 +3,8 @@ use enumset::{EnumSet, EnumSetType};
 use std::str::FromStr;
 use std::string::ToString;
 pub use target_lexicon::{
-    Architecture, BinaryFormat, CallingConvention, Endianness, OperatingSystem, Triple,
+    Architecture, BinaryFormat, CallingConvention, Endianness, OperatingSystem, PointerWidth,
+    Triple,
 };
 use thiserror::Error;
 

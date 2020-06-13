@@ -44,7 +44,7 @@ pub struct NativeArtifact {
     #[allow(dead_code)]
     library: Option<Library>,
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
-    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
+    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
 
@@ -479,7 +479,7 @@ impl NativeArtifact {
             PrimaryMap::new();
         let finished_dynamic_function_trampolines: PrimaryMap<
             FunctionIndex,
-            *const VMFunctionBody,
+            *mut [VMFunctionBody],
         > = PrimaryMap::new();
         let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
         Ok(Self {
@@ -535,7 +535,7 @@ impl NativeArtifact {
         // Retrieve dynamic function trampolines (only for imported functions)
         let mut finished_dynamic_function_trampolines: PrimaryMap<
             FunctionIndex,
-            *const VMFunctionBody,
+            *mut [VMFunctionBody],
         > = PrimaryMap::with_capacity(metadata.module.num_imported_funcs);
         for func_index in metadata
             .module
@@ -545,7 +545,7 @@ impl NativeArtifact {
         {
             let function_name = Self::get_dynamic_function_trampoline_name(&metadata, func_index);
             unsafe {
-                let trampoline: LibrarySymbol<*const VMFunctionBody> = lib
+                let trampoline: LibrarySymbol<*mut [VMFunctionBody]> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
                 finished_dynamic_function_trampolines.push(*trampoline);
@@ -722,7 +722,7 @@ impl Artifact for NativeArtifact {
 
     fn finished_dynamic_function_trampolines(
         &self,
-    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody> {
+    ) -> &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]> {
         &self.finished_dynamic_function_trampolines
     }
 
