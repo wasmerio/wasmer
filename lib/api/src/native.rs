@@ -1,8 +1,8 @@
 //! Native Functions.
-//! 
+//!
 //! This module creates the helper `NativeFunc` that let us call WebAssembly
 //! functions with the native ABI, that is:
-//! 
+//!
 //! ```ignore
 //! let add_one = instance.exports.get_function("func_name")?;
 //! let add_one_native: NativeFunc<i32, i32> = add_one.native().unwrap();
