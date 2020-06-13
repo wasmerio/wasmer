@@ -163,12 +163,12 @@ ifeq ($(OS), Windows_NT)
 else
 ifeq ($(UNAME_S), Darwin)
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
-	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
+	# cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 	# Fix the rpath for the dylib
 	install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib
 else
 	cp target/release/libwasmer_c_api.so package/lib/libwasmer.so
-	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
+	# cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 endif
 endif
 
