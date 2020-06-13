@@ -71,7 +71,15 @@ wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wat", "wast", "wasi", "cache", "jit", "native", "emscripten"]
+default = [
+    "wat",
+    "wast",
+    "jit",
+    "native",
+    "cache",
+    "wasi",
+    "emscripten",
+]
 engine = []
 jit = [
     "wasmer-engine-jit",
@@ -86,7 +94,10 @@ wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
-compiler = ["wasmer-engine-jit/compiler", "wasmer-engine-native/compiler"]
+compiler = [
+    "wasmer-engine-jit/compiler",
+    "wasmer-engine-native/compiler"
+]
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices",
     "wasi"

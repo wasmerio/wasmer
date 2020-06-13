@@ -94,6 +94,7 @@
     unreachable_patterns
 )]
 
+#[allow(unused_imports)]
 #[macro_use]
 extern crate cfg_if;
 #[macro_use]
@@ -193,7 +194,8 @@ pub(crate) unsafe fn get_slice_checked<'a, T>(ptr: *const T, len: usize) -> &'a 
 }
 
 lazy_static! {
-    pub(crate) static ref GLOBAL_STORE: wasmer::Store = wasmer::Store::default();
+    pub(crate) static ref GLOBAL_STORE: wasmer::Store =
+        wasmer::Store::new(crate::wasm_c_api::wasm_engine_new().inner);
 }
 
 pub(crate) fn get_global_store() -> &'static wasmer::Store {

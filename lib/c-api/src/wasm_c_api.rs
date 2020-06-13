@@ -7,11 +7,15 @@ use std::ptr::{self, NonNull};
 use std::slice;
 use std::sync::Arc;
 
+#[cfg(feature = "engine")]
+use wasmer::Tunables;
 use wasmer::{
-    CompilerConfig, Engine, ExportType, Extern, ExternType, Function, FunctionType, Global,
-    GlobalType, Instance, JITEngine, Memory, MemoryType, Module, Mutability, OrderedResolver,
-    Pages, RuntimeError, Store, Table, TableType, Tunables, Val, ValType,
+    Engine, ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, Instance,
+    Memory, MemoryType, Module, Mutability, OrderedResolver, Pages, RuntimeError, Store, Table,
+    TableType, Val, ValType,
 };
+#[cfg(feature = "jit")]
+use wasmer_engine_jit::JITEngine;
 
 use crate::error::update_last_error;
 
@@ -44,29 +48,50 @@ pub extern "C" fn wasm_config_new() -> *mut wasm_config_t {
 
 #[repr(C)]
 pub struct wasm_engine_t {
-    inner: Arc<dyn Engine + Send + Sync>,
+    pub(crate) inner: Arc<dyn Engine + Send + Sync>,
 }
 
-fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
-    cfg_if! {
-        if #[cfg(feature = "cranelift")] {
-            Box::new(wasmer::CraneliftConfig::default())
-        } else if #[cfg(feature = "llvm")] {
-            Box::new(wasmer::LLVMConfig::default())
-        } else if #[cfg(feature = "singlepass")] {
-            Box::new(wasmer::SinglepassConfig::default())
-        } else {
-            compile_error!("Please enable one of the compiler backends")
+cfg_if! {
+    if #[cfg(all(feature = "jit", feature = "compiler"))] {
+        // Compiler JIT
+        use wasmer_compiler::CompilerConfig;
+        fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
+            cfg_if! {
+                if #[cfg(feature = "cranelift")] {
+                    Box::new(wasmer_compiler_cranelift::CraneliftConfig::default())
+                } else if #[cfg(feature = "llvm")] {
+                    Box::new(wasmer_compiler_llvm::LLVMConfig::default())
+                } else if #[cfg(feature = "singlepass")] {
+                    Box::new(wasmer_compiler_singlepass::SinglepassConfig::default())
+                } else {
+                    compile_error!("Please enable one of the compiler backends")
+                }
+            }
+        }
+
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
+            let tunables = Tunables::default();
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::new(compiler_config, tunables));
+            Box::new(wasm_engine_t { inner: engine })
         }
     }
-}
-
-#[no_mangle]
-pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-    let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-    let tunables = Tunables::default();
-    let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::new(compiler_config, tunables));
-    Box::new(wasm_engine_t { inner: engine })
+    else if #[cfg(feature = "jit")] {
+        // Headless JIT
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            let tunables = Tunables::default();
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::headless(tunables));
+            Box::new(wasm_engine_t { inner: engine })
+        }
+    }
+    else {
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            unimplemented!("The JITEngine is not attached");
+        }
+    }
 }
 
 #[no_mangle]
