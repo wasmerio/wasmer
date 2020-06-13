@@ -12,6 +12,16 @@ use wasmer_engine::SerializableFunctionFrameInfo;
 use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
+// /// The serializable function data
+// #[derive(Serialize, Deserialize)]
+// pub struct SerializableFunction {
+//     #[serde(with = "serde_bytes")]
+//     pub body: &[u8],
+//     /// The unwind info for Windows
+//     #[serde(with = "serde_bytes")]
+//     pub windows_unwind_info: &[u8],
+// }
+
 /// The compilation related data for a serialized modules
 #[derive(Serialize, Deserialize)]
 pub struct SerializableCompilation {

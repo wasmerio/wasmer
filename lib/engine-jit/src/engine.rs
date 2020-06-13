@@ -199,7 +199,8 @@ impl JITEngineInner {
     ) -> Result<
         (
             PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
-            PrimaryMap<FunctionIndex, *const VMFunctionBody>,
+            PrimaryMap<SignatureIndex, *mut [VMFunctionBody]>,
+            PrimaryMap<FunctionIndex, *mut [VMFunctionBody]>,
         ),
         CompileError,
     > {
@@ -215,6 +216,10 @@ impl JITEngineInner {
                 ))
             })?;
 
+        let mut alllocated_function_call_trampolines: PrimaryMap<
+            SignatureIndex,
+            *mut [VMFunctionBody],
+        > = PrimaryMap::new();
         // let (indices, compiled_functions): (Vec<VMSharedSignatureIndex>, PrimaryMap<FunctionIndex, FunctionBody>) = function_call_trampolines.iter().map(|(sig_index, compiled_function)| {
         //     let func_type = module.signatures.get(sig_index).unwrap();
         //     let index = self.signatures.register(&func_type);
@@ -225,11 +230,11 @@ impl JITEngineInner {
         for (sig_index, compiled_function) in function_call_trampolines.iter() {
             let func_type = module.signatures.get(sig_index).unwrap();
             let index = self.signatures.register(&func_type);
-            if self.function_call_trampolines.contains_key(&index) {
-                // We don't need to allocate the trampoline in case
-                // it's signature is already allocated.
-                continue;
-            }
+            // if self.function_call_trampolines.contains_key(&index) {
+            //     // We don't need to allocate the trampoline in case
+            //     // it's signature is already allocated.
+            //     continue;
+            // }
             let ptr = self
                 .code_memory
                 .allocate_for_function(registry, &compiled_function)
@@ -238,10 +243,10 @@ impl JITEngineInner {
                         "failed to allocate memory for function call trampolines: {}",
                         message
                     ))
-                })?
-                .as_ptr();
+                })?;
+            alllocated_function_call_trampolines.push(ptr);
             let trampoline =
-                unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
+                unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr.as_ptr()) };
             self.function_call_trampolines.insert(index, trampoline);
         }
 
@@ -256,13 +261,16 @@ impl JITEngineInner {
                             "failed to allocate memory for dynamic function trampolines: {}",
                             message
                         ))
-                    })?
-                    .as_ptr();
-                Ok(ptr)
+                    })?;
+                Ok(ptr as _)
             })
             .collect::<Result<PrimaryMap<FunctionIndex, _>, CompileError>>()?;
 
-        Ok((allocated_functions, allocated_dynamic_function_trampolines))
+        Ok((
+            allocated_functions,
+            alllocated_function_call_trampolines,
+            allocated_dynamic_function_trampolines,
+        ))
     }
 
     /// Make memory containing compiled code executable.

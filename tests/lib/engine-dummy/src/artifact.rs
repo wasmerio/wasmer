@@ -37,7 +37,7 @@ pub struct DummyArtifact {
     metadata: DummyArtifactMetadata,
 
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
-    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
+    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
 
@@ -140,10 +140,10 @@ impl DummyArtifact {
         // We prepare the pointers for the finished dynamic function trampolines
         let finished_dynamic_function_trampolines: PrimaryMap<
             FunctionIndex,
-            *const VMFunctionBody,
+            *mut [VMFunctionBody],
         > = (0..metadata.module.num_imported_funcs)
             .map(|_| unsafe {
-                std::mem::transmute::<_, *const VMFunctionBody>(dummy_function as *const ())
+                std::mem::transmute::<_, *mut [VMFunctionBody]>((dummy_function as *const (), 0))
             })
             .collect::<PrimaryMap<_, _>>();
 
@@ -210,7 +210,7 @@ impl Artifact for DummyArtifact {
 
     fn finished_dynamic_function_trampolines(
         &self,
-    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody> {
+    ) -> &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]> {
         &self.finished_dynamic_function_trampolines
     }
 

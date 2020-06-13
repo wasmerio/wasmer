@@ -28,7 +28,7 @@ pub struct JITArtifact {
     _unwind_registry: UnwindRegistry,
     serializable: SerializableModule,
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
-    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
+    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
 }
@@ -166,7 +166,11 @@ impl JITArtifact {
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
         let mut unwind_registry = UnwindRegistry::new();
-        let (finished_functions, finished_dynamic_function_trampolines) = inner_jit.allocate(
+        let (
+            finished_functions,
+            _finished_function_call_trampolines,
+            finished_dynamic_function_trampolines,
+        ) = inner_jit.allocate(
             &mut unwind_registry,
             &serializable.module,
             &serializable.compilation.function_bodies,
@@ -287,9 +291,10 @@ impl Artifact for JITArtifact {
         &self.finished_functions
     }
 
+    // TODO: return *const instead of *mut
     fn finished_dynamic_function_trampolines(
         &self,
-    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody> {
+    ) -> &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]> {
         &self.finished_dynamic_function_trampolines
     }
 
