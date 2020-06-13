@@ -81,15 +81,15 @@ build-capi: build-capi-cranelift
 
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features singlepass-backend,wasi
+		--no-default-features --features jit,singlepass,wasi
 
 build-capi-cranelift:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features cranelift-backend,wasi
+		--no-default-features --features jit,cranelift,wasi
 
 build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features llvm-backend,wasi
+		--no-default-features --features jit,llvm,wasi
 
 
 ###########
@@ -114,15 +114,15 @@ test-packages:
 
 test-capi-singlepass: build-capi-singlepass
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features singlepass,wasi
+		--no-default-features --features jit,singlepass,wasi -- --nocapture
 
 test-capi-cranelift: build-capi-cranelift
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features cranelift,wasi -- --nocapture --test-threads=1
+		--no-default-features --features jit,cranelift,wasi -- --nocapture
 
 test-capi-llvm: build-capi-llvm
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features llvm,wasi
+		--no-default-features --features jit,llvm,wasi -- --nocapture
 
 test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-emscripten
 

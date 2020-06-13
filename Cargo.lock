@@ -2138,6 +2138,14 @@ dependencies = [
  "thiserror",
  "wasm-common",
  "wasmer",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
+ "wasmer-compiler-llvm",
+ "wasmer-compiler-singlepass",
+ "wasmer-emscripten",
+ "wasmer-engine",
+ "wasmer-engine-jit",
+ "wasmer-engine-native",
  "wasmer-wasi",
 ]
 
