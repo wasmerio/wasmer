@@ -90,7 +90,7 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             unimplemented!("The JITEngine is not attached");
-        }        
+        }
     }
 }
 
