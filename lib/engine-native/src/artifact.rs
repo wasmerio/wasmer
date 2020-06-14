@@ -25,8 +25,8 @@ use wasm_common::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    Architecture, BinaryFormat, Endianness, ModuleEnvironment, OperatingSystem, RelocationTarget,
-    Triple,
+    Architecture, BinaryFormat, CustomSectionProtection, Endianness, ModuleEnvironment,
+    OperatingSystem, RelocationTarget, SectionIndex, Triple,
 };
 use wasmer_compiler::{CompileError, Features};
 #[cfg(feature = "compiler")]
@@ -193,6 +193,8 @@ impl NativeArtifact {
         };
         let mut obj = Object::new(obj_binary_format, obj_architecture, obj_endianness);
         let function_bodies = compilation.get_function_bodies();
+        let custom_sections = compilation.get_custom_sections();
+        let custom_section_relocations = compilation.get_custom_section_relocations();
 
         // We construct the function body lengths
         let function_body_lengths = function_bodies
@@ -232,6 +234,29 @@ impl NativeArtifact {
         obj.add_symbol_data(symbol_id, section_id, &metadata_length, 1);
 
         let function_relocations = compilation.get_relocations();
+
+        // Add sections
+        for (section_index, custom_section) in custom_sections.iter() {
+            // TODO: We need to rename the sections corresponding to the DWARF information
+            // to the proper names (like `.eh_frame`)
+            let section_name = Self::get_section_name(&metadata, section_index);
+            let (section_kind, standard_section) = match custom_section.protection {
+                CustomSectionProtection::ReadExecute => (SymbolKind::Text, StandardSection::Text),
+                CustomSectionProtection::Read => (SymbolKind::Data, StandardSection::Data),
+            };
+            let symbol_id = obj.add_symbol(Symbol {
+                name: section_name.as_bytes().to_vec(),
+                value: 0,
+                size: 0,
+                kind: section_kind,
+                scope: SymbolScope::Dynamic,
+                weak: false,
+                section: SymbolSection::Undefined,
+                flags: SymbolFlags::None,
+            });
+            let section_id = obj.section_id(standard_section);
+            obj.add_symbol_data(symbol_id, section_id, custom_section.bytes.as_slice(), 1);
+        }
 
         // Add functions
         for (function_local_index, function) in function_bodies.into_iter() {
@@ -285,13 +310,22 @@ impl NativeArtifact {
             obj.add_symbol_data(symbol_id, section_id, &function.body, 1);
         }
 
-        // Add function relocations
-        for (function_local_index, function_relocs) in function_relocations.into_iter() {
+        // Add relocations (function and sections)
+        let mut all_relocations = Vec::new();
+        for (function_local_index, relocations) in function_relocations.into_iter() {
             let function_name = Self::get_function_name(&metadata, function_local_index);
             let symbol_id = obj.symbol_id(function_name.as_bytes()).unwrap();
+            all_relocations.push((symbol_id, relocations))
+        }
+        for (section_index, relocations) in custom_section_relocations.into_iter() {
+            let function_name = Self::get_section_name(&metadata, section_index);
+            let symbol_id = obj.symbol_id(function_name.as_bytes()).unwrap();
+            all_relocations.push((symbol_id, relocations))
+        }
+        for (symbol_id, relocations) in all_relocations.into_iter() {
             let (_, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
             let section_id = obj.section_id(StandardSection::Text);
-            for r in function_relocs {
+            for r in relocations {
                 // assert_eq!(r.addend, 0);
                 match r.reloc_target {
                     RelocationTarget::LocalFunc(index) => {
@@ -338,8 +372,21 @@ impl NativeArtifact {
                         )
                         .map_err(to_compile_error)?;
                     }
-                    RelocationTarget::CustomSection(_custom_section) => {
-                        // TODO: Implement custom sections
+                    RelocationTarget::CustomSection(section_index) => {
+                        let target_name = Self::get_section_name(&metadata, section_index);
+                        let target_symbol = obj.symbol_id(target_name.as_bytes()).unwrap();
+                        obj.add_relocation(
+                            section_id,
+                            Relocation {
+                                offset: section_offset + r.offset as u64,
+                                size: 32, // FIXME for all targets
+                                kind: RelocationKind::PltRelative,
+                                encoding: RelocationEncoding::X86Branch,
+                                symbol: target_symbol,
+                                addend: r.addend,
+                            },
+                        )
+                        .map_err(to_compile_error)?;
                     }
                     RelocationTarget::JumpTable(_func_index, _jt) => {
                         // do nothing
@@ -448,6 +495,10 @@ impl NativeArtifact {
         format!("wasmer_function_{}_{}", metadata.prefix, index.index())
     }
 
+    fn get_section_name(metadata: &ModuleMetadata, index: SectionIndex) -> String {
+        format!("wasmer_section_{}_{}", metadata.prefix, index.index())
+    }
+
     fn get_function_call_trampoline_name(
         metadata: &ModuleMetadata,
         index: SignatureIndex,
@@ -545,10 +596,14 @@ impl NativeArtifact {
         {
             let function_name = Self::get_dynamic_function_trampoline_name(&metadata, func_index);
             unsafe {
-                let trampoline: LibrarySymbol<*mut [VMFunctionBody]> = lib
+                let trampoline: LibrarySymbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
-                finished_dynamic_function_trampolines.push(*trampoline);
+                let raw = *trampoline.into_raw();
+                let trampoline_pointer = std::slice::from_raw_parts(raw as *const (), 0);
+                let trampoline_pointer =
+                    trampoline_pointer as *const [()] as *mut [VMFunctionBody];
+                finished_dynamic_function_trampolines.push(trampoline_pointer);
             }
         }
 
