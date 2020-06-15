@@ -19,13 +19,20 @@ pub struct WasmFunctionDefinition {
     pub(crate) trampoline: VMTrampoline,
 }
 
+/// A function defined in the Host
+#[derive(Clone, PartialEq)]
+pub struct HostFunctionDefinition {
+    /// If the host function has a custom environment attached
+    pub(crate) has_env: bool,
+}
+
 /// The inner helper
 #[derive(Clone, PartialEq)]
 pub enum FunctionDefinition {
     /// A function defined in the Wasm side
     Wasm(WasmFunctionDefinition),
     /// A function defined in the Host side
-    Host,
+    Host(HostFunctionDefinition),
 }
 
 /// A WebAssembly `function`.
@@ -35,7 +42,6 @@ pub struct Function {
     pub(crate) definition: FunctionDefinition,
     // If the Function is owned by the Store, not the instance
     pub(crate) owned_by_store: bool,
-    pub(crate) has_env: bool,
     pub(crate) exported: ExportFunction,
 }
 
@@ -58,8 +64,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            definition: FunctionDefinition::Host,
-            has_env: false,
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 address,
                 vmctx,
@@ -86,8 +91,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            definition: FunctionDefinition::Host,
-            has_env: false,
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 address,
                 kind: VMFunctionKind::Dynamic,
@@ -116,8 +120,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            definition: FunctionDefinition::Host,
-            has_env: true,
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 address,
                 kind: VMFunctionKind::Dynamic,
@@ -151,8 +154,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            definition: FunctionDefinition::Host,
-            has_env: true,
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 address,
                 kind: VMFunctionKind::Static,
@@ -279,7 +281,6 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: false,
-            has_env: true,
             definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
             exported: wasmer_export,
         }
@@ -318,7 +319,6 @@ impl Function {
             self.exported.vmctx,
             self.exported.kind,
             self.definition.clone(),
-            self.has_env,
         ))
     }
 }

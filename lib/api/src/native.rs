@@ -10,8 +10,8 @@
 use std::marker::PhantomData;
 
 use crate::externals::function::{
-    FunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithEnv, VMDynamicFunctionWithoutEnv,
-    WasmFunctionDefinition,
+    FunctionDefinition, HostFunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithEnv,
+    VMDynamicFunctionWithoutEnv, WasmFunctionDefinition,
 };
 use crate::{Function, FunctionType, RuntimeError, Store};
 use wasm_common::{NativeWasmType, WasmExternType, WasmTypeList};
@@ -26,9 +26,6 @@ pub struct NativeFunc<'a, Args = (), Rets = ()> {
     address: *const VMFunctionBody,
     vmctx: *mut VMContext,
     arg_kind: VMFunctionKind,
-    /// All host functions take an environment pointer parameter, this variable
-    /// differentiates the type for the vmctx.
-    has_env: bool,
     // exported: ExportFunction,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
@@ -46,7 +43,6 @@ where
         vmctx: *mut VMContext,
         arg_kind: VMFunctionKind,
         definition: FunctionDefinition,
-        has_env: bool,
     ) -> Self {
         Self {
             definition,
@@ -54,7 +50,6 @@ where
             address,
             vmctx,
             arg_kind,
-            has_env,
             _phantom: PhantomData,
         }
     }
@@ -87,7 +82,6 @@ where
             store: other.store,
             definition: other.definition,
             owned_by_store: true, // todo
-            has_env: other.has_env,
             exported: ExportFunction {
                 address: other.address,
                 vmctx: other.vmctx,
@@ -170,18 +164,19 @@ macro_rules! impl_native_traits {
                         }
                         return Ok(Rets::from_array(rets_list_array));
                     }
-                    FunctionDefinition::Host => {
+                    FunctionDefinition::Host(HostFunctionDefinition {
+                        has_env
+                    }) => {
                         match self.arg_kind {
                             VMFunctionKind::Static => unsafe {
-                                    let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets>(self.address);
-
-                                    let results =  f( self.vmctx, $( $x, )* );
-                                    return Ok(results);
+                                let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets>(self.address);
+                                // We always pass the vmctx
+                                let results =  f( self.vmctx, $( $x, )* );
+                                return Ok(results);
                             },
                             VMFunctionKind::Dynamic => {
-                                // Is a dynamic function
                                 let params_list = [ $( $x.to_native().to_value() ),* ];
-                                let results = if !self.has_env {
+                                let results = if !has_env {
                                     type VMContextWithoutEnv = VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>;
                                     let ctx = self.vmctx as *mut VMContextWithoutEnv;
                                     unsafe { (*ctx).ctx.call(&params_list)? }
