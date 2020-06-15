@@ -31,7 +31,7 @@ impl Extern {
         }
     }
 
-    pub(crate) fn from_export(store: &Store, export: Export) -> Extern {
+    pub fn from_export(store: &Store, export: Export) -> Extern {
         match export {
             Export::Function(f) => Extern::Function(Function::from_export(store, f)),
             Export::Memory(m) => Extern::Memory(Memory::from_export(store, m)),
