@@ -14,6 +14,7 @@ use crate::externals::function::{
     VMDynamicFunctionWithoutEnv, WasmFunctionDefinition,
 };
 use crate::{Function, FunctionType, RuntimeError, Store};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasm_common::{NativeWasmType, WasmExternType, WasmTypeList};
 use wasmer_runtime::{
     ExportFunction, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
@@ -123,68 +124,69 @@ macro_rules! impl_native_traits {
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 match self.definition {
                     FunctionDefinition::Wasm(WasmFunctionDefinition {
-                        ..
-                        // trampoline
+                        trampoline
                     }) => {
-                        let results = unsafe {
-                            let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
-                            // We always pass the vmctx
-                            f( self.vmctx, $( $x, )* )
+                        // TODO: when `const fn` related features mature more, we can declare a single array
+                        // of the correct size here.
+                        let mut params_list = [ $( $x.to_native().to_binary() ),* ];
+                        let mut rets_list_array = Rets::empty_array();
+                        let rets_list = rets_list_array.as_mut();
+                        let using_rets_array;
+                        let args_rets: &mut [i128] = if params_list.len() > rets_list.len() {
+                            using_rets_array = false;
+                            params_list.as_mut()
+                        } else {
+                            using_rets_array = true;
+                            for (i, &arg) in params_list.iter().enumerate() {
+                                rets_list[i] = arg;
+                            }
+                            rets_list.as_mut()
                         };
-                        Ok(Rets::from_c_struct(results))
-
-                        // Keeping the following as the current code assumes the same ABI between
-                        // Host and Wasm defined functions. While the latter is less optimal but
-                        // ABI safe, so it can be useful for the future.
-
-                        // // TODO: when `const fn` related features mature more, we can declare a single array
-                        // // of the correct size here.
-                        // let mut params_list = [ $( $x.to_native().to_binary() ),* ];
-                        // let mut rets_list_array = Rets::empty_array();
-                        // let rets_list = rets_list_array.as_mut();
-                        // let using_rets_array;
-                        // let args_rets: &mut [i128] = if params_list.len() > rets_list.len() {
-                        //     using_rets_array = false;
-                        //     params_list.as_mut()
-                        // } else {
-                        //     using_rets_array = true;
-                        //     for (i, &arg) in params_list.iter().enumerate() {
-                        //         rets_list[i] = arg;
-                        //     }
-                        //     rets_list.as_mut()
+                        unsafe {
+                            wasmer_runtime::wasmer_call_trampoline(
+                                self.vmctx,
+                                trampoline,
+                                self.address,
+                                args_rets.as_mut_ptr() as *mut u8,
+                            )
+                        }?;
+                        let num_rets = rets_list.len();
+                        if !using_rets_array && num_rets > 0 {
+                            let src_pointer = params_list.as_ptr();
+                            let rets_list = &mut rets_list_array.as_mut()[0] as *mut i128;
+                            unsafe {
+                                // TODO: we can probably remove this copy by doing some clever `transmute`s.
+                                // we know it's not overlapping because `using_rets_array` is false
+                                std::ptr::copy_nonoverlapping(src_pointer,
+                                                              rets_list,
+                                                              num_rets);
+                            }
+                        }
+                        Ok(Rets::from_array(rets_list_array))
+                        // Keeping the following as it should be a bit faster than the current
+                        // approach. However, it can only be used if the Host ABI and the ABI
+                        // of the Wasm functions is the same.
+                        //
+                        // let results = unsafe {
+                        //     wasmer_runtime::catch_traps_with_result(self.vmctx, || {
+                        //         let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
+                        //         // We always pass the vmctx
+                        //         f( self.vmctx, $( $x, )* )
+                        //     }).map_err(RuntimeError::from_trap)?
                         // };
-                        // unsafe {
-                        //     wasmer_runtime::wasmer_call_trampoline(
-                        //         self.vmctx,
-                        //         trampoline,
-                        //         self.address,
-                        //         args_rets.as_mut_ptr() as *mut u8,
-                        //     )
-                        // }?;
-                        // let num_rets = rets_list.len();
-                        // if !using_rets_array && num_rets > 0 {
-                        //     let src_pointer = params_list.as_ptr();
-                        //     let rets_list = &mut rets_list_array.as_mut()[0] as *mut i128;
-                        //     unsafe {
-                        //         // TODO: we can probably remove this copy by doing some clever `transmute`s.
-                        //         // we know it's not overlapping because `using_rets_array` is false
-                        //         std::ptr::copy_nonoverlapping(src_pointer,
-                        //                                       rets_list,
-                        //                                       num_rets);
-                        //     }
-                        // }
-                        // Ok(Rets::from_array(rets_list_array))
+                        // Ok(Rets::from_c_struct(results))
+
                     }
                     FunctionDefinition::Host(HostFunctionDefinition {
                         has_env
                     }) => {
                         match self.arg_kind {
                             VMFunctionKind::Static => {
-                                let results = unsafe {
-                                    let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
+                                let results = catch_unwind(AssertUnwindSafe(|| unsafe {
+                                    let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
                                     // We always pass the vmctx
                                     f( self.vmctx, $( $x, )* )
-                                };
+                                })).map_err(|e| RuntimeError::new(format!("{:?}", e)))?;
                                 Ok(Rets::from_c_struct(results))
                             },
                             VMFunctionKind::Dynamic => {
