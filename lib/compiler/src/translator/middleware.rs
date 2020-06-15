@@ -5,34 +5,15 @@ use crate::error::CompileError;
 use smallvec::SmallVec;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
+use std::ops::Deref;
 use wasm_common::LocalFunctionIndex;
 use wasmparser::{BinaryReader, Operator, Result as WpResult, Type};
 
-/// A registry that holds mappings from names to middleware builder generators.
-pub struct MiddlewareRegistry {
-    /// Middleware builder generators.
-    generators: HashMap<String, Box<dyn MiddlewareBuilderGenerator>>,
-}
-
-/// A middleware builder generator.
-pub trait MiddlewareBuilderGenerator: Debug + Send + Sync {
-    /// Returns the version of the builder.
-    fn version(&self) -> u32;
-
-    /// Generates a builder from a configuration.
-    fn generate(
-        &self,
-        configuration: &[u8],
-    ) -> Result<Box<dyn FunctionMiddlewareBuilder>, CompileError>;
-}
-
 /// A shared builder for function middlewares.
-pub trait FunctionMiddlewareBuilder: Debug + Send + Sync {
-    /// Creates a `FunctionMiddleware` for a given function.
-    fn prepare<'a>(
-        &self,
-        local_function_index: LocalFunctionIndex,
-    ) -> Result<Box<dyn FunctionMiddleware>, CompileError>;
+pub trait FunctionMiddlewareGenerator: Debug + Send + Sync {
+    /// Generates a `FunctionMiddleware` for a given function.
+    fn generate<'a>(&self, local_function_index: LocalFunctionIndex)
+        -> Box<dyn FunctionMiddleware>;
 }
 
 /// A function middleware specialized for a single function.
@@ -68,48 +49,24 @@ pub struct MiddlewareReaderState<'a> {
     pending_operations: VecDeque<Operator<'a>>,
 }
 
-impl MiddlewareRegistry {
-    /// Create a middleware registry.
-    pub fn new() -> MiddlewareRegistry {
-        MiddlewareRegistry {
-            generators: HashMap::new(),
-        }
-    }
-
-    /// Register a middleware.
-    pub fn register<K: Into<String>, G: MiddlewareBuilderGenerator + 'static>(
-        &mut self,
-        key: K,
-        generator: G,
-    ) {
-        self.generators.insert(key.into(), Box::new(generator));
-    }
-
-    /// Try to instantiate a builder.
-    pub fn instantiate_builder<K: AsRef<str>>(
+/// Trait for generating middleware chains from "prototype" (generator) chains.
+pub trait GenerateMiddlewareChain {
+    /// Generates a middleware chain.
+    fn generate_middleware_chain(
         &self,
-        key: K,
-        expected_version: u32,
-        conf: &[u8],
-    ) -> Result<Box<dyn FunctionMiddlewareBuilder>, CompileError> {
-        match self.generators.get(key.as_ref()).map(|x| &**x) {
-            Some(x) => {
-                if x.version() == expected_version {
-                    x.generate(conf)
-                } else {
-                    Err(CompileError::Codegen(format!(
-                        "found middleware `{}` but version mismatches: expected `{}`, found `{}`",
-                        key.as_ref(),
-                        expected_version,
-                        x.version()
-                    )))
-                }
-            }
-            None => Err(CompileError::Codegen(format!(
-                "middleware `{}` not found",
-                key.as_ref()
-            ))),
-        }
+        local_function_index: LocalFunctionIndex,
+    ) -> Vec<Box<dyn FunctionMiddleware>>;
+}
+
+impl<T: Deref<Target = dyn FunctionMiddlewareGenerator>> GenerateMiddlewareChain for [T] {
+    /// Generates a middleware chain.
+    fn generate_middleware_chain(
+        &self,
+        local_function_index: LocalFunctionIndex,
+    ) -> Vec<Box<dyn FunctionMiddleware>> {
+        self.iter()
+            .map(|x| x.generate(local_function_index))
+            .collect()
     }
 }
 
@@ -133,9 +90,9 @@ impl<'a> MiddlewareBinaryReader<'a> {
         }
     }
 
-    /// Adds a stage to the back of the middleware chain.
-    pub fn push_middleware_stage(&mut self, stage: Box<dyn FunctionMiddleware>) {
-        self.chain.push(stage);
+    /// Replaces the middleware chain with a new one.
+    pub fn set_middleware_chain(&mut self, stages: Vec<Box<dyn FunctionMiddleware>>) {
+        self.chain = stages;
     }
 
     /// Read a `count` indicating the number of times to call `read_local_decl`.
