@@ -9,11 +9,15 @@
 //! ```
 use std::marker::PhantomData;
 
-use crate::externals::function::{FunctionDefinition, WasmFunctionDefinition};
+use crate::externals::function::{
+    FunctionDefinition, HostFunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithEnv,
+    VMDynamicFunctionWithoutEnv, WasmFunctionDefinition,
+};
 use crate::{Function, FunctionType, RuntimeError, Store};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasm_common::{NativeWasmType, WasmExternType, WasmTypeList};
 use wasmer_runtime::{
-    wasmer_call_trampoline, ExportFunction, VMContext, VMFunctionBody, VMFunctionKind,
+    ExportFunction, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
 };
 
 pub struct NativeFunc<'a, Args = (), Rets = ()> {
@@ -139,7 +143,7 @@ macro_rules! impl_native_traits {
                             rets_list.as_mut()
                         };
                         unsafe {
-                            wasmer_call_trampoline(
+                            wasmer_runtime::wasmer_call_trampoline(
                                 self.vmctx,
                                 trampoline,
                                 self.address,
@@ -158,18 +162,52 @@ macro_rules! impl_native_traits {
                                                               num_rets);
                             }
                         }
-                        return Ok(Rets::from_array(rets_list_array));
-                    }
-                    FunctionDefinition::Host => {
-                        if self.arg_kind == VMFunctionKind::Static {
-                            unsafe {
-                                let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets>(self.address);
+                        Ok(Rets::from_array(rets_list_array))
+                        // TODO: When the Host ABI and Wasm ABI are the same, we could do this instead:
+                        // but we can't currently detect whether that's safe.
+                        //
+                        // let results = unsafe {
+                        //     wasmer_runtime::catch_traps_with_result(self.vmctx, || {
+                        //         let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
+                        //         // We always pass the vmctx
+                        //         f( self.vmctx, $( $x, )* )
+                        //     }).map_err(RuntimeError::from_trap)?
+                        // };
+                        // Ok(Rets::from_c_struct(results))
 
-                                let results =  f( self.vmctx, $( $x, )* );
-                                return Ok(results);
+                    }
+                    FunctionDefinition::Host(HostFunctionDefinition {
+                        has_env
+                    }) => {
+                        match self.arg_kind {
+                            VMFunctionKind::Static => {
+                                let results = catch_unwind(AssertUnwindSafe(|| unsafe {
+                                    let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
+                                    // We always pass the vmctx
+                                    f( self.vmctx, $( $x, )* )
+                                })).map_err(|e| RuntimeError::new(format!("{:?}", e)))?;
+                                Ok(Rets::from_c_struct(results))
+                            },
+                            VMFunctionKind::Dynamic => {
+                                let params_list = [ $( $x.to_native().to_value() ),* ];
+                                let results = if !has_env {
+                                    type VMContextWithoutEnv = VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>;
+                                    let ctx = self.vmctx as *mut VMContextWithoutEnv;
+                                    unsafe { (*ctx).ctx.call(&params_list)? }
+                                } else {
+                                    type VMContextWithEnv = VMDynamicFunctionContext<VMDynamicFunctionWithEnv<std::ffi::c_void>>;
+                                    let ctx = self.vmctx as *mut VMContextWithEnv;
+                                    unsafe { (*ctx).ctx.call(&params_list)? }
+                                };
+                                let mut rets_list_array = Rets::empty_array();
+                                let mut_rets = rets_list_array.as_mut() as *mut [i128] as *mut i128;
+                                for (i, ret) in results.iter().enumerate() {
+                                    unsafe {
+                                        ret.write_value_to(mut_rets.add(i));
+                                    }
+                                }
+                                Ok(Rets::from_array(rets_list_array))
                             }
-                        } else {
-                            todo!("dynamic host functions not yet implemented")
                         }
                     },
                 }
