@@ -16,7 +16,7 @@ impl Namespace {
     pub fn insert<N, V>(&mut self, name: N, value: V)
     where
         N: Into<String>,
-        V: Into<new::wasmer::Extern> + Send + 'static,
+        V: Into<new::wasmer::Extern> + 'static,
     {
         self.exports.insert(name, value);
     }

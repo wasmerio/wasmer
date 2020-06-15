@@ -1,11 +1,15 @@
 use crate::{
     cache::Artifact,
     error::InstantiationError,
+    import::{ImportObject, Namespace},
     instance::{Instance, PreInstance},
-    new, vm,
+    new,
 };
 use new::wasmer_runtime::Export;
-use std::convert::{AsRef, Infallible};
+use std::{
+    collections::HashMap,
+    convert::{AsRef, Infallible},
+};
 
 pub use new::wasm_common::{DataInitializer, ExportIndex};
 pub use new::wasmer_runtime::{
@@ -30,38 +34,56 @@ impl Module {
         import_object: &crate::import::ImportObject,
     ) -> Result<Instance, InstantiationError> {
         let pre_instance = PreInstance::new();
-        dbg!(pre_instance.vmctx_ptr());
-        dbg!({
-            let vmctx: &vm::Ctx = unsafe { &*pre_instance.vmctx_ptr() };
-            vmctx
-        });
 
-        // Replace the fake `vm::Ctx` of host functions.
-        {
-            let import_object = import_object.clone_ref();
+        let import_object = {
+            // Replace the fake `vm::Ctx` of host functions.
+            // Since `ImportObject` has a readonly API, we have no
+            // choice than rebuilding an entire `ImportObject`.
+
+            let mut new_import_object = ImportObject::new();
+            let mut new_namespaces: HashMap<String, Namespace> = HashMap::new();
+            let store = self.new_module.store();
 
             import_object
+                .clone_ref()
                 .into_iter()
-                .filter_map(|(_, export)| match export {
-                    Export::Function(function) => Some(function),
-                    _ => None,
-                })
-                .for_each(|mut exported_function| {
-                    // Cast `vm::Ctx` (from this crate) to `VMContext`
-                    // (from `wasmer_runtime`).
-                    dbg!(exported_function.vmctx);
+                .map(|((namespace, name), export)| match export {
+                    Export::Function(mut function) => {
+                        if function.vmctx.is_null() {
+                            function.vmctx = pre_instance.vmctx_ptr() as _;
+                        }
 
-                    if exported_function.vmctx.is_null() {
-                        exported_function.vmctx = pre_instance.vmctx_ptr() as _;
+                        (
+                            (namespace, name),
+                            new::wasmer::Extern::from_export(store, Export::Function(function)),
+                        )
+                    }
+                    export => (
+                        (namespace, name),
+                        new::wasmer::Extern::from_export(store, export),
+                    ),
+                })
+                .for_each(|((namespace, name), extern_)| {
+                    if !new_namespaces.contains_key(&namespace) {
+                        new_namespaces.insert(namespace.clone(), Namespace::new());
                     }
 
-                    dbg!(exported_function.vmctx);
+                    let new_namespace = new_namespaces.get_mut(&namespace).unwrap(); // it is safe because it has been verified that the key exists.
+                    new_namespace.insert(&name, extern_);
                 });
-        }
+
+            new_namespaces
+                .into_iter()
+                .for_each(|(namespace_name, namespace)| {
+                    new_import_object.register(namespace_name, namespace);
+                });
+
+            new_import_object
+        };
 
         Ok(Instance::new(
             pre_instance,
-            new::wasmer::Instance::new(&self.new_module, import_object)?,
+            new::wasmer::Instance::new(&self.new_module, &import_object)?,
         ))
     }
 
