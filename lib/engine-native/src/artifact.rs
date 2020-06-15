@@ -18,7 +18,7 @@ use std::sync::Arc;
 use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
-use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
+use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
@@ -26,7 +26,7 @@ use wasm_common::{
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
     Architecture, BinaryFormat, CustomSectionProtection, Endianness, ModuleEnvironment,
-    OperatingSystem, RelocationTarget, SectionIndex, Triple,
+    OperatingSystem, RelocationTarget, Triple,
 };
 use wasmer_compiler::{CompileError, Features};
 #[cfg(feature = "compiler")]
@@ -239,10 +239,11 @@ impl NativeArtifact {
         for (section_index, custom_section) in custom_sections.iter() {
             // TODO: We need to rename the sections corresponding to the DWARF information
             // to the proper names (like `.eh_frame`)
-            let section_name = Self::get_section_name(&metadata, section_index);
+            let section_name = metadata.get_section_name(section_index);
             let (section_kind, standard_section) = match custom_section.protection {
                 CustomSectionProtection::ReadExecute => (SymbolKind::Text, StandardSection::Text),
-                CustomSectionProtection::Read => (SymbolKind::Data, StandardSection::Data),
+                // TODO: Fix this to be StandardSection::Data
+                CustomSectionProtection::Read => (SymbolKind::Data, StandardSection::Text),
             };
             let symbol_id = obj.add_symbol(Symbol {
                 name: section_name.as_bytes().to_vec(),
@@ -260,7 +261,7 @@ impl NativeArtifact {
 
         // Add functions
         for (function_local_index, function) in function_bodies.into_iter() {
-            let function_name = Self::get_function_name(&metadata, function_local_index);
+            let function_name = metadata.get_function_name(function_local_index);
             let symbol_id = obj.add_symbol(Symbol {
                 name: function_name.as_bytes().to_vec(),
                 value: 0,
@@ -278,7 +279,7 @@ impl NativeArtifact {
 
         // Add function call trampolines
         for (signature_index, function) in function_call_trampolines.into_iter() {
-            let function_name = Self::get_function_call_trampoline_name(&metadata, signature_index);
+            let function_name = metadata.get_function_call_trampoline_name(signature_index);
             let symbol_id = obj.add_symbol(Symbol {
                 name: function_name.as_bytes().to_vec(),
                 value: 0,
@@ -295,7 +296,7 @@ impl NativeArtifact {
 
         // Add dynamic function trampolines
         for (func_index, function) in dynamic_function_trampolines.into_iter() {
-            let function_name = Self::get_dynamic_function_trampoline_name(&metadata, func_index);
+            let function_name = metadata.get_dynamic_function_trampoline_name(func_index);
             let symbol_id = obj.add_symbol(Symbol {
                 name: function_name.as_bytes().to_vec(),
                 value: 0,
@@ -313,31 +314,34 @@ impl NativeArtifact {
         // Add relocations (function and sections)
         let mut all_relocations = Vec::new();
         for (function_local_index, relocations) in function_relocations.into_iter() {
-            let function_name = Self::get_function_name(&metadata, function_local_index);
+            let function_name = metadata.get_function_name(function_local_index);
             let symbol_id = obj.symbol_id(function_name.as_bytes()).unwrap();
             all_relocations.push((symbol_id, relocations))
         }
         for (section_index, relocations) in custom_section_relocations.into_iter() {
-            let function_name = Self::get_section_name(&metadata, section_index);
+            let function_name = metadata.get_section_name(section_index);
             let symbol_id = obj.symbol_id(function_name.as_bytes()).unwrap();
             all_relocations.push((symbol_id, relocations))
         }
         for (symbol_id, relocations) in all_relocations.into_iter() {
-            let (_, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
+            let (_symbol_id, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
             let section_id = obj.section_id(StandardSection::Text);
             for r in relocations {
-                // assert_eq!(r.addend, 0);
+                let relocation_address = section_offset + r.offset as u64;
                 match r.reloc_target {
                     RelocationTarget::LocalFunc(index) => {
-                        let target_name = Self::get_function_name(&metadata, index);
+                        let target_name = metadata.get_function_name(index);
                         let target_symbol = obj.symbol_id(target_name.as_bytes()).unwrap();
                         obj.add_relocation(
                             section_id,
                             Relocation {
-                                offset: section_offset + r.offset as u64,
+                                offset: relocation_address,
                                 size: 32, // FIXME for all targets
                                 kind: RelocationKind::PltRelative,
                                 encoding: RelocationEncoding::X86Branch,
+                                // size: 64, // FIXME for all targets
+                                // kind: RelocationKind::Absolute,
+                                // encoding: RelocationEncoding::Generic,
                                 symbol: target_symbol,
                                 addend: r.addend,
                             },
@@ -352,8 +356,8 @@ impl NativeArtifact {
                                 name: libcall_fn_name.to_vec(),
                                 value: 0,
                                 size: 0,
-                                kind: SymbolKind::Text,
-                                scope: SymbolScope::Dynamic,
+                                kind: SymbolKind::Unknown,
+                                scope: SymbolScope::Unknown,
                                 weak: false,
                                 section: SymbolSection::Undefined,
                                 flags: SymbolFlags::None,
@@ -362,10 +366,13 @@ impl NativeArtifact {
                         obj.add_relocation(
                             section_id,
                             Relocation {
-                                offset: section_offset + r.offset as u64,
+                                offset: relocation_address,
                                 size: 32, // FIXME for all targets
                                 kind: RelocationKind::PltRelative,
                                 encoding: RelocationEncoding::X86Branch,
+                                // size: 64, // FIXME for all targets
+                                // kind: RelocationKind::Absolute,
+                                // encoding: RelocationEncoding::Generic,
                                 symbol: target_symbol,
                                 addend: r.addend,
                             },
@@ -373,15 +380,18 @@ impl NativeArtifact {
                         .map_err(to_compile_error)?;
                     }
                     RelocationTarget::CustomSection(section_index) => {
-                        let target_name = Self::get_section_name(&metadata, section_index);
+                        let target_name = metadata.get_section_name(section_index);
                         let target_symbol = obj.symbol_id(target_name.as_bytes()).unwrap();
                         obj.add_relocation(
                             section_id,
                             Relocation {
-                                offset: section_offset + r.offset as u64,
+                                offset: relocation_address,
                                 size: 32, // FIXME for all targets
                                 kind: RelocationKind::PltRelative,
                                 encoding: RelocationEncoding::X86Branch,
+                                // size: 64, // FIXME for all targets
+                                // kind: RelocationKind::Absolute,
+                                // encoding: RelocationEncoding::Generic,
                                 symbol: target_symbol,
                                 addend: r.addend,
                             },
@@ -491,36 +501,6 @@ impl NativeArtifact {
         }
     }
 
-    fn get_function_name(metadata: &ModuleMetadata, index: LocalFunctionIndex) -> String {
-        format!("wasmer_function_{}_{}", metadata.prefix, index.index())
-    }
-
-    fn get_section_name(metadata: &ModuleMetadata, index: SectionIndex) -> String {
-        format!("wasmer_section_{}_{}", metadata.prefix, index.index())
-    }
-
-    fn get_function_call_trampoline_name(
-        metadata: &ModuleMetadata,
-        index: SignatureIndex,
-    ) -> String {
-        format!(
-            "wasmer_trampoline_function_call_{}_{}",
-            metadata.prefix,
-            index.index()
-        )
-    }
-
-    fn get_dynamic_function_trampoline_name(
-        metadata: &ModuleMetadata,
-        index: FunctionIndex,
-    ) -> String {
-        format!(
-            "wasmer_trampoline_dynamic_function_{}_{}",
-            metadata.prefix,
-            index.index()
-        )
-    }
-
     /// Construct a `NativeArtifact` from component parts.
     pub fn from_parts_crosscompiled(
         metadata: ModuleMetadata,
@@ -554,7 +534,7 @@ impl NativeArtifact {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
             PrimaryMap::new();
         for (function_local_index, function_len) in metadata.function_body_lengths.iter() {
-            let function_name = Self::get_function_name(&metadata, function_local_index);
+            let function_name = metadata.get_function_name(function_local_index);
             unsafe {
                 // We use a fake function signature `fn()` because we just
                 // want to get the function address.
@@ -574,7 +554,7 @@ impl NativeArtifact {
 
         // Retrieve function call trampolines (for all signatures in the module)
         for (sig_index, func_type) in metadata.module.signatures.iter() {
-            let function_name = Self::get_function_call_trampoline_name(&metadata, sig_index);
+            let function_name = metadata.get_function_call_trampoline_name(sig_index);
             unsafe {
                 let trampoline: LibrarySymbol<VMTrampoline> = lib
                     .get(function_name.as_bytes())
@@ -594,7 +574,7 @@ impl NativeArtifact {
             .keys()
             .take(metadata.module.num_imported_funcs)
         {
-            let function_name = Self::get_dynamic_function_trampoline_name(&metadata, func_index);
+            let function_name = metadata.get_dynamic_function_trampoline_name(func_index);
             unsafe {
                 let trampoline: LibrarySymbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())
