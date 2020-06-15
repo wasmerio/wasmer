@@ -178,10 +178,12 @@ macro_rules! wasm_extern_type {
         unsafe impl WasmExternType for $type {
             type Native = $native_type;
 
+            #[inline]
             fn from_native(native: Self::Native) -> Self {
                 native as _
             }
 
+            #[inline]
             fn to_native(self) -> Self::Native {
                 self as _
             }
