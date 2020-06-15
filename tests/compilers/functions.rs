@@ -41,6 +41,48 @@ fn native_function_works_for_wasm() -> Result<()> {
 }
 
 #[test]
+fn static_raw_call_no_env() -> anyhow::Result<()> {
+    let store = get_store();
+    fn reverse_duplicate_host(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+        (d * 4.0, c * 3.0, b * 2, a * 1)
+    }
+    let reverse_duplicate = wasmer::Function::new(&store, reverse_duplicate_host);
+    let reverse_duplicate_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+        reverse_duplicate.native().unwrap();
+    let result = reverse_duplicate_native.call(1, 3, 5.0, 7.0)?;
+    assert_eq!(result, (28.0, 15.0, 6, 1));
+    Ok(())
+}
+
+#[test]
+fn static_raw_call_with_env() -> anyhow::Result<()> {
+    let store = get_store();
+    struct Env {
+        val: i32,
+    };
+    let mut env = Env { val: 100 };
+    fn reverse_duplicate_host(
+        env: &mut Env,
+        a: i32,
+        b: i64,
+        c: f32,
+        d: f64,
+    ) -> (f64, f32, i64, i32) {
+        assert_eq!(env.val, 100);
+        env.val = 101;
+        (d * 4.0, c * 3.0, b * 2, a * 1)
+    }
+    let reverse_duplicate = wasmer::Function::new_env(&store, &mut env, reverse_duplicate_host);
+    let reverse_duplicate_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+        reverse_duplicate.native().unwrap();
+    assert_eq!(env.val, 100);
+    let result = reverse_duplicate_native.call(1, 3, 5.0, 7.0)?;
+    assert_eq!(result, (28.0, 15.0, 6, 1));
+    assert_eq!(env.val, 101);
+    Ok(())
+}
+
+#[test]
 fn dynamic_raw_call_no_env() -> anyhow::Result<()> {
     let store = get_store();
     let reverse_duplicate = wasmer::Function::new_dynamic(

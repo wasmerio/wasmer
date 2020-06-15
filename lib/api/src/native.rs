@@ -169,10 +169,10 @@ macro_rules! impl_native_traits {
                     }) => {
                         match self.arg_kind {
                             VMFunctionKind::Static => unsafe {
-                                let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets>(self.address);
+                                let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
                                 // We always pass the vmctx
                                 let results =  f( self.vmctx, $( $x, )* );
-                                return Ok(results);
+                                return Ok(Rets::from_c_struct(results));
                             },
                             VMFunctionKind::Dynamic => {
                                 let params_list = [ $( $x.to_native().to_value() ),* ];
