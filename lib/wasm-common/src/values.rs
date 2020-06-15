@@ -199,30 +199,6 @@ impl<T> From<AnyRef> for Value<T> {
     }
 }
 
-impl<T> Into<i32> for Value<T> {
-    fn into(self) -> i32 {
-        self.unwrap_i32()
-    }
-}
-
-impl<T> Into<i64> for Value<T> {
-    fn into(self) -> i64 {
-        self.unwrap_i64()
-    }
-}
-
-impl<T> Into<f32> for Value<T> {
-    fn into(self) -> f32 {
-        self.unwrap_f32()
-    }
-}
-
-impl<T> Into<f64> for Value<T> {
-    fn into(self) -> f64 {
-        self.unwrap_f64()
-    }
-}
-
 // impl<T> From<T> for Value<T> {
 //     fn from(val: T) -> Self {
 //         Self::FuncRef(val)
