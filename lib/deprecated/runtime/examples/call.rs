@@ -24,6 +24,7 @@ fn get_wasm() -> Vec<u8> {
 }
 
 fn sum(ctx: &mut Ctx, x: i32, y: i32) -> i32 {
+    dbg!(ctx as *const _);
     dbg!(ctx);
 
     x + y
