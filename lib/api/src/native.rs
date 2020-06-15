@@ -26,6 +26,8 @@ pub struct NativeFunc<'a, Args = (), Rets = ()> {
     address: *const VMFunctionBody,
     vmctx: *mut VMContext,
     arg_kind: VMFunctionKind,
+    /// All host functions take an environment pointer parameter, this variable
+    /// differentiates the type for the vmctx.
     has_env: bool,
     // exported: ExportFunction,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
@@ -169,32 +171,34 @@ macro_rules! impl_native_traits {
                         return Ok(Rets::from_array(rets_list_array));
                     }
                     FunctionDefinition::Host => {
-                        if self.arg_kind == VMFunctionKind::Static {
-                            unsafe {
-                                let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets>(self.address);
+                        match self.arg_kind {
+                            VMFunctionKind::Static => unsafe {
+                                    let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets>(self.address);
 
-                                let results =  f( self.vmctx, $( $x, )* );
-                                return Ok(results);
-                            }
-                        } else {
-                            // Is a dynamic function
-                            let params_list = [ $( $x.to_native().to_value() ),* ];
-                            let results = if !self.has_env {
-                                let ctx = self.vmctx as *mut VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>;
-                                unsafe { (*ctx).ctx.call(&params_list)? }
-                            }
-                            else {
-                                let ctx = self.vmctx as *mut VMDynamicFunctionContext<VMDynamicFunctionWithEnv<std::ffi::c_void>>;
-                                unsafe { (*ctx).ctx.call(&params_list)? }
-                            };
-                            let mut rets_list_array = Rets::empty_array();
-                            let mut_rets = rets_list_array.as_mut() as *mut [i128] as *mut i128;
-                            for (i, ret) in results.iter().enumerate() {
-                                unsafe {
-                                    ret.write_value_to(mut_rets.add(i));
+                                    let results =  f( self.vmctx, $( $x, )* );
+                                    return Ok(results);
+                            },
+                            VMFunctionKind::Dynamic => {
+                                // Is a dynamic function
+                                let params_list = [ $( $x.to_native().to_value() ),* ];
+                                let results = if !self.has_env {
+                                    type VMContextWithoutEnv = VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>;
+                                    let ctx = self.vmctx as *mut VMContextWithoutEnv;
+                                    unsafe { (*ctx).ctx.call(&params_list)? }
+                                } else {
+                                    type VMContextWithEnv = VMDynamicFunctionContext<VMDynamicFunctionWithEnv<std::ffi::c_void>>;
+                                    let ctx = self.vmctx as *mut VMContextWithEnv;
+                                    unsafe { (*ctx).ctx.call(&params_list)? }
+                                };
+                                let mut rets_list_array = Rets::empty_array();
+                                let mut_rets = rets_list_array.as_mut() as *mut [i128] as *mut i128;
+                                for (i, ret) in results.iter().enumerate() {
+                                    unsafe {
+                                        ret.write_value_to(mut_rets.add(i));
+                                    }
                                 }
+                                return Ok(Rets::from_array(rets_list_array));
                             }
-                            return Ok(Rets::from_array(rets_list_array));
                         }
                     },
                 }

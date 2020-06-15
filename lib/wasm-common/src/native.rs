@@ -19,7 +19,7 @@ use std::marker::PhantomData;
 ///
 /// > Note: This strategy will be needed later to
 /// > automatically detect the signature of a Rust function.
-pub trait NativeWasmType {
+pub trait NativeWasmType: Sized {
     /// The ABI for this type (i32, i64, f32, f64)
     type Abi: Copy + std::fmt::Debug;
 
@@ -37,10 +37,7 @@ pub trait NativeWasmType {
 
     /// Convert self to a `Value`
     #[inline]
-    fn to_value<T>(self) -> Value<T>
-    where
-        Self: std::marker::Sized,
-    {
+    fn to_value<T>(self) -> Value<T> {
         let binary = self.to_binary();
         unsafe { Value::read_value_from(&binary, Self::WASM_TYPE) }
     }
