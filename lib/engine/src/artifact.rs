@@ -58,7 +58,7 @@ pub trait Artifact {
     /// for this `Artifact`, ready to be run.
     fn finished_dynamic_function_trampolines(
         &self,
-    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody>;
+    ) -> &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>;
 
     /// Returns the associated VM signatures for this `Artifact`.
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;

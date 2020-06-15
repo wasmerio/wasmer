@@ -10,7 +10,7 @@ use std::cmp::max;
 use wasm_common::{HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
     wasmer_call_trampoline, Export, ExportFunction, VMCallerCheckedAnyfunc, VMContext,
-    VMDynamicFunctionImportContext, VMFunctionBody, VMFunctionKind, VMTrampoline,
+    VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind, VMTrampoline,
 };
 
 /// A function defined in the Wasm module
@@ -20,13 +20,20 @@ pub struct WasmFunctionDefinition {
     pub(crate) trampoline: VMTrampoline,
 }
 
+/// A function defined in the Host
+#[derive(Clone, PartialEq)]
+pub struct HostFunctionDefinition {
+    /// If the host function has a custom environment attached
+    pub(crate) has_env: bool,
+}
+
 /// The inner helper
 #[derive(Clone, PartialEq)]
 pub enum FunctionDefinition {
     /// A function defined in the Wasm side
     Wasm(WasmFunctionDefinition),
     /// A function defined in the Host side
-    Host,
+    Host(HostFunctionDefinition),
 }
 
 /// A WebAssembly `function`.
@@ -58,7 +65,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            definition: FunctionDefinition::Host,
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 address,
                 vmctx,
@@ -73,17 +80,19 @@ impl Function {
     where
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
     {
-        let dynamic_ctx =
-            VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithoutEnv {
-                func: Box::new(func),
-                function_type: ty.clone(),
-            });
+        let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithoutEnv {
+            func: Box::new(func),
+            function_type: ty.clone(),
+        });
+        // We don't yet have the address with the Wasm ABI signature.
+        // The engine linker will replace the address with one pointing to a
+        // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
         let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
         Self {
             store: store.clone(),
             owned_by_store: true,
-            definition: FunctionDefinition::Host,
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 address,
                 kind: VMFunctionKind::Dynamic,
@@ -99,17 +108,20 @@ impl Function {
         F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
         Env: Sized,
     {
-        let dynamic_ctx = VMDynamicFunctionImportContext::from_context(VMDynamicFunctionWithEnv {
+        let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
             env: Cell::new(env),
             func: Box::new(func),
             function_type: ty.clone(),
         });
+        // We don't yet have the address with the Wasm ABI signature.
+        // The engine linker will replace the address with one pointing to a
+        // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
         let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
         Self {
             store: store.clone(),
             owned_by_store: true,
-            definition: FunctionDefinition::Host,
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 address,
                 kind: VMFunctionKind::Dynamic,
@@ -144,7 +156,7 @@ impl Function {
         Self {
             store: store.clone(),
             owned_by_store: true,
-            definition: FunctionDefinition::Host,
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 address,
                 kind: VMFunctionKind::Static,
@@ -332,12 +344,12 @@ impl std::fmt::Debug for Function {
 }
 
 /// This trait is one that all dynamic functions must fulfill.
-trait VMDynamicFunction {
+pub(crate) trait VMDynamicFunction {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError>;
     fn function_type(&self) -> &FunctionType;
 }
 
-struct VMDynamicFunctionWithoutEnv {
+pub(crate) struct VMDynamicFunctionWithoutEnv {
     #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     function_type: FunctionType,
@@ -352,7 +364,7 @@ impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
     }
 }
 
-struct VMDynamicFunctionWithEnv<Env>
+pub(crate) struct VMDynamicFunctionWithEnv<Env>
 where
     Env: Sized,
 {
@@ -374,13 +386,13 @@ where
     }
 }
 
-trait VMDynamicFunctionImportCall<T: VMDynamicFunction> {
+trait VMDynamicFunctionCall<T: VMDynamicFunction> {
     fn from_context(ctx: T) -> Self;
     fn address_ptr() -> *const VMFunctionBody;
     unsafe fn func_wrapper(&self, values_vec: *mut i128);
 }
 
-impl<T: VMDynamicFunction> VMDynamicFunctionImportCall<T> for VMDynamicFunctionImportContext<T> {
+impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext<T> {
     fn from_context(ctx: T) -> Self {
         Self {
             address: Self::address_ptr(),
@@ -395,8 +407,8 @@ impl<T: VMDynamicFunction> VMDynamicFunctionImportCall<T> for VMDynamicFunctionI
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
     unsafe fn func_wrapper(
-        // Note: we use the trick that the first param to this function is the `VMDynamicFunctionImportContext`
-        // itself, so rather than doing `dynamic_ctx: &VMDynamicFunctionImportContext<T>`, we simplify it a bit
+        // Note: we use the trick that the first param to this function is the `VMDynamicFunctionContext`
+        // itself, so rather than doing `dynamic_ctx: &VMDynamicFunctionContext<T>`, we simplify it a bit
         &self,
         values_vec: *mut i128,
     ) {

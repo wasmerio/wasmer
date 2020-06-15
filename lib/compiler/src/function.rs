@@ -70,6 +70,28 @@ pub type Functions = PrimaryMap<LocalFunctionIndex, CompiledFunction>;
 /// The custom sections for a Compilation.
 pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 
+/// The DWARF information for this Compilation.
+///
+/// It is used for retrieving the unwind information once an exception
+/// happens.
+/// In the future this structure may also hold other information useful
+/// for debugging.
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Dwarf {
+    /// The section index in the [`Compilation`] that corresponds to the exception frames.
+    /// More info:
+    /// https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html
+    pub eh_frame: SectionIndex,
+}
+
+impl Dwarf {
+    /// Creates a `Dwarf` struct with the corresponding indices for its sections
+    pub fn new(eh_frame: SectionIndex) -> Self {
+        Self { eh_frame }
+    }
+}
+
 /// The result of compiling a WebAssembly module's functions.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
@@ -80,14 +102,21 @@ pub struct Compilation {
     /// It will hold the data, for example, for constants used in a
     /// function, global variables, rodata_64, hot/cold function partitioning, ...
     custom_sections: CustomSections,
+    /// Section ids corresponding to the Dwarf debug info
+    debug: Option<Dwarf>,
 }
 
 impl Compilation {
     /// Creates a compilation artifact from a contiguous function buffer and a set of ranges
-    pub fn new(functions: Functions, custom_sections: CustomSections) -> Self {
+    pub fn new(
+        functions: Functions,
+        custom_sections: CustomSections,
+        debug: Option<Dwarf>,
+    ) -> Self {
         Self {
             functions,
             custom_sections,
+            debug,
         }
     }
 
@@ -149,6 +178,11 @@ impl Compilation {
             .iter()
             .map(|(_, section)| section.relocations.clone())
             .collect::<PrimaryMap<SectionIndex, _>>()
+    }
+
+    /// Returns the Dwarf info.
+    pub fn get_debug(&self) -> Option<Dwarf> {
+        self.debug.clone()
     }
 }
 

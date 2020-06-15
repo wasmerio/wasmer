@@ -279,18 +279,18 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "cranelift-bforest"
-version = "0.62.0"
+version = "0.63.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "306270b2299cdd5e9736ff48047257d0e846e3bb724766bb6917e66a7c294a90"
+checksum = "d4425bb6c3f3d2f581c650f1a1fdd3196a975490149cf59bea9d34c3bea79eda"
 dependencies = [
  "cranelift-entity",
 ]
 
 [[package]]
 name = "cranelift-codegen"
-version = "0.62.0"
+version = "0.63.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6d697c867ac38f39bd69b67fa96ac1ac18a0e3ac641e878569f716343851f2b"
+checksum = "d166b289fd30062ee6de86284750fc3fe5d037c6b864b3326ce153239b0626e1"
 dependencies = [
  "byteorder",
  "cranelift-bforest",
@@ -300,6 +300,7 @@ dependencies = [
  "gimli 0.20.0",
  "hashbrown",
  "log",
+ "regalloc",
  "serde",
  "smallvec",
  "target-lexicon",
@@ -308,9 +309,9 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-meta"
-version = "0.62.0"
+version = "0.63.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2404d7d75c8f343343a86cee4229e058925e64d40bfa2ecdab1f2242a0e1a7e1"
+checksum = "02c9fb2306a36d41c5facd4bf3400bc6c157185c43a96eaaa503471c34c5144b"
 dependencies = [
  "cranelift-codegen-shared",
  "cranelift-entity",
@@ -318,24 +319,24 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-shared"
-version = "0.62.0"
+version = "0.63.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "454e53d0b552b34b57f1efc333d638520e91fdc129258fc219fc1a50ffc4d07b"
+checksum = "44e0cfe9b1f97d9f836bca551618106c7d53b93b579029ecd38e73daa7eb689e"
 
 [[package]]
 name = "cranelift-entity"
-version = "0.62.0"
+version = "0.63.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d36cd0c5bd5de48d222b2bea101b828c208e7a392503f81e5dbaa79000ba04f2"
+checksum = "926a73c432e5ba9c891171ff50b75e7d992cd76cd271f0a0a0ba199138077472"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "cranelift-frontend"
-version = "0.62.0"
+version = "0.63.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70179dbdc8cad1bdff62dbceb06979cd1e923e218818ed3989adf253d5c7e2ac"
+checksum = "e45f82e3446dd1ebb8c2c2f6a6b0e6cd6cd52965c7e5f7b1b35e9a9ace31ccde"
 dependencies = [
  "cranelift-codegen",
  "hashbrown",
@@ -618,6 +619,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fallible-iterator"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -676,8 +683,12 @@ version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81dd6190aad0f05ddbbf3245c54ed14ca4aa6dd32f22312b70d8f168c3e3e633"
 dependencies = [
+ "arrayvec",
  "byteorder",
+ "fallible-iterator",
  "indexmap",
+ "smallvec",
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -1468,6 +1479,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d813022b2e00774a48eaf43caaa3c20b45f040ba8cbf398e2e8911a06668dbe6"
 
 [[package]]
+name = "regalloc"
+version = "0.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b27b256b41986ac5141b37b8bbba85d314fbf546c182eb255af6720e07e4f804"
+dependencies = [
+ "log",
+ "rustc-hash",
+ "smallvec",
+]
+
+[[package]]
 name = "regex"
 version = "1.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2116,6 +2138,14 @@ dependencies = [
  "thiserror",
  "wasm-common",
  "wasmer",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
+ "wasmer-compiler-llvm",
+ "wasmer-compiler-singlepass",
+ "wasmer-emscripten",
+ "wasmer-engine",
+ "wasmer-engine-jit",
+ "wasmer-engine-native",
  "wasmer-wasi",
 ]
 
@@ -2152,6 +2182,7 @@ version = "1.0.0-alpha.1"
 dependencies = [
  "cranelift-codegen",
  "cranelift-frontend",
+ "gimli 0.20.0",
  "hashbrown",
  "lazy_static",
  "more-asserts",
@@ -2255,6 +2286,7 @@ name = "wasmer-engine-jit"
 version = "1.0.0-alpha.1"
 dependencies = [
  "bincode",
+ "cfg-if",
  "region",
  "serde",
  "serde_bytes",
