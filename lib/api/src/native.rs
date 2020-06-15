@@ -16,8 +16,7 @@ use crate::externals::function::{
 use crate::{Function, FunctionType, RuntimeError, Store};
 use wasm_common::{NativeWasmType, WasmExternType, WasmTypeList};
 use wasmer_runtime::{
-    wasmer_call_trampoline, ExportFunction, VMContext, VMDynamicFunctionContext, VMFunctionBody,
-    VMFunctionKind,
+    ExportFunction, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
 };
 
 pub struct NativeFunc<'a, Args = (), Rets = ()> {
@@ -124,7 +123,8 @@ macro_rules! impl_native_traits {
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 match self.definition {
                     FunctionDefinition::Wasm(WasmFunctionDefinition {
-                        trampoline
+                        ..
+                        // trampoline
                     }) => {
                         let results = unsafe {
                             let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
@@ -154,7 +154,7 @@ macro_rules! impl_native_traits {
                         //     rets_list.as_mut()
                         // };
                         // unsafe {
-                        //     wasmer_call_trampoline(
+                        //     wasmer_runtime::wasmer_call_trampoline(
                         //         self.vmctx,
                         //         trampoline,
                         //         self.address,
@@ -179,7 +179,7 @@ macro_rules! impl_native_traits {
                         has_env
                     }) => {
                         match self.arg_kind {
-                            VMFunctionKind::Static => unsafe {
+                            VMFunctionKind::Static => {
                                 let results = unsafe {
                                     let f = std::mem::transmute::<_, unsafe fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
                                     // We always pass the vmctx
