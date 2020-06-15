@@ -1,5 +1,5 @@
 //! This module permits to create native functions
-//! easily in Rust, thanks to it's advanced typing system.
+//! easily in Rust, thanks to its advanced typing system.
 
 use crate::types::{FunctionType, Type};
 use std::convert::Infallible;
