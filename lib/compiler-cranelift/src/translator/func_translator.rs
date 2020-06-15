@@ -8,14 +8,17 @@ use super::code_translator::{bitcast_arguments, translate_operator, wasm_param_t
 use super::func_environ::{FuncEnvironment, ReturnMode};
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
+use crate::config::CraneliftConfig;
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use tracing::info;
+use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
-    to_wasm_error, wasm_unsupported, MiddlewareBinaryReader, ModuleTranslationState, WasmResult,
+    to_wasm_error, wasm_unsupported, GenerateMiddlewareChain, MiddlewareBinaryReader,
+    ModuleTranslationState, WasmResult,
 };
 
 /// WebAssembly to Cranelift IR function translator.
@@ -62,13 +65,16 @@ impl FuncTranslator {
         code_offset: usize,
         func: &mut ir::Function,
         environ: &mut FE,
+        local_function_index: LocalFunctionIndex,
+        config: &CraneliftConfig,
     ) -> WasmResult<()> {
-        self.translate_from_reader(
-            module_translation_state,
-            MiddlewareBinaryReader::new_with_offset(code, code_offset),
-            func,
-            environ,
-        )
+        let mut reader = MiddlewareBinaryReader::new_with_offset(code, code_offset);
+        reader.set_middleware_chain(
+            config
+                .middlewares
+                .generate_middleware_chain(local_function_index),
+        );
+        self.translate_from_reader(module_translation_state, reader, func, environ)
     }
 
     /// Translate a binary WebAssembly function from a `MiddlewareBinaryReader`.
