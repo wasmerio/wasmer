@@ -163,9 +163,8 @@ macro_rules! impl_native_traits {
                             }
                         }
                         Ok(Rets::from_array(rets_list_array))
-                        // Keeping the following as it should be a bit faster than the current
-                        // approach. However, it can only be used if the Host ABI and the ABI
-                        // of the Wasm functions is the same.
+                        // TODO: When the Host ABI and Wasm ABI are the same, we could do this instead:
+                        // but we can't currently detect whether that's safe.
                         //
                         // let results = unsafe {
                         //     wasmer_runtime::catch_traps_with_result(self.vmctx, || {

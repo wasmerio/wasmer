@@ -470,7 +470,7 @@ where
 ///
 /// # Safety
 ///
-/// Highly unsafe since `closure` won't have any destructors run.
+/// Check [`catch_traps`].
 pub unsafe fn catch_traps_with_result<F, R>(
     vmctx: *mut VMContext,
     mut closure: F,

@@ -36,7 +36,6 @@ pub trait NativeWasmType: Sized {
     fn to_binary(self) -> i128;
 
     /// Convert self to a `Value`
-    #[inline]
     fn to_value<T>(self) -> Value<T> {
         let binary = self.to_binary();
         unsafe { Value::read_value_from(&binary, Self::WASM_TYPE) }
@@ -60,12 +59,10 @@ impl NativeWasmType for i32 {
         self
     }
 
-    #[inline]
     fn to_binary(self) -> i128 {
         self as _
     }
 
-    #[inline]
     fn from_binary(bits: i128) -> Self {
         bits as _
     }
@@ -391,27 +388,22 @@ impl WasmTypeList for Infallible {
     type CStruct = Self;
     type Array = [i128; 0];
 
-    #[inline]
     fn from_array(_: Self::Array) -> Self {
         unreachable!()
     }
 
-    #[inline]
     fn into_array(self) -> Self::Array {
         []
     }
 
-    #[inline]
     fn empty_array() -> Self::Array {
         unreachable!()
     }
 
-    #[inline]
     fn from_c_struct(_: Self::CStruct) -> Self {
         unreachable!()
     }
 
-    #[inline]
     fn into_c_struct(self) -> Self::CStruct {
         unreachable!()
     }
@@ -448,7 +440,6 @@ macro_rules! impl_traits {
 
             type Array = [i128; count_idents!( $( $x ),* )];
 
-            #[inline]
             fn from_array(array: Self::Array) -> Self {
                 #[allow(non_snake_case)]
                 let [ $( $x ),* ] = array;
@@ -456,19 +447,16 @@ macro_rules! impl_traits {
                 ( $( WasmExternType::from_native(NativeWasmType::from_binary($x)) ),* )
             }
 
-            #[inline]
             fn into_array(self) -> Self::Array {
                 #[allow(non_snake_case)]
                 let ( $( $x ),* ) = self;
                 [ $( WasmExternType::to_native($x).to_binary() ),* ]
             }
 
-            #[inline]
             fn empty_array() -> Self::Array {
                 [0; count_idents!( $( $x ),* )]
             }
 
-            #[inline]
             fn from_c_struct(c_struct: Self::CStruct) -> Self {
                 #[allow(non_snake_case)]
                 let $struct_name ( $( $x ),* ) = c_struct;
@@ -477,7 +465,6 @@ macro_rules! impl_traits {
             }
 
             #[allow(unused_parens, non_snake_case)]
-            #[inline]
             fn into_c_struct(self) -> Self::CStruct {
                 let ( $( $x ),* ) = self;
 
