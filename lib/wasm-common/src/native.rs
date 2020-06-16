@@ -1,7 +1,8 @@
 //! This module permits to create native functions
-//! easily in Rust, thanks to it's advanced typing system.
+//! easily in Rust, thanks to its advanced typing system.
 
 use crate::types::{FunctionType, Type};
+use crate::values::Value;
 use std::convert::Infallible;
 use std::marker::PhantomData;
 
@@ -18,7 +19,7 @@ use std::marker::PhantomData;
 ///
 /// > Note: This strategy will be needed later to
 /// > automatically detect the signature of a Rust function.
-pub trait NativeWasmType {
+pub trait NativeWasmType: Sized {
     /// The ABI for this type (i32, i64, f32, f64)
     type Abi: Copy + std::fmt::Debug;
 
@@ -33,6 +34,12 @@ pub trait NativeWasmType {
 
     /// Convert self to i128 binary representation.
     fn to_binary(self) -> i128;
+
+    /// Convert self to a `Value`
+    fn to_value<T>(self) -> Value<T> {
+        let binary = self.to_binary();
+        unsafe { Value::read_value_from(&binary, Self::WASM_TYPE) }
+    }
 
     /// Convert to self from i128 binary representation.
     fn from_binary(binary: i128) -> Self;
@@ -74,10 +81,12 @@ impl NativeWasmType for i64 {
         self
     }
 
+    #[inline]
     fn to_binary(self) -> i128 {
         self as _
     }
 
+    #[inline]
     fn from_binary(bits: i128) -> Self {
         bits as _
     }
@@ -96,10 +105,12 @@ impl NativeWasmType for f32 {
         self
     }
 
+    #[inline]
     fn to_binary(self) -> i128 {
         self.to_bits() as _
     }
 
+    #[inline]
     fn from_binary(bits: i128) -> Self {
         Self::from_bits(bits as _)
     }
@@ -118,10 +129,12 @@ impl NativeWasmType for f64 {
         self
     }
 
+    #[inline]
     fn to_binary(self) -> i128 {
         self.to_bits() as _
     }
 
+    #[inline]
     fn from_binary(bits: i128) -> Self {
         Self::from_bits(bits as _)
     }
@@ -162,10 +175,12 @@ macro_rules! wasm_extern_type {
         unsafe impl WasmExternType for $type {
             type Native = $native_type;
 
+            #[inline]
             fn from_native(native: Self::Native) -> Self {
                 native as _
             }
 
+            #[inline]
             fn to_native(self) -> Self::Native {
                 self as _
             }

@@ -50,7 +50,7 @@ pub struct StoreOptions {
 }
 
 /// The compiler used for the store
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum CompilerType {
     /// Singlepass compiler
     Singlepass,
@@ -96,6 +96,24 @@ impl FromStr for CompilerType {
             "llvm" => Ok(Self::LLVM),
             "headless" => Ok(Self::Headless),
             backend => bail!("The `{}` compiler does not exist.", backend),
+        }
+    }
+}
+
+/// The engine used for the store
+#[derive(Debug, PartialEq, Eq)]
+pub enum EngineType {
+    /// JIT Engine
+    JIT,
+    /// Native Engine
+    Native,
+}
+
+impl ToString for EngineType {
+    fn to_string(&self) -> String {
+        match self {
+            Self::JIT => "jit".to_string(),
+            Self::Native => "native".to_string(),
         }
     }
 }
@@ -319,23 +337,6 @@ impl StoreOptions {
             ),
         };
         Ok((engine, engine_type))
-    }
-}
-
-/// The engine used for the store
-pub enum EngineType {
-    /// JIT Engine
-    JIT,
-    /// Native Engine
-    Native,
-}
-
-impl ToString for EngineType {
-    fn to_string(&self) -> String {
-        match self {
-            Self::JIT => "jit".to_string(),
-            Self::Native => "native".to_string(),
-        }
     }
 }
 

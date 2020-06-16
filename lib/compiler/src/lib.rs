@@ -72,7 +72,7 @@ pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
 pub use crate::compiler::{Compiler, CompilerConfig};
 pub use crate::error::{CompileError, WasmError, WasmResult};
 pub use crate::function::{
-    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, FunctionBody,
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
     Functions,
 };
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
@@ -80,8 +80,8 @@ pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Reloca
 pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};
 pub use crate::sourceloc::SourceLoc;
 pub use crate::target::{
-    Architecture, BinaryFormat, CallingConvention, CpuFeature, OperatingSystem,
-    ParseCpuFeatureError, Target, Triple,
+    Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness, OperatingSystem,
+    ParseCpuFeatureError, PointerWidth, Target, Triple,
 };
 #[cfg(feature = "translator")]
 pub use crate::translator::{
@@ -90,7 +90,7 @@ pub use crate::translator::{
     ModuleEnvironment, ModuleInfoTranslation, ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;
-pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTableReloc};
+pub use crate::unwind::CompiledFunctionUnwindInfo;
 
 pub use wasm_common::Features;
 

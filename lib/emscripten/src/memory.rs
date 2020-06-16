@@ -1,13 +1,12 @@
 use super::env::get_emscripten_data;
 use super::process::abort_with_message;
+use crate::EmEnv;
 use libc::{c_int, c_void, memcpy, size_t};
-use wasmer_runtime_core::{
-    units::{Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE},
-    vm::Ctx,
-};
+// TODO: investigate max pages etc. probably in Wasm Common, maybe reexport
+use wasmer::{Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
 
 /// emscripten: _emscripten_memcpy_big
-pub fn _emscripten_memcpy_big(ctx: &mut Ctx, dest: u32, src: u32, len: u32) -> u32 {
+pub fn _emscripten_memcpy_big(ctx: &mut EmEnv, dest: u32, src: u32, len: u32) -> u32 {
     debug!(
         "emscripten::_emscripten_memcpy_big {}, {}, {}",
         dest, src, len
@@ -21,7 +20,7 @@ pub fn _emscripten_memcpy_big(ctx: &mut Ctx, dest: u32, src: u32, len: u32) -> u
 }
 
 /// emscripten: _emscripten_get_heap_size
-pub fn _emscripten_get_heap_size(ctx: &mut Ctx) -> u32 {
+pub fn _emscripten_get_heap_size(ctx: &mut EmEnv) -> u32 {
     trace!("emscripten::_emscripten_get_heap_size");
     let result = ctx.memory(0).size().bytes().0 as u32;
     trace!("=> {}", result);
@@ -39,20 +38,23 @@ fn align_up(mut val: usize, multiple: usize) -> usize {
 
 /// emscripten: _emscripten_resize_heap
 /// Note: this function only allows growing the size of heap
-pub fn _emscripten_resize_heap(ctx: &mut Ctx, requested_size: u32) -> u32 {
+pub fn _emscripten_resize_heap(ctx: &mut EmEnv, requested_size: u32) -> u32 {
     debug!("emscripten::_emscripten_resize_heap {}", requested_size);
     let current_memory_pages = ctx.memory(0).size();
     let current_memory = current_memory_pages.bytes().0 as u32;
 
     // implementation from emscripten
-    let mut new_size = usize::max(current_memory as usize, WASM_MIN_PAGES * WASM_PAGE_SIZE);
+    let mut new_size = usize::max(
+        current_memory as usize,
+        WASM_MIN_PAGES as usize * WASM_PAGE_SIZE,
+    );
     while new_size < requested_size as usize {
         if new_size <= 0x2000_0000 {
             new_size = align_up(new_size * 2, WASM_PAGE_SIZE);
         } else {
             new_size = usize::min(
                 align_up((3 * new_size + 0x8000_0000) / 4, WASM_PAGE_SIZE),
-                WASM_PAGE_SIZE * WASM_MAX_PAGES,
+                WASM_PAGE_SIZE * WASM_MAX_PAGES as usize,
             );
         }
     }
@@ -67,7 +69,7 @@ pub fn _emscripten_resize_heap(ctx: &mut Ctx, requested_size: u32) -> u32 {
 }
 
 /// emscripten: sbrk
-pub fn sbrk(ctx: &mut Ctx, increment: i32) -> i32 {
+pub fn sbrk(ctx: &mut EmEnv, increment: i32) -> i32 {
     debug!("emscripten::sbrk");
     // let old_dynamic_top = 0;
     // let new_dynamic_top = 0;
@@ -95,7 +97,7 @@ pub fn sbrk(ctx: &mut Ctx, increment: i32) -> i32 {
 }
 
 /// emscripten: getTotalMemory
-pub fn get_total_memory(_ctx: &mut Ctx) -> u32 {
+pub fn get_total_memory(_ctx: &mut EmEnv) -> u32 {
     debug!("emscripten::get_total_memory");
     // instance.memories[0].current_pages()
     // TODO: Fix implementation
@@ -103,7 +105,7 @@ pub fn get_total_memory(_ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: enlargeMemory
-pub fn enlarge_memory(_ctx: &mut Ctx) -> u32 {
+pub fn enlarge_memory(_ctx: &mut EmEnv) -> u32 {
     debug!("emscripten::enlarge_memory");
     // instance.memories[0].grow(100);
     // TODO: Fix implementation
@@ -111,7 +113,7 @@ pub fn enlarge_memory(_ctx: &mut Ctx) -> u32 {
 }
 
 /// emscripten: abortOnCannotGrowMemory
-pub fn abort_on_cannot_grow_memory(ctx: &mut Ctx, _requested_size: u32) -> u32 {
+pub fn abort_on_cannot_grow_memory(ctx: &mut EmEnv, _requested_size: u32) -> u32 {
     debug!(
         "emscripten::abort_on_cannot_grow_memory {}",
         _requested_size
@@ -121,32 +123,32 @@ pub fn abort_on_cannot_grow_memory(ctx: &mut Ctx, _requested_size: u32) -> u32 {
 }
 
 /// emscripten: abortOnCannotGrowMemory
-pub fn abort_on_cannot_grow_memory_old(ctx: &mut Ctx) -> u32 {
+pub fn abort_on_cannot_grow_memory_old(ctx: &mut EmEnv) -> u32 {
     debug!("emscripten::abort_on_cannot_grow_memory");
     abort_with_message(ctx, "Cannot enlarge memory arrays!");
     0
 }
 
 /// emscripten: segfault
-pub fn segfault(ctx: &mut Ctx) {
+pub fn segfault(ctx: &mut EmEnv) {
     debug!("emscripten::segfault");
     abort_with_message(ctx, "segmentation fault");
 }
 
 /// emscripten: alignfault
-pub fn alignfault(ctx: &mut Ctx) {
+pub fn alignfault(ctx: &mut EmEnv) {
     debug!("emscripten::alignfault");
     abort_with_message(ctx, "alignment fault");
 }
 
 /// emscripten: ftfault
-pub fn ftfault(ctx: &mut Ctx) {
+pub fn ftfault(ctx: &mut EmEnv) {
     debug!("emscripten::ftfault");
     abort_with_message(ctx, "Function table mask error");
 }
 
 /// emscripten: ___map_file
-pub fn ___map_file(_ctx: &mut Ctx, _one: u32, _two: u32) -> c_int {
+pub fn ___map_file(_ctx: &mut EmEnv, _one: u32, _two: u32) -> c_int {
     debug!("emscripten::___map_file");
     // NOTE: TODO: Em returns -1 here as well. May need to implement properly
     -1

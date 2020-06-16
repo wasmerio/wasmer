@@ -2,29 +2,34 @@
 
 use crate::address_map::get_function_address_map;
 use crate::config::CraneliftConfig;
+#[cfg(feature = "unwind")]
+use crate::dwarf::WriterRelocate;
 use crate::func_environ::{get_func_name, FuncEnvironment};
 use crate::sink::{RelocSink, TrapSink};
 use crate::trampoline::{
     make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
 };
 use crate::translator::{
-    compiled_function_unwind_info, signature_to_cranelift_ir, transform_jump_table, FuncTranslator,
+    compiled_function_unwind_info, signature_to_cranelift_ir, transform_jump_table,
+    CraneliftUnwindInfo, FuncTranslator,
 };
 use cranelift_codegen::ir;
 use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{binemit, isa, Context};
+#[cfg(feature = "unwind")]
+use gimli::write::{Address, EhFrame, FrameTable};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use wasm_common::entity::PrimaryMap;
+use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
     Features, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex,
 };
 use wasmer_compiler::CompileError;
+use wasmer_compiler::{CallingConvention, CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{
-    Compilation, CompiledFunction, CompiledFunctionFrameInfo, Compiler, FunctionBody,
-    FunctionBodyData,
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, Compiler,
+    Dwarf, FunctionBody, FunctionBodyData, SectionIndex,
 };
-use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
@@ -84,6 +89,26 @@ impl Compiler for CraneliftCompiler {
             .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
 
+        // Generate the frametable
+        #[cfg(feature = "unwind")]
+        let dwarf_frametable = {
+            use std::sync::{Arc, Mutex};
+            match self.target().triple().default_calling_convention() {
+                Ok(CallingConvention::SystemV) => {
+                    match isa.create_systemv_cie() {
+                        Some(cie) => {
+                            let mut dwarf_frametable = FrameTable::default();
+                            let cie_id = dwarf_frametable.add_cie(cie);
+                            Some((Arc::new(Mutex::new(dwarf_frametable)), cie_id))
+                        }
+                        // Even though we are in a SystemV system, Cranelift doesn't support it
+                        None => None,
+                    }
+                }
+                _ => None,
+            }
+        };
+
         let functions = function_body_inputs
             .into_iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -100,7 +125,6 @@ impl Compiler for CraneliftCompiler {
                 );
                 context.func.name = get_func_name(func_index);
                 context.func.signature = signatures[module.functions[func_index]].clone();
-                context.func.collect_frame_layout_info();
                 // if generate_debug_info {
                 //     context.func.collect_debug_info();
                 // }
@@ -131,7 +155,32 @@ impl Compiler for CraneliftCompiler {
                         CompileError::Codegen(pretty_error(&context.func, Some(isa), error))
                     })?;
 
-                let unwind_info = compiled_function_unwind_info(isa, &context);
+                let unwind_info = match compiled_function_unwind_info(isa, &context)? {
+                    #[cfg(feature = "unwind")]
+                    CraneliftUnwindInfo::FDE(fde) => {
+                        if let Some((dwarf_frametable, cie_id)) = &dwarf_frametable {
+                            dwarf_frametable
+                                .lock()
+                                .expect("Can't write into DWARF frametable")
+                                .add_fde(
+                                    *cie_id,
+                                    fde.to_fde(Address::Symbol {
+                                        // The symbol is the kind of relocation.
+                                        // "0" is used for functions
+                                        symbol: WriterRelocate::FUNCTION_SYMBOL,
+                                        // We use the addend as a way to specify the
+                                        // function index
+                                        addend: i.index() as _,
+                                    }),
+                                );
+                            // The unwind information is inserted into the dwarf section
+                            Some(CompiledFunctionUnwindInfo::Dwarf)
+                        } else {
+                            None
+                        }
+                    }
+                    other => other.maybe_into_to_windows_unwind(),
+                };
 
                 let address_map = get_function_address_map(&context, input, code_buf.len(), isa);
 
@@ -155,9 +204,31 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        let custom_sections = PrimaryMap::new();
+        #[cfg(feature = "unwind")]
+        let (custom_sections, dwarf) = {
+            let mut custom_sections = PrimaryMap::new();
+            let dwarf = if let Some((dwarf_frametable, _cie_id)) = dwarf_frametable {
+                let mut eh_frame = EhFrame(WriterRelocate::new(
+                    self.target().triple().endianness().ok(),
+                ));
+                dwarf_frametable
+                    .lock()
+                    .unwrap()
+                    .write_eh_frame(&mut eh_frame)
+                    .unwrap();
 
-        Ok(Compilation::new(functions, custom_sections))
+                let eh_frame_section = eh_frame.0.into_section();
+                custom_sections.push(eh_frame_section);
+                Some(Dwarf::new(SectionIndex::new(0)))
+            } else {
+                None
+            };
+            (custom_sections, dwarf)
+        };
+        #[cfg(not(feature = "unwind"))]
+        let (custom_sections, dwarf) = (PrimaryMap::new(), None);
+
+        Ok(Compilation::new(functions, custom_sections, dwarf))
     }
 
     fn compile_function_call_trampolines(

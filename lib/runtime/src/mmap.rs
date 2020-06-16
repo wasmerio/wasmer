@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! Low-level abstraction for allocating and managing zero-filled pages
 //! of memory.
 

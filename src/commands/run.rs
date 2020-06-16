@@ -48,6 +48,7 @@ pub struct Run {
     #[structopt(flatten)]
     store: StoreOptions,
 
+    // TODO: refactor WASI structure to allow shared options with Emscripten
     #[cfg(feature = "wasi")]
     #[structopt(flatten)]
     wasi: Wasi,
@@ -103,6 +104,38 @@ impl Run {
                     .join(" ")
             );
             return Ok(());
+        }
+        #[cfg(feature = "emscripten")]
+        {
+            use wasmer_emscripten::{
+                generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
+                EmscriptenGlobals,
+            };
+            // TODO: refactor this
+            if is_emscripten_module(&module) {
+                let mut emscripten_globals = EmscriptenGlobals::new(module.store(), &module)
+                    .map_err(|e| anyhow!("{}", e))?;
+                let mut em_env = EmEnv::new();
+                let import_object =
+                    generate_emscripten_env(module.store(), &mut emscripten_globals, &mut em_env);
+                let mut instance = Instance::new(&module, &import_object)
+                    .with_context(|| "Can't instantiate emscripten module")?;
+
+                run_emscripten_instance(
+                    &mut instance,
+                    &mut em_env,
+                    &mut emscripten_globals,
+                    if let Some(cn) = &self.command_name {
+                        cn
+                    } else {
+                        self.path.to_str().unwrap()
+                    },
+                    self.args.iter().map(|arg| arg.as_str()).collect(),
+                    None,   //run.em_entrypoint.clone(),
+                    vec![], //mapped_dirs,
+                )?;
+                return Ok(());
+            }
         }
 
         // If WASI is enabled, try to execute it with it
@@ -192,7 +225,7 @@ impl Run {
         // and the file length is greater than 4KB.
         // For files smaller than 4KB caching is not worth,
         // as it takes space and the speedup is minimal.
-        let mut cache = self.get_cache(engine_type.to_string(), compiler_type.to_string())?;
+        let mut cache = self.get_cache(engine_type, compiler_type)?;
         // Try to get the hash from the provided `--cache-key`, otherwise
         // generate one from the provided file `.wasm` contents.
         let hash = self
@@ -221,11 +254,33 @@ impl Run {
 
     #[cfg(feature = "cache")]
     /// Get the Compiler Filesystem cache
-    fn get_cache(&self, engine_name: String, compiler_name: String) -> Result<FileSystemCache> {
+    fn get_cache(
+        &self,
+        engine_type: &EngineType,
+        compiler_type: &CompilerType,
+    ) -> Result<FileSystemCache> {
         let mut cache_dir_root = get_cache_dir();
-        cache_dir_root.push(engine_name);
-        cache_dir_root.push(compiler_name);
-        Ok(FileSystemCache::new(cache_dir_root)?)
+        cache_dir_root.push(compiler_type.to_string());
+        let mut cache = FileSystemCache::new(cache_dir_root)?;
+        // Important: Native files need to have a `.dll` extension on Windows, otherwise
+        // they will not load, so we just add an extension always to make it easier
+        // to recognize as well.
+        #[allow(unreachable_patterns)]
+        let extension = match *engine_type {
+            #[cfg(feature = "native")]
+            EngineType::Native => {
+                wasmer_engine_native::NativeArtifact::get_default_extension(&Triple::host())
+                    .to_string()
+            }
+            #[cfg(feature = "jit")]
+            EngineType::JIT => {
+                wasmer_engine_jit::JITArtifact::get_default_extension(&Triple::host()).to_string()
+            }
+            // We use the compiler type as the default extension
+            _ => compiler_type.to_string(),
+        };
+        cache.set_cache_extension(Some(extension));
+        Ok(cache)
     }
 
     fn try_find_function(

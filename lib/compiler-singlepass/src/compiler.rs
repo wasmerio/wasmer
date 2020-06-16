@@ -120,7 +120,7 @@ impl Compiler for SinglepassCompiler {
             .into_iter()
             .collect::<PrimaryMap<LocalFunctionIndex, CompiledFunction>>();
 
-        Ok(Compilation::new(functions, import_trampolines))
+        Ok(Compilation::new(functions, import_trampolines, None))
     }
 
     fn compile_function_call_trampolines(

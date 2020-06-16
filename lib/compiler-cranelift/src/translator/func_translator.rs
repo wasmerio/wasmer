@@ -1,4 +1,7 @@
-//! Stand-alone WebAssembly to Cranelift IR translator.
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
+//! Standalone WebAssembly to Cranelift IR translator.
 //!
 //! This module defines the `FuncTranslator` type which can translate a single WebAssembly
 //! function to Cranelift IR guided by a `FuncEnvironment` which provides information about the
@@ -206,9 +209,8 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
             let constant_handle = builder.func.dfg.constants.insert([0; 16].to_vec().into());
             builder.ins().vconst(ir::types::I8X16, constant_handle)
         }
-        NullRef => builder.ins().null(environ.reference_type()),
-        AnyRef => builder.ins().null(environ.reference_type()),
-        AnyFunc => builder.ins().null(environ.reference_type()),
+        ExternRef => builder.ins().null(environ.reference_type()),
+        FuncRef => builder.ins().null(environ.reference_type()),
         ty => return Err(wasm_unsupported!("unsupported local type {:?}", ty)),
     };
 

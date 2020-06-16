@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! This file declares `VMContext` and several related structs which contain
 //! fields that compiled wasm code accesses directly.
 
@@ -46,7 +49,7 @@ mod test_vmfunction_import {
     }
 }
 
-/// The `VMDynamicFunctionImportContext` is the context that dynamic
+/// The `VMDynamicFunctionContext` is the context that dynamic
 /// functions will receive when called (rather than `vmctx`).
 /// A dynamic function is a function for which we don't know the signature
 /// until runtime.
@@ -55,7 +58,7 @@ mod test_vmfunction_import {
 /// containing the relevant context for running the function indicated
 /// in `address`.
 #[repr(C)]
-pub struct VMDynamicFunctionImportContext<T: Sized> {
+pub struct VMDynamicFunctionContext<T: Sized> {
     /// The address of the inner dynamic function.
     ///
     /// Note: The function must be on the form of
@@ -68,7 +71,7 @@ pub struct VMDynamicFunctionImportContext<T: Sized> {
 
 #[cfg(test)]
 mod test_vmdynamicfunction_import_context {
-    use super::VMDynamicFunctionImportContext;
+    use super::VMDynamicFunctionContext;
     use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
@@ -78,15 +81,15 @@ mod test_vmdynamicfunction_import_context {
         let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
-            size_of::<VMDynamicFunctionImportContext<usize>>(),
+            size_of::<VMDynamicFunctionContext<usize>>(),
             usize::from(offsets.size_of_vmdynamicfunction_import_context())
         );
         assert_eq!(
-            offset_of!(VMDynamicFunctionImportContext<usize>, address),
+            offset_of!(VMDynamicFunctionContext<usize>, address),
             usize::from(offsets.vmdynamicfunction_import_context_address())
         );
         assert_eq!(
-            offset_of!(VMDynamicFunctionImportContext<usize>, ctx),
+            offset_of!(VMDynamicFunctionContext<usize>, ctx),
             usize::from(offsets.vmdynamicfunction_import_context_ctx())
         );
     }

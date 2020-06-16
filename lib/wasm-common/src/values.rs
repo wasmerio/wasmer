@@ -1,4 +1,4 @@
-use crate::r#ref::AnyRef;
+use crate::r#ref::ExternRef;
 use crate::types::Type;
 // use crate::native::Func;
 use std::fmt;
@@ -20,10 +20,10 @@ pub enum Value<T> {
     /// A 64-bit float.
     F64(f64),
 
-    /// An `anyref` value which can hold opaque data to the wasm instance itself.
+    /// An `externref` value which can hold opaque data to the wasm instance itself.
     ///
     /// Note that this is a nullable value as well.
-    AnyRef(AnyRef),
+    ExternRef(ExternRef),
 
     /// A first-class reference to a WebAssembly function.
     FuncRef(T),
@@ -57,9 +57,9 @@ macro_rules! accessors {
 }
 
 impl<T> Value<T> {
-    /// Returns a null `anyref` value.
+    /// Returns a null `externref` value.
     pub fn null() -> Self {
-        Self::AnyRef(AnyRef::null())
+        Self::ExternRef(ExternRef::null())
     }
 
     /// Returns the corresponding [`Type`] for this `Value`.
@@ -69,7 +69,7 @@ impl<T> Value<T> {
             Self::I64(_) => Type::I64,
             Self::F32(_) => Type::F32,
             Self::F64(_) => Type::F64,
-            Self::AnyRef(_) => Type::AnyRef,
+            Self::ExternRef(_) => Type::ExternRef,
             Self::FuncRef(_) => Type::FuncRef,
             Self::V128(_) => Type::V128,
         }
@@ -122,10 +122,10 @@ impl<T> Value<T> {
     /// Attempt to access the underlying value of this `Value`, returning
     /// `None` if it is not the correct type.
     ///
-    /// This will return `Some` for both the `AnyRef` and `FuncRef` types.
-    pub fn anyref(&self) -> Option<AnyRef> {
+    /// This will return `Some` for both the `ExternRef` and `FuncRef` types.
+    pub fn externref(&self) -> Option<ExternRef> {
         match self {
-            Self::AnyRef(e) => Some(e.clone()),
+            Self::ExternRef(e) => Some(e.clone()),
             _ => None,
         }
     }
@@ -136,8 +136,8 @@ impl<T> Value<T> {
     /// # Panics
     ///
     /// Panics if `self` is not of the right type.
-    pub fn unwrap_anyref(&self) -> AnyRef {
-        self.anyref().expect("expected anyref")
+    pub fn unwrap_externref(&self) -> ExternRef {
+        self.externref().expect("expected externref")
     }
 }
 
@@ -148,7 +148,7 @@ impl<T> fmt::Debug for Value<T> {
             Self::I64(v) => write!(f, "I64({:?})", v),
             Self::F32(v) => write!(f, "F32({:?})", v),
             Self::F64(v) => write!(f, "F64({:?})", v),
-            Self::AnyRef(v) => write!(f, "AnyRef({:?})", v),
+            Self::ExternRef(v) => write!(f, "ExternRef({:?})", v),
             Self::FuncRef(_) => write!(f, "FuncRef"),
             Self::V128(v) => write!(f, "V128({:?})", v),
         }
@@ -162,7 +162,7 @@ impl<T> ToString for Value<T> {
             Self::I64(v) => v.to_string(),
             Self::F32(v) => v.to_string(),
             Self::F64(v) => v.to_string(),
-            Self::AnyRef(_) => "anyref".to_string(),
+            Self::ExternRef(_) => "externref".to_string(),
             Self::FuncRef(_) => "funcref".to_string(),
             Self::V128(v) => v.to_string(),
         }
@@ -193,9 +193,9 @@ impl<T> From<f64> for Value<T> {
     }
 }
 
-impl<T> From<AnyRef> for Value<T> {
-    fn from(val: AnyRef) -> Self {
-        Self::AnyRef(val)
+impl<T> From<ExternRef> for Value<T> {
+    fn from(val: ExternRef) -> Self {
+        Self::ExternRef(val)
     }
 }
 

@@ -28,14 +28,13 @@
 mod artifact;
 mod code_memory;
 mod engine;
-mod function_table;
 mod link;
 mod serialize;
+mod unwind;
 
 pub use crate::artifact::JITArtifact;
 pub use crate::code_memory::CodeMemory;
 pub use crate::engine::JITEngine;
-pub use crate::function_table::FunctionTable;
 pub use crate::link::link_module;
 
 /// Version number of this crate.
