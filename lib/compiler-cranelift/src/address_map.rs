@@ -1,8 +1,8 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
 
-use cranelift_codegen::{isa, Context};
 use cranelift_codegen::machinst::buffer::MachSrcLoc;
+use cranelift_codegen::{isa, Context};
 use wasmer_compiler::{FunctionAddressMap, FunctionBodyData, InstructionAddressMap, SourceLoc};
 
 pub fn get_function_address_map<'data>(
