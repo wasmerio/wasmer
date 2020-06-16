@@ -737,37 +737,33 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let store = store_ptr.as_ref();
     let func_sig = ft.sig();
     let num_rets = func_sig.results().len();
-    let inner_callback = move |env: &mut c_void, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
-        let processed_args = args
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<wasm_val_t>, _>>()
-            .expect("Argument conversion failed");
+    let inner_callback =
+        move |env: &mut *mut c_void, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
+            let processed_args = args
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<wasm_val_t>, _>>()
+                .expect("Argument conversion failed");
 
-        let mut results = vec![
-            wasm_val_t {
-                kind: wasm_valkind_enum::WASM_I64 as _,
-                of: wasm_val_inner { int64_t: 0 },
-            };
-            num_rets
-        ];
+            let mut results = vec![
+                wasm_val_t {
+                    kind: wasm_valkind_enum::WASM_I64 as _,
+                    of: wasm_val_inner { int64_t: 0 },
+                };
+                num_rets
+            ];
 
-        let _traps = callback(env, processed_args.as_ptr(), results.as_mut_ptr());
-        // TODO: do something with `traps`
+            let _traps = callback(*env, processed_args.as_ptr(), results.as_mut_ptr());
+            // TODO: do something with `traps`
 
-        let processed_results = results
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<Val>, _>>()
-            .expect("Result conversion failed");
-        Ok(processed_results)
-    };
-    let f = Function::new_dynamic_env(
-        store,
-        &func_sig,
-        mem::transmute::<*mut c_void, &mut c_void>(env),
-        inner_callback,
-    );
+            let processed_results = results
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<Val>, _>>()
+                .expect("Result conversion failed");
+            Ok(processed_results)
+        };
+    let f = Function::new_dynamic_env(store, &func_sig, env, inner_callback);
     Some(Box::new(wasm_func_t {
         instance: None,
         inner: f,
