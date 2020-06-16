@@ -5,6 +5,7 @@ mod exports;
 mod externals;
 mod import_object;
 mod instance;
+mod memory;
 mod memory_view;
 mod module;
 mod native;

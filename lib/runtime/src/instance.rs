@@ -6,7 +6,7 @@
 //! `InstanceHandle` is a reference-counting handle for an `Instance`.
 use crate::export::Export;
 use crate::imports::Imports;
-use crate::memory::{LinearMemory, MemoryError};
+use crate::memory::{Memory, MemoryError};
 use crate::table::Table;
 use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
@@ -72,7 +72,8 @@ pub(crate) struct Instance {
     offsets: VMOffsets,
 
     /// WebAssembly linear memory data.
-    memories: BoxedSlice<LocalMemoryIndex, LinearMemory>,
+    // TODO: maybe `*mut Arc`
+    memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
 
     /// WebAssembly table data.
     tables: BoxedSlice<LocalTableIndex, Table>,
@@ -324,13 +325,10 @@ impl Instance {
             ExportIndex::Memory(index) => {
                 let (definition, from) =
                     if let Some(def_index) = self.module.local_memory_index(*index) {
-                        (
-                            self.memory_ptr(def_index),
-                            self.memories[def_index].as_mut_ptr(),
-                        )
+                        (self.memory_ptr(def_index), self.memories[def_index].clone())
                     } else {
                         let import = self.imported_memory(*index);
-                        (import.definition, import.from)
+                        (import.definition, import.from.clone())
                     };
                 ExportMemory { definition, from }.into()
             }
@@ -443,11 +441,11 @@ impl Instance {
     where
         IntoPages: Into<Pages>,
     {
-        let result = self
+        let mem = self
             .memories
             .get(memory_index)
-            .unwrap_or_else(|| panic!("no memory for index {}", memory_index.index()))
-            .grow(delta);
+            .unwrap_or_else(|| panic!("no memory for index {}", memory_index.index()));
+        let result = mem.grow(delta.into());
 
         // Keep current the VMContext pointers used by compiled wasm code.
         self.set_memory(memory_index, self.memories[memory_index].vmmemory());
@@ -472,8 +470,8 @@ impl Instance {
         IntoPages: Into<Pages>,
     {
         let import = self.imported_memory(memory_index);
-        let from = &*import.from;
-        from.grow(delta)
+        let from = import.from.as_ref();
+        from.grow(delta.into())
     }
 
     /// Returns the number of allocated wasm pages.
@@ -491,7 +489,7 @@ impl Instance {
     /// dereference the memory import's pointers.
     pub(crate) unsafe fn imported_memory_size(&self, memory_index: MemoryIndex) -> Pages {
         let import = self.imported_memory(memory_index);
-        let from = &mut *import.from;
+        let from = import.from.as_ref();
         from.size()
     }
 
@@ -784,7 +782,7 @@ impl InstanceHandle {
     pub unsafe fn new(
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
-        finished_memories: BoxedSlice<LocalMemoryIndex, LinearMemory>,
+        finished_memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
         finished_tables: BoxedSlice<LocalTableIndex, Table>,
         finished_globals: BoxedSlice<LocalGlobalIndex, VMGlobalDefinition>,
         imports: Imports,
@@ -799,7 +797,7 @@ impl InstanceHandle {
 
         let vmctx_memories = finished_memories
             .values()
-            .map(LinearMemory::vmmemory)
+            .map(|m| m.as_ref().vmmemory())
             .collect::<PrimaryMap<LocalMemoryIndex, _>>()
             .into_boxed_slice();
 
