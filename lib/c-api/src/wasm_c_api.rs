@@ -492,7 +492,7 @@ impl From<wasm_valkind_enum> for ValType {
             WASM_I64 => ValType::I64,
             WASM_F32 => ValType::F32,
             WASM_F64 => ValType::F64,
-            WASM_ANYREF => ValType::AnyRef,
+            WASM_ANYREF => ValType::ExternRef,
             WASM_FUNCREF => ValType::FuncRef,
         }
     }
@@ -532,7 +532,7 @@ impl From<ValType> for wasm_valkind_enum {
             ValType::F32 => Self::WASM_F32,
             ValType::F64 => Self::WASM_F64,
             ValType::V128 => todo!("no v128 type in Wasm C API yet!"),
-            ValType::AnyRef => Self::WASM_ANYREF,
+            ValType::ExternRef => Self::WASM_ANYREF,
             ValType::FuncRef => Self::WASM_FUNCREF,
         }
     }
@@ -991,7 +991,7 @@ pub unsafe extern "C" fn wasm_table_grow(
 ) -> bool {
     // TODO: maybe need to look at result to return `true`; also maybe report error here
     //wasm_table.inner.grow(delta, init).is_ok()
-    todo!("Blocked on transforming AnyRef into a val type")
+    todo!("Blocked on transforming ExternRef into a val type")
 }
 
 macro_rules! wasm_declare_own {
@@ -1143,7 +1143,7 @@ macro_rules! wasm_declare_ref_base {
 pub type wasm_byte_t = u8;
 wasm_declare_vec!(byte);
 
-// opaque type over `AnyRef`?
+// opaque type over `ExternRef`?
 #[allow(non_camel_case_types)]
 pub struct wasm_ref_t;
 

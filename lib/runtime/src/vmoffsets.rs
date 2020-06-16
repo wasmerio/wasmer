@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! Offsets and sizes of various structs in wasmer-runtime's vmcontext
 //! module.
 

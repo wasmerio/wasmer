@@ -1,7 +1,7 @@
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
-use crate::types::{Val, ValAnyFunc};
+use crate::types::{Val, ValFuncRef};
 use crate::RuntimeError;
 use crate::TableType;
 use wasmer_runtime::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
@@ -70,7 +70,7 @@ impl Table {
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, index: u32) -> Option<Val> {
         let item = self.table().get(index)?;
-        Some(ValAnyFunc::from_checked_anyfunc(item, &self.store))
+        Some(ValFuncRef::from_checked_anyfunc(item, &self.store))
     }
 
     /// Sets an element `val` in the Table at the provided `index`.

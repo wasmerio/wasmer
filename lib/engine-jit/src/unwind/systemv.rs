@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! Module for System V ABI unwind registry.
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 

@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! Memory management for linear memories.
 //!
 //! `LinearMemory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.

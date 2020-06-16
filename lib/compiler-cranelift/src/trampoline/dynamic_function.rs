@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! A trampoline generator for calling dynamic host functions from Wasm.
 
 use super::binemit::TrampolineRelocSink;

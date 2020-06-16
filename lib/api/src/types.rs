@@ -4,7 +4,7 @@ use crate::RuntimeError;
 use std::ptr;
 use wasm_common::Value;
 pub use wasm_common::{
-    AnyRef, ExportType, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
+    ExportType, ExternRef, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Type as ValType,
 };
 
@@ -14,8 +14,8 @@ impl StoreObject for Val {
     fn comes_from_same_store(&self, store: &Store) -> bool {
         match self {
             Val::FuncRef(f) => Store::same(store, f.store()),
-            Val::AnyRef(AnyRef::Ref(_)) | Val::AnyRef(AnyRef::Other(_)) => false,
-            Val::AnyRef(AnyRef::Null) => true,
+            Val::ExternRef(ExternRef::Ref(_)) | Val::ExternRef(ExternRef::Other(_)) => false,
+            Val::ExternRef(ExternRef::Null) => true,
             Val::I32(_) | Val::I64(_) | Val::F32(_) | Val::F64(_) | Val::V128(_) => true,
         }
     }
@@ -28,8 +28,8 @@ impl From<Function> for Val {
 }
 
 /// It provides useful functions for converting back and forth
-/// from [`Val`] into `AnyFunc`.
-pub trait ValAnyFunc {
+/// from [`Val`] into `FuncRef`.
+pub trait ValFuncRef {
     fn into_checked_anyfunc(
         &self,
         store: &Store,
@@ -38,7 +38,7 @@ pub trait ValAnyFunc {
     fn from_checked_anyfunc(item: wasmer_runtime::VMCallerCheckedAnyfunc, store: &Store) -> Self;
 }
 
-impl ValAnyFunc for Val {
+impl ValFuncRef for Val {
     fn into_checked_anyfunc(
         &self,
         store: &Store,
@@ -47,7 +47,7 @@ impl ValAnyFunc for Val {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
-            Val::AnyRef(AnyRef::Null) => wasmer_runtime::VMCallerCheckedAnyfunc {
+            Val::ExternRef(ExternRef::Null) => wasmer_runtime::VMCallerCheckedAnyfunc {
                 func_ptr: ptr::null(),
                 type_index: wasmer_runtime::VMSharedSignatureIndex::default(),
                 vmctx: ptr::null_mut(),
@@ -59,7 +59,7 @@ impl ValAnyFunc for Val {
 
     fn from_checked_anyfunc(item: wasmer_runtime::VMCallerCheckedAnyfunc, store: &Store) -> Val {
         if item.type_index == wasmer_runtime::VMSharedSignatureIndex::default() {
-            return Val::AnyRef(AnyRef::Null);
+            return Val::ExternRef(ExternRef::Null);
         }
         let signature = store
             .engine()

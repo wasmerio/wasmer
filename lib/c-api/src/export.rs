@@ -514,7 +514,7 @@ pub unsafe extern "C" fn wasmer_export_func_call(
                         value: wasmer_value { F64: x },
                     },
                     Val::V128(_) => unimplemented!("returning V128 type"),
-                    Val::AnyRef(_) => unimplemented!("returning AnyRef type"),
+                    Val::ExternRef(_) => unimplemented!("returning ExternRef type"),
                     Val::FuncRef(_) => unimplemented!("returning FuncRef type"),
                 };
                 results[0] = ret;

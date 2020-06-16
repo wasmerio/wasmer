@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 use crate::{wasm_unsupported, WasmResult};
 use std::boxed::Box;
 use wasm_common::entity::PrimaryMap;
@@ -42,9 +45,8 @@ impl ModuleTranslationState {
                 wasmparser::Type::F32 => (&[], &[wasmparser::Type::F32]),
                 wasmparser::Type::F64 => (&[], &[wasmparser::Type::F64]),
                 wasmparser::Type::V128 => (&[], &[wasmparser::Type::V128]),
-                wasmparser::Type::AnyRef => (&[], &[wasmparser::Type::AnyRef]),
-                wasmparser::Type::AnyFunc => (&[], &[wasmparser::Type::AnyFunc]),
-                wasmparser::Type::NullRef => (&[], &[wasmparser::Type::NullRef]),
+                wasmparser::Type::ExternRef => (&[], &[wasmparser::Type::ExternRef]),
+                wasmparser::Type::FuncRef => (&[], &[wasmparser::Type::FuncRef]),
                 wasmparser::Type::EmptyBlockType => (&[], &[]),
                 ty => return Err(wasm_unsupported!("blocktype_params_results: type {:?}", ty)),
             },

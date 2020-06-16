@@ -116,8 +116,8 @@ impl From<Val> for wasmer_value_t {
                 value: wasmer_value { F64: x },
             },
             Val::V128(_) => unimplemented!("V128 not supported in C API"),
-            Val::AnyRef(_) => unimplemented!("AnyRef not supported in C API"),
-            Val::FuncRef(_) => unimplemented!("AnyFunc not supported in C API"),
+            Val::ExternRef(_) => unimplemented!("ExternRef not supported in C API"),
+            Val::FuncRef(_) => unimplemented!("FuncRef not supported in C API"),
         }
     }
 }
@@ -131,7 +131,7 @@ impl From<ValType> for wasmer_value_tag {
             ValType::F32 => wasmer_value_tag::WASM_F32,
             ValType::F64 => wasmer_value_tag::WASM_F64,
             ValType::V128 => unreachable!("V128 not supported in C API"),
-            ValType::AnyRef => unimplemented!("AnyRef not supported in C API"),
+            ValType::ExternRef => unimplemented!("ExternRef not supported in C API"),
             ValType::FuncRef => unimplemented!("FuncRef not supported in C API"),
         }
     }
@@ -158,7 +158,7 @@ impl From<&ValType> for wasmer_value_tag {
             ValType::F32 => wasmer_value_tag::WASM_F32,
             ValType::F64 => wasmer_value_tag::WASM_F64,
             ValType::V128 => unimplemented!("V128 not supported in C API"),
-            ValType::AnyRef => unimplemented!("AnyRef not supported in C API"),
+            ValType::ExternRef => unimplemented!("ExternRef not supported in C API"),
             ValType::FuncRef => unimplemented!("FuncRef not supported in C API"),
         }
     }

@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 use crate::memory::{LinearMemory, MemoryPlan};
 use crate::table::{Table, TablePlan};
 use crate::vmcontext::{

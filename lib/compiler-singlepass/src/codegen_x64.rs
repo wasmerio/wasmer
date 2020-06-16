@@ -8201,8 +8201,8 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::F32 => WpType::F32,
         Type::F64 => WpType::F64,
         Type::V128 => WpType::V128,
-        Type::AnyRef => WpType::AnyRef,
-        Type::FuncRef => WpType::AnyFunc, // TODO: AnyFunc or Func?
+        Type::ExternRef => WpType::ExternRef,
+        Type::FuncRef => WpType::FuncRef, // TODO: FuncRef or Func?
     }
 }
 
