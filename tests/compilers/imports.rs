@@ -82,27 +82,27 @@ fn dynamic_function_with_env() -> Result<()> {
     let store = get_store();
     let module = get_module(&store)?;
 
-    let mut env: AtomicUsize = AtomicUsize::new(0);
+    let env: AtomicUsize = AtomicUsize::new(0);
     Instance::new(
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_dynamic_env(&store, &FunctionType::new(vec![], vec![]), &mut env, |env, _values| {
+                "0" => Function::new_dynamic_env(&store, &FunctionType::new(vec![], vec![]), &env, |env, _values| {
                     assert_eq!(env.fetch_add(1, SeqCst), 0);
                     Ok(vec![])
                 }),
-                "1" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32], vec![ValType::I32]), &mut env, |env, values| {
+                "1" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32], vec![ValType::I32]), &env, |env, values| {
                     assert_eq!(values[0], Value::I32(0));
                     assert_eq!(env.fetch_add(1, SeqCst), 1);
                     Ok(vec![Value::I32(1)])
                 }),
-                "2" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), &mut env, |env, values| {
+                "2" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), &env, |env, values| {
                     assert_eq!(values[0], Value::I32(2));
                     assert_eq!(values[1], Value::I64(3));
                     assert_eq!(env.fetch_add(1, SeqCst), 2);
                     Ok(vec![])
                 }),
-                "3" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), &mut env, |env, values| {
+                "3" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), &env, |env, values| {
                     assert_eq!(values[0], Value::I32(100));
                     assert_eq!(values[1], Value::I64(200));
                     assert_eq!(values[2], Value::I32(300));

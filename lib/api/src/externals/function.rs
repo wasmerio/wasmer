@@ -56,7 +56,7 @@ impl Function {
         F: HostFunction<Args, Rets, WithoutEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Sized,
+        Env: Clone + Sized,
     {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
@@ -106,7 +106,7 @@ impl Function {
     pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
         F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
-        Env: Sized,
+        Env: Clone + Sized,
     {
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
             env: Cell::new(env),
@@ -141,7 +141,7 @@ impl Function {
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Sized,
+        Env: Clone + Sized,
     {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
