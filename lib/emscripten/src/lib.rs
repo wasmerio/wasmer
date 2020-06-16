@@ -15,6 +15,7 @@ extern crate log;
 
 use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
+use std::sync::Arc;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{f64, ffi::c_void};
@@ -70,12 +71,12 @@ pub use self::utils::{
 
 #[derive(Clone)]
 /// The environment provided to the Emscripten imports.
-pub struct EmEnv<'a> {
-    memory: Option<&'a Memory>,
+pub struct EmEnv {
+    memory: Option<Arc<Memory>>,
     data: *mut EmscriptenData<'static>,
 }
 
-impl<'a> EmEnv<'a> {
+impl EmEnv {
     pub fn new() -> Self {
         Self {
             memory: None,
@@ -83,7 +84,7 @@ impl<'a> EmEnv<'a> {
         }
     }
 
-    pub fn set_memory(&mut self, memory: &'a Memory) {
+    pub fn set_memory(&mut self, memory: Arc<Memory>) {
         self.memory = Some(memory)
     }
 
@@ -92,8 +93,8 @@ impl<'a> EmEnv<'a> {
     }
 
     /// Get a reference to the memory
-    pub fn memory(&self, _mem_idx: u32) -> &'a Memory {
-        self.memory.unwrap()
+    pub fn memory(&self, _mem_idx: u32) -> &Memory {
+        self.memory.as_ref().unwrap()
     }
 }
 
@@ -466,15 +467,15 @@ pub fn emscripten_call_main(
 /// Top level function to execute emscripten
 pub fn run_emscripten_instance<'a>(
     instance: &mut Instance,
-    env: &mut EmEnv<'a>,
-    globals: &'a mut EmscriptenGlobals,
+    env: &mut EmEnv,
+    globals: &mut EmscriptenGlobals,
     path: &str,
     args: Vec<&str>,
     entrypoint: Option<String>,
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> Result<(), RuntimeError> {
     let mut data = EmscriptenData::new(instance, &globals.data, mapped_dirs.into_iter().collect());
-    env.set_memory(&globals.memory);
+    env.set_memory(Arc::new(globals.memory.clone()));
     env.set_data(&mut data as *mut _ as *mut c_void);
     set_up_emscripten(instance)?;
 

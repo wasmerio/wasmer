@@ -1,6 +1,7 @@
 use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::{Context, Result};
 use std::path::PathBuf;
+use std::sync::Arc;
 use wasmer::{Instance, Module};
 use wasmer_wasi::{get_wasi_version, WasiState, WasiVersion};
 
@@ -58,7 +59,7 @@ impl Wasi {
         let import_object = wasi_env.import_object(&module)?;
         let instance = Instance::new(&module, &import_object)?;
 
-        wasi_env.set_memory(instance.exports.get_memory("memory")?);
+        wasi_env.set_memory(Arc::new(instance.exports.get_memory("memory")?.clone()));
 
         let start = instance.exports.get_function("_start")?;
         start

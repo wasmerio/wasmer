@@ -5,7 +5,7 @@ use crate::types::Val;
 use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::cmp::max;
 use wasm_common::{HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
@@ -56,7 +56,7 @@ impl Function {
         F: HostFunction<Args, Rets, WithoutEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Sized,
+        Env: Sized + 'static,
     {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
@@ -106,10 +106,10 @@ impl Function {
     pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
         F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
-        Env: Sized,
+        Env: Sized + 'static,
     {
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
-            env: Cell::new(env),
+            env: RefCell::new(env),
             func: Box::new(func),
             function_type: ty.clone(),
         });
@@ -141,7 +141,7 @@ impl Function {
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Sized,
+        Env: Sized + 'static,
     {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
@@ -366,20 +366,17 @@ impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
 
 pub(crate) struct VMDynamicFunctionWithEnv<Env>
 where
-    Env: Sized,
+    Env: Sized + 'static,
 {
     function_type: FunctionType,
     #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
-    // Implementation note: we keep the environment as the last field
-    // as we don't want to alter the layout of the struct affecting other
-    // fields for different implementations of the `Env` generic param.
-    env: Cell<Env>,
+    env: RefCell<Env>,
 }
 
 impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
 where
-    Env: Sized,
+    Env: Sized + 'static,
 {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
         unsafe { (*self.func)(&mut *self.env.as_ptr(), &args) }

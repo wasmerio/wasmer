@@ -43,12 +43,12 @@ pub enum WasiError {
 /// The environment provided to the WASI imports.
 /// It
 #[derive(Clone)]
-pub struct WasiEnv<'a> {
+pub struct WasiEnv {
     state: Arc<Mutex<WasiState>>,
-    memory: Option<&'a Memory>,
+    memory: Option<Arc<Memory>>,
 }
 
-impl<'a> WasiEnv<'a> {
+impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
         Self {
             state: Arc::new(Mutex::new(state)),
@@ -66,7 +66,7 @@ impl<'a> WasiEnv<'a> {
     }
 
     /// Set the memory
-    pub fn set_memory(&mut self, memory: &'a Memory) {
+    pub fn set_memory(&mut self, memory: Arc<Memory>) {
         self.memory = Some(memory);
     }
 
