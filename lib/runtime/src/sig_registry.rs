@@ -1,3 +1,6 @@
+// This file contains partial code from other sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! Implement a registry of function signatures, for fast indirect call
 //! signature checking.
 

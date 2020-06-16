@@ -1,3 +1,6 @@
+// This file contains partial code from other sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! All the runtime support necessary for the wasm to cranelift translation is formalized by the
 //! traits `FunctionEnvironment`.
 

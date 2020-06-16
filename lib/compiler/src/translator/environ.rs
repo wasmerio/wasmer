@@ -1,3 +1,6 @@
+// This file contains partial code from other sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 use super::module::translate_module;
 use super::state::ModuleTranslationState;
 use crate::lib::std::borrow::ToOwned;

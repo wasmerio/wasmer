@@ -1,4 +1,7 @@
-//! Stand-alone WebAssembly to Cranelift IR translator.
+// This file contains partial code from other sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
+//! Standalone WebAssembly to Cranelift IR translator.
 //!
 //! This module defines the `FuncTranslator` type which can translate a single WebAssembly
 //! function to Cranelift IR guided by a `FuncEnvironment` which provides information about the

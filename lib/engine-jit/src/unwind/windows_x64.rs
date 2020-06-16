@@ -1,3 +1,6 @@
+// This file contains partial code from other sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! Module for Windows x64 ABI unwind registry.
 use std::collections::HashMap;
 use wasmer_compiler::CompiledFunctionUnwindInfo;

@@ -1,3 +1,6 @@
+// This file contains partial code from other sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
