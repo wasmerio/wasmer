@@ -126,7 +126,6 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
         ir::TrapCode::StackOverflow => TrapCode::StackOverflow,
         ir::TrapCode::HeapOutOfBounds => TrapCode::HeapAccessOutOfBounds,
         ir::TrapCode::TableOutOfBounds => TrapCode::TableAccessOutOfBounds,
-        ir::TrapCode::OutOfBounds => TrapCode::OutOfBounds,
         ir::TrapCode::IndirectCallToNull => TrapCode::IndirectCallToNull,
         ir::TrapCode::BadSignature => TrapCode::BadSignature,
         ir::TrapCode::IntegerOverflow => TrapCode::IntegerOverflow,
