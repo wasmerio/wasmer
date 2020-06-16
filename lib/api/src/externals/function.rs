@@ -107,7 +107,7 @@ impl Function {
     where
         F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
         Env: Sized,
-    {   
+    {
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
             env: Cell::new(env),
             func: Box::new(func),
