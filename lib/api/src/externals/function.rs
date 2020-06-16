@@ -56,7 +56,7 @@ impl Function {
         F: HostFunction<Args, Rets, WithoutEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Clone + Sized,
+        Env: Sized,
     {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
@@ -106,8 +106,8 @@ impl Function {
     pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
         F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
-        Env: Clone + Sized,
-    {
+        Env: Sized,
+    {   
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
             env: Cell::new(env),
             func: Box::new(func),
@@ -141,7 +141,7 @@ impl Function {
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Clone + Sized,
+        Env: Sized,
     {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
@@ -368,10 +368,13 @@ pub(crate) struct VMDynamicFunctionWithEnv<Env>
 where
     Env: Sized,
 {
+    function_type: FunctionType,
     #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    // Implementation note: we keep the environment as the last field
+    // as we don't want to alter the layout of the struct affecting other
+    // fields for different implementations of the `Env` generic param.
     env: Cell<Env>,
-    function_type: FunctionType,
 }
 
 impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
