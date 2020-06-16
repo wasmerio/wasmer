@@ -1,7 +1,10 @@
 use super::*;
 use crate::get_slice_checked;
 use libc::c_uchar;
-use std::{path::PathBuf, ptr, str};
+use std::path::PathBuf;
+use std::ptr;
+use std::str;
+use std::sync::Arc;
 use wasmer::{Memory, MemoryType, NamedResolver};
 use wasmer_wasi as wasi;
 
@@ -214,7 +217,7 @@ pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wa
     // this API will now leak a `Memory`
     let memory_type = MemoryType::new(0, None, false);
     let memory = Memory::new(store, memory_type).expect("create memory");
-    wasi_env.set_memory(&memory);
+    wasi_env.set_memory(Arc::new(memory));
     // TODO(mark): review lifetime of `Memory` here
     let import_object_inner: Box<dyn NamedResolver> = Box::new(
         wasi::generate_import_object_from_env(store, wasi_env, wasi::WasiVersion::Latest),
