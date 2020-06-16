@@ -19,22 +19,21 @@ impl PreInstance {
     }
 }
 
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct Instance {
     pub exports: Exports,
+    pre_instance: Box<PreInstance>,
     pub(crate) new_instance: new::wasmer::Instance,
-    vmctx: vm::Ctx,
+    // vmctx: vm::Ctx,
 }
 
 impl Instance {
-    pub(crate) fn new(pre_instance: PreInstance, new_instance: new::wasmer::Instance) -> Self {
-        let mut vmctx = pre_instance.vmctx;
-        vmctx.x = 42;
-
+    pub(crate) fn new(mut pre_instance: Box<PreInstance>, new_instance: new::wasmer::Instance) -> Self {
+        pre_instance.vmctx.x = 42;
         Self {
             exports: new_instance.exports.clone(),
             new_instance,
-            vmctx,
+            pre_instance,
         }
     }
 
@@ -73,11 +72,11 @@ impl Instance {
     }
 
     pub fn context(&self) -> &vm::Ctx {
-        &self.vmctx
+        &self.pre_instance.vmctx
     }
 
     pub fn context_mut(&mut self) -> &mut vm::Ctx {
-        &mut self.vmctx
+        &mut self.pre_instance.vmctx
     }
 }
 

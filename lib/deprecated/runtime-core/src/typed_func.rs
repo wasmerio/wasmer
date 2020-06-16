@@ -21,6 +21,8 @@ impl Func {
         // Create a fake `vm::Ctx`, that is going to be overwritten by `Instance::new`.
         let ctx: &mut vm::Ctx = unsafe { &mut *ptr::null_mut() };
 
+        // TODO: check this, is incorrect. We should have a global store as we have in the
+        // wasmer C API.
         let store = Default::default();
 
         Self {
