@@ -136,7 +136,7 @@ impl StoreOptions {
         } else {
             // Auto mode, we choose the best compiler for that platform
             cfg_if::cfg_if! {
-                if #[cfg(all(feature = "cranelift", target_arch = "x86_64"))] {
+                if #[cfg(all(feature = "cranelift", any(target_arch = "x86_64", target_arch = "aarch64")))] {
                     Ok(CompilerType::Cranelift)
                 }
                 else if #[cfg(all(feature = "singlepass", target_arch = "x86_64"))] {

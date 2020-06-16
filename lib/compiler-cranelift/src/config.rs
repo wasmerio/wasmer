@@ -66,7 +66,6 @@ impl CraneliftConfig {
         let mut builder =
             lookup(target.triple().clone()).expect("construct Cranelift ISA for triple");
         // Cpu Features
-
         let cpu_features = target.cpu_features();
         if target.triple().architecture == Architecture::X86_64
             && !cpu_features.contains(CpuFeature::SSE2)
