@@ -379,6 +379,8 @@ where
     Env: Sized + 'static,
 {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        // TODO: the `&mut *self.env.as_ptr()` is likely invoking some "mild"
+        //      undefined behavior due to how it's used in the static fn call
         unsafe { (*self.func)(&mut *self.env.as_ptr(), &args) }
     }
     fn function_type(&self) -> &FunctionType {
