@@ -1,4 +1,4 @@
-// This file contains partial code from other sources.
+// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
 
 //! Data structure for representing WebAssembly modules

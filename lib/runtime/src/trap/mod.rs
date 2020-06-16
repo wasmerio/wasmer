@@ -1,4 +1,4 @@
-// This file contains partial code from other sources.
+// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
 
 //! This is the module that facilitates the usage of Traps
