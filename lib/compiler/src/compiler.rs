@@ -57,6 +57,7 @@ pub trait Compiler {
                 enable_threads: features.threads,
                 enable_reference_types: features.reference_types,
                 enable_bulk_memory: features.bulk_memory,
+                enable_tail_call: false,
                 enable_simd: features.simd,
                 enable_multi_value: features.multi_value,
             },

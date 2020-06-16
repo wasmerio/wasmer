@@ -77,6 +77,7 @@ impl Engine for DummyEngine {
                 enable_reference_types: features.reference_types,
                 enable_bulk_memory: features.bulk_memory,
                 enable_simd: features.simd,
+                enable_tail_call: false,
                 enable_multi_value: features.multi_value,
             },
         };

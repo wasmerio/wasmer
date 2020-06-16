@@ -39,8 +39,8 @@ pub fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
         wasmparser::Type::F32 => Ok(Type::F32),
         wasmparser::Type::F64 => Ok(Type::F64),
         wasmparser::Type::V128 => Ok(Type::V128),
-        wasmparser::Type::AnyRef => Ok(Type::AnyRef),
-        wasmparser::Type::AnyFunc => Ok(Type::FuncRef),
+        wasmparser::Type::ExternRef => Ok(Type::ExternRef),
+        wasmparser::Type::FuncRef => Ok(Type::FuncRef),
         ty => Err(wasm_unsupported!(
             "wptype_to_type: wasmparser type {:?}",
             ty
@@ -59,11 +59,7 @@ pub fn parse_type_section(
 
     for entry in types {
         match entry.map_err(to_wasm_error)? {
-            WPFunctionType {
-                form: wasmparser::Type::Func,
-                params,
-                returns,
-            } => {
+            WPFunctionType { params, returns } => {
                 let sig_params: Vec<Type> = params
                     .iter()
                     .map(|ty| {
@@ -81,12 +77,6 @@ pub fn parse_type_section(
                 let sig = FunctionType::new(sig_params, sig_returns);
                 environ.declare_signature(sig)?;
                 module_translation_state.wasm_types.push((params, returns));
-            }
-            ty => {
-                return Err(wasm_unsupported!(
-                    "unsupported type in type section: {:?}",
-                    ty
-                ))
             }
         }
     }
@@ -238,7 +228,7 @@ pub fn parse_global_section(
             Operator::V128Const { value } => {
                 GlobalInit::V128Const(V128::from(value.bytes().to_vec().as_slice()))
             }
-            Operator::RefNull => GlobalInit::RefNullConst,
+            Operator::RefNull { ty: _ } => GlobalInit::RefNullConst,
             Operator::RefFunc { function_index } => {
                 GlobalInit::RefFunc(FunctionIndex::from_u32(function_index))
             }
@@ -309,7 +299,7 @@ fn read_elems(items: &ElementItems) -> WasmResult<Box<[FunctionIndex]>> {
     let mut elems = Vec::with_capacity(usize::try_from(items_reader.get_count()).unwrap());
     for item in items_reader {
         let elem = match item.map_err(to_wasm_error)? {
-            ElementItem::Null => FunctionIndex::reserved_value(),
+            ElementItem::Null(_ty) => FunctionIndex::reserved_value(),
             ElementItem::Func(index) => FunctionIndex::from_u32(index),
         };
         elems.push(elem);
@@ -326,7 +316,7 @@ pub fn parse_element_section<'data>(
 
     for (index, entry) in elements.into_iter().enumerate() {
         let Element { kind, items, ty } = entry.map_err(to_wasm_error)?;
-        if ty != wasmparser::Type::AnyFunc {
+        if ty != wasmparser::Type::FuncRef {
             return Err(wasm_unsupported!(
                 "unsupported table element type: {:?}",
                 ty

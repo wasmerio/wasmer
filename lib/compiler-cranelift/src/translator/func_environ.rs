@@ -279,7 +279,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn translate_table_grow(
         &mut self,
         pos: FuncCursor,
-        table_index: u32,
+        table_index: TableIndex,
         delta: ir::Value,
         init_value: ir::Value,
     ) -> WasmResult<ir::Value>;
@@ -288,7 +288,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn translate_table_get(
         &mut self,
         pos: FuncCursor,
-        table_index: u32,
+        table_index: TableIndex,
         index: ir::Value,
     ) -> WasmResult<ir::Value>;
 
@@ -296,7 +296,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn translate_table_set(
         &mut self,
         pos: FuncCursor,
-        table_index: u32,
+        table_index: TableIndex,
         value: ir::Value,
         index: ir::Value,
     ) -> WasmResult<()>;
@@ -319,7 +319,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn translate_table_fill(
         &mut self,
         pos: FuncCursor,
-        table_index: u32,
+        table_index: TableIndex,
         dst: ir::Value,
         val: ir::Value,
         len: ir::Value,

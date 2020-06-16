@@ -72,11 +72,11 @@ fn table_new() -> Result<()> {
 
     // Anyrefs not yet supported
     // let table_type = TableType {
-    //     ty: Type::AnyRef,
+    //     ty: Type::ExternRef,
     //     minimum: 0,
     //     maximum: None,
     // };
-    // let table = Table::new(&store, table_type, Value::AnyRef(AnyRef::Null))?;
+    // let table = Table::new(&store, table_type, Value::ExternRef(ExternRef::Null))?;
     // assert_eq!(*table.ty(), table_type);
 
     Ok(())

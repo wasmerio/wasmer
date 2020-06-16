@@ -63,7 +63,7 @@ pub fn func_type_to_llvm<'ctx>(
             Type::I32 | Type::F32 => 32,
             Type::I64 | Type::F64 => 64,
             Type::V128 => 128,
-            Type::AnyRef => unimplemented!("anyref in the llvm backend"),
+            Type::ExternRef => unimplemented!("externref in the llvm backend"),
             Type::FuncRef => unimplemented!("funcref in the llvm backend"),
         })
         .collect::<Vec<i32>>();
@@ -300,7 +300,7 @@ pub fn rets_from_call<'ctx>(
                 assert!(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
                 value
             }
-            Type::AnyRef => unimplemented!("anyref in the llvm backend"),
+            Type::ExternRef => unimplemented!("externref in the llvm backend"),
             Type::FuncRef => unimplemented!("funcref in the llvm backend"),
         }
     };
@@ -331,7 +331,7 @@ pub fn rets_from_call<'ctx>(
                     Type::I32 | Type::F32 => 32,
                     Type::I64 | Type::F64 => 64,
                     Type::V128 => 128,
-                    Type::AnyRef => unimplemented!("anyref in the llvm backend"),
+                    Type::ExternRef => unimplemented!("externref in the llvm backend"),
                     Type::FuncRef => unimplemented!("funcref in the llvm backend"),
                 })
                 .collect::<Vec<i32>>();

@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{f64, ffi::c_void};
 use wasmer::{
-    imports, namespace, AnyRef, Exports, Function, FunctionType, Global, ImportObject, Instance,
+    imports, namespace, Exports, ExternRef, Function, FunctionType, Global, ImportObject, Instance,
     Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType, Val,
     ValType,
 };
@@ -582,7 +582,7 @@ impl EmscriptenGlobals {
             maximum: table_max,
         };
         // TODO: review init value
-        let table = Table::new(store, table_type, Val::AnyRef(AnyRef::null())).unwrap();
+        let table = Table::new(store, table_type, Val::ExternRef(ExternRef::null())).unwrap();
 
         let data = {
             let static_bump = STATIC_BUMP;
