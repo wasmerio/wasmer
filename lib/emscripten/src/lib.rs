@@ -15,9 +15,9 @@ extern crate log;
 
 use lazy_static::lazy_static;
 use std::cell::UnsafeCell;
-use std::sync::Arc;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::{f64, ffi::c_void};
 use wasmer::{
     imports, namespace, AnyRef, Exports, Function, FunctionType, Global, ImportObject, Instance,
