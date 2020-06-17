@@ -5,11 +5,12 @@
 //! fields that compiled wasm code accesses directly.
 
 use crate::instance::Instance;
-use crate::memory::LinearMemory;
+use crate::memory::Memory;
 use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
 use std::any::Any;
 use std::convert::TryFrom;
+use std::sync::Arc;
 use std::{ptr, u32};
 
 /// An imported function.
@@ -173,14 +174,14 @@ mod test_vmtable_import {
 
 /// The fields compiled code needs to access to utilize a WebAssembly linear
 /// memory imported from another instance.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMMemoryImport {
     /// A pointer to the imported memory description.
     pub definition: *mut VMMemoryDefinition,
 
-    /// A pointer to the `LinearMemory` that owns the memory description.
-    pub from: *mut LinearMemory,
+    /// A pointer to the `Memory` that owns the memory description.
+    pub from: Arc<dyn Memory>,
 }
 
 #[cfg(test)]

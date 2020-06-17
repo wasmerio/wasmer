@@ -1,11 +1,12 @@
 use crate::error::LinkError;
+use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, TableIndex,
     TableType,
 };
 use wasmer_runtime::MemoryError;
-use wasmer_runtime::{LinearMemory, ModuleInfo, Table, VMGlobalDefinition};
+use wasmer_runtime::{Memory, ModuleInfo, Table, VMGlobalDefinition};
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// Tunables for an engine
@@ -17,7 +18,7 @@ pub trait Tunables {
     fn table_plan(&self, table: TableType) -> TablePlan;
 
     /// Create a memory given a memory type
-    fn create_memory(&self, memory_type: MemoryPlan) -> Result<LinearMemory, MemoryError>;
+    fn create_memory(&self, memory_type: MemoryPlan) -> Result<Arc<dyn Memory>, MemoryError>;
 
     /// Create a memory given a memory type
     fn create_table(&self, table_type: TablePlan) -> Result<Table, String>;
@@ -27,7 +28,7 @@ pub trait Tunables {
         &self,
         module: &ModuleInfo,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
-    ) -> Result<PrimaryMap<LocalMemoryIndex, LinearMemory>, LinkError> {
+    ) -> Result<PrimaryMap<LocalMemoryIndex, Arc<dyn Memory>>, LinkError> {
         let num_imports = module.num_imported_memories;
         let mut memories: PrimaryMap<LocalMemoryIndex, _> =
             PrimaryMap::with_capacity(module.memories.len() - num_imports);

@@ -214,7 +214,7 @@ pub fn resolve_imports(
 
                 memory_imports.push(VMMemoryImport {
                     definition: m.definition,
-                    from: m.from,
+                    from: m.from.clone(),
                 });
             }
 
