@@ -39,7 +39,7 @@ fn test_trap_return() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
+#[cfg_attr(feature = "test-singlepass", ignore)]
 fn test_trap_trace() -> Result<()> {
     let store = get_store();
     let wat = r#"
@@ -119,7 +119,7 @@ fn test_trap_trace_cb() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
+#[cfg_attr(feature = "test-singlepass", ignore)]
 fn test_trap_stack_overflow() -> Result<()> {
     let store = get_store();
     let wat = r#"
@@ -150,7 +150,7 @@ fn test_trap_stack_overflow() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
+#[cfg_attr(feature = "test-singlepass", ignore)]
 fn trap_display_pretty() -> Result<()> {
     let store = get_store();
     let wat = r#"
@@ -183,7 +183,7 @@ RuntimeError: unreachable
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
+#[cfg_attr(feature = "test-singlepass", ignore)]
 fn trap_display_multi_module() -> Result<()> {
     let store = get_store();
     let wat = r#"
@@ -388,7 +388,7 @@ fn mismatched_arguments() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
+#[cfg_attr(feature = "test-singlepass", ignore)]
 fn call_signature_mismatch() -> Result<()> {
     let store = get_store();
     let binary = r#"
@@ -419,7 +419,7 @@ RuntimeError: indirect call type mismatch
 }
 
 #[ignore]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
+#[cfg_attr(feature = "test-singlepass", ignore)]
 fn start_trap_pretty() -> Result<()> {
     let store = get_store();
     let wat = r#"
