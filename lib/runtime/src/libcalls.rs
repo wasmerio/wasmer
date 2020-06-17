@@ -36,7 +36,6 @@
 //!   ```
 
 use crate::probestack::PROBESTACK;
-use crate::table::Table;
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
@@ -217,7 +216,7 @@ pub unsafe extern "C" fn wasmer_table_copy(
         let instance = (&*vmctx).instance();
         let dst_table = instance.get_table(dst_table_index);
         let src_table = instance.get_table(src_table_index);
-        Table::copy(dst_table, src_table, dst, src, len)
+        dst_table.copy(src_table, dst, src, len)
     };
     if let Err(trap) = result {
         raise_lib_trap(trap);

@@ -166,7 +166,7 @@ impl VMOffsets {
     ///
     /// [`VMTableImport`]: crate::vmcontext::VMTableImport
     pub const fn size_of_vmtable_import(&self) -> u8 {
-        2 * self.pointer_size
+        3 * self.pointer_size
     }
 }
 
