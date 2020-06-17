@@ -137,7 +137,6 @@ pub struct Compilation {
     /// ```
     ///
     /// Note: Dynamic function trampolines are only compiled for imported function types.
-
     dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
 
     /// Section ids corresponding to the Dwarf debug info
