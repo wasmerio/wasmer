@@ -185,12 +185,4 @@ impl Memory for LinearMemory {
             current_length: mmap.size.bytes().0,
         }
     }
-
-    /// Get the host memory as mutable pointer
-    ///
-    /// This function is used in the `wasmer_runtime::Instance` to retrieve
-    /// the host memory pointer and interact with the host memory directly.
-    fn as_mut_ptr(&self) -> *mut u8 {
-        self as *const Self as *mut u8
-    }
 }

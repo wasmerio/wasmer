@@ -61,7 +61,7 @@ pub struct MemoryPlan {
     pub offset_guard_size: u64,
 }
 
-/// Trait for Wasm Memory; TODO: doc this
+/// Trait for implementing Wasm Memory used by Wasmer.
 pub trait Memory: fmt::Debug {
     /// Returns the memory plan for this memory.
     fn plan(&self) -> &MemoryPlan;
@@ -69,21 +69,9 @@ pub trait Memory: fmt::Debug {
     /// Returns the number of allocated wasm pages.
     fn size(&self) -> Pages;
 
-    /// Grow the memory by the given number of pages.
-    fn grow_n_pages(&self, n: u32) -> Result<Pages, MemoryError> {
-        self.grow(Pages(n))
-    }
-
     /// Grow memory by the specified amount of wasm pages.
     fn grow(&self, delta: Pages) -> Result<Pages, MemoryError>;
 
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> VMMemoryDefinition;
-
-    /// Get the host memory as mutable pointer
-    ///
-    /// This function is used in the `wasmer_runtime::Instance` to retrieve
-    /// the host memory pointer and interact with the host memory directly.
-    // TODO: fix this
-    fn as_mut_ptr(&self) -> *mut u8; //Self;
 }
