@@ -134,6 +134,8 @@ impl Compiler for CraneliftCompiler {
                     input.module_offset,
                     &mut context.func,
                     &mut func_env,
+                    *i,
+                    &self.config,
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();

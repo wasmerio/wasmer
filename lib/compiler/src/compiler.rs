@@ -4,7 +4,9 @@
 use crate::error::CompileError;
 use crate::function::Compilation;
 use crate::lib::std::boxed::Box;
+use crate::lib::std::sync::Arc;
 use crate::target::Target;
+use crate::translator::FunctionMiddlewareGenerator;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasm_common::entity::PrimaryMap;
@@ -34,6 +36,9 @@ pub trait CompilerConfig {
 
     /// Gets the custom compiler config
     fn compiler(&self) -> Box<dyn Compiler + Send>;
+
+    /// Pushes a middleware onto the back of the middleware chain.
+    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>);
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.

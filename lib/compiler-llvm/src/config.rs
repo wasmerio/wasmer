@@ -8,7 +8,9 @@ use itertools::Itertools;
 use std::sync::Arc;
 use target_lexicon::Architecture;
 use wasm_common::{FunctionType, LocalFunctionIndex};
-use wasmer_compiler::{Compiler, CompilerConfig, Features, Target, Triple};
+use wasmer_compiler::{
+    Compiler, CompilerConfig, Features, FunctionMiddlewareGenerator, Target, Triple,
+};
 
 /// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
@@ -61,6 +63,9 @@ pub struct LLVMConfig {
     /// phases in LLVM.
     pub callbacks: Option<Arc<dyn LLVMCallbacks>>,
 
+    /// The middleware chain.
+    pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
+
     features: Features,
     target: Target,
 }
@@ -77,6 +82,7 @@ impl LLVMConfig {
             features,
             target,
             callbacks: None,
+            middlewares: vec![],
         }
     }
     fn reloc_mode(&self) -> RelocMode {
@@ -186,6 +192,11 @@ impl CompilerConfig for LLVMConfig {
     /// Transform it into the compiler.
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(LLVMCompiler::new(&self))
+    }
+
+    /// Pushes a middleware onto the back of the middleware chain.
+    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
+        self.middlewares.push(middleware);
     }
 }
 

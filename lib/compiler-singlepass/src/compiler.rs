@@ -8,13 +8,16 @@ use crate::codegen_x64::{
 };
 use crate::config::SinglepassConfig;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
-use wasmer_compiler::wasmparser::{BinaryReader, BinaryReaderError};
+use wasmer_compiler::wasmparser::BinaryReaderError;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
-use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
+use wasmer_compiler::{
+    CompilerConfig, GenerateMiddlewareChain, MiddlewareBinaryReader, ModuleTranslationState, Target,
+};
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::TrapCode;
@@ -77,7 +80,10 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map(|(i, input)| {
-                let mut reader = BinaryReader::new_with_offset(input.data, input.module_offset);
+                let middleware_chain = self.config.middlewares.generate_middleware_chain(*i);
+                let mut reader =
+                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                reader.set_middleware_chain(middleware_chain);
 
                 // This local list excludes arguments.
                 let mut locals = vec![];
