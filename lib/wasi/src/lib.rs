@@ -113,6 +113,10 @@ impl Drop for WasiMemory {
     fn drop(&mut self) {
         if self.initialized.load(Ordering::Acquire) {
             unsafe {
+                // We want to get the internal value in memory, so we need to consume
+                // the `UnsafeCell` and assume the `MapbeInit` is initialized, but because
+                // we only have a `&mut self` we can't do this directly, so we swap the data
+                // out so we can drop it (via `assume_init`).
                 let mut maybe_uninit = UnsafeCell::new(MaybeUninit::zeroed());
                 std::mem::swap(&mut self.memory, &mut maybe_uninit);
                 maybe_uninit.into_inner().assume_init();
