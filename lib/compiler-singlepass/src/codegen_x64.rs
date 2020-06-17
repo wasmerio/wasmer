@@ -8256,7 +8256,7 @@ fn sort_call_movs(movs: &mut [(Location, GPR)]) {
 }
 
 // Standard entry trampoline.
-pub fn gen_std_trampoline(sig: FunctionType) -> FunctionBody {
+pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
     let mut a = Assembler::new().unwrap();
 
     // Calculate stack offset.
