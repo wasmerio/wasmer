@@ -136,14 +136,14 @@ pub enum VMFunctionKind {
 
 /// The fields compiled code needs to access to utilize a WebAssembly table
 /// imported from another instance.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMTableImport {
     /// A pointer to the imported table description.
     pub definition: *mut VMTableDefinition,
 
     /// A pointer to the `Table` that owns the table description.
-    pub from: *mut Table,
+    pub from: Arc<dyn Table>,
 }
 
 #[cfg(test)]

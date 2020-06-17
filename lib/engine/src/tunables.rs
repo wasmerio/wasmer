@@ -21,7 +21,7 @@ pub trait Tunables {
     fn create_memory(&self, memory_type: MemoryPlan) -> Result<Arc<dyn Memory>, MemoryError>;
 
     /// Create a memory given a memory type
-    fn create_table(&self, table_type: TablePlan) -> Result<Table, String>;
+    fn create_table(&self, table_type: TablePlan) -> Result<Arc<dyn Table>, String>;
 
     /// Allocate memory for just the memories of the current module.
     fn create_memories(
@@ -47,7 +47,7 @@ pub trait Tunables {
         &self,
         module: &ModuleInfo,
         table_plans: &PrimaryMap<TableIndex, TablePlan>,
-    ) -> Result<PrimaryMap<LocalTableIndex, Table>, LinkError> {
+    ) -> Result<PrimaryMap<LocalTableIndex, Arc<dyn Table>>, LinkError> {
         let num_imports = module.num_imported_tables;
         let mut tables: PrimaryMap<LocalTableIndex, _> =
             PrimaryMap::with_capacity(module.tables.len() - num_imports);

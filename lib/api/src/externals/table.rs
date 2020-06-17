@@ -20,7 +20,7 @@ pub struct Table {
 }
 
 fn set_table_item(
-    table: &RuntimeTable,
+    table: &dyn RuntimeTable,
     item_index: u32,
     item: VMCallerCheckedAnyfunc,
 ) -> Result<(), RuntimeError> {
@@ -41,21 +41,21 @@ impl Table {
 
         let definition = table.vmtable();
         for i in 0..definition.current_elements {
-            set_table_item(&table, i, item.clone())?;
+            set_table_item(table.as_ref(), i, item.clone())?;
         }
 
         Ok(Table {
             store: store.clone(),
             owned_by_store: true,
             exported: ExportTable {
-                from: Box::leak(Box::new(table)),
+                from: table,
                 definition: Box::leak(Box::new(definition)),
             },
         })
     }
 
-    fn table(&self) -> &RuntimeTable {
-        unsafe { &*self.exported.from }
+    fn table(&self) -> &dyn RuntimeTable {
+        &*self.exported.from
     }
 
     /// Gets the underlying [`TableType`].

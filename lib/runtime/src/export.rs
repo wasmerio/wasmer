@@ -51,18 +51,19 @@ pub struct ExportTable {
     /// The address of the table descriptor.
     pub definition: *mut VMTableDefinition,
     /// Pointer to the containing `Table`.
-    pub from: *mut Table,
+    pub from: Arc<dyn Table>,
 }
 
 impl ExportTable {
     /// Get the plan for this exported memory
     pub fn plan(&self) -> &TablePlan {
-        unsafe { self.from.as_ref().unwrap() }.plan()
+        self.from.plan()
     }
 
     /// Returns whether or not the two `ExportTable`s refer to the same Memory.
     pub fn same(&self, other: &Self) -> bool {
-        self.definition == other.definition && self.from == other.from
+        // TODO: comparing
+        self.definition == other.definition //&& self.from == other.from
     }
 }
 

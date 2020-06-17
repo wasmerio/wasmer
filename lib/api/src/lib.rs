@@ -12,6 +12,7 @@ mod native;
 mod ordered_resolver;
 mod ptr;
 mod store;
+mod table;
 mod tunables;
 mod types;
 mod utils;
