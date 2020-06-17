@@ -1,9 +1,8 @@
 //! The middleware parses the function binary bytecodes and transform them
 //! with the chosen functions.
 
-use crate::error::CompileError;
 use smallvec::SmallVec;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::Deref;
 use wasm_common::LocalFunctionIndex;
