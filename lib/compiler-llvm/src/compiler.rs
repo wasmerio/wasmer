@@ -4,10 +4,10 @@ use crate::translator::FuncTranslator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::Features;
-use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
+use wasm_common::{LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::{
-    Compilation, CompileError, Compiler, CompilerConfig, FunctionBody, FunctionBodyData,
-    ModuleTranslationState, RelocationTarget, SectionIndex, Target,
+    Compilation, CompileError, Compiler, CompilerConfig, FunctionBodyData, ModuleTranslationState,
+    RelocationTarget, SectionIndex, Target,
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
@@ -112,32 +112,35 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        Ok(Compilation::new(functions, module_custom_sections, None))
-    }
-
-    fn compile_function_call_trampolines(
-        &self,
-        signatures: &[FunctionType],
-    ) -> Result<Vec<FunctionBody>, CompileError> {
-        signatures
+        let function_call_trampolines = module
+            .signatures
+            .values()
+            .collect::<Vec<_>>()
             .par_iter()
             .map_init(FuncTrampoline::new, |func_trampoline, sig| {
                 func_trampoline.trampoline(sig, self.config())
             })
-            .collect::<Result<Vec<_>, CompileError>>()
-    }
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<Result<PrimaryMap<_, _>, CompileError>>()?;
 
-    fn compile_dynamic_function_trampolines(
-        &self,
-        signatures: &[FunctionType],
-    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
-        Ok(signatures
+        let dynamic_function_trampolines = module
+            .imported_function_types()
+            .collect::<Vec<_>>()
             .par_iter()
             .map_init(FuncTrampoline::new, |func_trampoline, func_type| {
                 func_trampoline.dynamic_trampoline(&func_type, self.config())
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
+            .collect::<PrimaryMap<_, _>>();
+
+        Ok(Compilation::new(
+            functions,
+            module_custom_sections,
+            function_call_trampolines,
+            dynamic_function_trampolines,
+            None,
+        ))
     }
 }

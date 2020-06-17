@@ -21,8 +21,7 @@ use gimli::write::{Address, EhFrame, FrameTable};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    Features, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, SignatureIndex,
-    TableIndex,
+    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex,
 };
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, CompilerConfig, ModuleTranslationState, Target};
@@ -228,36 +227,39 @@ impl Compiler for CraneliftCompiler {
         #[cfg(not(feature = "unwind"))]
         let (custom_sections, dwarf) = (PrimaryMap::new(), None);
 
-        Ok(Compilation::new(functions, custom_sections, dwarf))
-    }
-
-    fn compile_function_call_trampolines(
-        &self,
-        signatures: &[FunctionType],
-    ) -> Result<Vec<FunctionBody>, CompileError> {
-        signatures
+        // function call trampolines (only for local functions, by signature)
+        let function_call_trampolines = module
+            .signatures
+            .values()
+            .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, sig| {
                 make_trampoline_function_call(&*self.isa, &mut cx, sig)
             })
-            .collect::<Result<Vec<_>, CompileError>>()
-    }
+            .collect::<Result<Vec<FunctionBody>, CompileError>>()?
+            .into_iter()
+            .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
 
-    fn compile_dynamic_function_trampolines(
-        &self,
-        signatures: &[FunctionType],
-    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
         use wasmer_runtime::VMOffsets;
-        let isa = self.isa();
-        let frontend_config = isa.frontend_config();
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
-        Ok(signatures
+        // dynamic function trampolines (only for imported functions)
+        let dynamic_function_trampolines = module
+            .imported_function_types()
+            .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, func_type| {
                 make_trampoline_dynamic_function(&*self.isa, &offsets, &mut cx, &func_type)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
+            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
+
+        Ok(Compilation::new(
+            functions,
+            custom_sections,
+            function_call_trampolines,
+            dynamic_function_trampolines,
+            dwarf,
+        ))
     }
 }

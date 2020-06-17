@@ -1,3 +1,7 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
+use cranelift_codegen::machinst::buffer::MachSrcLoc;
 use cranelift_codegen::{isa, Context};
 use wasmer_compiler::{FunctionAddressMap, FunctionBodyData, InstructionAddressMap, SourceLoc};
 
@@ -9,19 +13,31 @@ pub fn get_function_address_map<'data>(
 ) -> FunctionAddressMap {
     let mut instructions = Vec::new();
 
-    let func = &context.func;
-    let mut blocks = func.layout.blocks().collect::<Vec<_>>();
-    blocks.sort_by_key(|block| func.offsets[*block]); // Ensure inst offsets always increase
-
-    let encinfo = isa.encoding_info();
-    for block in blocks {
-        for (offset, inst, size) in func.inst_offsets(block, &encinfo) {
-            let srcloc = func.srclocs[inst];
+    if let Some(ref mcr) = &context.mach_compile_result {
+        // New-style backend: we have a `MachCompileResult` that will give us `MachSrcLoc` mapping
+        // tuples.
+        for &MachSrcLoc { start, end, loc } in mcr.buffer.get_srclocs_sorted() {
             instructions.push(InstructionAddressMap {
-                srcloc: SourceLoc::new(srcloc.bits()),
-                code_offset: offset as usize,
-                code_len: size as usize,
+                srcloc: SourceLoc::new(loc.bits()),
+                code_offset: start as usize,
+                code_len: (end - start) as usize,
             });
+        }
+    } else {
+        let func = &context.func;
+        let mut blocks = func.layout.blocks().collect::<Vec<_>>();
+        blocks.sort_by_key(|block| func.offsets[*block]); // Ensure inst offsets always increase
+
+        let encinfo = isa.encoding_info();
+        for block in blocks {
+            for (offset, inst, size) in func.inst_offsets(block, &encinfo) {
+                let srcloc = func.srclocs[inst];
+                instructions.push(InstructionAddressMap {
+                    srcloc: SourceLoc::new(srcloc.bits()),
+                    code_offset: offset as usize,
+                    code_len: size as usize,
+                });
+            }
         }
     }
 

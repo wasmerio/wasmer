@@ -16,7 +16,7 @@ use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Re
 use serde::{Deserialize, Serialize};
 
 use wasm_common::entity::PrimaryMap;
-use wasm_common::LocalFunctionIndex;
+use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
 /// The frame info for a Compiled function.
 ///
@@ -101,10 +101,44 @@ impl Dwarf {
 pub struct Compilation {
     /// Compiled code for the function bodies.
     functions: Functions,
+
     /// Custom sections for the module.
     /// It will hold the data, for example, for constants used in a
     /// function, global variables, rodata_64, hot/cold function partitioning, ...
     custom_sections: CustomSections,
+
+    /// Trampolines to call a function defined locally in the wasm via a
+    /// provided `Vec` of values.
+    ///
+    /// This allows us to call easily Wasm functions, such as:
+    ///
+    /// ```ignore
+    /// let func = instance.exports.get_function("my_func");
+    /// func.call(&[Value::I32(1)]);
+    /// ```
+    function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
+
+    /// Trampolines to call a dynamic function defined in
+    /// a host, from a Wasm module.
+    ///
+    /// This allows us to create dynamic Wasm functions, such as:
+    ///
+    /// ```ignore
+    /// fn my_func(values: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+    ///     // do something
+    /// }
+    ///
+    /// let my_func_type = FunctionType::new(vec![Type::I32], vec![Type::I32]);
+    /// let imports = imports!{
+    ///     "namespace" => {
+    ///         "my_func" => Function::new_dynamic(&store, my_func_type, my_func),
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Note: Dynamic function trampolines are only compiled for imported function types.
+    dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
+
     /// Section ids corresponding to the Dwarf debug info
     debug: Option<Dwarf>,
 }
@@ -114,11 +148,15 @@ impl Compilation {
     pub fn new(
         functions: Functions,
         custom_sections: CustomSections,
+        function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
+        dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
         debug: Option<Dwarf>,
     ) -> Self {
         Self {
             functions,
             custom_sections,
+            function_call_trampolines,
+            dynamic_function_trampolines,
             debug,
         }
     }
@@ -168,6 +206,16 @@ impl Compilation {
             .iter()
             .map(|(_, func)| func.frame_info.clone())
             .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+    }
+
+    /// Gets function call trampolines.
+    pub fn get_function_call_trampolines(&self) -> PrimaryMap<SignatureIndex, FunctionBody> {
+        self.function_call_trampolines.clone()
+    }
+
+    /// Gets function call trampolines.
+    pub fn get_dynamic_function_trampolines(&self) -> PrimaryMap<FunctionIndex, FunctionBody> {
+        self.dynamic_function_trampolines.clone()
     }
 
     /// Gets custom section data.

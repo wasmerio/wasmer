@@ -5,6 +5,7 @@ use crate::types::Val;
 use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
+use std::cell::RefCell;
 use std::cmp::max;
 use wasm_common::{HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use wasmer_runtime::{
@@ -55,7 +56,7 @@ impl Function {
         F: HostFunction<Args, Rets, WithoutEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Sized,
+        Env: Sized + 'static,
     {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
@@ -102,13 +103,13 @@ impl Function {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: &mut Env, func: F) -> Self
+    pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
         F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
-        Env: Sized,
+        Env: Sized + 'static,
     {
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
-            env,
+            env: RefCell::new(env),
             func: Box::new(func),
             function_type: ty.clone(),
         });
@@ -135,12 +136,12 @@ impl Function {
     /// * `store` - a global cache to store information in.
     /// * `env` - the function environment.
     /// * `func` - the function.
-    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: &mut Env, func: F) -> Self
+    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: Env, func: F) -> Self
     where
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Sized,
+        Env: Sized + 'static,
     {
         let func: wasm_common::Func<Args, Rets> = wasm_common::Func::new(func);
         let address = func.address() as *const VMFunctionBody;
@@ -149,7 +150,8 @@ impl Function {
         // Wasm-defined functions have a `VMContext`.
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
-        let vmctx = env as *mut _ as *mut VMContext;
+        let box_env = Box::new(env);
+        let vmctx = Box::into_raw(box_env) as *mut _ as *mut VMContext;
         let signature = func.ty();
         Self {
             store: store.clone(),
@@ -364,20 +366,22 @@ impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
 
 pub(crate) struct VMDynamicFunctionWithEnv<Env>
 where
-    Env: Sized,
+    Env: Sized + 'static,
 {
+    function_type: FunctionType,
     #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
-    env: *mut Env,
-    function_type: FunctionType,
+    env: RefCell<Env>,
 }
 
 impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
 where
-    Env: Sized,
+    Env: Sized + 'static,
 {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
-        unsafe { (*self.func)(&mut *self.env, &args) }
+        // TODO: the `&mut *self.env.as_ptr()` is likely invoking some "mild"
+        //      undefined behavior due to how it's used in the static fn call
+        unsafe { (*self.func)(&mut *self.env.as_ptr(), &args) }
     }
     fn function_type(&self) -> &FunctionType {
         &self.function_type

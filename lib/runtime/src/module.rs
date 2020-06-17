@@ -321,6 +321,14 @@ impl ModuleInfo {
             None => "<module>".to_string(),
         }
     }
+
+    /// Get the imported function types of the module.
+    pub fn imported_function_types<'a>(&'a self) -> impl Iterator<Item = FunctionType> + 'a {
+        self.functions
+            .values()
+            .take(self.num_imported_funcs)
+            .map(move |sig_index| self.signatures[*sig_index].clone())
+    }
 }
 
 impl fmt::Display for ModuleInfo {
