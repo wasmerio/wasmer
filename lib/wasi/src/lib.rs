@@ -28,8 +28,8 @@ pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 use thiserror::Error;
 use wasmer::{imports, Function, ImportObject, Memory, Module, Store};
 
+use std::cell::UnsafeCell;
 use std::mem::MaybeUninit;
-use std::ptr::NonNull;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -51,23 +51,30 @@ pub struct WasiEnv {
     memory: Arc<WasiMemory>,
 }
 
+/// Wrapper type around `Memory` used to delay initialization of the memory.
+///
+/// The `initialized` field is used to indicate if it's safe to read `memory` as `Memory`.
+///
+/// The `mutate_lock` is used to prevent access from multiple threads during initialization.
 struct WasiMemory {
     initialized: AtomicBool,
-    memory: NonNull<MaybeUninit<Memory>>,
+    memory: UnsafeCell<MaybeUninit<Memory>>,
     mutate_lock: Mutex<()>,
 }
 
 impl WasiMemory {
     fn new() -> Self {
-        let boxed_memory = Box::new(MaybeUninit::zeroed());
-        let memory = unsafe { NonNull::new_unchecked(Box::into_raw(boxed_memory)) };
         Self {
             initialized: AtomicBool::new(false),
-            memory,
+            memory: UnsafeCell::new(MaybeUninit::zeroed()),
             mutate_lock: Mutex::new(()),
         }
     }
 
+    /// Initialize the memory, making it safe to read from.
+    ///
+    /// Returns whether or not the set was successful. If the set failed then
+    /// the memory has already been initialized.
     fn set_memory(&self, memory: Memory) -> bool {
         // synchronize it
         let _guard = self.mutate_lock.lock();
@@ -76,8 +83,7 @@ impl WasiMemory {
         }
 
         unsafe {
-            let ptr = self.memory.as_ptr();
-            // maybe some UB here with getting &mut indirectly from a `&self`?
+            let ptr = self.memory.get();
             let mem_inner: &mut MaybeUninit<Memory> = &mut *ptr;
             mem_inner.as_mut_ptr().write(memory);
         }
@@ -86,14 +92,16 @@ impl WasiMemory {
         true
     }
 
+    /// Returns `None` if the memory has not been initialized yet.
+    /// Otherwise returns the memory that was used to initialize it.
     fn get_memory(&self) -> Option<&Memory> {
         // Based on normal usage, `Relaxed` is fine...
         // TODO: investigate if it's possible to use the API in a way where `Relaxed`
         //       is not fine
         if self.initialized.load(Ordering::Relaxed) {
             unsafe {
-                let maybe_mem = self.memory.as_ref();
-                Some(&*maybe_mem.as_ptr())
+                let maybe_mem = self.memory.get();
+                Some(&*(*maybe_mem).as_ptr())
             }
         } else {
             None
@@ -105,8 +113,9 @@ impl Drop for WasiMemory {
     fn drop(&mut self) {
         if self.initialized.load(Ordering::Acquire) {
             unsafe {
-                let maybe_uninit = Box::from_raw(self.memory.as_ptr());
-                (*maybe_uninit).assume_init();
+                let mut maybe_uninit = UnsafeCell::new(MaybeUninit::zeroed());
+                std::mem::swap(&mut self.memory, &mut maybe_uninit);
+                maybe_uninit.into_inner().assume_init();
             }
         }
     }
