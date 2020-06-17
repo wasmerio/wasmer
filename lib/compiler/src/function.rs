@@ -123,8 +123,6 @@ pub struct Compilation {
     ///
     /// This allows us to create dynamic Wasm functions, such as:
     ///
-    /// Note: Dynamic function trampolines are only compiled for imported function types.
-    ///
     /// ```ignore
     /// fn my_func(values: &[Val]) -> Result<Vec<Val>, RuntimeError> {
     ///     // do something
@@ -137,6 +135,9 @@ pub struct Compilation {
     ///     }
     /// }
     /// ```
+    ///
+    /// Note: Dynamic function trampolines are only compiled for imported function types.
+
     dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
 
     /// Section ids corresponding to the Dwarf debug info

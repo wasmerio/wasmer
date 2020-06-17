@@ -322,7 +322,7 @@ impl ModuleInfo {
         }
     }
 
-    /// Get the imported function types of the module
+    /// Get the imported function types of the module.
     pub fn imported_function_types<'a>(&'a self) -> impl Iterator<Item = FunctionType> + 'a {
         self.functions
             .values()

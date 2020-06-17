@@ -225,7 +225,7 @@ impl Compiler for CraneliftCompiler {
         #[cfg(not(feature = "unwind"))]
         let (custom_sections, dwarf) = (PrimaryMap::new(), None);
 
-        // Function call trampolines (only for local functions, by signature)
+        // function call trampolines (only for local functions, by signature)
         let function_call_trampolines = module
             .signatures
             .values()
@@ -240,7 +240,7 @@ impl Compiler for CraneliftCompiler {
 
         use wasmer_runtime::VMOffsets;
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
-        // Dynamic function trampolines (only for imported functions)
+        // dynamic function trampolines (only for imported functions)
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()
