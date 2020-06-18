@@ -97,7 +97,7 @@ impl FuncTrampoline {
         let CompiledFunction {
             compiled_function,
             custom_sections,
-            eh_frame_section_indices
+            eh_frame_section_indices,
         } = load_object_file(
             mem_buf_slice,
             FUNCTION_SECTION,
@@ -199,7 +199,7 @@ impl FuncTrampoline {
         let CompiledFunction {
             compiled_function,
             custom_sections,
-            eh_frame_section_indices
+            eh_frame_section_indices,
         } = load_object_file(
             mem_buf_slice,
             FUNCTION_SECTION,
