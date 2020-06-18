@@ -127,7 +127,7 @@ impl Exports {
     {
         self.get_function(name)?
             .native()
-            .ok_or(ExportError::IncompatibleType)
+            .map_err(|_| ExportError::IncompatibleType)
     }
 
     /// Get an export as an `Extern`.
