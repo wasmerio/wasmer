@@ -25,7 +25,7 @@ pub struct Tunables {
 
 impl Tunables {
     /// Get the `Tunables` for a specific Target
-    pub fn for_target(target: &Target) -> Box<dyn BaseTunables + Send + Sync> {
+    pub fn for_target(target: &Target) -> Self {
         let triple = target.triple();
         let pointer_width: PointerWidth = triple.pointer_width().unwrap();
         let (mut static_memory_bound, mut static_memory_offset_guard_size): (Pages, u64) =
@@ -52,11 +52,11 @@ impl Tunables {
             static_memory_offset_guard_size = min(static_memory_offset_guard_size, 0x10000);
         }
 
-        Box::new(Self {
+        Self {
             static_memory_bound,
             static_memory_offset_guard_size,
             dynamic_memory_offset_guard_size,
-        })
+        }
     }
 }
 
@@ -104,9 +104,3 @@ impl BaseTunables for Tunables {
         Ok(Arc::new(LinearTable::new(&plan)?))
     }
 }
-
-// impl Default for Tunables {
-//     fn default() -> Self {
-//         Self::for_target(&Target::default())
-//     }
-// }

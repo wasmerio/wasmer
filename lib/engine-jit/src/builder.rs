@@ -41,11 +41,14 @@ impl<'a> JIT<'a> {
     /// Set the tunables constructor function.
     ///
     /// It should receive a [`Target`] and return a
-    pub fn tunables<F>(mut self, tunables_fn: F) -> Self
+    pub fn tunables<F, T>(mut self, tunables_fn: F) -> Self
     where
-        F: Fn(&Target) -> Box<dyn Tunables + Send + Sync> + 'static,
+        F: Fn(&Target) -> T + 'static,
+        T: Tunables + Send + Sync + 'static
     {
-        self.tunables_fn = Some(Box::new(tunables_fn));
+        self.tunables_fn = Some(Box::new(move |target: &Target| {
+            Box::new(tunables_fn(target))
+        }));
         self
     }
 

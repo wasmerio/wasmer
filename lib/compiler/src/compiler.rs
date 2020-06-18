@@ -18,7 +18,7 @@ use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
 
 /// The compiler configuration options.
 pub trait CompilerConfig {
-    /// Should Position Independent Code (PIC) be enabled.
+    /// Enable Position Independent Code (PIC).
     ///
     /// This is required for shared object generation (Native Engine),
     /// but will make the JIT Engine to fail, since PIC is not yet

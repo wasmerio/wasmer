@@ -46,19 +46,14 @@ impl Default for Store {
         #[allow(unreachable_code)]
         fn get_config() -> impl CompilerConfig + Send + Sync {
             cfg_if::cfg_if! {
-                if #[cfg(any(
-                    all(feature = "default-llvm", any(feature = "default-cranelift", feature = "default-singlepass")),
-                    all(feature = "default-cranelift", feature = "default-singlepass")
-                ))] {
-                    compile_error!("Only one compiler can be the default")
-                } else if #[cfg(feature = "default-cranelift")] {
+                if #[cfg(feature = "default-cranelift")] {
                     wasmer_compiler_cranelift::Cranelift::default()
                 } else if #[cfg(feature = "default-llvm")] {
                     wasmer_compiler_llvm::LLVM::default()
                 } else if #[cfg(feature = "default-singlepass")] {
                     wasmer_compiler_singlepass::Singlepass::default()
                 } else {
-                    compile_error!("No compiler chosen")
+                    compile_error!("No default compiler chosen")
                 }
             }
         }
@@ -66,15 +61,11 @@ impl Default for Store {
         #[allow(unreachable_code)]
         fn get_engine(config: impl CompilerConfig + Send + Sync) -> impl Engine + Send + Sync {
             cfg_if::cfg_if! {
-                if #[cfg(all(
-                    feature = "default-jit", feature = "default-native"
-                ))] {
-                    compile_error!("Only one engine can be the default")
-                } else if #[cfg(feature = "default-jit")] {
+                if #[cfg(feature = "default-jit")] {
                     wasmer_engine_jit::JIT::new(&config)
                         .tunables(Tunables::for_target)
                         .engine()
-                } else if #[cfg(feature = "default-llvm")] {
+                } else if #[cfg(feature = "default-native")] {
                     wasmer_engine_native::Native::new(&config)
                         .tunables(Tunables::for_target)
                         .engine()
