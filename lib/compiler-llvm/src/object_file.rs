@@ -3,10 +3,9 @@ use std::convert::TryFrom;
 
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasmer_compiler::{
-    CompileError, CompiledFunctionFrameInfo, CustomSection,
-    CustomSectionProtection, CustomSections, FunctionAddressMap, FunctionBody,
-    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SectionBody, SectionIndex,
-    SourceLoc,
+    CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
+    CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
+    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc,
 };
 use wasmer_runtime::libcalls::LibCall;
 

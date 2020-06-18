@@ -98,7 +98,10 @@ impl Compiler for LLVMCompiler {
                             )
                         }
                     }
-                    if compiled_function.eh_frame_section_indices.contains(&section_index) {
+                    if compiled_function
+                        .eh_frame_section_indices
+                        .contains(&section_index)
+                    {
                         let offset = frame_section_bytes.len() as u32;
                         for mut reloc in &mut custom_section.relocations {
                             reloc.offset += offset;
