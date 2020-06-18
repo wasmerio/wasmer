@@ -300,22 +300,42 @@ impl Function {
         }
     }
 
-    pub fn native<'a, Args, Rets>(&self) -> Option<NativeFunc<'a, Args, Rets>>
+    /// Transform this WebAssembly function into a function with the
+    /// native ABI. See `NativeFunc` to learn more.
+    pub fn native<'a, Args, Rets>(&self) -> Result<NativeFunc<'a, Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
         // type check
-        if self.exported.signature.params() != Args::wasm_types() {
-            // todo: error param types don't match
-            return None;
-        }
-        if self.exported.signature.results() != Rets::wasm_types() {
-            // todo: error result types don't match
-            return None;
+        {
+            let expected = self.exported.signature.params();
+            let given = Args::wasm_types();
+
+            if expected != given {
+                return Err(RuntimeError::new(format!(
+                    "given types (`{:?}`) for the function arguments don't match the actual types (`{:?}`)",
+                    given,
+                    expected,
+                )));
+            }
         }
 
-        Some(NativeFunc::new(
+        {
+            let expected = self.exported.signature.results();
+            let given = Rets::wasm_types();
+
+            if expected != given {
+                // todo: error result types don't match
+                return Err(RuntimeError::new(format!(
+                    "given types (`{:?}`) for the function results don't match the actual types (`{:?}`)",
+                    given,
+                    expected,
+                )));
+            }
+        }
+
+        Ok(NativeFunc::new(
             self.store.clone(),
             self.exported.address,
             self.exported.vmctx,
