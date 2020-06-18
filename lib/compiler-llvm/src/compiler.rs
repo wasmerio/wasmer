@@ -9,7 +9,6 @@ use wasmer_compiler::{
     Dwarf, FunctionBodyData, ModuleTranslationState, RelocationTarget, SectionBody, SectionIndex,
     Target,
 };
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
 //use std::sync::{Arc, Mutex};
 
