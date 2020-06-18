@@ -476,7 +476,7 @@ macro_rules! impl_traits {
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
-                extern fn wrap<$( $x, )* Rets, Trap, FN>( _: usize, $($x: $x::Native, )* ) -> Result<Rets::CStruct, Trap::Error>
+                extern fn wrap<$( $x, )* Rets, Trap, FN>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
                 where
                     Rets: WasmTypeList,
                     Trap: TrapEarly<Rets>,
@@ -484,10 +484,12 @@ macro_rules! impl_traits {
                     FN: Fn( $( $x ),* ) -> Trap + 'static
                 {
                     let f: &FN = unsafe { &*(&() as *const () as *const FN) };
+                    let results = f( $( WasmExternType::from_native($x) ),* ).report();
 
-                    f( $( WasmExternType::from_native($x) ),* )
-                        .report()
-                        .map(|results| results.into_c_struct())
+                    match results {
+                        Ok(results) => return results.into_c_struct(),
+                        Err(error) => panic!(error),
+                    }
                 }
 
                 wrap::<$( $x, )* Rets, Trap, Self> as *const FunctionBody
@@ -505,7 +507,7 @@ macro_rules! impl_traits {
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
-                extern fn wrap<$( $x, )* Rets, Trap, T, FN>( ctx: &mut T, $($x: $x::Native, )* ) -> Result<Rets::CStruct, Trap::Error>
+                extern fn wrap<$( $x, )* Rets, Trap, T, FN>( ctx: &mut T, $($x: $x::Native, )* ) -> Rets::CStruct
                 where
                     Rets: WasmTypeList,
                     Trap: TrapEarly<Rets>,
@@ -514,10 +516,12 @@ macro_rules! impl_traits {
                     FN: Fn(&mut T, $( $x ),* ) -> Trap + 'static
                 {
                     let f: &FN = unsafe { &*(&() as *const () as *const FN) };
+                    let results = f(ctx, $( WasmExternType::from_native($x) ),* ).report();
 
-                    f(ctx, $( WasmExternType::from_native($x) ),* )
-                        .report()
-                        .map(|results| results.into_c_struct())
+                    match results {
+                        Ok(results) => return results.into_c_struct(),
+                        Err(error) => panic!(error),
+                    }
                 }
 
                 wrap::<$( $x, )* Rets, Trap, T, Self> as *const FunctionBody
