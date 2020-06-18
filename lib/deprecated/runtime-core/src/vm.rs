@@ -3,7 +3,6 @@ use std::{ffi::c_void, ptr};
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct Ctx {
-    pub x: usize,
     pub data: *mut c_void,
     pub data_finalizer: Option<fn(data: *mut c_void)>,
 }
@@ -11,7 +10,6 @@ pub struct Ctx {
 impl Ctx {
     pub(crate) fn new() -> Self {
         Self {
-            x: 0,
             data: ptr::null_mut(),
             data_finalizer: None,
         }

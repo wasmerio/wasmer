@@ -27,10 +27,7 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub(crate) fn new(
-        mut pre_instance: Box<PreInstance>,
-        new_instance: new::wasmer::Instance,
-    ) -> Self {
+    pub(crate) fn new(pre_instance: Box<PreInstance>, new_instance: new::wasmer::Instance) -> Self {
         Self {
             pre_instance,
             exports: new_instance.exports.clone(),
