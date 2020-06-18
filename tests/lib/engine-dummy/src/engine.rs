@@ -104,4 +104,8 @@ impl Engine for DummyEngine {
     fn id(&self) -> &EngineId {
         &self.engine_id
     }
+
+    fn cloned(&self) -> Arc<dyn Engine + Send + Sync> {
+        Arc::new(self.clone())
+    }
 }

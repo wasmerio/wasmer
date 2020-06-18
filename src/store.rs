@@ -274,7 +274,7 @@ impl StoreOptions {
                     }
                 }
                 if let Some(ref llvm_debug_dir) = self.llvm_debug_dir {
-                    config.callbacks = Some(Arc::new(Callbacks::new(llvm_debug_dir.clone())?));
+                    config.callbacks(Some(Arc::new(Callbacks::new(llvm_debug_dir.clone())?)));
                 }
                 Box::new(config)
             }
@@ -301,7 +301,7 @@ impl StoreOptions {
         let (compiler_config, compiler_type) = self.get_compiler_config()?;
         let tunables = Tunables::for_target(target);
         let (engine, engine_type) = self.get_engine_with_compiler(tunables, compiler_config)?;
-        let store = Store::new(engine);
+        let store = Store::new(&*engine);
         Ok((store, engine_type, compiler_type))
     }
 
@@ -309,18 +309,18 @@ impl StoreOptions {
         &self,
         tunables: Tunables,
         compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<(Arc<dyn Engine + Send + Sync>, EngineType)> {
+    ) -> Result<(Box<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
         let features = self.get_features()?;
-        let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
+        let engine: Box<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
-            EngineType::JIT => Arc::new(wasmer_engine_jit::JITEngine::new(
+            EngineType::JIT => Box::new(wasmer_engine_jit::JITEngine::new(
                 compiler_config,
                 tunables,
                 features,
             )),
             #[cfg(feature = "native")]
-            EngineType::Native => Arc::new(wasmer_engine_native::NativeEngine::new(
+            EngineType::Native => Box::new(wasmer_engine_native::NativeEngine::new(
                 compiler_config,
                 tunables,
                 features,
@@ -382,7 +382,7 @@ impl StoreOptions {
         // Get the tunables for the current host
         let tunables = Tunables::default();
         let (engine, engine_type) = self.get_engine_headless(tunables)?;
-        let store = Store::new(engine);
+        let store = Store::new(&engine);
         Ok((store, engine_type, CompilerType::Headless))
     }
 

@@ -30,25 +30,11 @@ pub enum OptLevel {
 /// [`Engine::new()`]
 #[derive(Clone)]
 pub struct CraneliftConfig {
-    /// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
-    pub enable_nan_canonicalization: bool,
-
-    /// Should the Cranelift verifier be enabled.
-    ///
-    /// The verifier assures that the generated Cranelift IR is valid.
-    pub enable_verifier: bool,
-
-    /// Should we enable simd support?
-    pub enable_simd: bool,
-
+    enable_nan_canonicalization: bool,
+    enable_verifier: bool,
+    enable_simd: bool,
     enable_pic: bool,
-
-    /// The optimization levels when optimizing the IR.
-    pub opt_level: OptLevel,
-
+    opt_level: OptLevel,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
 }
@@ -65,6 +51,35 @@ impl CraneliftConfig {
             enable_simd: false,
             middlewares: vec![],
         }
+    }
+
+    /// Should the Cranelift verifier be enabled.
+    ///
+    /// The verifier assures that the generated Cranelift IR is valid.
+    pub fn verify_ir(&mut self, enable: bool) -> &mut Self {
+        self.enable_verifier = enable;
+        self
+    }
+
+    /// Enable NaN canonicalization.
+    ///
+    /// NaN canonicalization is useful when trying to run WebAssembly
+    /// deterministically across different architectures.
+    pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
+        self.enable_nan_canonicalization = enable;
+        self
+    }
+
+    /// Enable SIMD support.
+    pub fn enable_simd(&mut self, enable: bool) -> &mut Self {
+        self.enable_simd = enable;
+        self
+    }
+
+    /// The optimization levels when optimizing the IR.
+    pub fn opt_level(&mut self, opt_level: OptLevel) -> &mut Self {
+        self.opt_level = opt_level;
+        self
     }
 
     /// Generates the ISA for the provided target

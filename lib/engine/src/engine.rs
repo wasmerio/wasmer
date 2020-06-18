@@ -60,6 +60,9 @@ pub trait Engine {
     /// comparing two trait objects unsafely relies on implementation details
     /// of trait representation.
     fn id(&self) -> &EngineId;
+
+    /// Clone the engine
+    fn cloned(&self) -> Arc<dyn Engine + Send + Sync>;
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]

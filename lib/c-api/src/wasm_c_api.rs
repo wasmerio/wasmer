@@ -299,7 +299,7 @@ pub unsafe extern "C" fn wasm_store_new(
 ) -> Option<NonNull<wasm_store_t>> {
     let wasm_engine_ptr = wasm_engine_ptr?;
     let wasm_engine = wasm_engine_ptr.as_ref();
-    let store = Store::new(wasm_engine.inner.clone());
+    let store = Store::new(&wasm_engine.inner);
     Some(NonNull::new_unchecked(
         Box::into_raw(Box::new(store)) as *mut wasm_store_t
     ))

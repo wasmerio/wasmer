@@ -7,11 +7,22 @@ use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, FunctionMiddlewareGe
 
 #[derive(Clone)]
 pub struct SinglepassConfig {
-    /// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
-    pub enable_nan_canonicalization: bool,
+    pub(crate) enable_nan_canonicalization: bool,
+    pub(crate) enable_stack_check: bool,
+    /// The middleware chain.
+    pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
+}
+
+impl SinglepassConfig {
+    /// Creates a new configuration object with the default configuration
+    /// specified.
+    pub fn new() -> Self {
+        Self {
+            enable_nan_canonicalization: true,
+            enable_stack_check: false,
+            middlewares: vec![],
+        }
+    }
 
     /// Enable stack check.
     ///
@@ -20,24 +31,18 @@ pub struct SinglepassConfig {
     ///
     /// Note that this doesn't guarantee deterministic execution across
     /// different platforms.
-    pub enable_stack_check: bool,
+    pub fn enable_stack_check(&mut self, enable: bool) -> &mut Self {
+        self.enable_stack_check = enable;
+        self
+    }
 
-    target: Target,
-
-    /// The middleware chain.
-    pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
-}
-
-impl SinglepassConfig {
-    /// Creates a new configuration object with the default configuration
-    /// specified.
-    pub fn new(target: Target) -> Self {
-        Self {
-            enable_nan_canonicalization: true,
-            enable_stack_check: false,
-            target,
-            middlewares: vec![],
-        }
+    /// Enable NaN canonicalization.
+    ///
+    /// NaN canonicalization is useful when trying to run WebAssembly
+    /// deterministically across different architectures.
+    pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
+        self.enable_nan_canonicalization = enable;
+        self
     }
 }
 
@@ -45,12 +50,6 @@ impl CompilerConfig for SinglepassConfig {
     fn enable_pic(&mut self) {
         // Do nothing, since singlepass already emits
         // PIC code.
-    }
-
-    /// Gets the target that we will use for compiling
-    /// the WebAssembly module
-    fn target(&self) -> &Target {
-        &self.target
     }
 
     /// Transform it into the compiler
@@ -66,6 +65,6 @@ impl CompilerConfig for SinglepassConfig {
 
 impl Default for SinglepassConfig {
     fn default() -> SinglepassConfig {
-        Self::new(Default::default(), Default::default())
+        Self::new()
     }
 }

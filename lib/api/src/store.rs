@@ -12,8 +12,13 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(engine: Arc<dyn Engine + Send + Sync>) -> Store {
-        Store { engine }
+    pub fn new<E>(engine: &E) -> Store
+    where
+        E: Engine + ?Sized,
+    {
+        Store {
+            engine: engine.cloned(),
+        }
     }
 
     pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
@@ -73,7 +78,7 @@ impl Default for Store {
 
         let config = get_config();
         let engine = get_engine(config);
-        Store::new(engine)
+        Store { engine }
     }
 }
 

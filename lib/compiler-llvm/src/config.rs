@@ -40,27 +40,11 @@ pub trait LLVMCallbacks: Send + Sync {
 
 #[derive(Clone)]
 pub struct LLVMConfig {
-    /// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
-    pub enable_nan_canonicalization: bool,
-
-    /// Should the LLVM IR verifier be enabled.
-    ///
-    /// The verifier assures that the generated LLVM IR is valid.
-    pub enable_verifier: bool,
-
-    /// The optimization levels when optimizing the IR.
-    pub opt_level: OptimizationLevel,
-
-    /// Whether to emit PIC.
-    pub is_pic: bool,
-
-    /// Callbacks that will triggered in the different compilation
-    /// phases in LLVM.
-    pub callbacks: Option<Arc<dyn LLVMCallbacks>>,
-
+    pub(crate) enable_nan_canonicalization: bool,
+    pub(crate) enable_verifier: bool,
+    pub(crate) opt_level: OptimizationLevel,
+    is_pic: bool,
+    pub(crate) callbacks: Option<Arc<dyn LLVMCallbacks>>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
 }
@@ -70,13 +54,43 @@ impl LLVMConfig {
     /// specified.
     pub fn new() -> Self {
         Self {
-            enable_nan_canonicalization: true,
+            enable_nan_canonicalization: false,
             enable_verifier: false,
             opt_level: OptimizationLevel::Aggressive,
             is_pic: false,
             callbacks: None,
             middlewares: vec![],
         }
+    }
+
+    /// Should the LLVM verifier be enabled.
+    ///
+    /// The verifier assures that the generated LLVM IR is valid.
+    pub fn verify_ir(&mut self, enable: bool) -> &mut Self {
+        self.enable_verifier = enable;
+        self
+    }
+
+    /// Enable NaN canonicalization.
+    ///
+    /// NaN canonicalization is useful when trying to run WebAssembly
+    /// deterministically across different architectures.
+    pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
+        self.enable_nan_canonicalization = enable;
+        self
+    }
+
+    /// The optimization levels when optimizing the IR.
+    pub fn opt_level(&mut self, opt_level: OptimizationLevel) -> &mut Self {
+        self.opt_level = opt_level;
+        self
+    }
+
+    /// Callbacks that will triggered in the different compilation
+    /// phases in LLVM.
+    pub fn callbacks(&mut self, callbacks: Option<Arc<dyn LLVMCallbacks>>) -> &mut Self {
+        self.callbacks = callbacks;
+        self
     }
 
     fn reloc_mode(&self) -> RelocMode {

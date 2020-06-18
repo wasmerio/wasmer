@@ -23,23 +23,23 @@ fn get_compiler_str() -> &'static str {
 }
 
 pub fn get_store() -> Store {
-    let features = Features::default();
+    let mut features = Features::default();
+    #[cfg(feature = "test-singlepass")]
+    features.multi_value(false);
     let try_nan_canonicalization = false;
     let compiler_config =
         get_compiler_config_from_str(get_compiler_str(), try_nan_canonicalization);
     let tunables = Tunables::default();
-    let store = Store::new(Arc::new(JITEngine::new(
-        compiler_config,
-        tunables,
-        features,
-    )));
+    let store = Store::new(&JITEngine::new(compiler_config, tunables, features));
     store
 }
 
 pub fn get_store_with_middlewares<I: Iterator<Item = Arc<dyn FunctionMiddlewareGenerator>>>(
     middlewares: I,
 ) -> Store {
-    let features = Features::default();
+    let mut features = Features::default();
+    #[cfg(feature = "test-singlepass")]
+    features.multi_value(false);
     let try_nan_canonicalization = false;
     let mut compiler_config =
         get_compiler_config_from_str(get_compiler_str(), try_nan_canonicalization);
@@ -47,16 +47,12 @@ pub fn get_store_with_middlewares<I: Iterator<Item = Arc<dyn FunctionMiddlewareG
         compiler_config.push_middleware(x);
     }
     let tunables = Tunables::default();
-    let store = Store::new(Arc::new(JITEngine::new(
-        compiler_config,
-        tunables,
-        features,
-    )));
+    let store = Store::new(&JITEngine::new(compiler_config, tunables, features));
     store
 }
 
 pub fn get_headless_store() -> Store {
     let tunables = Tunables::default();
-    let store = Store::new(Arc::new(JITEngine::headless(tunables)));
+    let store = Store::new(&JITEngine::headless(tunables));
     store
 }

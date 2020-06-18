@@ -175,7 +175,7 @@ impl Run {
             if wasmer_engine_native::NativeArtifact::is_deserializable(&contents) {
                 let tunables = Tunables::default();
                 let engine = wasmer_engine_native::NativeEngine::headless(tunables);
-                let store = Store::new(Arc::new(engine));
+                let store = Store::new(&engine);
                 let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
                 return Ok(module);
             }
@@ -185,7 +185,7 @@ impl Run {
             if wasmer_engine_jit::JITArtifact::is_deserializable(&contents) {
                 let tunables = Tunables::default();
                 let engine = wasmer_engine_jit::JITEngine::headless(tunables);
-                let store = Store::new(Arc::new(engine));
+                let store = Store::new(&engine);
                 let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
                 return Ok(module);
             }

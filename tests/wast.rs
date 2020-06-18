@@ -39,16 +39,14 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     if wast_path.contains("bulk-memory") {
         features.bulk_memory(true);
     }
+    #[cfg(feature = "test-singlepass")]
+    features.multi_value(false);
     let compiler_config = get_compiler_config_from_str(compiler, try_nan_canonicalization);
     let tunables = Tunables::default();
-    let store = Store::new(Arc::new(JITEngine::new(
-        compiler_config,
-        tunables,
-        features,
-    )));
+    let store = Store::new(&JITEngine::new(compiler_config, tunables, features));
     // let mut native = NativeEngine::new(compiler_config, tunables);
     // native.set_deterministic_prefixer(native_prefixer);
-    // let store = Store::new(Arc::new(native));
+    // let store = Store::new(&native);
     let mut wast = Wast::new_with_spectest(store);
     if compiler == "singlepass" {
         // We don't support multivalue yet in singlepass

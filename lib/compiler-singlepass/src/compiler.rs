@@ -19,8 +19,7 @@ use wasmer_compiler::{
     ModuleTranslationState, Target,
 };
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
-use wasmer_runtime::ModuleInfo;
-use wasmer_runtime::TrapCode;
+use wasmer_runtime::{ModuleInfo, TrapCode, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
@@ -43,26 +42,22 @@ impl SinglepassCompiler {
 }
 
 impl Compiler for SinglepassCompiler {
-    /// Gets the target associated to this Compiler.
-    fn target(&self) -> &Target {
-        self.config.target()
-    }
-
     /// Compile the module using Singlepass, producing a compilation result with
     /// associated relocations.
     fn compile_module(
         &self,
+        target: &Target,
         compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         if compile_info.features.multi_value {
-            return Err(CompileError::UnsupportedFeature("multivalue"));
+            return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
-        let vmoffsets = VMOffsets::new(8, module);
-        let memory_plans = compile_info.memory_plans;
-        let table_plans = compile_info.table_plans;
-        let module = compile_info.module;
+        let vmoffsets = VMOffsets::new(8, &compile_info.module);
+        let memory_plans = &compile_info.memory_plans;
+        let table_plans = &compile_info.table_plans;
+        let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
