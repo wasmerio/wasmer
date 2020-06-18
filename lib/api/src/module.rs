@@ -8,7 +8,7 @@ use thiserror::Error;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
-use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError, Tunables as _};
+use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError};
 use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, ModuleInfo};
 
 #[derive(Error, Debug)]

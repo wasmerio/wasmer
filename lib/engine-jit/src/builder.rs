@@ -1,6 +1,5 @@
 use crate::JITEngine;
-use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, Features, Target};
+use wasmer_compiler::{CompilerConfig, Features, Target};
 
 /// The JIT builder
 pub struct JIT<'a> {

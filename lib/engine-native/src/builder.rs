@@ -1,11 +1,9 @@
 use crate::NativeEngine;
-use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, Features, Target};
-use wasmer_engine::Tunables;
+use wasmer_compiler::{CompilerConfig, Features, Target};
 
 /// The Native builder
 pub struct Native<'a> {
-    compiler_config: Option<&'a CompilerConfig>,
+    compiler_config: Option<&'a dyn CompilerConfig>,
     target: Option<Target>,
     features: Option<Features>,
 }

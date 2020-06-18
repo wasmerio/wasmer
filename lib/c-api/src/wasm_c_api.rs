@@ -7,15 +7,13 @@ use std::ptr::{self, NonNull};
 use std::slice;
 use std::sync::Arc;
 
-#[cfg(feature = "engine")]
-use wasmer::Tunables;
 use wasmer::{
-    Engine, ExportType, Extern, ExternType, Features, Function, FunctionType, Global, GlobalType,
-    Instance, Memory, MemoryType, Module, Mutability, OrderedResolver, Pages, RuntimeError, Store,
-    Table, TableType, Val, ValType,
+    Engine, ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, Instance,
+    Memory, MemoryType, Module, Mutability, OrderedResolver, Pages, RuntimeError, Store, Table,
+    TableType, Val, ValType,
 };
 #[cfg(feature = "jit")]
-use wasmer_engine_jit::JITEngine;
+use wasmer_engine_jit::JIT;
 
 use crate::error::update_last_error;
 
@@ -48,7 +46,7 @@ pub extern "C" fn wasm_config_new() -> *mut wasm_config_t {
 
 #[repr(C)]
 pub struct wasm_engine_t {
-    pub(crate) inner: Box<dyn Engine + Send + Sync>,
+    pub(crate) inner: Arc<dyn Engine + Send + Sync>,
 }
 
 cfg_if! {
@@ -72,9 +70,7 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let tunables = Tunables::default();
-            let features = Features::default();
-            let engine: Box<dyn Engine + Send + Sync> = Box::new(JITEngine::new(compiler_config, tunables, features));
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::new(&*compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }
@@ -82,8 +78,7 @@ cfg_if! {
         // Headless JIT
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let tunables = Tunables::default();
-            let engine: Box<dyn Engine + Send + Sync> = Arc::new(JITEngine::headless(tunables));
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }

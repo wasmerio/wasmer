@@ -4,7 +4,7 @@ use crate::{MemoryType, Pages, TableType};
 use more_asserts::assert_ge;
 use std::cmp::min;
 use std::sync::Arc;
-use target_lexicon::{OperatingSystem, PointerWidth, Triple, HOST};
+use target_lexicon::{OperatingSystem, PointerWidth};
 use wasmer_compiler::Target;
 use wasmer_engine::Tunables as BaseTunables;
 use wasmer_runtime::MemoryError;

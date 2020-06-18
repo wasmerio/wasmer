@@ -11,9 +11,7 @@ use crate::translator::FunctionMiddlewareGenerator;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{Features, LocalFunctionIndex, MemoryIndex, TableIndex};
-use wasmer_runtime::ModuleInfo;
-use wasmer_runtime::{MemoryPlan, TablePlan};
+use wasm_common::{Features, LocalFunctionIndex};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
 
 /// The compiler configuration options.

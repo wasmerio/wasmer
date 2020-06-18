@@ -6,9 +6,9 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 use wasm_common::{Features, FunctionType};
-use wasmer_compiler::{CompileError, Target};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{Compiler, CompilerConfig};
+use wasmer_compiler::Compiler;
+use wasmer_compiler::{CompileError, Target};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 

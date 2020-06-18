@@ -5,7 +5,6 @@ use wasm_common::{
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, TableIndex,
     TableType,
 };
-use wasmer_compiler::Target;
 use wasmer_runtime::MemoryError;
 use wasmer_runtime::{Memory, ModuleInfo, Table, VMGlobalDefinition};
 use wasmer_runtime::{MemoryPlan, TablePlan};

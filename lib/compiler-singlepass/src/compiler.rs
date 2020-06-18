@@ -46,7 +46,7 @@ impl Compiler for SinglepassCompiler {
     /// associated relocations.
     fn compile_module(
         &self,
-        target: &Target,
+        _target: &Target,
         compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,

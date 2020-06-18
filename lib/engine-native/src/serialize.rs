@@ -1,13 +1,7 @@
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::{
-    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
-    TableIndex,
-};
+use wasm_common::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 use wasmer_compiler::{CompileModuleInfo, SectionIndex};
-use wasmer_runtime::ModuleInfo;
-use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// Serializable struct that represents the compiled metadata.
 #[derive(Serialize, Deserialize, Debug)]

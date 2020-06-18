@@ -15,16 +15,14 @@ use crate::translator::{
 };
 use cranelift_codegen::ir;
 use cranelift_codegen::print_errors::pretty_error;
-use cranelift_codegen::{binemit, isa, Context};
+use cranelift_codegen::{binemit, Context};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::{
-    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex,
-};
+use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::CompileError;
-use wasmer_compiler::{CallingConvention, CompilerConfig, ModuleTranslationState, Target};
+use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
     Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
     CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody, FunctionBodyData, SectionIndex,

@@ -7,11 +7,11 @@ use std::sync::{Arc, Mutex};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::Features;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
+#[cfg(feature = "compiler")]
+use wasmer_compiler::Compiler;
 use wasmer_compiler::{
     CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
 };
-#[cfg(feature = "compiler")]
-use wasmer_compiler::{Compiler, CompilerConfig};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{
     ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,

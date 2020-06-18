@@ -5,7 +5,6 @@ use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, WasmHash};

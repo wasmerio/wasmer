@@ -1,17 +1,11 @@
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{
-    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
-    TableIndex,
-};
+use wasm_common::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 use wasmer_compiler::{
     CompileModuleInfo, CustomSection, Dwarf, FunctionBody, JumpTableOffsets, Relocation,
     SectionIndex,
 };
 use wasmer_engine::SerializableFunctionFrameInfo;
-use wasmer_runtime::ModuleInfo;
-use wasmer_runtime::{MemoryPlan, TablePlan};
 
 // /// The serializable function data
 // #[derive(Serialize, Deserialize)]
