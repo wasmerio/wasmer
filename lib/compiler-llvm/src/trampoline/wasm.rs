@@ -94,7 +94,11 @@ impl FuncTrampoline {
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
-        let CompiledFunction{compiled_function, custom_sections, eh_frame_section_indices} = load_object_file(
+        let CompiledFunction {
+            compiled_function,
+            custom_sections,
+            eh_frame_section_indices
+        } = load_object_file(
             mem_buf_slice,
             FUNCTION_SECTION,
             RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(0)),
@@ -192,7 +196,11 @@ impl FuncTrampoline {
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
-        let CompiledFunction{compiled_function, custom_sections, eh_frame_section_indices} = load_object_file(
+        let CompiledFunction {
+            compiled_function,
+            custom_sections,
+            eh_frame_section_indices
+        } = load_object_file(
             mem_buf_slice,
             FUNCTION_SECTION,
             RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(0)),
