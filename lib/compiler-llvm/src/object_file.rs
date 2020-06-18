@@ -155,7 +155,7 @@ where
             elf_section_to_target(index);
         }
     }
-    
+
     while let Some(section_index) = worklist.pop() {
         for reloc in reloc_sections
             .get(&section_index)
