@@ -1,8 +1,8 @@
 #![cfg(all(feature = "compiler", feature = "engine"))]
 
+use crate::utils::get_compiler;
 use std::path::Path;
 use std::sync::Arc;
-use test_utils::get_compiler_config_from_str;
 use wasmer::{Features, Store, Tunables};
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
@@ -29,7 +29,7 @@ fn native_prefixer(bytes: &[u8]) -> String {
     format!("{}", hash.to_hex())
 }
 
-fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
+pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     println!(
         "Running wast `{}` with the {} compiler",
         wast_path, compiler
@@ -41,9 +41,9 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     }
     #[cfg(feature = "test-singlepass")]
     features.multi_value(false);
-    let compiler_config = get_compiler_config_from_str(compiler, try_nan_canonicalization);
+    let compiler_config = get_compiler(true);
     let store = Store::new(
-        &JIT::new(&*compiler_config)
+        &JIT::new(&compiler_config)
             .tunables(Tunables::for_target)
             .features(features)
             .engine(),
