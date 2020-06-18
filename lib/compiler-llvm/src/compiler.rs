@@ -10,7 +10,6 @@ use wasmer_compiler::{
     SectionBody, CustomSectionProtection, Dwarf,
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
-//use gimli::read::UnwindSection;
 
 //use std::sync::{Arc, Mutex};
 
@@ -33,17 +32,6 @@ impl LLVMCompiler {
         &self.config
     }
 }
-
-/*
-fn cie_to_cie(read_cie: gimli::read::CommonInformationEntry) -> gimli::write::CommonInformationEntry {
-    
-}
-
-fn fde_to_fde(read_fde: gimli::read::FrameDescriptionEntry) -> gimli::write::FrameDescriptionEntry {
-    let mut write_fde = gimli::write::FrameDescriptionEntry::new(?, read_fde.len())
-    
-}
- */
 
 impl Compiler for LLVMCompiler {
     /// Compile the module using LLVM, producing a compilation result with
@@ -71,7 +59,6 @@ impl Compiler for LLVMCompiler {
                 .unwrap_or_else(|| format!("fn{}", func_index.index()));
         }
         let mut module_custom_sections = PrimaryMap::new();
-        //let mut frame_table = gimli::write::FrameTable::default();
         let mut frame_section_bytes = vec![];
         let mut frame_section_relocations = vec![];
         let functions = function_body_inputs
@@ -113,26 +100,6 @@ impl Compiler for LLVMCompiler {
                         }
                     }
                     if eh_frame_section_indices.contains(&section_index) {
-                        // TODO: pull endianness out of target
-                        /*
-                        let eh_frame = gimli::read::EhFrame::new(custom_section.bytes.as_slice(), gimli::NativeEndian);
-                        let base_addresses = gimli::read::BaseAddresses::default();
-                        let mut entries = eh_frame.entries(&base_addresses);
-                        let mut current_cie = None;
-                        while let Some(entry) = entries.next().unwrap() {
-                            match entry {
-                                gimli::CieOrFde::Cie(cie) => {
-                                    current_cie = Some(cie);
-                                    frame_table.add_cie(cie.into());
-                                },
-                                gimli::CieOrFde::Fde(partial_fde) => {
-                                    // TODO: unwrap safety
-                                    let fde = partial_fde.parse(current_cie.unwrap()).unwrap();
-                                    frame_table.add_fde(current_cie.unwrap().into(), fde.into());
-                                }
-                            };
-                        }
-                         */
                         let offset = frame_section_bytes.len() as u32;
                         for mut reloc in &mut custom_section.relocations {
                             reloc.offset += offset;
