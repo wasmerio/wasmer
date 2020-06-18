@@ -1,6 +1,8 @@
 use crate::{cache::Artifact, module::Module, new};
 use std::{convert::Infallible, error::Error};
 
+pub use new::wasmer::wat2wasm;
+
 pub fn compile(bytes: &[u8]) -> Result<Module, Box<dyn Error>> {
     compile_with(bytes, ())
 }

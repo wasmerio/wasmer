@@ -13,9 +13,6 @@ readme = "README.md"
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core/", version = "1.0.0-alpha.1" }
 
-[dev-dependencies]
-wabt = "0.9"
-
 [features]
 default = ["cranelift", "wasmer-runtime-core/default"]
 cranelift = ["wasmer-runtime-core/cranelift"]

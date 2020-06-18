@@ -32,7 +32,9 @@ pub use crate::instance::Instance;
 pub use crate::module::Module;
 pub use crate::new::wasmer_compiler::wasmparser;
 pub use crate::units::{Bytes, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
-pub use functional_api::{compile, compile_with, compile_with_config, load_cache_with, validate};
+pub use functional_api::{
+    compile, compile_with, compile_with_config, load_cache_with, validate, wat2wasm,
+};
 
 pub mod prelude {
     pub use crate::import::{namespace, ImportObject, Namespace};
