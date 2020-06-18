@@ -123,7 +123,7 @@ impl NativeArtifact {
         };
 
         let compiler = engine_inner.compiler()?;
-        let target = tunables.target();
+        let target = engine_inner.target();
 
         // Compile the Module
         let compilation = compiler.compile_module(

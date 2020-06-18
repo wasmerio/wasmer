@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use test_utils::get_compiler_config_from_str;
 use wasmer::{Features, FunctionMiddlewareGenerator, Store, Triple, Tunables};
-use wasmer_engine_jit::JITEngine;
+use wasmer_engine_jit::JIT;
 
 fn get_compiler_str() -> &'static str {
     cfg_if::cfg_if! {
@@ -29,8 +29,12 @@ pub fn get_store() -> Store {
     let try_nan_canonicalization = false;
     let compiler_config =
         get_compiler_config_from_str(get_compiler_str(), try_nan_canonicalization);
-    let tunables = Tunables::default();
-    let store = Store::new(&JITEngine::new(compiler_config, tunables, features));
+    let store = Store::new(
+        &JIT::new(&*compiler_config)
+            .tunables(Tunables::for_target)
+            .features(features)
+            .engine(),
+    );
     store
 }
 
@@ -46,13 +50,16 @@ pub fn get_store_with_middlewares<I: Iterator<Item = Arc<dyn FunctionMiddlewareG
     for x in middlewares {
         compiler_config.push_middleware(x);
     }
-    let tunables = Tunables::default();
-    let store = Store::new(&JITEngine::new(compiler_config, tunables, features));
+    let store = Store::new(
+        &JIT::new(&*compiler_config)
+            .tunables(Tunables::for_target)
+            .features(features)
+            .engine(),
+    );
     store
 }
 
 pub fn get_headless_store() -> Store {
-    let tunables = Tunables::default();
-    let store = Store::new(&JITEngine::headless(tunables));
+    let store = Store::new(&JIT::headless().tunables(Tunables::for_target).engine());
     store
 }

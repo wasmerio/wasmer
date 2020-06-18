@@ -8,7 +8,7 @@ use wasm_common::entity::PrimaryMap;
 use wasm_common::Features;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
-    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex,
+    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
@@ -29,11 +29,11 @@ impl JITEngine {
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new(
-        config: Box<dyn CompilerConfig>,
-        tunables: impl Tunables + 'static + Send + Sync,
+        compiler: Box<dyn Compiler + Send>,
+        target: Target,
+        tunables: Arc<dyn Tunables + 'static + Send + Sync>,
         features: Features,
     ) -> Self {
-        let compiler = config.compiler();
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 compiler: Some(compiler),
@@ -41,8 +41,9 @@ impl JITEngine {
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
                 features,
+                target: Some(target),
             })),
-            tunables: Arc::new(tunables),
+            tunables: tunables,
             engine_id: EngineId::default(),
         }
     }
@@ -60,7 +61,7 @@ impl JITEngine {
     ///
     /// Headless engines can't compile or validate any modules,
     /// they just take already processed Modules (via `Module::serialize`).
-    pub fn headless(tunables: impl Tunables + 'static + Send + Sync) -> Self {
+    pub fn headless(tunables: Arc<dyn Tunables + 'static + Send + Sync>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 #[cfg(feature = "compiler")]
@@ -69,8 +70,9 @@ impl JITEngine {
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
                 features: Features::default(),
+                target: None,
             })),
-            tunables: Arc::new(tunables),
+            tunables,
             engine_id: EngineId::default(),
         }
     }
@@ -140,6 +142,8 @@ pub struct JITEngineInner {
     function_call_trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The features to compile the Wasm module with
     features: Features,
+    /// The target for the compiler
+    target: Option<Target>,
     /// The code memory is responsible of publishing the compiled
     /// functions to memory.
     code_memory: CodeMemory,
@@ -173,7 +177,12 @@ impl JITEngineInner {
         ))
     }
 
-    /// The Wasm featuress
+    /// The target
+    pub fn target(&self) -> &Target {
+        &self.target.as_ref().unwrap()
+    }
+
+    /// The Wasm features
     pub fn features(&self) -> &Features {
         &self.features
     }

@@ -26,6 +26,7 @@
 )]
 
 mod artifact;
+mod builder;
 mod code_memory;
 mod engine;
 mod link;
@@ -33,6 +34,7 @@ mod serialize;
 mod unwind;
 
 pub use crate::artifact::JITArtifact;
+pub use crate::builder::JIT;
 pub use crate::code_memory::CodeMemory;
 pub use crate::engine::JITEngine;
 pub use crate::link::link_module;

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use test_utils::get_compiler_config_from_str;
 use wasmer::{Features, Store, Tunables};
 #[cfg(feature = "jit")]
-use wasmer_engine_jit::JITEngine;
+use wasmer_engine_jit::JIT;
 #[cfg(feature = "native")]
 use wasmer_engine_native::NativeEngine;
 use wasmer_wast::Wast;
@@ -42,8 +42,12 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     #[cfg(feature = "test-singlepass")]
     features.multi_value(false);
     let compiler_config = get_compiler_config_from_str(compiler, try_nan_canonicalization);
-    let tunables = Tunables::default();
-    let store = Store::new(&JITEngine::new(compiler_config, tunables, features));
+    let store = Store::new(
+        &JIT::new(&*compiler_config)
+            .tunables(Tunables::for_target)
+            .features(features)
+            .engine(),
+    );
     // let mut native = NativeEngine::new(compiler_config, tunables);
     // native.set_deterministic_prefixer(native_prefixer);
     // let store = Store::new(&native);

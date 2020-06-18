@@ -58,27 +58,27 @@ impl Default for Store {
         #[allow(unreachable_code)]
         fn get_engine(
             config: Box<dyn CompilerConfig + Send + Sync>,
-        ) -> Arc<dyn Engine + Send + Sync> {
-            let tunables = Tunables::default();
-
+        ) -> Box<dyn Engine + Send + Sync> {
             #[cfg(feature = "jit")]
-            return Arc::new(wasmer_engine_jit::JITEngine::new(
-                config,
-                tunables,
-                Default::default(),
-            ));
+            return Box::new(
+                wasmer_engine_jit::JIT::new(&*config)
+                    .tunables(Tunables::for_target)
+                    .engine(),
+            );
 
-            #[cfg(feature = "native")]
-            return Arc::new(wasmer_engine_native::NativeEngine::new(
-                config,
-                tunables,
-                Default::default(),
-            ));
+            // #[cfg(feature = "native")]
+            // return Arc::new(wasmer_engine_native::NativeEngine::new(
+            //     config,
+            //     tunables,
+            //     Default::default(),
+            // ));
         }
 
         let config = get_config();
         let engine = get_engine(config);
-        Store { engine }
+        Store {
+            engine: engine.into(),
+        }
     }
 }
 
