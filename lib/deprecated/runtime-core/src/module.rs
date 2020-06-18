@@ -34,7 +34,6 @@ impl Module {
         import_object: &crate::import::ImportObject,
     ) -> Result<Instance, InstantiationError> {
         let pre_instance = Box::new(PreInstance::new());
-        dbg!(pre_instance.vmctx_ptr());
 
         let import_object = {
             // Replace the fake `vm::Ctx` of host functions.
@@ -51,9 +50,9 @@ impl Module {
                 .map(|((namespace, name), export)| match export {
                     Export::Function(mut function) => {
                         if function.vmctx.is_null() {
+                            // That's an ugly hack. Go your way :-].
                             function.vmctx = pre_instance.vmctx_ptr() as _;
                         }
-                        dbg!(function.vmctx);
 
                         (
                             (namespace, name),
@@ -82,7 +81,6 @@ impl Module {
 
             new_import_object
         };
-        dbg!(pre_instance.vmctx_ptr());
 
         Ok(Instance::new(
             pre_instance,
