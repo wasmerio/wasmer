@@ -10,9 +10,9 @@ use std::sync::Arc;
 #[cfg(feature = "engine")]
 use wasmer::Tunables;
 use wasmer::{
-    Engine, ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, Instance,
-    Memory, MemoryType, Module, Mutability, OrderedResolver, Pages, RuntimeError, Store, Table,
-    TableType, Val, ValType,
+    Engine, ExportType, Extern, ExternType, Features, Function, FunctionType, Global, GlobalType,
+    Instance, Memory, MemoryType, Module, Mutability, OrderedResolver, Pages, RuntimeError, Store,
+    Table, TableType, Val, ValType,
 };
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JITEngine;
@@ -48,7 +48,7 @@ pub extern "C" fn wasm_config_new() -> *mut wasm_config_t {
 
 #[repr(C)]
 pub struct wasm_engine_t {
-    pub(crate) inner: Arc<dyn Engine + Send + Sync>,
+    pub(crate) inner: Box<dyn Engine + Send + Sync>,
 }
 
 cfg_if! {
@@ -73,7 +73,8 @@ cfg_if! {
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
             let tunables = Tunables::default();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::new(compiler_config, tunables));
+            let features = Features::default();
+            let engine: Box<dyn Engine + Send + Sync> = Box::new(JITEngine::new(compiler_config, tunables, features));
             Box::new(wasm_engine_t { inner: engine })
         }
     }
@@ -82,7 +83,7 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let tunables = Tunables::default();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::headless(tunables));
+            let engine: Box<dyn Engine + Send + Sync> = Arc::new(JITEngine::headless(tunables));
             Box::new(wasm_engine_t { inner: engine })
         }
     }
@@ -299,7 +300,7 @@ pub unsafe extern "C" fn wasm_store_new(
 ) -> Option<NonNull<wasm_store_t>> {
     let wasm_engine_ptr = wasm_engine_ptr?;
     let wasm_engine = wasm_engine_ptr.as_ref();
-    let store = Store::new(&wasm_engine.inner);
+    let store = Store::new(&*wasm_engine.inner);
     Some(NonNull::new_unchecked(
         Box::into_raw(Box::new(store)) as *mut wasm_store_t
     ))
