@@ -2,7 +2,6 @@ use crate::{
     module::{Module, ModuleInfo},
     new,
 };
-use blake3;
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -51,10 +50,8 @@ pub struct WasmHash {
 
 impl WasmHash {
     pub fn generate(wasm_bytes: &[u8]) -> Self {
-        let hash = blake3::hash(wasm_bytes);
-
         Self {
-            new_hash: new::wasmer_cache::WasmHash::new(hash.into()),
+            new_hash: new::wasmer_cache::WasmHash::generate(wasm_bytes),
         }
     }
 
