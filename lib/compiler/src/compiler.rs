@@ -28,6 +28,9 @@ pub trait CompilerConfig {
     /// Gets the custom compiler config
     fn compiler(&self) -> Box<dyn Compiler + Send>;
 
+    /// Gets the default features for this compiler in the given target
+    fn default_features_for_target(&self, target: &Target) -> Features;
+
     /// Pushes a middleware onto the back of the middleware chain.
     fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>);
 }

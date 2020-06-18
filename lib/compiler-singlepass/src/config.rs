@@ -3,6 +3,7 @@
 
 use crate::compiler::SinglepassCompiler;
 use std::sync::Arc;
+use wasm_common::Features;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, FunctionMiddlewareGenerator, Target};
 
 #[derive(Clone)]
@@ -55,6 +56,13 @@ impl CompilerConfig for Singlepass {
     /// Transform it into the compiler
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(SinglepassCompiler::new(&self))
+    }
+
+    /// Gets the default features for this compiler in the given target
+    fn default_features_for_target(&self, target: &Target) -> Features {
+        let mut features = Features::default();
+        features.multi_value(false);
+        features
     }
 
     /// Pushes a middleware onto the back of the middleware chain.

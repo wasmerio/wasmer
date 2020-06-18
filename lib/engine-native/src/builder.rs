@@ -4,19 +4,19 @@ use wasmer_compiler::{Compiler, CompilerConfig, Features, Target};
 use wasmer_engine::Tunables;
 
 /// The Native builder
-pub struct Native {
-    compiler: Option<Box<dyn Compiler + Send>>,
+pub struct Native<'a> {
+    compiler_config: Option<&'a CompilerConfig>,
     tunables_fn: Option<Box<Fn(&Target) -> Box<dyn Tunables + Send + Sync>>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl Native {
+impl<'a> Native<'a> {
     /// Create a new Native
-    pub fn new(compiler_config: &mut dyn CompilerConfig) -> Self {
+    pub fn new(compiler_config: &'a mut dyn CompilerConfig) -> Self {
         compiler_config.enable_pic();
         Self {
-            compiler: Some(compiler_config.compiler()),
+            compiler_config: Some(compiler_config),
             target: None,
             tunables_fn: None,
             features: None,
@@ -26,7 +26,7 @@ impl Native {
     /// Create a new headless Native
     pub fn headless() -> Self {
         Self {
-            compiler: None,
+            compiler_config: None,
             target: None,
             tunables_fn: None,
             features: None,
@@ -63,8 +63,11 @@ impl Native {
             .tunables_fn
             .expect("You need to specify tunables for the JIT");
         let tunables: Arc<dyn Tunables + Send + Sync> = tunables_fn(&target).into();
-        if let Some(compiler) = self.compiler {
-            let features = self.features.unwrap_or_default();
+        if let Some(compiler_config) = self.compiler_config {
+            let features = self
+                .features
+                .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
+            let compiler = compiler_config.compiler();
             NativeEngine::new(compiler, target, tunables, features)
         } else {
             NativeEngine::headless(tunables)

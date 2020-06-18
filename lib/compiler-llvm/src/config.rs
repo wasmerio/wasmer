@@ -7,6 +7,7 @@ use inkwell::OptimizationLevel;
 use itertools::Itertools;
 use std::sync::Arc;
 use target_lexicon::Architecture;
+use wasm_common::Features;
 use wasm_common::{FunctionType, LocalFunctionIndex};
 use wasmer_compiler::{Compiler, CompilerConfig, FunctionMiddlewareGenerator, Target, Triple};
 
@@ -187,6 +188,11 @@ impl CompilerConfig for LLVM {
     /// Transform it into the compiler.
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(LLVMCompiler::new(&self))
+    }
+
+    /// Gets the default features for this compiler in the given target
+    fn default_features_for_target(&self, _target: &Target) -> Features {
+        Features::default()
     }
 
     /// Pushes a middleware onto the back of the middleware chain.

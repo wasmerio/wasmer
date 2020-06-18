@@ -4,18 +4,18 @@ use wasmer_compiler::{Compiler, CompilerConfig, Features, Target};
 use wasmer_engine::Tunables;
 
 /// The JIT builder
-pub struct JIT {
-    compiler: Option<Box<dyn Compiler + Send>>,
+pub struct JIT<'a> {
+    compiler_config: Option<&'a dyn CompilerConfig>,
     tunables_fn: Option<Box<Fn(&Target) -> Box<dyn Tunables + Send + Sync>>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl JIT {
+impl<'a> JIT<'a> {
     /// Create a new JIT
-    pub fn new(compiler_config: &dyn CompilerConfig) -> Self {
+    pub fn new(compiler_config: &'a dyn CompilerConfig) -> Self {
         Self {
-            compiler: Some(compiler_config.compiler()),
+            compiler_config: Some(compiler_config),
             target: None,
             tunables_fn: None,
             features: None,
@@ -25,7 +25,7 @@ impl JIT {
     /// Create a new headless JIT
     pub fn headless() -> Self {
         Self {
-            compiler: None,
+            compiler_config: None,
             target: None,
             tunables_fn: None,
             features: None,
@@ -62,8 +62,11 @@ impl JIT {
             .tunables_fn
             .expect("You need to specify tunables for the JIT");
         let tunables: Arc<dyn Tunables + Send + Sync> = tunables_fn(&target).into();
-        if let Some(compiler) = self.compiler {
-            let features = self.features.unwrap_or_default();
+        if let Some(compiler_config) = self.compiler_config {
+            let features = self
+                .features
+                .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
+            let compiler = compiler_config.compiler();
             JITEngine::new(compiler, target, tunables, features)
         } else {
             JITEngine::headless(tunables)
