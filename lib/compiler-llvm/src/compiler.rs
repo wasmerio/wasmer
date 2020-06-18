@@ -86,7 +86,7 @@ impl Compiler for LLVMCompiler {
             )
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-             .map(
+            .map(
                 |(mut compiled_function, function_custom_sections, eh_frame_section_indices)| {
                     let first_section = module_custom_sections.len() as u32;
                     for (section_index, custom_section) in function_custom_sections.iter() {
@@ -130,7 +130,7 @@ impl Compiler for LLVMCompiler {
 
         let dwarf = if !frame_section_bytes.is_empty() {
             let dwarf = Some(Dwarf::new(SectionIndex::from_u32(
-                module_custom_sections.len() as u32
+                module_custom_sections.len() as u32,
             )));
             // Terminating zero-length CIE.
             frame_section_bytes.extend(vec![
