@@ -274,7 +274,7 @@ impl FuncTranslator {
         load_object_file(
             mem_buf_slice,
             ".wasmer_function",
-            Some(RelocationTarget::LocalFunc(*local_func_index)),
+            RelocationTarget::LocalFunc(*local_func_index),
             |name: &String| {
                 if let Some((index, _)) = func_names
                     .iter()

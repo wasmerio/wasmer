@@ -17,8 +17,8 @@ use inkwell::{
 };
 use std::cmp;
 use std::convert::TryInto;
-use wasm_common::{FunctionType, Type};
-use wasmer_compiler::{CompileError, FunctionBody};
+use wasm_common::{FunctionType, LocalFunctionIndex, Type};
+use wasmer_compiler::{CompileError, FunctionBody, RelocationTarget};
 
 pub struct FuncTrampoline {
     ctx: Context,
@@ -94,20 +94,35 @@ impl FuncTrampoline {
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
-        let (function, _sections, _eh_frame_section_indices) =
-            load_object_file(mem_buf_slice, FUNCTION_SECTION, None, |name: &String| {
+        let (function, sections, eh_frame_section_indices) = load_object_file(
+            mem_buf_slice,
+            FUNCTION_SECTION,
+            RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(0)),
+            |name: &String| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {}",
                     name
                 )))
-            })?;
-        /*
-        if !sections.is_empty() {
+            },
+        )?;
+        let mut all_sections_are_eh_sections = true;
+        if eh_frame_section_indices.len() != sections.len() {
+            all_sections_are_eh_sections = false;
+        } else {
+            let mut eh_frame_section_indices = eh_frame_section_indices.clone();
+            eh_frame_section_indices.sort_unstable();
+            for (idx, section_idx) in eh_frame_section_indices.iter().enumerate() {
+                if idx as u32 != section_idx.as_u32() {
+                    all_sections_are_eh_sections = false;
+                    break;
+                }
+            }
+        }
+        if !all_sections_are_eh_sections {
             return Err(CompileError::Codegen(
-                "trampoline generation produced custom sections".into(),
+                "trampoline generation produced non-eh custom sections".into(),
             ));
         }
-         */
         if !function.relocations.is_empty() {
             return Err(CompileError::Codegen(
                 "trampoline generation produced relocations".into(),
@@ -177,20 +192,35 @@ impl FuncTrampoline {
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
-        let (function, _sections, _eh_frame_section_indices) =
-            load_object_file(mem_buf_slice, FUNCTION_SECTION, None, |name: &String| {
+        let (function, sections, eh_frame_section_indices) = load_object_file(
+            mem_buf_slice,
+            FUNCTION_SECTION,
+            RelocationTarget::LocalFunc(LocalFunctionIndex::from_u32(0)),
+            |name: &String| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {}",
                     name
                 )))
-            })?;
-        /*
-        if !sections.is_empty() {
+            },
+        )?;
+        let mut all_sections_are_eh_sections = true;
+        if eh_frame_section_indices.len() != sections.len() {
+            all_sections_are_eh_sections = false;
+        } else {
+            let mut eh_frame_section_indices = eh_frame_section_indices.clone();
+            eh_frame_section_indices.sort_unstable();
+            for (idx, section_idx) in eh_frame_section_indices.iter().enumerate() {
+                if idx as u32 != section_idx.as_u32() {
+                    all_sections_are_eh_sections = false;
+                    break;
+                }
+            }
+        }
+        if !all_sections_are_eh_sections {
             return Err(CompileError::Codegen(
-                "trampoline generation produced custom sections".into(),
+                "trampoline generation produced non-eh custom sections".into(),
             ));
         }
-         */
         if !function.relocations.is_empty() {
             return Err(CompileError::Codegen(
                 "trampoline generation produced relocations".into(),

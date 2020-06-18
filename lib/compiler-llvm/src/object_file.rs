@@ -41,7 +41,7 @@ fn map_goblin_err(error: goblin::error::Error) -> CompileError {
 pub fn load_object_file<F>(
     contents: &[u8],
     root_section: &str,
-    self_referential_relocation_target: Option<RelocationTarget>,
+    root_section_reloc_target: RelocationTarget,
     mut symbol_name_to_relocation_target: F,
 ) -> Result<(CompiledFunction, CustomSections, Vec<SectionIndex>), CompileError>
 where
@@ -102,9 +102,7 @@ where
 
     let mut section_to_custom_section = HashMap::new();
 
-    if let Some(reloc_target) = self_referential_relocation_target {
-        section_targets.insert(root_section_index, reloc_target);
-    };
+    section_targets.insert(root_section_index, root_section_reloc_target);
 
     let mut next_custom_section: u32 = 0;
     let mut elf_section_to_target = |elf_section_index: ElfSectionIndex| {
@@ -197,17 +195,13 @@ where
                 ))
             })?;
             let elf_target_section = ElfSectionIndex::from_usize(elf_target.st_shndx)?;
-            let reloc_target = if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
+            let reloc_target = if elf_target_section == root_section_index {
+                root_section_reloc_target
+            } else if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
                 if visited.insert(elf_target_section) {
                     worklist.push(elf_target_section);
                 }
                 elf_section_to_target(elf_target_section)
-            } else if elf_target.st_type() == goblin::elf::sym::STT_FUNC
-                && elf_target_section == root_section_index
-                && self_referential_relocation_target.is_some()
-            {
-                // This is a function referencing its own byte stream.
-                self_referential_relocation_target.unwrap()
             } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
                 && elf_target_section.is_undef()
             {
